@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from tqdm import tqdm
 from datetime import date, datetime
+from flask_login import LoginManager, UserMixin, login_user, current_user, logout_user, login_required
 
 sys.path.append(str(Path(__file__).parents[3]))
 from flask import Flask, render_template, url_for, request, redirect
@@ -14,12 +15,43 @@ from analysis.sql_utils.db_handler import DBHandler, DBTarget
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 
 app = Flask(__name__)
+app.secret_key = "some-super-secret-key"
 config = {}
 os.environ["event_details"] = ""
 os.environ["event_id"] = "-1"
 os.environ["page_details"] = ""
 #os.environ["date_id"] = DBHandler.simple_select('SELECT date FROM drive_day ORDER BY day_id DESC LIMIT 1')[0][0]
 os.environ["date_id"] = "2025-02-16" #TODO revert to above for deployment. Testing only
+#Create login manager, redirect to login page if login fails
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+#TODO REMOVE - Temporary user data for testing only
+users = {
+    "admin": {"id": 1, "username": "admin", "password": "secret"},
+    "testuser": {"id": 2, "username": "testuser", "password": "testpass"
+    }
+}
+
+class User(UserMixin):
+    def __init__(self, id, username):
+        self.id = id
+        self.username = username
+
+    def __repr__(self):
+        return f"<User {self.username}>"
+
+@login_manager.user_loader
+def load_user(user_id):
+    """
+    Given a user_id, return the associated user object.
+    """
+    #TODO replace with DB scan, testing only
+    for user_dict in users.values():
+        if user_dict["id"] == int(user_id):
+            return User(id=user_dict["id"], username=user_dict["username"])
+    return None
 
 def config_subscribe(client, userdata, msg):
     if msg.topic == 'config/event_sync':
@@ -62,6 +94,7 @@ def mqtt_client_loop(mqtt):
 config = {}
 
 @app.route('/', methods=['GET'])
+@login_required
 def index():
     #Print Environs for Debug
     logging.debug("PING Index Call, Event Details: " + os.getenv("event_details")) # TODO Remove, DEBUG only
@@ -100,6 +133,7 @@ def index():
 
 
 @app.route('/new_drive_day/', methods=['GET'])
+@login_required
 def new_drive_day():
     day_id = DBHandler.insert(table='drive_day', target=os.getenv('SERVER_TARGET', DBTarget.LOCAL), user='electric', data=request.args, returning='day_id')
     os.environ["date_id"] = str(date.today())
@@ -109,6 +143,7 @@ def new_drive_day():
 
 
 @app.route('/new_event/', methods=['GET'])
+@login_required
 def new_event():
     with MQTTHandler('flask_app') as mqtt:
         mqtt.publish('config/page_sync', "new_event_page")
@@ -117,6 +152,7 @@ def new_event():
 
 
 @app.route('/create_event/', methods=['POST', 'GET'])
+@login_required
 def create_event():
     if request.method == 'POST':
         inputs = request.form.to_dict()
@@ -143,6 +179,7 @@ def create_event():
 
 
 @app.route('/set_event_time/', methods=['POST'])
+@login_required
 def set_event_time():
     if request.json['status'] == 0:
         try:
@@ -156,6 +193,7 @@ def set_event_time():
 
 
 @app.route('/reset_config_image', methods=['POST', 'GET'])
+@login_required
 def reset_config_image():
     os.environ['event_details'] = ""
 
@@ -168,6 +206,7 @@ def reset_config_image():
     #return json.dumps({'success': True}), 200, {'ContentType': 'application/json'}
 
 @app.route('/tune_data', methods=['GET', 'POST'])
+@login_required
 def tune_data():
     data = request.data
     json_object = json.loads(data)
@@ -176,6 +215,7 @@ def tune_data():
 
 
 @app.route('/verify_page/<string:cur_page>', methods=['GET', 'POST'])
+@login_required
 def verify_page(cur_page):
     logging.debug("cur_page is: " + cur_page)
     logging.debug("current page_details is: " + os.getenv("page_details"))
@@ -203,6 +243,7 @@ def verify_page(cur_page):
 
 
 @app.route('/turn_data', methods=['GET', 'POST'])
+@login_required
 def turn_data():
     data = request.data
     json_object = json.loads(data)
@@ -211,6 +252,7 @@ def turn_data():
 
 
 @app.route('/accel_data', methods=['GET', 'POST'])
+@login_required
 def accel_data():
     data = request.data
     json_object = json.loads(data)
@@ -219,6 +261,7 @@ def accel_data():
 
 
 @app.route('/texas_tune/', methods=['GET', 'POST'])
+@login_required
 def vcu_parameters():
     if request.method == 'POST':
         print(request)
@@ -227,10 +270,12 @@ def vcu_parameters():
 
 
 @app.route('/gates/', methods=['POST'])
+@login_required
 def create_gates():
     pass
 
 @app.route('/new_lap/', methods=['POST'])
+@login_required
 def add_new_lap():
     if 'laps' not in config:
         config['laps'] = []
@@ -239,6 +284,38 @@ def add_new_lap():
         config['laps'].append(data['time'])
         notify_listeners()
     return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """
+    Shows login form and handles user submissions
+    """
+    if request.method == 'POST':
+        username = request.form.get('username', '')
+        password = request.form.get('password', '')
+
+        #TODO Query DB, TEST ONLY verify user in dict
+        user_dict = users.get(username)
+        if user_dict and user_dict["password"] == password:
+            #Create user object for Flask-Login
+            user_obj = User(id=user_dict["id"], username=user_dict["username"])
+            login_user(user_obj)
+            #Redirect to whatever page user was trying to get
+            return redirect(url_for('index'))
+        else:
+            #Invalid credentials, re-render login with error statement
+            return render_template('login.html', error="Invalid username or password")
+    else:
+        return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    """
+    Logs user out and redirects to login page
+    """
+    logout_user()
+    return redirect(url_for('login'))
 
 def notify_listeners():
     print(config)
