@@ -1,0 +1,22 @@
+services:
+  db_processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: telemetry_processors
+    container_name: gps_classifier_processor
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: 1
+      IN_DOCKER: 1
+      HOST_IP: 'host.docker.internal'
+    volumes:
+      - ../../ingest/mqtt_handler.py:/gps_classifier/mqtt_handler.py
+      - ../../../analysis/sql_utils/db_handler.py:/gps_classifier/db_handler.py
+      - ../../../analysis/sql_utils/DB_description.pkl:/DB_description.pkl
+    networks:
+      - telemetry_network
+
+networks:
+  telemetry_network:
+    external: true

@@ -1,0 +1,78 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto
+    container_name: mosquitto
+    restart: unless-stopped
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    networks:
+      - telemetry_network
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+      - "8080:8080"
+
+  ingest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: telemetry_backend
+    container_name: ingest
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+      - db
+    environment:
+      PYTHONUNBUFFERED: 1   # Allows output in Docker Compose console
+      IN_DOCKER: 1          # Custom env variable used for IP resolution
+      SERVER_TARGET: 'LOCAL'
+      DB_CONN_TYPE: 2
+      LOGLEVEL: 'DEBUG'
+    volumes:
+      - ../../analysis/sql_utils/db_handler.py:/ingest/db_handler.py
+      - ../../analysis/sql_utils/DB_description.pkl:/DB_description.pkl
+    networks:
+      - telemetry_network
+
+  db:
+    image: postgres
+    container_name: db
+    restart: unless-stopped
+    volumes:
+      - telemetry_db:/var/lib/postgresql/data
+      - ./db_init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      POSTGRES_DB: telemetry
+      POSTGRES_USER: electric
+      POSTGRES_PASSWORD: 2fast2quick
+    networks:
+      - telemetry_network
+    ports:
+      - "5432:5432"
+    tmpfs:
+      - /tmp
+      - /run/postgresql
+
+  grafana:
+    image: grafana/grafana-oss
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      GF_DASHBOARDS_MIN_REFRESH_INTERVAL: '100ms'     # Sets min refresh rate of grafana dashboard
+    volumes:
+      - grafana_storage:/var/lib/grafana
+    networks:
+      - telemetry_network
+    ports:
+      - "3000:3000"
+    cpus: 0.5               # Caps Grafana CPU utilization
+
+volumes:
+  grafana_storage:
+    external: true
+  telemetry_db:
+    external: true
+
+networks:
+  telemetry_network:
+    external: true
