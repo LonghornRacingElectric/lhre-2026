@@ -7,6 +7,8 @@ from pathlib import Path
 from tqdm import tqdm
 from datetime import date, datetime
 from flask_login import LoginManager, UserMixin, login_user, current_user, logout_user, login_required
+import sqlite3
+from flask_bcrypt import check_password_hash, generate_password_hash
 
 sys.path.append(str(Path(__file__).parents[3]))
 from flask import Flask, render_template, url_for, request, redirect
@@ -26,18 +28,13 @@ os.environ["date_id"] = "2025-02-16" #TODO revert to above for deployment. Testi
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
-
-#TODO REMOVE - Temporary user data for testing only
-users = {
-    "admin": {"id": 1, "username": "admin", "password": "secret"},
-    "testuser": {"id": 2, "username": "testuser", "password": "testpass"
-    }
-}
+USER_DB_PATH = "users.db"
 
 class User(UserMixin):
-    def __init__(self, id, username):
+    def __init__(self, id, username, password_hash):
         self.id = id
         self.username = username
+        self.password_hash = password_hash
 
     def __repr__(self):
         return f"<User {self.username}>"
@@ -45,12 +42,17 @@ class User(UserMixin):
 @login_manager.user_loader
 def load_user(user_id):
     """
-    Given a user_id, return the associated user object.
+    Given a user_id, return the associated user object  from storage.
     """
-    #TODO replace with DB scan, testing only
-    for user_dict in users.values():
-        if user_dict["id"] == int(user_id):
-            return User(id=user_dict["id"], username=user_dict["username"])
+    conn = sqlite3.connect(USER_DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT id, username, password_hash FROM users WHERE id = ?', (user_id,))
+    row = c.fetchone()
+    conn.close()
+
+    if row:
+        # row = (id, username, password_hash)
+        return User(*row)
     return None
 
 def config_subscribe(client, userdata, msg):
@@ -290,23 +292,28 @@ def login():
     """
     Shows login form and handles user submissions
     """
-    if request.method == 'POST':
-        username = request.form.get('username', '')
-        password = request.form.get('password', '')
+    if request.method == "POST":
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
 
-        #TODO Query DB, TEST ONLY verify user in dict
-        user_dict = users.get(username)
-        if user_dict and user_dict["password"] == password:
-            #Create user object for Flask-Login
-            user_obj = User(id=user_dict["id"], username=user_dict["username"])
-            login_user(user_obj)
-            #Redirect to whatever page user was trying to get
-            return redirect(url_for('index'))
-        else:
-            #Invalid credentials, re-render login with error statement
-            return render_template('login.html', error="Invalid username or password")
-    else:
-        return render_template('login.html')
+        # Query the DB for the user
+        conn = sqlite3.connect(USER_DB_PATH)
+        c = conn.cursor()
+        c.execute('SELECT id, username, password_hash FROM users WHERE username = ?', (username,))
+        row = c.fetchone()
+        conn.close()
+
+        if row:
+            user_id, db_username, db_password_hash = row
+
+            # Check the password
+            if check_password_hash(db_password_hash, password):
+                user_obj = User(user_id, db_username, db_password_hash)
+                login_user(user_obj)
+                return redirect(url_for("index"))
+        return render_template("login.html", error="Invalid credentials.")
+
+    return render_template("login.html")
 
 @app.route('/logout')
 @login_required

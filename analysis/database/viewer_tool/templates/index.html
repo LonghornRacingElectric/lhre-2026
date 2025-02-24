@@ -3,6 +3,7 @@
 {% block head %}
     <title>Telemetry Injection Tool</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/npm/uuid@8.3.2/dist/umd/uuidv4.min.js"></script>
 {% endblock %}
 
 
@@ -41,7 +42,7 @@
     console.log("script running index.html")
 
     //MQTT handling and function mapping
-    let myName = crypto.randomUUID();
+    let myName = uuidv4();
     client = new Paho.MQTT.Client("localhost", 8080, myName); //TODO replace with production destination
     console.log("ClientName: " + myName)
 
