@@ -57,7 +57,7 @@ def get_table_column_specs(force=False, verbose=False, target=DBTarget.LOCAL, ha
     :return db_description: dict represents current layout of DB--see function description for more explanation
     """
     def find_db_description():
-        for root, dirs, files in os.walk(Path(os.getcwd()).parents[1]):
+        for root, dirs, files in os.walk(Path(__file__).parents[1]):
             for fol in dirs:
                 if fol == 'DB_description.pkl':
                     os.rmdir(f'{root}/{fol}')

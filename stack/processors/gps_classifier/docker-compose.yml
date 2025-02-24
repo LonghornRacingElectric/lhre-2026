@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: telemetry_processors
+    image: gps_classifier
     container_name: gps_classifier_processor
     restart: unless-stopped
     environment:

@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: telemetry_processors
+    image: lap_timer
     container_name: lap_timer_processor
     restart: unless-stopped
     environment:

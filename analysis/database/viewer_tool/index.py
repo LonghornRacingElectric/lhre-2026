@@ -14,7 +14,7 @@ from analysis.sql_utils.db_handler import DBHandler, DBTarget
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 
 app = Flask(__name__)
-config = {}
+
 os.environ["event_details"] = ""
 os.environ["event_id"] = "-1"
 os.environ["page_details"] = ""
@@ -22,6 +22,7 @@ os.environ["page_details"] = ""
 os.environ["date_id"] = "2025-02-16" #TODO revert to above for deployment. Testing only
 
 def config_subscribe(client, userdata, msg):
+    
     if msg.topic == 'config/event_sync':
         #Convert msg to json object
         msg = json.loads(msg.payload.decode())
@@ -47,6 +48,18 @@ def config_subscribe(client, userdata, msg):
         os.environ["event_details"] = json.dumps(msg)
         logging.debug("Index Event Details: " + os.getenv("event_details"))
 
+    elif msg.topic == 'config/event_update_sync':
+        msg = json.loads(msg.payload.decode())
+        try:
+            json_obj = json.loads(os.environ["event_details"])
+            json_obj.update(msg)
+            os.environ['event_details'] = json.dumps(json_obj)
+        except Exception as e:
+            os.environ['event_details'] = json.dumps(msg)
+        
+        notify_listeners()
+        
+
     elif msg.topic == 'config/page_sync':
         # Convert msg to json object
         msg = msg.payload.decode()
@@ -57,9 +70,6 @@ def config_subscribe(client, userdata, msg):
 def mqtt_client_loop(mqtt):
     # Start the MQTT client loop (this will run forever in the background)
     mqtt.client.loop_forever()
-
-
-config = {}
 
 @app.route('/', methods=['GET'])
 def index():
@@ -232,18 +242,27 @@ def create_gates():
 
 @app.route('/new_lap/', methods=['POST'])
 def add_new_lap():
-    if 'laps' not in config:
-        config['laps'] = []
-    data = request.form
+    json_obj = json.loads(os.environ["event_details"])  
+    print("JSON OBJ", json_obj)
+    data = request.form.to_dict()
     if 'time' in data:
-        config['laps'].append(data['time'])
+        print("TIME IN DATA")
+        if 'laps' not in json_obj:
+            print("LAPS IN JSON")
+            json_obj['laps'] = []
+            
+        time_to_append = int(data['time']) - (json_obj['timerEventTime'])
+        if len(json_obj['laps']) > 0: time_to_append -= json_obj['laps'][-1]
+            
+        json_obj['laps'].append(time_to_append)
+        print("LAPS: ", json_obj['laps'])
+        os.environ['event_details'] = json.dumps(json_obj)
         notify_listeners()
     return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
 
 def notify_listeners():
-    print(config)
     with MQTTHandler('flask_app') as mqtt:
-        mqtt.publish('config/event_sync', json.dumps(config, indent=4))
+        mqtt.publish('config/event_sync', os.environ['event_details'])
 
 if __name__ == '__main__':
     logging.debug("MAIN START. Today is: " + os.getenv("date_id"))

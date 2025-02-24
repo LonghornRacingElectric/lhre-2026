@@ -35,6 +35,7 @@ class LapTimerProcessor:
         """        
     
         for i in range(len(points) - 1):
+            # print(f"TIME: {points[i][1]} | GPS: {points[i][0]}")
             if(self._is_intersection(gate, [points[i][0], points[i + 1][0]])):
                 return round((points[i][1] + points[i + 1][1]) / 2)
         
@@ -42,7 +43,6 @@ class LapTimerProcessor:
         """
         Check if a line intersects with another line segment 
         """
-
         # Calculate the denominator of the intersection formula
         denominator = (line1[0][1] - line1[1][1]) * (line2[0][0] - line2[1][0]) - (line1[0][0] - line1[1][0]) * (line2[0][1] - line2[1][1])
 
@@ -174,8 +174,8 @@ class LapTimerProcessor:
             
             # Suspicious time deltas
             MAX_TIME_DELTA = 5 * 1000
-            if points[len(points) - 1][1] - points[0][1] < MAX_TIME_DELTA:
-                logging.error(f"Interval is suspicious: {points[len(points) - 1][1] - points[0][1]}ms. Trashing the instance")
+            if abs(points[len(points) - 1][1] - points[0][1]) > MAX_TIME_DELTA:
+                logging.warning(f"Interval is suspicious: {points[len(points) - 1][1] - points[0][1]}ms. Trashing the instance")
                 sleep(1 / frequency)
                 continue
             
@@ -184,12 +184,16 @@ class LapTimerProcessor:
             df['parsed_coordinates'] = df['gps_str'].apply(lambda gps_str: tuple(map(float, gps_str[1:-1].split(','))))
             points: list[tuple[tuple[float, float], int]] = list(zip(df['parsed_coordinates'], df['timestamp']))
             
+            # logging.info("Data is parsed")
             
             # Smooth points
             self._smooth_points(points=points, order=1)
             
+            # logging.info("Data is smoothed")
+            
             lap_time = self._track_lap(gate=self.gate, points=points)
             # Get Time of intersect
+            # logging.info(f"LAP TIME: {lap_time}")
             if lap_time:
                 # Is timestamp valid? 
                 if self._is_valid(time=lap_time, delta=5000):
@@ -209,6 +213,7 @@ class LapTimerProcessor:
             logging.info(f"MESSAGE HAS BEEN RECEIVED AT TOPIC {msg.topic}")
             if msg.topic == 'config/test':
                 data = json.loads(msg.payload.decode())
+                print(data)
                 # Modify object variables
                 self.event_id = data['event_id']
                 self.status = data['status']
@@ -231,8 +236,11 @@ def run_processor():
         handler = DBHandler()
         processor = LapTimerProcessor(db_handler=handler)
         
+        frequency = 100
+        window_size = 200
+        
         # Processing thread
-        t1 = threading.Thread(target=processor.run_thread, args=(1, 50,))
+        t1 = threading.Thread(target=processor.run_thread, args=(frequency, window_size,))
         t1.start()
         
         mqtt.client.on_message = processor.on_message

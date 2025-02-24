@@ -17,6 +17,7 @@ from pathlib import Path
 from tqdm import tqdm
 from psycopg.types.json import Jsonb
 from queue import Queue
+import requests
 
 sys.path.append(str(Path(__file__).parents[2]))
 
@@ -244,11 +245,20 @@ class CSVToDB():
             Takes data from a csv and sends data in rows to mqtt for event playback. Data is formatted as a dictionary and published
             to mqtt through small batches of rows
             """
+            started = False
+            
             while not done or not chunk_queue.empty():
 
                 if (not chunk_queue.empty()):
                     differences, row_dict_list = chunk_queue.get()
                     chunk_length = len(differences)
+
+                    if not started:
+                        try:
+                            self.start_timer(row_dict_list.get("packet")[0]['time'])
+                            started = True
+                        except Exception as e:
+                            logging.error(e)
 
                     for i in range(chunk_length):
                         time.sleep((float(differences[i])/ 1000))
@@ -260,6 +270,8 @@ class CSVToDB():
                                 self.mqtt.publish(f'data/{table}', pickle.dumps(batch_data), qos=0)
                 else:
                     time.sleep(0.1)
+            if started:
+                self.stop_timer()
 
         def setup_rows(df, table_desc, time_adjustment):
             """"
@@ -281,7 +293,7 @@ class CSVToDB():
                                 table_desc=table_desc[i]) for j in range(len(df.index))]
                     row_dict_list[i] = row_list
             return differences, row_dict_list
-        
+    
         with ThreadPoolExecutor(max_workers=1) as setup_executor:
             with ThreadPoolExecutor(max_workers=1) as publish_executor:
                 with open(file_path, "r") as f:
@@ -308,6 +320,45 @@ class CSVToDB():
                 except KeyboardInterrupt:
                     setup_executor.shutdown(False)
                     publish_executor.shutdown(False)
+                    
+    def handle_event_start(self):
+        # ---- START EVENT ----
+        try:
+            event_id = (DBHandler.simple_select('SELECT event_id FROM event WHERE status = 1 ORDER BY event_id DESC LIMIT 1', handler=self.db_handler)[0][0])
+            if event_id == -1: raise Exception("No event is currently running")
+        # Creating a new event
+        except Exception as e:
+            sample_drive_day = {'power_limit': '', 'conditions': ''}
+            sample_event = {'driver_id': '0', 'location_id': '0', 'event_type': '0', 'car_id': '1', 'car_weight': '', 'tow_angle': '', 'camber': '', 'ride_height': '', 'ackerman_adjustment': '', 'power_limit': '', 'shock_dampening': '', 'torque_limit': '', 'frw_pressure': '', 'flw_pressure': '', 'brw_pressure': '', 'blw_pressure': '', 'day_id': '1'}
+            
+            day_id = DBHandler.insert(table='drive_day', target=os.getenv('SERVER_TARGET', DBTarget.LOCAL), user='electric', data=sample_drive_day, returning='day_id', handler=self.db_handler)
+            response = requests.post("http://localhost:5000/create_event/", data=sample_event)
+            
+            with MQTTHandler('flask_app') as mqtt:
+                mqtt.publish('config/page_sync', "running_event_page")
+                
+        #! NEED TO CHANGE BASED ON TRACK
+        config = {"event_id": 1, "gate": ((30.3870, -97.7253), (30.3869, -97.7252)), "status": 0, "start_packet": 0}
+        print(config)
+        self.mqtt.publish(f'config/test', json.dumps(config))
+                
+    def start_timer(self, start_time: int):
+        config = {
+            "timerRunning": True,
+            "timerEventTime": start_time,
+            "timerInternalTime": 0,
+        }
+        print("STARTED TIMER AT ", start_time)
+        print(config)
+        self.mqtt.publish('config/event_update_sync', json.dumps(config, indent=4))
+        
+    def stop_timer(self):
+        config = {
+            "timerRunning": False,
+            "useInternalTime": True
+        }
+        print(config)
+        self.mqtt.publish('config/event_update_sync', json.dumps(config, indent=4))
 
 if __name__ == '__main__':
 
@@ -317,10 +368,14 @@ if __name__ == '__main__':
         with MQTTHandler(name ='event_playback_test', target = MQTTTarget.LOCAL, db_handler=db) as mqtt:
             db.connect(target = DBTarget.LOCAL, user = 'electric')
             dataSender = CSVToDB("2024_10_13__001_AutoXCompDay", db_handler=db, mqtt=mqtt)
+            
+            dataSender.handle_event_start()
+            
             table_desc = get_table_column_specs()
             ## Event playback functionarlity code TODO---------------------------------------------------------------------------------
-            dataSender.event_seperator(threshold=5, speed_filter=True) #Saves list to harddrive
+            # dataSender.event_seperator(threshold=5, speed_filter=True) #Saves list to harddrive
             mqtt.connect()
             #Where the csv is stored
-            dataSender.event_playback(Path.cwd().joinpath("event_csv").joinpath("0.csv"), table_desc=table_desc, batch_amt=10)
+            dataSender.event_playback(Path.cwd().joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
+            # dataSender.event_playback(Path.cwd().joinpath("event_csv").joinpath("0.csv"), table_desc=table_desc, batch_amt=10)
        
