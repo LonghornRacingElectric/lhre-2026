@@ -6,12 +6,18 @@ import pickle
 import base64
 import time
 import numpy as np
-from paho.mqtt import client as mqtt_client
+from paho.mqtt import client as mqtt_client 
+from google.protobuf.json_format import MessageToDict
 
 if os.getenv('IN_DOCKER'):
     from db_handler import get_table_column_specs, DBTarget, DBHandler    # Cheesed import statement using bind mount
+    import protobuf.template_pb2 as template_pb2
 else:
     from analysis.sql_utils.db_handler import get_table_column_specs, DBTarget, DBHandler
+    import sys
+    from pathlib import Path
+    sys.path.append(str(Path(__file__).parents[3]))
+    from stack.ingest.protobuf.template_pb2 import SensorData
 
 
 class MQTTTarget:
@@ -101,7 +107,11 @@ class MQTTHandler:
             self._b64_ingest(msg.payload, freq)
         # Handle Normal Data Ingest
         elif (topic_split := msg.topic.split('/'))[0] == 'data':
-            self._data_ingest(msg.payload, topic_split[-1])
+            if (topic_split[-1] in {'packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'}):
+                self._data_ingest(msg.payload, topic_split[-1])
+            else:
+                # Protobuf serialized string sent
+                self._proto_ingest(msg.payload)
         else:
             logging.warning(f'No corresponding topic found for {msg.topic}')
 
@@ -149,6 +159,22 @@ class MQTTHandler:
                 DBHandler.insert(table, target=os.getenv('SERVER_TARGET', DBTarget.LOCAL), user='electric', handler=self.handler, data=data_dict[0])
         else:
             DBHandler.insert(table, target=os.getenv('SERVER_TARGET', DBTarget.LOCAL), user='electric', handler=self.handler, data=data_dict)
+    
+    def _proto_ingest(self, payload:str):
+        message_dict = self._proto_decode(payload=payload)
+
+        if (not ("time" in message_dict and "packet_id" in message_dict)):
+            raise Exception("time/packet_id MISSING FROM PAYLOAD")
+        db_desc = get_table_column_specs(handler=self.handler)
+        avail_tables = list(message_dict.keys())[2:]
+        for table in ['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal']:
+            data = {col: message_dict[col] for col in db_desc[table] if col in message_dict} if table == "packet" else None
+            if (data is None):
+                data = ({col: message_dict[table][col] for col in db_desc[table] if col in message_dict[table]}
+                | {"packet_id": message_dict["packet_id"]}) if table in avail_tables else None
+            logging.info(data)
+            if (data):
+                DBHandler.insert(table=table, target=os.getenv('SERVER_TARGET', DBTarget.LOCAL), user='electric', handler=self.handler, data=data)
 
     def _b64_ingest(self, payload: str, high_freq: bool):
         '''
@@ -170,6 +196,14 @@ class MQTTHandler:
                 DBHandler.insert(table, target=os.getenv('SERVER_TARGET', DBTarget.LOCAL), handler=self.handler, user='electric', data=data)
             else:
                 logging.warning(f'\tNo data received for {table}...')
+
+    def _proto_decode(self, payload: str) -> dict:
+        logging.info('Data Received via Protobuf')
+        row = template_pb2.SensorData()
+        row.ParseFromString(payload)
+        row = MessageToDict(row, preserving_proto_field_name=True)
+        logging.info(row)
+        return row
 
     def _base64_decode(self, payload: str, high_freq: bool) -> dict:
         '''

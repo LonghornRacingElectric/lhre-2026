@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+message SensorData {
+    int64 time = 1;
+    int64 packet_id = 2;
+    Dynamics dynamics = 3;
+    Controls controls = 4;
+    Pack pack = 5;
+    Diagnostics diagnostics = 1001;
+    Thermal thermal = 1002;
+}
+
+message Dynamics {
+    repeated float      acc_pedal = 6;
+    float               brake_pedal = 7;
+    float               steering_angle = 9;
+    float               front_brake_psia = 10;
+    float               back_brake_psia = 11;
+    repeated float      vcu_position = 12;
+    repeated float      vcu_velocity = 13;
+    repeated float      vcu_accel = 14;
+    repeated float      gps_coords = 15;
+    repeated float      gps_velocity = 16;
+    repeated float      gps_heading = 17;
+    repeated float      body1_acc = 18;
+    repeated float      body1_ang = 19;
+    repeated float      body2_acc = 20;
+    repeated float      body2_ang = 21;
+    repeated float      body3_acc = 22;
+    repeated float      body3_ang = 23;
+    repeated float      unsprung_acc = 24;
+    float               frw_speed = 25;
+    float               flw_speed = 26;
+    float               brw_speed = 27;
+    float               blw_speed = 28;
+    float               frw_sus_disp = 29;
+    float               flw_sus_disp = 30;
+    float               brw_sus_disp = 31;
+    float               blw_sus_disp = 32;
+    repeated float      ride_height = 33;
+    repeated float      sus_sg = 34;
+    float               inverter_v = 35;
+    float               inverter_c = 36;
+    float               inverter_rpm = 37;
+    float               inverter_torque = 38;
+}
+
+message Controls {
+    bytes               vcu_flags = 39;
+    float               apps1_v = 40;
+    float               apps2_v = 41;
+    float               bse1_v = 42;
+    float               bse2_v = 43;
+    float               sus1_v = 44;
+    float               sus2_v = 45;
+}
+
+message Pack {
+    float               hv_pack_v = 46;
+    float               hv_traction_v = 47;
+    float               hv_c = 48;
+    float               lv_v = 49;
+    float               lv_c = 50;
+    int32               contactor_state = 51;
+    float               avg_cell_v = 52;
+    float               avg_cell_temp = 53;
+}
+
+message Diagnostics {
+    bytes               current_sensors = 1003;
+    bytes               latching_faults = 1004;
+    repeated float      cells_v = 1005;
+    float               hv_charge_state = 1006;
+    float               lv_charge_state = 1007;
+}
+
+message Thermal {
+    repeated int32      cells_temp = 1008;
+    int32               ambient_temp = 1009;
+    int32               inverter_temp = 1010;
+    int32               motor_temp = 1011;
+    int32               water_motor_temp = 1012;
+    int32               water_inverter_temp = 1013;
+    int32               water_rad_temp = 1014;
+    int32               rad_fan_set = 1015;
+    int32               rad_fan_rpm = 1016;
+    int32               batt_fan_set = 1017;
+    int32               batt_fan_rpm = 1018;
+    int32               flow_rate = 1019;
+}

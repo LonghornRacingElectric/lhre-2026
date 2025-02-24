@@ -17,10 +17,12 @@ from multiprocessing import cpu_count
 from pathlib import Path
 from psycopg.types.json import Jsonb
 from typing import Union, Tuple
+from google.protobuf.json_format import MessageToDict
 
 sys.path.append(str(Path(__file__).parents[2]))
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 from analysis.sql_utils.db_handler import get_table_column_specs, DBHandler, DBTarget
+from stack.ingest.protobuf.template_pb2 import SensorData, Dynamics
 
 
 
@@ -216,8 +218,17 @@ class DataTester:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
+    # with DBHandler(unsafe=True, target=DBTarget.LOCAL) as handler:
+    #     with MQTTHandler('paho_test', db_handler=handler) as mqtt:
+    #         dbtest = DataTester(mqtt)
+    #         dbtest.single_table_test('packet', 5000, .0001)
+    #         dbtest.concurrent_tables_test(['thermal', 'dynamics', 'pack'], 5000, .0001)
     with DBHandler(unsafe=True, target=DBTarget.LOCAL) as handler:
         with MQTTHandler('paho_test', db_handler=handler) as mqtt:
-            dbtest = DataTester(mqtt)
-            dbtest.single_table_test('packet', 5000, .0001)
-            dbtest.concurrent_tables_test(['thermal', 'dynamics', 'pack'], 5000, .0001)
+            data = SensorData()
+            data.time = 1739747532
+            data.packet_id = 1
+            dyn = Dynamics()
+            dyn.frw_speed = 69.69
+            data.dynamics.CopyFrom(dyn)
+            mqtt.publish('data', data.SerializeToString(), qos=0)
