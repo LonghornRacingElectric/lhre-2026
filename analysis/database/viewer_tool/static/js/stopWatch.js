@@ -67,7 +67,7 @@ function Stopwatch(elem) {
       data.push(rowData);
     }
     let xhr = new XMLHttpRequest();
-    xhr.open('POST', 'http://localhost:5000/turn_data');
+    xhr.open('POST', 'http://localhost:5000/turn_data'); //! MIGHT NEED TO CHANGE TO HOST_IP
     xhr.setRequestHeader('Content-Type', 'application/json', 'charset=UTF-8');
     xhr.send(JSON.stringify(data));
   }

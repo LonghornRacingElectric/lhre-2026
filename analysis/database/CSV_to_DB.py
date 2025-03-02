@@ -27,7 +27,7 @@ from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 
 class CSVToDB():
 
-    def __init__(self, data_csv_folder, mqtt, db_handler = None, MQQT_target = MQTTTarget.LOCAL):
+    def __init__(self, data_csv_folder, mqtt, db_handler = None, MQQT_target = MQTTTarget.get()):
         self.db_handler = db_handler
         self.MQTT_target = MQQT_target
         self.mqtt = mqtt
@@ -145,7 +145,7 @@ class CSVToDB():
         """
         try: 
             last_packet = max(DBHandler.simple_select("SELECT packet_id FROM packet ORDER BY packet_id DESC LIMIT 1", 
-                                                      target=DBTarget.LOCAL, user='electric', handler=self.db_handler)[0][0], 
+                                                      target=DBTarget.get(), user='electric', handler=self.db_handler)[0][0], 
                                                       self.last_packet)
         except IndexError:
             last_packet = self.last_packet
@@ -331,8 +331,8 @@ class CSVToDB():
             sample_drive_day = {'power_limit': '', 'conditions': ''}
             sample_event = {'driver_id': '0', 'location_id': '0', 'event_type': '0', 'car_id': '1', 'car_weight': '', 'tow_angle': '', 'camber': '', 'ride_height': '', 'ackerman_adjustment': '', 'power_limit': '', 'shock_dampening': '', 'torque_limit': '', 'frw_pressure': '', 'flw_pressure': '', 'brw_pressure': '', 'blw_pressure': '', 'day_id': '1'}
             
-            day_id = DBHandler.insert(table='drive_day', target=os.getenv('SERVER_TARGET', DBTarget.LOCAL), user='electric', data=sample_drive_day, returning='day_id', handler=self.db_handler)
-            response = requests.post("http://localhost:5000/create_event/", data=sample_event)
+            day_id = DBHandler.insert(table='drive_day', target=os.getenv('SERVER_TARGET', DBTarget.get()), user='electric', data=sample_drive_day, returning='day_id', handler=self.db_handler)
+            response = requests.post("http://" + MQTTTarget.LOCAL + ":5000/create_event/", data=sample_event)
             
             with MQTTHandler('flask_app') as mqtt:
                 mqtt.publish('config/page_sync', "running_event_page")
@@ -364,9 +364,9 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.CRITICAL)
     # Playback testing ---------------------------------------------------------------------------------------------
-    with DBHandler(unsafe=True, target=DBTarget.LOCAL) as db:
+    with DBHandler(unsafe=True, target=DBTarget.get()) as db:
         with MQTTHandler(name ='event_playback_test', target = MQTTTarget.LOCAL, db_handler=db) as mqtt:
-            db.connect(target = DBTarget.LOCAL, user = 'electric')
+            db.connect(target = DBTarget.get(), user = 'electric')
             dataSender = CSVToDB("2024_10_13__001_AutoXCompDay", db_handler=db, mqtt=mqtt)
             
             dataSender.handle_event_start()

@@ -119,7 +119,8 @@
 
             //MQTT handling and function mapping
             let myName = crypto.randomUUID();
-            client = new Paho.MQTT.Client("localhost", 8080, myName); //TODO replace with production destination
+            console.log("HOST IP | EVENT TRACKER: {{ host_ip }}");
+            client = new Paho.MQTT.Client('{{ host_ip }}', 8080, myName); //TODO replace with production destination
             console.log("ClientName: " + myName)
 
             //Set callback functions

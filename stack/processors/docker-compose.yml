@@ -13,6 +13,7 @@ services:
     volumes:
       - ../../analysis/sql_utils/db_handler.py:/processors/db_handler.py
       - ../../analysis/sql_utils/DB_description.pkl:/DB_description.pkl
+      - ../../net_configs.json:/net_configs.json
 
 networks:
   telemetry_network:
