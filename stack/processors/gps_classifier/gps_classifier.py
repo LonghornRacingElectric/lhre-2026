@@ -10,13 +10,19 @@ from psycopg import logger
 from enum import Enum
 from numpy.typing import NDArray
 import warnings
+import matplotlib.pyplot as plt
+import pandas as pd
 
 warnings.simplefilter('ignore', np.linalg.LinAlgError)
+warnings.filterwarnings("ignore")
+
+visualizer_image_path = "../../../analysis/database/viewer_tool/static/images"
 
 
 if os.getenv('IN_DOCKER'):
     from db_handler import DBHandler, DBTarget, get_table_column_specs    # Cheesed import statement using bind mount
     from mqtt_handler import MQTTHandler
+    visualizer_image_path = "./static/images"
 else:
     from analysis.sql_utils.db_handler import DBHandler, DBTarget, get_table_column_specs
     from stack.ingest.mqtt_handler import MQTTHandler
@@ -25,6 +31,53 @@ else:
 class ProcessType(Enum):
     LINEAR_ACCELERATION = 0
     TURN = 1
+    
+class Visualizer:
+    def __init__(self):        
+        self.events = pd.DataFrame(columns=['Time', 'Event'])
+        self.gps = pd.DataFrame(columns=['Time', 'Latitude', 'Longitude'])
+        
+        self.starting_time = None
+    
+    def start_event(self, time: int, event: ProcessType):
+        if starting_time == None: starting_time = time
+        self.events.append({'Time': time - starting_time, 'Event': 0})
+        self.events.append({'Time': time - starting_time, 'Event': 1 if event == ProcessType.LINEAR_ACCELERATION else -1})
+        
+    def stop_event(self, time: int, event: ProcessType):
+        if starting_time == None: starting_time = time
+        self.events.append({'Time': time - starting_time, 'Event': 1 if event == ProcessType.LINEAR_ACCELERATION else -1})
+        self.events.append({'Time': time - starting_time, 'Event': 0})
+        
+    def add_gps_point(self, time: int, lat: float, lon: float):
+        if starting_time == None: starting_time = time
+        self.gps.append({'Time': time - time, 'Latitude': lat, 'Longitude': lon}, ignore_index=True)
+        
+    def save_image(self):
+        ax = plt.figure().add_subplot(projection='3d')
+
+        color_mapping = {1: 'green', -1: 'red', 0: 'black'}
+        colors = [color_mapping[event] for event in self.events['Event']]
+        for i in range(len(self.events['Time']) - 1):
+            start_index = self.gps['Time'].where(self.gps['Time'] >= self.events['Time'][i]).argmin()
+            end_index = self.gps['Time'].where(self.gps['Time'] >= self.events['Time'][i + 1]).argmin()
+
+            plt.plot(self.gps['Latitude'].iloc[start_index:end_index], self.gps['Longitude'].iloc[start_index:end_index], zs=self.gps['Time'].iloc[start_index:end_index], color=colors[i])
+
+        np.Inf = np.inf
+        # Save the plot to files
+
+        save_path = os.path.join(visualizer_image_path, "events.png")
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path)
+        logging.info(f"Image saved at {visualizer_image_path}/events.png")
+        
+    def run_thread(self, sleep_time: int):
+        while True:
+            self.save_image()
+            sleep(sleep_time)
+
+visualizer = Visualizer()
     
 
 class Event:    
@@ -60,10 +113,8 @@ class Event:
         #! Will crash if no event
         DBHandler.insert(table="classifier", data=db_obj, target=DBTarget.get(), user="electric", handler=self.handler)
         
-        times.append(self.starting_time)
-        events.append(0)
-        times.append(self.starting_time)
-        events.append(1 if self.type == ProcessType.LINEAR_ACCELERATION else -1)
+        visualizer.start_event(self.starting_time, self.type)
+        visualizer.stop_event(time, self.type)
         
 class Process:
     def __init__(self, type: ProcessType, starting_packet: int, starting_time: int, target_time: int):
@@ -261,7 +312,7 @@ class GPSClassifierProcessor:
                 sleep(1 / frequency)
                 continue
             
-            points = np.array(DBHandler.simple_select(f"""SELECT d.gps_velocity, d.torque_request, c.steer_v, p.time, p.packet_id 
+            points = np.array(DBHandler.simple_select(f"""SELECT d.gps_velocity, d.torque_request, c.steer_v, p.time, p.packet_id , p.
                                                           FROM dynamics d 
                                                           JOIN packet p ON p.packet_id = d.packet_id 
                                                           JOIN controls c ON c.packet_id = d.packet_id 
@@ -324,6 +375,9 @@ def run_processor():
         t_h_threshold = 0.009
         t2 = threading.Thread(target=processor.process_thread, args=(frequency, la_threshold, t_na_threshold, t_h_threshold))
         t2.start()
+        
+        t3 = threading.Thread(target=visualizer.run_thread, args=(.5,))
+        t3.start()
         
         mqtt.client.on_message = processor.on_message
         mqtt.subscribe("config/test")
