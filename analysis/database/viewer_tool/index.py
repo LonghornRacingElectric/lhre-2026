@@ -266,7 +266,7 @@ def notify_listeners():
 if __name__ == '__main__':
     logging.debug("MAIN START. Today is: " + os.getenv("date_id"))
 
-    with MQTTHandler('test', target=MQTTTarget.LOCAL, on_message=config_subscribe) as mqtt:
+    with MQTTHandler('test', target=MQTTTarget.get(), on_message=config_subscribe) as mqtt:
         mqtt.client.subscribe('config/+') #TODO remove '+' if not necessary
         mqtt.client.loop_start()
         print("HERE")
@@ -274,4 +274,4 @@ if __name__ == '__main__':
         if os.getenv('IN_DOCKER'):
             app.run(host='0.0.0.0', ssl_context=('./ssl/fullchain.pem', './ssl/privkey.pem'))
         else:
-            app.run(host='0.0.0.0', debug=False)
+            app.run(host='localhost', debug=False)
