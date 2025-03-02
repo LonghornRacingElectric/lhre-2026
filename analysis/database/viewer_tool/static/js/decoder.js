@@ -69,7 +69,7 @@ function decodeValues(jsonObj) {
             //TODO state catch? reverse?
         } else { //Timer not running
             if (jsonObj.timerInternalTime !== watch.getTime()) {
-                watch.stopAt(jsonObj.timerInternalTime)
+                watch.stopAt(jsonObj.hasOwnProperty("useInternalTime") && jsonObj.useInternalTime === true ? parseInt(watch.getTime()) : jsonObj.timerInternalTime)
             }
         }
     }
@@ -84,7 +84,7 @@ function decodeValues(jsonObj) {
             accelButton.disabled = true
             turnButton.disabled = true
             startButton.setAttribute("isRunning", false)
-            watch.stopAt(jsonObj.timerInternalTime)
+            watch.stopAt(jsonObj.hasOwnProperty("useInternalTime") && jsonObj.useInternalTime === true ? parseInt(watch.getTime()) : jsonObj.timerInternalTime)
         }
     }
 
@@ -130,9 +130,7 @@ function decodeValues(jsonObj) {
             // Create the "Time" header cell
             const timeHeader = document.createElement("th");
             timeHeader.scope = "col";
-            let dateObject = new Date(parseInt(jsonObj.laps[i]) / 1000);
-            time = `${dateObject.getHours()}:${dateObject.getMinutes()}:${dateObject.getSeconds()}.${dateObject.getMilliseconds()}`;
-            timeHeader.textContent = time;
+            timeHeader.textContent = formatTime(parseInt(jsonObj.laps[i]));
 
             // Append cells to the row
             row.appendChild(lapHeader);
@@ -213,3 +211,8 @@ function loadPrevTables() {
         console.log("Previous Tables Loaded") //TODO remove, debug only
     }
 }
+
+const formatTime = ms => {
+    const [h, m, s, msRem] = [Math.floor(ms / 3600000), Math.floor(ms % 3600000 / 60000), Math.floor(ms % 60000 / 1000), ms % 1000];
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}::${String(msRem).padStart(3, '0')}`;
+  };
