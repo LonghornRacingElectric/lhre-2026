@@ -109,7 +109,7 @@
             let endButton = document.getElementById('endButton');
 
             let watch = new Stopwatch(timer, tab);
-            let event_id = {{ event_id }}
+            let event_id = '{{ event_id }}'
             let host_ip
             let config_image = '{{ config_image | safe}}'.length > 0 ? '{{ config_image | safe}}' : undefined; //TODO reconsider undef?
             if ('{{ host_ip }}'.indexOf('local') === -1) {
@@ -119,8 +119,8 @@
             }
 
             //MQTT handling and function mapping
+            console.log("HOST IP: {{ host_ip }}");
             let myName = uuidv4();
-            console.log("HOST IP | EVENT TRACKER: {{ host_ip }}");
             client = new Paho.MQTT.Client('{{ host_ip }}', 8080, myName); //TODO replace with production destination
             console.log("ClientName: " + myName)
 

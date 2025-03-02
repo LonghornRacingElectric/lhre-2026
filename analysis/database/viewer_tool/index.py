@@ -274,4 +274,4 @@ if __name__ == '__main__':
         if os.getenv('IN_DOCKER'):
             app.run(host='0.0.0.0', ssl_context=('./ssl/fullchain.pem', './ssl/privkey.pem'))
         else:
-            app.run(host='localhost', debug=False)
+            app.run(host='0.0.0.0', debug=False)

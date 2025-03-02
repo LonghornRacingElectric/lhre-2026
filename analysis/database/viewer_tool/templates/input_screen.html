@@ -132,6 +132,7 @@
     client = new Paho.MQTT.Client('{{ host_ip }}', 8080, myName); //TODO replace with production destination
     console.log("ClientName: " + myName)
 
+
     //Set callback functions
     client.onConnectionLost = onConnectionLost;
     client.onMessageArrived = onMessageArrived;

@@ -29,6 +29,7 @@ class MQTTTarget:
     
     @staticmethod
     def get():
+        print(global_target["PROD_IP"])
         return MQTTTarget.PROD if global_target['TARGET'] == 'PROD' else MQTTTarget.LOCAL
 
 

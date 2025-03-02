@@ -26,6 +26,7 @@ function encodeValues(timerStatus, updateTimerTime, updateIntTime, turnStatus, a
 
     if (publishData) {
         //Publish changes to MQTT state topic
+
         let message = new Paho.MQTT.Message(JSON.stringify(jsonData))
         message.destinationName = "config/event_sync"
         client.send(message)

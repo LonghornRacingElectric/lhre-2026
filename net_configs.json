@@ -1,4 +1,4 @@
 {
-    "TARGET": "LOCAL",
-    "PROD_IP": "telemetry.servebeer.com"
+    "TARGET": "PROD",
+    "PROD_IP": "18.217.61.199"
 }
