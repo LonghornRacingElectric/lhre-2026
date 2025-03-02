@@ -216,7 +216,7 @@ class DataTester:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    with DBHandler(unsafe=True, target=DBTarget.get()) as handler:
+    with DBHandler(unsafe=True, target=DBTarget.getHandler()) as handler:
         with MQTTHandler('paho_test', db_handler=handler) as mqtt:
             dbtest = DataTester(mqtt)
             dbtest.single_table_test('packet', 5000, .0001)
