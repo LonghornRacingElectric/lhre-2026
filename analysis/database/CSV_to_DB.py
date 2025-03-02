@@ -320,7 +320,7 @@ if __name__ == '__main__':
             table_desc = get_table_column_specs()
             ## Event playback functionarlity code TODO---------------------------------------------------------------------------------
             dataSender.event_seperator(threshold=5, speed_filter=True) #Saves list to harddrive
-            mqtt.connect()
+            #mqtt.connect()
             #Where the csv is stored
-            dataSender.event_playback(Path.cwd().joinpath("event_csv").joinpath("0.csv"), table_desc=table_desc, batch_amt=10)
+            #dataSender.event_playback(Path.cwd().joinpath("event_csv").joinpath("0.csv"), table_desc=table_desc, batch_amt=10)
        

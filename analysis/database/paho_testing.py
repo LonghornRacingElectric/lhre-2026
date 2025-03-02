@@ -18,11 +18,12 @@ from pathlib import Path
 from psycopg.types.json import Jsonb
 from typing import Union, Tuple
 from google.protobuf.json_format import MessageToDict
+from google.protobuf.message import Message
 
 sys.path.append(str(Path(__file__).parents[2]))
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 from analysis.sql_utils.db_handler import get_table_column_specs, DBHandler, DBTarget
-from stack.ingest.protobuf.template_pb2 import SensorData, Dynamics
+from stack.ingest.protobuf.template_pb2 import SensorData
 
 
 
@@ -142,6 +143,8 @@ class DataTester:
                 row[col] = Jsonb({'fake_jsonb_data': self.get_random_data(int, 3)})
             elif dtype == 'point':
                 row[col] = random.choice([(30.289464, -97.735303), (30.389670, -97.728152)])
+            elif dtype is bytearray:
+                row[col] = secrets.token_bytes(16)
             else:
                 if ndims == 0:
                     row[col] = self.get_random_data(dtype, size=1, as_scalar=True)
@@ -203,7 +206,34 @@ class DataTester:
                 executor.shutdown(False)
 
         return 0
+    
+    def send_proto_rows(self, tables:list,  num_rows:int, delay:float, rm_cols = None, **kwargs):
 
+        db_desc = self.get_desc(tables=tables, rm_cols=rm_cols, **kwargs)
+        for i in range(num_rows):
+            data = self.create_proto_message(i + 1, db_desc)
+            mqtt.publish('data', data.SerializeToString(), qos=0)
+            time.sleep(delay)
+
+    def create_proto_message(self, packet:int, db_desc):
+        data = SensorData()
+        for table in db_desc:
+            row = self.create_row(db_desc[table], packet)
+            if hasattr(data, table):  
+                table_instance = getattr(data, table)
+                if isinstance(table_instance, Message): 
+                    for key, value in row.items():
+                        if hasattr(table_instance, key): 
+                            if (isinstance(value, list) or isinstance(value, tuple)):
+                                getattr(table_instance, key).extend(value)
+                            else:
+                                setattr(table_instance, key, value)
+            else:
+                for key, value in row.items():
+                    if hasattr(data, key):  
+                        setattr(data, key, int(value))
+        return data
+    
     def send_base64_row(self, ver: int, high_freq=True):
         with open(os.getcwd().split('LHR')[0] + f'/LHR/stack/ingest/car_configs/version{ver:02}.json', 'r') as f:
             config = json.load(f)['high' if high_freq else 'low']
@@ -225,10 +255,17 @@ if __name__ == '__main__':
     #         dbtest.concurrent_tables_test(['thermal', 'dynamics', 'pack'], 5000, .0001)
     with DBHandler(unsafe=True, target=DBTarget.LOCAL) as handler:
         with MQTTHandler('paho_test', db_handler=handler) as mqtt:
-            data = SensorData()
-            data.time = 1739747532
-            data.packet_id = 1
-            dyn = Dynamics()
-            dyn.frw_speed = 69.69
-            data.dynamics.CopyFrom(dyn)
-            mqtt.publish('data', data.SerializeToString(), qos=0)
+            dt = DataTester(mqtt=mqtt, seed=42)
+            dt.send_proto_rows(['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'], 10, 0.01)
+
+
+
+
+            # data = SensorData()
+            # data.time = 1739747532
+            # data.packet_id = 1
+            # data.dynamics.frw_speed = 88.88
+            # # dyn = Dynamics()
+            # # dyn.frw_speed = 69.69
+            # # data.dynamics.CopyFrom(dyn)
+            # mqtt.publish('data', data.SerializeToString(), qos=0)

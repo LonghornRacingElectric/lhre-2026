@@ -19,14 +19,14 @@ message Dynamics {
     repeated float      vcu_position = 12;
     repeated float      vcu_velocity = 13;
     repeated float      vcu_accel = 14;
-    repeated float      gps_coords = 15;
-    repeated float      gps_velocity = 16;
-    repeated float      gps_heading = 17;
-    repeated float      body1_acc = 18;
+    repeated float      gps = 15;
+    float      gps_velocity = 16;
+    float      gps_heading = 17;
+    repeated float      body1_accel = 18;
     repeated float      body1_ang = 19;
-    repeated float      body2_acc = 20;
+    repeated float      body2_accel = 20;
     repeated float      body2_ang = 21;
-    repeated float      body3_acc = 22;
+    repeated float      body3_accel = 22;
     repeated float      body3_ang = 23;
     repeated float      unsprung_acc = 24;
     float               frw_speed = 25;
@@ -67,7 +67,7 @@ message Pack {
 }
 
 message Diagnostics {
-    bytes               current_sensors = 1003;
+    bytes               current_errors = 1003;
     bytes               latching_faults = 1004;
     repeated float      cells_v = 1005;
     float               hv_charge_state = 1006;
