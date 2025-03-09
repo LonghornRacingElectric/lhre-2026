@@ -27,7 +27,7 @@ else:
     import sys
     from pathlib import Path
     sys.path.append(str(Path(__file__).parents[3]))
-    from stack.ingest.protobuf.template_pb2 import SensorData
+    from stack.ingest.protobuf import template_pb2
 
 
 class MQTTTarget:

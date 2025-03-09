@@ -18,7 +18,6 @@ from multiprocessing import cpu_count
 from pathlib import Path
 from psycopg.types.json import Jsonb
 from typing import Union, Tuple
-from google.protobuf.json_format import MessageToDict
 from google.protobuf.message import Message
 
 sys.path.append(str(Path(__file__).parents[2]))
