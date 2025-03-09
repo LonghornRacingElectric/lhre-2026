@@ -12,6 +12,7 @@ import logging
 from itertools import count
 from tqdm import tqdm
 import sys
+import secrets
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 from pathlib import Path
@@ -210,7 +211,7 @@ class DataTester:
     def send_proto_rows(self, tables:list,  num_rows:int, delay:float, rm_cols = None, **kwargs):
 
         db_desc = self.get_desc(tables=tables, rm_cols=rm_cols, **kwargs)
-        for i in range(num_rows):
+        for i in tqdm(range(num_rows)):
             data = self.create_proto_message(i + 1, db_desc)
             mqtt.publish('data', data.SerializeToString(), qos=0)
             time.sleep(delay)
@@ -256,7 +257,7 @@ if __name__ == '__main__':
     with DBHandler(unsafe=True, target=DBTarget.LOCAL) as handler:
         with MQTTHandler('paho_test', db_handler=handler) as mqtt:
             dt = DataTester(mqtt=mqtt, seed=42)
-            dt.send_proto_rows(['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'], 10, 0.01)
+            dt.send_proto_rows(['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'], 500, 0.01)
 
 
 
