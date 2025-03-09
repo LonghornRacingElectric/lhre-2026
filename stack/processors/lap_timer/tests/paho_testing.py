@@ -244,7 +244,7 @@ class DataTester:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    mqtt = MQTTHandler('terence_test', MQTTTarget.LOCAL)
+    mqtt = MQTTHandler('terence_test', MQTTTarget.getHandler())
     mqtt.connect()
     dbtest = DataTester(mqtt)
     # dbtest.concurrent_tables_test(['thermal', 'dynamics'], 25, .1, rm_cols=['event_id'], mqtt_handler=mqtt)

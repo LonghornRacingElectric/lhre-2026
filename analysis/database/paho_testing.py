@@ -258,15 +258,3 @@ if __name__ == '__main__':
         with MQTTHandler('paho_test', db_handler=handler) as mqtt:
             dt = DataTester(mqtt=mqtt, seed=42)
             dt.send_proto_rows(['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'], 500, 0.01)
-
-
-
-
-            # data = SensorData()
-            # data.time = 1739747532
-            # data.packet_id = 1
-            # data.dynamics.frw_speed = 88.88
-            # # dyn = Dynamics()
-            # # dyn.frw_speed = 69.69
-            # # data.dynamics.CopyFrom(dyn)
-            # mqtt.publish('data', data.SerializeToString(), qos=0)

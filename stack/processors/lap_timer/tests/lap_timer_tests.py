@@ -19,7 +19,8 @@ from psycopg.types.json import Jsonb
 from typing import Union, Tuple
 import requests
 
-
+with(open("/net_config.json", "r")) as f:
+    net_config = json.load(f)
 
 sys.path.append(str(Path(__file__).parents[4]))
 
@@ -59,12 +60,12 @@ class LapTimerDataTester(DataTester):
     def test_page_sync(self):
         # self.mqtt.publish(f'page_sync', json.dumps({"laps": [14312, 24321, 34321, 44321]}))
         time = 32423423
-        requests.post("http://localhost:5000/new_lap", data={"time": time})
+        requests.post(f"http://{net_config["PROD_IP"] if net_config["TARGET"] == "PROD" else "localhost"}:5000/new_lap", data={"time": time})
 
 if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
-    mqtt = MQTTHandler('terence_test', MQTTTarget.LOCAL)
+    mqtt = MQTTHandler('terence_test', MQTTTarget.getHandler())
     mqtt.connect()
     dbtest = LapTimerDataTester(mqtt)
     # dbtest.concurrent_tables_test(['thermal', 'dynamics'], 25, .1, rm_cols=['event_id'], mqtt_handler=mqtt)

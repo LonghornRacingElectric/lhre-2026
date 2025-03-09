@@ -58,7 +58,7 @@ class Event:
                 "notes": f"{self.type.name}"
         }
         #! Will crash if no event
-        DBHandler.insert(table="classifier", data=db_obj, target=DBTarget.LOCAL, user="electric", handler=self.handler)
+        DBHandler.insert(table="classifier", data=db_obj, target=DBTarget.getHandler(), user="electric", handler=self.handler)
         
         times.append(self.starting_time)
         events.append(0)
@@ -186,7 +186,7 @@ class GPSClassifierProcessor:
                     AND p.time >= {current_process.starting_time}
                     ORDER BY p.time ASC
                     LIMIT 500
-                    """, handler=self.handler, target=DBTarget.LOCAL), dtype=object)
+                    """, handler=self.handler, target=DBTarget.getHandler()), dtype=object)
                 if points.any(): break
                 sleep(1 / frequency)
                             
@@ -267,7 +267,7 @@ class GPSClassifierProcessor:
                                                           JOIN controls c ON c.packet_id = d.packet_id 
                                                           WHERE d.packet_id >= {self.start_packet} 
                                                           ORDER BY d.packet_id ASC 
-                                                          LIMIT {window_size}""", handler=self.handler, target=DBTarget.LOCAL))
+                                                          LIMIT {window_size}""", handler=self.handler, target=DBTarget.getHandler()))
             
             if len(points) > 0:
                 # Checks if at rest
