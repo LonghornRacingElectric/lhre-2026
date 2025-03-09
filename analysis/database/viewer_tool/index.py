@@ -95,7 +95,7 @@ def mqtt_client_loop(mqtt):
 
 config = {}
 
-@app.route('/', methods=['GET'])
+@app.route('/index', methods=['GET'])
 @login_required
 def index():
     #Print Environs for Debug
@@ -156,10 +156,11 @@ def new_event():
 @app.route('/create_event/', methods=['POST', 'GET'])
 @login_required
 def create_event():
+    current_date = datetime.today().strftime("%B %d, %Y")
     if request.method == 'POST':
         inputs = request.form.to_dict()
     else:
-        return render_template('event_tracker.html',
+        return render_template('event_tracker.html', current_date=current_date,
                 host_ip=DBTarget.resolve_target(os.getenv('SERVER_TARGET', DBTarget.LOCAL)),
                 event_id = os.getenv("event_id"), config_image = os.getenv("event_details"))
     inputs['status'] = 2
@@ -176,7 +177,7 @@ def create_event():
 
     with MQTTHandler('flask_app') as mqtt:
         mqtt.publish('config/flask', json.dumps({'event_id': event_id}, indent=4))
-    return render_template('event_tracker.html', host_ip=DBTarget.resolve_target(os.getenv('SERVER_TARGET',
+    return render_template('event_tracker.html', current_date=current_date, host_ip=DBTarget.resolve_target(os.getenv('SERVER_TARGET',
                              DBTarget.LOCAL)), event_id=os.getenv("event_id"), config_image = os.getenv("event_details"))
 
 
@@ -310,10 +311,22 @@ def login():
             if check_password_hash(db_password_hash, password):
                 user_obj = User(user_id, db_username, db_password_hash)
                 login_user(user_obj)
-                return redirect(url_for("index"))
-        return render_template("login.html", error="Invalid credentials.")
+                return redirect(url_for("splash"))
+        return render_template("login.html", error="Invalid Credentials")
 
     return render_template("login.html")
+
+@app.route('/splash')
+@app.route('/')
+@login_required
+def splash():
+    current_date = datetime.today().strftime("%B %d, %Y")  # Example: "March 9, 2025"
+    return render_template('splash.html', current_date=current_date)
+
+@app.route('/lifelikevisuals')
+@login_required
+def lifelikevisuals():
+    return "<h1>Lifelike Visualizations Page - Coming Soon</h1>"
 
 @app.route('/logout')
 @login_required
