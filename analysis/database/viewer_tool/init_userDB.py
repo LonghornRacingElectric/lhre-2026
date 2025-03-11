@@ -16,9 +16,9 @@ def init_db():
     ''')
 
     # Insert an example user
-    hashed_pw = generate_password_hash("secret").decode('utf-8')
+    hashed_pw = generate_password_hash("2fast2quick").decode('utf-8')
     c.execute('INSERT OR IGNORE INTO users (username, password_hash) VALUES (?, ?)',
-              ("admin", hashed_pw))
+              ("lhrelectric", hashed_pw))
 
     conn.commit()
     conn.close()
