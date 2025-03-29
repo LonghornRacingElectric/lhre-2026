@@ -6,6 +6,9 @@ import time
 from pathlib import Path
 from tqdm import tqdm
 from datetime import date, datetime
+from flask_login import LoginManager, UserMixin, login_user, current_user, logout_user, login_required
+import sqlite3
+from flask_bcrypt import check_password_hash, generate_password_hash
 
 sys.path.append(str(Path(__file__).parents[3]))
 from flask import Flask, render_template, url_for, request, redirect
@@ -14,15 +17,44 @@ from analysis.sql_utils.db_handler import DBHandler, DBTarget
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 
 app = Flask(__name__)
-
+app.secret_key = "some-super-secret-key" #TODO change for production
 os.environ["event_details"] = ""
 os.environ["event_id"] = "-1"
 os.environ["page_details"] = ""
 #os.environ["date_id"] = DBHandler.simple_select('SELECT date FROM drive_day ORDER BY day_id DESC LIMIT 1')[0][0]
 os.environ["date_id"] = "2025-02-16" #TODO revert to above for deployment. Testing only
+#Create login manager, redirect to login page if login fails
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+USER_DB_PATH = "users.db"
+
+class User(UserMixin):
+    def __init__(self, id, username, password_hash):
+        self.id = id
+        self.username = username
+        self.password_hash = password_hash
+
+    def __repr__(self):
+        return f"<User {self.username}>"
+
+@login_manager.user_loader
+def load_user(user_id):
+    """
+    Given a user_id, return the associated user object  from storage.
+    """
+    conn = sqlite3.connect(USER_DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT id, username, password_hash FROM users WHERE id = ?', (user_id,))
+    row = c.fetchone()
+    conn.close()
+
+    if row:
+        # row = (id, username, password_hash)
+        return User(*row)
+    return None
 
 def config_subscribe(client, userdata, msg):
-    
     if msg.topic == 'config/event_sync':
         #Convert msg to json object
         msg = json.loads(msg.payload.decode())
@@ -56,9 +88,9 @@ def config_subscribe(client, userdata, msg):
             os.environ['event_details'] = json.dumps(json_obj)
         except Exception as e:
             os.environ['event_details'] = json.dumps(msg)
-        
+
         notify_listeners()
-        
+
 
     elif msg.topic == 'config/page_sync':
         # Convert msg to json object
@@ -71,7 +103,11 @@ def mqtt_client_loop(mqtt):
     # Start the MQTT client loop (this will run forever in the background)
     mqtt.client.loop_forever()
 
-@app.route('/', methods=['GET'])
+
+config = {}
+
+@app.route('/index', methods=['GET'])
+@login_required
 def index():
     #Print Environs for Debug
     logging.debug("PING Index Call, Event Details: " + os.getenv("event_details")) # TODO Remove, DEBUG only
@@ -110,6 +146,7 @@ def index():
 
 
 @app.route('/new_drive_day/', methods=['GET'])
+@login_required
 def new_drive_day():
     day_id = DBHandler.insert(table='drive_day', target=os.getenv('SERVER_TARGET', DBTarget.getHandler()), user='electric', data=request.args, returning='day_id')
     os.environ["date_id"] = str(date.today())
@@ -119,6 +156,7 @@ def new_drive_day():
 
 
 @app.route('/new_event/', methods=['GET'])
+@login_required
 def new_event():
     with MQTTHandler('flask_app') as mqtt:
         mqtt.publish('config/page_sync', "new_event_page")
@@ -127,11 +165,13 @@ def new_event():
 
 
 @app.route('/create_event/', methods=['POST', 'GET'])
+@login_required
 def create_event():
+    current_date = datetime.today().strftime("%B %d, %Y")
     if request.method == 'POST':
         inputs = request.form.to_dict()
     else:
-        return render_template('event_tracker.html',
+        return render_template('event_tracker.html', current_date=current_date,
                 host_ip=DBTarget.resolve_target(DBTarget.get()),
                 event_id = os.getenv("event_id"), config_image = os.getenv("event_details"))
     inputs['status'] = 2
@@ -148,10 +188,11 @@ def create_event():
 
     with MQTTHandler('flask_app') as mqtt:
         mqtt.publish('config/flask', json.dumps({'event_id': event_id}, indent=4))
-    return render_template('event_tracker.html', host_ip=DBTarget.resolve_target(DBTarget.get()), event_id=os.getenv("event_id"), config_image = os.getenv("event_details"))
+    return render_template('event_tracker.html', current_date=current_date, host_ip=DBTarget.resolve_target(DBTarget.get()), event_id=os.getenv("event_id"), config_image = os.getenv("event_details"))
 
 
 @app.route('/set_event_time/', methods=['POST'])
+@login_required
 def set_event_time():
     if request.json['status'] == 0:
         try:
@@ -165,6 +206,7 @@ def set_event_time():
 
 
 @app.route('/reset_config_image', methods=['POST', 'GET'])
+@login_required
 def reset_config_image():
     os.environ['event_details'] = ""
 
@@ -177,6 +219,7 @@ def reset_config_image():
     #return json.dumps({'success': True}), 200, {'ContentType': 'application/json'}
 
 @app.route('/tune_data', methods=['GET', 'POST'])
+@login_required
 def tune_data():
     data = request.data
     json_object = json.loads(data)
@@ -185,6 +228,7 @@ def tune_data():
 
 
 @app.route('/verify_page/<string:cur_page>', methods=['GET', 'POST'])
+@login_required
 def verify_page(cur_page):
     logging.debug("cur_page is: " + cur_page)
     logging.debug("current page_details is: " + os.getenv("page_details"))
@@ -212,6 +256,7 @@ def verify_page(cur_page):
 
 
 @app.route('/turn_data', methods=['GET', 'POST'])
+@login_required
 def turn_data():
     data = request.data
     json_object = json.loads(data)
@@ -220,6 +265,7 @@ def turn_data():
 
 
 @app.route('/accel_data', methods=['GET', 'POST'])
+@login_required
 def accel_data():
     data = request.data
     json_object = json.loads(data)
@@ -228,6 +274,7 @@ def accel_data():
 
 
 @app.route('/texas_tune/', methods=['GET', 'POST'])
+@login_required
 def vcu_parameters():
     if request.method == 'POST':
         print(request)
@@ -236,12 +283,14 @@ def vcu_parameters():
 
 
 @app.route('/gates/', methods=['POST'])
+@login_required
 def create_gates():
     pass
 
 @app.route('/new_lap/', methods=['POST'])
+@login_required
 def add_new_lap():
-    json_obj = json.loads(os.environ["event_details"])  
+    json_obj = json.loads(os.environ["event_details"])
     print("JSON OBJ", json_obj)
     data = request.form.to_dict()
     if 'time' in data:
@@ -249,15 +298,64 @@ def add_new_lap():
         if 'laps' not in json_obj:
             print("LAPS IN JSON")
             json_obj['laps'] = []
-            
+
         time_to_append = int(data['time']) - (json_obj['timerEventTime'])
         if len(json_obj['laps']) > 0: time_to_append -= json_obj['laps'][-1]
-            
+
         json_obj['laps'].append(time_to_append)
         print("LAPS: ", json_obj['laps'])
         os.environ['event_details'] = json.dumps(json_obj)
         notify_listeners()
     return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """
+    Shows login form and handles user submissions
+    """
+    if request.method == "POST":
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+
+        # Query the DB for the user
+        conn = sqlite3.connect(USER_DB_PATH)
+        c = conn.cursor()
+        c.execute('SELECT id, username, password_hash FROM users WHERE username = ?', (username,))
+        row = c.fetchone()
+        conn.close()
+
+        if row:
+            user_id, db_username, db_password_hash = row
+
+            # Check the password
+            if check_password_hash(db_password_hash, password):
+                user_obj = User(user_id, db_username, db_password_hash)
+                login_user(user_obj)
+                return redirect(url_for("splash"))
+        return render_template("login.html", error="Invalid Credentials")
+
+    return render_template("login.html")
+
+@app.route('/splash')
+@app.route('/')
+@login_required
+def splash():
+    current_date = datetime.today().strftime("%B %d, %Y")  # Example: "March 9, 2025"
+    return render_template('splash.html', current_date=current_date)
+
+@app.route('/dashboards')
+@login_required
+def dashboards():
+    return redirect('https://lhrelectric.org/grafana')
+
+@app.route('/logout')
+@login_required
+def logout():
+    """
+    Logs user out and redirects to login page
+    """
+    logout_user()
+    return redirect(url_for('login'))
 
 def notify_listeners():
     with MQTTHandler('flask_app') as mqtt:
@@ -269,7 +367,6 @@ if __name__ == '__main__':
     with MQTTHandler('test', target=MQTTTarget.getHandler(), on_message=config_subscribe) as mqtt:
         mqtt.client.subscribe('config/+') #TODO remove '+' if not necessary
         mqtt.client.loop_start()
-        print("HERE")
 
         if os.getenv('IN_DOCKER'):
             app.run(host='0.0.0.0', ssl_context=('./ssl/fullchain.pem', './ssl/privkey.pem'))
