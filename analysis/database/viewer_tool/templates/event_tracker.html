@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 
 {% block head %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Telemetry Injection Tool</title>
     <script src="{{ url_for('static', filename='js/stopWatch.js') }}"></script>
     <script src="{{ url_for('static', filename='js/decoder.js') }}"></script>
@@ -10,11 +11,11 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}"/>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-     crossorigin=""/>
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-     crossorigin=""></script>
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
     <style>
         * {
             margin: 0;
@@ -27,7 +28,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             width: 100vw;
         }
         .banner {
@@ -50,8 +51,8 @@
         .left-container {
             display: flex;
             align-items: center;
-            gap: 5px; /* Reduce gap to bring logo closer */
-            flex-grow: 1; /* Allow it to expand and keep alignment */
+            gap: 5px;
+            flex-grow: 1;
         }
         .logo {
             height: 30px;
@@ -62,60 +63,28 @@
             display: flex;
             gap: 15px;
         }
-        .container {
-             margin-left: 0;
-            padding-left: 0;
-            width: 100%;
-            padding-top: 60px;
-        }
-        .box {
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            cursor: pointer;
-            transition: transform 0.3s ease-in-out;
-            border-radius: 15px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-        .box img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            border-radius: 15px;
-            filter: brightness(60%);
-            transition: filter 0.3s ease-in-out;
-        }
-        .box:hover img {
-            filter: brightness(80%);
-        }
-        .box span {
-            position: absolute;
-            color: white;
-            font-size: 2em;
-            font-weight: bold;
-            text-align: center;
-            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.7);
-        }
         .menu-btn {
-            font-size: 1.5em; /* Reduce size */
+            font-size: 1.5em; /* Matches the original size */
             background: none;
             border: none;
             color: white;
             cursor: pointer;
             margin-right: 10px;
             display: flex;
-            align-items: center; /* Center vertically */
+            align-items: center;
             justify-content: center;
-            height: 100%; /* Match banner height */
+            height: 100%; /* Ensures it fills the banner height */
         }
-
+        .container {
+            margin-top: 60px;
+            width: 100%;
+            padding: 15px;
+        }
         /* Sidebar Menu */
         .sidebar {
             position: fixed;
             top: 0;
-            left: -250px; /* Keeps sidebar hidden initially */
+            left: -250px;
             width: 250px;
             height: 100%;
             background-color: #222;
@@ -123,7 +92,6 @@
             transition: left 0.3s ease-in-out;
             z-index: 1100;
         }
-        /* Sidebar Menu Links */
         .sidebar a {
             display: block;
             color: white;
@@ -132,12 +100,9 @@
             padding: 15px 20px;
             transition: background 0.3s;
         }
-
         .sidebar a:hover {
             background-color: #444;
         }
-
-        /* Overlay to close menu when clicking outside */
         .overlay {
             display: none;
             position: fixed;
@@ -148,6 +113,19 @@
             background: rgba(0, 0, 0, 0.5);
             z-index: 1000;
         }
+        @media (max-width: 600px) {
+            .banner {
+                font-size: 1em;
+                padding: 0 10px;
+            }
+            .menu-btn {
+                font-size: 1.2em;
+            }
+            .left-container span,
+            .time-container span {
+                font-size: 0.9em;
+            }
+        }
     </style>
     <script>
         function updateTime() {
@@ -156,13 +134,13 @@
             const minutes = String(now.getMinutes()).padStart(2, '0');
             const seconds = String(now.getSeconds()).padStart(2, '0');
             document.getElementById('current-time').textContent = `${hours}:${minutes}:${seconds}`;
+            document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
         }
         setInterval(updateTime, 1000);
         window.onload = updateTime;
         function toggleMenu() {
             const sidebar = document.getElementById("sidebar");
             const overlay = document.getElementById("overlay");
-
             if (sidebar.style.left === "0px") {
                 sidebar.style.left = "-250px";
                 overlay.style.display = "none";
@@ -171,8 +149,6 @@
                 overlay.style.display = "block";
             }
         }
-
-        // Close the menu when clicking outside
         function closeMenu() {
             document.getElementById("sidebar").style.left = "-250px";
             document.getElementById("overlay").style.display = "none";
@@ -181,232 +157,207 @@
 {% endblock %}
 
 {% block body %}
-
+    <!-- Banner and Sidebar -->
     <div class="banner">
-    <button class="menu-btn" onclick="toggleMenu()">☰</button> <!-- Menu Button -->
-    <div class="left-container">
-        <img src="{{ url_for('static', filename='images/telem_logo.png') }}" alt="Logo" class="logo">
-        <span> Welcome, {{ current_user.username }}</span>
+        <button class="menu-btn" onclick="toggleMenu()">☰</button>
+        <div class="left-container">
+            <img src="{{ url_for('static', filename='images/telem_logo.png') }}" alt="Logo" class="logo">
+            <span>Welcome, {{ current_user.username }}</span>
+        </div>
+        <div class="time-container">
+            <span>{{ current_date }}</span>
+            <span id="current-time"></span>
+        </div>
     </div>
-    <div class="time-container">
-        <span>{{ current_date }}</span>
-        <span id="current-time"></span>
+    <div id="sidebar" class="sidebar">
+        <a href="{{ url_for('splash') }}">Home</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
     </div>
-    </div>
-<div id="sidebar" class="sidebar">
-            <a href="{{ url_for('splash') }}">Home</a>
-            <a href="{{ url_for('logout') }}">Logout</a>
-    </div>
-
-    <!-- Click outside to close menu -->
     <div id="overlay" class="overlay" onclick="closeMenu()"></div>
-<div class="container">
-    <div class="row">
-        <div class="col-md-6">
-            <h2>Timer</h2>
 
-            <h2 class="time" id="timer">00:00.000</h2>
-
-            <div class="buttons">
-                <div class="start-stop">
-                    <button type="button" id="startButton" class="btn-success btn-lg">START</button>
-                    <button type="button" id="stopButton" class="btn-danger btn-lg">STOP</button>
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Header Row: Timer and Buttons -->
+        <div class="row align-items-center">
+            <div class="col-md-6 mb-3 mb-md-0">
+                <div style="border:2px solid #ccc; padding:10px; text-align:center;">
+                    <h3 class="text-center">Timer</h3>
+                    <div id="timer" style="display: inline-block; margin: auto; text-align: center; font-size: 4em;">00:00.000</div>
                 </div>
-                <div style="margin-top:10px;">
-                    <button type="button" id="turnButton" class="reset-btn btn-warning btn-lg">Start Turn</button>
-                    <button type="button" id="accelButton" class="reset-btn btn-warning btn-lg">Start Acceleration</button>
-                    <button type="button" id="endButton" class="btn btn-info btn-lg">End Event</button>
+            </div>
+            <div class="col-md-6 text-center">
+                <div class="mb-2">
+                    <!-- All buttons now have identical styling -->
+                    <button type="button" id="startButton" class="btn btn-primary btn-lg">START</button>
+                    <button type="button" id="stopButton" class="btn btn-primary btn-lg">STOP</button>
+                    <button type="button" id="endButton" class="btn btn-primary btn-lg">End Event</button>
+                </div>
+                <div>
+                    <button type="button" id="turnButton" class="btn btn-primary btn-lg">Start Turn</button>
+                    <button type="button" id="accelButton" class="btn btn-primary btn-lg">Start Acceleration</button>
                 </div>
             </div>
         </div>
-        <div class="col-md-6">
-            <table id="turn-table" class="table">
-                <thead class="thead-dark">
-                    <tr>
-                        <th scope="col">Turn #</th>
-                        <th scope="col">Time Start</th>
-                        <th scope="col">Time End</th>
-                        <th scope="col">Notes</th>
-                    </tr>
-                </thead>
-            </table>
 
-            <table id="accel-table" class="table">
-                <thead class="thead-dark">
-                    <tr>
-                        <th scope="col">Accel #</th>
-                        <th scope="col">Time Start</th>
-                        <th scope="col">Time End</th>
-                        <th scope="col">Notes</th>
-                    </tr>
-                </thead>
-            </table>
-
-            <table id="lap-timer-table" class="table">
-                <thead class="thead-dark">
-                    <tr>
-                        <th scope="col">Lap #</th>
-                        <th scope="col">Time</th>
-                    </tr>
-                </thead>
-            </table>
+        <!-- Map Row -->
+        <div class="row mt-4">
+            <div class="col-12 text-center">
+                <button onClick="getLocation()" class="btn btn-secondary mb-2">Add Marker</button>
+                <div id="map" style="width: 100%; height: 400px; position: relative; outline:none;"
+                     class="leaflet-container leaflet-touch leaflet-fade-anim leaflet-grab leaflet-touch-drag leaflet-touch-zoom"
+                     tabindex="0"></div>
+            </div>
         </div>
 
+        <!-- Loader and Result (optional) -->
+        <div class="row mt-3">
+            <div class="col-12 text-center">
+                <div class="loader"></div>
+                <p id="result">Nothing returned yet.</p>
+            </div>
+        </div>
+
+        <!-- Tables Row -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <h3 class="text-center">Turn Table</h3>
+                <table id="turn-table" class="table table-striped">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th scope="col">Turn #</th>
+                            <th scope="col">Time Start</th>
+                            <th scope="col">Time End</th>
+                            <th scope="col">Notes</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="col-12 mt-4">
+                <h3 class="text-center">Acceleration Table</h3>
+                <table id="accel-table" class="table table-striped">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th scope="col">Accel #</th>
+                            <th scope="col">Time Start</th>
+                            <th scope="col">Time End</th>
+                            <th scope="col">Notes</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="col-12 mt-4">
+                <h3 class="text-center">Lap Table</h3>
+                <table id="lap-timer-table" class="table table-striped">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th scope="col">Lap #</th>
+                            <th scope="col">Time</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+        </div>
+
+        <!-- JavaScript for Timer, MQTT, and Other Functionality -->
         <script>
             let clock = document.getElementById('timer');
-            let tab = document.getElementById('data-table'); //TODO revisit, is tab valid?
-
-            let accelTable = document.getElementById('accel-table')
+            // The variable "tab" is not used in this revised layout
+            // Tables update event listeners remain unchanged
+            let accelTable = document.getElementById('accel-table');
             accelTable.addEventListener('input', function(event) {
-                //Update config image with the new note contents
                 for (let i = 0; i < config_image.tables.accelStops.length; i++) {
                     config_image.tables.accelNotes[i] = accelTable.rows[i+1].cells[3].innerText;
                 }
-                //Publish when finished
-                encodeValues(null, false, false, null, null, true)
-            })
-
-            let turnTable = document.getElementById('turn-table')
+                encodeValues(null, false, false, null, null, true);
+            });
+            let turnTable = document.getElementById('turn-table');
             turnTable.addEventListener('input', function(event) {
-                //Update config image with the new note contents
                 for (let i = 0; i < config_image.tables.turnStops.length; i++) {
                     config_image.tables.turnNotes[i] = turnTable.rows[i+1].cells[3].innerText;
                 }
-                //Publish when finished
-                encodeValues(null, false, false, null, null, true)
-            })
+                encodeValues(null, false, false, null, null, true);
+            });
 
-            //Create a start button and set status to not running
+            // Initialize buttons and state
             let startButton = document.getElementById('startButton');
             startButton.setAttribute("isRunning", false);
-
-            //Create a stop button and set status to not running
             let stopButton = document.getElementById('stopButton');
-
-            //Create turn, accel, and end event buttons
             let turnButton = document.getElementById('turnButton');
             let accelButton = document.getElementById('accelButton');
             let endButton = document.getElementById('endButton');
 
-            let watch = new Stopwatch(timer, tab);
-            let event_id = {{ event_id }}
-            let host_ip
-            let config_image = '{{ config_image | safe}}'.length > 0 ? '{{ config_image | safe}}' : undefined; //TODO reconsider undef?
+            let watch = new Stopwatch(timer, null);
+            let event_id = {{ event_id }};
+            let host_ip;
+            let config_image = '{{ config_image | safe}}'.length > 0 ? '{{ config_image | safe}}' : undefined;
             if ('{{ host_ip }}'.indexOf('local') === -1) {
-                host_ip = 'https://{{ host_ip }}'
+                host_ip = 'https://{{ host_ip }}';
             } else {
-                host_ip = 'http://{{ host_ip }}'
+                host_ip = 'http://{{ host_ip }}';
             }
 
-            //MQTT handling and function mapping
+            // MQTT Handling
             let myName = uuidv4();
-            client = new Paho.MQTT.Client("localhost", 8080, myName); //TODO replace with production destination
-            console.log("ClientName: " + myName)
-
-            //Set callback functions
+            client = new Paho.MQTT.Client("localhost", 8080, myName);
+            console.log("ClientName: " + myName);
             client.onConnectionLost = onConnectionLost;
             client.onMessageArrived = onMessageArrived;
-            //Connect and define connection
             client.connect({onSuccess:onConnect});
-            //Connect callback
             function onConnect() {
-                //Once connected, subscribe
-                console.log("Status: CONNECTED"); //TODO remove, testing only
-                client.subscribe("config/event_sync")
-
-                //Send message to page sync to ensure others on same page
-                let message = new Paho.MQTT.Message("running_event_page")
-                message.destinationName = "config/page_sync"
+                console.log("Status: CONNECTED");
+                client.subscribe("config/event_sync");
+                let message = new Paho.MQTT.Message("running_event_page");
+                message.destinationName = "config/page_sync";
                 client.send(message);
-
-                //Listen for other page directions
-                client.subscribe("config/page_sync")
-                encodeValues(null, null, null, null, null, true)
+                client.subscribe("config/page_sync");
+                encodeValues(null, null, null, null, null, true);
             }
-            //New message callback
             function onMessageArrived(message) {
-                //Screen for page sync
                 if(message.destinationName === "config/page_sync") {
-                    console.log("Message from page_sync: " + message.payloadString)
+                    console.log("Message from page_sync: " + message.payloadString);
                 } else if (message.destinationName === "config/event_sync") {
-                    decodeValues(message.payloadString)
+                    decodeValues(message.payloadString);
                 } else {
-                    console.log("WARNING: Message Received with Unknown Destination")
+                    console.log("WARNING: Message Received with Unknown Destination");
                 }
             }
             function onConnectionLost() {
-                console.log("Status: CONNECTION LOST")
+                console.log("Status: CONNECTION LOST");
             }
             function onDisconnect() {
-                console.log("Status: DISCONNECTED")
-                //TODO when client loses connection, redirect to new page? Display Warning? REVISIT
+                console.log("Status: DISCONNECTED");
             }
 
-            //Change in start button state detected
+            // Button event listeners
             startButton.addEventListener('click', function() {
-                //Make changes to outgoing image
-                encodeValues(true, true, true, null, null, true)
-            })
-
+                encodeValues(true, true, true, null, null, true);
+            });
             stopButton.addEventListener('click', function() {
-                //Make changes to outgoing image
-                encodeValues(false, true, true, null, null, true)
-            })
-
+                encodeValues(false, true, true, null, null, true);
+            });
             turnButton.addEventListener('click', function() {
-                //Ensure the timer is running, otherwise do nothing
                 if (startButton.getAttribute("isRunning") === "true") {
-                    watch.turn()
-                    encodeValues(null, null, null, watch.isTurning(), null, true)
+                    watch.turn();
+                    encodeValues(null, null, null, watch.isTurning(), null, true);
                 }
-            })
-
+            });
             accelButton.addEventListener('click', function() {
-                //Ensure the timer is running, otherwise do nothing
                 if (startButton.getAttribute("isRunning") === "true") {
                     watch.accel();
-                    encodeValues(null, null, null, null, watch.isAccel(), true)
+                    encodeValues(null, null, null, null, watch.isAccel(), true);
                 }
-            })
-
+            });
             endButton.addEventListener('click', function() {
                 if (startButton.getAttribute("isRunning") === "false") {
-                    //Alert all clients (including self) of disconnection, suspension and redirection via mqtt flag
-                    encodeValues(false, true, true, false, false, true, true)
+                    encodeValues(false, true, true, false, false, true, true);
                 }
-            })
+            });
 
-            //On initial creation
-            console.log("Initializing Local Variables") //TODO remove, debug only
+            // Initialize state and load previous data
+            console.log("Initializing Local Variables");
             decodeValues(config_image);
-            loadPrevTables()
-
+            loadPrevTables();
         </script>
+        <script src="{{ url_for('static', filename='js/locator.js') }}"></script>
     </div>
-
-    <button onClick="getLocation()">Add Marker</button>
-    <div id="map" style="width: 600px; height: 400px; position: relative; outline:none;"
-         class="leaflet-container leaflet-touch leaflet-fade-anim leaflet-grab leaflet-touch-drag leaflet-touch-zoom"
-         tabindex="0"></div>
-    <style>
-        .loader {
-          border: 16px solid #f3f3f3; /* Light grey */
-          border-top: 16px solid #3498db; /* Blue */
-          border-radius: 50%;
-          width: 120px;
-          height: 120px;
-          animation: spin 10s linear infinite;
-        }
-
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-    </style>
-    <div class="loader"></div>
-    <p id="result">Nothing returned yet.</p>
-
-    <script src="{{ url_for('static', filename='js/locator.js') }}"></script>
-</div>
-
 {% endblock %}

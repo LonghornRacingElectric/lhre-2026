@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
 
 {% block head %}
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Texas Tune</title>
 <script src="{{ url_for('static', filename='js/adjustableChart.js') }}"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}" />
@@ -18,6 +18,7 @@
     body {
         font-family: Arial, sans-serif;
         background-color: #f4f4f4;
+        /* Centering content now that the static left nav is removed */
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -75,19 +76,27 @@
         width: 250px;
         height: 100%;
         background-color: #222;
-        padding-top: 60px;
         transition: left 0.3s ease-in-out;
         z-index: 1100;
+        display: flex;
+        flex-direction: column;
     }
-    .sidebar a {
-        display: block;
-        color: white;
+    .sidebar a,
+    .sidebar button {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
         text-decoration: none;
         font-size: 1.5em;
-        padding: 15px 20px;
+        color: white;
+        border: none;
+        background: none;
+        cursor: pointer;
         transition: background 0.3s;
     }
-    .sidebar a:hover {
+    .sidebar a:hover,
+    .sidebar button:hover {
         background-color: #444;
     }
     .overlay {
@@ -101,9 +110,25 @@
         z-index: 1000;
     }
     .content {
-        margin-top: 60px;
+        /* Updated so main content takes up most of the width */
+        margin: 60px 20px 20px 20px;
         padding: 20px;
         width: 100%;
+        max-width: 1200px;
+    }
+    /* Media Query for smaller screens */
+    @media (max-width: 600px) {
+      .banner {
+        font-size: 1em;
+        padding: 0 10px;
+      }
+      .menu-btn {
+        font-size: 1.2em;
+      }
+      .left-container span,
+      .time-container span {
+        font-size: 0.9em;
+      }
     }
 </style>
 
@@ -114,6 +139,7 @@
         const minutes = String(now.getMinutes()).padStart(2, '0');
         const seconds = String(now.getSeconds()).padStart(2, '0');
         document.getElementById('current-time').textContent = `${hours}:${minutes}:${seconds}`;
+        document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     }
     setInterval(updateTime, 1000);
     window.onload = updateTime;
@@ -121,7 +147,6 @@
     function toggleMenu() {
         const sidebar = document.getElementById("sidebar");
         const overlay = document.getElementById("overlay");
-
         if (sidebar.style.left === "0px") {
             sidebar.style.left = "-250px";
             overlay.style.display = "none";
@@ -148,40 +173,30 @@
         <span> Welcome, {{ current_user.username }}</span>
     </div>
     <div class="time-container">
-        <span>{{ current_date }}</span>
-        <span id="current-time"></span>
+      <span id="current-date">{{ current_date }}</span>
+      <span id="current-time"></span>
     </div>
 </div>
 
-<!-- Sidebar -->
+<!-- Sidebar (navigation as flex items) -->
 <div id="sidebar" class="sidebar">
-    <a href="{{ url_for('splash') }}">Home</a>
-    <a href="{{ url_for('logout') }}">Logout</a>
+    <a href="{{ url_for('splash') }}" onclick="closeMenu()">Home</a>
+    <a href="{{ url_for('logout') }}" onclick="closeMenu()">Logout</a>
+    <a href="#APPS" onclick="appear('#APPS'); closeMenu();">APPS</a>
+    <a href="#BSE" onclick="appear('#BSE'); closeMenu();">BSE</a>
+    <a href="#STOMPP" onclick="appear('#STOMPP'); closeMenu();">STOMPP</a>
+    <a href="#TORQUE_MAP" onclick="appear('#TORQUE_MAP'); closeMenu();">Torque Map</a>
+    <a href="#PRNDL" onclick="appear('#PRNDL'); closeMenu();">PRNDL</a>
+    <a href="#TRACTION_CONTROL" onclick="appear('#TRACTION_CONTROL'); closeMenu();">Traction Control</a>
+    <a href="#STEERING" onclick="appear('#STEERING'); closeMenu();">Steering</a>
+    <button type="submit" id="savePage" onclick="savePage('curr')" class="btn btn-primary btn-lg btn-block">Save Page</button>
+    <button type="submit" id="saveAll" onclick="saveAll()" class="btn btn-primary btn-lg btn-block">Save All</button>
 </div>
 <div id="overlay" class="overlay" onclick="closeMenu()"></div>
 
 <!-- Main Content -->
 <div class="content">
-    <div class="sidenav" style="text-align: center; margin-top: 50px;">
-        <a href="#APPS" onclick="appear('#APPS')" style="text-align: center;">APPS</a>
-        <a href="#BSE" onclick="appear('#BSE')" style="text-align: center;">BSE</a>
-        <a href="#STOMPP" onclick="appear('#STOMPP')" style="text-align: center;">STOMPP</a>
-        <a href="#TORQUE_MAP" onclick="appear('#TORQUE_MAP')" style="text-align: center;">Torque Map</a>
-        <a href="#PRNDL" onclick="appear('#PRNDL')" style="text-align: center;">PRNDL</a>
-        <a href="#TRACTION_CONTROL" onclick="appear('#TRACTION_CONTROL')" style="text-align: center;">Traction
-            Control</a>
-        <a href="#STEERING" onclick="appear('#STEERING')" style="text-align: center;">Steering</a>
-
-
-        <div style="padding: 10%; position:absolute; bottom:0px;">
-            <button type="submit" id="savePage" onclick="savePage('curr')" class="btn btn-primary btn-lg btn-block">Save
-                Page</button>
-            <button type="submit" id="saveAll" onclick="saveAll()" class="btn btn-primary btn-lg btn-block">Save All</button>
-        </div>
-        <!-- <img src="analysis/database/viewer_tool/static/images/hookem.svg" alt="Hook Em'!" width="30px" height="30px" style="text-align: center;" /> -->
-    </div>
-
-    <div class="flex-container" style="flex-direction: column; padding-top: 0%;" id="#APPS">
+    <div class="flex-container" style="flex-direction: column; padding-top: 0;" id="#APPS">
         <div class="col-md-7" style="display: inline-block;">
             <label for="appsLowPassFilterTimeConstant">Low Pass Filter Time Constant</label>
             <input type="number" id="appsLowPassFilterTimeConstant" name="appsLowPassFilterTimeConstant"><br>
@@ -209,7 +224,7 @@
         </div>
     </div>
 
-    <div class="flex-container" style="flex-direction: column; padding-top: 0%;" id="#BSE">
+    <div class="flex-container" style="flex-direction: column; padding-top: 0;" id="#BSE">
         <div class="col-md-7" style="display: inline-block;">
             <label for="bseLowPassFilterTimeConstant">Low Pass Filter Time Constant</label>
             <input type="number" id="bseLowPassFilterTimeConstant" name="bseLowPassFilterTimeConstant"><br>
@@ -231,7 +246,7 @@
         </div>
     </div>
 
-    <div class="flex-container" style="flex-direction: column; padding-top: 0%;" id="#STOMPP">
+    <div class="flex-container" style="flex-direction: column; padding-top: 0;" id="#STOMPP">
         <div class="col-md-7" style="display: inline-block;">
             <label for="stomppMechanicalBrakesThreshold">Mechanical Brakes Threshold</label>
             <input type="number" id="stomppMechanicalBrakesThreshold" name="stomppMechanicalBrakesThreshold"><br>
@@ -245,34 +260,32 @@
     </div>
 
     <div class="flex-container" id="#TORQUE_MAP">
-        <div class="col-md-5" id="">
+        <div class="col-md-5">
             <canvas id="mapCanvas1" class="canvas"></canvas>
         </div>
         <div id="map1" style="font-size: .75em;"></div>
 
-
-        <div class="col-md-5" id="">
+        <div class="col-md-5">
             <canvas id="mapCanvas2" class="canvas"></canvas>
         </div>
         <div id="map2" style="font-size: .75em;"></div>
 
-        <div class="col-md-5" id="">
+        <div class="col-md-5">
             <canvas id="mapCanvas3" class="canvas"></canvas>
         </div>
         <div id="map3" style="font-size: .75em;"></div>
 
-
-        <div class="col-md-5" id="">
+        <div class="col-md-5">
             <canvas id="mapCanvas4" class="canvas"></canvas>
         </div>
         <div id="map4" style="font-size: .75em;"></div>
 
-        <div class="col-md-5" id="">
+        <div class="col-md-5">
             <canvas id="mapCanvas5" class="canvas"></canvas>
         </div>
         <div id="map5" style="font-size: .75em;"></div>
 
-        <div class="col-md-5" id="">
+        <div class="col-md-5">
             <label for="mapPowerLimit">Map Power Limit:</label>
             <input type="number" id="mapPowerLimit" name="mapPowerLimit"><br>
 
@@ -281,7 +294,6 @@
 
             <label for="mapPowerLimitFeedbackTimeConstant">Power Limit Feedback Time Constant</label>
             <input type="number" id="mapPowerLimitFeedbackTimeConstant" name="mapPowerLimitFeedbackTimeConstant"><br>
-
         </div>
         <script>
             createGraph(document.getElementById("mapCanvas1"), document.getElementById("map1"), "Pedal To Torque Request", "mapPedalToTorqueRequest")
@@ -290,157 +302,130 @@
             createGraph(document.getElementById("mapCanvas4"), document.getElementById("map4"), "Derate Battery Temp", "mapDerateBatteryTemp")
             createGraph(document.getElementById("mapCanvas5"), document.getElementById("map5"), "Derate Battery Soc", "mapDerateBatterySoc")
         </script>
-
-
     </div>
 
-    <div class="flex-container" style="flex-direction: column; padding-top: 0%;" id="#PRNDL">
+    <div class="flex-container" style="flex-direction: column; padding-top: 0;" id="#PRNDL">
         <div class="col-md-7" style="display: inline-block;">
             <label for="prndlBrakeToStartThreshold">Brake To Start Threshold</label>
             <input type="number" id="prndlBrakeToStartThreshold" name="prndlBrakeToStartThreshold"><br>
 
-            <label for="prndlBuzzerDuration ">Buzzer Duration</label>
-            <input type="number" id="prndlBuzzerDuration " name="prndlBuzzerDuration"><br>
+            <label for="prndlBuzzerDuration">Buzzer Duration</label>
+            <input type="number" id="prndlBuzzerDuration" name="prndlBuzzerDuration"><br>
 
             <label for="prndlSwitchDebounceDuration">Switch Debounce Duration</label>
             <input type="number" id="prndlSwitchDebounceDuration" name="prndlSwitchDebounceDuration"><br>
         </div>
     </div>
 
-    <div class="flex-container" style="flex-direction: column; padding-top: 0%;" id="#TRACTION_CONTROL">
+    <div class="flex-container" style="flex-direction: column; padding-top: 0;" id="#TRACTION_CONTROL">
         <div class="col-md-7" style="display: inline-block;">
             <label for="tcsEnabled">Traction Control</label>
             <input type="checkbox" id="tcsEnabled" value="">
 
             <label for="tcsVelocityLowPassFilterTimeConstant">Velocity Low Pass Filter Time Constant</label>
-            <input type="number" id="tcsVelocityLowPassFilterTimeConstant"
-                name="tcsVelocityLowPassFilterTimeConstant"><br>
+            <input type="number" id="tcsVelocityLowPassFilterTimeConstant" name="tcsVelocityLowPassFilterTimeConstant"><br>
 
             <label for="tcsFeedbackLowPassFilterTimeConstant">Feedback Low Pass Filter Time Constant</label>
-            <input type="number" id="tcsFeedbackLowPassFilterTimeConstant"
-                name="tcsFeedbackLowPassFilterTimeConstant"><br>
+            <input type="number" id="tcsFeedbackLowPassFilterTimeConstant" name="tcsFeedbackLowPassFilterTimeConstant"><br>
         </div>
     </div>
 
     <div class="flex-container" id="#STEERING">
-        <div class="col-md-5" id="">
+        <div class="col-md-5">
             <canvas id="steeringCanvas1" class="canvas"></canvas>
         </div>
         <div id="steering1" style="font-size: .75em;"></div>
 
-        <div class="col-md-5" id="">
+        <div class="col-md-5">
             <canvas id="steeringCanvas2" class="canvas"></canvas>
         </div>
         <div id="steering2" style="font-size: .75em;"></div>
 
-
-        <div class="col-md-5" id="">
+        <div class="col-md-5">
             <label for="steeringPotMaxVoltage">Pot Max Voltage</label>
             <input type="number" id="steeringPotMaxVoltage" name="steeringPotMaxVoltage"><br>
 
             <label for="steeringWheelMaxAngle">Wheel Max Angle</label>
             <input type="number" id="steeringWheelMaxAngle" name="steeringWheelMaxAngle"><br>
-
         </div>
         <script>
-            createGraph(document.getElementById("steeringCanvas1"), document.getElementById("steering1"), "Wheel To Outer Wheel",)
+            createGraph(document.getElementById("steeringCanvas1"), document.getElementById("steering1"), "Wheel To Outer Wheel")
             createGraph(document.getElementById("steeringCanvas2"), document.getElementById("steering2"), "Wheel To Inner Wheel")
         </script>
-
-
-
     </div>
 </div>
 
 <script>
-    appear("#APPS")
+    // Set the default visible section
+    appear("#APPS");
 
     var currentPage = "#APPS";
 
     function appear(elem) {
-        currentPage = elem
-
-        document.getElementById("#APPS").style.display = "none"
-        document.getElementById("#BSE").style.display = "none"
-        document.getElementById("#STOMPP").style.display = "none"
-        document.getElementById("#TORQUE_MAP").style.display = "none"
-        document.getElementById("#PRNDL").style.display = "none"
-        document.getElementById("#TRACTION_CONTROL").style.display = "none"
-        document.getElementById("#STEERING").style.display = "none"
-
-        document.getElementById(elem).style.display = "flex"
+        currentPage = elem;
+        document.getElementById("#APPS").style.display = "none";
+        document.getElementById("#BSE").style.display = "none";
+        document.getElementById("#STOMPP").style.display = "none";
+        document.getElementById("#TORQUE_MAP").style.display = "none";
+        document.getElementById("#PRNDL").style.display = "none";
+        document.getElementById("#TRACTION_CONTROL").style.display = "none";
+        document.getElementById("#STEERING").style.display = "none";
+        document.getElementById(elem).style.display = "flex";
     }
 
     function savePage(p) {
         if (p === 'curr') {
-            p = currentPage
+            p = currentPage;
         }
-        
-        let page = document.getElementById(p).innerHTML
+        let page = document.getElementById(p).innerHTML;
         let v = [];
-
-
-        let payload = {
-            "category": p
-        }
-
+        let payload = { "category": p };
         let re = /input.type=\"+\w+".id="+\w+/g;
-        let l = page.match(re)
-
+        let l = page.match(re);
         for (let i = 0; i < l.length; ++i) {
             if (l[i].includes("number")) {
-                l[i] = l[i].substr(l[i].indexOf("id=\"") + 4)
-                v[i] = document.getElementById(l[i]).value
-
+                l[i] = l[i].substr(l[i].indexOf("id=\"") + 4);
+                v[i] = document.getElementById(l[i]).value;
             } else if (l[i].includes("checkbox")) {
-                console.log("check");
-                l[i] = l[i].substr(l[i].indexOf("id=\"") + 4)
-                v[i] = document.getElementById(l[i]).checked
+                l[i] = l[i].substr(l[i].indexOf("id=\"") + 4);
+                v[i] = document.getElementById(l[i]).checked;
             }
-            payload[l[i]] = v[i]
+            payload[l[i]] = v[i];
         }
-
         re = /table.\w+.........\w+/g;
-        l = page.match(re)
+        l = page.match(re);
         if(l != null){
-        let table = null
-        for (let k = 0; k < l.length; ++k) {
-            l[k] = l[k].substr(l[k].indexOf("id=\"") + 4)
-            table = document.getElementById(l[k])
-
-            let data = [];
-            for (let i = 1; i < table.rows.length; i++) {
-                let tableRow = table.rows[i];
-                let rowData = [];
-                for (let j = 0; j < tableRow.cells.length; j++) {
-                    rowData.push(tableRow.cells[j].innerHTML);
+            let table = null;
+            for (let k = 0; k < l.length; ++k) {
+                l[k] = l[k].substr(l[k].indexOf("id=\"") + 4);
+                table = document.getElementById(l[k]);
+                let data = [];
+                for (let i = 1; i < table.rows.length; i++) {
+                    let tableRow = table.rows[i];
+                    let rowData = [];
+                    for (let j = 0; j < tableRow.cells.length; j++) {
+                        rowData.push(tableRow.cells[j].innerHTML);
+                    }
+                    data.push(rowData);
                 }
-                data.push(rowData);
+                payload[l[k]] = data;
             }
-            payload[l[k]] = data
         }
-    }
-
         let xhr = new XMLHttpRequest();
         xhr.open('POST', 'https://telemetry.servebeer.com:5000/tune_data');
-        xhr.setRequestHeader("Content-Type", "application/json; charset=UTF-8")
+        xhr.setRequestHeader("Content-Type", "application/json; charset=UTF-8");
         xhr.send(JSON.stringify(payload));
-
     }
 
     function saveAll() {
-        savePage("#APPS")
-        savePage("#BSE")
-        savePage("#STOMPP")
-        savePage("#TORQUE_MAP")
-        savePage("#PRNDL")
-        savePage("#TRACTION_CONTROL")
-        savePage("#STEERING")
-
+        savePage("#APPS");
+        savePage("#BSE");
+        savePage("#STOMPP");
+        savePage("#TORQUE_MAP");
+        savePage("#PRNDL");
+        savePage("#TRACTION_CONTROL");
+        savePage("#STEERING");
     }
-
-
 </script>
-
 
 {% endblock %}

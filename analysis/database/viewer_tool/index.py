@@ -323,10 +323,10 @@ def splash():
     current_date = datetime.today().strftime("%B %d, %Y")  # Example: "March 9, 2025"
     return render_template('splash.html', current_date=current_date)
 
-@app.route('/lifelikevisuals')
+@app.route('/dashboards')
 @login_required
-def lifelikevisuals():
-    return "<h1>Lifelike Visualizations Page - Coming Soon</h1>"
+def dashboards():
+    return redirect('https://lhrelectric.org/grafana')
 
 @app.route('/logout')
 @login_required
