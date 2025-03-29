@@ -15,6 +15,7 @@ function encodeValues(timerStatus, updateTimerTime, updateIntTime, turnStatus, a
         "turnStamp" : (turnStatus != null) ? watch.getTime() : config_image.turnStamp,
         "accelRunning" : (accelStatus != null) ? accelStatus : config_image.accelRunning,
         "accelStamp" : (accelStatus != null) ? watch.getTime() : config_image.accelStamp,
+        "laps": (config_image && config_image.hasOwnProperty("laps")) ? config_image.laps : [],
         "endFlag" : endFlag,
         "tables" : (config_image && config_image.tables) ? config_image.tables : makeEmptyTable()
     }
@@ -25,6 +26,7 @@ function encodeValues(timerStatus, updateTimerTime, updateIntTime, turnStatus, a
 
     if (publishData) {
         //Publish changes to MQTT state topic
+
         let message = new Paho.MQTT.Message(JSON.stringify(jsonData))
         message.destinationName = "config/event_sync"
         client.send(message)
@@ -37,7 +39,7 @@ function encodeValues(timerStatus, updateTimerTime, updateIntTime, turnStatus, a
             turnNotes: [],
             accelStarts: [],
             accelStops: [],
-            accelNotes: []
+            accelNotes: [],
         }
     }
 }

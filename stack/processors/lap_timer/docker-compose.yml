@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: telemetry_processors
+    image: lap_timer
     container_name: lap_timer_processor
     restart: unless-stopped
     environment:
@@ -14,6 +14,7 @@ services:
       - ../../ingest/mqtt_handler.py:/lap_timer/mqtt_handler.py
       - ../../../analysis/sql_utils/db_handler.py:/lap_timer/db_handler.py
       - ../../../analysis/sql_utils/DB_description.pkl:/DB_description.pkl
+      - ../../../net_configs.json:/net_configs.json
     networks:
       - telemetry_network
 

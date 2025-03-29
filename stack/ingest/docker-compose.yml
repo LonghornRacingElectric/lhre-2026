@@ -31,6 +31,7 @@ services:
     volumes:
       - ../../analysis/sql_utils/db_handler.py:/ingest/db_handler.py
       - ../../analysis/sql_utils/DB_description.pkl:/DB_description.pkl
+      - ../../net_configs.json:/net_configs.json
     networks:
       - telemetry_network
 
@@ -58,7 +59,7 @@ services:
     container_name: grafana
     restart: unless-stopped
     environment:
-      GF_DASHBOARDS_MIN_REFRESH_INTERVAL: '100ms'     # Sets min refresh rate of grafana dashboard
+      GF_DASHBOARDS_MIN_REFRESH_INTERVAL: '250ms'     # Sets min refresh rate of grafana dashboard
     volumes:
       - grafana_storage:/var/lib/grafana
     networks:
