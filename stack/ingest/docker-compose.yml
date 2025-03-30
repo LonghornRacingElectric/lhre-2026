@@ -32,6 +32,7 @@ services:
       - ../../analysis/sql_utils/db_handler.py:/ingest/db_handler.py
       - ../../analysis/sql_utils/DB_description.pkl:/DB_description.pkl
       - ../../net_configs.json:/net_configs.json
+      - ../../net_configs_dev.json:/net_configs_dev.json
     networks:
       - telemetry_network
 

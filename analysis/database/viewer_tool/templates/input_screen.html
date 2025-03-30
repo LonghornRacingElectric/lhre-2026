@@ -124,37 +124,6 @@
             if (sidebar.style.left === "0px") {
                 sidebar.style.left = "-250px";
                 overlay.style.display = "none";
-    //MQTT handling and function mapping
-    let myName = uuidv4();
-    client = new Paho.MQTT.Client('{{ host_ip }}', 8080, myName); //TODO replace with production destination
-    console.log("ClientName: " + myName)
-
-
-    //Set callback functions
-    client.onConnectionLost = onConnectionLost;
-    client.onMessageArrived = onMessageArrived;
-    //Connect and define connection
-    client.connect({onSuccess:onConnect});
-    //Connect callback
-    function onConnect() {
-        //Once connected, subscribe
-        console.log("Status: CONNECTED"); //TODO remove, testing only
-        client.subscribe("config/page_sync")
-    }
-    //New message callback
-    function onMessageArrived(message) {
-        //Ensure page is correct by pinging with the current page
-        fetch('/verify_page/' + "new_event_page", { //TODO consider adding + '/',
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ action: 'redirect' })
-        })
-        .then(response => {
-            if (response.redirected) {
-                window.location.href = response.url
-                console.log("Reset Status OK");
             } else {
                 sidebar.style.left = "0px";
                 overlay.style.display = "block";
@@ -165,6 +134,52 @@
             document.getElementById("sidebar").style.left = "-250px";
             document.getElementById("overlay").style.display = "none";
         }
+
+        //MQTT handling and function mapping
+        let myName = uuidv4();
+        client = new Paho.MQTT.Client('{{ host_ip }}', 8080, myName); //TODO replace with production destination
+        console.log("ClientName: " + myName)
+
+
+        //Set callback functions
+        client.onConnectionLost = onConnectionLost;
+        client.onMessageArrived = onMessageArrived;
+        //Connect and define connection
+        client.connect({onSuccess:onConnect});
+        //Connect callback
+        function onConnect() {
+            //Once connected, subscribe
+            console.log("Status: CONNECTED"); //TODO remove, testing only
+            client.subscribe("config/page_sync")
+        }
+        //New message callback
+        function onMessageArrived(message) {
+            //Ensure page is correct by pinging with the current page
+            fetch('/verify_page/' + "new_event_page", { //TODO consider adding + '/',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({action: 'redirect'})
+            })
+                .then(response => {
+                    if (response.redirected) {
+                        window.location.href = response.url;
+                        console.log("Reset Status OK");
+                    } else {
+                        console.error("Page verified. No reset deemed necessary.", response.statusText);
+                    }
+                })
+                .catch(error => {
+                    console.error("Error during fetch: ", error);
+                });
+            }
+            function onConnectionLost() {
+                console.log("Status: CONNECTION LOST");
+            }
+            function onDisconnect() {
+                console.log("Status: DISCONNECTED");
+            }
     </script>
 {% endblock %}
 
@@ -305,44 +320,5 @@
                 <input type="submit" value="Submit"><br>
             </form>
         </div>
-        <script>
-            // MQTT handling and function mapping
-            let myName = uuidv4();
-            client = new Paho.MQTT.Client("localhost", 8080, myName); //TODO replace with production destination
-            console.log("ClientName: " + myName);
-            client.onConnectionLost = onConnectionLost;
-            client.onMessageArrived = onMessageArrived;
-            client.connect({onSuccess:onConnect});
-            function onConnect() {
-                console.log("Status: CONNECTED");
-                client.subscribe("config/page_sync");
-            }
-            function onMessageArrived(message) {
-                fetch('/verify_page/' + "new_event_page", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ action: 'redirect' })
-                })
-                .then(response => {
-                    if (response.redirected) {
-                        window.location.href = response.url;
-                        console.log("Reset Status OK");
-                    } else {
-                        console.error("Page verified. No reset deemed necessary.", response.statusText);
-                    }
-                })
-                .catch(error => {
-                    console.error("Error during fetch: ", error);
-                });
-            }
-            function onConnectionLost() {
-                console.log("Status: CONNECTION LOST");
-            }
-            function onDisconnect() {
-                console.log("Status: DISCONNECTED");
-            }
-        </script>
     </div>
 {% endblock %}
