@@ -33,7 +33,7 @@ os.environ["page_details"] = ""
 try:
     os.environ["date_id"] = str(DBHandler.simple_select('SELECT date FROM drive_day ORDER BY day_id DESC LIMIT 1')[0][0])
 except IndexError:
-    os.environ["date_id"] = "2025-02-16"
+    os.environ["date_id"] = datetime.today().strftime("%Y-%m-%d")
 
 def config_subscribe(client, userdata, msg):
     if msg.topic == 'config/event_sync':
@@ -278,7 +278,7 @@ def make_app():
                 logging.debug("NOTIF (Debug) Server Day-ID stores: " + os.getenv("day_id") + " and is about to hand off redirect.");
                 return redirect(url_for('new_event', day_id=os.getenv("day_id"), method='new')) #temporary routing
             elif storedPage == "running_event_page":
-                return redirect("/webtool/" + url_for('create_event'))
+                return redirect("/webtool" + url_for('create_event'))
             elif storedPage == "index_page":
                 return redirect(url_for('index'))
 
