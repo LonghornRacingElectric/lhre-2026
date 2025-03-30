@@ -192,7 +192,7 @@
 
     //MQTT handling and function mapping
     let myName = uuidv4();
-    client = new Paho.MQTT.Client("localhost", 8080, myName); //TODO replace with production destination
+    client = new Paho.MQTT.Client('{{ host_ip }}', 8080, myName);
     console.log("ClientName: " + myName)
 
     //Set callback functions
