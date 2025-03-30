@@ -23,8 +23,8 @@ from flask import Flask, render_template, url_for, request, redirect, jsonify
 from analysis.sql_utils.db_handler import DBHandler, DBTarget
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 
-app = Flask(__name__)
-app.secret_key = "some-super-secret-key" #TODO change for PROD
+#app = Flask(__name__)
+#app.secret_key = "some-super-secret-key" #TODO change for PROD
 config = {}
 active_users = {}
 os.environ["event_details"] = ""
@@ -34,37 +34,6 @@ try:
     os.environ["date_id"] = str(DBHandler.simple_select('SELECT date FROM drive_day ORDER BY day_id DESC LIMIT 1')[0][0])
 except IndexError:
     os.environ["date_id"] = "2025-02-16"
-
-#Create login manager, redirect to login page if login fails
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'login'
-USER_DB_PATH = "users.db"
-
-class User(UserMixin):
-    def __init__(self, id, username, password_hash):
-        self.id = id
-        self.username = username
-        self.password_hash = password_hash
-
-    def __repr__(self):
-        return f"<User {self.username}>"
-
-@login_manager.user_loader
-def load_user(user_id):
-    """
-    Given a user_id, return the associated user object  from storage.
-    """
-    conn = sqlite3.connect(USER_DB_PATH)
-    c = conn.cursor()
-    c.execute('SELECT id, username, password_hash FROM users WHERE id = ?', (user_id,))
-    row = c.fetchone()
-    conn.close()
-
-    if row:
-        # row = (id, username, password_hash)
-        return User(*row)
-    return None
 
 def config_subscribe(client, userdata, msg):
     if msg.topic == 'config/event_sync':
@@ -124,8 +93,41 @@ def start_background_tasks():
 def make_app():
     app = Flask(__name__)
 
+    app.secret_key = "some-super-secret-key"  # TODO change for PROD
     app.config['PREFERRED_URL_SCHEME'] = 'https'
     app.config['APPLICATION_ROOT'] = '/webtool'
+    app.config['SESSION_COOKIE_PATH'] = '/webtool'
+
+    # Create login manager, redirect to login page if login fails
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+    login_manager.login_view = 'login'
+    USER_DB_PATH = "users.db"
+
+    class User(UserMixin):
+        def __init__(self, id, username, password_hash):
+            self.id = id
+            self.username = username
+            self.password_hash = password_hash
+
+        def __repr__(self):
+            return f"<User {self.username}>"
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        """
+        Given a user_id, return the associated user object  from storage.
+        """
+        conn = sqlite3.connect(USER_DB_PATH)
+        c = conn.cursor()
+        c.execute('SELECT id, username, password_hash FROM users WHERE id = ?', (user_id,))
+        row = c.fetchone()
+        conn.close()
+
+        if row:
+            # row = (id, username, password_hash)
+            return User(*row)
+        return None
 
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
@@ -193,7 +195,7 @@ def make_app():
         return render_template('input_screen.html', host_ip=DBTarget.resolve_target(DBTarget.get()), day_id=request.form.get('day_id', request.args['day_id']))
 
 
-    @app.route('/create_event/', methods=['POST', 'GET'])
+    @app.route('/create_event/', methods=['GET', 'POST'])
     @login_required
     def create_event():
         current_date = datetime.today().strftime("%B %d, %Y")
@@ -276,7 +278,7 @@ def make_app():
                 logging.debug("NOTIF (Debug) Server Day-ID stores: " + os.getenv("day_id") + " and is about to hand off redirect.");
                 return redirect(url_for('new_event', day_id=os.getenv("day_id"), method='new')) #temporary routing
             elif storedPage == "running_event_page":
-                return redirect(url_for('create_event'))
+                return redirect("/webtool/" + url_for('create_event'))
             elif storedPage == "index_page":
                 return redirect(url_for('index'))
 
@@ -336,8 +338,6 @@ def make_app():
             os.environ['event_details'] = json.dumps(json_obj)
             notify_listeners()
         return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
-
-    start_background_tasks()
 
     @app.route('/login', methods=['GET', 'POST'])
     def login():
@@ -410,6 +410,7 @@ def make_app():
         count = count_active_users(timeout=15)
         return jsonify({"active_users": count})
 
+    start_background_tasks()
     return app
 
 def notify_listeners():
