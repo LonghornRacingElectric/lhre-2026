@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import sys
-import threading
 import time
 from pathlib import Path
 from tqdm import tqdm
@@ -18,7 +17,7 @@ from analysis.sql_utils.db_handler import DBHandler, DBTarget
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 
 app = Flask(__name__)
-app.secret_key = "some-super-secret-key"
+app.secret_key = "some-super-secret-key" #TODO change for PROD
 config = {}
 active_users = {}
 os.environ["event_details"] = ""
@@ -61,7 +60,6 @@ def load_user(user_id):
     return None
 
 def config_subscribe(client, userdata, msg):
-    
     if msg.topic == 'config/event_sync':
         #Convert msg to json object
         msg = json.loads(msg.payload.decode())
@@ -95,9 +93,7 @@ def config_subscribe(client, userdata, msg):
             os.environ['event_details'] = json.dumps(json_obj)
         except Exception as e:
             os.environ['event_details'] = json.dumps(msg)
-        
         notify_listeners()
-        
 
     elif msg.topic == 'config/page_sync':
         # Convert msg to json object
@@ -195,6 +191,7 @@ def create_event():
     with MQTTHandler('flask_app') as mqtt:
         mqtt.publish('config/flask', json.dumps({'event_id': event_id}, indent=4))
     return render_template('event_tracker.html', current_date=current_date, host_ip=DBTarget.resolve_target(DBTarget.get()), event_id=os.getenv("event_id"), config_image = os.getenv("event_details"))
+
 
 @app.route('/set_event_time/', methods=['POST'])
 @login_required
@@ -295,7 +292,7 @@ def create_gates():
 @app.route('/new_lap/', methods=['POST'])
 @login_required
 def add_new_lap():
-    json_obj = json.loads(os.environ["event_details"])  
+    json_obj = json.loads(os.environ["event_details"])
     print("JSON OBJ", json_obj)
     data = request.form.to_dict()
     if 'time' in data:
@@ -303,10 +300,10 @@ def add_new_lap():
         if 'laps' not in json_obj:
             print("LAPS IN JSON")
             json_obj['laps'] = []
-            
+
         time_to_append = int(data['time']) - (json_obj['timerEventTime'])
         if len(json_obj['laps']) > 0: time_to_append -= json_obj['laps'][-1]
-            
+
         json_obj['laps'].append(time_to_append)
         print("LAPS: ", json_obj['laps'])
         os.environ['event_details'] = json.dumps(json_obj)
@@ -400,7 +397,6 @@ if __name__ == '__main__':
     with MQTTHandler('test', target=MQTTTarget.getHandler(), on_message=config_subscribe) as mqtt:
         mqtt.client.subscribe('config/+') #TODO remove '+' if not necessary
         mqtt.client.loop_start()
-        print("HERE")
 
         if os.getenv('IN_DOCKER'):
             app.run(host='0.0.0.0', ssl_context=('./ssl/fullchain.pem', './ssl/privkey.pem'))

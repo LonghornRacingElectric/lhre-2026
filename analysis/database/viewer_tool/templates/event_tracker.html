@@ -6,7 +6,6 @@
     <script src="{{ url_for('static', filename='js/stopWatch.js') }}"></script>
     <script src="{{ url_for('static', filename='js/decoder.js') }}"></script>
     <script src="{{ url_for('static', filename='js/encoder.js') }}"></script>
-    <script src="https://cdn.jsdelivr.net/npm/uuid@8.3.2/dist/umd/uuidv4.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/uuid@8.3.2/dist/umd/uuidv4.min.js"></script>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
@@ -277,10 +276,11 @@
         <!-- JavaScript for Timer, MQTT, and Other Functionality -->
         <script>
             let clock = document.getElementById('timer');
-            // The variable "tab" is not used in this revised layout
-            // Tables update event listeners remain unchanged
-            let accelTable = document.getElementById('accel-table');
+            let tab = document.getElementById('data-table');
+
+            let accelTable = document.getElementById('accel-table')
             accelTable.addEventListener('input', function(event) {
+                //Update config image with the new note contents
                 for (let i = 0; i < config_image.tables.accelStops.length; i++) {
                     config_image.tables.accelNotes[i] = accelTable.rows[i+1].cells[3].innerText;
                 }
@@ -288,11 +288,13 @@
             });
             let turnTable = document.getElementById('turn-table');
             turnTable.addEventListener('input', function(event) {
+                //Update config image with the new note contents
                 for (let i = 0; i < config_image.tables.turnStops.length; i++) {
                     config_image.tables.turnNotes[i] = turnTable.rows[i+1].cells[3].innerText;
                 }
-                encodeValues(null, false, false, null, null, true);
-            });
+                //Publish when finished
+                encodeValues(null, false, false, null, null, true)
+            })
 
             // Initialize buttons and state
             let startButton = document.getElementById('startButton');
