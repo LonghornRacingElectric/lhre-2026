@@ -127,6 +127,18 @@
                 font-size: 0.9em;
             }
         }
+        #active-users-box {
+            position: fixed;
+            top: 60px; /* directly under the banner (which is 50px high plus some spacing) */
+            left: 10px; /* adjust as needed for padding from the left edge */
+            padding: 5px 10px;
+            border: 2px solid red;
+            border-radius: 10px;
+            font-size: 0.8em; /* smaller text */
+            color: red;
+            background-color: rgba(255, 255, 255, 0.8);
+            z-index: 1001;
+            }
     </style>
     <script>
         function updateTime() {
@@ -169,6 +181,9 @@
             <span id="current-date">{{ current_date }}</span>
             <span id="current-time"></span>
         </div>
+    </div>
+    <div id="active-users-box">
+        Active: <span id="active-user-count">0</span>
     </div>
     <div id="sidebar" class="sidebar">
         <a href="{{ url_for('splash') }}">Home</a>
@@ -313,6 +328,39 @@
                 client.send(message);
                 client.subscribe("config/page_sync");
                 encodeValues(null, null, null, null, null, true);
+                //Heartbeat publishing
+                setInterval(() => {
+                    pub_heartbeat()
+                }, 30000);
+                setInterval(updateActiveUserCount, 5000);
+                pub_heartbeat()
+                updateActiveUserCount();
+            }
+            function pub_heartbeat() {
+                const message = new Paho.MQTT.Message(JSON.stringify({
+                  user_id: myName,
+                  timestamp: Date.now()
+                }));
+                message.destinationName = "tracking/heartbeat";
+                client.send(message);
+                console.log("Heartbeat Published");
+            }
+
+            function updateActiveUserCount() {
+                fetch('/active_users')
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('active-user-count').textContent = data.active_users;
+                        let box = document.getElementById('active-users-box');
+                        if (data.active_users > 1) {
+                            box.style.borderColor = 'green';
+                            box.style.color = 'green';
+                        } else {
+                            box.style.borderColor = 'red';
+                            box.style.color = 'red';
+                        }
+                    })
+                    .catch(err => console.error('Error fetching active user count:', err));
             }
             function onMessageArrived(message) {
                 if(message.destinationName === "config/page_sync") {

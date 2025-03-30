@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import sys
+import threading
 import time
 from pathlib import Path
 from tqdm import tqdm
@@ -11,7 +12,7 @@ import sqlite3
 from flask_bcrypt import check_password_hash, generate_password_hash
 
 sys.path.append(str(Path(__file__).parents[3]))
-from flask import Flask, render_template, url_for, request, redirect
+from flask import Flask, render_template, url_for, request, redirect, jsonify
 
 from analysis.sql_utils.db_handler import DBHandler, DBTarget
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
@@ -19,6 +20,7 @@ from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 app = Flask(__name__)
 app.secret_key = "some-super-secret-key"
 config = {}
+active_users = {}
 os.environ["event_details"] = ""
 os.environ["event_id"] = "-1"
 os.environ["page_details"] = ""
@@ -357,9 +359,33 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
+@app.route('/active_users', methods=['GET'])
+@login_required
+def active_users_count():
+    count = count_active_users(timeout=30)
+    return jsonify({"active_users": count})
+
 def notify_listeners():
     with MQTTHandler('flask_app') as mqtt:
         mqtt.publish('config/event_sync', os.environ['event_details'])
+
+def mqtt_heartbeat_handler(client, userdata, msg):
+    if msg.topic == "tracking/heartbeat":
+        try:
+            payload = json.loads(msg.payload.decode())
+            user_id = payload.get('user_id')
+            # Update active heartbeat for the user
+            active_users[user_id] = time.time()
+            logging.debug(f"Heartbeat received from user {user_id}")
+        except Exception as e:
+            logging.error("Error processing heartbeat: " + str(e))
+    logging.debug("Post-Call: " + str(count_active_users()) + " active users.")
+
+def count_active_users(timeout=30):
+    """Return the number of users with a heartbeat in the last `timeout` seconds."""
+    current_time = time.time()
+    # Count only those users whose heartbeat is within the timeout window.
+    return sum(1 for last_seen in active_users.values() if current_time - last_seen <= timeout)
 
 if __name__ == '__main__':
     logging.debug("MAIN START. Today is: " + os.getenv("date_id"))
@@ -368,6 +394,14 @@ if __name__ == '__main__':
         mqtt.client.subscribe('config/+') #TODO remove '+' if not necessary
         mqtt.client.loop_start()
         print("HERE")
+
+
+        # Start the heartbeat MQTT client in a separate thread
+        def start_heartbeat_mqtt():
+            with MQTTHandler('hb_handler', on_message=mqtt_heartbeat_handler) as mqtt_hb:
+                mqtt_hb.client.subscribe("tracking/heartbeat")
+                mqtt_hb.client.loop_forever()
+        threading.Thread(target=start_heartbeat_mqtt, daemon=True).start()
 
         if os.getenv('IN_DOCKER'):
             app.run(host='0.0.0.0', ssl_context=('./ssl/fullchain.pem', './ssl/privkey.pem'))
