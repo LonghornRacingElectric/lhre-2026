@@ -24,8 +24,11 @@ active_users = {}
 os.environ["event_details"] = ""
 os.environ["event_id"] = "-1"
 os.environ["page_details"] = ""
-#os.environ["date_id"] = DBHandler.simple_select('SELECT date FROM drive_day ORDER BY day_id DESC LIMIT 1')[0][0]
-os.environ["date_id"] = "2025-02-16" #TODO revert to above for deployment. Testing only
+try:
+    os.environ["date_id"] = str(DBHandler.simple_select('SELECT date FROM drive_day ORDER BY day_id DESC LIMIT 1')[0][0])
+except IndexError:
+    os.environ["date_id"] = "2025-02-16"
+
 #Create login manager, redirect to login page if login fails
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -359,33 +362,37 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-@app.route('/active_users', methods=['GET'])
+
+@app.route('/active_users', methods=['GET', 'POST'])
 @login_required
-def active_users_count():
-    count = count_active_users(timeout=30)
+def update_active_users():
+    if request.method == 'POST':
+        try:
+            # Retrieve the JSON payload sent by the client.
+            payload = request.get_json()  # Assumes the client sends Content-Type: application/json
+            user_id = payload.get('user_id')
+
+            # Update active heartbeat for the user
+            active_users[user_id] = time.time()
+            logging.debug(f"Heartbeat received from user {user_id}")
+
+            return jsonify({"success": True}), 200
+        except Exception as e:
+            logging.error("Error processing heartbeat: " + str(e))
+            return jsonify({"error": str(e)}), 400
+    # For GET requests, return the count of active users.
+    count = count_active_users(timeout=15)
     return jsonify({"active_users": count})
 
 def notify_listeners():
     with MQTTHandler('flask_app') as mqtt:
         mqtt.publish('config/event_sync', os.environ['event_details'])
 
-def mqtt_heartbeat_handler(client, userdata, msg):
-    if msg.topic == "tracking/heartbeat":
-        try:
-            payload = json.loads(msg.payload.decode())
-            user_id = payload.get('user_id')
-            # Update active heartbeat for the user
-            active_users[user_id] = time.time()
-            logging.debug(f"Heartbeat received from user {user_id}")
-        except Exception as e:
-            logging.error("Error processing heartbeat: " + str(e))
-    logging.debug("Post-Call: " + str(count_active_users()) + " active users.")
-
-def count_active_users(timeout=30):
+def count_active_users(timeout=15):
     """Return the number of users with a heartbeat in the last `timeout` seconds."""
     current_time = time.time()
     # Count only those users whose heartbeat is within the timeout window.
-    return sum(1 for last_seen in active_users.values() if current_time - last_seen <= timeout)
+    return len(list(filter(lambda last_seen: current_time - last_seen <= timeout, active_users.values())))
 
 if __name__ == '__main__':
     logging.debug("MAIN START. Today is: " + os.getenv("date_id"))
@@ -394,14 +401,6 @@ if __name__ == '__main__':
         mqtt.client.subscribe('config/+') #TODO remove '+' if not necessary
         mqtt.client.loop_start()
         print("HERE")
-
-
-        # Start the heartbeat MQTT client in a separate thread
-        def start_heartbeat_mqtt():
-            with MQTTHandler('hb_handler', on_message=mqtt_heartbeat_handler) as mqtt_hb:
-                mqtt_hb.client.subscribe("tracking/heartbeat")
-                mqtt_hb.client.loop_forever()
-        threading.Thread(target=start_heartbeat_mqtt, daemon=True).start()
 
         if os.getenv('IN_DOCKER'):
             app.run(host='0.0.0.0', ssl_context=('./ssl/fullchain.pem', './ssl/privkey.pem'))

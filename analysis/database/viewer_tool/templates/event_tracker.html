@@ -328,39 +328,52 @@
                 client.send(message);
                 client.subscribe("config/page_sync");
                 encodeValues(null, null, null, null, null, true);
-                //Heartbeat publishing
-                setInterval(() => {
-                    pub_heartbeat()
-                }, 30000);
-                setInterval(updateActiveUserCount, 5000);
-                pub_heartbeat()
-                updateActiveUserCount();
-            }
-            function pub_heartbeat() {
-                const message = new Paho.MQTT.Message(JSON.stringify({
-                  user_id: myName,
-                  timestamp: Date.now()
-                }));
-                message.destinationName = "tracking/heartbeat";
-                client.send(message);
-                console.log("Heartbeat Published");
             }
 
-            function updateActiveUserCount() {
-                fetch('/active_users')
-                    .then(response => response.json())
-                    .then(data => {
-                        document.getElementById('active-user-count').textContent = data.active_users;
-                        let box = document.getElementById('active-users-box');
-                        if (data.active_users > 1) {
-                            box.style.borderColor = 'green';
-                            box.style.color = 'green';
-                        } else {
-                            box.style.borderColor = 'red';
-                            box.style.color = 'red';
-                        }
-                    })
-                    .catch(err => console.error('Error fetching active user count:', err));
+            setInterval(heartbeat, 5000);
+
+            function heartbeat() {
+            // First, send the heartbeat with the user info
+            fetch('/active_users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    user_id: myName,        // Ensure myName is defined in your scope
+                    timestamp: Date.now()
+                })
+            })
+            .then(postResponse => {
+                if (!postResponse.ok) {
+                    throw new Error('Heartbeat POST failed');
+                }
+                return postResponse.json();
+            })
+            .then(postData => {
+                console.log('Heartbeat sent successfully:', postData);
+                // Now fetch the active user count
+                return fetch('/active_users');
+            })
+            .then(getResponse => {
+                if (!getResponse.ok) {
+                    throw new Error('Failed to fetch active user count');
+                }
+                return getResponse.json();
+            })
+            .then(getData => {
+                // Update the UI with the active user count
+                document.getElementById('active-user-count').textContent = getData.active_users;
+                let box = document.getElementById('active-users-box');
+                if (getData.active_users > 1) {
+                    box.style.borderColor = 'green';
+                    box.style.color = 'green';
+                } else {
+                    box.style.borderColor = 'red';
+                    box.style.color = 'red';
+                }
+            })
+            .catch(err => console.error('Error in heartbeat or count update:', err));
             }
             function onMessageArrived(message) {
                 if(message.destinationName === "config/page_sync") {
