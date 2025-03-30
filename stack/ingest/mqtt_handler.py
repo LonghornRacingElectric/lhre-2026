@@ -11,10 +11,10 @@ import json
 from pathlib import Path
 
 if os.getenv('IN_DOCKER'):
-    with open("/net_configs_dev.json", "r") as file:
+    with open("/net_configs.json", "r") as file:
         global_target = json.load(file)
 else:
-    with open(os.path.join(Path(__file__).parents[2], "net_configs_dev.json"), "r") as file:
+    with open(os.path.join(Path(__file__).parents[2], "net_configs.json"), "r") as file:
         global_target = json.load(file)
 
 if os.getenv('IN_DOCKER'):
