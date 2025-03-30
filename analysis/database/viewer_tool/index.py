@@ -91,7 +91,7 @@ def start_background_tasks():
     threading.Thread(target=mqtt_loop, daemon=True).start()
 
 def make_app():
-    app = Flask(__name__)
+    app = Flask(__name__, static_url_path='/webtool/static')
 
     app.secret_key = "some-super-secret-key"  # TODO change for PROD
     app.config['PREFERRED_URL_SCHEME'] = 'https'
