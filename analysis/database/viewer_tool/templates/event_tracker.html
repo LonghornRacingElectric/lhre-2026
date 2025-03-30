@@ -296,10 +296,14 @@
                 encodeValues(null, false, false, null, null, true)
             })
 
-            // Initialize buttons and state
+            //Create a start button and set status to not running
             let startButton = document.getElementById('startButton');
             startButton.setAttribute("isRunning", false);
+
+            //Create a stop button and set status to not running
             let stopButton = document.getElementById('stopButton');
+
+            //Create turn, accel, and end event buttons
             let turnButton = document.getElementById('turnButton');
             let accelButton = document.getElementById('accelButton');
             let endButton = document.getElementById('endButton');
@@ -309,24 +313,29 @@
             let host_ip;
             let config_image = '{{ config_image | safe}}'.length > 0 ? '{{ config_image | safe}}' : undefined;
             if ('{{ host_ip }}'.indexOf('local') === -1) {
-                host_ip = 'https://{{ host_ip }}';
+                host_ip = 'https://{{ host_ip }}'
             } else {
-                host_ip = 'http://{{ host_ip }}';
+                host_ip = 'http://{{ host_ip }}'
             }
 
-            // MQTT Handling
+            //MQTT handling and function mapping
             console.log("HOST IP: {{ host_ip }}");
             let myName = uuidv4();
             client = new Paho.MQTT.Client('{{ host_ip }}', 8080, myName);
             console.log("ClientName: " + myName);
+            //Set callback functions
             client.onConnectionLost = onConnectionLost;
             client.onMessageArrived = onMessageArrived;
+            //Connect and define connection
             client.connect({onSuccess:onConnect});
+            //Connect callback
             function onConnect() {
-                console.log("Status: CONNECTED");
-                client.subscribe("config/event_sync");
-                let message = new Paho.MQTT.Message("running_event_page");
-                message.destinationName = "config/page_sync";
+                //Once connected, subscribe
+                console.log("Status: CONNECTED"); //TODO remove, testing only
+                client.subscribe("config/event_sync")
+                //Send message to page sync to ensure others on same page
+                let message = new Paho.MQTT.Message("running_event_page")
+                message.destinationName = "config/page_sync"
                 client.send(message);
                 client.subscribe("config/page_sync");
                 encodeValues(null, null, null, null, null, true);
@@ -378,51 +387,64 @@
             })
             .catch(err => console.error('Error in heartbeat or count update:', err));
             }
+            //New message callback
             function onMessageArrived(message) {
+                //Screen for page sync
                 if(message.destinationName === "config/page_sync") {
-                    console.log("Message from page_sync: " + message.payloadString);
+                    console.log("Message from page_sync: " + message.payloadString)
                 } else if (message.destinationName === "config/event_sync") {
-                    decodeValues(message.payloadString);
+                    decodeValues(message.payloadString)
                 } else {
-                    console.log("WARNING: Message Received with Unknown Destination");
+                    console.log("WARNING: Message Received with Unknown Destination")
                 }
             }
             function onConnectionLost() {
-                console.log("Status: CONNECTION LOST");
+                console.log("Status: CONNECTION LOST")
             }
             function onDisconnect() {
-                console.log("Status: DISCONNECTED");
+                console.log("Status: DISCONNECTED")
+                //TODO when client loses connection, redirect to new page? Display Warning? REVISIT
             }
 
-            // Button event listeners
+            //Change in start button state detected
             startButton.addEventListener('click', function() {
-                encodeValues(true, true, true, null, null, true);
-            });
+                //Make changes to outgoing image
+                encodeValues(true, true, true, null, null, true)
+            })
+
             stopButton.addEventListener('click', function() {
-                encodeValues(false, true, true, null, null, true);
-            });
+                //Make changes to outgoing image
+                encodeValues(false, true, true, null, null, true)
+            })
+
             turnButton.addEventListener('click', function() {
+                //Ensure the timer is running, otherwise do nothing
                 if (startButton.getAttribute("isRunning") === "true") {
-                    watch.turn();
-                    encodeValues(null, null, null, watch.isTurning(), null, true);
+                    watch.turn()
+                    encodeValues(null, null, null, watch.isTurning(), null, true)
                 }
-            });
+            })
+
             accelButton.addEventListener('click', function() {
+                //Ensure the timer is running, otherwise do nothing
                 if (startButton.getAttribute("isRunning") === "true") {
                     watch.accel();
-                    encodeValues(null, null, null, null, watch.isAccel(), true);
+                    encodeValues(null, null, null, null, watch.isAccel(), true)
                 }
-            });
+            })
+
             endButton.addEventListener('click', function() {
                 if (startButton.getAttribute("isRunning") === "false") {
-                    encodeValues(false, true, true, false, false, true, true);
+                    //Alert all clients (including self) of disconnection, suspension and redirection via mqtt flag
+                    encodeValues(false, true, true, false, false, true, true)
                 }
-            });
+            })
 
             // Initialize state and load previous data
             console.log("Initializing Local Variables");
             decodeValues(config_image);
-            loadPrevTables();
+            loadPrevTables()
+
         </script>
         <script src="{{ url_for('static', filename='js/locator.js') }}"></script>
     </div>
