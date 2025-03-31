@@ -123,7 +123,7 @@ class MQTTHandler:
             self._b64_ingest(msg.payload, freq)
         # Handle Normal Data Ingest
         elif (topic_split := msg.topic.split('/'))[0] == 'data':
-            if (topic_split[-1] in {'packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'}):
+            if (topic_split[-1] in {'packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'}):
                 self._data_ingest(msg.payload, topic_split[-1])
             else:
                 # Protobuf serialized string sent
@@ -183,12 +183,13 @@ class MQTTHandler:
             raise Exception("time/packet_id MISSING FROM PAYLOAD")
         db_desc = get_table_column_specs(handler=self.handler)
         avail_tables = list(message_dict.keys())[2:]
-        for table in ['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal']:
+        for table in ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal']:
             data = {col: message_dict[col] for col in db_desc[table] if col in message_dict} if table == "packet" else None
             if (data is None):
                 data = ({col: message_dict[table][col] for col in db_desc[table] if col in message_dict[table]}
                 | {"packet_id": message_dict["packet_id"]}) if table in avail_tables else None
-            logging.info(data)
+            # logging.info(data.keys())
+            # logging.info(len(data.keys()))
             if (data):
                 DBHandler.insert(table=table, target=os.getenv('SERVER_TARGET', DBTarget.LOCAL), user='electric', handler=self.handler, data=data)
 
@@ -206,7 +207,7 @@ class MQTTHandler:
         data_dict = self._base64_decode(payload, high_freq)
         data_dict = self.preprocess_payload(data_dict, high_freq)
         db_desc = get_table_column_specs(handler=self.handler)
-        for table in ['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal']:
+        for table in ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal']:
             data = {col: data_dict[col] for col in db_desc[table] if col in data_dict}
             if data:
                 DBHandler.insert(table, target=DBTarget.getHandler(), handler=self.handler, user='electric', data=data)

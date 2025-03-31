@@ -98,7 +98,8 @@ def get_table_column_specs(force=False, verbose=False, target=DBTarget.getHandle
                                        target=target, user='electric', handler=handler, return_df=True,
                                        index_col='tablename')
         data['data_type'] = data.data_type.str.split('[', regex=False).str[0]     # Split [] if exists for is_list
-        data.loc[data.attname == 'gps', 'attndims'] = 1
+        data.loc[data.attname == 'f_gps', 'attndims'] = 1
+        data.loc[data.attname == 'b_gps', 'attndims'] = 1
         data.replace({'data_type': DBHandler.pg2py_types}, inplace=True)
         table_column_specs = {table: {row.attname: (row.data_type, row.attndims) for _, row in
                                       data.loc[data.index == table].iterrows()} for table in data.index.unique()}
@@ -242,7 +243,7 @@ class DBHandler:
         # Separate NaNs and log
         nan_vals = [val == 0 or bool(val) for _, val in data.items()]
         nans = {key: val for (key, val), nan in zip(data.items(), nan_vals) if not nan}
-        data = {key: val if key in ['date', 'gps', 'vcu_flags', 'current_errors', 'latching_faults'] or isinstance(val, (list, bytearray)) else table_desc[key][0](val)
+        data = {key: val if key in ['date', 'b_gps', 'f_gps', 'vcu_flags', 'current_errors', 'latching_faults'] or isinstance(val, (list, bytearray)) else table_desc[key][0](val)
                      for (key, val), nan in zip(data.items(), nan_vals) if nan}
         if nans:
             logging.warning(f'\t\tFollowing columns had NaN data: {str(nans).replace(": ", " = ")[1:-1]}')
@@ -275,7 +276,7 @@ class DBHandler:
         def flat_gen(data):
             # Dumb function to flatten dtype list to conform to psycopg requirements
             for col, vals in data.items():
-                if col != 'gps':
+                if (col != 'f_gps' and col != 'b_gps'):
                     yield vals
                 else:
                     for val in vals: yield val
@@ -342,7 +343,7 @@ class DBHandler:
             # Dumb function to flatten dtype list to conform to psycopg requirements
             for i in range(len(data)):
                 for col, vals in data[i].items():
-                    if col != 'gps':
+                    if (col != 'f_gps' and col != 'b_gps'):
                         yield vals
                     else:
                         for val in vals: yield val

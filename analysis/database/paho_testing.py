@@ -256,4 +256,4 @@ if __name__ == '__main__':
     with DBHandler(unsafe=True, target=DBTarget.LOCAL) as handler:
         with MQTTHandler('paho_test', db_handler=handler) as mqtt:
             dt = DataTester(mqtt=mqtt, seed=42)
-            dt.send_proto_rows(['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'], 500, 0.01)
+            dt.send_proto_rows(['packet', 'dynamics', 'controls', 'pack', 'diagnostics_low', 'diagnostics_high', 'thermal'], 500, 0.01)
