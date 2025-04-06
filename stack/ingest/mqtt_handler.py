@@ -179,7 +179,7 @@ class MQTTHandler:
     def _proto_ingest(self, payload:str):
         message_dict = self._proto_decode(payload=payload)
 
-        if ("time" not in message_dict and "packet_id" in message_dict):
+        if ("time" not in message_dict or "packet_id" not in message_dict):
             raise Exception("time/packet_id MISSING FROM PAYLOAD")
         db_desc = get_table_column_specs(handler=self.handler)
         avail_tables = list(message_dict.keys())[2:]
