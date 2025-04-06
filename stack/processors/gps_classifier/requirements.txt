@@ -3,3 +3,4 @@ paho-mqtt==1.6.1
 pandas==2.2.2
 psycopg[binary]==3.2.3
 psycopg[pool]==3.2.3
+matplotlib==3.4.3

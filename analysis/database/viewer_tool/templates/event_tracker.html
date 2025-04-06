@@ -69,6 +69,10 @@
                 </thead>
             </table>
         </div>
+
+        <div>
+            <img id="live-image" src="{{ url_for('static', filename='images/events.png') }}" alt="Live Image" width="500" />
+        </div>
         
 
 
@@ -201,6 +205,16 @@
             console.log("Initializing Local Variables") //TODO remove, debug only
             decodeValues(config_image);
             loadPrevTables()
+
+
+            const img = document.getElementById('live-image');
+            function updateImage() {
+                const timestamp = new Date().getTime();
+                if(startButton.getAttribute("isRunning") === "true") {
+                    img.src = "{{ url_for('static', filename='images/events.png') }}" + '?t=' + timestamp;
+                }
+            }
+            imageIntervalId = setInterval(updateImage, 1000);
 
         </script>
     </div>
