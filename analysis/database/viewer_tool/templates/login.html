@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
+  <meta charset="UTF-8">
+  <title>Log In</title>
+  <style>
+    /* Make the body a flex container and center contents */
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      min-height: 100vh; /* Optional: to vertically center as well */
+    }
+
+    /* A wrapper to control the width and alignment of content */
+    .container {
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* Style the image above the login form */
+    .large-image {
+      width: 100%;
+      max-width: 600px; /* Adjust as desired */
+      margin-bottom: 20px;
+    }
+
+    /* Simple spacing for the form inputs */
+    form {
+      margin-top: 20px;
+    }
+
+    label, input {
+      display: block;
+      margin: 0 auto 10px;
+      text-align: left; /* Keep label text left-aligned if desired */
+      width: 100%;
+      max-width: 300px;
+    }
+
+    button {
+      padding: 10px 20px;
+      cursor: pointer;
+    }
+
+    /* Style an error message in red */
+    .error-message {
+      color: red;
+    }
+   @media (max-width: 600px) {
+      body {
+        font-size: 1.2em; /* Increase base font size */
+      }
+      .container {
+        max-width: 90%;
+      }
+      .large-image {
+        max-width: 90%;
+      }
+      label, input {
+        max-width: 90%;
+        font-size: 1.2em;
+      }
+      button {
+        font-size: 1.2em;
+        padding: 15px 25px;
+      }
+    }
+  </style>
+
+</head>
+<body>
+  <div class="container">
+    <!-- Large image above the login form -->
+    <img src="{{ url_for('static', filename='images/telem_logo.png') }}" alt="LHR Logo" class="large-image">
+
+    <h1>Telemetry Server Tools</h1>
+
+    <!-- Display error message if there is one -->
+    {% if error %}
+      <p class="error-message">{{ error }}</p>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('login') }}">
+      <label for="username">Username:</label>
+      <input type="text" name="username" id="username" required>
+
+      <label for="password">Password:</label>
+      <input type="password" name="password" id="password" required>
+
+      <button type="submit" class="btn btn-primary btn-lg">Login</button>
+    </form>
+  </div>
+</body>
+</html>

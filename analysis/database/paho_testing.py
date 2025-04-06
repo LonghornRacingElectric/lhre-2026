@@ -248,12 +248,7 @@ class DataTester:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    # with DBHandler(unsafe=True, target=DBTarget.LOCAL) as handler:
-    #     with MQTTHandler('paho_test', db_handler=handler) as mqtt:
-    #         dbtest = DataTester(mqtt)
-    #         dbtest.single_table_test('packet', 5000, .0001)
-    #         dbtest.concurrent_tables_test(['thermal', 'dynamics', 'pack'], 5000, .0001)
-    with DBHandler(unsafe=True, target=DBTarget.LOCAL) as handler:
+    with DBHandler(unsafe=True, target=DBTarget.getHandler()) as handler:
         with MQTTHandler('paho_test', db_handler=handler) as mqtt:
             dt = DataTester(mqtt=mqtt, seed=42)
             dt.send_proto_rows(['packet', 'dynamics', 'controls', 'pack', 'diagnostics_low', 'diagnostics_high', 'thermal'], 500, 0.01)
