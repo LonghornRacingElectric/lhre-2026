@@ -24,9 +24,6 @@ else:
 
 
 class MQTTTarget:
-    LOCAL = 'localhost'
-    PROD = global_target["PROD_IP"]
-    
     @staticmethod
     def get():
         return 'mosquitto' if os.environ.get("IN_DOCKER") else global_target["TARGETS"][global_target["SERVER_TARGET"]]

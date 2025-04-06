@@ -28,7 +28,7 @@ class DBTarget:
                 'grafana': 'frontend',
                 'analysis': 'north_dakota'
             },
-            'host': global_target["TARGETS"][global_target["CLIENT_TARGET"]] if not client else 'db' if os.getenv('IN_DOCKER') else global_target["TARGETS"][global_target["SERVER_TARGET"]],
+            'host': global_target["TARGETS"][global_target["CLIENT_TARGET"]] if client else 'db' if os.getenv('IN_DOCKER') else global_target["TARGETS"][global_target["SERVER_TARGET"]],
             'port': 5432
         }
     
