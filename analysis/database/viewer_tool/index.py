@@ -12,7 +12,6 @@ from flask_bcrypt import check_password_hash, generate_password_hash
 import threading
 import uuid
 from functools import partial
-from flask import url_for
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -23,8 +22,6 @@ from flask import Flask, render_template, url_for, request, redirect, jsonify
 from analysis.sql_utils.db_handler import DBHandler, DBTarget
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 
-#app = Flask(__name__)
-#app.secret_key = "some-super-secret-key" #TODO change for PROD
 config = {}
 active_users = {}
 os.environ["event_details"] = ""
@@ -390,7 +387,6 @@ def make_app():
 
 
     @app.route('/active_users', methods=['GET', 'POST'])
-    @login_required
     def update_active_users():
         if request.method == 'POST':
             try:
