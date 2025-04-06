@@ -430,7 +430,6 @@ if __name__ == '__main__':
     with MQTTHandler('test', target=MQTTTarget.getHandler(), on_message=config_subscribe) as mqtt:
         mqtt.client.subscribe('config/#')
         mqtt.client.loop_start()
-        print("HERE")
 
         if os.getenv('IN_DOCKER'):
             app.run(host='0.0.0.0', ssl_context=('/etc/letsencrypts/live/lhrelectric.org/fullchain.pem', '/etc/letsencrypts/live/lhrelectric.org/privkey.pem'))

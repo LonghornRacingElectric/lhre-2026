@@ -270,7 +270,6 @@ class DBHandler:
             handler = cls()
 
         table_desc = get_table_column_specs(target=target, handler=handler)[table]
-
         data = cls.get_insert_values(table, dict(data), table_desc)
 
         def flat_gen(data):
@@ -376,7 +375,8 @@ class DBHandler:
         with handler.connect(target, user) as cnx:
             with cnx.cursor() as cur:
                 return send_body(cur)
-            
+
+
     @classmethod
     def set_event_status(cls, event_id: int, status: int, target=DBTarget.getHandler(), user='analysis', handler=None, packet_end=None, returning=None, start_time=None):
         """
