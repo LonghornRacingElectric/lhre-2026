@@ -26,7 +26,12 @@ do
     echo
     echo
     cd $(find . -name "ingest") || (echo "Failed to find ingest" && exit)
-    id "postgres" > /dev/null 2>&1 && $SUDO pkill -u postgres
+    if [[ "$OS" == "Linux" ]]; then
+        id "postgres" > /dev/null 2>&1 && $SUDO pkill -u postgres
+    else
+        brew services stop postgresql
+    fi
+    
     case $opt in
         1)
             $SUDO docker compose down
@@ -111,6 +116,25 @@ do
             $SUDO docker compose up
             break
             ;;
+        z|Z)
+            $SUDO docker compose down
+            $SUDO docker rmi "$($SUDO docker image ls | grep telemetry_backend | awk '{print $3}')"
+            $SUDO docker volume rm telemetry_db && $SUDO docker volume create telemetry_db
+            $SUDO docker compose up -d
+            cd ../processors/lap_timer || (echo "Failed to find processors" && exit)
+            $SUDO docker compose down
+            $SUDO docker rmi "$($SUDO docker image ls | grep lap_timer | awk '{print $3}')"
+            $SUDO docker compose up -d
+            cd ../gps_classifier || (echo "Failed to find processors" && exit)
+            $SUDO docker compose down
+            $SUDO docker rmi "$($SUDO docker image ls | grep gps_classifier | awk '{print $3}')"
+            $SUDO docker compose up -d
+            cd ../../ingest
+            $SUDO docker compose logs -f
+            
+            break
+            ;;
+
         *)
             echo "Invalid input, please try again."
             ;;
