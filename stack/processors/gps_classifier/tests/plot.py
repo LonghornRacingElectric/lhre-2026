@@ -30,17 +30,17 @@ df = pd.read_csv(file_path)
 print("Data from Excel:")
 print(df.head())
 
-fig1, axs1 = plt.subplots(5, sharex=True)
-[ax_.set_xlim(75, 175) for ax_ in axs1]
+# fig1, axs1 = plt.subplots(5, sharex=True)
+# [ax_.set_xlim(75, 175) for ax_ in axs1]
 
-for ax, dir in zip(axs1, ['X', 'Y', 'Z']):
-    ax.plot(df.Time, -df[f'PDU Acceleration {dir}'])
-    if dir == 'X': ax.plot(df.Time, df['Actual Torque'] / 10, 'r')
-    if dir == 'Y': ax.plot(df.Time, (df['Steer Voltage'] - 1.25) * -20, 'r')
-    ax.grid()
+# for ax, dir in zip(axs1, ['X', 'Y', 'Z']):
+#     ax.plot(df.Time, -df[f'PDU Acceleration {dir}'])
+#     if dir == 'X': ax.plot(df.Time, df['Actual Torque'] / 10, 'r')
+#     if dir == 'Y': ax.plot(df.Time, (df['Steer Voltage'] - 1.25) * -20, 'r')
+#     ax.grid()
     
-axs1[3].plot(df.Time, df['Speed'], 'b')
-axs1[3].grid()
+# axs1[3].plot(df.Time, df['Speed'], 'b')
+# axs1[3].grid()
 
 # fig3, ax3 = plt.subplots(1, sharex=True)
 # ax3.plot(df.Time, df['Actual Torque'])
@@ -69,7 +69,6 @@ events.append(0)
 times.append(convert_to_epoch(df.iloc[-1]) * 1000)
 events.append(0)
 
-print(df['Speed'].describe())
 
 df_events = pd.DataFrame({'Time': times, 'Event': events})
 df_events['Time'] = df['Time'][0] + df_events['Time'] / 1000 - convert_to_epoch(df.iloc[0])
@@ -88,14 +87,13 @@ for i in range(len(df_events['Time']) - 1):
     start_index = df['Time'].where(df['Time'] >= df_events['Time'][i]).argmin()
     end_index = df['Time'].where(df['Time'] >= df_events['Time'][i + 1]).argmin()
 
-    
     plt.plot(df['Latitude'].iloc[start_index:end_index], df['Longitude'].iloc[start_index:end_index], zs=df['Time'].iloc[start_index:end_index], color=colors[i])
 
 
 # ax2.plot(df['Latitude'], df['Longitude'], zs=df['Time'])
 
 
-axs1[4].plot(df_events['Time'], df_events['Event'], 'g')
-axs1[4].grid()
+# axs1[4].plot(df_events['Time'], df_events['Event'], 'g')
+# axs1[4].grid()
 
 plt.show()

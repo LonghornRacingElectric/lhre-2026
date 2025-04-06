@@ -91,14 +91,14 @@ do
         e|E)
             cd ../processors/lap_timer || (echo "Failed to find processors" && exit)
             docker compose down
-            docker rmi "$(docker image ls | grep telemetry_processors | awk '{print $3}')"
+            docker rmi "$(docker image ls | grep lap_timer | awk '{print $3}')"
             docker compose up
             break
             ;;
         f|F)
             cd ../processors/gps_classifier || (echo "Failed to find processors" && exit)
             docker compose down
-            docker rmi "$(docker image ls | grep telemetry_processors | awk '{print $3}')"
+            docker rmi "$(docker image ls | grep gps_classifier | awk '{print $3}')"
             docker compose up
             break
             ;;
