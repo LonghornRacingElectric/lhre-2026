@@ -174,12 +174,12 @@ class MQTTHandler:
             else:
                 DBHandler.insert(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict[0])
         else:
-            DBHandler.insert(table, target=os.getenv('SERVER_TARGET', DBTarget.LOCAL), user='electric', handler=self.handler, data=data_dict)
+            DBHandler.insert(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict)
     
     def _proto_ingest(self, payload:str):
         message_dict = self._proto_decode(payload=payload)
 
-        if (not ("time" in message_dict and "packet_id" in message_dict)):
+        if ("time" not in message_dict and "packet_id" in message_dict):
             raise Exception("time/packet_id MISSING FROM PAYLOAD")
         db_desc = get_table_column_specs(handler=self.handler)
         avail_tables = list(message_dict.keys())[2:]
@@ -188,10 +188,8 @@ class MQTTHandler:
             if (data is None):
                 data = ({col: message_dict[table][col] for col in db_desc[table] if col in message_dict[table]}
                 | {"packet_id": message_dict["packet_id"]}) if table in avail_tables else None
-            # logging.info(data.keys())
-            # logging.info(len(data.keys()))
             if (data):
-                DBHandler.insert(table=table, target=os.getenv('SERVER_TARGET', DBTarget.LOCAL), user='electric', handler=self.handler, data=data)
+                DBHandler.insert(table=table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data)
 
     def _b64_ingest(self, payload: str, high_freq: bool):
         '''
