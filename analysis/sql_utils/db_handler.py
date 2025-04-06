@@ -19,33 +19,19 @@ else:
         global_target = json.load(file)
 
 class DBTarget:
-    LOCAL = {
-        'dbname': 'telemetry',
-        'users': {
-            'electric': '2fast2quick',
-            'grafana': 'frontend',
-            'analysis': 'north_dakota'
-        },
-        'host': 'db' if os.getenv('IN_DOCKER') else os.getenv('HOST_IP', 'localhost'),
-        'port': 5432
-    }
-    PROD = {
-        'dbname': 'telemetry',
-        'users': {
-            'electric': '2fast2quick',
-            'grafana': 'frontend',
-            'analysis': 'north_dakota'
-        },
-        'host': global_target["PROD_IP"],
-        'port': 5432
-    }
+    @staticmethod
+    def get(client=False):
+        return {
+            'dbname': 'telemetry',
+            'users': {
+                'electric': '2fast2quick',
+                'grafana': 'frontend',
+                'analysis': 'north_dakota'
+            },
+            'host': global_target["TARGETS"][global_target["CLIENT_TARGET"]] if not client else 'db' if os.getenv('IN_DOCKER') else global_target["TARGETS"][global_target["SERVER_TARGET"]],
+            'port': 5432
+        }
     
-    @staticmethod
-    def get():
-        return DBTarget.PROD if global_target['TARGET'] == 'PROD' else DBTarget.LOCAL
-    @staticmethod
-    def getHandler():
-        return DBTarget.PROD if global_target['HANDLER'] == 'PROD' else DBTarget.LOCAL
     
     
 
@@ -61,7 +47,7 @@ class DBTarget:
             return target['host']
 
 
-def get_table_column_specs(force=False, verbose=False, target=DBTarget.getHandler(), handler=None):
+def get_table_column_specs(force=False, verbose=False, target=DBTarget.get(), handler=None):
     """
     Gets description of DB layout using either recent pkl file or request to database. Returns description in form of
     dict as follows: {'power': {'cooling_flow': (<class 'float'>, 0), col2: (type2, num_dimension), ...}, table2: {...}}
@@ -124,7 +110,7 @@ class DBHandler:
         self.conn = None
         self.conn_pool_size = conn_pool_size
 
-    def connect(self, target=DBTarget.getHandler(), user='analysis'):
+    def connect(self, target=DBTarget.get(), user='analysis'):
         """
         Creates psycopg.connection instance, pulling info from DB_CONFIG according to input target and user
 
@@ -173,7 +159,7 @@ class DBHandler:
         self.kill_cnx()
 
     @classmethod
-    def simple_select(cls, query: str, target=DBTarget.getHandler(), user='electric', handler=None, return_df=False, **pd_kwargs):
+    def simple_select(cls, query: str, target=DBTarget.get(), user='electric', handler=None, return_df=False, **pd_kwargs):
         """
         Simple, easy way to get data from database. ONLY USED FOR SELECTING
 
@@ -250,7 +236,7 @@ class DBHandler:
         return data
 
     @classmethod
-    def insert(cls, table: str, target=DBTarget.getHandler(), user='analysis', handler=None, data=None, returning=None):
+    def insert(cls, table: str, target=DBTarget.get(), user='analysis', handler=None, data=None, returning=None):
         """
         Targets a table and sends an individual row of data to database, with ability to get columns from the last row.
 
@@ -302,7 +288,7 @@ class DBHandler:
                 return send_body(cur)
             
     @classmethod
-    def insert_multi_rows(cls, table: str, target=DBTarget.getHandler(), user='analysis',  handler=None, data=None, returning=None):
+    def insert_multi_rows(cls, table: str, target=DBTarget.get(), user='analysis',  handler=None, data=None, returning=None):
         """
         Targets a table and sends multiple rows of data to database, with ability to get columns from the last row.
 
@@ -377,7 +363,7 @@ class DBHandler:
                 return send_body(cur)
             
     @classmethod
-    def set_event_status(cls, event_id: int, status: int, target=DBTarget.getHandler(), user='analysis', handler=None, packet_end=None, returning=None, start_time=None):
+    def set_event_status(cls, event_id: int, status: int, target=DBTarget.get(), user='analysis', handler=None, packet_end=None, returning=None, start_time=None):
         """
         Targets an event_id and updates the start or end time, with ability to get columns from the affected row.
 
@@ -427,7 +413,7 @@ class DBHandler:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    with DBHandler(unsafe=True, target=DBTarget.getHandler()) as handler:
+    with DBHandler(unsafe=True, target=DBTarget.get()) as handler:
         print(get_table_column_specs(force=True, verbose=True, handler=handler)['dynamics'])
 
         # from tqdm import tqdm

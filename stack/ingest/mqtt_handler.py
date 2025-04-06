@@ -29,9 +29,7 @@ class MQTTTarget:
     
     @staticmethod
     def get():
-        return MQTTTarget.PROD if global_target['TARGET'] == 'PROD' else MQTTTarget.LOCAL
-    def getHandler():
-        return MQTTTarget.PROD if global_target['HANDLER'] == 'PROD' else MQTTTarget.LOCAL
+        return 'mosquitto' if os.environ.get("IN_DOCKER") else global_target["TARGETS"][global_target["SERVER_TARGET"]]
 
 
 class MQTTHandler:
@@ -159,11 +157,11 @@ class MQTTHandler:
         # TODO: Add Protobuf ingest
         if (isinstance(data_dict, list)):
             if (len(data_dict) > 1):
-                DBHandler.insert_multi_rows(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict)
+                DBHandler.insert_multi_rows(table, target=DBTarget.get(), user='electric', handler=self.handler, data=data_dict)
             else:
-                DBHandler.insert(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict[0])
+                DBHandler.insert(table, target=DBTarget.get(), user='electric', handler=self.handler, data=data_dict[0])
         else:
-            DBHandler.insert(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict)
+            DBHandler.insert(table, target=DBTarget.get(), user='electric', handler=self.handler, data=data_dict)
 
     def _b64_ingest(self, payload: str, high_freq: bool):
         '''
@@ -182,7 +180,7 @@ class MQTTHandler:
         for table in ['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal']:
             data = {col: data_dict[col] for col in db_desc[table] if col in data_dict}
             if data:
-                DBHandler.insert(table, target=DBTarget.getHandler(), handler=self.handler, user='electric', data=data)
+                DBHandler.insert(table, target=DBTarget.get(), handler=self.handler, user='electric', data=data)
             else:
                 logging.warning(f'\tNo data received for {table}...')
 
@@ -296,13 +294,13 @@ def main():
 
     # 2
     elif conn_type == 2:
-        with DBHandler(unsafe=True, target=DBTarget.getHandler()) as handler:
+        with DBHandler(unsafe=True, target=DBTarget.get()) as handler:
             with MQTTHandler('ingest', db_handler=handler) as mqtt:
                 mqtt.subscribe(topic='#')
 
     # 3+
     else:
-        with DBHandler(unsafe=True, target=DBTarget.getHandler(), conn_pool_size=conn_type) as handler:
+        with DBHandler(unsafe=True, target=DBTarget.get(), conn_pool_size=conn_type) as handler:
             with MQTTHandler('ingest', db_handler=handler) as mqtt:
                 mqtt.subscribe(topic='#')
 
