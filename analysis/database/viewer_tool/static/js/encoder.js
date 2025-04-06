@@ -17,7 +17,9 @@ function encodeValues(timerStatus, updateTimerTime, updateIntTime, turnStatus, a
         "accelStamp" : (accelStatus != null) ? watch.getTime() : config_image.accelStamp,
         "laps": (config_image && config_image.hasOwnProperty("laps")) ? config_image.laps : [],
         "endFlag" : endFlag,
-        "tables" : (config_image && config_image.tables) ? config_image.tables : makeEmptyTable()
+        "tables" : (config_image && config_image.tables) ? config_image.tables : makeEmptyTable(),
+        "lastSentClientId": myName,
+        "selfDecodeAllowed": true
     }
 
     console.log("Encoder Storing & Sending: " + JSON.stringify(jsonData))
@@ -25,11 +27,28 @@ function encodeValues(timerStatus, updateTimerTime, updateIntTime, turnStatus, a
     config_image = jsonData
 
     if (publishData) {
-        //Publish changes to MQTT state topic
 
-        let message = new Paho.MQTT.Message(JSON.stringify(jsonData))
-        message.destinationName = "config/event_sync"
-        client.send(message)
+        //Update locally prior to publishing
+        decodeValues(JSON.stringify(jsonData));
+
+        //Disallow self decode (so no double processing occurs)
+        jsonData.selfDecodeAllowed = false;
+
+        //Send JSON data back to the server via HTTP POST request
+        fetch('/update-event-sync', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(jsonData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log("Update successful:", data);
+        })
+        .catch(err => {
+            console.error("Error updating event sync:", err);
+        });
     }
 
     function makeEmptyTable() {

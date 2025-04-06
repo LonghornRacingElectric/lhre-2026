@@ -5,6 +5,7 @@
     <title>Telemetry Injection Tool</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/uuid@8.3.2/dist/umd/uuidv4.min.js"></script>
+    <script src="{{ url_for('static', filename='js/pageSync.js') }}"></script>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
     <style>
         /* Banner Styles */
@@ -137,15 +138,19 @@
 
         //MQTT handling and function mapping
         let myName = uuidv4();
-        client = new Paho.MQTT.Client('{{ host_ip }}', 8080, myName); //TODO replace with production destination
+        //client = new Paho.MQTT.Client('{{ host_ip }}', 8080, myName); //TODO replace with production destination
         console.log("ClientName: " + myName)
 
+        //Setup SSE listener
+        const currentPage = "new_event_page";
+        setupPageSync(currentPage);
+        sendPageTarget("new_event_page");
 
         //Set callback functions
-        client.onConnectionLost = onConnectionLost;
-        client.onMessageArrived = onMessageArrived;
+        //client.onConnectionLost = onConnectionLost;
+        //client.onMessageArrived = onMessageArrived;
         //Connect and define connection
-        client.connect({onSuccess:onConnect});
+        //client.connect({onSuccess:onConnect});
         //Connect callback
         function onConnect() {
             //Once connected, subscribe
@@ -155,7 +160,7 @@
         //New message callback
         function onMessageArrived(message) {
             //Ensure page is correct by pinging with the current page
-            fetch('/verify_page/' + "new_event_page", { //TODO consider adding + '/',
+            fetch('webtool/verify_page/' + "new_event_page", { //TODO consider adding + '/',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -165,7 +170,7 @@
                 .then(response => {
                     if (response.redirected) {
                         window.location.href = response.url;
-                        console.log("Reset Status OK");
+                        console.log("Reset Status OK. Heading to: " + response.url);
                     } else {
                         console.error("Page verified. No reset deemed necessary.", response.statusText);
                     }
@@ -317,7 +322,7 @@
                 {# Hidden Day ID passthrough #}
                 <input type="hidden" id="day_id" name="day_id" value="{{ day_id }}">
 
-                <input type="submit" value="Submit"><br>
+                <input type="submit" value="Create Drive Day" onclick="sendPageTarget('running_event_page')" />
             </form>
         </div>
     </div>

@@ -6,6 +6,7 @@
     <script src="{{ url_for('static', filename='js/stopWatch.js') }}"></script>
     <script src="{{ url_for('static', filename='js/decoder.js') }}"></script>
     <script src="{{ url_for('static', filename='js/encoder.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pageSync.js') }}"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/uuid@8.3.2/dist/umd/uuidv4.min.js"></script>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
@@ -321,18 +322,18 @@
             //MQTT handling and function mapping
             console.log("HOST IP: {{ host_ip }}");
             let myName = uuidv4();
-            client = new Paho.MQTT.Client('{{ host_ip }}', 8080, myName);
+            //client = new Paho.MQTT.Client('{{ host_ip }}', 8080, myName);
             console.log("ClientName: " + myName);
             //Set callback functions
-            client.onConnectionLost = onConnectionLost;
-            client.onMessageArrived = onMessageArrived;
+            //client.onConnectionLost = onConnectionLost;
+            //client.onMessageArrived = onMessageArrived;
             //Connect and define connection
-            client.connect({onSuccess:onConnect});
+            //client.connect({onSuccess:onConnect});
             //Connect callback
             function onConnect() {
                 //Once connected, subscribe
                 console.log("Status: CONNECTED"); //TODO remove, testing only
-                client.subscribe("config/event_sync")
+                //client.subscribe("config/event_sync")
                 //Send message to page sync to ensure others on same page
                 let message = new Paho.MQTT.Message("running_event_page")
                 message.destinationName = "config/page_sync"
@@ -392,8 +393,8 @@
                 //Screen for page sync
                 if(message.destinationName === "config/page_sync") {
                     console.log("Message from page_sync: " + message.payloadString)
-                } else if (message.destinationName === "config/event_sync") {
-                    decodeValues(message.payloadString)
+                //} else if (message.destinationName === "config/event_sync") {
+                //    //decodeValues(message.payloadString)
                 } else {
                     console.log("WARNING: Message Received with Unknown Destination")
                 }
@@ -403,8 +404,29 @@
             }
             function onDisconnect() {
                 console.log("Status: DISCONNECTED")
-                //TODO when client loses connection, redirect to new page? Display Warning? REVISIT
             }
+
+            //Setup SSE listener for pages
+            const currentPage = "running_event_page";
+            setupPageSync(currentPage);
+
+            //Setup event listener (alternative to MQTT)
+            const eventSource = new EventSource('/event-sync-stream');
+            eventSource.onmessage = function(event) {
+                //Parse JSON data received from server
+                let configData;
+                try {
+                    configData = JSON.parse(event.data);
+                } catch (err) {
+                    console.error("Error parsing event data:", err);
+                    return;
+                }
+                console.log("Received event_sync config:", configData);
+                decodeValues(event.data);
+            };
+            eventSource.onerror = function(err) {
+                console.error("EventSource error:", err);
+            };
 
             //Change in start button state detected
             startButton.addEventListener('click', function() {
@@ -437,6 +459,7 @@
                 if (startButton.getAttribute("isRunning") === "false") {
                     //Alert all clients (including self) of disconnection, suspension and redirection via mqtt flag
                     encodeValues(false, true, true, false, false, true, true)
+                    sendPageTarget("index_page")
                 }
             })
 

@@ -21,6 +21,12 @@ function decodeValues(jsonObj) {
         console.log("Decoder Parsing JSON Failed with Error: " + error)
     }
 
+    //Screen for self decode not allowed
+    if (!jsonObj.selfDecodeAllowed && jsonObj.lastSentClientId === myName) {
+        console.log("Update Canceled: Name Matches, States Must Match");
+        return;
+    }
+
     //Update page by element
     updateStartButton()
     updateStopButton()

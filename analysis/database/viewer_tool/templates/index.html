@@ -5,6 +5,7 @@
     <title>Telemetry Injection Tool</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/uuid@8.3.2/dist/umd/uuidv4.min.js"></script>
+    <script src="{{ url_for('static', filename='js/pageSync.js') }}"></script>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
     <style>
         /* Banner Styles */
@@ -168,21 +169,7 @@
             <label for="conditions">Driving Conditions:</label>
             <input type="text" id="conditions" name="conditions"><br>
 
-            <input type="submit" value="Create Drive Day">
-        </form>
-    </div>
-
-    <div>
-        <h3>Add Event To Existing Drive Day</h3>
-        <form action="/webtool/new_event/" method="GET">
-            {# Power Output #}
-            <label for="day_id">Existing Drive Day ID:</label>
-            <input type="number" id="day_id" name="day_id">
-
-            {# Method Indicator #}
-            <input type="hidden" id="method" name="method" value="existing">
-
-            <input type="submit" value="Create Event">
+            <input type="submit" value="Create Drive Day" onclick="sendPageTarget('new_event_page')" />
         </form>
     </div>
 
@@ -192,25 +179,29 @@
 
     //MQTT handling and function mapping
     let myName = uuidv4();
-    client = new Paho.MQTT.Client('{{ host_ip }}', 8080, myName);
-    console.log("ClientName: " + myName)
+    //client = new Paho.MQTT.Client('{{ host_ip }}', 8080, myName);
+    console.log("ClientName: " + myName);
+
+    //Setup SSE listener
+    const currentPage = "index_page";
+    setupPageSync(currentPage);
 
     //Set callback functions
-    client.onConnectionLost = onConnectionLost;
-    client.onMessageArrived = onMessageArrived;
+    //client.onConnectionLost = onConnectionLost;
+    //client.onMessageArrived = onMessageArrived;
     //Connect and define connection
-    client.connect({onSuccess:onConnect});
+    //client.connect({onSuccess:onConnect});
     //Connect callback
-    function onConnect() {
+    //function onConnect() {
         //Once connected, subscribe
-        console.log("onConnect");
-        client.subscribe("config/page_sync")
-    }
+    //    console.log("onConnect");
+    //    client.subscribe("config/page_sync")
+    //}
     //New message callback
     function onMessageArrived(message) {
         console.log("I got: " + message.payloadString)
         //Ensure page is correct by pinging with the current page
-        fetch('/verify_page/' + "index_page", { //TODO consider adding + '/',
+        fetch('/verify_page/' + "index_page", {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

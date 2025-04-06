@@ -17,7 +17,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 
 sys.path.append(str(Path(__file__).parents[3]))
-from flask import Flask, render_template, url_for, request, redirect, jsonify
+from flask import Flask, render_template, url_for, request, redirect, jsonify, json, Response, stream_with_context
 
 from analysis.sql_utils.db_handler import DBHandler, DBTarget
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
@@ -26,7 +26,8 @@ config = {}
 active_users = {}
 os.environ["event_details"] = ""
 os.environ["event_id"] = "-1"
-os.environ["page_details"] = ""
+os.environ["page_details"] = "index_page"
+latest_page_details = os.getenv("page_details")
 try:
     os.environ["date_id"] = str(DBHandler.simple_select('SELECT date FROM drive_day ORDER BY day_id DESC LIMIT 1')[0][0])
 except IndexError:
@@ -36,23 +37,6 @@ def config_subscribe(client, userdata, msg):
     if msg.topic == 'config/event_sync':
         #Convert msg to json object
         msg = json.loads(msg.payload.decode())
-
-        #Check for end event flag
-        if "endFlag" in msg:
-            logging.debug("End Flag Detected. Closing event on DB.") #TODO remove, debug only
-
-            #Packet Generation for Testing
-            #for i in tqdm(range(1, 100)):
-            #    DBHandler.insert('packet', target=DBTarget.LOCAL, user='electric', data={'packet_id': i, 'time': int(time.time())})
-
-            #Close the event in the database
-            try:
-                last_pack = DBHandler.simple_select('SELECT packet_id FROM packet ORDER BY packet_id DESC LIMIT 1')[0][0]
-            except IndexError as e:
-                last_pack = 0
-            DBHandler.set_event_status(int(os.getenv("event_id")), 0, packet_end=last_pack, user='electric')
-            #Re-set event ID
-            os.environ["event_id"] = "-1"
 
         #Store and print return
         os.environ["event_details"] = json.dumps(msg)
@@ -133,7 +117,7 @@ def make_app():
     })
 
     config = {}
-
+    latest_event_details = os.environ.get('event_details', '')
     @app.route('/index', methods=['GET'])
     @login_required
     def index():
@@ -168,8 +152,9 @@ def make_app():
             logging.debug("DEBUG: Date ID NOT equal.")
 
         #No drive day or event running, set current page to index in page_sync and return render template for creating the drive day
-        with MQTTHandler(f'flask_app_{uuid.uuid4()}') as mqtt:
-            mqtt.publish('config/page_sync', "index_page")
+        os.environ["page_details"] = "index_page"
+        #with MQTTHandler(f'flask_app_{uuid.uuid4()}') as mqtt:
+        #    mqtt.publish('config/page_sync', "index_page")
         return render_template('index.html', host_ip=DBTarget.resolve_target(DBTarget.get()))
 
 
@@ -186,8 +171,8 @@ def make_app():
     @app.route('/new_event/', methods=['GET'])
     @login_required
     def new_event():
-        with MQTTHandler(f'flask_app_{uuid.uuid4()}') as mqtt:
-            mqtt.publish('config/page_sync', "new_event_page")
+    #    with MQTTHandler(f'flask_app_{uuid.uuid4()}') as mqtt:
+    #        mqtt.publish('config/page_sync', "new_event_page")
 
         return render_template('input_screen.html', host_ip=DBTarget.resolve_target(DBTarget.get()), day_id=request.form.get('day_id', request.args['day_id']))
 
@@ -208,6 +193,10 @@ def make_app():
         except IndexError as e:
             last_packet = 0
         inputs['packet_start'] = last_packet + 1
+
+        day_id = DBHandler.simple_select('SELECT day_id FROM drive_day ORDER BY day_id DESC LIMIT 1')[0][0]
+        os.environ["day_id"] = str(day_id)
+
         day_id, event_id = DBHandler.insert(table='event', target=os.getenv('SERVER_TARGET', DBTarget.getHandler()),
                                             user='electric', data=inputs, returning=['day_id', 'event_id'])
         os.environ["event_id"] = str(event_id)
@@ -234,16 +223,19 @@ def make_app():
 
 
     @app.route('/reset_config_image', methods=['POST', 'GET'])
-    @login_required
     def reset_config_image():
-        os.environ['event_details'] = ""
+        global latest_page_details
+        os.environ["event_details"] = ""
+        os.environ["event_id"] = "-1"
+        os.environ["page_details"] = "index_page"
+        latest_page_details = os.getenv("page_details")
 
         # Update correct current page to be new event
-        with MQTTHandler(f'flask_app_{uuid.uuid4()}') as mqtt:
-            mqtt.publish('config/page_sync', "index_page")
+        #with MQTTHandler(f'flask_app_{uuid.uuid4()}') as mqtt:
+        #    mqtt.publish('config/page_sync', "index_page")
 
         logging.debug("Config image reset. Event has ended. Redirect to follow.")
-        return redirect(url_for('index'))
+        return redirect("/webtool" + url_for('index'))
         #return json.dumps({'success': True}), 200, {'ContentType': 'application/json'}
 
     @app.route('/tune_data', methods=['GET', 'POST'])
@@ -253,35 +245,6 @@ def make_app():
         json_object = json.loads(data)
         print(json_object)
         return render_template('texas_tune.html')
-
-
-    @app.route('/verify_page/<string:cur_page>', methods=['GET', 'POST'])
-    @login_required
-    def verify_page(cur_page):
-        logging.debug("cur_page is: " + cur_page)
-        logging.debug("current page_details is: " + os.getenv("page_details"))
-
-        storedPage = os.getenv("page_details")
-
-        #Check against the current stored page
-        if cur_page == storedPage:
-            #If already on correct page, do not change
-            logging.debug("Client on Correct Page")
-            return '', 204
-        else:
-            logging.debug("Client NOT on Correct Page. Redirect to follow.")
-            #If page is wrong, redirect to the right page
-            if storedPage == "new_event_page":
-                logging.debug("NOTIF (Debug) Server Day-ID stores: " + os.getenv("day_id") + " and is about to hand off redirect.");
-                return redirect(url_for('new_event', day_id=os.getenv("day_id"), method='new')) #temporary routing
-            elif storedPage == "running_event_page":
-                return redirect("/webtool" + url_for('create_event'))
-            elif storedPage == "index_page":
-                return redirect(url_for('index'))
-
-        #No case triggered, error
-        return '', 404
-
 
     @app.route('/turn_data', methods=['GET', 'POST'])
     @login_required
@@ -406,12 +369,95 @@ def make_app():
         count = count_active_users(timeout=15)
         return jsonify({"active_users": count})
 
+    # Add a new SSE endpoint for event_sync messages
+    @app.route('/event-sync-stream')
+    def sse_event_sync():
+        return Response(stream_with_context(event_sync_stream()), mimetype="text/event-stream")
+
+    # New SSE endpoint for page sync messages
+    @app.route('/page-sync-stream')
+    def sse_page_sync():
+        return Response(stream_with_context(page_sync_stream()), mimetype="text/event-stream")
+
+    @app.route('/update-event-sync', methods=['POST'])
+    def update_event_sync():
+        """
+        Endpoint to receive JSON updates from the client.
+        """
+        global latest_event_details
+        # Parse the JSON data from the client
+        json_data = request.get_json()
+
+        if json_data.get("endFlag"):
+            #Handle event termination logic
+            logging.debug("End Flag Detected. Closing event on DB.")
+
+            # Packet Generation for Testing
+            # for i in tqdm(range(1, 100)):
+            #    DBHandler.insert('packet', target=DBTarget.LOCAL, user='electric', data={'packet_id': i, 'time': int(time.time())})
+
+            #Close event in database
+            try:
+                last_pack = DBHandler.simple_select('SELECT packet_id FROM packet ORDER BY packet_id DESC LIMIT 1')[0][0]
+            except IndexError as e:
+                last_pack = 0
+            DBHandler.set_event_status(int(os.getenv("event_id")), 0, packet_end=last_pack, user='electric')
+            #Reset event variables
+            os.environ["event_id"] = "-1"
+
+        # Update the global event details. Store it as a JSON-formatted string.
+        os.environ['event_details'] = json.dumps(json_data)
+        latest_event_details = os.environ['event_details']
+
+        app.logger.debug("Event sync updated: %s", latest_event_details)
+
+        # Respond with a success message.
+        return jsonify({"success": True})
+
+    # New endpoint: update the page target based on client POST request
+    @app.route('/update-page-target', methods=['POST'])
+    def update_page_target():
+        json_data = request.get_json()
+        new_target = json_data.get("target_page")
+        if new_target:
+            os.environ["page_details"] = new_target  #update shared env variable
+            global latest_page_details
+            latest_page_details = new_target  #update SSE shared variable
+            app.logger.debug("Updated page target: %s", new_target)
+            return jsonify({"success": True})
+        else:
+            return jsonify({"error": "No target_page provided"}), 400
+
     start_background_tasks()
     return app
 
 def notify_listeners():
-    with MQTTHandler(f'flask_app_{uuid.uuid4()}') as mqtt:
-        mqtt.publish('config/event_sync', os.environ['event_details'])
+    global latest_event_details
+    latest_event_details = os.environ['event_details']
+
+latest_event_details = os.environ.get('event_details', '')
+
+#Generator function for SSE that streams updates of event details.
+def event_sync_stream():
+    global latest_event_details
+    last_sent = None
+    while True:
+        if latest_event_details != last_sent:
+            #Yeilds event details as SSE message (with double newline at end)
+            yield f"data: {latest_event_details}\n\n"
+            last_sent = latest_event_details
+        time.sleep(1)  # Adjust the interval as needed
+
+#Generator for SSE page sync updates
+def page_sync_stream():
+    global latest_page_details
+    last_sent = None
+    while True:
+        if latest_page_details != last_sent:
+            #CHANGED: Yield new target page as SSE data
+            yield f"data: {latest_page_details}\n\n"
+            last_sent = latest_page_details
+        time.sleep(1)  # Adjust update interval as needed
 
 def count_active_users(timeout=15):
     """Return the number of users with a heartbeat in the last `timeout` seconds."""
