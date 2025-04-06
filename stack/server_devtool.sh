@@ -100,14 +100,14 @@ do
         e|E)
             cd ../processors/lap_timer || (echo "Failed to find processors" && exit)
             $SUDO docker compose down
-            $SUDO docker rmi "$($SUDO docker image ls | grep telemetry_processors | awk '{print $3}')"
+            $SUDO docker rmi "$($SUDO docker image ls | grep lap_timer | awk '{print $3}')"
             $SUDO docker compose up
             break
             ;;
         f|F)
             cd ../processors/gps_classifier || (echo "Failed to find processors" && exit)
             $SUDO docker compose down
-            $SUDO docker rmi "$($SUDO docker image ls | grep telemetry_processors | awk '{print $3}')"
+            $SUDO docker rmi "$($SUDO docker image ls | grep gps_classifier | awk '{print $3}')"
             $SUDO docker compose up
             break
             ;;
