@@ -49,12 +49,15 @@ def config_subscribe(client, userdata, msg):
         logging.debug("Index Event Details: " + os.getenv("event_details"))
 
     elif msg.topic == 'config/event_update_sync':
+        print("RECEIVED EVENT UPDATE SYNC")
         msg = json.loads(msg.payload.decode())
         try:
             json_obj = json.loads(os.environ["event_details"])
             json_obj.update(msg)
             os.environ['event_details'] = json.dumps(json_obj)
+            print("NEW CONFIG FILE: ", msg)
         except Exception as e:
+            print(e)
             os.environ['event_details'] = json.dumps(msg)
         
         notify_listeners()

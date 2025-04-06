@@ -83,7 +83,7 @@ class LapTimerProcessor:
         
         DBHandler.insert(table="classifier", data=db_obj, target=DBTarget.get(), user="electric", handler=self.handler)
         try:
-            requests.post("http://" + os.getenv("HOST_IP") + ":5000/new_lap", data={"time": time})
+            requests.post("http://host.docker.internal:5000/new_lap", data={"time": time})
         except requests.exceptions.ConnectionError:
             logging.error("Could not connect to Flask server")
         logging.info(f"Successfully recorded time {time}")    

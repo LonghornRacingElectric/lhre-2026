@@ -256,8 +256,10 @@ class CSVToDB():
                     if not started:
                         try:
                             self.start_timer(row_dict_list.get("packet")[0]['time'])
+                            print("AFTER TIMER")
                             started = True
                         except Exception as e:
+                            print(e)
                             logging.error(e)
 
                     for i in range(chunk_length):
@@ -350,6 +352,8 @@ class CSVToDB():
         }
         print("STARTED TIMER AT ", start_time)
         print(config)
+        time.sleep(1)
+        print("SENT CONFIG AT EVENT UPDATE SYNC")
         self.mqtt.publish('config/event_update_sync', json.dumps(config, indent=4))
         
     def stop_timer(self):
