@@ -158,7 +158,6 @@ class LapTimerProcessor:
         while True:
             # Event not properly set
             if not self.event_id or not self.gate:
-                logging.info("No Event ID or Gate...")
                 sleep(1 / frequency)
                 continue
             else:
