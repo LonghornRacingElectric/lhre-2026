@@ -6,6 +6,7 @@ import pickle
 import base64
 import time
 import numpy as np
+import copy
 from paho.mqtt import client as mqtt_client 
 from google.protobuf.json_format import MessageToDict
 from paho.mqtt import client as mqtt_client
@@ -46,7 +47,7 @@ class MQTTHandler:
     This class handles MQTT payloads: connecting to MQTT broker and publishing or subscribing to topics
     '''
 
-    def __init__(self, name='python_client', target=None, db_handler=None, on_message=None):
+    def __init__(self, name='python_client', target=None, db_handler=None, on_message=None, cache_enable = False):
         '''
         :param name:    str         determining name of client to self-report to MQTT broker
         :param target:  MQTTTarget  MQTT target server
@@ -59,6 +60,11 @@ class MQTTHandler:
         self.client.on_disconnect = self.on_disconnect
         self.client.on_message = on_message if on_message else self.on_message
         self.scalar_or_list = lambda val, scalar: val.tolist()[0] if scalar else val.tolist()
+        self.cache = []
+        self.cache_enable = cache_enable
+        self.start_times = {}
+        self.elapsed_times = []
+        self.counter = 0
 
     @staticmethod
     def on_connect(client: mqtt_client.Client, userdata, flags: dict, rc: int):
@@ -124,13 +130,16 @@ class MQTTHandler:
         # Handle Normal Data Ingest
         elif (topic_split := msg.topic.split('/'))[0] == 'data':
             if (topic_split[-1] in {'packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'}):
-                self._data_ingest(msg.payload, topic_split[-1])
+                message_id = (topic_split[-1], msg.payload) # table, payload key
+                self.start_times[message_id] = time.perf_counter()
+                self._data_ingest(msg.payload, topic_split[-1], cache_enable=True)
             else:
                 # Protobuf serialized string sent
                 self._proto_ingest(msg.payload)
         else:
             logging.warning(f'No corresponding topic found for {msg.topic}')
 
+        
     def _flask_handler(self, payload):
         '''
         This function oversees the decoding and handling of Flask messages usually related to configuration or metadata.
@@ -153,7 +162,7 @@ class MQTTHandler:
             else:
                 logging.error(f'\tUnexpected payload received: {payload}')
 
-    def _data_ingest(self, payload: str, table: str):
+    def _data_ingest(self, payload: str, table: str, cache_enable = True):
         '''
         This function oversees the decoding and insertion of simply packaged, fully processed payloads.
 
@@ -167,16 +176,54 @@ class MQTTHandler:
             #logging.debug('\tPickle Payload received, likely coming from debug source...')
         except pickle.UnpicklingError:
             data_dict = json.loads(payload.decode().replace("'", '"'))
-        # TODO: Add Protobuf ingest
-        if (isinstance(data_dict, list)):
+
+        # Batch insertions
+        if (cache_enable and table=='packet'):
+            if (isinstance(data_dict, list)):
+                if (len(data_dict) > 1):
+                    DBHandler.insert_multi_rows(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict)
+                else:
+                    DBHandler.insert(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict[0])
+            else:
+                DBHandler.insert(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict)
+        elif (cache_enable and table != 'packet'):
+            self.cache.append((table, data_dict))
+            if (len(self.cache) == 20):
+                DBHandler.batch_insert(target = DBTarget.getHandler(), user='electric', handler=self.handler, data=self.cache)
+                self.cache.clear()
+
+        # if (cache and table == 'packet'):
+        #     if (len(self.cache) == 0):
+        #         self.cache.append((table, data_dict))
+        #     else:
+        #         #Send the insert and clear
+        #         if (not self.packet_flag):
+        #             self.cache.append((table, data_dict))
+        #             self.packet_flag = True
+        #         else:                   
+        #             DBHandler.batch_insert(target = DBTarget.getHandler(), user='electric', handler=self.handler, data=self.cache)
+        #             self.cache.clear() # clear the cache
+        #             self.cache.append((table, data_dict)) #add the new entry
+        # elif (cache and table != 'packet'):
+        #     self.cache.append((table, data_dict))
+
+        #Sequential insertions   
+        if (not cache_enable and isinstance(data_dict, list)):
             if (len(data_dict) > 1):
                 DBHandler.insert_multi_rows(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict)
             else:
                 DBHandler.insert(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict[0])
-        else:
+        elif (not cache_enable):
             DBHandler.insert(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict)
+
+        end_time = time.perf_counter()
+        delta = end_time - self.start_times.pop((table, payload))
+        self.elapsed_times.append(delta)
+        self.counter += 1
+        if (self.counter % 100 == 0):
+            logging.info(f"Elapsed time maxes {max(self.elapsed_times[-100:])}")
     
-    def _proto_ingest(self, payload:str):
+    def _proto_ingest(self, payload:str, cache:bool = False):
         message_dict = self._proto_decode(payload=payload)
 
         if ("time" not in message_dict or "packet_id" not in message_dict):
@@ -188,7 +235,7 @@ class MQTTHandler:
             if (data is None):
                 data = ({col: message_dict[table][col] for col in db_desc[table] if col in message_dict[table]}
                 | {"packet_id": message_dict["packet_id"]}) if table in avail_tables else None
-            if (data):
+            if (data and not cache):
                 DBHandler.insert(table=table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data)
 
     def _b64_ingest(self, payload: str, high_freq: bool):

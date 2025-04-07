@@ -173,10 +173,10 @@ class DataTester:
 
         # for i in range(num_rows) if kwargs.get('verbose') else tqdm(range(num_rows)):
         for i in range(num_rows) if kwargs.get('verbose') else tqdm(range(num_rows)):
-            row = self.create_row(table_desc, i)
+            row = self.create_row(table_desc, i + 1)
             if kwargs.get('verbose') and (num_rows < 1000 or not i % (num_rows // 100)):
                 logging.info(f'Publishing payload #{i:>3} to {table}: {row}')
-            self.mqtt.publish(f'data/{table}', pickle.dumps(row), qos=1)
+            self.mqtt.publish(f'data/{table}', pickle.dumps(row), qos=0)
             time.sleep(delay)
         return 0
 
@@ -250,5 +250,12 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     with DBHandler(unsafe=True, target=DBTarget.getHandler()) as handler:
         with MQTTHandler('paho_test', db_handler=handler) as mqtt:
-            dt = DataTester(mqtt=mqtt, seed=42)
-            dt.send_proto_rows(['packet', 'dynamics', 'controls', 'pack', 'diagnostics_low', 'diagnostics_high', 'thermal'], 500, 0.01)
+            # Protobuf message testing
+            # dt = DataTester(mqtt=mqtt, seed=42)
+            # dt.send_proto_rows(['packet', 'dynamics', 'controls', 'pack', 'diagnostics_low', 'diagnostics_high', 'thermal'], 500, 0.01)
+
+            # data_ingest with fully processed data
+            dt = DataTester(mqtt = mqtt, seed = 42)
+            dt.single_table_test('packet', 2000, 0.01) # sequential
+            
+            dt.concurrent_tables_test(['dynamics', 'controls', 'pack', 'diagnostics_low', 'diagnostics_high', 'thermal'], 2000, 0.01) #batch

@@ -9,6 +9,7 @@ from collections import defaultdict
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 
 if os.getenv('IN_DOCKER'):
@@ -376,6 +377,26 @@ class DBHandler:
             with cnx.cursor() as cur:
                 return send_body(cur)
 
+    @classmethod
+    def batch_insert(cls, target=DBTarget.getHandler(), user='analysis',  handler=None, data=None, returning=None):
+        if data is None:
+            raise ValueError('No data in payload. dd')
+        
+        if (handler is None):
+            handler = cls()
+        
+        # assuming batch of queries
+        if (isinstance(data[0], list)):
+            #TODO
+            with ThreadPoolExecutor(max_workers=handler.conn_pool_size) as executor:
+                futures = [executor.submit(DBHandler.insert_multi_rows, batch[0], target, user, handler, batch[1], returning) for batch in data]
+                for f in futures:
+                    f.result()
+        else: 
+            with ThreadPoolExecutor(max_workers=handler.conn_pool_size) as executor:
+                futures = [executor.submit(DBHandler.insert, batch[0], target, user, handler, batch[1], returning) for batch in data]
+                for f in futures:
+                    f.result()
 
     @classmethod
     def set_event_status(cls, event_id: int, status: int, target=DBTarget.getHandler(), user='analysis', handler=None, packet_end=None, returning=None, start_time=None):

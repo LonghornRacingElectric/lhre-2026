@@ -1,5 +1,4 @@
 syntax = "proto3";
-
 message SensorData {
     int64 time = 1;
     int64 packet_id = 2;
@@ -10,7 +9,6 @@ message SensorData {
     DiagnosticsLow diagnostics_low = 1001;
     Thermal thermal = 1002;
 }
-
 message Dynamics {
     float               steer_col_angle = 7;
     float               fl_steer_angle = 8;
@@ -57,7 +55,6 @@ message Dynamics {
     float               f_gps_heading = 49;
     float               b_gps_heading = 50;
 }
-
 message Controls {
     float               apps1_v = 51;
     float               apps2_v = 52;
@@ -77,7 +74,6 @@ message Controls {
     float               brake_pressure_rall = 66;
     float               brake_bias = 67;
 }
-
 message Pack {
     float               hv_pack_v = 68;
     float               hv_tractive_v = 69;
@@ -88,7 +84,6 @@ message Pack {
     float               avg_cell_v = 74;
     float               avg_cell_temp = 75;
 }
-
 message DiagnosticsHigh {
     bool                apps1_disconnect = 76;
     bool                apps2_disconnect = 77;
@@ -106,7 +101,6 @@ message DiagnosticsHigh {
     bool                bse1_out_range = 89;
     bool                bse2_out_range = 90;
 }
-
 message DiagnosticsLow {
     bool                batt_over_c = 1003;
     int32               cell_over_v = 1004;
@@ -139,7 +133,6 @@ message DiagnosticsLow {
     repeated float      cells_temps = 1031;
     repeated float      cells_v = 1032;
 }
-
 message Thermal {
     float               motor_loop_flow_rate = 1033;
     float               motor_loop_motor_temp = 1034;
