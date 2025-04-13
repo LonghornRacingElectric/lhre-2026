@@ -130,7 +130,7 @@ class MQTTHandler:
                 self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable)
             else:
                 # Protobuf serialized string sent
-                self._proto_ingest(payload=msg.payload, cache=self.cache_enable)
+                self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable)
         else:
             logging.warning(f'No corresponding topic found for {msg.topic}')
 
@@ -200,7 +200,7 @@ class MQTTHandler:
         elif not cache_enable:
             DBHandler.insert(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict)
     
-    def _proto_ingest(self, payload:str, cache:bool = False):
+    def _proto_ingest(self, payload:str, cache_enable = False):
         message_dict = self._proto_decode(payload=payload)
 
         if ("time" not in message_dict or "packet_id" not in message_dict):
@@ -212,11 +212,11 @@ class MQTTHandler:
             if (data is None):
                 data = ({col: message_dict[table][col] for col in db_desc[table] if col in message_dict[table]}
                 | {"packet_id": message_dict["packet_id"]}) if table in avail_tables else None
-            if (data and not cache):
+            if not cache_enable:
                 DBHandler.insert(table=table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data)
-            elif (data and cache and table == 'packet'):
+            elif table == 'packet':
                 DBHandler.insert(table=table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data)
-            elif (data and cache and table != 'packet'):
+            elif table != 'packet':
                 self.cache.append((table, data))
                 if (len(self.cache) == 24):
                     DBHandler.batch_insert(target = DBTarget.getHandler(), user='electric', handler=self.handler, data=self.cache)
@@ -247,7 +247,7 @@ class MQTTHandler:
         logging.info('Data Received via Protobuf')
         row = template_pb2.SensorData()
         row.ParseFromString(payload)
-        row = MessageToDict(row, preserving_proto_field_name=True)
+        row = MessageToDict(row, preserving_proto_field_name=True, always_print_fields_with_no_presence=True)
         logging.debug(row)
         return row
 
