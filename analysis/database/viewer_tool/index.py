@@ -7,6 +7,8 @@ from pathlib import Path
 from tqdm import tqdm
 from datetime import date, datetime
 
+REALTIME = True
+
 sys.path.append(str(Path(__file__).parents[3]))
 from flask import Flask, render_template, url_for, request, redirect
 
@@ -253,7 +255,7 @@ def add_new_lap():
             print("LAPS IN JSON")
             json_obj['laps'] = []
             
-        time_to_append = int(data['time']) - (json_obj['timerEventTime'])
+        time_to_append = int(((time.time() * 1000) if REALTIME else data['time']) - (json_obj['timerEventTime']))
         if len(json_obj['laps']) > 0: time_to_append -= json_obj['laps'][-1]
             
         json_obj['laps'].append(time_to_append)

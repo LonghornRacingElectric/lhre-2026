@@ -128,9 +128,9 @@ do
             cd ../gps_classifier || (echo "Failed to find processors" && exit)
             $SUDO docker compose down
             $SUDO docker rmi "$($SUDO docker image ls | grep gps_classifier | awk '{print $3}')"
-            $SUDO docker compose up -d
-            cd ../../ingest
-            $SUDO docker compose logs -f
+            $SUDO docker compose up
+            # cd ../../ingest
+            # $SUDO docker compose logs -f
             
             break
             ;;

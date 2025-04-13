@@ -11,6 +11,7 @@ from enum import Enum
 from numpy.typing import NDArray
 import warnings
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import pandas as pd
 
 warnings.simplefilter('ignore', np.linalg.LinAlgError)
@@ -52,7 +53,18 @@ class Visualizer:
     def save_image(self):
         fig1 = plt.figure()
         ax = fig1.add_subplot(111, projection='3d')
+        
+        # Labels
         ax.set_title('Events')
+        ax.set_xlabel('Longitude')
+        ax.set_ylabel('Latitude')
+        ax.set_zlabel('Time')
+        
+        # Remove ticks
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.set_zticklabels([])
+        
         
         fig2 = plt.figure()
 
@@ -77,6 +89,13 @@ class Visualizer:
 
         save_path = os.path.join(visualizer_image_path, "events.png")
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        
+        legend_elements = [
+            Line2D([0], [0], color='green', lw=2, label='Linear Acceleration'),
+            Line2D([0], [0], color='red', lw=2, label='Sharp Turn'),
+            Line2D([0], [0], color='black', lw=2, label='Normal Driving')
+        ]
+        ax.legend(handles=legend_elements, loc='upper right')
         
         fig1.savefig(save_path)
         # logging.info(f"Image saved at {visualizer_image_path}/events.png")
@@ -143,7 +162,7 @@ class GPSClassifierProcessor:
         self.status = 0
         
         
-        self.VELOCITY_THRESHOLD: float = 4
+        self.VELOCITY_THRESHOLD: float = 10
         
         self.current_process: Process | None = None
         self.processes: list[Process] = []
@@ -288,7 +307,7 @@ class GPSClassifierProcessor:
                 if self.started_event.starting_heading:
                     diffs = np.abs(heading - self.started_event.starting_heading)
                     # End at the point where a difference is heading is too big
-                    if diffs.max() >= 30:
+                    if diffs.max() >= 20:
                         self.min_time = time[np.argmax(diffs)]
                         self.started_event._stop_event(self.min_time)
                         self.started_event = None
@@ -296,7 +315,7 @@ class GPSClassifierProcessor:
             elif self.started_event.type == ProcessType.TURN:
                 if self.started_event.starting_heading:
                     diffs = heading - self.started_event.starting_heading
-                    if diffs.min() <= 10:
+                    if diffs.min() <= 15:
                         self.min_time = time[np.argmax(diffs)]
                         self.started_event._stop_event(self.min_time)
                         self.started_event = None
@@ -391,17 +410,17 @@ def run_processor():
         
         frequency = 500
         window_size = 50
-        la_threshold = 7
-        t_threshold=0.6
+        la_threshold = 10
+        t_threshold=0.7
         la_time_window=10
         t_time_window=5
         t1 = threading.Thread(target=processor.run_thread, args=(frequency, window_size, la_threshold, t_threshold, la_time_window, t_time_window))
         t1.start()
         
         frequency = 100
-        la_threshold = 0.00000000000025
-        t_na_threshold = 0.00000000000025
-        t_h_threshold = 0.000000000025
+        la_threshold = 0.00000000000033
+        t_na_threshold = 0.00000000000027
+        t_h_threshold = 0.000000000027
         t2 = threading.Thread(target=processor.process_thread, args=(frequency, la_threshold, t_na_threshold, t_h_threshold))
         t2.start()
         
