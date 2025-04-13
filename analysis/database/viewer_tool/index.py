@@ -448,6 +448,7 @@ latest_event_details = os.getenv("event_details")
 
 #Generator function for SSE that streams updates of event details.
 def event_sync_stream():
+    yield "data: ping\n\n"
     global latest_event_details
     last_sent = None
     while True:
@@ -459,6 +460,7 @@ def event_sync_stream():
 
 #Generator for SSE page sync updates
 def page_sync_stream():
+    yield "data: ping\n\n"
     global latest_page_details
     last_sent = None
     while True:
