@@ -4,10 +4,10 @@ import logging
 import json
 import pickle
 import base64
+import sys
 import time
 import numpy as np
 import copy
-import threading
 from paho.mqtt import client as mqtt_client 
 from google.protobuf.json_format import MessageToDict
 from paho.mqtt import client as mqtt_client
@@ -26,8 +26,6 @@ if os.getenv('IN_DOCKER'):
     import protobuf.template_pb2 as template_pb2
 else:
     from analysis.sql_utils.db_handler import get_table_column_specs, DBTarget, DBHandler
-    import sys
-    from pathlib import Path
     sys.path.append(str(Path(__file__).parents[3]))
     from stack.ingest.protobuf import template_pb2
 
@@ -199,7 +197,7 @@ class MQTTHandler:
                 DBHandler.insert_multi_rows(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict)
             else:
                 DBHandler.insert(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict[0])
-        elif (not cache_enable):
+        elif not cache_enable:
             DBHandler.insert(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict)
     
     def _proto_ingest(self, payload:str, cache:bool = False):
@@ -250,7 +248,7 @@ class MQTTHandler:
         row = template_pb2.SensorData()
         row.ParseFromString(payload)
         row = MessageToDict(row, preserving_proto_field_name=True)
-        logging.info(row)
+        logging.debug(row)
         return row
 
     def _base64_decode(self, payload: str, high_freq: bool) -> dict:

@@ -387,7 +387,6 @@ class DBHandler:
         
         # assuming batch of queries
         if (isinstance(data[0], list)):
-            #TODO
             with ThreadPoolExecutor(max_workers=handler.conn_pool_size) as executor:
                 futures = [executor.submit(DBHandler.insert_multi_rows, batch[0], target, user, handler, batch[1], returning) for batch in data]
                 for f in futures:

@@ -216,20 +216,29 @@ class DataTester:
             time.sleep(delay)
 
     def create_proto_message(self, packet:int, db_desc):
+        """
+        This function creates a protobuf message using the current protobuf template(SensorData) and db_description with
+        random data. 
+
+        :param packet: int representing packet_id which is assigned to the returned message
+        :param db_desc: dict output from database description
+
+        :return: returns protbuf message with random data
+        """
         data = SensorData()
         for table in db_desc:
-            row = self.create_row(db_desc[table], packet)
+            row = self.create_row(db_desc[table], packet) # Create random data
             if hasattr(data, table):  
                 table_instance = getattr(data, table)
-                if isinstance(table_instance, Message): 
+                if isinstance(table_instance, Message): # Iterate through a specific tbale (not packet table)
                     for key, value in row.items():
-                        if hasattr(table_instance, key): 
+                        if hasattr(table_instance, key): # Set values in protobuf message
                             if (isinstance(value, list) or isinstance(value, tuple)):
                                 getattr(table_instance, key).extend(value)
                             else:
                                 setattr(table_instance, key, value)
             else:
-                for key, value in row.items():
+                for key, value in row.items(): # Edit packet and time
                     if hasattr(data, key):  
                         setattr(data, key, int(value))
         return data
@@ -251,10 +260,10 @@ if __name__ == '__main__':
     with DBHandler(unsafe=True, target=DBTarget.getHandler()) as handler:
         with MQTTHandler('paho_test', db_handler=handler) as mqtt:
             # Protobuf message testing
-            # dt = DataTester(mqtt=mqtt, seed=42)
-            # dt.send_proto_rows(['packet', 'dynamics', 'controls', 'pack', 'diagnostics_low', 'diagnostics_high', 'thermal'], 500, 0.01)
+            dt = DataTester(mqtt=mqtt, seed=42)
+            dt.send_proto_rows(['packet', 'dynamics', 'controls', 'pack', 'diagnostics_low', 'diagnostics_high', 'thermal'], 2000, 0.01)
 
             # data_ingest with fully processed data
-            dt = DataTester(mqtt = mqtt, seed = 42)
-            dt.single_table_test('packet', 2000, 0.01) # sequential
-            dt.concurrent_tables_test(['dynamics', 'controls', 'pack', 'diagnostics_low', 'diagnostics_high', 'thermal'], 2000, 0.01) #batch
+            # dt = DataTester(mqtt = mqtt, seed = 42)
+            # dt.single_table_test('packet', 2000, 0.01) # sequential
+            # dt.concurrent_tables_test(['dynamics', 'controls', 'pack', 'diagnostics_low', 'diagnostics_high', 'thermal'], 2000, 0.01) #batch
