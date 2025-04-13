@@ -380,7 +380,7 @@ class DBHandler:
     @classmethod
     def batch_insert(cls, target=DBTarget.getHandler(), user='analysis',  handler=None, data=None, returning=None):
         if data is None:
-            raise ValueError('No data in payload. dd')
+            raise ValueError('No data in payload.')
         
         if (handler is None):
             handler = cls()

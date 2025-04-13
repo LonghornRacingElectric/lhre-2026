@@ -257,5 +257,4 @@ if __name__ == '__main__':
             # data_ingest with fully processed data
             dt = DataTester(mqtt = mqtt, seed = 42)
             dt.single_table_test('packet', 2000, 0.01) # sequential
-            
             dt.concurrent_tables_test(['dynamics', 'controls', 'pack', 'diagnostics_low', 'diagnostics_high', 'thermal'], 2000, 0.01) #batch
