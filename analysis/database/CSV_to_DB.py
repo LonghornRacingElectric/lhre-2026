@@ -19,6 +19,8 @@ from psycopg.types.json import Jsonb
 from queue import Queue
 import requests
 
+REALTIME = True
+
 sys.path.append(str(Path(__file__).parents[2]))
 
 from analysis.sql_utils.db_handler import get_table_column_specs
@@ -327,14 +329,15 @@ class CSVToDB():
         # ---- START EVENT ----
         try:
             event_id = (DBHandler.simple_select('SELECT event_id FROM event WHERE status = 1 ORDER BY event_id DESC LIMIT 1', handler=self.db_handler)[0][0])
+            print("EVENT ID: ", event_id)
             if event_id == -1: raise Exception("No event is currently running")
         # Creating a new event
         except Exception as e:
             sample_drive_day = {'power_limit': '', 'conditions': ''}
             sample_event = {'driver_id': '0', 'location_id': '0', 'event_type': '0', 'car_id': '1', 'car_weight': '', 'tow_angle': '', 'camber': '', 'ride_height': '', 'ackerman_adjustment': '', 'power_limit': '', 'shock_dampening': '', 'torque_limit': '', 'frw_pressure': '', 'flw_pressure': '', 'brw_pressure': '', 'blw_pressure': '', 'day_id': '1'}
-            
+            print("http://" + MQTTTarget.get() + ":5000/webtool/create_event/")
             day_id = DBHandler.insert(table='drive_day', target=DBTarget.get(), user='electric', data=sample_drive_day, returning='day_id', handler=self.db_handler)
-            response = requests.post("http://" + MQTTTarget.get() + ":5000/create_event/", data=sample_event)
+            response = requests.post("http://" + MQTTTarget.get() + ":5000/webtool/create_event/", data=sample_event)
             
             with MQTTHandler('flask_app') as mqtt:
                 mqtt.publish('config/page_sync', "running_event_page")
@@ -347,10 +350,10 @@ class CSVToDB():
     def start_timer(self, start_time: int):
         config = {
             "timerRunning": True,
-            "timerEventTime": start_time,
+            "timerEventTime": time.time() * 1000 if REALTIME else start_time,
             "timerInternalTime": 0,
         }
-        print("STARTED TIMER AT ", start_time)
+        print(f"STARTED TIMER AT {start_time if REALTIME else time.time() * 1000} | (OR {start_time})")
         print(config)
         time.sleep(1)
         print("SENT CONFIG AT EVENT UPDATE SYNC")
