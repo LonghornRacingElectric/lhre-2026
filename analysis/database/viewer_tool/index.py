@@ -117,7 +117,7 @@ def make_app():
     })
 
     config = {}
-    latest_event_details = os.environ.get('event_details', '')
+    latest_event_details = os.environ["event_details"]
     @app.route('/index', methods=['GET'])
     @login_required
     def index():
@@ -225,10 +225,12 @@ def make_app():
     @app.route('/reset_config_image', methods=['POST', 'GET'])
     def reset_config_image():
         global latest_page_details
+        global latest_event_details
         os.environ["event_details"] = ""
         os.environ["event_id"] = "-1"
         os.environ["page_details"] = "index_page"
         latest_page_details = os.getenv("page_details")
+        latest_event_details = os.getenv("event_details")
 
         # Update correct current page to be new event
         #with MQTTHandler(f'flask_app_{uuid.uuid4()}') as mqtt:
@@ -401,13 +403,20 @@ def make_app():
                 last_pack = DBHandler.simple_select('SELECT packet_id FROM packet ORDER BY packet_id DESC LIMIT 1')[0][0]
             except IndexError as e:
                 last_pack = 0
+
             DBHandler.set_event_status(int(os.getenv("event_id")), 0, packet_end=last_pack, user='electric')
             #Reset event variables
             os.environ["event_id"] = "-1"
+            os.environ["event_details"] = ""
+
+            #Update target page
+            os.environ["page_details"] = "index_page"  # update shared env variable
+            global latest_page_details
+            latest_page_details = "index_page"
 
         # Update the global event details. Store it as a JSON-formatted string.
         os.environ['event_details'] = json.dumps(json_data)
-        latest_event_details = os.environ['event_details']
+        latest_event_details = os.getenv("event_details")
 
         app.logger.debug("Event sync updated: %s", latest_event_details)
 
@@ -433,9 +442,9 @@ def make_app():
 
 def notify_listeners():
     global latest_event_details
-    latest_event_details = os.environ['event_details']
+    latest_event_details = os.getenv("event_details")
 
-latest_event_details = os.environ.get('event_details', '')
+latest_event_details = os.getenv("event_details")
 
 #Generator function for SSE that streams updates of event details.
 def event_sync_stream():

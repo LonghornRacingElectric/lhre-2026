@@ -44,10 +44,10 @@ function encodeValues(timerStatus, updateTimerTime, updateIntTime, turnStatus, a
         })
         .then(response => response.json())
         .then(data => {
-            console.log("Update successful:", data);
+            console.log("State send successful:", data);
         })
         .catch(err => {
-            console.error("Error updating event sync:", err);
+            console.error("Error sending event sync: ", err);
         });
     }
 

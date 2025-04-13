@@ -3,7 +3,6 @@
 {% block head %}
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Telemetry Injection Tool</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/uuid@8.3.2/dist/umd/uuidv4.min.js"></script>
     <script src="{{ url_for('static', filename='js/pageSync.js') }}"></script>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
@@ -177,56 +176,13 @@
 
     console.log("script running index.html")
 
-    //MQTT handling and function mapping
+    //Naming, handling
     let myName = uuidv4();
-    //client = new Paho.MQTT.Client('{{ host_ip }}', 8080, myName);
     console.log("ClientName: " + myName);
 
     //Setup SSE listener
     const currentPage = "index_page";
     setupPageSync(currentPage);
-
-    //Set callback functions
-    //client.onConnectionLost = onConnectionLost;
-    //client.onMessageArrived = onMessageArrived;
-    //Connect and define connection
-    //client.connect({onSuccess:onConnect});
-    //Connect callback
-    //function onConnect() {
-        //Once connected, subscribe
-    //    console.log("onConnect");
-    //    client.subscribe("config/page_sync")
-    //}
-    //New message callback
-    function onMessageArrived(message) {
-        console.log("I got: " + message.payloadString)
-        //Ensure page is correct by pinging with the current page
-        fetch('/verify_page/' + "index_page", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ action: 'redirect' })
-        })
-        .then(response => {
-            if (response.redirected) {
-                window.location.href = response.url
-                console.log("config_image reset, disconnected");
-            } else {
-                console.error("Page verified. No reset necessary.", response.statusText);
-            }
-        })
-        .catch(error => {
-            console.error("Error during fetch: ", error);
-        });
-    }
-    function onConnectionLost() {
-        console.log("CONNECTION LOST")
-    }
-    function onDisconnect() {
-        console.log("DISCONNECT")
-        //TODO when client loses connection, redirect to new page? Display warning?
-    }
 
     </script>
 {% endblock %}
