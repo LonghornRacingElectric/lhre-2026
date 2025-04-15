@@ -26,7 +26,7 @@ services:
       PYTHONUNBUFFERED: 1   # Allows output in Docker Compose console
       IN_DOCKER: 1          # Custom env variable used for IP resolution
       SERVER_TARGET: 'LOCAL'
-      DB_CONN_TYPE: 2
+      DB_CONN_TYPE: 6
       LOGLEVEL: 'DEBUG'
     volumes:
       - ../../analysis/sql_utils/db_handler.py:/ingest/db_handler.py
