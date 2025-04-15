@@ -64,6 +64,9 @@ def config_subscribe(client, userdata, msg):
         # TODO safety, ensure all fields present?
         logging.debug("PAGE PAYLOAD: " + str(msg))
         os.environ["page_details"] = msg
+        global latest_page_details
+        latest_page_details = msg
+        
 
 def mqtt_client_loop(mqtt):
     # Start the MQTT client loop (this will run forever in the background)
@@ -89,7 +92,7 @@ def make_app():
     login_manager = LoginManager()
     login_manager.init_app(app)
     login_manager.login_view = 'login'
-    USER_DB_PATH = "users.db"
+    USER_DB_PATH = "./users.db"
 
     class User(UserMixin):
         def __init__(self, id, username, password_hash):
@@ -293,7 +296,7 @@ def make_app():
         pass
 
     @app.route('/new_lap/', methods=['POST'])
-    @login_required
+    #! MIGHT NEED TO IMPLEMENT LATER @login_required
     def add_new_lap():
         json_obj = json.loads(os.environ["event_details"])
         print("JSON OBJ", json_obj)
