@@ -440,6 +440,9 @@
             loadPrevTables()
 
 
+            setInterval(heartbeat, 5000);
+            heartbeat()
+
             const img = document.getElementById('live-image');
             function updateImage() {
                 const timestamp = new Date().getTime();
