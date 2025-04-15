@@ -6,11 +6,13 @@ Write-Host "`t3) Delete the existing images and telemetry_db volume"
 Write-Host "`t4) Delete the existing images and both volumes (INCLUDING GRAFANA DASHBOARDS!)"
 Write-Host "`tQ) Run Processor in background and start server"
 Write-Host "`tW) Delete the existing server and processors images"
+Write-Host "`tE) Delete the lap timer processors images"
+Write-Host "`tF) Delete the gps classifier processors images"
 Write-Host ""
 
 # Infinite loop to process user input
 while ($true) {
-    $opt = Read-Host "Choose an option (1-4, Q, W)"
+    $opt = Read-Host "Choose an option (1-4, Q, W, E, F)"
     Write-Host ""
     Write-Host ""
 
@@ -133,6 +135,38 @@ while ($true) {
                 # Change directory back to "ingest"
                 Set-Location (Get-ChildItem -Recurse -Directory | Where-Object { $_.Name -eq "ingest" }).FullName
                 docker-compose logs -f
+                break
+            }
+            "E" {
+                # Change directory to processors/lap_timer
+                $lapTimerPath = Get-ChildItem -Recurse -Directory | Where-Object { $_.FullName -like "*\processors\lap_timer" }
+                if (-not $lapTimerPath) {
+                    Write-Host "Failed to find processors/lap_timer"
+                    exit
+                }
+                Set-Location $lapTimerPath.FullName
+                docker-compose down
+                $lapTimerImages = docker image ls --filter "reference=lap_timer" -q
+                foreach ($image in $lapTimerImages) {
+                    docker rmi $image
+                }
+                docker-compose up
+                break
+            }
+            "F" {
+                # Change directory to processors/gps_classifier
+                $gpsClassifierPath = Get-ChildItem -Recurse -Directory | Where-Object { $_.FullName -like "*\processors\gps_classifier" }
+                if (-not $gpsClassifierPath) {
+                    Write-Host "Failed to find processors/gps_classifier"
+                    exit
+                }
+                Set-Location $gpsClassifierPath.FullName
+                docker-compose down
+                $gpsClassifierImages = docker image ls --filter "reference=gps_classifier" -q
+                foreach ($image in $gpsClassifierImages) {
+                    docker rmi $image
+                }
+                docker-compose up
                 break
             }
             default {
