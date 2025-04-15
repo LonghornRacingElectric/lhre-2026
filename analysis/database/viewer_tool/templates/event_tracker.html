@@ -334,13 +334,13 @@
             function heartbeat() {
 
                 //Fetch current active user number for count display
-                fetch('/active_users', {
+                fetch('/webtool/active_users', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        user_id: myName,        // Ensure myName is defined in your scope
+                        user_id: myName,
                         timestamp: Date.now()
                     })
                 })
@@ -353,7 +353,7 @@
                     .then(postData => {
                         console.log('Heartbeat sent successfully:', postData);
                         // Now fetch the active user count
-                        return fetch('/active_users');
+                        return fetch('/webtool/active_users');
                     })
                     .then(getResponse => {
                         if (!getResponse.ok) {
@@ -381,7 +381,7 @@
             setupPageSync(currentPage);
 
             //Setup event listener (alternative to MQTT)
-            const eventSource = new EventSource('/event-sync-stream');
+            const eventSource = new EventSource('/webtool/event-sync-stream');
             eventSource.onmessage = function(event) {
                 //Parse JSON data received from server
                 let configData;

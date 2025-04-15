@@ -9,7 +9,7 @@ const redirectionMap = {
 };
 
 function setupPageSync(currentPage) {
-    const eventSource = new EventSource('/page-sync-stream');
+    const eventSource = new EventSource('/webtool/page-sync-stream');
     eventSource.onmessage = function(event) {
         const targetPage = event.data;
         console.log("Received page sync target:", targetPage);
@@ -34,7 +34,7 @@ function setupPageSync(currentPage) {
  * @returns {Promise} - A promise that resolves with the server response.
  */
 function sendPageTarget(target) {
-    return fetch('/update-page-target', {
+    return fetch('/webtool/update-page-target', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target_page: target })
