@@ -66,7 +66,7 @@ def config_subscribe(client, userdata, msg):
         os.environ["page_details"] = msg
         global latest_page_details
         latest_page_details = msg
-        
+
 
 def mqtt_client_loop(mqtt):
     # Start the MQTT client loop (this will run forever in the background)
@@ -148,16 +148,17 @@ def make_app():
             logging.debug("Redirecting to Running Event.")
             return redirect(url_for('create_event'))
 
+        try:
+            day_id = DBHandler.simple_select('SELECT day_id FROM drive_day ORDER BY day_id DESC LIMIT 1')[0][0]
+            logging.debug("DEBUG select day_id returns: " + str(day_id))
+            os.environ["day_id"] = str(day_id)
+        except (ValueError, IndexError) as e:
+            os.environ["day_id"] = "0"
+
         #If no event running but drive day has been created, set current page to event details config page
         if os.getenv("date_id") == str(date.today()):
             logging.debug("DEBUG: Date ID equal.")
             # day_id = DBHandler.simple_select(table='drive_day', target=DBTarget.get(), user='electric', returning='day_id')
-            try:
-                day_id = DBHandler.simple_select('SELECT day_id FROM drive_day ORDER BY day_id DESC LIMIT 1')[0][0]
-                logging.debug("DEBUG select day_id returns: " + str(day_id))
-                os.environ["day_id"] = str(day_id)
-            except (ValueError, IndexError) as e:
-                os.environ["day_id"] = "0"
 
             return redirect(url_for('new_event', day_id=os.getenv("day_id"), method='new')) #temporary routing
         else:
@@ -167,7 +168,7 @@ def make_app():
         os.environ["page_details"] = "index_page"
         #with MQTTHandler(f'flask_app_{uuid.uuid4()}') as mqtt:
         #    mqtt.publish('config/page_sync', "index_page")
-        return render_template('index.html', host_ip=DBTarget.resolve_target(DBTarget.get(client=True)))
+        return render_template('index.html', day_id=os.getenv("day_id"), host_ip=DBTarget.resolve_target(DBTarget.get(client=True)))
 
 
     @app.route('/new_drive_day/', methods=['GET'])
@@ -352,10 +353,12 @@ def make_app():
         return render_template('splash.html', current_date=current_date)
 
     @app.route('/dashboards')
-    @login_required
     def dashboards():
-        return redirect("http://localhost:3000")
-        # return redirect(f"https://lhrelectric.org/webtool/grafana")
+        with open('../../../net_configs.json') as f:
+             targets_dict = json.load(f)
+        if targets_dict['CLIENT_TARGET'] == 'LOCAL':
+            return redirect("http://localhost:3000")
+        return redirect(f"https://lhrelectric.org/grafana")
 
     @app.route('/logout')
     @login_required
@@ -472,6 +475,8 @@ def event_sync_stream():
             #Yeilds event details as SSE message (with double newline at end)
             yield f"data: {latest_event_details}\n\n"
             last_sent = latest_event_details
+        else:
+            yield f'heartbeat'
         time.sleep(1)  # Adjust the interval as needed
 
 #Generator for SSE page sync updates

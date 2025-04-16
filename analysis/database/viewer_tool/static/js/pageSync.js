@@ -1,10 +1,9 @@
 /**
  * Sets up an SSE listener to receive page target updates from the server.
  */
-
 const redirectionMap = {
     "index_page": "/webtool/index",
-    "new_event_page": "/webtool/new_event/?day_id={{ os.environ.get('day_id') }}&method=new",
+    "new_event_page": "/webtool/new_event/method=new",
     "running_event_page": "/webtool/create_event"
 };
 
