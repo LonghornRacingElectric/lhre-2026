@@ -2,13 +2,13 @@
  * Sets up an SSE listener to receive page target updates from the server.
  */
 const redirectionMap = {
-    "index_page": "/webtool/index",
-    "new_event_page": "/webtool/new_event/method=new",
-    "running_event_page": "/webtool/create_event"
+    "index_page": "/index",
+    "new_event_page": "/new_event",
+    "running_event_page": "/create_event"
 };
 
 function setupPageSync(currentPage) {
-    const eventSource = new EventSource('/webtool/page-sync-stream');
+    const eventSource = new EventSource('https://sse.lhrelectric.org/webtool/page-sync-stream');
     eventSource.onmessage = function(event) {
         const targetPage = event.data;
         console.log("Received page sync target:", targetPage);
@@ -48,3 +48,4 @@ function sendPageTarget(target) {
         throw err;
     });
 }
+

@@ -144,7 +144,7 @@ def make_app():
                 os.environ["event_id"] = "-9999"
             logging.debug("event_id Database Select 'event-running' check failed with error: " + str(e))
         #If an event is currently active, redirect to its page
-        if os.getenv("event_id") != "-1" or os.getenv("event_details"): #TODO more robust check than -1 pls
+        if int(event_id := os.getenv("event_id")) > 0 or event_id == "-9999" or os.getenv("event_details"): #TODO more robust check than -1 pls
             logging.debug("Redirecting to Running Event.")
             return redirect(url_for('create_event'))
 
@@ -160,7 +160,7 @@ def make_app():
             logging.debug("DEBUG: Date ID equal.")
             # day_id = DBHandler.simple_select(table='drive_day', target=DBTarget.get(), user='electric', returning='day_id')
 
-            return redirect(url_for('new_event', day_id=os.getenv("day_id"), method='new')) #temporary routing
+            return redirect(url_for('new_event', day_id=os.getenv("day_id"))) #temporary routing
         else:
             logging.debug("DEBUG: Date ID NOT equal.")
 
@@ -170,7 +170,6 @@ def make_app():
         #    mqtt.publish('config/page_sync', "index_page")
         return render_template('index.html', day_id=os.getenv("day_id"), host_ip=DBTarget.resolve_target(DBTarget.get(client=True)))
 
-
     @app.route('/new_drive_day/', methods=['GET'])
     @login_required
     def new_drive_day():
@@ -178,7 +177,7 @@ def make_app():
         os.environ["date_id"] = str(date.today())
         os.environ["day_id"] = str(day_id)
         logging.debug("NEW_DRIVE_DAY Reset date_id to: " + os.getenv("date_id"))
-        return redirect(url_for('new_event', day_id=day_id, method='new'))
+        return redirect(url_for('new_event', day_id=day_id))
 
 
     @app.route('/new_event/', methods=['GET'])
@@ -189,6 +188,7 @@ def make_app():
 
     @app.route('/create_event/', methods=['GET', 'POST'])
     def create_event():
+
         #! TODO: PROTECT
         print("CREATE EVENT")
         current_date = datetime.today().strftime("%B %d, %Y")
@@ -237,6 +237,13 @@ def make_app():
         DBHandler.set_event_status(**request.json, target=DBTarget.get(), user='electric', returning='day_id')
         return render_template('event_tracker.html', host_ip=DBTarget.resolve_target(DBTarget.get(client=True)), event_id=request.json['event_id'])
 
+    @app.route('/handshake/', methods=['GET'])
+    def handshake():
+        try:
+            last_pack = DBHandler.simple_select('SELECT packet_id FROM packet ORDER BY packet_id DESC LIMIT 1')[0][0]
+        except IndexError as e:
+            last_pack = 0
+        return json.dumps({'time': time.time() * 1000, 'last_packet': last_pack}), 200, {'ContentType': 'application/json'}
 
     @app.route('/reset_config_image', methods=['POST', 'GET'])
     def reset_config_image():
@@ -471,12 +478,11 @@ def event_sync_stream():
     global latest_event_details
     last_sent = None
     while True:
+        logging.warning(latest_event_details)
         if latest_event_details != last_sent:
             #Yeilds event details as SSE message (with double newline at end)
             yield f"data: {latest_event_details}\n\n"
             last_sent = latest_event_details
-        else:
-            yield f'heartbeat'
         time.sleep(1)  # Adjust the interval as needed
 
 #Generator for SSE page sync updates
@@ -505,6 +511,6 @@ if __name__ == '__main__':
         mqtt.client.loop_start()
 
         if os.getenv('IN_DOCKER'):
-            app.run(host='0.0.0.0', ssl_context=('/etc/letsencrypts/live/lhrelectric.org/fullchain.pem', '/etc/letsencrypts/live/lhrelectric.org/privkey.pem'))
+            app.run(host='127.0.0.1', ssl_context=('/etc/letsencrypts/live/lhrelectric.org/fullchain.pem', '/etc/letsencrypts/live/lhrelectric.org/privkey.pem'))
         else:
-            app.run(host='0.0.0.0', debug=False)
+            app.run(host='127.0.0.1', debug=False)
