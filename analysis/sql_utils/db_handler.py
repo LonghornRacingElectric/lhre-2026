@@ -9,6 +9,7 @@ from collections import defaultdict
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 
 if os.getenv('IN_DOCKER'):
@@ -84,7 +85,8 @@ def get_table_column_specs(force=False, verbose=False, target=DBTarget.get(), ha
                                        target=target, user='electric', handler=handler, return_df=True,
                                        index_col='tablename')
         data['data_type'] = data.data_type.str.split('[', regex=False).str[0]     # Split [] if exists for is_list
-        data.loc[data.attname == 'gps', 'attndims'] = 1
+        data.loc[data.attname == 'f_gps', 'attndims'] = 1
+        data.loc[data.attname == 'b_gps', 'attndims'] = 1
         data.replace({'data_type': DBHandler.pg2py_types}, inplace=True)
         table_column_specs = {table: {row.attname: (row.data_type, row.attndims) for _, row in
                                       data.loc[data.index == table].iterrows()} for table in data.index.unique()}
@@ -228,7 +230,7 @@ class DBHandler:
         # Separate NaNs and log
         nan_vals = [val == 0 or bool(val) for _, val in data.items()]
         nans = {key: val for (key, val), nan in zip(data.items(), nan_vals) if not nan}
-        data = {key: val if key in ['date', 'gps', 'vcu_flags'] or isinstance(val, (list, bytearray)) else table_desc[key][0](val)
+        data = {key: val if key in ['date', 'b_gps', 'f_gps', 'vcu_flags', 'current_errors', 'latching_faults'] or isinstance(val, (list, bytearray)) else table_desc[key][0](val)
                      for (key, val), nan in zip(data.items(), nan_vals) if nan}
         if nans:
             logging.warning(f'\t\tFollowing columns had NaN data: {str(nans).replace(": ", " = ")[1:-1]}')
@@ -255,13 +257,12 @@ class DBHandler:
             handler = cls()
 
         table_desc = get_table_column_specs(target=target, handler=handler)[table]
-
         data = cls.get_insert_values(table, dict(data), table_desc)
 
         def flat_gen(data):
             # Dumb function to flatten dtype list to conform to psycopg requirements
             for col, vals in data.items():
-                if col != 'gps':
+                if (col != 'f_gps' and col != 'b_gps'):
                     yield vals
                 else:
                     for val in vals: yield val
@@ -328,7 +329,7 @@ class DBHandler:
             # Dumb function to flatten dtype list to conform to psycopg requirements
             for i in range(len(data)):
                 for col, vals in data[i].items():
-                    if col != 'gps':
+                    if (col != 'f_gps' and col != 'b_gps'):
                         yield vals
                     else:
                         for val in vals: yield val
@@ -361,7 +362,27 @@ class DBHandler:
         with handler.connect(target, user) as cnx:
             with cnx.cursor() as cur:
                 return send_body(cur)
-            
+
+    @classmethod
+    def batch_insert(cls, target=DBTarget.getHandler(), user='analysis',  handler=None, data=None, returning=None):
+        if data is None:
+            raise ValueError('No data in payload.')
+        
+        if (handler is None):
+            handler = cls()
+        
+        # assuming batch of queries
+        if (isinstance(data[0], list)):
+            with ThreadPoolExecutor(max_workers=handler.conn_pool_size) as executor:
+                futures = [executor.submit(DBHandler.insert_multi_rows, batch[0], target, user, handler, batch[1], returning) for batch in data]
+                for f in futures:
+                    f.result()
+        else: 
+            with ThreadPoolExecutor(max_workers=handler.conn_pool_size) as executor:
+                futures = [executor.submit(DBHandler.insert, batch[0], target, user, handler, batch[1], returning) for batch in data]
+                for f in futures:
+                    f.result()
+
     @classmethod
     def set_event_status(cls, event_id: int, status: int, target=DBTarget.get(), user='analysis', handler=None, packet_end=None, returning=None, start_time=None):
         """

@@ -12,15 +12,18 @@ import logging
 from itertools import count
 from tqdm import tqdm
 import sys
+import secrets
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 from pathlib import Path
 from psycopg.types.json import Jsonb
 from typing import Union, Tuple
+from google.protobuf.message import Message
 
 sys.path.append(str(Path(__file__).parents[2]))
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 from analysis.sql_utils.db_handler import get_table_column_specs, DBHandler, DBTarget
+from stack.ingest.protobuf.template_pb2 import SensorData
 
 
 
@@ -140,6 +143,8 @@ class DataTester:
                 row[col] = Jsonb({'fake_jsonb_data': self.get_random_data(int, 3)})
             elif dtype == 'point':
                 row[col] = random.choice([(30.289464, -97.735303), (30.389670, -97.728152)])
+            elif dtype is bytearray:
+                row[col] = secrets.token_bytes(16)
             else:
                 if ndims == 0:
                     row[col] = self.get_random_data(dtype, size=1, as_scalar=True)
@@ -168,10 +173,10 @@ class DataTester:
 
         # for i in range(num_rows) if kwargs.get('verbose') else tqdm(range(num_rows)):
         for i in range(num_rows) if kwargs.get('verbose') else tqdm(range(num_rows)):
-            row = self.create_row(table_desc, i)
+            row = self.create_row(table_desc, i + 1)
             if kwargs.get('verbose') and (num_rows < 1000 or not i % (num_rows // 100)):
                 logging.info(f'Publishing payload #{i:>3} to {table}: {row}')
-            self.mqtt.publish(f'data/{table}', pickle.dumps(row), qos=1)
+            self.mqtt.publish(f'data/{table}', pickle.dumps(row), qos=0)
             time.sleep(delay)
         return 0
 
@@ -201,7 +206,43 @@ class DataTester:
                 executor.shutdown(False)
 
         return 0
+    
+    def send_proto_rows(self, tables:list,  num_rows:int, delay:float, rm_cols = None, **kwargs):
 
+        db_desc = self.get_desc(tables=tables, rm_cols=rm_cols, **kwargs)
+        for i in tqdm(range(num_rows)):
+            data = self.create_proto_message(i + 1, db_desc)
+            mqtt.publish('data', data.SerializeToString(), qos=0)
+            time.sleep(delay)
+
+    def create_proto_message(self, packet:int, db_desc):
+        """
+        This function creates a protobuf message using the current protobuf template(SensorData) and db_description with
+        random data. 
+
+        :param packet: int representing packet_id which is assigned to the returned message
+        :param db_desc: dict output from database description
+
+        :return: returns protbuf message with random data
+        """
+        data = SensorData()
+        for table in db_desc:
+            row = self.create_row(db_desc[table], packet) # Create random data
+            if hasattr(data, table):  
+                table_instance = getattr(data, table)
+                if isinstance(table_instance, Message): # Iterate through a specific tbale (not packet table)
+                    for key, value in row.items():
+                        if hasattr(table_instance, key): # Set values in protobuf message
+                            if (isinstance(value, list) or isinstance(value, tuple)):
+                                getattr(table_instance, key).extend(value)
+                            else:
+                                setattr(table_instance, key, value)
+            else:
+                for key, value in row.items(): # Edit packet and time
+                    if hasattr(data, key):  
+                        setattr(data, key, int(value))
+        return data
+    
     def send_base64_row(self, ver: int, high_freq=True):
         with open(os.getcwd().split('LHR')[0] + f'/LHR/stack/ingest/car_configs/version{ver:02}.json', 'r') as f:
             config = json.load(f)['high' if high_freq else 'low']
@@ -218,6 +259,11 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     with DBHandler(unsafe=True, target=DBTarget.get()) as handler:
         with MQTTHandler('paho_test', db_handler=handler) as mqtt:
-            dbtest = DataTester(mqtt)
-            dbtest.single_table_test('packet', 5000, .0001)
-            dbtest.concurrent_tables_test(['thermal', 'dynamics', 'pack'], 5000, .0001)
+            # Protobuf message testing
+            dt = DataTester(mqtt=mqtt, seed=42)
+            dt.send_proto_rows(['packet', 'dynamics', 'controls', 'pack', 'diagnostics_low', 'diagnostics_high', 'thermal'], 2000, 0.01)
+
+            # data_ingest with fully processed data
+            # dt = DataTester(mqtt = mqtt, seed = 42)
+            # dt.single_table_test('packet', 2000, 0.01) # sequential
+            # dt.concurrent_tables_test(['dynamics', 'controls', 'pack', 'diagnostics_low', 'diagnostics_high', 'thermal'], 2000, 0.01) #batch

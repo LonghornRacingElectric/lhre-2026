@@ -37,6 +37,7 @@ except IndexError:
     os.environ["date_id"] = datetime.today().strftime("2024-02-02")
 
 def config_subscribe(client, userdata, msg):
+    
     if msg.topic == 'config/event_sync':
         #Convert msg to json object
         msg = json.loads(msg.payload.decode())

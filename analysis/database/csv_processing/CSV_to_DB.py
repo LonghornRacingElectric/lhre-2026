@@ -21,7 +21,7 @@ import requests
 
 REALTIME = True
 
-sys.path.append(str(Path(__file__).parents[2]))
+sys.path.append(str(Path(__file__).parents[3]))
 
 from analysis.sql_utils.db_handler import get_table_column_specs
 from analysis.sql_utils.db_handler import DBHandler, DBTarget
@@ -29,15 +29,18 @@ from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 
 class CSVToDB():
 
-    def __init__(self, data_csv_folder, mqtt, db_handler = None, MQQT_target = MQTTTarget.get()):
+    def __init__(self, data_csv_folder = None, mqtt = None, db_handler = None, MQQT_target = MQTTTarget.get()):
         self.db_handler = db_handler
         self.MQTT_target = MQQT_target
         self.mqtt = mqtt
         self.last_packet = 0
-        try:
-            self.data_csv_folder = sorted(list(Path.cwd().joinpath("csv_data", data_csv_folder).glob("*.csv")))
-        except FileNotFoundError:
-            raise FileNotFoundError("NO CSV FILES WERE FOUND UNDER csv_data/\nCREATE csv_data/ and add csv files within the folder.\n")
+        if (data_csv_folder != None):
+            try:
+                self.data_csv_folder = sorted(list(Path(__file__).parent.joinpath("csv_data", data_csv_folder).glob("*.csv")))
+            except FileNotFoundError:
+                raise FileNotFoundError("NO CSV FILES WERE FOUND UNDER csv_data/\nCREATE csv_data/ and add csv files within the folder.\n")
+        else:
+            logging.warning("NO CSV FOLDER WAS PASSED\n")
 
     def event_seperator(self, threshold = 20, speed_filter = False):
         """"
@@ -45,12 +48,16 @@ class CSVToDB():
         partition the folder into continous segments in which the car is running, outputting a list containing dataframes
         where each dataframe represents a near continous time period in which the car is running. 
         """
+
         csv_split = []
-        df_current = pd.read_csv(self.data_csv_folder[0])
+        df_current = pd.read_csv(self.data_csv_folder[0]) #Runs into atrribute error if data_csv_folder was not specified
         event = [df_current.copy(deep=False)]
+        event_storage = Path(__file__).parent.joinpath("event_csv")
+
+        if not os.path.exists(event_storage): 
+            os.makedirs(event_storage) 
         
         if (len(self.data_csv_folder) == 1):
-            event_storage = Path.cwd().joinpath("event_csv")
             df_current.to_csv(event_storage.joinpath("0.csv"))
             return
 
@@ -135,13 +142,10 @@ class CSVToDB():
                 if (len(filter.index) == 0 or filter["Time"].iloc[-1] - filter["Time"].iloc[0] < 30):
                     continous_event.pop(i)
         
-        event_storage = Path.cwd().joinpath("event_csv")
-        if not os.path.exists(event_storage): 
-            os.makedirs(event_storage) 
         for i in range(len(continous_event)):
             continous_event[i].to_csv(event_storage.joinpath(f'{i}.csv'))
       
-    def enumerate_packet_id(self, data_csv):       
+    def enumerate_packet_id(self, df):       
         """
         Enumerates the packet_id from the last known packet_id. Uses the csv with car data to determine amount of packet_id to add
         """
@@ -152,7 +156,6 @@ class CSVToDB():
         except IndexError:
             last_packet = self.last_packet
 
-        df = data_csv
         pack_id = list(range(last_packet + 1, last_packet+1+len(df.index)))
         self.last_packet = last_packet + len(df.index)
         return pack_id
@@ -163,7 +166,7 @@ class CSVToDB():
         """
         convert = {}
         packet_ids = self.enumerate_packet_id(df)
-        with open(Path.cwd().joinpath("analysis").joinpath("database").joinpath("pg_to_csv.json"), "r") as pg:
+        with open(Path(__file__).parent.joinpath("pg_to_csv.json"), "r") as pg:
             pg_to_csv = json.load(pg)
 
         for table in table_desc:
@@ -197,12 +200,12 @@ class CSVToDB():
         return convert
 
     #Each iteration makes a new connection to the database and sends a singular row at a time
-    def insert_row_from_csv(self, df, num_rows : int):
+    def insert_row_from_csv(self, df, table_desc, num_rows : int):
         """
         Adds data into the database. First adds packet table, then subsequent table using DBHandler insert function. Each iteration
         only inputs a singular row to the database, making this program the least efficient
         """
-        data = self.dataConvert(df)
+        data = self.dataConvert(df, table_desc=table_desc)
         packets = data["packet"]
         for i in tqdm(range(num_rows)):
             row_dict = {j : packets[j][i] for j in packets if (len(packets[j] != 0))}
@@ -215,7 +218,7 @@ class CSVToDB():
                     row_dict = {k : data[k][j] for k in data[i] if (len(data[i][k]) != 0)}
                     DBHandler.insert(table = i, data = row_dict, user="electric", handler = self.db_handler)
 
-    def insert_multi_row_from_csv(self, df, amt = 2000):
+    def insert_multi_row_from_csv(self, df, table_desc, amt = 2000):
         """
         Inserts data into the database in larger batches determined by the given amt value. 
         """
@@ -374,15 +377,15 @@ if __name__ == '__main__':
     with DBHandler(unsafe=True, target=DBTarget.get()) as db:
         with MQTTHandler(name ='event_playback_test', target = MQTTTarget.get(), db_handler=db) as mqtt:
             db.connect(target = DBTarget.get(), user = 'electric')
-            dataSender = CSVToDB("2024_10_13__001_AutoXCompDay", db_handler=db, mqtt=mqtt)
+            dataSender = CSVToDB( db_handler=db, mqtt=mqtt)
             
             dataSender.handle_event_start()
             
             table_desc = get_table_column_specs()
             ## Event playback functionarlity code TODO---------------------------------------------------------------------------------
-            # dataSender.event_seperator(threshold=5, speed_filter=True) #Saves list to harddrive
-            mqtt.connect()
-            #Where the csv is stored
-            dataSender.event_playback(Path.cwd().joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
-            # dataSender.event_playback(Path.cwd().joinpath("event_csv").joinpath("0.csv"), table_desc=table_desc, batch_amt=10)
+            #dataSender.event_seperator(threshold=5, speed_filter=True) #Saves list to harddrive
+            #mqtt.connect()
+            #Where the csv is stored in csv_data to be sent here
+            dataSender.event_playback(Path(__file__).parent.joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
+            # dataSender.event_playback(Path(__file__).parent.joinpath("event_csv", "0.csv"), table_desc=table_desc)
        
