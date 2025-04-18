@@ -208,6 +208,8 @@ CREATE TABLE public.controls (
     bse1_v              real,
     bse2_v              real,
     bse3_v              real, 
+    sus1_v              real,
+    sus2_v              real,
     brake_pressure_f    real,
     brake_pressure_rbll real, 
     brake_pressure_rall real,
