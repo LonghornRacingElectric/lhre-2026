@@ -271,7 +271,7 @@ class CSVToDB():
                         time.sleep((float(differences[i])/ 1000))
                         global_progress.update(1)
                         if (i % batch_amt == 0):
-                            for table in ['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal']: #Through the different tables
+                            for table in ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal']: #Through the different tables
                                 end_index = min(i + batch_amt, chunk_length)  # Ensure we don't exceed the length
                                 batch_data = row_dict_list.get(table)[i:end_index]
                                 self.mqtt.publish(f'data/{table}', pickle.dumps(batch_data), qos=0)
@@ -386,6 +386,7 @@ if __name__ == '__main__':
             #dataSender.event_seperator(threshold=5, speed_filter=True) #Saves list to harddrive
             #mqtt.connect()
             #Where the csv is stored in csv_data to be sent here
-            dataSender.event_playback(Path(__file__).parents[1].joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
+            dataSender.event_playback(Path(__file__).parent.joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
             # dataSender.event_playback(Path(__file__).parent.joinpath("event_csv", "0.csv"), table_desc=table_desc)
        
+
