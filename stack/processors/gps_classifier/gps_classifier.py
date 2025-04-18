@@ -256,7 +256,7 @@ class GPSClassifierProcessor:
             points: NDArray = []
             while True:
                 points = np.array(DBHandler.simple_select(f"""
-                    SELECT d.gps_heading, d.body3_accel, p.time, d.gps_velocity
+                    SELECT d.f_gps_heading, d.body3_accel, p.time, d.f_gps_velocity
                     FROM dynamics d
                     JOIN packet p ON p.packet_id = d.packet_id
                     WHERE p.time > {current_process.target_time}
@@ -344,7 +344,7 @@ class GPSClassifierProcessor:
             
             points = []
             while len(points) < window_size:
-                points = np.array(DBHandler.simple_select(f"""SELECT d.gps_velocity, d.torque_request, c.steer_v, p.time, p.packet_id, d.gps
+                points = np.array(DBHandler.simple_select(f"""SELECT d.f_gps_velocity, c.accel_pedal_t, d.steer_col_angle, p.time, p.packet_id, d.f_gps
                                                             FROM dynamics d 
                                                             JOIN packet p ON p.packet_id = d.packet_id 
                                                             JOIN controls c ON c.packet_id = d.packet_id 
@@ -355,7 +355,7 @@ class GPSClassifierProcessor:
             
             if len(points) > 0:
                 # Convert to DataFrame, keeping only relevant columns
-                gps_df = pd.DataFrame(points, columns=['gps_velocity', 'torque_request', 'steer_v', 'Time', 'packet_id', 'gps'])[['Time', 'gps']]
+                gps_df = pd.DataFrame(points, columns=['f_gps_velocity', 'accel_pedal_t', 'steer_col_angle', 'Time', 'packet_id', 'gps'])[['Time', 'gps']]
 
                 # Extract latitude & longitude from the `gps` column
                 gps_df[['Latitude', 'Longitude']] = gps_df['gps'].apply(lambda gps_str: pd.Series(tuple(map(float, gps_str[1:-1].split(',')))))

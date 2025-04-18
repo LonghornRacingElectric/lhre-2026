@@ -364,7 +364,7 @@ class DBHandler:
                 return send_body(cur)
 
     @classmethod
-    def batch_insert(cls, target=DBTarget.getHandler(), user='analysis',  handler=None, data=None, returning=None):
+    def batch_insert(cls, target=DBTarget.get(), user='analysis',  handler=None, data=None, returning=None):
         if data is None:
             raise ValueError('No data in payload.')
         

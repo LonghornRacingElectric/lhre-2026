@@ -15,6 +15,7 @@ services:
       - ../../../analysis/sql_utils/db_handler.py:/lap_timer/db_handler.py
       - ../../../analysis/sql_utils/DB_description.pkl:/DB_description.pkl
       - ../../../net_configs.json:/net_configs.json
+      - ../../ingest/protobuf:/lap_timer/protobuf
     networks:
       - telemetry_network
 
