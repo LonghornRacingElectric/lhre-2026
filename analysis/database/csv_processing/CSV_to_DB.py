@@ -172,7 +172,7 @@ class CSVToDB():
         for table in table_desc:
             convert[table] = {}
             for column, (dtype, ndim) in table_desc[table].items():
-                if column not in {"time", "packet_id", "gps", } and column in pg_to_csv:
+                if column not in {"time", "packet_id", "f_gps", 'b_gps'} and column in pg_to_csv:
                     if ndim:
                         convert[table][column] = df[pg_to_csv[column]].astype(dtype).to_numpy().tolist()
                     else:
@@ -192,7 +192,7 @@ class CSVToDB():
                     convert[table][column] = dt_list
                 elif (column == "packet_id"):
                     convert[table][column] = packet_ids
-                elif (column == "gps"):
+                elif (column in ["f_gps", 'b_gps']):
                     convert[table][column] = np.column_stack((df["Latitude"], df["Longitude"])).tolist()
                 else:
                     convert[table][column] = []
