@@ -252,8 +252,8 @@ class CSVToDB():
             """
             started = False
             
+            
             while not done or not chunk_queue.empty():
-
                 if (not chunk_queue.empty()):
                     differences, row_dict_list = chunk_queue.get()
                     chunk_length = len(differences)

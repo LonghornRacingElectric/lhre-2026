@@ -1,7 +1,7 @@
 {
     "time" : "Time",
     "accel_pedal_t": "Inverter Torque Request",
-    "dash_speed": ["Vehicle Velocity X", "Vehicle Velocity Y", "Vehicle Velocity Z"],
+    "dash_speed" : "Speed",
     "cent_mass_accel": ["Vehicle Acceleration X", "Vehicle Acceleration Y", "Vehicle Acceleration Z"],
     "f_gps": ["Longitude", "Latitude"],
     "f_gps_velocity": "Speed",

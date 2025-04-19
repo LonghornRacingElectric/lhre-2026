@@ -256,7 +256,7 @@ class GPSClassifierProcessor:
             points: NDArray = []
             while True:
                 points = np.array(DBHandler.simple_select(f"""
-                    SELECT d.f_gps_heading, d.body3_accel, p.time, d.f_gps_velocity
+                    SELECT d.f_gps_heading, d.br_unsprung_accel, p.time, d.f_gps_velocity
                     FROM dynamics d
                     JOIN packet p ON p.packet_id = d.packet_id
                     WHERE p.time > {current_process.target_time}
