@@ -2,9 +2,9 @@
  * Sets up an SSE listener to receive page target updates from the server.
  */
 const redirectionMap = {
-    "index_page": "/index",
-    "new_event_page": "/new_event",
-    "running_event_page": "/create_event"
+    "index_page": "/webtool/index",
+    "new_event_page": '/webtool/new_event/?day_id=' + window.day_id,
+    "running_event_page": "/webtool/create_event"
 };
 
 let pageSyncSource;

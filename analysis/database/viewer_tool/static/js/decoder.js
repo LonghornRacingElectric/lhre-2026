@@ -34,7 +34,7 @@ function decodeValues(jsonObj) {
         console.log("End Flag Received: " + jsonObj.endFlag)
         //Redirect
         //Send request to reset config_image AND server side variables
-        fetch('/reset_config_image', {
+        fetch('/webtool/reset_config_image', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

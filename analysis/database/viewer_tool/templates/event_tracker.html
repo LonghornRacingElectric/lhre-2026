@@ -4,6 +4,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Telemetry Injection Tool</title>
 
+    <script>window.dayId = {{ day_id }};</script>
     <script src="{{ url_for('static', filename='js/stopWatch.js') }}"></script>
     <script src="{{ url_for('static', filename='js/decoder.js') }}"></script>
     <script src="{{ url_for('static', filename='js/encoder.js') }}"></script>
@@ -169,6 +170,7 @@
 
             let event_id={{ event_id }}
             let host_ip
+            let day_id = '{{ day_id|safe }}'.length>0 ? '{{ day_id|safe }}' : 9999
             let config_image='{{ config_image|safe }}'.length>0? '{{ config_image|safe }}':undefined
             if('{{ host_ip }}'.indexOf('local')===-1){host_ip='https://{{ host_ip }}'}else{host_ip='http://{{ host_ip }}'}
 

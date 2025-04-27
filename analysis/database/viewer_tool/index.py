@@ -85,7 +85,7 @@ def start_background_tasks():
     threading.Thread(target=mqtt_loop, daemon=True).start()
 
 def make_app():
-    app = Flask(__name__, static_url_path='/webtool/static')
+    app = Flask(__name__, static_url_path='/static')
 
     app.secret_key = "some-super-secret-key"  # TODO change for PROD
     app.config['PREFERRED_URL_SCHEME'] = 'https'
@@ -191,6 +191,7 @@ def make_app():
 
 
     @app.route('/create_event/', methods=['GET', 'POST'])
+    @login_required
     def create_event():
 
         #! TODO: PROTECT
@@ -263,8 +264,8 @@ def make_app():
         #with MQTTHandler(f'flask_app_{uuid.uuid4()}') as mqtt:
         #    mqtt.publish('config/page_sync', "index_page")
 
-        logging.debug("Config image reset. Event has ended. Redirect to follow.")
-        return redirect("/webtool" + url_for('index'))
+        print("1 - Config Reset, Passing Index")
+        return redirect(url_for('index'))
         #return json.dumps({'success': True}), 200, {'ContentType': 'application/json'}
 
     @app.route('/tune_data', methods=['GET', 'POST'])
