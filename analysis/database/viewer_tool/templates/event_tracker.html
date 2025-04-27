@@ -202,6 +202,8 @@
                 console.error("EventSource error:", err);
             };
 
+            window.addEventListener("beforeunload", () => eventSyncSource.close());
+
             startButton.addEventListener('click',()=>encodeValues(true,true,true,null,null,true))
             stopButton.addEventListener('click',()=>encodeValues(false,true,true,null,null,true))
             turnButton.addEventListener('click',()=>{if(startButton.getAttribute('isRunning')==='true'){watch.turn();encodeValues(null,null,null,watch.isTurning(),null,true)}})

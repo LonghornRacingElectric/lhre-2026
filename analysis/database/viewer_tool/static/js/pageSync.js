@@ -7,24 +7,36 @@ const redirectionMap = {
     "running_event_page": "/create_event"
 };
 
+let pageSyncSource;
+
 function setupPageSync(currentPage) {
-    const eventSource = new EventSource('/webtool/page-sync-stream');
-    eventSource.onmessage = function(event) {
+    //Close prev connections
+    try {
+        if (pageSyncSource) {pageSyncSource.close()}
+    } catch (err) {
+        console.warn("No existing page sync source to check against.")
+    }
+    const pageSyncSource = new EventSource('/webtool/page-sync-stream');
+
+    pageSyncSource.onmessage = function(event) {
         const targetPage = event.data;
         console.log("Received page sync target:", targetPage);
         if (currentPage !== targetPage) {
             console.log("NE: " + currentPage + " and " + targetPage);
             //If a redirection mapping is defined for the target, redirect
             if (redirectionMap && redirectionMap[targetPage]) {
+                pageSyncSource.close()
                 window.location.href = redirectionMap[targetPage];
             } else {
                 console.warn("No redirection mapping for target page:", targetPage);
             }
         }
     };
-    eventSource.onerror = function(err) {
+    pageSyncSource.onerror = function(err) {
         console.error("Page sync SSE error:", err);
     };
+
+    window.addEventListener("beforeunload", () => pageSyncSource.close());
 }
 
 /**
