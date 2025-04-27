@@ -336,11 +336,17 @@ class CSVToDB():
             if event_id == -1: raise Exception("No event is currently running")
         # Creating a new event
         except Exception as e:
+            print("EXCEPTION IN CSV")
+            
             sample_drive_day = {'power_limit': '', 'conditions': ''}
             sample_event = {'driver_id': '0', 'location_id': '0', 'event_type': '0', 'car_id': '1', 'car_weight': '', 'tow_angle': '', 'camber': '', 'ride_height': '', 'ackerman_adjustment': '', 'power_limit': '', 'shock_dampening': '', 'torque_limit': '', 'frw_pressure': '', 'flw_pressure': '', 'brw_pressure': '', 'blw_pressure': '', 'day_id': '1'}
             print("http://" + MQTTTarget.get() + ":5000/webtool/create_event/")
             day_id = DBHandler.insert(table='drive_day', target=DBTarget.get(), user='electric', data=sample_drive_day, returning='day_id', handler=self.db_handler)
-            response = requests.post("http://" + MQTTTarget.get() + ":5000/webtool/create_event/", data=sample_event)
+            
+            #! CHANGE FOR PROD
+            # response = requests.post("http://" + MQTTTarget.get() + ":5000/webtool/create_event/", data=sample_event)
+            # response = requests.post("http://" + DBTarget.resolve_ip(DBTarget.get(client=True)) + "/webtool/create_event/", data=sample_event)
+            response = requests.post("https://lhrelectric.org/webtool/create_event/", data=sample_event)
             
             with MQTTHandler('flask_app') as mqtt:
                 mqtt.publish('config/page_sync', "running_event_page")
@@ -378,15 +384,15 @@ if __name__ == '__main__':
         with MQTTHandler(name ='event_playback_test', target = MQTTTarget.get(), db_handler=db) as mqtt:
             db.connect(target = DBTarget.get(), user = 'electric')
             dataSender = CSVToDB( db_handler=db, mqtt=mqtt)
+            while True:
+                dataSender.handle_event_start()
             
-            dataSender.handle_event_start()
-            
-            table_desc = get_table_column_specs()
+                table_desc = get_table_column_specs()
             ## Event playback functionarlity code TODO---------------------------------------------------------------------------------
             #dataSender.event_seperator(threshold=5, speed_filter=True) #Saves list to harddrive
             #mqtt.connect()
             #Where the csv is stored in csv_data to be sent here
-            dataSender.event_playback(Path(__file__).parent.joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
+                dataSender.event_playback(Path(__file__).parent.joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
             # dataSender.event_playback(Path(__file__).parent.joinpath("event_csv", "0.csv"), table_desc=table_desc)
        
 

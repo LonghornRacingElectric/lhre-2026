@@ -72,6 +72,7 @@ def get_table_column_specs(force=False, verbose=False, target=DBTarget.get(), ha
     desc_path = '/DB_description.pkl' if os.getenv('IN_DOCKER') else find_db_description()
     force = force or not bool(desc_path)
     desc_path = desc_path or os.getcwd().rsplit('/analysis', 1)[0] + '/DB_description.pkl'
+    # desc_path = "./DB_description.pkl"
 
     if not force:
         last_update, table_column_specs = pickle.load(open(desc_path, 'rb'))

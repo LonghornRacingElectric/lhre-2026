@@ -45,6 +45,7 @@ def config_subscribe(client, userdata, msg):
         #Store and print return
         os.environ["event_details"] = json.dumps(msg)
         logging.debug("Index Event Details: " + os.getenv("event_details"))
+        notify_listeners()
 
     elif msg.topic == 'config/event_update_sync':
         msg = json.loads(msg.payload.decode())
@@ -62,11 +63,13 @@ def config_subscribe(client, userdata, msg):
     elif msg.topic == 'config/page_sync':
         # Convert msg to json object
         msg = msg.payload.decode()
+        print("PAGE SYNC", msg)
         # TODO safety, ensure all fields present?
         logging.debug("PAGE PAYLOAD: " + str(msg))
         os.environ["page_details"] = msg
         global latest_page_details
         latest_page_details = msg
+        print("PAGE SYNC ", msg)
 
 
 def mqtt_client_loop(mqtt):
@@ -479,6 +482,7 @@ def event_sync_stream():
     global latest_event_details
     last_sent = None
     while True:
+        print("LATEST EVENT DETAILS: ", latest_event_details)
         logging.warning(latest_event_details)
         if latest_event_details != last_sent:
             #Yeilds event details as SSE message (with double newline at end)
