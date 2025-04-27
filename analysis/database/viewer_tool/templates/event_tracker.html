@@ -7,7 +7,7 @@
     <script src="{{ url_for('static', filename='js/stopWatch.js') }}"></script>
     <script src="{{ url_for('static', filename='js/decoder.js') }}"></script>
     <script src="{{ url_for('static', filename='js/encoder.js') }}"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <script src="{{ url_for('static', filename='js/pageSync.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/uuid@8.3.2/dist/umd/uuidv4.min.js"></script>
 
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
@@ -172,14 +172,35 @@
             let config_image='{{ config_image|safe }}'.length>0? '{{ config_image|safe }}':undefined
             if('{{ host_ip }}'.indexOf('local')===-1){host_ip='https://{{ host_ip }}'}else{host_ip='http://{{ host_ip }}'}
 
-            const myName=uuidv4()
-            client=new Paho.MQTT.Client('{{ host_ip }}',8080,myName)
-            client.onConnectionLost=()=>{}
-            client.onMessageArrived=m=>{if(m.destinationName==="config/event_sync")decodeValues(m.payloadString)}
-            client.connect({onSuccess:()=>{client.subscribe("config/event_sync");client.subscribe("config/page_sync");const msg=new Paho.MQTT.Message("running_event_page");msg.destinationName="config/page_sync";client.send(msg);encodeValues(null,null,null,null,null,true)}})
+            const myName=uuidv4();
 
             function heartbeat(){fetch('/active_users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:myName,timestamp:Date.now()})}).then(()=>fetch('/active_users')).then(r=>r.json()).then(d=>{document.getElementById('active-user-count').textContent=d.active_users;const box=document.getElementById('active-users-box');if(d.active_users>1){box.style.borderColor='green';box.style.color='green'}else{box.style.borderColor='#e74c3c';box.style.color='#e74c3c'}})}
             setInterval(heartbeat,5000);heartbeat()
+
+            //Setup SSE listener for pages
+            const currentPage = "running_event_page";
+            setupPageSync(currentPage);
+
+            //Setup event listener (alternative to MQTT)
+            const eventSource = new EventSource('/event-sync-stream');
+            console.log("NEW EVENT SOURCE SETUP (Sync)- ");
+            eventSource.onmessage = function(event) {
+                //Parse JSON data received from server
+                let configData;
+                try {
+                    configData = JSON.parse(event.data);
+                } catch (err) {
+                    console.error("Error parsing event data:", err + "\nEvent data was: " + event.data.toString());
+                    //decodeValues(undefined)
+                    return;
+                }
+                console.log("Received event_sync config:", configData);
+                decodeValues(event.data);
+            };
+
+            eventSource.onerror = function(err) {
+                console.error("EventSource error:", err);
+            };
 
             startButton.addEventListener('click',()=>encodeValues(true,true,true,null,null,true))
             stopButton.addEventListener('click',()=>encodeValues(false,true,true,null,null,true))

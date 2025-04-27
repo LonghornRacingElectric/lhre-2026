@@ -8,7 +8,7 @@ const redirectionMap = {
 };
 
 function setupPageSync(currentPage) {
-    const eventSource = new EventSource('https://lhrelectric.org/webtool/page-sync-stream');
+    const eventSource = new EventSource('/webtool/page-sync-stream');
     eventSource.onmessage = function(event) {
         const targetPage = event.data;
         console.log("Received page sync target:", targetPage);

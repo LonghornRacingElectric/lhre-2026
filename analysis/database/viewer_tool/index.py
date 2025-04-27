@@ -404,15 +404,18 @@ def make_app():
     # Add a new SSE endpoint for event_sync messages
     @app.route('/event-sync-stream')
     def sse_event_sync():
+        print("Call to SSE Event Sync")
         return Response(stream_with_context(event_sync_stream()), mimetype="text/event-stream")
 
     # New SSE endpoint for page sync messages
     @app.route('/page-sync-stream')
     def sse_page_sync():
+        print("Call to SSE Page Sync")
         return Response(stream_with_context(page_sync_stream()), mimetype="text/event-stream")
 
     @app.route('/update-event-sync', methods=['POST'])
     def update_event_sync():
+        print("Call to Update Event Sync")
         """
         Endpoint to receive JSON updates from the client.
         """
@@ -449,6 +452,7 @@ def make_app():
         latest_event_details = os.getenv("event_details")
 
         app.logger.debug("Event sync updated: %s", latest_event_details)
+        print("Event Details stores: " + latest_event_details)
 
         # Respond with a success message.
         return jsonify({"success": True})
@@ -456,6 +460,7 @@ def make_app():
     # New endpoint: update the page target based on client POST request
     @app.route('/update-page-target', methods=['POST'])
     def update_page_target():
+        print("Call to Update Page Target")
         json_data = request.get_json()
         new_target = json_data.get("target_page")
         if new_target:
