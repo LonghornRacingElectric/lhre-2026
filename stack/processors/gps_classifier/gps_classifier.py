@@ -10,13 +10,20 @@ from psycopg import logger
 from enum import Enum
 from numpy.typing import NDArray
 import warnings
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+import pandas as pd
 
 warnings.simplefilter('ignore', np.linalg.LinAlgError)
+warnings.filterwarnings("ignore")
+
+visualizer_image_path = "../../../analysis/database/viewer_tool/static/images"
 
 
 if os.getenv('IN_DOCKER'):
     from db_handler import DBHandler, DBTarget, get_table_column_specs    # Cheesed import statement using bind mount
     from mqtt_handler import MQTTHandler
+    visualizer_image_path = "./static/images"
 else:
     from analysis.sql_utils.db_handler import DBHandler, DBTarget, get_table_column_specs
     from stack.ingest.mqtt_handler import MQTTHandler
@@ -26,9 +33,83 @@ class ProcessType(Enum):
     LINEAR_ACCELERATION = 0
     TURN = 1
     
+class Visualizer:
+    def __init__(self):        
+        self.events = pd.DataFrame(columns=['Time', 'Event'])
+        self.gps = pd.DataFrame(columns=['Time', 'Time_Since_Start', 'Latitude', 'Longitude'])
+        
+        self.starting_time = None
+    
+    def start_event(self, time: int, event: ProcessType):
+        if self.starting_time == None: self.starting_time = time
+        self.events.loc[len(self.events)] = {'Time': time - self.starting_time, 'Event': 0}
+        self.events.loc[len(self.events)] = {'Time': time - self.starting_time, 'Event': 1 if event == ProcessType.LINEAR_ACCELERATION else -1}
+        
+    def stop_event(self, time: int, event: ProcessType):
+        if self.starting_time == None: self.starting_time = time
+        self.events.loc[len(self.events)] = {'Time': time - self.starting_time, 'Event': 1 if event == ProcessType.LINEAR_ACCELERATION else -1}
+        self.events.loc[len(self.events)] = {'Time': time - self.starting_time, 'Event': 0}
+        
+    def save_image(self):
+        fig1 = plt.figure()
+        ax = fig1.add_subplot(111, projection='3d')
+        
+        # Labels
+        ax.set_title('Events')
+        ax.set_xlabel('Longitude')
+        ax.set_ylabel('Latitude')
+        ax.set_zlabel('Time')
+        
+        # Remove ticks
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.set_zticklabels([])
+        
+        
+        fig2 = plt.figure()
+
+        color_mapping = {1: 'green', -1: 'red', 0: 'black'}
+        colors = [color_mapping[event] for event in self.events['Event']]
+        for i in range(len(self.events['Time']) - 1):
+            start_index = self.gps['Time_Since_Start'].ge(self.events['Time'][i]).idxmax()
+            end_index = self.gps['Time_Since_Start'].ge(self.events['Time'][i + 1]).idxmax()
+            
+            if start_index >= end_index:
+                continue
+            
+            ax.plot(self.gps['Latitude'].iloc[start_index:end_index].values, self.gps['Longitude'].iloc[start_index:end_index].values, zs=self.gps['Time_Since_Start'].iloc[start_index:end_index].values, color=colors[i])
+
+        if len(self.gps) > 0:
+            start_index = 0
+            if len(self.events) > 0:
+                start_index = self.gps['Time_Since_Start'].ge(self.events['Time'].iloc[-1]).idxmax()
+            ax.plot(self.gps['Latitude'].iloc[start_index:len(self.gps)].values, self.gps['Longitude'].iloc[start_index:len(self.gps)].values, zs=self.gps['Time_Since_Start'].iloc[start_index:len(self.gps)].values, color='black')
+        np.Inf = np.inf
+        # Save the plot to files
+
+        save_path = os.path.join(visualizer_image_path, "events.png")
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        
+        legend_elements = [
+            Line2D([0], [0], color='green', lw=2, label='Linear Acceleration'),
+            Line2D([0], [0], color='red', lw=2, label='Sharp Turn'),
+            Line2D([0], [0], color='black', lw=2, label='Normal Driving')
+        ]
+        ax.legend(handles=legend_elements, loc='upper right')
+        
+        fig1.savefig(save_path)
+        # logging.info(f"Image saved at {visualizer_image_path}/events.png")
+        
+    def run_thread(self, sleep_time: int):
+        while True:
+            self.save_image()
+            sleep(sleep_time)
+
+visualizer = Visualizer()
+    
 
 class Event:    
-    def __init__(self, type: ProcessType, starting_time: int, starting_heading: float, event_id: int = -9999):
+    def __init__(self, type: ProcessType, starting_time: int, starting_heading: float, event_id: int = -9999, handler: DBHandler=None):
         self.type: ProcessType = type
         self.starting_time: int = starting_time
         
@@ -36,6 +117,8 @@ class Event:
         self.max_speed_time: int | None = None
         
         self.event_id = event_id
+        
+        self.handler = handler
     
     def _stop_event(self, time: int):
         """
@@ -53,17 +136,15 @@ class Event:
         db_obj = {
                 "event_id": self.event_id,
                 "type": "trajectory",
-                "start_time": self.starting_time.astype(int),
+                "start_time": self.starting_time,
                 "end_time": time,
                 "notes": f"{self.type.name}"
         }
         #! Will crash if no event
-        DBHandler.insert(table="classifier", data=db_obj, target=DBTarget.getHandler(), user="electric", handler=self.handler)
+        DBHandler.insert(table="classifier", data=db_obj, target=DBTarget.get(), user="electric", handler=self.handler)
         
-        times.append(self.starting_time)
-        events.append(0)
-        times.append(self.starting_time)
-        events.append(1 if self.type == ProcessType.LINEAR_ACCELERATION else -1)
+        visualizer.start_event(self.starting_time, self.type)
+        visualizer.stop_event(time, self.type)
         
 class Process:
     def __init__(self, type: ProcessType, starting_packet: int, starting_time: int, target_time: int):
@@ -81,7 +162,7 @@ class GPSClassifierProcessor:
         self.status = 0
         
         
-        self.VELOCITY_THRESHOLD: float = 4
+        self.VELOCITY_THRESHOLD: float = 10
         
         self.current_process: Process | None = None
         self.processes: list[Process] = []
@@ -98,7 +179,8 @@ class GPSClassifierProcessor:
         elif self.started_event and self.started_event.type == type:
             return
         
-        self.started_event = Event(type=type, starting_time=time, starting_heading=heading, event_id=self.event_id)
+        
+        self.started_event = Event(type=type, starting_time=time, starting_heading=heading, event_id=self.event_id, handler=self.handler)
         
         
     def _detect_events(self, points: NDArray, la_threshold: float, t_threshold: float, la_time_window: float, t_time_window: float, check_delay: int):
@@ -174,7 +256,7 @@ class GPSClassifierProcessor:
             points: NDArray = []
             while True:
                 points = np.array(DBHandler.simple_select(f"""
-                    SELECT d.gps_heading, d.body3_accel, p.time, d.gps_velocity
+                    SELECT d.f_gps_heading, d.br_unsprung_accel, p.time, d.f_gps_velocity
                     FROM dynamics d
                     JOIN packet p ON p.packet_id = d.packet_id
                     WHERE p.time > {current_process.target_time}
@@ -186,9 +268,10 @@ class GPSClassifierProcessor:
                     AND p.time >= {current_process.starting_time}
                     ORDER BY p.time ASC
                     LIMIT 500
-                    """, handler=self.handler, target=DBTarget.getHandler()), dtype=object)
+                    """, handler=self.handler, target=DBTarget.get()), dtype=object)
                 if points.any(): break
                 sleep(1 / frequency)
+                        
                             
             body3_accel = points[:, 1]
             body3_accel = np.array([list(row) for row in body3_accel])
@@ -200,7 +283,6 @@ class GPSClassifierProcessor:
             if current_process and current_process.type == ProcessType.LINEAR_ACCELERATION:
                 smoothed_tangential_accel = np.polyfit(time, tangential_accel, 1)
                 
-                
                 if smoothed_tangential_accel[0] > la_threshold:
                     self._start_event(time=current_process.starting_time, heading=heading[0], type=current_process.type)
                 else:
@@ -210,7 +292,6 @@ class GPSClassifierProcessor:
             if current_process and current_process.type == ProcessType.TURN:
                 smoothed_normal_accel = np.polyfit(time, normal_accel, 1)
                 smoothed_heading = np.polyfit(time, heading, 1)
-                
                 if abs(smoothed_normal_accel[0]) > t_na_threshold or abs(smoothed_heading[0]) > t_h_threshold:
                     self._start_event(time=current_process.starting_time, heading=heading[0], type=current_process.type)
                 else:
@@ -226,7 +307,7 @@ class GPSClassifierProcessor:
                 if self.started_event.starting_heading:
                     diffs = np.abs(heading - self.started_event.starting_heading)
                     # End at the point where a difference is heading is too big
-                    if diffs.max() >= 30:
+                    if diffs.max() >= 20:
                         self.min_time = time[np.argmax(diffs)]
                         self.started_event._stop_event(self.min_time)
                         self.started_event = None
@@ -234,7 +315,7 @@ class GPSClassifierProcessor:
             elif self.started_event.type == ProcessType.TURN:
                 if self.started_event.starting_heading:
                     diffs = heading - self.started_event.starting_heading
-                    if diffs.min() <= 10:
+                    if diffs.min() <= 15:
                         self.min_time = time[np.argmax(diffs)]
                         self.started_event._stop_event(self.min_time)
                         self.started_event = None
@@ -249,27 +330,45 @@ class GPSClassifierProcessor:
                 continue
             
             # Not enough points
-            if not debug and len(points) < window_size:
-                logging.warning("Not enough points for computation. Trashing the instance")
-                sleep(1 / frequency)
-                continue
+            # if not debug and len(points) < window_size:
+            #     logging.warning("Not enough points for computation. Trashing the instance")
+            #     sleep(1 / frequency)
+            #     continue
             
             # Suspicious time deltas
-            MAX_TIME_DELTA = 5 * 1000
-            if not debug and points[len(points) - 1][1] - points[0][1] < MAX_TIME_DELTA:
-                logging.error(f"Interval is suspicious: {points[len(points) - 1][1] - points[0][1]}ms. Trashing the instance")
-                sleep(1 / frequency)
-                continue
+            # MAX_TIME_DELTA = 5 * 1000
+            # if not debug and points[len(points) - 1][1] - points[0][1] < MAX_TIME_DELTA:
+            #     logging.error(f"Interval is suspicious: {points[len(points) - 1][1] - points[0][1]}ms. Trashing the instance")
+            #     sleep(1 / frequency)
+            #     continue
             
-            points = np.array(DBHandler.simple_select(f"""SELECT d.gps_velocity, d.torque_request, c.steer_v, p.time, p.packet_id 
-                                                          FROM dynamics d 
-                                                          JOIN packet p ON p.packet_id = d.packet_id 
-                                                          JOIN controls c ON c.packet_id = d.packet_id 
-                                                          WHERE d.packet_id >= {self.start_packet} 
-                                                          ORDER BY d.packet_id ASC 
-                                                          LIMIT {window_size}""", handler=self.handler, target=DBTarget.getHandler()))
+            points = []
+            while len(points) < window_size:
+                points = np.array(DBHandler.simple_select(f"""SELECT d.f_gps_velocity, c.accel_pedal_t, d.steer_col_angle, p.time, p.packet_id, d.f_gps
+                                                            FROM dynamics d 
+                                                            JOIN packet p ON p.packet_id = d.packet_id 
+                                                            JOIN controls c ON c.packet_id = d.packet_id 
+                                                            WHERE d.packet_id >= {self.start_packet} 
+                                                            ORDER BY d.packet_id ASC 
+                                                            LIMIT {window_size}""", handler=self.handler, target=DBTarget.get()), dtype=object)
+                sleep(1/frequency)
             
             if len(points) > 0:
+                # Convert to DataFrame, keeping only relevant columns
+                gps_df = pd.DataFrame(points, columns=['f_gps_velocity', 'accel_pedal_t', 'steer_col_angle', 'Time', 'packet_id', 'gps'])[['Time', 'gps']]
+
+                # Extract latitude & longitude from the `gps` column
+                gps_df[['Latitude', 'Longitude']] = gps_df['gps'].apply(lambda gps_str: pd.Series(tuple(map(float, gps_str[1:-1].split(',')))))
+
+                # Append and remove duplicates in one step
+                if visualizer.starting_time == None: visualizer.starting_time = gps_df['Time'].iloc[0]
+                visualizer.gps = (
+                    pd.concat([visualizer.gps, gps_df[['Time', 'Latitude', 'Longitude']]], ignore_index=True)
+                    .drop_duplicates()
+                    .assign(Time_Since_Start=lambda df: pd.to_numeric(df['Time'] - visualizer.starting_time, errors='coerce'))
+                )
+
+                
                 # Checks if at rest
                 if abs(points[:, 0].mean()) < self.VELOCITY_THRESHOLD:
                     sleep(1 / frequency)
@@ -311,19 +410,22 @@ def run_processor():
         
         frequency = 500
         window_size = 50
-        la_threshold = 7
-        t_threshold=0.6
+        la_threshold = 10
+        t_threshold=0.7
         la_time_window=10
         t_time_window=5
         t1 = threading.Thread(target=processor.run_thread, args=(frequency, window_size, la_threshold, t_threshold, la_time_window, t_time_window))
         t1.start()
         
         frequency = 100
-        la_threshold = 0.0006
-        t_na_threshold = 10000.004
-        t_h_threshold = 0.009
+        la_threshold = 0.00000000000033
+        t_na_threshold = 0.00000000000027
+        t_h_threshold = 0.000000000027
         t2 = threading.Thread(target=processor.process_thread, args=(frequency, la_threshold, t_na_threshold, t_h_threshold))
         t2.start()
+        
+        t3 = threading.Thread(target=visualizer.run_thread, args=(1,))
+        t3.start()
         
         mqtt.client.on_message = processor.on_message
         mqtt.subscribe("config/test")

@@ -81,9 +81,10 @@ class LapTimerProcessor:
         if self.status != 1:
             DBHandler.set_event_status(event_id=self.event_id, status=1, user='electric', start_time=time, returning='day_id', handler=self.handler)
         
-        DBHandler.insert(table="classifier", data=db_obj, target=DBTarget.getHandler(), user="electric", handler=self.handler)
+        DBHandler.insert(table="classifier", data=db_obj, target=DBTarget.get(), user="electric", handler=self.handler)
         try:
-            requests.post("http://" + os.getenv("HOST_IP") + ":5000/new_lap", data={"time": time})
+            # requests.post("http://host.docker.internal:5000/webtool/new_lap", data={"time": time})  #! DIDN'T WORK ON PROD
+            requests.post("https://lhrelectric.org/webtool/new_lap", data={"time": time})
         except requests.exceptions.ConnectionError:
             logging.error("Could not connect to Flask server")
         logging.info(f"Successfully recorded time {time}")    
@@ -149,7 +150,7 @@ class LapTimerProcessor:
             "notes": f"{gates[0][0]}_{gates[0][1]}_{gates[1][0]}_{gates[1][1]}",
             "start_time": time.time() * 1000
         }
-        DBHandler.insert(table="classifier", data=db_obj, target=DBTarget.getHandler(), user="electric", handler=self.handler)
+        DBHandler.insert(table="classifier", data=db_obj, target=DBTarget.get(), user="electric", handler=self.handler)
         
         logging.info("Published gates to classifier", db_obj)
    
@@ -158,13 +159,12 @@ class LapTimerProcessor:
         while True:
             # Event not properly set
             if not self.event_id or not self.gate:
-                logging.info("No Event ID or Gate...")
                 sleep(1 / frequency)
                 continue
             else:
                 logging.debug(f"Event ID: {self.event_id} | Gate: {self.gate} | Status: {self.status}")
                 
-            points: list[tuple[str, int]] = DBHandler.simple_select(f"SELECT d.gps, p.time FROM dynamics d JOIN packet p ON p.packet_id = d.packet_id WHERE d.packet_id >= {self.start_packet} ORDER BY d.packet_id DESC LIMIT {window_size}", handler=self.handler, target=DBTarget.getHandler())
+            points: list[tuple[str, int]] = DBHandler.simple_select(f"SELECT d.f_gps, p.time FROM dynamics d JOIN packet p ON p.packet_id = d.packet_id WHERE d.packet_id >= {self.start_packet} ORDER BY d.packet_id DESC LIMIT {window_size}", handler=self.handler, target=DBTarget.get())
 
             # Not enough points
             if len(points) < window_size:

@@ -185,6 +185,10 @@ CREATE TABLE public.dynamics (
     b_gps_velocity      real,
     f_gps_heading       real,
     b_gps_heading       real,
+    inverter_v          real,
+    inverter_c          real,
+    inverter_rpm        bigint,
+    inverter_torque     real,
     CONSTRAINT fk_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
 
@@ -204,6 +208,8 @@ CREATE TABLE public.controls (
     bse1_v              real,
     bse2_v              real,
     bse3_v              real, 
+    sus1_v              real,
+    sus2_v              real,
     brake_pressure_f    real,
     brake_pressure_rbll real, 
     brake_pressure_rall real,

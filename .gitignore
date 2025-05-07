@@ -4,3 +4,4 @@ __pycache__/
 /analysis/sql_utils/DB_description.pkl
 *.csv
 .DS_store
+events.png

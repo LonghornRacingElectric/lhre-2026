@@ -31,14 +31,9 @@ else:
 
 
 class MQTTTarget:
-    LOCAL = 'localhost'
-    PROD = global_target["PROD_IP"]
-    
     @staticmethod
     def get():
-        return MQTTTarget.PROD if global_target['TARGET'] == 'PROD' else MQTTTarget.LOCAL
-    def getHandler():
-        return MQTTTarget.PROD if global_target['HANDLER'] == 'PROD' else MQTTTarget.LOCAL
+        return 'mosquitto' if os.environ.get("IN_DOCKER") else global_target["TARGETS"][global_target["SERVER_TARGET"]]
 
 
 class MQTTHandler:
@@ -159,7 +154,7 @@ class MQTTHandler:
 
     def cache_flush(self):
         if (len(self.cache) > 0):
-            DBHandler.batch_insert(target=DBTarget.getHandler(), user = 'electric', handler=self.handler, data=self.cache)
+            DBHandler.batch_insert(target=DBTarget.get(), user = 'electric', handler=self.handler, data=self.cache)
 
     def _data_ingest(self, payload: str, table: str, cache_enable = False):
         '''
@@ -175,30 +170,14 @@ class MQTTHandler:
             #logging.debug('\tPickle Payload received, likely coming from debug source...')
         except pickle.UnpicklingError:
             data_dict = json.loads(payload.decode().replace("'", '"'))
-
-        # Batch insertions
-        if (cache_enable and table=='packet'):
-            if (isinstance(data_dict, list)):
-                if (len(data_dict) > 1):
-                    DBHandler.insert_multi_rows(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict)
-                else:
-                    DBHandler.insert(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict[0])
-            else:
-                DBHandler.insert(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict)
-        elif (cache_enable and table != 'packet'):
-            self.cache.append((table, data_dict))
-            if (len(self.cache) == 24):
-                DBHandler.batch_insert(target = DBTarget.getHandler(), user='electric', handler=self.handler, data=self.cache)
-                self.cache.clear()
-
-        #Sequential insertions   
-        if (not cache_enable and isinstance(data_dict, list)):
+        # TODO: Add Protobuf ingest
+        if (isinstance(data_dict, list)):
             if (len(data_dict) > 1):
-                DBHandler.insert_multi_rows(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict)
+                DBHandler.insert_multi_rows(table, target=DBTarget.get(), user='electric', handler=self.handler, data=data_dict)
             else:
-                DBHandler.insert(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict[0])
+                DBHandler.insert(table, target=DBTarget.get(), user='electric', handler=self.handler, data=data_dict[0])
         elif not cache_enable:
-            DBHandler.insert(table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data_dict)
+            DBHandler.insert(table, target=DBTarget.get(), user='electric', handler=self.handler, data=data_dict)
     
     def _proto_ingest(self, payload:str, cache_enable = False):
         message_dict = self._proto_decode(payload=payload)
@@ -213,13 +192,13 @@ class MQTTHandler:
                 data = ({col: message_dict[table][col] for col in db_desc[table] if col in message_dict[table]}
                 | {"packet_id": message_dict["packet_id"]}) if table in avail_tables else None
             if not cache_enable:
-                DBHandler.insert(table=table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data)
+                DBHandler.insert(table=table, target=DBTarget.get(), user='electric', handler=self.handler, data=data)
             elif table == 'packet':
-                DBHandler.insert(table=table, target=DBTarget.getHandler(), user='electric', handler=self.handler, data=data)
+                DBHandler.insert(table=table, target=DBTarget.get(), user='electric', handler=self.handler, data=data)
             elif table != 'packet':
                 self.cache.append((table, data))
                 if (len(self.cache) == 24):
-                    DBHandler.batch_insert(target = DBTarget.getHandler(), user='electric', handler=self.handler, data=self.cache)
+                    DBHandler.batch_insert(target = DBTarget.get(), user='electric', handler=self.handler, data=self.cache)
                     self.cache.clear()
 
     def _b64_ingest(self, payload: str, high_freq: bool):
@@ -239,7 +218,7 @@ class MQTTHandler:
         for table in ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal']:
             data = {col: data_dict[col] for col in db_desc[table] if col in data_dict}
             if data:
-                DBHandler.insert(table, target=DBTarget.getHandler(), handler=self.handler, user='electric', data=data)
+                DBHandler.insert(table, target=DBTarget.get(), handler=self.handler, user='electric', data=data)
             else:
                 logging.warning(f'\tNo data received for {table}...')
 
@@ -361,13 +340,13 @@ def main():
 
     # 2
     elif conn_type == 2:
-        with DBHandler(unsafe=True, target=DBTarget.getHandler()) as handler:
+        with DBHandler(unsafe=True, target=DBTarget.get()) as handler:
             with MQTTHandler('ingest', db_handler=handler) as mqtt:
                 mqtt.subscribe(topic='#')
 
     # 3+
     else:
-        with DBHandler(unsafe=True, target=DBTarget.getHandler(), conn_pool_size=conn_type) as handler:
+        with DBHandler(unsafe=True, target=DBTarget.get(), conn_pool_size=conn_type) as handler:
             with MQTTHandler('ingest', db_handler=handler, cache_enable=True) as mqtt:
                 mqtt.subscribe(topic='#')
 

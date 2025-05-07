@@ -10,3 +10,6 @@ psycopg[pool]==3.2.3
 requests==2.31.0
 seaborn==0.13.0
 tqdm==4.66.1
+flask_login==0.6.3
+gunicorn==23.0.0
+flask_bcrypt==1.0.1

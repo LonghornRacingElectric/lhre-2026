@@ -19,6 +19,8 @@ from psycopg.types.json import Jsonb
 from queue import Queue
 import requests
 
+REALTIME = True
+
 sys.path.append(str(Path(__file__).parents[3]))
 
 from analysis.sql_utils.db_handler import get_table_column_specs
@@ -27,7 +29,7 @@ from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 
 class CSVToDB():
 
-    def __init__(self, data_csv_folder = None, mqtt = None, db_handler = None, MQQT_target = MQTTTarget.getHandler()):
+    def __init__(self, data_csv_folder = None, mqtt = None, db_handler = None, MQQT_target = MQTTTarget.get()):
         self.db_handler = db_handler
         self.MQTT_target = MQQT_target
         self.mqtt = mqtt
@@ -149,7 +151,7 @@ class CSVToDB():
         """
         try: 
             last_packet = max(DBHandler.simple_select("SELECT packet_id FROM packet ORDER BY packet_id DESC LIMIT 1", 
-                                                      target=DBTarget.getHandler(), user='electric', handler=self.db_handler)[0][0], 
+                                                      target=DBTarget.get(), user='electric', handler=self.db_handler)[0][0], 
                                                       self.last_packet)
         except IndexError:
             last_packet = self.last_packet
@@ -170,7 +172,7 @@ class CSVToDB():
         for table in table_desc:
             convert[table] = {}
             for column, (dtype, ndim) in table_desc[table].items():
-                if column not in {"time", "packet_id", "gps", } and column in pg_to_csv:
+                if column not in {"time", "packet_id", "f_gps", 'b_gps'} and column in pg_to_csv:
                     if ndim:
                         convert[table][column] = df[pg_to_csv[column]].astype(dtype).to_numpy().tolist()
                     else:
@@ -190,7 +192,7 @@ class CSVToDB():
                     convert[table][column] = dt_list
                 elif (column == "packet_id"):
                     convert[table][column] = packet_ids
-                elif (column == "gps"):
+                elif (column in ["f_gps", 'b_gps']):
                     convert[table][column] = np.column_stack((df["Latitude"], df["Longitude"])).tolist()
                 else:
                     convert[table][column] = []
@@ -250,8 +252,8 @@ class CSVToDB():
             """
             started = False
             
+            
             while not done or not chunk_queue.empty():
-
                 if (not chunk_queue.empty()):
                     differences, row_dict_list = chunk_queue.get()
                     chunk_length = len(differences)
@@ -267,7 +269,7 @@ class CSVToDB():
                         time.sleep((float(differences[i])/ 1000))
                         global_progress.update(1)
                         if (i % batch_amt == 0):
-                            for table in ['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal']: #Through the different tables
+                            for table in ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal']: #Through the different tables
                                 end_index = min(i + batch_amt, chunk_length)  # Ensure we don't exceed the length
                                 batch_data = row_dict_list.get(table)[i:end_index]
                                 self.mqtt.publish(f'data/{table}', pickle.dumps(batch_data), qos=0)
@@ -328,31 +330,40 @@ class CSVToDB():
         # ---- START EVENT ----
         try:
             event_id = (DBHandler.simple_select('SELECT event_id FROM event WHERE status = 1 ORDER BY event_id DESC LIMIT 1', handler=self.db_handler)[0][0])
+            logging.info("EVENT ID: ", event_id)
             if event_id == -1: raise Exception("No event is currently running")
         # Creating a new event
         except Exception as e:
+            logging.info("EXCEPTION IN CSV")
+            
             sample_drive_day = {'power_limit': '', 'conditions': ''}
             sample_event = {'driver_id': '0', 'location_id': '0', 'event_type': '0', 'car_id': '1', 'car_weight': '', 'tow_angle': '', 'camber': '', 'ride_height': '', 'ackerman_adjustment': '', 'power_limit': '', 'shock_dampening': '', 'torque_limit': '', 'frw_pressure': '', 'flw_pressure': '', 'brw_pressure': '', 'blw_pressure': '', 'day_id': '1'}
+            logging.info("http://" + MQTTTarget.get() + ":5000/webtool/create_event/")
+            day_id = DBHandler.insert(table='drive_day', target=DBTarget.get(), user='electric', data=sample_drive_day, returning='day_id', handler=self.db_handler)
             
-            day_id = DBHandler.insert(table='drive_day', target=os.getenv('SERVER_TARGET', DBTarget.getHandler()), user='electric', data=sample_drive_day, returning='day_id', handler=self.db_handler)
-            response = requests.post("http://" + MQTTTarget.getHandler() + ":5000/create_event/", data=sample_event)
+            #! CHANGE FOR PROD
+            # response = requests.post("http://" + MQTTTarget.get() + ":5000/webtool/create_event/", data=sample_event)
+            # response = requests.post("http://" + DBTarget.resolve_ip(DBTarget.get(client=True)) + "/webtool/create_event/", data=sample_event)
+            response = requests.post("https://lhrelectric.org/webtool/create_event/", data=sample_event)
             
             with MQTTHandler('flask_app') as mqtt:
                 mqtt.publish('config/page_sync', "running_event_page")
                 
         #! NEED TO CHANGE BASED ON TRACK
         config = {"event_id": 1, "gate": ((30.3870, -97.7253), (30.3869, -97.7252)), "status": 0, "start_packet": 0}
-        print(config)
+        logging.info(config)
         self.mqtt.publish(f'config/test', json.dumps(config))
                 
     def start_timer(self, start_time: int):
         config = {
             "timerRunning": True,
-            "timerEventTime": start_time,
+            "timerEventTime": time.time() * 1000 if REALTIME else start_time,
             "timerInternalTime": 0,
         }
-        print("STARTED TIMER AT ", start_time)
-        print(config)
+        logging.info(f"STARTED TIMER AT {start_time if REALTIME else time.time() * 1000} | (OR {start_time})")
+        logging.info(config)
+        time.sleep(1)
+        logging.info("SENT CONFIG AT EVENT UPDATE SYNC")
         self.mqtt.publish('config/event_update_sync', json.dumps(config, indent=4))
         
     def stop_timer(self):
@@ -360,25 +371,26 @@ class CSVToDB():
             "timerRunning": False,
             "useInternalTime": True
         }
-        print(config)
+        logging.info(config)
         self.mqtt.publish('config/event_update_sync', json.dumps(config, indent=4))
 
 if __name__ == '__main__':
 
-    logging.basicConfig(level=logging.CRITICAL)
+    logging.basicConfig(level=logging.INFO)
     # Playback testing ---------------------------------------------------------------------------------------------
-    with DBHandler(unsafe=True, target=DBTarget.getHandler()) as db:
-        with MQTTHandler(name ='event_playback_test', target = MQTTTarget.getHandler(), db_handler=db) as mqtt:
-            db.connect(target = DBTarget.getHandler(), user = 'electric')
+    with DBHandler(unsafe=True, target=DBTarget.get()) as db:
+        with MQTTHandler(name ='event_playback_test', target = MQTTTarget.get(), db_handler=db) as mqtt:
+            db.connect(target = DBTarget.get(), user = 'electric')
             dataSender = CSVToDB( db_handler=db, mqtt=mqtt)
+            while True:
+                dataSender.handle_event_start()
             
-            dataSender.handle_event_start()
-            
-            table_desc = get_table_column_specs()
+                table_desc = get_table_column_specs()
             ## Event playback functionarlity code TODO---------------------------------------------------------------------------------
             #dataSender.event_seperator(threshold=5, speed_filter=True) #Saves list to harddrive
             #mqtt.connect()
             #Where the csv is stored in csv_data to be sent here
-            dataSender.event_playback(Path(__file__).parent.joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
+                dataSender.event_playback(Path(__file__).parent.joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
             # dataSender.event_playback(Path(__file__).parent.joinpath("event_csv", "0.csv"), table_desc=table_desc)
        
+

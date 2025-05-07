@@ -1,10 +1,10 @@
 //Decodes information from .json file and updates the client's instances
 function decodeValues(jsonObj) {
-    console.log("Decoder Triggered.\nPayload: " + jsonObj) //TODO remove, DEBUG only
+    console.log("Decoder Triggered.\nPayload: " + jsonObj)
 
     //Screen for undefined messages
     if (jsonObj === undefined) {
-        console.log("WARNING: Attempted to decode undefined")
+        console.warn("WARNING: Attempted to decode undefined")
         //Use encoder to populate the config image
         encodeValues(false, true, true, false, false, false)
         return
@@ -19,22 +19,22 @@ function decodeValues(jsonObj) {
     } catch (error) {
         //Decoding Failed, Not Properly Formatted
         console.log("Decoder Parsing JSON Failed with Error: " + error)
+        return
     }
 
-    //Update page by element
-    updateStartButton()
-    updateStopButton()
-    updateTurn()
-    updateAccel()
-    updateLapTable()
-    updateNotes()
+    //Screen for self decode not allowed
+    if (!jsonObj.selfDecodeAllowed && jsonObj.lastSentClientId === myName) {
+        console.log("Update Canceled: Name Matches, States Must Match");
+        return;
+    }
 
     //Check for end event flag
     if (jsonObj.endFlag) {
+        config_image = ""
         console.log("End Flag Received: " + jsonObj.endFlag)
         //Redirect
         //Send request to reset config_image AND server side variables
-        fetch('/reset_config_image', {
+        fetch('/webtool/reset_config_image', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -50,8 +50,16 @@ function decodeValues(jsonObj) {
         })
         .catch(error => {
             console.error("Error during fetch: ", error);
-        });
+        })
     }
+
+    //Update page by element
+    updateStartButton()
+    updateStopButton()
+    updateTurn()
+    updateAccel()
+    updateLapTable()
+    updateNotes()
 
     function updateStartButton() {
         //If timer is running but this object is not, update this object
@@ -208,7 +216,7 @@ function loadPrevTables() {
         for (let i = 0; i < config_image.tables.accelStarts.length; i++) {
             watch.loadCustomAccel(config_image.tables.accelStarts[i], config_image.tables.accelStops[i], config_image.tables.accelNotes[i])
         }
-        console.log("Previous Tables Loaded") //TODO remove, debug only
+        console.log("Previous Tables Loaded")
     }
 }
 
