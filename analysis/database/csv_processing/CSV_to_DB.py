@@ -11,7 +11,7 @@ import sys
 import json
 import matplotlib.pyplot as plt
 import numpy as np
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 from pathlib import Path
 from tqdm import tqdm
@@ -172,7 +172,7 @@ class CSVToDB():
         for table in table_desc:
             convert[table] = {}
             for column, (dtype, ndim) in table_desc[table].items():
-                if column not in {"time", "packet_id", "f_gps", 'b_gps'} and column in pg_to_csv:
+                if column not in {"time", "packet_id", "gps"} and column in pg_to_csv:
                     if ndim:
                         convert[table][column] = df[pg_to_csv[column]].astype(dtype).to_numpy().tolist()
                     else:
@@ -192,7 +192,7 @@ class CSVToDB():
                     convert[table][column] = dt_list
                 elif (column == "packet_id"):
                     convert[table][column] = packet_ids
-                elif (column in ["f_gps", 'b_gps']):
+                elif (column == 'gps'):
                     convert[table][column] = np.column_stack((df["Latitude"], df["Longitude"])).tolist()
                 else:
                     convert[table][column] = []
@@ -218,24 +218,52 @@ class CSVToDB():
                     row_dict = {k : data[k][j] for k in data[i] if (len(data[i][k]) != 0)}
                     DBHandler.insert(table = i, data = row_dict, user="electric", handler = self.db_handler)
 
-    def insert_multi_row_from_csv(self, df, table_desc, amt = 2000):
+    def insert_multi_row_from_csv(self, df, table_desc, amt = 100):
         """
         Inserts data into the database in larger batches determined by the given amt value. 
         """
         # Setup data within method--------------------------------------------------------------------------------
         data = self.dataConvert(df, table_desc=table_desc)
         packets = data["packet"]
-        for j in tqdm(range(0, len(df.index), amt)):
-            pack_list = []
-            high = min(j + amt, len(df.index))
-            pack_list = [{j : packets[j][i] for j in packets if (len(packets[j]) != 0)} for i in range(j, high, 1)]
-            DBHandler.insert_multi_rows(table="packet", data = pack_list, user="electric", handler = self.db_handler)
 
-            for i, values in data.items():
-                row_list = []
-                if (i not in ["packet", "event", "classifier", "drive_day", "lut_driver", "lut_location", "lut_car", "lut_event_type"]):
-                    row_list = [{k : values[k][j] for k in values if (len(values[k]) != 0)} for j in range(j, high, 1)]
-                    DBHandler.insert_multi_rows(table = i, data = row_list, user="electric", handler = self.db_handler)
+        def insert_chunk(start, end, packets, data, db_handler):
+            pack_list = [
+                {j: packets[j][i] for j in packets if len(packets[j]) != 0}
+                for i in range(start, end)
+            ]
+            DBHandler.insert_multi_rows(table="packet", data=pack_list, user="electric", handler=db_handler)
+
+            # Insert into other tables
+            for table_name, values in data.items():
+                if not table_name in {"packet", "event", "classifier", "drive_day",
+                                "lut_driver", "lut_location", "lut_car", "lut_event_type"}:
+                    row_list = [
+                        {k: values[k][i] for k in values if len(values[k]) != 0}
+                        for i in range(start, end)
+                    ]
+                    DBHandler.insert_multi_rows(table=table_name, data=row_list, user="electric", handler=db_handler)
+
+        futures = []
+        with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
+            for j in tqdm(range(0, len(df.index), amt)):
+                high = min(j + amt, len(df.index))
+                futures.append(
+                    executor.submit(insert_chunk, j, high, packets, data, self.db_handler)
+                )
+            # Wait for all to complete (optional)
+            for future in as_completed(futures):
+                future.result()
+        # for j in tqdm(range(0, len(df.index), amt)):
+        #     pack_list = []
+        #     high = min(j + amt, len(df.index))
+        #     pack_list = [{j : packets[j][i] for j in packets if (len(packets[j]) != 0)} for i in range(j, high, 1)]
+        #     DBHandler.insert_multi_rows(table="packet", data = pack_list, user="electric", handler = self.db_handler)
+
+        #     for i, values in data.items():
+        #         row_list = []
+        #         if (i not in ["packet", "event", "classifier", "drive_day", "lut_driver", "lut_location", "lut_car", "lut_event_type"]):
+        #             row_list = [{k : values[k][j] for k in values if (len(values[k]) != 0)} for j in range(j, high, 1)]
+        #             DBHandler.insert_multi_rows(table = i, data = row_list, user="electric", handler = self.db_handler)
 
     def stream_data(self, df):
         for chunk in (pd.read_csv(df, chunksize=2000)):
@@ -376,21 +404,25 @@ class CSVToDB():
 
 if __name__ == '__main__':
 
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.CRITICAL)
     # Playback testing ---------------------------------------------------------------------------------------------
     with DBHandler(unsafe=True, target=DBTarget.get()) as db:
         with MQTTHandler(name ='event_playback_test', target = MQTTTarget.get(), db_handler=db) as mqtt:
             db.connect(target = DBTarget.get(), user = 'electric')
             dataSender = CSVToDB( db_handler=db, mqtt=mqtt)
-            while True:
-                dataSender.handle_event_start()
+            #while True:
+                #dataSender.handle_event_start()
             
-                table_desc = get_table_column_specs()
+            table_desc = get_table_column_specs()
+            dataSender.insert_multi_row_from_csv(
+                df=pd.read_csv(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_12__13_46_55.csv")), 
+                table_desc=table_desc, amt=100
+            )
             ## Event playback functionarlity code TODO---------------------------------------------------------------------------------
             #dataSender.event_seperator(threshold=5, speed_filter=True) #Saves list to harddrive
             #mqtt.connect()
             #Where the csv is stored in csv_data to be sent here
-                dataSender.event_playback(Path(__file__).parent.joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
+                #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
             # dataSender.event_playback(Path(__file__).parent.joinpath("event_csv", "0.csv"), table_desc=table_desc)
        
 
