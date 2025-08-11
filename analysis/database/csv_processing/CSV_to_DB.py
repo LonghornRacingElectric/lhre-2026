@@ -29,11 +29,12 @@ from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 
 class CSVToDB():
 
-    def __init__(self, data_csv_folder = None, mqtt = None, db_handler = None, MQQT_target = MQTTTarget.get()):
+    def __init__(self, data_csv_folder = None, mqtt = None, db_handler = None, DB_target = None, MQQT_target = MQTTTarget.get()):
         self.db_handler = db_handler
         self.MQTT_target = MQQT_target
         self.mqtt = mqtt
         self.last_packet = 0
+        self.DB_target = DB_target
         if (data_csv_folder != None):
             try:
                 self.data_csv_folder = sorted(list(Path(__file__).parent.joinpath("csv_data", data_csv_folder).glob("*.csv")))
@@ -166,13 +167,17 @@ class CSVToDB():
         """
         convert = {}
         packet_ids = self.enumerate_packet_id(df)
-        with open(Path(__file__).parent.joinpath("pg_to_csv.json"), "r") as pg:
-            pg_to_csv = json.load(pg)
+        if self.DB_target["db_name"] == "angelique":
+            with open(Path(__file__).parent.joinpath("angelique_pg_to_csv.json"), "r") as pg:
+                pg_to_csv = json.load(pg)
+        else:
+            with open(Path(__file__).parent.joinpath("pg_to_csv.json"), "r") as pg:
+                pg_to_csv = json.load(pg)
 
         for table in table_desc:
             convert[table] = {}
             for column, (dtype, ndim) in table_desc[table].items():
-                if column not in {"time", "packet_id", "gps"} and column in pg_to_csv:
+                if column not in {"time", "packet_id", "gps", "f_gps", "b_gps"} and column in pg_to_csv:
                     if ndim:
                         convert[table][column] = df[pg_to_csv[column]].astype(dtype).to_numpy().tolist()
                     else:
@@ -192,7 +197,7 @@ class CSVToDB():
                     convert[table][column] = dt_list
                 elif (column == "packet_id"):
                     convert[table][column] = packet_ids
-                elif (column == 'gps'):
+                elif (column in ['gps', 'f_gps', 'b_gps']):
                     convert[table][column] = np.column_stack((df["Latitude"], df["Longitude"])).tolist()
                 else:
                     convert[table][column] = []
@@ -205,6 +210,8 @@ class CSVToDB():
         Adds data into the database. First adds packet table, then subsequent table using DBHandler insert function. Each iteration
         only inputs a singular row to the database, making this program the least efficient
         """
+        if (self.DB_Target["db_name"] == "telemetry"):
+            assert Exception("This function is not supported for the Nightwatch database. ")
         data = self.dataConvert(df, table_desc=table_desc)
         packets = data["packet"]
         for i in tqdm(range(num_rows)):
@@ -223,6 +230,8 @@ class CSVToDB():
         Inserts data into the database in larger batches determined by the given amt value. 
         """
         # Setup data within method--------------------------------------------------------------------------------
+        if (self.DB_Target["db_name"] == "telemetry"):
+            assert Exception("This function is not supported for the Nightwatch database. ")
         data = self.dataConvert(df, table_desc=table_desc)
         packets = data["packet"]
 
@@ -405,11 +414,12 @@ class CSVToDB():
 if __name__ == '__main__':
 
     logging.basicConfig(level=logging.CRITICAL)
+    target = DBTarget.get()
     # Playback testing ---------------------------------------------------------------------------------------------
-    with DBHandler(unsafe=True, target=DBTarget.get()) as db:
+    with DBHandler(unsafe=True, target=target) as db:
         with MQTTHandler(name ='event_playback_test', target = MQTTTarget.get(), db_handler=db) as mqtt:
             db.connect(target = DBTarget.get(), user = 'electric')
-            dataSender = CSVToDB( db_handler=db, mqtt=mqtt)
+            dataSender = CSVToDB( db_handler=db, mqtt=mqtt, DB_target=target)
             #while True:
                 #dataSender.handle_event_start()
             
