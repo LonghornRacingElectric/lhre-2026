@@ -76,24 +76,24 @@ def get_table_column_specs(force=False, verbose=False, target=DBTarget.get(car="
                 if fol == 'DB_description.pkl' or fol == "angelique_DB_description.pkl":
                     os.rmdir(f'{root}/{fol}')
             for name in files:
-                if target["db_name"] == 'telemetry' and name == 'DB_description.pkl':
+                if target["dbname"] == 'telemetry' and name == 'DB_description.pkl':
                     return os.path.abspath(os.path.join(root, name))
-                elif target["db_name"] == 'angelique' and name == 'angelique_DB_description.pkl':
+                elif target["dbname"] == 'angelique' and name == 'angelique_DB_description.pkl':
                     return os.path.abspath(os.path.join(root, name))
         return None
     
-    if target["db_name"] == 'telemetry':
+    if target["dbname"] == 'telemetry':
         desc_path = '/DB_description.pkl' if os.getenv('IN_DOCKER') else find_db_description()
-    elif target["db_name"] == 'angelique':
+    elif target["dbname"] == 'angelique':
         desc_path = '/angelique_DB_description.pkl' if os.getenv('IN_DOCKER') else find_db_description()
     else:
-        assert Exception(f'Car {target["db_name"]} is not supported. Please add it to the DBTarget class.')
+        assert Exception(f'Car {target["dbname"]} is not supported. Please add it to the DBTarget class.')
 
     force = force or not bool(desc_path)
 
-    if target["db_name"] == 'telemetry':
+    if target["dbname"] == 'telemetry':
         desc_path = desc_path or os.getcwd().rsplit('/analysis', 1)[0] + '/analysis/sql_utils/DB_description.pkl'
-    elif target["db_name"] == 'angelique':
+    elif target["dbname"] == 'angelique':
         desc_path = desc_path or os.getcwd().rsplit('/analysis', 1)[0] + '/analysis/sql_utils/angelique_DB_description.pkl'
     # desc_path = "./DB_description.pkl"
 
@@ -109,10 +109,10 @@ def get_table_column_specs(force=False, verbose=False, target=DBTarget.get(car="
                                        target=target, user='electric', handler=handler, return_df=True,
                                        index_col='tablename')
         data['data_type'] = data.data_type.str.split('[', regex=False).str[0]     # Split [] if exists for is_list
-        if target["db_name"] == 'telemetry':
+        if target["dbname"] == 'telemetry':
             data.loc[data.attname == 'f_gps', 'attndims'] = 1
             data.loc[data.attname == 'b_gps', 'attndims'] = 1
-        elif target["db_name"] == 'angelique':
+        elif target["dbname"] == 'angelique':
             data.loc[data.attname == 'gps', 'attndims'] = 1
         data.replace({'data_type': DBHandler.pg2py_types}, inplace=True)
         table_column_specs = {table: {row.attname: (row.data_type, row.attndims) for _, row in

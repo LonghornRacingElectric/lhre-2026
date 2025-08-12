@@ -152,7 +152,7 @@ class CSVToDB():
         """
         try: 
             last_packet = max(DBHandler.simple_select("SELECT packet_id FROM packet ORDER BY packet_id DESC LIMIT 1", 
-                                                      target=DBTarget.get(), user='electric', handler=self.db_handler)[0][0], 
+                                                      target=self.DB_target, user='electric', handler=self.db_handler)[0][0], 
                                                       self.last_packet)
         except IndexError:
             last_packet = self.last_packet
@@ -167,7 +167,7 @@ class CSVToDB():
         """
         convert = {}
         packet_ids = self.enumerate_packet_id(df)
-        if self.DB_target["db_name"] == "angelique":
+        if self.DB_target["dbname"] == "angelique":
             with open(Path(__file__).parent.joinpath("angelique_pg_to_csv.json"), "r") as pg:
                 pg_to_csv = json.load(pg)
         else:
@@ -210,27 +210,27 @@ class CSVToDB():
         Adds data into the database. First adds packet table, then subsequent table using DBHandler insert function. Each iteration
         only inputs a singular row to the database, making this program the least efficient
         """
-        if (self.DB_Target["db_name"] == "telemetry"):
+        if (self.DB_target["dbname"] == "telemetry"):
             assert Exception("This function is not supported for the Nightwatch database. ")
         data = self.dataConvert(df, table_desc=table_desc)
         packets = data["packet"]
         for i in tqdm(range(num_rows)):
             row_dict = {j : packets[j][i] for j in packets if (len(packets[j] != 0))}
-            DBHandler.insert(table="packet", data=row_dict, user = "electric", handler = self.db_handler)
+            DBHandler.insert(table="packet", data=row_dict, user = "electric", handler = self.db_handler, target = self.DB_target)
             logging.info(row_dict)
 
         for i in tqdm(data.keys()):
             if (i not in {"packet", "event", "classifier", "drive_day", "lut_driver", "lut_location", "lut_car", "lut_event_type"}):
                 for j in range(num_rows):
                     row_dict = {k : data[k][j] for k in data[i] if (len(data[i][k]) != 0)}
-                    DBHandler.insert(table = i, data = row_dict, user="electric", handler = self.db_handler)
+                    DBHandler.insert(table = i, data = row_dict, user="electric", handler = self.db_handler, target = self.DB_target)
 
     def insert_multi_row_from_csv(self, df, table_desc, amt = 100):
         """
         Inserts data into the database in larger batches determined by the given amt value. 
         """
         # Setup data within method--------------------------------------------------------------------------------
-        if (self.DB_Target["db_name"] == "telemetry"):
+        if (self.DB_target["dbname"] == "telemetry"):
             assert Exception("This function is not supported for the Nightwatch database. ")
         data = self.dataConvert(df, table_desc=table_desc)
         packets = data["packet"]
@@ -240,7 +240,7 @@ class CSVToDB():
                 {j: packets[j][i] for j in packets if len(packets[j]) != 0}
                 for i in range(start, end)
             ]
-            DBHandler.insert_multi_rows(table="packet", data=pack_list, user="electric", handler=db_handler)
+            DBHandler.insert_multi_rows(table="packet", data=pack_list, user="electric", handler=db_handler, target=self.DB_target)
 
             # Insert into other tables
             for table_name, values in data.items():
@@ -250,7 +250,7 @@ class CSVToDB():
                         {k: values[k][i] for k in values if len(values[k]) != 0}
                         for i in range(start, end)
                     ]
-                    DBHandler.insert_multi_rows(table=table_name, data=row_list, user="electric", handler=db_handler)
+                    DBHandler.insert_multi_rows(table=table_name, data=row_list, user="electric", handler=db_handler, target = self.DB_target)
 
         futures = []
         with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
@@ -262,17 +262,6 @@ class CSVToDB():
             # Wait for all to complete (optional)
             for future in as_completed(futures):
                 future.result()
-        # for j in tqdm(range(0, len(df.index), amt)):
-        #     pack_list = []
-        #     high = min(j + amt, len(df.index))
-        #     pack_list = [{j : packets[j][i] for j in packets if (len(packets[j]) != 0)} for i in range(j, high, 1)]
-        #     DBHandler.insert_multi_rows(table="packet", data = pack_list, user="electric", handler = self.db_handler)
-
-        #     for i, values in data.items():
-        #         row_list = []
-        #         if (i not in ["packet", "event", "classifier", "drive_day", "lut_driver", "lut_location", "lut_car", "lut_event_type"]):
-        #             row_list = [{k : values[k][j] for k in values if (len(values[k]) != 0)} for j in range(j, high, 1)]
-        #             DBHandler.insert_multi_rows(table = i, data = row_list, user="electric", handler = self.db_handler)
 
     def stream_data(self, df):
         for chunk in (pd.read_csv(df, chunksize=2000)):
@@ -282,6 +271,14 @@ class CSVToDB():
         """
         Publishes to database based on time delays from the csv
         """
+        tables = []
+        if (self.DB_target["dbname"] == "telemetry"):
+            tables = ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal']
+        elif (self.DB_target["dbname"] == "angelique"):
+            tables = ['packet', 'dynamics', 'controls', 'pack',  'diagnostics', 'thermal']
+        else:
+            raise Exception("DBTarget not specified")
+        
         def publish_row():
             """
             Takes data from a csv and sends data in rows to mqtt for event playback. Data is formatted as a dictionary and published
@@ -306,7 +303,7 @@ class CSVToDB():
                         time.sleep((float(differences[i])/ 1000))
                         global_progress.update(1)
                         if (i % batch_amt == 0):
-                            for table in ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal']: #Through the different tables
+                            for table in tables: #Through the different tables
                                 end_index = min(i + batch_amt, chunk_length)  # Ensure we don't exceed the length
                                 batch_data = row_dict_list.get(table)[i:end_index]
                                 self.mqtt.publish(f'data/{table}', pickle.dumps(batch_data), qos=0)
@@ -376,7 +373,7 @@ class CSVToDB():
             sample_drive_day = {'power_limit': '', 'conditions': ''}
             sample_event = {'driver_id': '0', 'location_id': '0', 'event_type': '0', 'car_id': '1', 'car_weight': '', 'tow_angle': '', 'camber': '', 'ride_height': '', 'ackerman_adjustment': '', 'power_limit': '', 'shock_dampening': '', 'torque_limit': '', 'frw_pressure': '', 'flw_pressure': '', 'brw_pressure': '', 'blw_pressure': '', 'day_id': '1'}
             logging.info("http://" + MQTTTarget.get() + ":5000/webtool/create_event/")
-            day_id = DBHandler.insert(table='drive_day', target=DBTarget.get(), user='electric', data=sample_drive_day, returning='day_id', handler=self.db_handler)
+            day_id = DBHandler.insert(table='drive_day', target=self.DB_target, user='electric', data=sample_drive_day, returning='day_id', handler=self.db_handler)
             
             #! CHANGE FOR PROD
             # response = requests.post("http://" + MQTTTarget.get() + ":5000/webtool/create_event/", data=sample_event)
@@ -414,25 +411,27 @@ class CSVToDB():
 if __name__ == '__main__':
 
     logging.basicConfig(level=logging.CRITICAL)
-    target = DBTarget.get()
+    target = DBTarget.get(car="Nightwatch")
     # Playback testing ---------------------------------------------------------------------------------------------
     with DBHandler(unsafe=True, target=target) as db:
         with MQTTHandler(name ='event_playback_test', target = MQTTTarget.get(), db_handler=db) as mqtt:
-            db.connect(target = DBTarget.get(), user = 'electric')
+            db.connect(target = target, user = 'electric')
             dataSender = CSVToDB( db_handler=db, mqtt=mqtt, DB_target=target)
             #while True:
                 #dataSender.handle_event_start()
             
-            table_desc = get_table_column_specs()
-            dataSender.insert_multi_row_from_csv(
-                df=pd.read_csv(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_12__13_46_55.csv")), 
-                table_desc=table_desc, amt=100
-            )
+            table_desc = get_table_column_specs(target=target)
+            # dataSender.insert_multi_row_from_csv(
+            #     df=pd.read_csv(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_12__12_35_00.csv")), 
+            #     table_desc=table_desc, amt=100
+            # )
             ## Event playback functionarlity code TODO---------------------------------------------------------------------------------
             #dataSender.event_seperator(threshold=5, speed_filter=True) #Saves list to harddrive
             #mqtt.connect()
             #Where the csv is stored in csv_data to be sent here
                 #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
+            dataSender.event_playback(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_12__12_35_00.csv"), table_desc=table_desc)
+
             # dataSender.event_playback(Path(__file__).parent.joinpath("event_csv", "0.csv"), table_desc=table_desc)
        
 
