@@ -462,7 +462,7 @@ class DBHandler:
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     with DBHandler(unsafe=True, target=DBTarget.get()) as handler:
-        print(get_table_column_specs(force=True, verbose=True, handler=handler)['dynamics'])
+        print(get_table_column_specs(force=True, verbose=True, handler=handler, target=DBTarget.get(car='Nightwatch'))['dynamics'])
 
         # from tqdm import tqdm
         # for i in tqdm(range(1, 1000)):

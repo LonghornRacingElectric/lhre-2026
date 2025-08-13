@@ -31,6 +31,7 @@ services:
     volumes:
       - ../../analysis/sql_utils/db_handler.py:/ingest/db_handler.py
       - ../../analysis/sql_utils/DB_description.pkl:/DB_description.pkl
+      - ../../analysis/sql_utils/angelique_DB_description.pkl:/angelique_DB_description.pkl
       - ../../net_configs.json:/net_configs.json
     networks:
       - telemetry_network

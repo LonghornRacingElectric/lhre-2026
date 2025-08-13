@@ -174,7 +174,6 @@ class MQTTHandler:
             #logging.debug('\tPickle Payload received, likely coming from debug source...')
         except pickle.UnpicklingError:
             data_dict = json.loads(payload.decode().replace("'", '"'))
-        # TODO: Add Protobuf ingest
         if (isinstance(data_dict, list)):
             if (len(data_dict) > 1):
                 DBHandler.insert_multi_rows(table, target=DBTarget.get(car=car), user='electric', handler=self.handlers[car], data=data_dict)
@@ -353,7 +352,7 @@ def main():
     else:
         with DBHandler(unsafe=True, target=DBTarget.get(car="Nightwatch"), conn_pool_size=conn_type) as nightwatch_handler, DBHandler(unsafe=True, target=DBTarget.get(car="Angelique"), conn_pool_size=conn_type) as angelique_handler:
             db_handlers = {'Nightwatch': nightwatch_handler, 'Angelique': angelique_handler}
-            with MQTTHandler('ingest', db_handlers=db_handlers, cache_enable=True) as mqtt:
+            with MQTTHandler('ingest', db_handlers=db_handlers, cache_enable=False) as mqtt:
                 mqtt.subscribe(topic='#')
 
 
