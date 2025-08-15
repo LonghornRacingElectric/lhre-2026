@@ -413,10 +413,11 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.CRITICAL)
     target = DBTarget.get(car="Nightwatch")
     # Playback testing ---------------------------------------------------------------------------------------------
-    with DBHandler(unsafe=True, target=target) as db:
-        with MQTTHandler(name ='event_playback_test', target = MQTTTarget.get(), db_handler=db) as mqtt:
-            db.connect(target = target, user = 'electric')
-            dataSender = CSVToDB( db_handler=db, mqtt=mqtt, DB_target=target)
+    with DBHandler(unsafe=True, target=DBTarget.get(car="Nightwatch")) as nightwatch_handler, DBHandler(unsafe=True, target=DBTarget.get(car="Angelique")) as angelique_handler:
+        db_handlers = {'Nightwatch': nightwatch_handler, 'Angelique': angelique_handler}
+        with MQTTHandler(name ='event_playback_test', target = MQTTTarget.get(), db_handlers=db_handlers) as mqtt:
+            db_handlers["Angelique"].connect(target = target, user = 'electric')
+            dataSender = CSVToDB( db_handler=db_handlers["Angelique"], mqtt=mqtt, DB_target=target)
             #while True:
                 #dataSender.handle_event_start()
             
