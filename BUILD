@@ -5,3 +5,8 @@ platform(
         "@platforms//os:none",
     ],
 )
+
+config_setting(
+    name = "windows",
+    constraint_values = ["@platforms//os:windows"],
+)
