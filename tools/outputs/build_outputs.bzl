@@ -1,6 +1,31 @@
 """Macro for creating binary and hex files using objcopy."""
 
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup", "platform_transition_binary")
+
+def firmware_outputs(name, src, project_name, visibility = None, **kwargs):
+    """
+    Runs objcopy to convert a source file into both .bin and .hex files.
+    """
+    # Define the output filenames based on the rule's name
+    bin_out = project_name + ".bin"
+    hex_out = project_name + ".hex"
+
+    command = ("$(execpath @arm_none_eabi//:objcopy) -O binary $< $(location %s) && " +
+               "$(execpath @arm_none_eabi//:objcopy) -O ihex $< $(location %s)") % (bin_out, hex_out)
+
+    native.genrule(
+        name = name,
+        srcs = [src],
+        outs = [
+            bin_out,
+            hex_out,
+        ],
+        cmd = command,
+        tools = ["@arm_none_eabi//:objcopy"],
+        visibility = visibility,
+        **kwargs
+    )
 
 def binary_out(name, src, visibility = None, **kwargs):
     """
@@ -90,7 +115,7 @@ def firmware_project_g4(name, linker_script, startup_script, enable_usb = False,
     extra_deps.append("//drivers/stm32g4:freertos_headers")
 
   cc_binary(
-    name = name,
+    name = name + "_project",
     srcs = native.glob([
         "Core/Src/**/*.c",
         "Core/Inc/**/*.h",
@@ -140,7 +165,7 @@ def firmware_project_g4(name, linker_script, startup_script, enable_usb = False,
         "-Og"
     ],
   
-    visibility = ["//visibility:public"],
+    visibility = ["//visibility:private"],
 
     features = ["generate_linkmap"],
 
@@ -163,7 +188,15 @@ def firmware_project_g4(name, linker_script, startup_script, enable_usb = False,
     srcs = [startup_script],
   )
 
-  binary_out(
-    name = name + "_bin",
+  platform_transition_filegroup(
+    name = name,
+    srcs = [name + "_project"],
+    target_platform = "//:arm_none_eabi",
+    visibility = ["//visibility:public"],
+  )
+  
+  firmware_outputs(
+    name = name + "_out",
     src = name,
+    project_name = name,
   )
