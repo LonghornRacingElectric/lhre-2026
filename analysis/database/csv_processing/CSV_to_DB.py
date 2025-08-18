@@ -225,6 +225,12 @@ class CSVToDB():
                     row_dict = {k : data[k][j] for k in data[i] if (len(data[i][k]) != 0)}
                     DBHandler.insert(table = i, data = row_dict, user="electric", handler = self.db_handler, target = self.DB_target)
 
+    def _insert_chunk_callback(self, future):
+        try:
+            future.result()
+        except Exception as e:
+            logging.error(f"An error occurred during insertion: {e}")
+
     def insert_multi_row_from_csv(self, df, table_desc, amt = 100):
         """
         Inserts data into the database in larger batches determined by the given amt value. 
@@ -252,16 +258,11 @@ class CSVToDB():
                     ]
                     DBHandler.insert_multi_rows(table=table_name, data=row_list, user="electric", handler=db_handler, target = self.DB_target)
 
-        futures = []
         with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
             for j in tqdm(range(0, len(df.index), amt)):
                 high = min(j + amt, len(df.index))
-                futures.append(
-                    executor.submit(insert_chunk, j, high, packets, data, self.db_handler)
-                )
-            # Wait for all to complete (optional)
-            for future in as_completed(futures):
-                future.result()
+                future = executor.submit(insert_chunk, j, high, packets, data, self.db_handler)
+                future.add_done_callback(self._insert_chunk_callback)
 
     def stream_data(self, df):
         for chunk in (pd.read_csv(df, chunksize=2000)):
@@ -408,6 +409,53 @@ class CSVToDB():
         logging.info(config)
         self.mqtt.publish('config/event_update_sync', json.dumps(config, indent=4))
 
+    def csv_event_injection(self, time_threshold = 60):
+        """
+        Find start and end times for an event and records into the database. Assumes csv files already input into database. 
+        """
+
+        query = f"""
+            WITH packet_with_prev_time AS (
+            SELECT 
+                time,
+                LAG(time) OVER (ORDER BY time) AS prev_time
+            FROM packet
+            ),
+            event_starts AS (
+                SELECT 
+                    time AS start_time
+                FROM packet_with_prev_time
+                WHERE prev_time IS NULL 
+                OR time - prev_time > {time_threshold * 1000}
+            ),
+            event_intervals AS (
+                SELECT 
+                    start_time,
+                    LEAD(start_time) OVER (ORDER BY start_time) AS next_start_time
+                FROM event_starts
+            )
+            SELECT 
+                e.start_time,
+                COALESCE(e.next_start_time - 1, p.max_time) AS end_time
+            FROM event_intervals e
+            CROSS JOIN (SELECT MAX(time) AS max_time FROM packet) p;
+            """
+
+        events_df = self.db_handler.simple_select(query, target=self.DB_target, user='electric')
+
+        if events_df.empty:
+            logging.info("No events found in the database.")
+            return
+        
+        for index, row in events_df.iterrows():
+            event = {
+                'start_time' : row['start_time'],
+                'end_time' : row['end_time'],
+                'name' : f"Event {index + 1}"
+            }
+            DBHandler.insert(table='events', data=event, user='electric', target=self.DB_target, handler=self.db_handler)
+        logging.info(f"Inserted {len(events_df)} events into the database.")    
+
 if __name__ == '__main__':
 
     logging.basicConfig(level=logging.CRITICAL)
@@ -447,8 +495,5 @@ if __name__ == '__main__':
             #mqtt.connect()
             #Where the csv is stored in csv_data to be sent here
                 #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
-            #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_12__12_35_00.csv"), table_desc=table_desc)
-
-            # dataSender.event_playback(Path(__file__).parent.joinpath("event_csv", "0.csv"), table_desc=table_desc)
-       
+            #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_12__12_35_00.csv"), table_desc=table_desc)       
 
