@@ -11,7 +11,7 @@ import sys
 import json
 import matplotlib.pyplot as plt
 import numpy as np
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 from multiprocessing import cpu_count
 from pathlib import Path
 from tqdm import tqdm
@@ -231,7 +231,7 @@ class CSVToDB():
         except Exception as e:
             logging.error(f"An error occurred during insertion: {e}")
 
-    def insert_multi_row_from_csv(self, df, table_desc, amt = 100):
+    def insert_multi_row_from_csv(self, df, table_desc, amt = 500):
         """
         Inserts data into the database in larger batches determined by the given amt value. 
         """
@@ -258,11 +258,27 @@ class CSVToDB():
                     ]
                     DBHandler.insert_multi_rows(table=table_name, data=row_list, user="electric", handler=db_handler, target = self.DB_target)
 
+        futures = []
         with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
             for j in tqdm(range(0, len(df.index), amt)):
                 high = min(j + amt, len(df.index))
-                future = executor.submit(insert_chunk, j, high, packets, data, self.db_handler)
-                future.add_done_callback(self._insert_chunk_callback)
+
+                # If too many futures are running, wait for one to finish
+                while len(futures) >= cpu_count():
+                    done, not_done = wait(futures, return_when="FIRST_COMPLETED")
+                    for f in done:
+                        f.result()
+                        futures.remove(f)  # remove finished one
+                    futures = list(not_done)  # raise exception if any
+
+                # Submit a new job
+                f = executor.submit(insert_chunk, j, high, packets, data, self.db_handler)
+                f.add_done_callback(self._insert_chunk_callback)
+                futures.append(f)
+
+            # Wait for the rest to finish
+            for f in as_completed(futures):
+                f.result()
 
     def stream_data(self, df):
         for chunk in (pd.read_csv(df, chunksize=2000)):
@@ -471,25 +487,35 @@ if __name__ == '__main__':
             
             table_desc = get_table_column_specs(target=target)
 
-            csv_data_folder = Path(__file__).parent.joinpath("csv_data/2025-04-28")
-            csv_files = list(csv_data_folder.glob("*.csv"))
-            
-            # Process each CSV file
-            for csv_file in csv_files:
-                print(f"Processing file: {csv_file.name}")
-                try:
-                    dataSender.insert_multi_row_from_csv(
-                        df=pd.read_csv(csv_file), 
-                        table_desc=table_desc, amt=100
-                    )
-                    print(f"Successfully processed: {csv_file.name}")
-                except Exception as e:
-                    print(f"Error processing {csv_file.name}: {e}")
-                    continue
-            # dataSender.insert_multi_row_from_csv(
-            #     df=pd.read_csv(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_12__12_35_00.csv")), 
-            #     table_desc=table_desc, amt=100
-            # )
+            csv_data_folders = Path(__file__).parent.joinpath("csv_data/").iterdir()
+            for csv_folder in csv_data_folders:
+                if csv_folder.is_dir():
+                    print(f"Processing folder: {csv_folder.name}")
+                    csv_files = list(csv_folder.glob("*.csv"))
+                    for csv_file in csv_files:
+                        print(f"Processing file: {csv_file.name}")
+                        try:
+                            dataSender.insert_multi_row_from_csv(
+                                df=pd.read_csv(csv_file), 
+                                table_desc=table_desc, amt=500
+                            )
+                            print(f"Successfully processed: {csv_file.name}")
+                        except Exception as e:
+                            print(f"Error processing {csv_file.name}: {e}")
+                            continue
+                else:
+                    if csv_folder.name.endswith('.csv'):
+                        print(f"Processing file: {csv_folder.name}")
+                        try:
+                            dataSender.insert_multi_row_from_csv(
+                                df=pd.read_csv(csv_folder), 
+                                table_desc=table_desc, amt=500
+                            )
+                            print(f"Successfully processed: {csv_folder.name}")
+                        except Exception as e:
+                            print(f"Error processing {csv_folder.name}: {e}")
+                            continue
+           
             ## Event playback functionarlity code TODO---------------------------------------------------------------------------------
             #dataSender.event_seperator(threshold=5, speed_filter=True) #Saves list to harddrive
             #mqtt.connect()
