@@ -411,7 +411,7 @@ class CSVToDB():
 if __name__ == '__main__':
 
     logging.basicConfig(level=logging.CRITICAL)
-    target = DBTarget.get(car="Nightwatch")
+    target = DBTarget.get(car="Angelique")
     # Playback testing ---------------------------------------------------------------------------------------------
     with DBHandler(unsafe=True, target=DBTarget.get(car="Nightwatch")) as nightwatch_handler, DBHandler(unsafe=True, target=DBTarget.get(car="Angelique")) as angelique_handler:
         db_handlers = {'Nightwatch': nightwatch_handler, 'Angelique': angelique_handler}
@@ -422,6 +422,22 @@ if __name__ == '__main__':
                 #dataSender.handle_event_start()
             
             table_desc = get_table_column_specs(target=target)
+
+            csv_data_folder = Path(__file__).parent.joinpath("csv_data/2025-04-28")
+            csv_files = list(csv_data_folder.glob("*.csv"))
+            
+            # Process each CSV file
+            for csv_file in csv_files:
+                print(f"Processing file: {csv_file.name}")
+                try:
+                    dataSender.insert_multi_row_from_csv(
+                        df=pd.read_csv(csv_file), 
+                        table_desc=table_desc, amt=100
+                    )
+                    print(f"Successfully processed: {csv_file.name}")
+                except Exception as e:
+                    print(f"Error processing {csv_file.name}: {e}")
+                    continue
             # dataSender.insert_multi_row_from_csv(
             #     df=pd.read_csv(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_12__12_35_00.csv")), 
             #     table_desc=table_desc, amt=100
@@ -431,7 +447,7 @@ if __name__ == '__main__':
             #mqtt.connect()
             #Where the csv is stored in csv_data to be sent here
                 #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
-            dataSender.event_playback(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_12__12_35_00.csv"), table_desc=table_desc)
+            #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_12__12_35_00.csv"), table_desc=table_desc)
 
             # dataSender.event_playback(Path(__file__).parent.joinpath("event_csv", "0.csv"), table_desc=table_desc)
        
