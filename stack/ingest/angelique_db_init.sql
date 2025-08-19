@@ -231,7 +231,7 @@ CREATE TABLE public.classifier (
 
 -- Partitions table
 CREATE TABLE public.partitions(
-    partition_name    VARCHAR(255) NOT NULL,
+    partition_name    text         NOT NULL,
     start_time        bigint       NOT NULL,
     end_time          bigint       NOT NULL
 );

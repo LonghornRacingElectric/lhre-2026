@@ -220,7 +220,7 @@ class CSVToDB():
             logging.info(row_dict)
 
         for i in tqdm(data.keys()):
-            if (i not in {"packet", "event", "classifier", "drive_day", "lut_driver", "lut_location", "lut_car", "lut_event_type"}):
+            if (i not in {"packet", "event", "classifier", "drive_day", "lut_driver", "lut_location", "lut_car", "lut_event_type", "partitions"}):
                 for j in range(num_rows):
                     row_dict = {k : data[k][j] for k in data[i] if (len(data[i][k]) != 0)}
                     DBHandler.insert(table = i, data = row_dict, user="electric", handler = self.db_handler, target = self.DB_target)
@@ -251,7 +251,7 @@ class CSVToDB():
             # Insert into other tables
             for table_name, values in data.items():
                 if not table_name in {"packet", "event", "classifier", "drive_day",
-                                "lut_driver", "lut_location", "lut_car", "lut_event_type"}:
+                                "lut_driver", "lut_location", "lut_car", "lut_event_type", "partitions"}:
                     row_list = [
                         {k: values[k][i] for k in values if len(values[k]) != 0}
                         for i in range(start, end)
@@ -344,7 +344,7 @@ class CSVToDB():
             row_dict_list = {}
             for i, values in data.items():
                 row_list = []
-                if (i not in {"event", "classifier", "drive_day", "lut_driver", "lut_location", "lut_car", "lut_event_type"}):
+                if (i not in {"event", "classifier", "drive_day", "lut_driver", "lut_location", "lut_car", "lut_event_type", "partitions"}):
                     row_list = [DBHandler.get_insert_values(table = i, data={k : values[k][j] for k in values if (len(values[k]) != 0)},
                                 table_desc=table_desc[i]) for j in range(len(df.index))]
                     row_dict_list[i] = row_list
