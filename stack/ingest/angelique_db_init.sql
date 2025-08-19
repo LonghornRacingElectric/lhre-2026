@@ -228,3 +228,10 @@ CREATE TABLE public.classifier (
     notes               text,
     CONSTRAINT fk_event_id FOREIGN KEY(event_id) REFERENCES event(event_id)
 );
+
+-- Partitions table
+CREATE TABLE public.partitions(
+    partition_name    VARCHAR(255) NOT NULL,
+    start_time        bigint       NOT NULL,
+    end_time          bigint       NOT NULL
+);

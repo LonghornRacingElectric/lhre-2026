@@ -425,7 +425,7 @@ class CSVToDB():
         logging.info(config)
         self.mqtt.publish('config/event_update_sync', json.dumps(config, indent=4))
 
-    def csv_event_injection(self, time_threshold = 60):
+    def csv_event_injection(self, time_threshold = 300):
         """
         Find start and end times for an event and records into the database. Assumes csv files already input into database. 
         """
@@ -457,20 +457,21 @@ class CSVToDB():
             CROSS JOIN (SELECT MAX(time) AS max_time FROM packet) p;
             """
 
-        events_df = self.db_handler.simple_select(query, target=self.DB_target, user='electric')
-
-        if events_df.empty:
+        events = self.db_handler.simple_select(query, target=self.DB_target, user='electric')
+        if not events:
             logging.info("No events found in the database.")
             return
         
-        for index, row in events_df.iterrows():
-            event = {
-                'start_time' : row['start_time'],
-                'end_time' : row['end_time'],
-                'name' : f"Event {index + 1}"
-            }
-            DBHandler.insert(table='events', data=event, user='electric', target=self.DB_target, handler=self.db_handler)
-        logging.info(f"Inserted {len(events_df)} events into the database.")    
+        for index, (start, end) in enumerate(events):
+            if end - start > 120000:
+                event = {
+                    'start_time' : start,
+                    'end_time' : end,
+                    'partition_name' : datetime.datetime.fromtimestamp(start / 1000).strftime('%Y-%m-%d %H:%M:%S')
+                }
+                print (event)
+                DBHandler.insert(table='partitions', data=event, user='electric', target=self.DB_target, handler=self.db_handler)
+        logging.info(f"Inserted {len(events)} events into the database.")    
 
 if __name__ == '__main__':
 
@@ -486,6 +487,8 @@ if __name__ == '__main__':
                 #dataSender.handle_event_start()
             
             table_desc = get_table_column_specs(target=target)
+
+             #Finds events in the database and records them into the event table
 
             csv_data_folders = Path(__file__).parent.joinpath("csv_data/").iterdir()
             for csv_folder in csv_data_folders:
@@ -515,7 +518,7 @@ if __name__ == '__main__':
                         except Exception as e:
                             print(f"Error processing {csv_folder.name}: {e}")
                             continue
-           
+            dataSender.csv_event_injection(time_threshold=300)
             ## Event playback functionarlity code TODO---------------------------------------------------------------------------------
             #dataSender.event_seperator(threshold=5, speed_filter=True) #Saves list to harddrive
             #mqtt.connect()
