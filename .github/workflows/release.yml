@@ -1,10 +1,8 @@
-# .github/workflows/release.yml
 name: Release
 
 on:
   push:
     tags:
-      - "**/v*"
       - "**/v*"
 
 jobs:
@@ -12,38 +10,67 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Get Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
         with:
-          # Avoid downloading Bazel every time.
           bazelisk-cache: true
-          # Store build cache per workflow.
           disk-cache: ${{ github.workflow }}
-          # Share repository cache between workflows.
           repository-cache: true
 
-      - name: Build Release Artifacts
-        id: build
+      - name: Generate Changelog
+        id: generate_changelog
         run: |
           FULL_TAG="${{ github.ref_name }}"
-          PROJECT_NAME="${FULL_TAG%/*}"
-          bazel build //${PROJECT_NAME}:release
-          ARTIFACT_PATH=$(bazel cquery --output=files //${PROJECT_NAME}:release)
-          echo "::set-output name=artifact_path::${ARTIFACT_PATH}"
-          echo "::set-output name=artifact_name::$(basename ${ARTIFACT_PATH})"
+
+          if [[ "$FULL_TAG" == *"/"* ]]; then
+            PROJECT_NAME="${FULL_TAG%/*}"
+            TAG_PATTERN="${PROJECT_NAME}/v*"
+          else
+            PROJECT_NAME=""
+            TAG_PATTERN="v*"
+          fi
+
+          echo "Current tag: ${FULL_TAG}"
+          echo "Project component: ${PROJECT_NAME}"
+          echo "Tag pattern: ${TAG_PATTERN}"
+
+          # Get the previous tag for this specific component by listing all matching tags,
+          # sorting them by version, and picking the second to last one.
+          PREVIOUS_TAG=$(git tag -l "${TAG_PATTERN}" | sort -V | tail -n 2 | head -n 1)
+
+          if [ -z "$PREVIOUS_TAG" ]; then
+            echo "No previous tag found for this component. Using first commit."
+            LOG_MESSAGES=$(git log --pretty=format:'- %s (%h)')
+          else
+            echo "Found previous tag: ${PREVIOUS_TAG}"
+            # Generate the log from the previous tag to the current one (HEAD)
+            LOG_MESSAGES=$(git log "${PREVIOUS_TAG}"..HEAD --pretty=format:'- %s (%h)')
+          fi
+
+          echo "Generated changelog:"
+          echo "$LOG_MESSAGES"
+
+          {
+            echo "changelog<<EOF"
+            echo "$LOG_MESSAGES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create Release
+        id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
           body: |
-            ${{ github.event.head_commit.message }}
-            New release for ${{ github.ref }}
+            ## Changelog
+            ${{ steps.generate_changelog.outputs.changelog }}
           draft: false
           prerelease: false
 
@@ -51,11 +78,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PROJECT_NAME=$(echo ${{ github.ref_name }} | cut -d/ -f1)
-          bazel build //${PROJECT_NAME}/firmware:release
+          FULL_TAG="${{ github.ref_name }}"
+
+          if [[ "$FULL_TAG" == *"/"* ]]; then
+            PROJECT_NAME="${FULL_TAG%/*}"
+            MAIN_TARGET="//${PROJECT_NAME}:release"
+          else
+            MAIN_TARGET="//:release"
+          fi
+
+          echo "Building main target: ${MAIN_TARGET}"
+          bazel build ${MAIN_TARGET}
 
           echo "Uploading assets..."
-          for file in $(bazel cquery --output=files //${PROJECT_NAME}/firmware:release); do
+          for file in $(bazel cquery --output=files "${MAIN_TARGET}"); do
             echo "Uploading $file"
             gh release upload ${{ github.ref_name }} "$file" --clobber
           done
