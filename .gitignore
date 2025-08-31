@@ -84,3 +84,4 @@ VCU/firmware/.mxproject
 /VCU/firmware/Middlewares
 
 !drivers/stm32g4/USB_Device/Target
+/aspects

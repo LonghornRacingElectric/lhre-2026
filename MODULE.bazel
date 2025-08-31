@@ -41,3 +41,7 @@ git_override(
 # Hermetic OpenOCD
 openocd = use_extension("//tools/openocd:openocd.bzl", "openocd")
 use_repo(openocd, "openocd")
+
+# Hermetic DFU Util
+dfu = use_extension("//tools/dfu:dfu.bzl", "dfu")
+use_repo(dfu, "dfu")

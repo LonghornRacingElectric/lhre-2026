@@ -1,99 +1,41 @@
-# bzl/dfu.bzl
-"""Module extension and repository rule for downloading dfu-util."""
+"""Hermetic DFU Util Toolchain."""
 
-# Configuration for the single dfu-util binaries archive.
-# This archive contains pre-compiled binaries for multiple platforms.
-# URL and checksum are for version 0.11.
-DFU_UTIL_ARCHIVE_CONFIG = {
-    "url": "https://downloads.sourceforge.net/project/dfu-util/dfu-util-0.11/dfu-util-0.11-binaries.tar.xz",
-    "sha256": "36e33a7238b6889871a4f07a25529065600c606253456b3a0333344e9302e196",
-    # The strip_prefix is the top-level directory inside the tarball, which we want to remove.
-    # If the tarball extracts to ./dfu-util-0.11-binaries/*, we set this. If it extracts directly,
-    # this should be an empty string. Let's assume for now it doesn't have a single root folder.
-    "strip_prefix": "",
-}
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 def _dfu_util_repo_impl(ctx):
-    """
-    This rule implementation downloads and extracts the dfu-util binaries archive.
-    
-    selects the correct binary for the host OS/architecture, and creates a BUILD
-    file to expose it as a target.
-    """
-    # Determine the path to the binary inside the archive based on platform.
-    arch = ctx.os.arch
     os_name = ctx.os.name
+    arch = ctx.os.arch
 
-    binary_path_in_archive = ""
-    binary_name = "dfu-util"
+    sha256 = "6450de30a7dcd8d8c1273f43f0b153f054fd24d85f7f38296b1ad8edbd2ddb25"
+    url = "https://dfu-util.sourceforge.net/releases/dfu-util-0.11-binaries.tar.xz"
 
-    if os_name == "linux":
-        if arch == "x86_64":
-            binary_path_in_archive = "linux-x86_64/dfu-util"
-        elif arch == "aarch64":
-            binary_path_in_archive = "linux-aarch64/dfu-util"
-        elif arch == "arm":
-            binary_path_in_archive = "linux-arm/dfu-util"
-    elif os_name == "darwin":
-        # The archive contains a single macOS binary, likely a universal one.
-        binary_path_in_archive = "osx-10.12/dfu-util"
-    elif os_name == "windows":
-        binary_name = "dfu-util.exe"
-        if arch == "x86_64":
-            binary_path_in_archive = "win64-mingw/dfu-util.exe"
-        elif arch == "x86":
-            binary_path_in_archive = "win32-mingw/dfu-util.exe"
+    if os_name.startswith("linux"):
+        bin_path = "linux-amd64/dfu-util"
+    elif os_name.startswith("mac os x"):
+        bin_path = "darwin-x86_64/dfu-util"
+    elif os_name.startswith("windows"):
+        bin_path = "win64/dfu-util.exe"
+    else:
+        fail("Unsupported OS: {}".format(os_name))
 
-    if not binary_path_in_archive:
-        fail("Unsupported platform for dfu-util: {}/{}".format(os_name, arch))
-
-    # Download and extract the archive.
-    ctx.download_and_extract(
-        url = DFU_UTIL_ARCHIVE_CONFIG["url"],
-        sha256 = DFU_UTIL_ARCHIVE_CONFIG["sha256"],
-        strip_prefix = DFU_UTIL_ARCHIVE_CONFIG["strip_prefix"],
-    )
-
-    # Create a BUILD file inside the new repository (@dfu_util).
-    # This makes the correct binary available as a consistent target name.
-    # We use a filegroup to make the binary executable.
-    ctx.file("BUILD.bazel", """
+    build_file_content = """
 package(default_visibility = ["//visibility:public"])
 
-# This filegroup makes the selected binary available and ensures it's executable.
 filegroup(
-    name = "dfu-util_bin",
-    srcs = ["{binary_path}"],
-    executable = True,
+    name = "dfu",
+    srcs = ["{bin_path}"],
 )
 
-# We create an alias so the target name is consistent across all platforms.
-alias(
-    name = "dfu-util",
-    actual = ":dfu-util_bin",
-)
-""".format(binary_path = binary_path_in_archive))
+""".format(bin_path = bin_path)
 
-# Define the repository rule
-_dfu_util_repository = repository_rule(
+    http_archive(
+        name = "dfu",
+        sha256 = sha256,
+        strip_prefix = "dfu-util-0.11-binaries",
+        build_file_content = build_file_content,
+        urls = [url],
+    )
+
+dfu = module_extension(
     implementation = _dfu_util_repo_impl,
 )
-
-# Define the module extension tag
-_dfu_tool_tag = tag(
-    attrs = {"name": attr.string(mandatory = True)},
-)
-
-def _dfu_extension_impl(ctx):
-    """Implementation of the module extension."""
-    for mod in ctx.modules:
-        for tool in mod.tags.tool:
-            _dfu_util_repository(name = tool.name)
-
-# This is the public interface for our module extension.
-dfu_extension = module_extension(
-    implementation = _dfu_extension_impl,
-    tag_classes = {"tool": _dfu_tool_tag},
-)
-
-lddkakfdp[as;]

@@ -177,6 +177,35 @@
   },
   "selectedYankedVersions": {},
   "moduleExtensions": {
+    "//tools/dfu:dfu.bzl%dfu": {
+      "general": {
+        "bzlTransitiveDigest": "Fq6N8lqkCKw4DZljRpLrmZNxz8IFcsO6/enVrWhWyaM=",
+        "usagesDigest": "t6ghRycGihz/Eu2JR6155mR94L3mFNjF1WaiQD0vztI=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "dfu": {
+            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
+            "attributes": {
+              "sha256": "6450de30a7dcd8d8c1273f43f0b153f054fd24d85f7f38296b1ad8edbd2ddb25",
+              "strip_prefix": "dfu-util-0.11-binaries",
+              "build_file_content": "\npackage(default_visibility = [\"//visibility:public\"])\n\nfilegroup(\n    name = \"dfu\",\n    srcs = [\"darwin-x86_64/dfu-util\"],\n)\n\n",
+              "urls": [
+                "https://dfu-util.sourceforge.net/releases/dfu-util-0.11-binaries.tar.xz"
+              ]
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "",
+            "bazel_tools",
+            "bazel_tools"
+          ]
+        ]
+      }
+    },
     "//tools/openocd:openocd.bzl%openocd": {
       "general": {
         "bzlTransitiveDigest": "Wc5SPr1N+H565bVD41TUo6MFUYPe7ESNhwTlpMLsDVs=",
@@ -202,6 +231,37 @@
             "",
             "bazel_tools",
             "bazel_tools"
+          ]
+        ]
+      }
+    },
+    "@@apple_support+//crosstool:setup.bzl%apple_cc_configure_extension": {
+      "general": {
+        "bzlTransitiveDigest": "E970FlMbwpgJPdPUQzatKh6BMfeE0ZpWABvwshh7Tmg=",
+        "usagesDigest": "aYRVMk+1OupIp+5hdBlpzT36qgd6ntgSxYTzMLW5K4U=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "local_config_apple_cc_toolchains": {
+            "repoRuleId": "@@apple_support+//crosstool:setup.bzl%_apple_cc_autoconf_toolchains",
+            "attributes": {}
+          },
+          "local_config_apple_cc": {
+            "repoRuleId": "@@apple_support+//crosstool:setup.bzl%_apple_cc_autoconf",
+            "attributes": {}
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "apple_support+",
+            "bazel_tools",
+            "bazel_tools"
+          ],
+          [
+            "bazel_tools",
+            "rules_cc",
+            "rules_cc+"
           ]
         ]
       }

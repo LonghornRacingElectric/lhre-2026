@@ -1,4 +1,4 @@
-load("//:tools/outputs/build_outputs.bzl", "firmware_project_g4")
+load("//tools:outputs/build_outputs.bzl", "firmware_project_g4")
 
 firmware_project_g4(
     name = "vcu_firmware_2026",
