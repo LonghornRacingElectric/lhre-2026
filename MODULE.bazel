@@ -4,19 +4,34 @@ module(name = "lhre-2026")
 
 bazel_dep(name = "toolchains_arm_gnu", version = "1.1.0")
 bazel_dep(name = "rules_cc", version = "0.2.0")
+bazel_dep(name = "toolchains_llvm", version = "1.4.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "aspect_bazel_lib", version = "2.20.0")
 bazel_dep(name = "googletest", version = "1.17.0")
 bazel_dep(name = "bazel_skylib", version = "1.8.1")
+bazel_dep(name = "rules_rust", version = "0.63.0")
+bazel_dep(name = "rules_python", version = "1.5.3")
 
+
+# Hermetic C/C++ Host Toolchain
+llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+llvm.toolchain(
+   llvm_version = "16.0.0",
+)
+
+use_repo(llvm, "llvm_toolchain")
+
+register_toolchains("@llvm_toolchain//:all")
+
+# Hermetic C/C++ ARM Toolchain
 arm_toolchain = use_extension("@toolchains_arm_gnu//:extensions.bzl", "arm_toolchain")
 
 arm_toolchain.arm_none_eabi(version = "13.2.1")
 use_repo(arm_toolchain, "arm_none_eabi")
 register_toolchains("@arm_none_eabi//toolchain:all")
 
-bazel_dep(name = "rules_python", version = "1.5.3")
 
+# Hermetic Python Toolchain
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
     python_version = "3.13",
@@ -41,3 +56,14 @@ git_override(
 # Hermetic OpenOCD
 openocd = use_extension("//tools/openocd:openocd.bzl", "openocd")
 use_repo(openocd, "openocd")
+
+# Hermetic DFU Util
+dfu = use_extension("//tools/dfu:dfu.bzl", "dfu")
+use_repo(dfu, "dfu")
+
+# Hermetic Rust Toolchain
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(
+    edition = "2024",
+    versions = [ "1.85.0" ],
+)
