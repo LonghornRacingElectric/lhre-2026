@@ -18,13 +18,13 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
+  "id": 13,
   "links": [],
   "panels": [
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "bee260kid5la8b"
+        "uid": "aeup6culi7s3ke"
       },
       "fieldConfig": {
         "defaults": {
@@ -132,10 +132,14 @@
       "pluginVersion": "11.5.2",
       "targets": [
         {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "aeup6culi7s3ke"
+          },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT gps[0] as lat, gps[1] as lon \r\n\r\nFROM dynamics \r\nJOIN packet ON packet.packet_id = dynamics.packet_id\r\n\r\nORDER BY packet.packet_id DESC\r\n\r\nLIMIT 4150\r\n\r\n\r\n",
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY (dynamics.gps[0])) AS lat,\r\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY (dynamics.gps[1])) AS lon\r\nFROM dynamics\r\nJOIN packet ON packet.packet_id = dynamics.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -168,7 +172,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "bee260kid5la8b"
+        "uid": "aeup6culi7s3ke"
       },
       "fieldConfig": {
         "defaults": {
@@ -250,12 +254,12 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "bdzdtpa4z5iioa"
+            "uid": "aeup6culi7s3ke"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT packet.time, dynamics.gps_heading\r\n\r\nFROM dynamics\r\n\r\nJOIN packet ON packet.packet_id = dynamics.packet_id\r\nORDER BY dynamics.packet_id\r\nLIMIT 5000",
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n  AVG(dynamics.gps_heading) AS gps_heading\r\nFROM dynamics\r\nJOIN packet ON packet.packet_id = dynamics.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -283,7 +287,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "bee260kid5la8b"
+        "uid": "aeup6culi7s3ke"
       },
       "fieldConfig": {
         "defaults": {
@@ -365,12 +369,12 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "bdzdtpa4z5iioa"
+            "uid": "aeup6culi7s3ke"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \r\n  packet.time,\r\n  dynamics.vcu_velocity[1] as lat_accel\r\nFROM dynamics\r\n\r\nJOIN packet ON packet.packet_id = dynamics.packet_id\r\nLIMIT 5000",
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n  AVG(dynamics.vcu_velocity[1]) AS lat_accel\r\nFROM dynamics\r\nJOIN packet ON packet.packet_id = dynamics.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -397,7 +401,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "bee260kid5la8b"
+        "uid": "aeup6culi7s3ke"
       },
       "fieldConfig": {
         "defaults": {
@@ -479,12 +483,12 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "bdzdtpa4z5iioa"
+            "uid": "aeup6culi7s3ke"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \r\n  packet.time,\r\n  dynamics.gps_velocity \r\nFROM dynamics\r\n\r\nJOIN packet ON packet.packet_id = dynamics.packet_id\r\nLIMIT 5000",
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n  AVG(dynamics.gps_velocity) AS gps_velocity\r\nFROM dynamics\r\nJOIN packet ON packet.packet_id = dynamics.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -510,20 +514,42 @@
     }
   ],
   "preload": false,
-  "refresh": "auto",
+  "refresh": "",
   "schemaVersion": 40,
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "allowCustomValue": false,
+        "current": {
+          "text": "2025-04-28 00:39:17",
+          "value": "2025-04-28 00:39:17"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "aeup6culi7s3ke"
+        },
+        "definition": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "description": "Select time period to query dashboards to that time period",
+        "includeAll": false,
+        "label": "Zoom to partition",
+        "name": "Zoom",
+        "options": [],
+        "query": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
   },
   "time": {
-    "from": "now-5m",
-    "to": "now"
+    "from": "2025-04-28T00:58:43.473Z",
+    "to": "2025-04-28T01:02:43.713Z"
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Dynamics",
-  "uid": "fe262v8ksvz7kf",
-  "version": 11,
+  "title": "Angelique-Dynamics",
+  "uid": "fe262v8ksvz7kf2",
+  "version": 17,
   "weekStart": ""
 }

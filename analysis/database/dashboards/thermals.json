@@ -19,13 +19,13 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 2,
+  "id": 16,
   "links": [],
   "panels": [
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "bee260kid5la8b"
+        "uid": "aeup6culi7s3ke"
       },
       "fieldConfig": {
         "defaults": {
@@ -107,12 +107,12 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "bdzdtpa4z5iioa"
+            "uid": "aeup6culi7s3ke"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT packet.time, thermal.ambient_temp \r\nFROM thermal\r\n\r\nJOIN packet ON packet.packet_id = thermal.packet_id\r\nORDER BY packet.packet_id DESC\r\nLIMIT 1000",
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n  AVG(thermal.ambient_temp) AS ambient_temp\r\nFROM thermal\r\nJOIN packet ON packet.packet_id = thermal.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -139,7 +139,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "bee260kid5la8b"
+        "uid": "aeup6culi7s3ke"
       },
       "fieldConfig": {
         "defaults": {
@@ -191,12 +191,12 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "bdzdtpa4z5iioa"
+            "uid": "aeup6culi7s3ke"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT water_motor_temp, water_inverter_temp, water_rad_temp FROM thermal ",
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n  AVG(thermal.water_motor_temp) AS water_motor_temp, \r\n  AVG(thermal.water_inverter_temp) as water_inverter_temp,\r\n  AVG(thermal.water_rad_temp) as water_rad_temp\r\nFROM thermal\r\nJOIN packet ON packet.packet_id = thermal.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -223,7 +223,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "bee260kid5la8b"
+        "uid": "aeup6culi7s3ke"
       },
       "description": "",
       "fieldConfig": {
@@ -306,12 +306,12 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "bdzdtpa4z5iioa"
+            "uid": "aeup6culi7s3ke"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT packet.time, thermal.inverter_temp\r\nFROM thermal\r\nJOIN packet ON packet.packet_id = thermal.packet_id\r\nORDER BY packet.packet_id DESC\r\nLIMIT 5000",
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n   AVG(thermal.inverter_temp) as inverter_temp\r\nFROM thermal\r\nJOIN packet ON packet.packet_id = thermal.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -338,7 +338,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "bee260kid5la8b"
+        "uid": "aeup6culi7s3ke"
       },
       "fieldConfig": {
         "defaults": {
@@ -420,12 +420,12 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "bdzdtpa4z5iioa"
+            "uid": "aeup6culi7s3ke"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT packet.time, flow_rate\r\n\r\nFROM thermal \r\nJOIN packet ON packet.packet_id = thermal.packet_id\r\n\r\nLIMIT 1000",
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n   AVG(thermal.flow_rate) as flow_rate\r\nFROM thermal\r\nJOIN packet ON packet.packet_id = thermal.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -452,7 +452,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "bee260kid5la8b"
+        "uid": "aeup6culi7s3ke"
       },
       "fieldConfig": {
         "defaults": {
@@ -504,12 +504,12 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "bdzdtpa4z5iioa"
+            "uid": "aeup6culi7s3ke"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT rad_fan_rpm AS radiator_fan, batt_fan_rpm AS battery_fan\r\n\r\nFROM thermal\r\nORDER BY thermal.packet_id\r\nDESC LIMIT 1\r\n \r\n",
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n   AVG(thermal.rad_fan_rpm) as radiator_fan,\r\n   AVG(thermal.batt_fan_rpm) as battery_fan\r\nFROM thermal\r\nJOIN packet ON packet.packet_id = thermal.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -536,7 +536,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "bee260kid5la8b"
+        "uid": "aeup6culi7s3ke"
       },
       "fieldConfig": {
         "defaults": {
@@ -596,12 +596,12 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "bdzdtpa4z5iioa"
+            "uid": "aeup6culi7s3ke"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT cells_temp[1] AS section_1, cells_temp[2] AS section_2, cells_temp[3] AS section_3\r\nFROM thermal\r\n\r\nORDER BY packet_id\r\nDESC LIMIT 1",
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n   AVG(thermal.cells_temp[1]) as section_1,\r\n   AVG(thermal.cells_temp[2]) as section_2,\r\n   AVG(thermal.cells_temp[3]) as section_3\r\nFROM thermal\r\nJOIN packet ON packet.packet_id = thermal.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -628,7 +628,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "bee260kid5la8b"
+        "uid": "aeup6culi7s3ke"
       },
       "fieldConfig": {
         "defaults": {
@@ -710,12 +710,12 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "bdzdtpa4z5iioa"
+            "uid": "aeup6culi7s3ke"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT packet.time, pack.avg_cell_temp\r\nFROM pack\r\n\r\nJOIN packet ON packet.packet_id = pack.packet_id\r\nORDER BY packet.packet_id DESC\r\nLIMIT 5000",
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n   AVG(pack.avg_cell_temp) as avg_cell_temp\r\nFROM pack\r\nJOIN packet ON packet.packet_id = pack.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -742,7 +742,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "bee260kid5la8b"
+        "uid": "aeup6culi7s3ke"
       },
       "fieldConfig": {
         "defaults": {
@@ -794,12 +794,12 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "bdzdtpa4z5iioa"
+            "uid": "aeup6culi7s3ke"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\r\nMIN(value) AS min_value,\r\nMAX(value) AS max_value,\r\n(MAX(value) - MIN(value))/2 AS avg_value,\r\nMAX(value) - MIN(value) AS max_delta\r\n\r\nFROM (\r\n    SELECT \r\n    packet_id, \r\n    UNNEST(cells_temp[1:28]) AS value\r\n    FROM thermal\r\n    ORDER BY packet_id DESC\r\n    \r\n) AS unnested\r\nGROUP BY packet_id\r\nORDER BY packet_id DESC\r\nLIMIT 1\r\n",
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n),\r\nunnested AS (\r\n    SELECT \r\n        to_timestamp(\r\n          floor(p.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n        ) AS time,\r\n        UNNEST(t.cells_temp[1:28]) AS value\r\n    FROM thermal t\r\n    JOIN packet p ON p.packet_id = t.packet_id\r\n    JOIN bounds ON true\r\n    JOIN partitions part ON part.partition_name = '$Zoom'\r\n    WHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end\r\n)\r\nSELECT\r\n    time,\r\n    MIN(value) AS min_value,\r\n    MAX(value) AS max_value,\r\n    (MAX(value) - MIN(value))/2 AS avg_value,\r\n    MAX(value) - MIN(value) AS max_delta\r\nFROM unnested\r\nGROUP BY time\r\nORDER BY time;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -832,7 +832,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "bee260kid5la8b"
+        "uid": "aeup6culi7s3ke"
       },
       "fieldConfig": {
         "defaults": {
@@ -841,7 +841,8 @@
             "mode": "percentage",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "orange",
@@ -883,12 +884,12 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "bdzdtpa4z5iioa"
+            "uid": "aeup6culi7s3ke"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\r\nMIN(value) AS min_value,\r\nMAX(value) AS max_value,\r\n(MAX(value) - MIN(value))/2 AS avg_value,\r\nMAX(value) - MIN(value) AS max_delta\r\n\r\nFROM (\r\n    SELECT \r\n    packet_id, \r\n    UNNEST(cells_temp[:56]) AS value\r\n    FROM thermal\r\n    ORDER BY packet_id DESC\r\n    \r\n) AS unnested\r\nGROUP BY packet_id\r\nORDER BY packet_id DESC\r\nLIMIT 1\r\n\r\n",
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n),\r\nunnested AS (\r\n    SELECT \r\n        to_timestamp(\r\n          floor(p.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n        ) AS time,\r\n        UNNEST(t.cells_temp[:56]) AS value\r\n    FROM thermal t\r\n    JOIN packet p ON p.packet_id = t.packet_id\r\n    JOIN bounds ON true\r\n    JOIN partitions part ON part.partition_name = '$Zoom'\r\n    WHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end\r\n)\r\nSELECT\r\n    time,\r\n    MIN(value) AS min_value,\r\n    MAX(value) AS max_value,\r\n    (MAX(value) - MIN(value))/2 AS avg_value,\r\n    MAX(value) - MIN(value) AS max_delta\r\nFROM unnested\r\nGROUP BY time\r\nORDER BY time;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -921,7 +922,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "bee260kid5la8b"
+        "uid": "aeup6culi7s3ke"
       },
       "fieldConfig": {
         "defaults": {
@@ -930,7 +931,8 @@
             "mode": "percentage",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "orange",
@@ -949,90 +951,6 @@
         "h": 4,
         "w": 12,
         "x": 0,
-        "y": 25
-      },
-      "id": 12,
-      "options": {
-        "minVizHeight": 75,
-        "minVizWidth": 75,
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": false,
-        "sizing": "auto"
-      },
-      "pluginVersion": "11.5.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "bdzdtpa4z5iioa"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT\r\nMIN(value) AS min_value,\r\nMAX(value) AS max_value,\r\n(MAX(value) - MIN(value))/2 AS avg_value,\r\nMAX(value) - MIN(value) AS max_delta\r\n\r\nFROM (\r\n    SELECT \r\n    packet_id, \r\n    UNNEST(cells_temp[85:112]) AS value\r\n    FROM thermal\r\n    ORDER BY packet_id DESC\r\n    \r\n) AS unnested\r\nGROUP BY packet_id\r\nORDER BY packet_id DESC\r\nLIMIT 1\r\n",
-          "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
-        }
-      ],
-      "title": "Section 4",
-      "type": "gauge"
-    },
-    {
-      "datasource": {
-        "default": true,
-        "type": "grafana-postgresql-datasource",
-        "uid": "bdzdtpa4z5iioa"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "percentage",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "orange",
-                "value": 70
-              },
-              {
-                "color": "red",
-                "value": 85
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 12,
-        "x": 12,
         "y": 25
       },
       "id": 9,
@@ -1056,12 +974,12 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "bdzdtpa4z5iioa"
+            "uid": "aeup6culi7s3ke"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\r\nMIN(value) AS min_value,\r\nMAX(value) AS max_value,\r\n(MAX(value) - MIN(value))/2 AS avg_value,\r\nMAX(value) - MIN(value) AS max_delta\r\n\r\nFROM (\r\n    SELECT \r\n    packet_id, \r\n    UNNEST(cells_temp[57:84]) AS value\r\n    FROM thermal\r\n    ORDER BY packet_id DESC\r\n    \r\n) AS unnested\r\nGROUP BY packet_id\r\nORDER BY packet_id DESC\r\nLIMIT 1\r\n",
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n),\r\nunnested AS (\r\n    SELECT \r\n        to_timestamp(\r\n          floor(p.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n        ) AS time,\r\n        UNNEST(t.cells_temp[57:84]) AS value\r\n    FROM thermal t\r\n    JOIN packet p ON p.packet_id = t.packet_id\r\n    JOIN bounds ON true\r\n    JOIN partitions part ON part.partition_name = '$Zoom'\r\n    WHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end\r\n)\r\nSELECT\r\n    time,\r\n    MIN(value) AS min_value,\r\n    MAX(value) AS max_value,\r\n    (MAX(value) - MIN(value))/2 AS avg_value,\r\n    MAX(value) - MIN(value) AS max_delta\r\nFROM unnested\r\nGROUP BY time\r\nORDER BY time;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1087,9 +1005,8 @@
     },
     {
       "datasource": {
-        "default": true,
         "type": "grafana-postgresql-datasource",
-        "uid": "bdzdtpa4z5iioa"
+        "uid": "aeup6culi7s3ke"
       },
       "fieldConfig": {
         "defaults": {
@@ -1098,7 +1015,92 @@
             "mode": "percentage",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 25
+      },
+      "id": 12,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": false,
+        "sizing": "auto"
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "aeup6culi7s3ke"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n),\r\nunnested AS (\r\n    SELECT \r\n        to_timestamp(\r\n          floor(p.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n        ) AS time,\r\n        UNNEST(t.cells_temp[85:112]) AS value\r\n    FROM thermal t\r\n    JOIN packet p ON p.packet_id = t.packet_id\r\n    JOIN bounds ON true\r\n    JOIN partitions part ON part.partition_name = '$Zoom'\r\n    WHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end\r\n)\r\nSELECT\r\n    time,\r\n    MIN(value) AS min_value,\r\n    MAX(value) AS max_value,\r\n    (MAX(value) - MIN(value))/2 AS avg_value,\r\n    MAX(value) - MIN(value) AS max_delta\r\nFROM unnested\r\nGROUP BY time\r\nORDER BY time;\r\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Section 4",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "aeup6culi7s3ke"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
               },
               {
                 "color": "orange",
@@ -1140,12 +1142,12 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "bdzdtpa4z5iioa"
+            "uid": "aeup6culi7s3ke"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\r\nMIN(value) AS min_value,\r\nMAX(value) AS max_value,\r\n(MAX(value) - MIN(value))/2 AS avg_value,\r\nMAX(value) - MIN(value) AS max_delta\r\n\r\nFROM (\r\n    SELECT \r\n    packet_id, \r\n    UNNEST(cells_temp[112:141]) AS value\r\n    FROM thermal\r\n    ORDER BY packet_id DESC\r\n    \r\n) AS unnested\r\nGROUP BY packet_id\r\nORDER BY packet_id DESC\r\nLIMIT 1\r\n",
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n),\r\nunnested AS (\r\n    SELECT \r\n        to_timestamp(\r\n          floor(p.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n        ) AS time,\r\n        UNNEST(t.cells_temp[112:141]) AS value\r\n    FROM thermal t\r\n    JOIN packet p ON p.packet_id = t.packet_id\r\n    JOIN bounds ON true\r\n    JOIN partitions part ON part.partition_name = '$Zoom'\r\n    WHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end\r\n)\r\nSELECT\r\n    time,\r\n    MIN(value) AS min_value,\r\n    MAX(value) AS max_value,\r\n    (MAX(value) - MIN(value))/2 AS avg_value,\r\n    MAX(value) - MIN(value) AS max_delta\r\nFROM unnested\r\nGROUP BY time\r\nORDER BY time;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1171,20 +1173,41 @@
     }
   ],
   "preload": false,
-  "refresh": "auto",
+  "refresh": "",
   "schemaVersion": 40,
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "allowCustomValue": false,
+        "current": {
+          "text": "2025-04-28 00:27:02",
+          "value": "2025-04-28 00:27:02"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "aeup6culi7s3ke"
+        },
+        "definition": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "description": "Select time period to query data from that time",
+        "label": "Zoom to partition",
+        "name": "Zoom",
+        "options": [],
+        "query": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
   },
   "time": {
-    "from": "now-60s",
-    "to": "now"
+    "from": "2025-04-28T00:24:18.879Z",
+    "to": "2025-04-28T00:40:55.843Z"
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Thermals Dashboard",
-  "uid": "ae0321f05883ke",
-  "version": 11,
+  "title": "Angelique - Thermals Dashboard",
+  "uid": "ae0321f05883ke2",
+  "version": 16,
   "weekStart": ""
 }
