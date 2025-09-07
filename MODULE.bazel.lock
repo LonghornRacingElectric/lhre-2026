@@ -117,8 +117,8 @@
     "https://bcr.bazel.build/modules/rules_java/7.2.0/MODULE.bazel": "06c0334c9be61e6cef2c8c84a7800cef502063269a5af25ceb100b192453d4ab",
     "https://bcr.bazel.build/modules/rules_java/7.3.2/MODULE.bazel": "50dece891cfdf1741ea230d001aa9c14398062f2b7c066470accace78e412bc2",
     "https://bcr.bazel.build/modules/rules_java/7.6.1/MODULE.bazel": "2f14b7e8a1aa2f67ae92bc69d1ec0fa8d9f827c4e17ff5e5f02e91caa3b2d0fe",
-    "https://bcr.bazel.build/modules/rules_java/8.12.0/MODULE.bazel": "8e6590b961f2defdfc2811c089c75716cb2f06c8a4edeb9a8d85eaa64ee2a761",
-    "https://bcr.bazel.build/modules/rules_java/8.12.0/source.json": "cbd5d55d9d38d4008a7d00bee5b5a5a4b6031fcd4a56515c9accbcd42c7be2ba",
+    "https://bcr.bazel.build/modules/rules_java/8.14.0/MODULE.bazel": "717717ed40cc69994596a45aec6ea78135ea434b8402fb91b009b9151dd65615",
+    "https://bcr.bazel.build/modules/rules_java/8.14.0/source.json": "8a88c4ca9e8759da53cddc88123880565c520503321e2566b4e33d0287a3d4bc",
     "https://bcr.bazel.build/modules/rules_java/8.3.2/MODULE.bazel": "7336d5511ad5af0b8615fdc7477535a2e4e723a357b6713af439fe8cf0195017",
     "https://bcr.bazel.build/modules/rules_java/8.5.1/MODULE.bazel": "d8a9e38cc5228881f7055a6079f6f7821a073df3744d441978e7a43e20226939",
     "https://bcr.bazel.build/modules/rules_jvm_external/4.4.2/MODULE.bazel": "a56b85e418c83eb1839819f0b515c431010160383306d13ec21959ac412d2fe7",
@@ -186,7 +186,7 @@
   "moduleExtensions": {
     "//tools/dfu:dfu.bzl%dfu": {
       "general": {
-        "bzlTransitiveDigest": "Fq6N8lqkCKw4DZljRpLrmZNxz8IFcsO6/enVrWhWyaM=",
+        "bzlTransitiveDigest": "he31Ys86g9JXFpq1pfYtfP+T6VSAvCo0uh5K71t02ng=",
         "usagesDigest": "t6ghRycGihz/Eu2JR6155mR94L3mFNjF1WaiQD0vztI=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -197,7 +197,7 @@
             "attributes": {
               "sha256": "6450de30a7dcd8d8c1273f43f0b153f054fd24d85f7f38296b1ad8edbd2ddb25",
               "strip_prefix": "dfu-util-0.11-binaries",
-              "build_file_content": "\npackage(default_visibility = [\"//visibility:public\"])\n\nfilegroup(\n    name = \"dfu\",\n    srcs = [\"darwin-x86_64/dfu-util\"],\n)\n\n",
+              "build_file_content": "\r\npackage(default_visibility = [\"//visibility:public\"])\r\n\r\nfilegroup(\r\n    name = \"dfu\",\r\n    srcs = [\"win64/dfu-util.exe\"],\r\n)\r\n\r\n",
               "urls": [
                 "https://dfu-util.sourceforge.net/releases/dfu-util-0.11-binaries.tar.xz"
               ]
@@ -215,7 +215,7 @@
     },
     "//tools/openocd:openocd.bzl%openocd": {
       "general": {
-        "bzlTransitiveDigest": "Wc5SPr1N+H565bVD41TUo6MFUYPe7ESNhwTlpMLsDVs=",
+        "bzlTransitiveDigest": "SpZ49ZvDCIt51kuXlYZ+kMut4NfcC4bAsUwl1fVCyuA=",
         "usagesDigest": "BbdS6/V0LV0Fk7mO/OL18yFSRaXPP4AkWl9z9xKiVik=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -224,11 +224,11 @@
           "openocd": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
             "attributes": {
-              "sha256": "4f458dea82af3529d4dc71544abfd8c8c96ebe6c521868f87c6697b0866c9e99",
+              "sha256": "c57724f87219bafde78f61b54fb7f303f456fed9826a3d0ee2d54d461ad58020",
               "strip_prefix": "xpack-openocd-0.12.0-6",
-              "build_file_content": "\npackage(default_visibility = [\"//visibility:public\"])\n\nfilegroup(\n    name = \"openocd\",\n    srcs = [\"bin/openocd\"],\n)\n\nfilegroup(\n    name = \"scripts\",\n    srcs = glob([\"openocd/scripts/**/*\"]),\n)\n",
+              "build_file_content": "\r\npackage(default_visibility = [\"//visibility:public\"])\r\n\r\nfilegroup(\r\n    name = \"openocd\",\r\n    srcs = [\"bin/openocd.exe\"],\r\n)\r\n\r\nfilegroup(\r\n    name = \"scripts\",\r\n    srcs = glob([\"openocd/scripts/**/*\"]),\r\n)\r\n",
               "urls": [
-                "https://github.com/xpack-dev-tools/openocd-xpack/releases/download/v0.12.0-6/xpack-openocd-0.12.0-6-darwin-arm64.tar.gz"
+                "https://github.com/xpack-dev-tools/openocd-xpack/releases/download/v0.12.0-6/xpack-openocd-0.12.0-6-win32-x64.zip"
               ]
             }
           }
@@ -275,7 +275,7 @@
     },
     "@@rules_kotlin+//src/main/starlark/core/repositories:bzlmod_setup.bzl%rules_kotlin_extensions": {
       "general": {
-        "bzlTransitiveDigest": "hUTp2w+RUVdL7ma5esCXZJAFnX7vLbVfLd7FwnQI6bU=",
+        "bzlTransitiveDigest": "OlvsB0HsvxbR8ZN+J9Vf00X/+WVz/Y/5Xrq2LgcVfdo=",
         "usagesDigest": "QI2z8ZUR+mqtbwsf2fLqYdJAkPOHdOV+tF2yVAUgRzw=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -339,7 +339,7 @@
     },
     "@@rules_python+//python/uv:uv.bzl%uv": {
       "general": {
-        "bzlTransitiveDigest": "bGHlxez0Lkvq2VwrlfCLraKHiJIRHSIJb432X2+pky8=",
+        "bzlTransitiveDigest": "PmZM/pIkZKEDDL68TohlKJrWPYKL5VwUw3MA7kmm6fk=",
         "usagesDigest": "4FQg4uUSAYXV3gvUvHtsV28NjaoGjNF9sJNQ66s1Fl8=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -523,7 +523,7 @@
     },
     "@@toolchains_llvm+//toolchain/extensions:llvm.bzl%llvm": {
       "general": {
-        "bzlTransitiveDigest": "n8WR0DxEQ5FgfuREm47KayUAJKtFHcMNZLKerT+ixFY=",
+        "bzlTransitiveDigest": "PTwbeF8xQqmjtx3TS876KgxcmuOk2HBtFj2gwBStkxA=",
         "usagesDigest": "AisTePuz6pc5SOrY4XVCVpzEzlvrFHeT/0Aaz2W0kwc=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
