@@ -45,7 +45,7 @@ class DBTarget:
                 'port': 5432
             }
         else:
-            assert False, f'Car {car} is not supported. Please add it to the DBTarget class.'
+            raise ValueError(f'Car {car} is not supported. Please add it to the DBTarget class.')
     
     @staticmethod
     def resolve_ip(ip):
@@ -87,7 +87,7 @@ def get_table_column_specs(force=False, verbose=False, target=DBTarget.get(car="
     elif target["dbname"] == 'angelique':
         desc_path = '/angelique_DB_description.pkl' if os.getenv('IN_DOCKER') else find_db_description()
     else:
-        assert Exception(f'Car {target["dbname"]} is not supported. Please add it to the DBTarget class.')
+        raise ValueError(f'Car {target["dbname"]} is not supported. Please add it to the DBTarget class.')
 
     force = force or not bool(desc_path)
 

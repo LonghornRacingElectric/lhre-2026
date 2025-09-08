@@ -214,7 +214,7 @@ class DataTester:
     def send_proto_rows(self, tables:list,  num_rows:int, delay:float, rm_cols = None, **kwargs):
 
         if kwargs.get('target') and kwargs.get('target')['dbname'] == "angelique":
-            assert KeyError('Angelique does not support protobuf ingestion. Use pickle instead.')
+            raise KeyError('Angelique does not support protobuf ingestion. Use pickle instead.')
         db_desc = self.get_desc(tables=tables, rm_cols=rm_cols, **kwargs)
         for i in tqdm(range(num_rows)):
             data = self.create_proto_message(i + 1, db_desc)
