@@ -210,8 +210,8 @@ class CSVToDB():
         Adds data into the database. First adds packet table, then subsequent table using DBHandler insert function. Each iteration
         only inputs a singular row to the database, making this program the least efficient
         """
-        if (self.DB_target["dbname"] == "telemetry"):
-            assert Exception("This function is not supported for the Nightwatch database. ")
+        if self.DB_target["dbname"] == "telemetry":
+            raise Exception("This function is not supported for the Nightwatch database. ")
         data = self.dataConvert(df, table_desc=table_desc)
         packets = data["packet"]
         for i in tqdm(range(num_rows)):
