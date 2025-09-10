@@ -236,8 +236,8 @@ class CSVToDB():
         Inserts data into the database in larger batches determined by the given amt value. 
         """
         # Setup data within method--------------------------------------------------------------------------------
-        if (self.DB_target["dbname"] == "telemetry"):
-            assert Exception("This function is not supported for the Nightwatch database. ")
+        if self.DB_target["dbname"] == "telemetry":
+            raise Exception("This function is not supported for the Nightwatch database. ")
         data = self.dataConvert(df, table_desc=table_desc)
         packets = data["packet"]
 
