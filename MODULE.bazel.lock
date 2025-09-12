@@ -186,7 +186,7 @@
   "moduleExtensions": {
     "//tools/dfu:dfu.bzl%dfu": {
       "general": {
-        "bzlTransitiveDigest": "he31Ys86g9JXFpq1pfYtfP+T6VSAvCo0uh5K71t02ng=",
+        "bzlTransitiveDigest": "VBpCgYUxEFOkkjBsfgaVbrOmqHvKsYtPjMNnyB730Zw=",
         "usagesDigest": "t6ghRycGihz/Eu2JR6155mR94L3mFNjF1WaiQD0vztI=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -197,7 +197,7 @@
             "attributes": {
               "sha256": "6450de30a7dcd8d8c1273f43f0b153f054fd24d85f7f38296b1ad8edbd2ddb25",
               "strip_prefix": "dfu-util-0.11-binaries",
-              "build_file_content": "\r\npackage(default_visibility = [\"//visibility:public\"])\r\n\r\nfilegroup(\r\n    name = \"dfu\",\r\n    srcs = [\"win64/dfu-util.exe\"],\r\n)\r\n\r\n",
+              "build_file_content": "\npackage(default_visibility = [\"//visibility:public\"])\n\nfilegroup(\n    name = \"dfu\",\n    srcs = [\"darwin-x86_64/dfu-util\"],\n)\n\n",
               "urls": [
                 "https://dfu-util.sourceforge.net/releases/dfu-util-0.11-binaries.tar.xz"
               ]
@@ -215,7 +215,7 @@
     },
     "//tools/openocd:openocd.bzl%openocd": {
       "general": {
-        "bzlTransitiveDigest": "SpZ49ZvDCIt51kuXlYZ+kMut4NfcC4bAsUwl1fVCyuA=",
+        "bzlTransitiveDigest": "hA0CFBcveeUHczjsM6jDWIpm1ncI+9+wF5waP60Jf00=",
         "usagesDigest": "BbdS6/V0LV0Fk7mO/OL18yFSRaXPP4AkWl9z9xKiVik=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -224,11 +224,11 @@
           "openocd": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
             "attributes": {
-              "sha256": "c57724f87219bafde78f61b54fb7f303f456fed9826a3d0ee2d54d461ad58020",
+              "sha256": "4f458dea82af3529d4dc71544abfd8c8c96ebe6c521868f87c6697b0866c9e99",
               "strip_prefix": "xpack-openocd-0.12.0-6",
-              "build_file_content": "\r\npackage(default_visibility = [\"//visibility:public\"])\r\n\r\nfilegroup(\r\n    name = \"openocd\",\r\n    srcs = [\"bin/openocd.exe\"],\r\n)\r\n\r\nfilegroup(\r\n    name = \"scripts\",\r\n    srcs = glob([\"openocd/scripts/**/*\"]),\r\n)\r\n",
+              "build_file_content": "\npackage(default_visibility = [\"//visibility:public\"])\n\nfilegroup(\n    name = \"openocd\",\n    srcs = [\"bin/openocd\"],\n)\n\nfilegroup(\n    name = \"scripts\",\n    srcs = glob([\"openocd/scripts/**/*\"]),\n)\n",
               "urls": [
-                "https://github.com/xpack-dev-tools/openocd-xpack/releases/download/v0.12.0-6/xpack-openocd-0.12.0-6-win32-x64.zip"
+                "https://github.com/xpack-dev-tools/openocd-xpack/releases/download/v0.12.0-6/xpack-openocd-0.12.0-6-darwin-arm64.tar.gz"
               ]
             }
           }
