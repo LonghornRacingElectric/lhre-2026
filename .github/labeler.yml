@@ -1,0 +1,43 @@
+# System-specific labels
+"Control Systems":
+  - changed-files:
+      - any-glob-to-any-file: "VCU/**"
+
+"Power Systems":
+  - changed-files:
+      - any-glob-to-any-file: "HVC/**"
+
+"Data Acquisition":
+  - changed-files:
+      - any-glob-to-any-file: "BEVO/**"
+
+# Component labels
+"drivers":
+  - changed-files:
+      - any-glob-to-any-file: "drivers/**"
+
+"tools":
+  - changed-files:
+      - any-glob-to-any-file: "tools/**"
+
+"tests":
+  - changed-files:
+      - any-glob-to-any-file: "tests/**"
+
+"examples":
+  - changed-files:
+      - any-glob-to-any-file: "examples/**"
+
+"documentation":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "*.md"
+          - "**/*.md"
+
+"build":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "BUILD*"
+          - "**/*.bazel"
+          - "MODULE.bazel*"
+          - ".bazel*"
