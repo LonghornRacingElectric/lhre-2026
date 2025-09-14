@@ -74,9 +74,8 @@ crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
 
 crate.from_cargo(
     name = "crate_index",
-    lockfile = "//:Cargo.lock",
     manifests = ["//:Cargo.toml"],
-    cargo_lockfile = "//:Cargo.Bazel.lock", 
+    cargo_lockfile = "//:Cargo.lock", 
 )
 
 use_repo(crate, "crate_index")
