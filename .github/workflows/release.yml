@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install build dependencies
-        run: sudo add-apt-repository universe && sudo apt-get update && sudo apt-get install -y libncurses5:i386
+        run: sudo apt-get update && sudo apt-get install libtinfo5
       - name: Checkout
         uses: actions/checkout@v4
         with:
