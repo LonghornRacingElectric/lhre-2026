@@ -1,0 +1,241 @@
+{
+  "version": 1,
+  "high": {
+    "since_rtc": {
+      "indices": [1, 5],
+      "type": "uint32"
+    },
+    "torque_request": {
+      "indices": [5, 7],
+      "multiplier": 0.1,
+      "type": "int16"
+    },
+    "vcu_flags": {
+      "indices": [7, 9],
+      "type": "uint16"
+    },
+    "vcu_position": {
+      "indices": [9, 15],
+      "multiplier": 0.1,
+      "shape": [1, 3],
+      "type": "int16"
+    },
+    "vcu_velocity": {
+      "indices": [15, 21],
+      "multiplier": 0.01,
+      "shape": [1, 3],
+      "type": "int16"
+    },
+    "vcu_accel": {
+      "indices": [21, 27],
+      "multiplier": 0.001,
+      "shape": [1, 3],
+      "type": "int16"
+    },
+    "hv_pack_v": {
+      "indices": [27, 29],
+      "multiplier": 0.01,
+      "type": "uint16"
+    },
+    "hv_tractive_v": {
+      "indices": [29, 31],
+      "multiplier": 0.01,
+      "type": "uint16"
+    },
+    "hv_c": {
+      "indices": [31, 33],
+      "multiplier": 0.01,
+      "type": "int16"
+    },
+    "lv_v": {
+      "indices": [33, 35],
+      "multiplier": 0.01,
+      "type": "uint16"
+    },
+    "lv_c": {
+      "indices": [35, 37],
+      "multiplier": 0.01,
+      "type": "int16"
+    },
+    "contactor_state": {
+      "indices": [37, 38],
+      "type": "uint8"
+    },
+    "avg_cell_v": {
+      "indices": [38, 40],
+      "multiplier": 0.0001,
+      "type": "uint16"
+    },
+    "avg_cell_temp": {
+      "indices": [40, 41],
+      "type": "uint8"
+    },
+    "apps1_v": {
+      "indices": [41, 43],
+      "multiplier": 0.001,
+      "type": "uint16"
+    },
+    "apps2_v": {
+      "indices": [43, 45],
+      "multiplier": 0.001,
+      "type": "uint16"
+    },
+    "bse1_v": {
+      "indices": [45, 47],
+      "multiplier": 0.001,
+      "type": "uint16"
+    },
+    "bse2_v": {
+      "indices": [47, 49],
+      "multiplier": 0.001,
+      "type": "uint16"
+    },
+    "sus1_v": {
+      "indices": [49, 51],
+      "multiplier": 0.001,
+      "type": "uint16"
+    },
+    "sus2_v": {
+      "indices": [51, 53],
+      "multiplier": 0.001,
+      "type": "uint16"
+    },
+    "steer_v": {
+      "indices": [53, 55],
+      "multiplier": 0.001,
+      "type": "uint16"
+    },
+    "gps": {
+      "indices": [55, 63],
+      "multiplier": 0.0001,
+      "shape": [1, 2],
+      "type": "int32"
+    },
+    "gps_velocity": {
+      "indices": [63, 65],
+      "multiplier": 0.01,
+      "type": "uint16"
+    },
+    "gps_heading": {
+      "indices": [65, 67],
+      "multiplier": 0.01,
+      "type": "uint16"
+    },
+    "imu_accel": {
+      "indices": [67, 109],
+      "multiplier": 0.001,
+      "shape": [1, 21],
+      "type": "int16"
+    },
+    "imu_gyro": {
+      "indices": [109, 127],
+      "multiplier": 0.01,
+      "shape": [1, 9],
+      "type": "int16"
+    },
+    "wheel_speed": {
+      "indices": [127, 135],
+      "multiplier": 0.1,
+      "shape": [1, 4],
+      "type": "int16"
+    },
+    "inverter_v": {
+      "indices": [135, 137],
+      "multiplier": 0.01,
+      "type": "uint16"
+    },
+    "inverter_c": {
+      "indices": [137, 139],
+      "multiplier": 0.01,
+      "type": "int16"
+    },
+    "inverter_rpm": {
+      "indices": [139, 141],
+      "type": "uint16"
+    },
+    "inverter_torque": {
+      "indices": [141, 143],
+      "multiplier": 0.1,
+      "type": "int16"
+    }
+  },
+  "low": {
+    "since_rtc": {
+      "indices": [1, 5],
+      "type": "uint32"
+    },
+    "current_errors": {
+      "indices": [5, 9],
+      "type": "uint32"
+    },
+    "latching_faults": {
+      "indices": [9, 13],
+      "type": "uint32"
+    },
+    "cells_v": {
+      "indices": [13, 293],
+      "multiplier": 0.0001,
+      "shape": [1, 140],
+      "type": "uint16"
+    },
+    "cells_temp": {
+      "indices": [293, 383],
+      "shape": [1, 90],
+      "type": "uint8"
+    },
+    "hv_charge_state": {
+      "indices": [383, 385],
+      "multiplier": 0.01,
+      "type": "uint16"
+    },
+    "lv_charge_state": {
+      "indices": [385, 387],
+      "multiplier": 0.01,
+      "type": "uint16"
+    },
+    "ambient_temp": {
+      "indices": [387, 388],
+      "type": "uint8"
+    },
+    "inverter_temp": {
+      "indices": [388, 389],
+      "type": "uint8"
+    },
+    "motor_temp": {
+      "indices": [389, 390],
+      "type": "uint8"
+    },
+    "water_motor_temp": {
+      "indices": [390, 391],
+      "type": "uint8"
+    },
+    "water_inverter_temp": {
+      "indices": [391, 392],
+      "type": "uint8"
+    },
+    "water_rad_temp": {
+      "indices": [392, 393],
+      "type": "uint8"
+    },
+    "rad_fan_set": {
+      "indices": [393, 395],
+      "type": "uint16"
+    },
+    "rad_fan_rpm": {
+      "indices": [395, 397],
+      "type": "uint16"
+    },
+    "batt_fan_set": {
+      "indices": [397, 399],
+      "type": "uint16"
+    },
+    "batt_fan_rpm": {
+      "indices": [399, 401],
+      "type": "uint16"
+    },
+    "flow_rate": {
+      "indices": [401, 403],
+      "type": "uint16"
+    }
+  }
+}

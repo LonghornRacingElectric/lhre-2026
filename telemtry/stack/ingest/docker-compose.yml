@@ -1,0 +1,84 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto
+    container_name: mosquitto
+    restart: unless-stopped
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    networks:
+      - telemetry_network
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+      - "8080:8080"
+
+  ingest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: telemetry_backend
+    container_name: ingest
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+      - db
+    environment:
+      PYTHONUNBUFFERED: 1   # Allows output in Docker Compose console
+      IN_DOCKER: 1          # Custom env variable used for IP resolution
+      SERVER_TARGET: 'LOCAL'
+      DB_CONN_TYPE: 6
+      LOGLEVEL: 'DEBUG'
+    volumes:
+      - ../../analysis/sql_utils/db_handler.py:/ingest/db_handler.py
+      - ../../analysis/sql_utils/DB_description.pkl:/DB_description.pkl
+      - ../../analysis/sql_utils/angelique_DB_description.pkl:/angelique_DB_description.pkl
+      - ../../net_configs.json:/net_configs.json
+    networks:
+      - telemetry_network
+
+  db:
+    image: postgres
+    container_name: db
+    restart: unless-stopped
+    volumes:
+      - telemetry_db:/var/lib/postgresql/data
+      - ./nightwatch_db_init.sql:/app/nightwatch_db_init.sql
+      - ./angelique_db_init.sql:/app/angelique_db_init.sql
+      - ./init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
+    environment:
+      POSTGRES_DB: telemetry
+      POSTGRES_USER: electric
+      POSTGRES_PASSWORD: 2fast2quick
+    networks:
+      - telemetry_network
+    ports:
+      - "5432:5432"
+    tmpfs:
+      - /tmp
+      - /run/postgresql
+
+  grafana:
+    image: grafana/grafana-oss
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      GF_DASHBOARDS_MIN_REFRESH_INTERVAL: '250ms'     # Sets min refresh rate of grafana dashboard
+      GF_SERVER_ROOT_URL: 'https://lhrelectric.org/grafana/'
+      GF_SERVER_SERVE_FROM_SUB_PATH: 'true'
+      GF_SERVER_PROTOCOL: 'http'
+    volumes:
+      - grafana_storage:/var/lib/grafana
+    networks:
+      - telemetry_network
+    ports:
+      - "3000:3000"
+
+volumes:
+  grafana_storage:
+    external: true
+  telemetry_db:
+    external: true
+
+networks:
+  telemetry_network:
+    external: true

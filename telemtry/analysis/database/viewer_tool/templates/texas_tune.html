@@ -1,0 +1,431 @@
+{% extends 'base.html' %}
+
+{% block head %}
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Texas Tune</title>
+<script src="{{ url_for('static', filename='js/adjustableChart.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}" />
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f4;
+        /* Centering content now that the static left nav is removed */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        height: 100vh;
+        width: 100vw;
+    }
+    .banner {
+        width: 100%;
+        height: 50px;
+        background-color: #333;
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 20px;
+        font-size: 1.2em;
+        font-weight: bold;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+    }
+    .left-container {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-grow: 1;
+    }
+    .logo {
+        height: 30px;
+        width: auto;
+        max-width: 70px;
+    }
+    .time-container {
+        display: flex;
+        gap: 15px;
+    }
+    .menu-btn {
+        font-size: 1.5em;
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+        margin-right: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+    }
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: -250px;
+        width: 250px;
+        height: 100%;
+        background-color: #222;
+        transition: left 0.3s ease-in-out;
+        z-index: 1100;
+        display: flex;
+        flex-direction: column;
+    }
+    .sidebar a,
+    .sidebar button {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        text-decoration: none;
+        font-size: 1.5em;
+        color: white;
+        border: none;
+        background: none;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+    .sidebar a:hover,
+    .sidebar button:hover {
+        background-color: #444;
+    }
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+    }
+    .content {
+        /* Updated so main content takes up most of the width */
+        margin: 60px 20px 20px 20px;
+        padding: 20px;
+        width: 100%;
+        max-width: 1200px;
+    }
+    /* Media Query for smaller screens */
+    @media (max-width: 600px) {
+      .banner {
+        font-size: 1em;
+        padding: 0 10px;
+      }
+      .menu-btn {
+        font-size: 1.2em;
+      }
+      .left-container span,
+      .time-container span {
+        font-size: 0.9em;
+      }
+    }
+</style>
+
+<script>
+    function updateTime() {
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        document.getElementById('current-time').textContent = `${hours}:${minutes}:${seconds}`;
+        document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    }
+    setInterval(updateTime, 1000);
+    window.onload = updateTime;
+
+    function toggleMenu() {
+        const sidebar = document.getElementById("sidebar");
+        const overlay = document.getElementById("overlay");
+        if (sidebar.style.left === "0px") {
+            sidebar.style.left = "-250px";
+            overlay.style.display = "none";
+        } else {
+            sidebar.style.left = "0px";
+            overlay.style.display = "block";
+        }
+    }
+
+    function closeMenu() {
+        document.getElementById("sidebar").style.left = "-250px";
+        document.getElementById("overlay").style.display = "none";
+    }
+</script>
+{% endblock %}
+
+{% block body %}
+
+<!-- Banner -->
+<div class="banner">
+    <button class="menu-btn" onclick="toggleMenu()">☰</button>
+    <div class="left-container">
+        <img src="{{ url_for('static', filename='images/telem_logo.png') }}" alt="Logo" class="logo">
+        <span> Welcome, {{ current_user.username }}</span>
+    </div>
+    <div class="time-container">
+      <span id="current-date">{{ current_date }}</span>
+      <span id="current-time"></span>
+    </div>
+</div>
+
+<!-- Sidebar (navigation as flex items) -->
+<div id="sidebar" class="sidebar">
+    <a href="{{ url_for('splash') }}" onclick="closeMenu()">Home</a>
+    <a href="{{ url_for('logout') }}" onclick="closeMenu()">Logout</a>
+    <a href="#APPS" onclick="appear('#APPS'); closeMenu();">APPS</a>
+    <a href="#BSE" onclick="appear('#BSE'); closeMenu();">BSE</a>
+    <a href="#STOMPP" onclick="appear('#STOMPP'); closeMenu();">STOMPP</a>
+    <a href="#TORQUE_MAP" onclick="appear('#TORQUE_MAP'); closeMenu();">Torque Map</a>
+    <a href="#PRNDL" onclick="appear('#PRNDL'); closeMenu();">PRNDL</a>
+    <a href="#TRACTION_CONTROL" onclick="appear('#TRACTION_CONTROL'); closeMenu();">Traction Control</a>
+    <a href="#STEERING" onclick="appear('#STEERING'); closeMenu();">Steering</a>
+    <button type="submit" id="savePage" onclick="savePage('curr')" class="btn btn-primary btn-lg btn-block">Save Page</button>
+    <button type="submit" id="saveAll" onclick="saveAll()" class="btn btn-primary btn-lg btn-block">Save All</button>
+</div>
+<div id="overlay" class="overlay" onclick="closeMenu()"></div>
+
+<!-- Main Content -->
+<div class="content">
+    <div class="flex-container" style="flex-direction: column; padding-top: 0;" id="#APPS">
+        <div class="col-md-7" style="display: inline-block;">
+            <label for="appsLowPassFilterTimeConstant">Low Pass Filter Time Constant</label>
+            <input type="number" id="appsLowPassFilterTimeConstant" name="appsLowPassFilterTimeConstant"><br>
+
+            <label for="appsImplausibilityTime">Implausibility Time </label>
+            <input type="number" id="appsImplausibilityTime" name="appsImplausibilityTime"><br>
+
+            <label for="appsPlausibilityRange">Plausibility Range</label>
+            <input type="number" id="appsPlausibilityRange" name="appsPlausibilityRange"><br>
+
+            <label for="apps1VoltageMin">1 Voltage Min</label>
+            <input type="number" id="apps1VoltageMin" name="apps1VoltageMin"><br>
+
+            <label for="apps1VoltageMax">1 Voltage Max</label>
+            <input type="number" id="apps1VoltageMax" name="apps1VoltageMax"><br>
+
+            <label for="apps2VoltageMin">2 Voltage Min</label>
+            <input type="number" id="apps2VoltageMin" name="apps2VoltageMin"><br>
+
+            <label for="apps2VoltageMax">2 Voltage Max</label>
+            <input type="number" id="apps2VoltageMax" name="apps2VoltageMax"><br>
+
+            <label for="appsDeadZonePct">Dead Zone Pct</label>
+            <input type="number" id="appsDeadZonePct" name="appsDeadZonePct"><br>
+        </div>
+    </div>
+
+    <div class="flex-container" style="flex-direction: column; padding-top: 0;" id="#BSE">
+        <div class="col-md-7" style="display: inline-block;">
+            <label for="bseLowPassFilterTimeConstant">Low Pass Filter Time Constant</label>
+            <input type="number" id="bseLowPassFilterTimeConstant" name="bseLowPassFilterTimeConstant"><br>
+
+            <label for="bseImplausibilityTime">Implausibility Time</label>
+            <input type="number" id="bseImplausibilityTime" name="bseImplausibilityTime"><br>
+
+            <label for="bseVoltageMin">Voltage Min</label>
+            <input type="number" id="bseVoltageMin" name="bseVoltageMin"><br>
+
+            <label for="bseVoltageMax">Voltage Max</label>
+            <input type="number" id="bseVoltageMax" name="bseVoltageMax"><br>
+
+            <label for="bsePressureMin">Pressure Min</label>
+            <input type="number" id="bsePressureMin" name="bsePressureMin"><br>
+
+            <label for="bsePressureMax">Pressure Max</label>
+            <input type="number" id="bsePressureMax" name="bsePressureMax"><br>
+        </div>
+    </div>
+
+    <div class="flex-container" style="flex-direction: column; padding-top: 0;" id="#STOMPP">
+        <div class="col-md-7" style="display: inline-block;">
+            <label for="stomppMechanicalBrakesThreshold">Mechanical Brakes Threshold</label>
+            <input type="number" id="stomppMechanicalBrakesThreshold" name="stomppMechanicalBrakesThreshold"><br>
+
+            <label for="stomppAppsCutoffThreshold">Apps Cutoff Threshold</label>
+            <input type="number" id="stomppAppsCutoffThreshold" name="stomppAppsCutoffThreshold"><br>
+
+            <label for="stomppAppsRecoveryThreshold">Apps Recovery Threshold</label>
+            <input type="number" id="stomppAppsRecoveryThreshold" name="stomppAppsRecoveryThreshold"><br>
+        </div>
+    </div>
+
+    <div class="flex-container" id="#TORQUE_MAP">
+        <div class="col-md-5">
+            <canvas id="mapCanvas1" class="canvas"></canvas>
+        </div>
+        <div id="map1" style="font-size: .75em;"></div>
+
+        <div class="col-md-5">
+            <canvas id="mapCanvas2" class="canvas"></canvas>
+        </div>
+        <div id="map2" style="font-size: .75em;"></div>
+
+        <div class="col-md-5">
+            <canvas id="mapCanvas3" class="canvas"></canvas>
+        </div>
+        <div id="map3" style="font-size: .75em;"></div>
+
+        <div class="col-md-5">
+            <canvas id="mapCanvas4" class="canvas"></canvas>
+        </div>
+        <div id="map4" style="font-size: .75em;"></div>
+
+        <div class="col-md-5">
+            <canvas id="mapCanvas5" class="canvas"></canvas>
+        </div>
+        <div id="map5" style="font-size: .75em;"></div>
+
+        <div class="col-md-5">
+            <label for="mapPowerLimit">Map Power Limit:</label>
+            <input type="number" id="mapPowerLimit" name="mapPowerLimit"><br>
+
+            <label for="mapPowerLimitFeedbackP">Power Limit Feedback P:</label>
+            <input type="number" id="mapPowerLimitFeedbackP" name="mapPowerLimitFeedbackP"><br>
+
+            <label for="mapPowerLimitFeedbackTimeConstant">Power Limit Feedback Time Constant</label>
+            <input type="number" id="mapPowerLimitFeedbackTimeConstant" name="mapPowerLimitFeedbackTimeConstant"><br>
+        </div>
+        <script>
+            createGraph(document.getElementById("mapCanvas1"), document.getElementById("map1"), "Pedal To Torque Request", "mapPedalToTorqueRequest")
+            createGraph(document.getElementById("mapCanvas2"), document.getElementById("map2"), "Derate Motor Temp", "mapDerateMotorTemp")
+            createGraph(document.getElementById("mapCanvas3"), document.getElementById("map3"), "Derate Inverter Temp", "mapDerateInverterTemp")
+            createGraph(document.getElementById("mapCanvas4"), document.getElementById("map4"), "Derate Battery Temp", "mapDerateBatteryTemp")
+            createGraph(document.getElementById("mapCanvas5"), document.getElementById("map5"), "Derate Battery Soc", "mapDerateBatterySoc")
+        </script>
+    </div>
+
+    <div class="flex-container" style="flex-direction: column; padding-top: 0;" id="#PRNDL">
+        <div class="col-md-7" style="display: inline-block;">
+            <label for="prndlBrakeToStartThreshold">Brake To Start Threshold</label>
+            <input type="number" id="prndlBrakeToStartThreshold" name="prndlBrakeToStartThreshold"><br>
+
+            <label for="prndlBuzzerDuration">Buzzer Duration</label>
+            <input type="number" id="prndlBuzzerDuration" name="prndlBuzzerDuration"><br>
+
+            <label for="prndlSwitchDebounceDuration">Switch Debounce Duration</label>
+            <input type="number" id="prndlSwitchDebounceDuration" name="prndlSwitchDebounceDuration"><br>
+        </div>
+    </div>
+
+    <div class="flex-container" style="flex-direction: column; padding-top: 0;" id="#TRACTION_CONTROL">
+        <div class="col-md-7" style="display: inline-block;">
+            <label for="tcsEnabled">Traction Control</label>
+            <input type="checkbox" id="tcsEnabled" value="">
+
+            <label for="tcsVelocityLowPassFilterTimeConstant">Velocity Low Pass Filter Time Constant</label>
+            <input type="number" id="tcsVelocityLowPassFilterTimeConstant" name="tcsVelocityLowPassFilterTimeConstant"><br>
+
+            <label for="tcsFeedbackLowPassFilterTimeConstant">Feedback Low Pass Filter Time Constant</label>
+            <input type="number" id="tcsFeedbackLowPassFilterTimeConstant" name="tcsFeedbackLowPassFilterTimeConstant"><br>
+        </div>
+    </div>
+
+    <div class="flex-container" id="#STEERING">
+        <div class="col-md-5">
+            <canvas id="steeringCanvas1" class="canvas"></canvas>
+        </div>
+        <div id="steering1" style="font-size: .75em;"></div>
+
+        <div class="col-md-5">
+            <canvas id="steeringCanvas2" class="canvas"></canvas>
+        </div>
+        <div id="steering2" style="font-size: .75em;"></div>
+
+        <div class="col-md-5">
+            <label for="steeringPotMaxVoltage">Pot Max Voltage</label>
+            <input type="number" id="steeringPotMaxVoltage" name="steeringPotMaxVoltage"><br>
+
+            <label for="steeringWheelMaxAngle">Wheel Max Angle</label>
+            <input type="number" id="steeringWheelMaxAngle" name="steeringWheelMaxAngle"><br>
+        </div>
+        <script>
+            createGraph(document.getElementById("steeringCanvas1"), document.getElementById("steering1"), "Wheel To Outer Wheel")
+            createGraph(document.getElementById("steeringCanvas2"), document.getElementById("steering2"), "Wheel To Inner Wheel")
+        </script>
+    </div>
+</div>
+
+<script>
+    // Set the default visible section
+    appear("#APPS");
+
+    var currentPage = "#APPS";
+
+    function appear(elem) {
+        currentPage = elem;
+        document.getElementById("#APPS").style.display = "none";
+        document.getElementById("#BSE").style.display = "none";
+        document.getElementById("#STOMPP").style.display = "none";
+        document.getElementById("#TORQUE_MAP").style.display = "none";
+        document.getElementById("#PRNDL").style.display = "none";
+        document.getElementById("#TRACTION_CONTROL").style.display = "none";
+        document.getElementById("#STEERING").style.display = "none";
+        document.getElementById(elem).style.display = "flex";
+    }
+
+    function savePage(p) {
+        if (p === 'curr') {
+            p = currentPage;
+        }
+        let page = document.getElementById(p).innerHTML;
+        let v = [];
+        let payload = { "category": p };
+        let re = /input.type=\"+\w+".id="+\w+/g;
+        let l = page.match(re);
+        for (let i = 0; i < l.length; ++i) {
+            if (l[i].includes("number")) {
+                l[i] = l[i].substr(l[i].indexOf("id=\"") + 4);
+                v[i] = document.getElementById(l[i]).value;
+            } else if (l[i].includes("checkbox")) {
+                l[i] = l[i].substr(l[i].indexOf("id=\"") + 4);
+                v[i] = document.getElementById(l[i]).checked;
+            }
+            payload[l[i]] = v[i];
+        }
+        re = /table.\w+.........\w+/g;
+        l = page.match(re);
+        if(l != null){
+            let table = null;
+            for (let k = 0; k < l.length; ++k) {
+                l[k] = l[k].substr(l[k].indexOf("id=\"") + 4);
+                table = document.getElementById(l[k]);
+                let data = [];
+                for (let i = 1; i < table.rows.length; i++) {
+                    let tableRow = table.rows[i];
+                    let rowData = [];
+                    for (let j = 0; j < tableRow.cells.length; j++) {
+                        rowData.push(tableRow.cells[j].innerHTML);
+                    }
+                    data.push(rowData);
+                }
+                payload[l[k]] = data;
+            }
+        }
+        let xhr = new XMLHttpRequest();
+        xhr.open('POST', 'https://telemetry.servebeer.com:5000/tune_data');
+        xhr.setRequestHeader("Content-Type", "application/json; charset=UTF-8");
+        xhr.send(JSON.stringify(payload));
+    }
+
+    function saveAll() {
+        savePage("#APPS");
+        savePage("#BSE");
+        savePage("#STOMPP");
+        savePage("#TORQUE_MAP");
+        savePage("#PRNDL");
+        savePage("#TRACTION_CONTROL");
+        savePage("#STEERING");
+    }
+</script>
+
+{% endblock %}

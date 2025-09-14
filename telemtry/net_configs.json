@@ -1,0 +1,10 @@
+{
+    "CLIENT_TARGET": "EXTERNAL",
+    "SERVER_TARGET": "LOCAL",
+
+    "TARGETS": {
+      "LOCAL": "localhost",
+      "SUBNET": "192.168.1.109",
+      "EXTERNAL": "lhrelectric.org"
+    }
+  }

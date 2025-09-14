@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 74 100">
+  <defs>
+    <style>
+      .cls-1, .cls-2 {
+        fill: none;
+        stroke: #FFF;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .cls-1 {
+        stroke-width: 5px;
+      }
+
+      .cls-2 {
+        stroke-width: 2.9px;
+      }
+    </style>
+  </defs>
+  <title>hookem</title>
+  <g id="Layer_2" data-name="Layer 2">
+    <g id="Layer_1-2" data-name="Layer 1">
+      <g id="Hook_em_hand" data-name="Hook em hand">
+        <path class="cls-1" d="M54.2,50H37V34.2a8.6,8.6,0,1,1,17.2,0Z"/>
+        <path class="cls-1" d="M71.5,50H54.2V11.2a8.7,8.7,0,1,1,17.3,0Z"/>
+        <path class="cls-1" d="M37,50H19.8V34.2a8.6,8.6,0,1,1,17.2,0Z"/>
+        <path class="cls-1" d="M54.2,50H37V34.2a8.6,8.6,0,1,1,17.2,0Z"/>
+        <path class="cls-1" d="M19.8,50V11.2a8.7,8.7,0,1,0-17.3,0v66c0,13.3,10.2,20.3,22,20.3H49.6c12.1,0,21.9-7.1,21.9-20.3V50Z"/>
+        <path class="cls-2" d="M71.5,50H54.2V11.2a8.7,8.7,0,1,1,17.3,0Z"/>
+        <path class="cls-1" d="M37,50H19.8V34.2a8.6,8.6,0,1,1,17.2,0Z"/>
+        <path class="cls-1" d="M34.3,97.5S31,84.1,48.1,72.3c-29.5,0-34.6-10.2-34.6-18.8V50h58V77.2c0,13.2-9.8,20.3-21.9,20.3Z"/>
+      </g>
+    </g>
+  </g>
+</svg>

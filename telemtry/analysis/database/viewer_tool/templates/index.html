@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+
+{% block head %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telemetry Injection Tool</title>
+    <script src="https://cdn.jsdelivr.net/npm/uuid@8.3.2/dist/umd/uuidv4.min.js"></script>
+    <script src="{{ url_for('static', filename='js/pageSync.js') }}"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
+    <style>
+        /* Banner Styles */
+        .banner {
+            width: 100%;
+            height: 50px;
+            background-color: #333;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            font-size: 1.2em;
+            font-weight: bold;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+        .left-container {
+            all: unset;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            flex-grow: 1;
+        }
+        .logo {
+            all: unset;
+            height: 30px;
+            width: auto;
+            max-width: 70px;
+        }
+        .time-container {
+            display: flex;
+            gap: 15px;
+        }
+        .menu-btn {
+            font-size: 1.5em; /* Matches the original size */
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            margin-right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%; /* Ensures it fills the banner height */
+        }
+        /* Sidebar Menu Styles */
+        .sidebar {
+            all: unset;
+            position: fixed;
+            top: 0;
+            left: -250px; /* Hidden by default */
+            width: 250px;
+            height: 100%;
+            background-color: #222;
+            padding-top: 60px;
+            transition: left 0.3s ease-in-out;
+            z-index: 1100;
+        }
+        .sidebar a {
+            all: unset;
+            display: block;
+            color: white;
+            text-decoration: none;
+            font-size: 1.5em;
+            padding: 15px 20px;
+            transition: background 0.3s;
+        }
+        .sidebar a:hover {
+            background-color: #444;
+        }
+        .overlay {
+            all: unset;
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        /* Media Query for smaller screens */
+    @media (max-width: 600px) {
+      .banner {
+        font-size: 1em;
+        padding: 0 10px;
+      }
+      .menu-btn {
+        font-size: 1.2em;
+      }
+      .left-container span,
+      .time-container span {
+        font-size: 0.9em;
+      }
+    }
+    </style>
+    <script>
+        function updateTime() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('current-time').textContent = `${hours}:${minutes}:${seconds}`;
+            document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        }
+        setInterval(updateTime, 1000);
+        window.onload = updateTime;
+        function toggleMenu() {
+            const sidebar = document.getElementById("sidebar");
+            const overlay = document.getElementById("overlay");
+            if (sidebar.style.left === "0px") {
+                sidebar.style.left = "-250px";
+                overlay.style.display = "none";
+            } else {
+                sidebar.style.left = "0px";
+                overlay.style.display = "block";
+            }
+        }
+
+        function closeMenu() {
+            document.getElementById("sidebar").style.left = "-250px";
+            document.getElementById("overlay").style.display = "none";
+        }
+    </script>
+{% endblock %}
+
+{% block body %}
+    <!-- Banner -->
+    <div class="banner">
+        <button class="menu-btn" onclick="toggleMenu()">☰</button>
+        <div class="left-container">
+            <img src="{{ url_for('static', filename='images/telem_logo.png') }}" alt="Logo" class="logo">
+            <span> Welcome, {{ current_user.username }}</span>
+        </div>
+        <div class="time-container">
+            <span id="current-date">{{ current_date }}</span>
+            <span id="current-time"></span>
+        </div>
+    </div>
+    <!-- Sidebar and Overlay -->
+    <div id="sidebar" class="sidebar">
+        <a href="{{ url_for('splash') }}">Home</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </div>
+    <div id="overlay" class="overlay" onclick="closeMenu()"></div>
+
+    <div style="padding-top: 70px;">
+        <h3>Create New Drive Day</h3>
+        <form action="/webtool/new_drive_day/" method="GET">
+            {# Power Limit #}
+            <label for="power_limit">Power Limit:</label>
+            <input type="number" id="power_limit" name="power_limit"><br>
+
+            {# Driving Conditions #}
+            <label for="conditions">Driving Conditions:</label>
+            <input type="text" id="conditions" name="conditions"><br>
+
+            <input type="submit" value="Create Drive Day" onclick="sendPageTarget('new_event_page')" />
+        </form>
+    </div>
+    <script>
+
+    console.log("script running index.html")
+
+    //Naming, handling
+    let myName = uuidv4();
+    console.log("ClientName: " + myName);
+
+    //Setup SSE listener
+    const currentPage = "index_page";
+    setupPageSync(currentPage);
+
+    </script>
+{% endblock %}
