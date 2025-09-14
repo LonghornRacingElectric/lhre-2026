@@ -24,7 +24,7 @@ fn main() -> anyhow::Result<()> {
 
 #[cfg(target_os = "linux")]
 fn run() -> anyhow::Result<()> {
-    use socketcan::{CANFrame, CANSocket};
+    use socketcan::{CanFrame, CanSocket};
 
     println!("Running in REAL mode: reading from CAN bus");
 
