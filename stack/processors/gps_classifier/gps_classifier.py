@@ -22,11 +22,11 @@ visualizer_image_path = "../../../analysis/database/viewer_tool/static/images"
 
 if os.getenv('IN_DOCKER'):
     from db_handler import DBHandler, DBTarget, get_table_column_specs    # Cheesed import statement using bind mount
-    from mqtt_handler import MQTTHandler
+    from mqtt_handler import MQTTHandler, MQTTTarget
     visualizer_image_path = "./static/images"
 else:
     from analysis.sql_utils.db_handler import DBHandler, DBTarget, get_table_column_specs
-    from stack.ingest.mqtt_handler import MQTTHandler
+    from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 
 
 class ProcessType(Enum):
@@ -402,30 +402,32 @@ class GPSClassifierProcessor:
 
         
 def run_processor():
-    with MQTTHandler(name="gps_classifier_processor") as mqtt:
-        
-        handler = DBHandler()
-        processor = GPSClassifierProcessor(db_handler=handler)
+    with DBHandler(unsafe=True, target=DBTarget.get(car="Nightwatch")) as nightwatch_handler, DBHandler(unsafe=True, target=DBTarget.get(car="Angelique")) as angelique_handler:
+        db_handlers = {'Nightwatch': nightwatch_handler, 'Angelique': angelique_handler}
+        with MQTTHandler(name="gps_classifier_processor", target=MQTTTarget.get(), db_handlers=db_handlers) as mqtt:
+            
+            #handler = DBHandler()
+            # Queries supported for Nightwatch schema only
+            processor = GPSClassifierProcessor(db_handler=db_handlers['Nightwatch'])
 
-        
-        frequency = 500
-        window_size = 50
-        la_threshold = 10
-        t_threshold=0.7
-        la_time_window=10
-        t_time_window=5
-        t1 = threading.Thread(target=processor.run_thread, args=(frequency, window_size, la_threshold, t_threshold, la_time_window, t_time_window))
-        t1.start()
-        
-        frequency = 100
-        la_threshold = 0.00000000000033
-        t_na_threshold = 0.00000000000027
-        t_h_threshold = 0.000000000027
-        t2 = threading.Thread(target=processor.process_thread, args=(frequency, la_threshold, t_na_threshold, t_h_threshold))
-        t2.start()
-        
-        t3 = threading.Thread(target=visualizer.run_thread, args=(1,))
-        t3.start()
-        
-        mqtt.client.on_message = processor.on_message
-        mqtt.subscribe("config/test")
+            frequency = 500
+            window_size = 50
+            la_threshold = 10
+            t_threshold=0.7
+            la_time_window=10
+            t_time_window=5
+            t1 = threading.Thread(target=processor.run_thread, args=(frequency, window_size, la_threshold, t_threshold, la_time_window, t_time_window))
+            t1.start()
+            
+            frequency = 100
+            la_threshold = 0.00000000000033
+            t_na_threshold = 0.00000000000027
+            t_h_threshold = 0.000000000027
+            t2 = threading.Thread(target=processor.process_thread, args=(frequency, la_threshold, t_na_threshold, t_h_threshold))
+            t2.start()
+            
+            t3 = threading.Thread(target=visualizer.run_thread, args=(1,))
+            t3.start()
+            
+            mqtt.client.on_message = processor.on_message
+            mqtt.subscribe("config/test")
