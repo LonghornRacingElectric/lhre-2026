@@ -1,0 +1,23 @@
+[workspace]
+
+[package]
+name = "lhre-2026"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+clap = { version = "4", features = ["derive"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+socketcan = "3"
+
+[lib]
+path = "lib.rs"
+
+[[bin]]
+name = "my_binary"
+path = "main.rs"
+
