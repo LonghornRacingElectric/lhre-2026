@@ -29,9 +29,9 @@ from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 
 class CSVToDB():
 
-    def __init__(self, data_csv_folder = None, mqtt = None, db_handler = None, DB_target = None, MQQT_target = MQTTTarget.get()):
+    def __init__(self, data_csv_folder = None, mqtt = None, db_handler = None, DB_target = None, MQTT_target = MQTTTarget.get()):
         self.db_handler = db_handler
-        self.MQTT_target = MQQT_target
+        self.MQTT_target = MQTT_target
         self.mqtt = mqtt
         self.last_packet = 0
         self.DB_target = DB_target

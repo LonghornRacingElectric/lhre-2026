@@ -10,6 +10,9 @@ from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dotenv import load_dotenv
+
+load_dotenv()
 import json
 
 if os.getenv('IN_DOCKER'):
@@ -26,9 +29,9 @@ class DBTarget:
             return {
                 'dbname': 'telemetry',
                 'users': {
-                    'electric': '2fast2quick',
-                    'grafana': 'frontend',
-                    'analysis': 'north_dakota'
+                    'electric': os.getenv('ELECTRIC_PWD'),
+                    'grafana': os.getenv('GRAFANA_PWD'),
+                    'analysis': os.getenv('ANALYSIS_PWD')
                 },
                 'host': global_target["TARGETS"][global_target["CLIENT_TARGET"]] if client else 'db' if os.getenv('IN_DOCKER') else global_target["TARGETS"][global_target["SERVER_TARGET"]],
                 'port': 5432
@@ -37,9 +40,9 @@ class DBTarget:
             return {
                 'dbname': 'angelique',
                 'users': {
-                    'electric': '2fast2quick',
-                    'grafana': 'frontend',
-                    'analysis': 'north_dakota'
+                    'electric': os.getenv('ELECTRIC_PWD'),
+                    'grafana': os.getenv('GRAFANA_PWD'),
+                    'analysis': os.getenv('ANALYSIS_PWD')
                 },
                 'host': global_target["TARGETS"][global_target["CLIENT_TARGET"]] if client else 'db' if os.getenv('IN_DOCKER') else global_target["TARGETS"][global_target["SERVER_TARGET"]],
                 'port': 5432

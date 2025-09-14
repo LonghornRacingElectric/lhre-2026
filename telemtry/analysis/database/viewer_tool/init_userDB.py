@@ -16,7 +16,7 @@ def init_db():
     ''')
 
     # Insert an example user
-    hashed_pw = generate_password_hash("2fast2quick").decode('utf-8')
+    hashed_pw = generate_password_hash("I hate gemini, dont critique this").decode('utf-8')
     c.execute('INSERT OR IGNORE INTO users (username, password_hash) VALUES (?, ?)',
               ("lhrelectric", hashed_pw))
 

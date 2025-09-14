@@ -13,3 +13,4 @@ tqdm==4.66.1
 flask_login==0.6.3
 gunicorn==23.0.0
 flask_bcrypt==1.0.1
+python-dotenv==1.1.1

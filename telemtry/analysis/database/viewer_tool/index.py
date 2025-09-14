@@ -14,7 +14,9 @@ import uuid
 from functools import partial
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.middleware.proxy_fix import ProxyFix
+from dotenv import load_dotenv
 
+load_dotenv()
 
 REALTIME = True
 
@@ -87,7 +89,7 @@ def start_background_tasks():
 def make_app():
     app = Flask(__name__, static_url_path='/static')
 
-    app.secret_key = "some-super-secret-key"  # TODO change for PROD
+    app.secret_key = os.getenv('FLASK_APP_SECRET_KEY')  #Done??
     app.config['PREFERRED_URL_SCHEME'] = 'https'
     app.config['APPLICATION_ROOT'] = '/webtool'
     app.config['SESSION_COOKIE_PATH'] = '/webtool'

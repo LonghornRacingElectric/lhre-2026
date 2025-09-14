@@ -39,7 +39,7 @@
     "contactor_state": "Contactor Status",
     "avg_cell_v": "Cell Voltage Mean",
     "avg_cell_temp": "Cell Temps Mean",
-    "cells_tempstemp": ["Segment 1 Max", "Segment 1 Min", "Segment 2 Max", "Segment 2 Min",
+    "cells_temps": ["Segment 1 Max", "Segment 1 Min", "Segment 2 Max", "Segment 2 Min",
                 "Segment 3 Max", "Segment 3 Min", "Segment 4 Max", "Segment 4 Min"],
     "inverter_temp": "Inverter Temp",
     "motor_temp": "Motor Temp",
