@@ -11,34 +11,40 @@ struct Args {
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    match args.mode.as_str() {
-        // "real" => run_real(),
-        "fake" => run_fake(),
-        _ => anyhow::bail!("Invalid mode: use 'real' or 'fake'"),
+    // match args.mode.as_str() {
+    //     "real" => run_real(),
+    //     "fake" => run_fake(),
+    //     _ => anyhow::bail!("Invalid mode: use 'real' or 'fake'"),
+    // }
+
+    run();
+
+    return { Ok(()) };
+}
+
+#[cfg(target_os = "linux")]
+fn run() -> anyhow::Result<()> {
+    use socketcan::{CANFrame, CANSocket};
+
+    println!("Running in REAL mode: reading from CAN bus");
+
+    let socket = CANSocket::open("can0")?;
+
+    loop {
+        match socket.read_frame() {
+            Ok(frame) => {
+                println!("[REAL] Got CAN frame: {:?}", frame);
+                // TODO: Publish to message bus
+            }
+            Err(e) => eprintln!("[REAL] Read error: {}", e),
+        }
+
+        std::thread::sleep(Duration::from_millis(10));
     }
 }
 
-// fn run_real() -> anyhow::Result<()> {
-//     use socketcan::{CANFrame, CANSocket};
-
-//     println!("Running in REAL mode: reading from CAN bus");
-
-//     let socket = CANSocket::open("can0")?;
-
-//     loop {
-//         match socket.read_frame() {
-//             Ok(frame) => {
-//                 println!("[REAL] Got CAN frame: {:?}", frame);
-//                 // TODO: Publish to message bus
-//             }
-//             Err(e) => eprintln!("[REAL] Read error: {}", e),
-//         }
-
-//         std::thread::sleep(Duration::from_millis(10));
-//     }
-// }
-
-fn run_fake() -> anyhow::Result<()> {
+#[cfg(not(target_os = "linux"))]
+fn run() -> anyhow::Result<()> {
     // use socketcan::CANFrame;
 
     println!("Running in FAKE mode: generating dummy CAN frames");
