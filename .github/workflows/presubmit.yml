@@ -6,8 +6,10 @@ on:
 jobs:
   bazel-build-test:
     name: Bazel Presubmit Checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
+      # - name: Install build dependencies
+      #   run: sudo apt-get update && sudo apt-get install libtinfo5
       - name: Checkout
         uses: actions/checkout@v4
         with:
