@@ -12,34 +12,34 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     match args.mode.as_str() {
-        "real" => run_real(),
+        // "real" => run_real(),
         "fake" => run_fake(),
         _ => anyhow::bail!("Invalid mode: use 'real' or 'fake'"),
     }
 }
 
-fn run_real() -> anyhow::Result<()> {
-    use socketcan::{CANSocket, CANFrame};
+// fn run_real() -> anyhow::Result<()> {
+//     use socketcan::{CANFrame, CANSocket};
 
-    println!("Running in REAL mode: reading from CAN bus");
+//     println!("Running in REAL mode: reading from CAN bus");
 
-    let socket = CANSocket::open("can0")?;
+//     let socket = CANSocket::open("can0")?;
 
-    loop {
-        match socket.read_frame() {
-            Ok(frame) => {
-                println!("[REAL] Got CAN frame: {:?}", frame);
-                // TODO: Publish to message bus
-            }
-            Err(e) => eprintln!("[REAL] Read error: {}", e),
-        }
+//     loop {
+//         match socket.read_frame() {
+//             Ok(frame) => {
+//                 println!("[REAL] Got CAN frame: {:?}", frame);
+//                 // TODO: Publish to message bus
+//             }
+//             Err(e) => eprintln!("[REAL] Read error: {}", e),
+//         }
 
-        std::thread::sleep(Duration::from_millis(10));
-    }
-}
+//         std::thread::sleep(Duration::from_millis(10));
+//     }
+// }
 
 fn run_fake() -> anyhow::Result<()> {
-    use socketcan::CANFrame;
+    // use socketcan::CANFrame;
 
     println!("Running in FAKE mode: generating dummy CAN frames");
 
@@ -47,9 +47,9 @@ fn run_fake() -> anyhow::Result<()> {
 
     loop {
         let fake_data = [counter as u8, 0xAB, 0xCD, 0xEF, 0x12, 0x34, 0x56, 0x78];
-        let fake_frame = CANFrame::new(0x123, &fake_data, false, false)?;
+        // let fake_frame = CANFrame::new(0x123, &fake_data, false, false)?;
 
-        println!("[FAKE] Generated CAN frame: {:?}", fake_frame);
+        // println!("[FAKE] Generated CAN frame: {:?}", fake_frame);
         // TODO: Publish to message bus
 
         counter = (counter + 1) % 256;
