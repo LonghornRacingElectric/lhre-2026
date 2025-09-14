@@ -7,7 +7,7 @@ on:
 
 jobs:
   build_and_release:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       # - name: Install build dependencies
       #   run: sudo apt-get update && sudo apt-get install libtinfo5
