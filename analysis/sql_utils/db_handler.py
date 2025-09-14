@@ -21,21 +21,32 @@ else:
 
 class DBTarget:
     @staticmethod
-    def get(client=False):
-        return {
-            'dbname': 'telemetry',
-            'users': {
-                'electric': '2fast2quick',
-                'grafana': 'frontend',
-                'analysis': 'north_dakota'
-            },
-            'host': global_target["TARGETS"][global_target["CLIENT_TARGET"]] if client else 'db' if os.getenv('IN_DOCKER') else global_target["TARGETS"][global_target["SERVER_TARGET"]],
-            'port': 5432
-        }
+    def get(client=False, car = "Nightwatch"):
+        if car == "Nightwatch":
+            return {
+                'dbname': 'telemetry',
+                'users': {
+                    'electric': '2fast2quick',
+                    'grafana': 'frontend',
+                    'analysis': 'north_dakota'
+                },
+                'host': global_target["TARGETS"][global_target["CLIENT_TARGET"]] if client else 'db' if os.getenv('IN_DOCKER') else global_target["TARGETS"][global_target["SERVER_TARGET"]],
+                'port': 5432
+            }
+        elif car == "Angelique":
+            return {
+                'dbname': 'angelique',
+                'users': {
+                    'electric': '2fast2quick',
+                    'grafana': 'frontend',
+                    'analysis': 'north_dakota'
+                },
+                'host': global_target["TARGETS"][global_target["CLIENT_TARGET"]] if client else 'db' if os.getenv('IN_DOCKER') else global_target["TARGETS"][global_target["SERVER_TARGET"]],
+                'port': 5432
+            }
+        else:
+            raise ValueError(f'Car {car} is not supported. Please add it to the DBTarget class.')
     
-    
-    
-
     @staticmethod
     def resolve_ip(ip):
         return {DBTarget[target]['host']: target for target in list(filter(lambda x: '__' not in x, dir(DBTarget)))}[ip]
@@ -48,7 +59,7 @@ class DBTarget:
             return target['host']
 
 
-def get_table_column_specs(force=False, verbose=False, target=DBTarget.get(), handler=None):
+def get_table_column_specs(force=False, verbose=False, target=DBTarget.get(car="Nightwatch"), handler=None):
     """
     Gets description of DB layout using either recent pkl file or request to database. Returns description in form of
     dict as follows: {'power': {'cooling_flow': (<class 'float'>, 0), col2: (type2, num_dimension), ...}, table2: {...}}
@@ -62,16 +73,28 @@ def get_table_column_specs(force=False, verbose=False, target=DBTarget.get(), ha
     def find_db_description():
         for root, dirs, files in os.walk(Path(__file__).parents[1]):
             for fol in dirs:
-                if fol == 'DB_description.pkl':
+                if fol == 'DB_description.pkl' or fol == "angelique_DB_description.pkl":
                     os.rmdir(f'{root}/{fol}')
             for name in files:
-                if name == 'DB_description.pkl':
+                if target["dbname"] == 'telemetry' and name == 'DB_description.pkl':
+                    return os.path.abspath(os.path.join(root, name))
+                elif target["dbname"] == 'angelique' and name == 'angelique_DB_description.pkl':
                     return os.path.abspath(os.path.join(root, name))
         return None
+    
+    if target["dbname"] == 'telemetry':
+        desc_path = '/DB_description.pkl' if os.getenv('IN_DOCKER') else find_db_description()
+    elif target["dbname"] == 'angelique':
+        desc_path = '/angelique_DB_description.pkl' if os.getenv('IN_DOCKER') else find_db_description()
+    else:
+        raise ValueError(f'Car {target["dbname"]} is not supported. Please add it to the DBTarget class.')
 
-    desc_path = '/DB_description.pkl' if os.getenv('IN_DOCKER') else find_db_description()
     force = force or not bool(desc_path)
-    desc_path = desc_path or os.getcwd().rsplit('/analysis', 1)[0] + '/DB_description.pkl'
+
+    if target["dbname"] == 'telemetry':
+        desc_path = desc_path or os.getcwd().rsplit('/analysis', 1)[0] + '/analysis/sql_utils/DB_description.pkl'
+    elif target["dbname"] == 'angelique':
+        desc_path = desc_path or os.getcwd().rsplit('/analysis', 1)[0] + '/analysis/sql_utils/angelique_DB_description.pkl'
     # desc_path = "./DB_description.pkl"
 
     if not force:
@@ -86,8 +109,11 @@ def get_table_column_specs(force=False, verbose=False, target=DBTarget.get(), ha
                                        target=target, user='electric', handler=handler, return_df=True,
                                        index_col='tablename')
         data['data_type'] = data.data_type.str.split('[', regex=False).str[0]     # Split [] if exists for is_list
-        data.loc[data.attname == 'f_gps', 'attndims'] = 1
-        data.loc[data.attname == 'b_gps', 'attndims'] = 1
+        if target["dbname"] == 'telemetry':
+            data.loc[data.attname == 'f_gps', 'attndims'] = 1
+            data.loc[data.attname == 'b_gps', 'attndims'] = 1
+        elif target["dbname"] == 'angelique':
+            data.loc[data.attname == 'gps', 'attndims'] = 1
         data.replace({'data_type': DBHandler.pg2py_types}, inplace=True)
         table_column_specs = {table: {row.attname: (row.data_type, row.attndims) for _, row in
                                       data.loc[data.index == table].iterrows()} for table in data.index.unique()}
@@ -231,7 +257,7 @@ class DBHandler:
         # Separate NaNs and log
         nan_vals = [val == 0 or bool(val) for _, val in data.items()]
         nans = {key: val for (key, val), nan in zip(data.items(), nan_vals) if not nan}
-        data = {key: val if key in ['date', 'b_gps', 'f_gps', 'vcu_flags', 'current_errors', 'latching_faults'] or isinstance(val, (list, bytearray)) else table_desc[key][0](val)
+        data = {key: val if key in ['date', 'gps', 'vcu_flags', 'b_gps', 'f_gps', 'current_errors', 'latching_faults'] or isinstance(val, (list, bytearray)) else table_desc[key][0](val)
                      for (key, val), nan in zip(data.items(), nan_vals) if nan}
         if nans:
             logging.warning(f'\t\tFollowing columns had NaN data: {str(nans).replace(": ", " = ")[1:-1]}')
@@ -263,7 +289,7 @@ class DBHandler:
         def flat_gen(data):
             # Dumb function to flatten dtype list to conform to psycopg requirements
             for col, vals in data.items():
-                if (col != 'f_gps' and col != 'b_gps'):
+                if (col not in ['gps', 'b_gps', 'f_gps']):
                     yield vals
                 else:
                     for val in vals: yield val
@@ -330,7 +356,7 @@ class DBHandler:
             # Dumb function to flatten dtype list to conform to psycopg requirements
             for i in range(len(data)):
                 for col, vals in data[i].items():
-                    if (col != 'f_gps' and col != 'b_gps'):
+                    if (col not in ['gps', 'b_gps', 'f_gps']):
                         yield vals
                     else:
                         for val in vals: yield val
@@ -435,8 +461,8 @@ class DBHandler:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    with DBHandler(unsafe=True, target=DBTarget.get()) as handler:
-        print(get_table_column_specs(force=True, verbose=True, handler=handler)['dynamics'])
+    with DBHandler(unsafe=True, target=DBTarget.get(car="Angelique")) as handler:
+        print(get_table_column_specs(force=True, verbose=True, handler=handler, target=DBTarget.get(car='Angelique'))['dynamics'])
 
         # from tqdm import tqdm
         # for i in tqdm(range(1, 1000)):

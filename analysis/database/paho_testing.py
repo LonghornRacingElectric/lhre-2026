@@ -66,7 +66,7 @@ class DataTester:
         if isinstance(tables, str):
             tables = [tables]
 
-        desc = get_table_column_specs(get_specs.get('force'), get_specs.get('verbose'))
+        desc = get_table_column_specs(get_specs.get('force'), get_specs.get('verbose'), target=get_specs.get('target'))
 
         if rm_cols:
             for table in (desc if db else tables):
@@ -140,7 +140,8 @@ class DataTester:
             elif dtype is datetime.datetime:
                 row[col] = datetime.date.today()
             elif dtype is Jsonb:
-                row[col] = Jsonb({'fake_jsonb_data': self.get_random_data(int, 3)})
+                # row[col] = Jsonb({'fake_jsonb_data': self.get_random_data(int, 3)})
+                row[col] = {'fake_jsonb_data': self.get_random_data(int, 3)} 
             elif dtype == 'point':
                 row[col] = random.choice([(30.289464, -97.735303), (30.389670, -97.728152)])
             elif dtype is bytearray:
@@ -176,7 +177,10 @@ class DataTester:
             row = self.create_row(table_desc, i + 1)
             if kwargs.get('verbose') and (num_rows < 1000 or not i % (num_rows // 100)):
                 logging.info(f'Publishing payload #{i:>3} to {table}: {row}')
-            self.mqtt.publish(f'data/{table}', pickle.dumps(row), qos=0)
+            if kwargs.get('target') and kwargs.get('target')['dbname'] == "angelique":
+                self.mqtt.publish(f'angelique/{table}', pickle.dumps(row), qos=0)
+            else:
+                self.mqtt.publish(f'data/{table}', pickle.dumps(row), qos=0)
             time.sleep(delay)
         return 0
 
@@ -209,6 +213,8 @@ class DataTester:
     
     def send_proto_rows(self, tables:list,  num_rows:int, delay:float, rm_cols = None, **kwargs):
 
+        if kwargs.get('target') and kwargs.get('target')['dbname'] == "angelique":
+            raise KeyError('Angelique does not support protobuf ingestion. Use pickle instead.')
         db_desc = self.get_desc(tables=tables, rm_cols=rm_cols, **kwargs)
         for i in tqdm(range(num_rows)):
             data = self.create_proto_message(i + 1, db_desc)
@@ -257,13 +263,21 @@ class DataTester:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    with DBHandler(unsafe=True, target=DBTarget.get()) as handler:
-        with MQTTHandler('paho_test', db_handler=handler) as mqtt:
+    target = DBTarget.get(car="Angelique")
+    with DBHandler(unsafe=True, target=DBTarget.get(car="Nightwatch")) as nightwatch_handler, DBHandler(unsafe=True, target=DBTarget.get(car="Angelique")) as angelique_handler:
+        db_handlers = {'Nightwatch': nightwatch_handler, 'Angelique': angelique_handler}
+        with MQTTHandler('paho_test', db_handlers=db_handlers) as mqtt:
             # Protobuf message testing
-            dt = DataTester(mqtt=mqtt, seed=42)
-            dt.send_proto_rows(['packet', 'dynamics', 'controls', 'pack', 'diagnostics_low', 'diagnostics_high', 'thermal'], 2000, 0.01)
+            # dt = DataTester(mqtt=mqtt, seed=42)
+            # dt.send_proto_rows(
+            #     tables=['packet', 'dynamics', 'controls', 'pack', 'diagnostics_low', 'diagnostics_high', 'thermal'],
+            #     num_rows= 2000,
+            #     delay= 0.01,
+            #     target=target
+            # )
 
             # data_ingest with fully processed data
-            # dt = DataTester(mqtt = mqtt, seed = 42)
-            # dt.single_table_test('packet', 2000, 0.01) # sequential
-            # dt.concurrent_tables_test(['dynamics', 'controls', 'pack', 'diagnostics_low', 'diagnostics_high', 'thermal'], 2000, 0.01) #batch
+            dt = DataTester(mqtt=mqtt, seed=42)
+            dt.single_table_test('packet', 2000, 0.01, target=target)  # sequential
+            dt.concurrent_tables_test(['dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
+                                      2000, 0.01, target=target)  # batch

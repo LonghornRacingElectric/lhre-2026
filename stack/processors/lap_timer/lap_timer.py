@@ -12,10 +12,10 @@ import requests
 
 if os.getenv('IN_DOCKER'):
     from db_handler import DBHandler, DBTarget, get_table_column_specs    # Cheesed import statement using bind mount
-    from mqtt_handler import MQTTHandler
+    from mqtt_handler import MQTTHandler, MQTTTarget
 else:
     from analysis.sql_utils.db_handler import DBHandler, DBTarget, get_table_column_specs
-    from stack.ingest.mqtt_handler import MQTTHandler
+    from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 
 class LapTimerProcessor:
     def __init__(self, db_handler: DBHandler=None):
@@ -231,17 +231,19 @@ class LapTimerProcessor:
 
         
 def run_processor():
-    with MQTTHandler(name="lap_timer_processor") as mqtt:
+    with DBHandler(unsafe=True, target=DBTarget.get(car="Nightwatch")) as nightwatch_handler, DBHandler(unsafe=True, target=DBTarget.get(car="Angelique")) as angelique_handler:
+        db_handlers = {'Nightwatch': nightwatch_handler, 'Angelique': angelique_handler}
+        with MQTTHandler(name="lap_timer_processor", target=MQTTTarget.get(), db_handlers=db_handlers) as mqtt:
         
-        handler = DBHandler()
-        processor = LapTimerProcessor(db_handler=handler)
-        
-        frequency = 100
-        window_size = 200
-        
-        # Processing thread
-        t1 = threading.Thread(target=processor.run_thread, args=(frequency, window_size,))
-        t1.start()
-        
-        mqtt.client.on_message = processor.on_message
-        mqtt.subscribe("config/test")
+            handler = db_handlers["Nightwatch"]
+            processor = LapTimerProcessor(db_handler=handler)
+            
+            frequency = 100
+            window_size = 200
+            
+            # Processing thread
+            t1 = threading.Thread(target=processor.run_thread, args=(frequency, window_size,))
+            t1.start()
+            
+            mqtt.client.on_message = processor.on_message
+            mqtt.subscribe("config/test")
