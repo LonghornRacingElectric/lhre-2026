@@ -1,0 +1,24 @@
+services:
+  db_processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lap_timer
+    container_name: lap_timer_processor
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: 1
+      IN_DOCKER: 1
+      LOCALHOST_IP: 'host.docker.internal'
+    volumes:
+      - ../../ingest/mqtt_handler.py:/lap_timer/mqtt_handler.py
+      - ../../../analysis/sql_utils/db_handler.py:/lap_timer/db_handler.py
+      - ../../../analysis/sql_utils/DB_description.pkl:/DB_description.pkl
+      - ../../../net_configs.json:/net_configs.json
+      - ../../ingest/protobuf:/lap_timer/protobuf
+    networks:
+      - telemetry_network
+
+networks:
+  telemetry_network:
+    external: true

@@ -1,0 +1,8 @@
+/venv
+/stack/telegraf_conf_gen/telegraf.conf
+__pycache__/
+/analysis/sql_utils/DB_description.pkl
+/analysis/sql_utils/angelique_DB_description.pkl
+*.csv
+.DS_store
+events.png

@@ -1,0 +1,24 @@
+services:
+  db_processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gps_classifier
+    container_name: gps_classifier_processor
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: 1
+      IN_DOCKER: 1
+    volumes:
+      - ../../ingest/mqtt_handler.py:/gps_classifier/mqtt_handler.py
+      - ../../../analysis/sql_utils/db_handler.py:/gps_classifier/db_handler.py
+      - ../../../analysis/sql_utils/DB_description.pkl:/DB_description.pkl
+      - ../../../analysis/database/viewer_tool/static/images:/gps_classifier/static/images
+      - ../../../net_configs.json:/net_configs.json
+      - ../../ingest/protobuf:/gps_classifier/protobuf
+    networks:
+      - telemetry_network
+
+networks:
+  telemetry_network:
+    external: true
