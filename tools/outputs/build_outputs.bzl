@@ -106,6 +106,7 @@ MCU_FLAGS = [
     "-mthumb",
     "-mfpu=fpv4-sp-d16",
     "-mfloat-abi=hard",
+    "-fdiagnostics-color"
 ]
 
 def firmware_project_g4(

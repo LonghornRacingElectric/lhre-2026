@@ -4,3 +4,8 @@ build_test(
     name = "vcu_firmware_build_test",
     targets = ["//VCU/firmware:release"],
 )
+
+build_test(
+    name = "rust_cand_build_test",
+    targets = ["//BEVO/cand:real"],
+)
