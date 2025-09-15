@@ -384,7 +384,7 @@
         "usagesDigest": "ygP12w2SjU/qkU+AFim9baJBjz9HCO9Ud0FbXiEsC+I=",
         "recordedFileInputs": {
           "@@//Cargo.lock": "24ee14117cb4cef217c7a7272d81ff02dcccc99077447a171d789ee908eea08b",
-          "@@//Cargo.toml": "6824ec2579269ff3de6bcd473c69940afe8710748813db525e7ee509f695dec1"
+          "@@//Cargo.toml": "838dd09cfef1692ff01f24f3873e0eaec6ae3d111dd7b3b5bc04691c524a7df3"
         },
         "recordedDirentsInputs": {},
         "envVariables": {
