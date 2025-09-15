@@ -41,6 +41,8 @@ fn run() -> anyhow::Result<()> {
 
     //     std::thread::sleep(Duration::from_millis(10));
     // }
+
+    return { Ok(()) };
 }
 
 #[cfg(not(target_os = "linux"))]
