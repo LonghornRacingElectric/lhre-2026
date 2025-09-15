@@ -28,19 +28,19 @@ fn run() -> anyhow::Result<()> {
 
     println!("Running in REAL mode: reading from CAN bus");
 
-    let socket = CANSocket::open("can0")?;
+    // let socket = CANSocket::open("can0")?;
 
-    loop {
-        match socket.read_frame() {
-            Ok(frame) => {
-                println!("[REAL] Got CAN frame: {:?}", frame);
-                // TODO: Publish to message bus
-            }
-            Err(e) => eprintln!("[REAL] Read error: {}", e),
-        }
+    // loop {
+    //     match socket.read_frame() {
+    //         Ok(frame) => {
+    //             println!("[REAL] Got CAN frame: {:?}", frame);
+    //             // TODO: Publish to message bus
+    //         }
+    //         Err(e) => eprintln!("[REAL] Read error: {}", e),
+    //     }
 
-        std::thread::sleep(Duration::from_millis(10));
-    }
+    //     std::thread::sleep(Duration::from_millis(10));
+    // }
 }
 
 #[cfg(not(target_os = "linux"))]
