@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useStopwatch } from '@/hooks/useStopwatch';
 import { Button } from '@/components/ui/button';
@@ -25,10 +25,15 @@ const EventTrackerPage = () => {
   const [appState, setAppState] = useState<AppState>({});
   const eventTrackerState = appState.eventTracker || {};
 
+  const appStateRef = useRef(appState);
+  appStateRef.current = appState;
+
   const { time, formattedTime, isRunning, start, stop, setTime, timeFormatter } = useStopwatch();
+  const isRunningRef = useRef(isRunning);
+  isRunningRef.current = isRunning;
 
   const sendStateUpdate = useCallback(async (newState: Partial<EventTrackerState>) => {
-    const fullState: AppState = { ...appState, eventTracker: { ...appState.eventTracker, ...newState } };
+    const fullState: AppState = { ...appStateRef.current, eventTracker: { ...appStateRef.current.eventTracker, ...newState } };
     try {
       await fetch('/api/event-sync', {
         method: 'POST',
@@ -38,7 +43,7 @@ const EventTrackerPage = () => {
     } catch (error) {
       console.error('Failed to send state update:', error);
     }
-  }, [appState]);
+  }, []);
 
   useEffect(() => {
     const eventSource = new EventSource('/api/event-sync');
@@ -48,18 +53,18 @@ const EventTrackerPage = () => {
 
       const etState = newState.eventTracker || {};
       if (etState.isTimerRunning && etState.timerStartTime && etState.timerBaseTime !== undefined) {
-        if (!isRunning) {
+        if (!isRunningRef.current) {
           start(etState.timerStartTime, etState.timerBaseTime);
         }
       } else if (!etState.isTimerRunning && etState.timerBaseTime !== undefined) {
-        if (isRunning) {
+        if (isRunningRef.current) {
           stop(etState.timerBaseTime);
         }
         setTime(etState.timerBaseTime);
       }
     };
     return () => eventSource.close();
-  }, [isRunning, start, stop, setTime]);
+  }, [start, stop, setTime]);
 
   // Heartbeat effect
   useEffect(() => {

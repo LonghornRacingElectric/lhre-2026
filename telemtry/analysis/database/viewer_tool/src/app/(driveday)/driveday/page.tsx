@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import {
@@ -21,8 +20,11 @@ export default function DrivedayPage() {
   const [appState, setAppState] = useState<AppState>({});
   const [driveDayState, setDriveDayState] = useState<DriveDayState>({});
 
+  const appStateRef = useRef(appState);
+  appStateRef.current = appState;
+
   const sendStateUpdate = useCallback(async (newState: Partial<AppState>) => {
-    const fullState = { ...appState, ...newState };
+    const fullState = { ...appStateRef.current, ...newState };
     try {
       await fetch('/api/event-sync', {
         method: 'POST',
@@ -32,7 +34,7 @@ export default function DrivedayPage() {
     } catch (error) {
       console.error('Failed to send state update:', error);
     }
-  }, [appState]);
+  }, []);
 
   useEffect(() => {
     const eventSource = new EventSource('/api/event-sync');
