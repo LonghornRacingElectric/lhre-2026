@@ -6,7 +6,6 @@ import time
 import logging
 import datetime
 import os
-import psycopg
 import sys
 import json
 import matplotlib.pyplot as plt
@@ -15,7 +14,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 from multiprocessing import cpu_count
 from pathlib import Path
 from tqdm import tqdm
-from psycopg.types.json import Jsonb
 from queue import Queue
 import requests
 
@@ -23,18 +21,24 @@ REALTIME = True
 
 sys.path.append(str(Path(__file__).parents[3]))
 
-from analysis.sql_utils.db_handler import get_table_column_specs
-from analysis.sql_utils.db_handler import DBHandler, DBTarget
-from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
+from telemtry.analysis.sql_utils.db_session import get_db, DBTarget
+from telemtry.analysis.sql_utils.models import (
+    Packet,
+    Event,
+    DriveDay,
+    Partitions,
+)
+from telemtry.analysis.sql_utils.query_builder import QueryBuilder
+from telemtry.stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 
 class CSVToDB():
 
-    def __init__(self, data_csv_folder = None, mqtt = None, db_handler = None, DB_target = None, MQTT_target = MQTTTarget.get()):
-        self.db_handler = db_handler
+    def __init__(self, data_csv_folder = None, mqtt = None, db_session = None, car = "Nightwatch", MQTT_target = MQTTTarget.get()):
+        self.db_session = db_session
         self.MQTT_target = MQTT_target
         self.mqtt = mqtt
         self.last_packet = 0
-        self.DB_target = DB_target
+        self.car = car
         if (data_csv_folder != None):
             try:
                 self.data_csv_folder = sorted(list(Path(__file__).parent.joinpath("csv_data", data_csv_folder).glob("*.csv")))
@@ -151,10 +155,8 @@ class CSVToDB():
         Enumerates the packet_id from the last known packet_id. Uses the csv with car data to determine amount of packet_id to add
         """
         try: 
-            last_packet = max(DBHandler.simple_select("SELECT packet_id FROM packet ORDER BY packet_id DESC LIMIT 1", 
-                                                      target=self.DB_target, user='electric', handler=self.db_handler)[0][0], 
-                                                      self.last_packet)
-        except IndexError:
+            last_packet = self.db_session.query(Packet.packet_id).order_by(Packet.packet_id.desc()).first()[0]
+        except (IndexError, TypeError):
             last_packet = self.last_packet
 
         pack_id = list(range(last_packet + 1, last_packet+1+len(df.index)))
@@ -167,7 +169,7 @@ class CSVToDB():
         """
         convert = {}
         packet_ids = self.enumerate_packet_id(df)
-        if self.DB_target["dbname"] == "angelique":
+        if self.car == "Angelique":
             with open(Path(__file__).parent.joinpath("angelique_pg_to_csv.json"), "r") as pg:
                 pg_to_csv = json.load(pg)
         else:
@@ -210,20 +212,23 @@ class CSVToDB():
         Adds data into the database. First adds packet table, then subsequent table using DBHandler insert function. Each iteration
         only inputs a singular row to the database, making this program the least efficient
         """
-        if self.DB_target["dbname"] == "telemetry":
+        if self.car == "Nightwatch":
             raise Exception("This function is not supported for the Nightwatch database. ")
         data = self.dataConvert(df, table_desc=table_desc)
         packets = data["packet"]
         for i in tqdm(range(num_rows)):
             row_dict = {j : packets[j][i] for j in packets if (len(packets[j] != 0))}
-            DBHandler.insert(table="packet", data=row_dict, user = "electric", handler = self.db_handler, target = self.DB_target)
-            logging.info(row_dict)
+            self.db_session.add(Packet(**row_dict))
 
         for i in tqdm(data.keys()):
             if (i not in {"packet", "event", "classifier", "drive_day", "lut_driver", "lut_location", "lut_car", "lut_event_type", "partitions"}):
                 for j in range(num_rows):
                     row_dict = {k : data[k][j] for k in data[i] if (len(data[i][k]) != 0)}
-                    DBHandler.insert(table = i, data = row_dict, user="electric", handler = self.db_handler, target = self.DB_target)
+                    model = QueryBuilder(self.car)._models.get(i.capitalize())
+                    if model:
+                        self.db_session.add(model(**row_dict))
+        self.db_session.commit()
+
 
     def _insert_chunk_callback(self, future):
         try:
@@ -236,27 +241,31 @@ class CSVToDB():
         Inserts data into the database in larger batches determined by the given amt value. 
         """
         # Setup data within method--------------------------------------------------------------------------------
-        if self.DB_target["dbname"] == "telemetry":
+        if self.car == "Nightwatch":
             raise Exception("This function is not supported for the Nightwatch database. ")
         data = self.dataConvert(df, table_desc=table_desc)
         packets = data["packet"]
 
-        def insert_chunk(start, end, packets, data, db_handler):
+        def insert_chunk(start, end, packets, data, session):
             pack_list = [
                 {j: packets[j][i] for j in packets if len(packets[j]) != 0}
                 for i in range(start, end)
             ]
-            DBHandler.insert_multi_rows(table="packet", data=pack_list, user="electric", handler=db_handler, target=self.DB_target)
+            session.bulk_insert_mappings(Packet, pack_list)
 
             # Insert into other tables
             for table_name, values in data.items():
                 if not table_name in {"packet", "event", "classifier", "drive_day",
                                 "lut_driver", "lut_location", "lut_car", "lut_event_type", "partitions"}:
-                    row_list = [
-                        {k: values[k][i] for k in values if len(values[k]) != 0}
-                        for i in range(start, end)
-                    ]
-                    DBHandler.insert_multi_rows(table=table_name, data=row_list, user="electric", handler=db_handler, target = self.DB_target)
+                    model = QueryBuilder(self.car)._models.get(table_name.capitalize())
+                    if model:
+                        row_list = [
+                            {k: values[k][i] for k in values if len(values[k]) != 0}
+                            for i in range(start, end)
+                        ]
+                        session.bulk_insert_mappings(model, row_list)
+            session.commit()
+
 
         futures = []
         with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
@@ -272,7 +281,7 @@ class CSVToDB():
                     futures = list(not_done)  # raise exception if any
 
                 # Submit a new job
-                f = executor.submit(insert_chunk, j, high, packets, data, self.db_handler)
+                f = executor.submit(insert_chunk, j, high, packets, data, self.db_session)
                 f.add_done_callback(self._insert_chunk_callback)
                 futures.append(f)
 
@@ -289,9 +298,9 @@ class CSVToDB():
         Publishes to database based on time delays from the csv
         """
         tables = []
-        if (self.DB_target["dbname"] == "telemetry"):
+        if (self.car == "Nightwatch"):
             tables = ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal']
-        elif (self.DB_target["dbname"] == "angelique"):
+        elif (self.car == "Angelique"):
             tables = ['packet', 'dynamics', 'controls', 'pack',  'diagnostics', 'thermal']
         else:
             raise Exception("DBTarget not specified")
@@ -345,8 +354,9 @@ class CSVToDB():
             for i, values in data.items():
                 row_list = []
                 if (i not in {"event", "classifier", "drive_day", "lut_driver", "lut_location", "lut_car", "lut_event_type", "partitions"}):
-                    row_list = [DBHandler.get_insert_values(table = i, data={k : values[k][j] for k in values if (len(values[k]) != 0)},
-                                table_desc=table_desc[i]) for j in range(len(df.index))]
+                    model = QueryBuilder(self.car)._models.get(i.capitalize())
+                    if model:
+                        row_list = [model(**{k : values[k][j] for k in values if (len(values[k]) != 0)}) for j in range(len(df.index))]
                     row_dict_list[i] = row_list
             return differences, row_dict_list
     
@@ -380,7 +390,7 @@ class CSVToDB():
     def handle_event_start(self):
         # ---- START EVENT ----
         try:
-            event_id = (DBHandler.simple_select('SELECT event_id FROM event WHERE status = 1 ORDER BY event_id DESC LIMIT 1', handler=self.db_handler)[0][0])
+            event_id = self.db_session.query(Event.event_id).filter(Event.status == 1).order_by(Event.event_id.desc()).first()[0]
             logging.info("EVENT ID: ", event_id)
             if event_id == -1: raise Exception("No event is currently running")
         # Creating a new event
@@ -390,7 +400,9 @@ class CSVToDB():
             sample_drive_day = {'power_limit': '', 'conditions': ''}
             sample_event = {'driver_id': '0', 'location_id': '0', 'event_type': '0', 'car_id': '1', 'car_weight': '', 'tow_angle': '', 'camber': '', 'ride_height': '', 'ackerman_adjustment': '', 'power_limit': '', 'shock_dampening': '', 'torque_limit': '', 'frw_pressure': '', 'flw_pressure': '', 'brw_pressure': '', 'blw_pressure': '', 'day_id': '1'}
             logging.info("http://" + MQTTTarget.get() + ":5000/webtool/create_event/")
-            day_id = DBHandler.insert(table='drive_day', target=self.DB_target, user='electric', data=sample_drive_day, returning='day_id', handler=self.db_handler)
+            day = DriveDay(**sample_drive_day)
+            self.db_session.add(day)
+            self.db_session.commit()
             
             #! CHANGE FOR PROD
             # response = requests.post("http://" + MQTTTarget.get() + ":5000/webtool/create_event/", data=sample_event)
@@ -457,7 +469,7 @@ class CSVToDB():
             CROSS JOIN (SELECT MAX(time) AS max_time FROM packet) p;
             """
 
-        events = self.db_handler.simple_select(query, target=self.DB_target, user='electric')
+        events = QueryBuilder.manual_query(query, car=self.car, return_type=list)
         if not events:
             logging.info("No events found in the database.")
             return
@@ -469,24 +481,20 @@ class CSVToDB():
                     'end_time' : end,
                     'partition_name' : datetime.datetime.fromtimestamp(start / 1000).strftime('%Y-%m-%d %H:%M:%S')
                 }
-                print (event)
-                DBHandler.insert(table='partitions', data=event, user='electric', target=self.DB_target, handler=self.db_handler)
+                self.db_session.add(Partitions(**event))
+        self.db_session.commit()
         logging.info(f"Inserted {len(events)} events into the database.")    
 
 if __name__ == '__main__':
 
     logging.basicConfig(level=logging.CRITICAL)
-    target = DBTarget.get(car="Angelique")
+    car = "Angelique"
     # Playback testing ---------------------------------------------------------------------------------------------
-    with DBHandler(unsafe=True, target=DBTarget.get(car="Nightwatch")) as nightwatch_handler, DBHandler(unsafe=True, target=DBTarget.get(car="Angelique")) as angelique_handler:
-        db_handlers = {'Nightwatch': nightwatch_handler, 'Angelique': angelique_handler}
-        with MQTTHandler(name ='event_playback_test', target = MQTTTarget.get(), db_handlers=db_handlers) as mqtt:
-            db_handlers["Angelique"].connect(target = target, user = 'electric')
-            dataSender = CSVToDB( db_handler=db_handlers["Angelique"], mqtt=mqtt, DB_target=target)
-            #while True:
-                #dataSender.handle_event_start()
+    with get_db(car) as session:
+        with MQTTHandler(name ='event_playback_test', target = MQTTTarget.get()) as mqtt:
+            dataSender = CSVToDB(db_session=session, mqtt=mqtt, car=car)
             
-            table_desc = get_table_column_specs(target=target)
+            table_desc = {model.__tablename__: {c.name: (c.type.python_type, 0) for c in model.__table__.columns} for model in QueryBuilder(car)._models.values()}
 
              #Finds events in the database and records them into the event table
 
@@ -524,5 +532,4 @@ if __name__ == '__main__':
             #mqtt.connect()
             #Where the csv is stored in csv_data to be sent here
                 #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
-            #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_12__12_35_00.csv"), table_desc=table_desc)       
-
+            #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_12__12_35_00.csv"), table_desc=table_desc)

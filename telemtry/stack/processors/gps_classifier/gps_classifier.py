@@ -6,7 +6,6 @@ import pandas as pd
 import numpy as np
 from paho.mqtt import client as mqtt_client
 import threading
-from psycopg import logger
 from enum import Enum
 from numpy.typing import NDArray
 import warnings
@@ -21,12 +20,13 @@ visualizer_image_path = "../../../analysis/database/viewer_tool/static/images"
 
 
 if os.getenv('IN_DOCKER'):
-    from db_handler import DBHandler, DBTarget, get_table_column_specs    # Cheesed import statement using bind mount
     from mqtt_handler import MQTTHandler, MQTTTarget
     visualizer_image_path = "./static/images"
 else:
-    from analysis.sql_utils.db_handler import DBHandler, DBTarget, get_table_column_specs
-    from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
+    from telemtry.analysis.sql_utils.db_session import get_db, DBTarget
+    from telemtry.analysis.sql_utils.query_builder import QueryBuilder
+    from telemtry.stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
+    from telemtry.analysis.sql_utils.models import Classifier, Dynamics, Packet
 
 
 class ProcessType(Enum):
@@ -109,7 +109,7 @@ visualizer = Visualizer()
     
 
 class Event:    
-    def __init__(self, type: ProcessType, starting_time: int, starting_heading: float, event_id: int = -9999, handler: DBHandler=None):
+    def __init__(self, type: ProcessType, starting_time: int, starting_heading: float, event_id: int = -9999, session=None):
         self.type: ProcessType = type
         self.starting_time: int = starting_time
         
@@ -118,7 +118,7 @@ class Event:
         
         self.event_id = event_id
         
-        self.handler = handler
+        self.session = session
     
     def _stop_event(self, time: int):
         """
@@ -141,7 +141,8 @@ class Event:
                 "notes": f"{self.type.name}"
         }
         #! Will crash if no event
-        DBHandler.insert(table="classifier", data=db_obj, target=DBTarget.get(), user="electric", handler=self.handler)
+        self.session.add(Classifier(**db_obj))
+        self.session.commit()
         
         visualizer.start_event(self.starting_time, self.type)
         visualizer.stop_event(time, self.type)
@@ -155,8 +156,8 @@ class Process:
         
     
 class GPSClassifierProcessor:
-    def __init__(self, db_handler: DBHandler=None):
-        self.handler = db_handler if db_handler else DBHandler()
+    def __init__(self, session=None):
+        self.session = session
         self.event_id = -9999
         self.start_packet: int = 0
         self.status = 0
@@ -180,7 +181,7 @@ class GPSClassifierProcessor:
             return
         
         
-        self.started_event = Event(type=type, starting_time=time, starting_heading=heading, event_id=self.event_id, handler=self.handler)
+        self.started_event = Event(type=type, starting_time=time, starting_heading=heading, event_id=self.event_id, session=self.session)
         
         
     def _detect_events(self, points: NDArray, la_threshold: float, t_threshold: float, la_time_window: float, t_time_window: float, check_delay: int):
@@ -255,20 +256,14 @@ class GPSClassifierProcessor:
             
             points: NDArray = []
             while True:
-                points = np.array(DBHandler.simple_select(f"""
-                    SELECT d.f_gps_heading, d.br_unsprung_accel, p.time, d.f_gps_velocity
-                    FROM dynamics d
-                    JOIN packet p ON p.packet_id = d.packet_id
-                    WHERE p.time > {current_process.target_time}
-                    AND p.time <= (
-                        SELECT MIN(time) 
-                        FROM packet 
-                        WHERE time > {current_process.target_time}
-                    )
-                    AND p.time >= {current_process.starting_time}
-                    ORDER BY p.time ASC
-                    LIMIT 500
-                    """, handler=self.handler, target=DBTarget.get()), dtype=object)
+                points = np.array(self.session.query(Dynamics.f_gps_heading, Dynamics.br_unsprung_accel, Packet.time, Dynamics.f_gps_velocity)
+                                  .join(Packet, Packet.packet_id == Dynamics.packet_id)
+                                  .filter(Packet.time > current_process.target_time)
+                                  .filter(Packet.time <= self.session.query(func.min(Packet.time)).filter(Packet.time > current_process.target_time))
+                                  .filter(Packet.time >= current_process.starting_time)
+                                  .order_by(Packet.time.asc())
+                                  .limit(500)
+                                  .all(), dtype=object)
                 if points.any(): break
                 sleep(1 / frequency)
                         
@@ -329,28 +324,15 @@ class GPSClassifierProcessor:
                 sleep(1 / frequency)
                 continue
             
-            # Not enough points
-            # if not debug and len(points) < window_size:
-            #     logging.warning("Not enough points for computation. Trashing the instance")
-            #     sleep(1 / frequency)
-            #     continue
-            
-            # Suspicious time deltas
-            # MAX_TIME_DELTA = 5 * 1000
-            # if not debug and points[len(points) - 1][1] - points[0][1] < MAX_TIME_DELTA:
-            #     logging.error(f"Interval is suspicious: {points[len(points) - 1][1] - points[0][1]}ms. Trashing the instance")
-            #     sleep(1 / frequency)
-            #     continue
-            
             points = []
             while len(points) < window_size:
-                points = np.array(DBHandler.simple_select(f"""SELECT d.f_gps_velocity, c.accel_pedal_t, d.steer_col_angle, p.time, p.packet_id, d.f_gps
-                                                            FROM dynamics d 
-                                                            JOIN packet p ON p.packet_id = d.packet_id 
-                                                            JOIN controls c ON c.packet_id = d.packet_id 
-                                                            WHERE d.packet_id >= {self.start_packet} 
-                                                            ORDER BY d.packet_id ASC 
-                                                            LIMIT {window_size}""", handler=self.handler, target=DBTarget.get()), dtype=object)
+                points = np.array(self.session.query(Dynamics.f_gps_velocity, Controls.accel_pedal_t, Dynamics.steer_col_angle, Packet.time, Packet.packet_id, Dynamics.f_gps)
+                                  .join(Packet, Packet.packet_id == Dynamics.packet_id)
+                                  .join(Controls, Controls.packet_id == Dynamics.packet_id)
+                                  .filter(Dynamics.packet_id >= self.start_packet)
+                                  .order_by(Dynamics.packet_id.asc())
+                                  .limit(window_size)
+                                  .all(), dtype=object)
                 sleep(1/frequency)
             
             if len(points) > 0:
@@ -402,13 +384,11 @@ class GPSClassifierProcessor:
 
         
 def run_processor():
-    with DBHandler(unsafe=True, target=DBTarget.get(car="Nightwatch")) as nightwatch_handler, DBHandler(unsafe=True, target=DBTarget.get(car="Angelique")) as angelique_handler:
-        db_handlers = {'Nightwatch': nightwatch_handler, 'Angelique': angelique_handler}
-        with MQTTHandler(name="gps_classifier_processor", target=MQTTTarget.get(), db_handlers=db_handlers) as mqtt:
+    with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session:
+        db_sessions = {'Nightwatch': nightwatch_session, 'Angelique': angelique_session}
+        with MQTTHandler(name="gps_classifier_processor", target=MQTTTarget.get(), db_sessions=db_sessions) as mqtt:
             
-            #handler = DBHandler()
-            # Queries supported for Nightwatch schema only
-            processor = GPSClassifierProcessor(db_handler=db_handlers['Nightwatch'])
+            processor = GPSClassifierProcessor(session=db_sessions['Nightwatch'])
 
             frequency = 500
             window_size = 50
