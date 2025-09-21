@@ -23,26 +23,26 @@ fn main() -> anyhow::Result<()> {
 }
 
 #[cfg(target_os = "linux")]
-fn run() -> anyhow::Result<()> {
-    use socketcan::{CanFrame, CanSocket};
+async fn run() -> anyhow::Result<()> {
+    // Import the Socket trait here
+    use socketcan::{CanFrame, CanSocket, Socket};
+    use std::time::Duration;
 
     println!("Running in REAL mode: reading from CAN bus");
 
-    // let socket = CANSocket::open("can0")?;
+    async fn main() -> Result<()> {
+        let mut sock_rx = CanSocket::open("vcan0")?;
+        let sock_tx = CanSocket::open("can0")?;
 
-    // loop {
-    //     match socket.read_frame() {
-    //         Ok(frame) => {
-    //             println!("[REAL] Got CAN frame: {:?}", frame);
-    //             // TODO: Publish to message bus
-    //         }
-    //         Err(e) => eprintln!("[REAL] Read error: {}", e),
-    //     }
+        while let Some(Ok(frame)) = sock_rx.next().await {
+            if matches!(frame, CanFrame::Data(_)) {
+                sock_tx.write_frame(frame)?.await?;
+            }
+        }
 
-    //     std::thread::sleep(Duration::from_millis(10));
-    // }
+        Ok(())
+    }
 
-    return { Ok(()) };
 }
 
 #[cfg(not(target_os = "linux"))]

@@ -384,7 +384,7 @@
         "usagesDigest": "ygP12w2SjU/qkU+AFim9baJBjz9HCO9Ud0FbXiEsC+I=",
         "recordedFileInputs": {
           "@@//Cargo.lock": "24ee14117cb4cef217c7a7272d81ff02dcccc99077447a171d789ee908eea08b",
-          "@@//Cargo.toml": "838dd09cfef1692ff01f24f3873e0eaec6ae3d111dd7b3b5bc04691c524a7df3"
+          "@@//Cargo.toml": "e3b97a135e1b652873227fd8d358ba4c1656655b347b252f91f6b68263356eaf"
         },
         "recordedDirentsInputs": {},
         "envVariables": {
@@ -2062,7 +2062,7 @@
               "exec_os": "",
               "libclang_rt": {},
               "llvm_mirror": "",
-              "llvm_version": "19.1.0",
+              "llvm_version": "18.1.8",
               "llvm_versions": {},
               "netrc": "",
               "sha256": {},
@@ -2090,7 +2090,7 @@
               "link_flags": {},
               "link_libs": {},
               "llvm_versions": {
-                "": "19.1.0"
+                "": "18.1.8"
               },
               "opt_compile_flags": {},
               "opt_link_flags": {},

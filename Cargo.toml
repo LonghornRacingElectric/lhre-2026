@@ -14,9 +14,6 @@ clap = { version = "4", features = ["derive"] }
 [target.'cfg(target_os = "linux")'.dependencies]
 socketcan = "3"
 
-[lib]
-path = "lib.rs"
-
 [[bin]]
 name = "my_binary"
 path = "main.rs"
