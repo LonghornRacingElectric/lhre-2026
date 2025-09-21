@@ -13,40 +13,22 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { AppState, EventTrackerState } from '@/lib/types';
 
 const DynamicMap = dynamic(() => import('@/components/Map'), {
   ssr: false,
 });
 
-interface LapData {
-  startTime: number;
-  endTime: number;
-  notes?: string;
-}
-
-interface EventState {
-  isTimerRunning?: boolean;
-  timerStartTime?: number;
-  timerInternalTime?: number;
-  turns?: LapData[];
-  accels?: LapData[];
-  laps?: number[];
-}
-
 const EventTrackerPage = () => {
-  const {
-    time, formattedTime, isRunning, start, stop, reset,
-    isTurning, toggleTurn, turns, setTurns,
-    isAccel, toggleAccel, accels, setAccels,
-    laps, setLaps, addLap,
-    timeFormatter
-  } = useStopwatch();
-
   const [activeUsers, setActiveUsers] = useState(0);
-  const [eventState, setEventState] = useState<EventState>({});
+  const [appState, setAppState] = useState<AppState>({});
+  const eventTrackerState = appState.eventTracker || {};
 
-  const sendStateUpdate = useCallback(async (newState: Partial<EventState>) => {
-    const fullState = { ...eventState, ...newState };
+  const { time, formattedTime, isRunning, start, stop, setTime, timeFormatter } = useStopwatch();
+
+  const sendStateUpdate = useCallback(async (newState: Partial<EventTrackerState>) => {
+    const fullState: AppState = { ...appState, eventTracker: { ...appState.eventTracker, ...newState } };
     try {
       await fetch('/api/event-sync', {
         method: 'POST',
@@ -56,27 +38,30 @@ const EventTrackerPage = () => {
     } catch (error) {
       console.error('Failed to send state update:', error);
     }
-  }, [eventState]);
+  }, [appState]);
 
   useEffect(() => {
     const eventSource = new EventSource('/api/event-sync');
     eventSource.onmessage = (event) => {
-      const newState: EventState = JSON.parse(event.data);
-      setEventState(newState);
+      const newState: AppState = JSON.parse(event.data);
+      setAppState(newState);
 
-      if (newState.isTimerRunning && !isRunning) {
-        start();
-      } else if (!newState.isTimerRunning && isRunning) {
-        stop();
+      const etState = newState.eventTracker || {};
+      if (etState.isTimerRunning && etState.timerStartTime && etState.timerBaseTime !== undefined) {
+        if (!isRunning) {
+          start(etState.timerStartTime, etState.timerBaseTime);
+        }
+      } else if (!etState.isTimerRunning && etState.timerBaseTime !== undefined) {
+        if (isRunning) {
+          stop(etState.timerBaseTime);
+        }
+        setTime(etState.timerBaseTime);
       }
-
-      if (newState.turns) setTurns(newState.turns);
-      if (newState.accels) setAccels(newState.accels);
-      if (newState.laps) setLaps(newState.laps);
     };
     return () => eventSource.close();
-  }, [isRunning, start, stop, setTurns, setAccels, setLaps]);
+  }, [isRunning, start, stop, setTime]);
 
+  // Heartbeat effect
   useEffect(() => {
     const userId = crypto.randomUUID();
     const heartbeat = async () => {
@@ -94,12 +79,36 @@ const EventTrackerPage = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleStart = () => { start(); sendStateUpdate({ isTimerRunning: true, timerStartTime: Date.now(), timerInternalTime: time }); };
-  const handleStop = () => { stop(); sendStateUpdate({ isTimerRunning: false, timerInternalTime: time }); };
-  const handleReset = () => { reset(); sendStateUpdate({ isTimerRunning: false, timerInternalTime: 0, turns: [], accels: [], laps: [] }); };
-  const handleToggleTurn = () => { const newTurns = toggleTurn(); sendStateUpdate({ turns: newTurns }); };
-  const handleToggleAccel = () => { const newAccels = toggleAccel(); sendStateUpdate({ accels: newAccels }); };
-  const handleAddLap = () => { const newLaps = addLap(); sendStateUpdate({ laps: newLaps }); };
+  const handleStart = () => sendStateUpdate({ isTimerRunning: true, timerStartTime: Date.now(), timerBaseTime: time });
+  const handleStop = () => sendStateUpdate({ isTimerRunning: false, timerBaseTime: time });
+  const handleReset = () => sendStateUpdate({ isTimerRunning: false, timerStartTime: 0, timerBaseTime: 0, turns: [], accels: [], laps: [] });
+
+  const handleToggleTurn = () => {
+    const { isTurning, turnStartTime, turns = [] } = eventTrackerState;
+    if (isTurning) {
+      sendStateUpdate({ isTurning: false, turns: [...turns, { startTime: turnStartTime || 0, endTime: time }] });
+    } else {
+      sendStateUpdate({ isTurning: true, turnStartTime: time });
+    }
+  };
+
+  const handleToggleAccel = () => {
+    const { isAccel, accelStartTime, accels = [] } = eventTrackerState;
+    if (isAccel) {
+      sendStateUpdate({ isAccel: false, accels: [...accels, { startTime: accelStartTime || 0, endTime: time }] });
+    } else {
+      sendStateUpdate({ isAccel: true, accelStartTime: time });
+    }
+  };
+
+  const handleAddLap = () => sendStateUpdate({ laps: [...(eventTrackerState.laps || []), time] });
+
+  const handleNoteChange = (table: 'turns' | 'accels', index: number, notes: string) => {
+    const tableData = eventTrackerState[table] || [];
+    const newTableData = [...tableData];
+    newTableData[index] = { ...newTableData[index], notes };
+    sendStateUpdate({ [table]: newTableData });
+  };
 
   return (
     <div className="container mx-auto p-8">
@@ -115,8 +124,8 @@ const EventTrackerPage = () => {
               <Button onClick={handleReset} variant="secondary">End Event</Button>
             </div>
             <div className="flex justify-center space-x-4">
-              <Button onClick={handleToggleTurn} variant="outline">{isTurning ? 'End Turn' : 'Start Turn'}</Button>
-              <Button onClick={handleToggleAccel} variant="outline">{isAccel ? 'End Accel' : 'Start Accel'}</Button>
+              <Button onClick={handleToggleTurn} variant="outline">{eventTrackerState.isTurning ? 'End Turn' : 'Start Turn'}</Button>
+              <Button onClick={handleToggleAccel} variant="outline">{eventTrackerState.isAccel ? 'End Accel' : 'Start Accel'}</Button>
               <Button onClick={handleAddLap} variant="outline">Add Lap</Button>
             </div>
           </CardContent>
@@ -132,7 +141,7 @@ const EventTrackerPage = () => {
           <CardContent>
             <Table>
               <TableHeader><TableRow><TableHead>Turn #</TableHead><TableHead>Start</TableHead><TableHead>End</TableHead><TableHead>Notes</TableHead></TableRow></TableHeader>
-              <TableBody>{turns.map((t, i) => <TableRow key={i}><TableCell>{i + 1}</TableCell><TableCell>{timeFormatter(t.startTime)}</TableCell><TableCell>{timeFormatter(t.endTime)}</TableCell><TableCell></TableCell></TableRow>)}</TableBody>
+              <TableBody>{(eventTrackerState.turns || []).map((t, i) => <TableRow key={i}><TableCell>{i + 1}</TableCell><TableCell>{timeFormatter(t.startTime)}</TableCell><TableCell>{timeFormatter(t.endTime)}</TableCell><TableCell><Input value={t.notes || ''} onChange={(e) => handleNoteChange('turns', i, e.target.value)} /></TableCell></TableRow>)}</TableBody>
             </Table>
           </CardContent>
         </Card>
@@ -141,7 +150,7 @@ const EventTrackerPage = () => {
           <CardContent>
             <Table>
               <TableHeader><TableRow><TableHead>Accel #</TableHead><TableHead>Start</TableHead><TableHead>End</TableHead><TableHead>Notes</TableHead></TableRow></TableHeader>
-              <TableBody>{accels.map((a, i) => <TableRow key={i}><TableCell>{i + 1}</TableCell><TableCell>{timeFormatter(a.startTime)}</TableCell><TableCell>{timeFormatter(a.endTime)}</TableCell><TableCell></TableCell></TableRow>)}</TableBody>
+              <TableBody>{(eventTrackerState.accels || []).map((a, i) => <TableRow key={i}><TableCell>{i + 1}</TableCell><TableCell>{timeFormatter(a.startTime)}</TableCell><TableCell>{timeFormatter(a.endTime)}</TableCell><TableCell><Input value={a.notes || ''} onChange={(e) => handleNoteChange('accels', i, e.target.value)} /></TableCell></TableRow>)}</TableBody>
             </Table>
           </CardContent>
         </Card>
@@ -150,7 +159,7 @@ const EventTrackerPage = () => {
           <CardContent>
             <Table>
               <TableHeader><TableRow><TableHead>Lap #</TableHead><TableHead>Time</TableHead></TableRow></TableHeader>
-              <TableBody>{laps.map((l, i) => <TableRow key={i}><TableCell>{i + 1}</TableCell><TableCell>{timeFormatter(l)}</TableCell></TableRow>)}</TableBody>
+              <TableBody>{(eventTrackerState.laps || []).map((l, i) => <TableRow key={i}><TableCell>{i + 1}</TableCell><TableCell>{timeFormatter(l)}</TableCell></TableRow>)}</TableBody>
             </Table>
           </CardContent>
         </Card>

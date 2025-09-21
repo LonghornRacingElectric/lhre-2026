@@ -1,26 +1,28 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { EventEmitter } from 'events';
+import { AppState } from '@/lib/types';
 
 const emitter = new EventEmitter();
+emitter.setMaxListeners(100);
 
-let eventState = {}; // In-memory state
+let appState: AppState = {}; // In-memory state
 
 export async function GET() {
+  let listener: (data: AppState) => void;
   const stream = new ReadableStream({
     start(controller) {
-      const listener = (data: any) => {
-        controller.enqueue(`data: ${JSON.stringify(data)}\n\n`);
+      listener = (data: AppState) => {
+        controller.enqueue(`data: ${JSON.stringify(data)}
+
+`);
       };
       emitter.on('update', listener);
+      controller.enqueue(`data: ${JSON.stringify(appState)}
 
-      // Send initial state
-      controller.enqueue(`data: ${JSON.stringify(eventState)}\n\n`);
-
-      // Cleanup on client disconnect
-      // The `controller.signal` is not standard, so we rely on a different mechanism
-      // or just let it be for this example. In a real app, you'd need a robust way
-      // to handle client disconnects.
+`);
+    },
+    cancel() {
+      emitter.off('update', listener);
     },
   });
 
@@ -36,11 +38,10 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    eventState = body;
-    emitter.emit('update', eventState);
+    appState = body;
+    emitter.emit('update', appState);
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
 }
-
