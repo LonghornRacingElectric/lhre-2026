@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useStopwatch } from '@/hooks/useStopwatch';
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -21,35 +21,34 @@ const DynamicMap = dynamic(() => import('@/components/Map'), {
 });
 
 const EventTrackerPage = () => {
+  const [clientId] = useState(() => crypto.randomUUID());
   const [activeUsers, setActiveUsers] = useState(0);
   const [appState, setAppState] = useState<AppState>({});
   const eventTrackerState = appState.eventTracker || {};
-
-  const appStateRef = useRef(appState);
-  appStateRef.current = appState;
 
   const { time, formattedTime, isRunning, start, stop, setTime, timeFormatter } = useStopwatch();
   const isRunningRef = useRef(isRunning);
   isRunningRef.current = isRunning;
 
-  const sendStateUpdate = useCallback(async (newState: Partial<EventTrackerState>) => {
-    const fullState: AppState = { ...appStateRef.current, eventTracker: { ...appStateRef.current.eventTracker, ...newState } };
+  const sendStateUpdate = useCallback(async (newState: AppState) => {
     try {
       await fetch('/api/event-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(fullState),
+        body: JSON.stringify({ ...newState, lastUpdatedBy: clientId }),
       });
     } catch (error) {
       console.error('Failed to send state update:', error);
     }
-  }, []);
+  }, [clientId]);
 
   useEffect(() => {
     const eventSource = new EventSource('/api/event-sync');
     eventSource.onmessage = (event) => {
       const newState: AppState = JSON.parse(event.data);
-      setAppState(newState);
+      if (newState.lastUpdatedBy !== clientId) {
+        setAppState(newState);
+      }
 
       const etState = newState.eventTracker || {};
       if (etState.isTimerRunning && etState.timerStartTime && etState.timerBaseTime !== undefined) {
@@ -64,7 +63,7 @@ const EventTrackerPage = () => {
       }
     };
     return () => eventSource.close();
-  }, [start, stop, setTime]);
+  }, [clientId, start, stop, setTime]);
 
   // Heartbeat effect
   useEffect(() => {
@@ -84,35 +83,47 @@ const EventTrackerPage = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleStart = () => sendStateUpdate({ isTimerRunning: true, timerStartTime: Date.now(), timerBaseTime: time });
-  const handleStop = () => sendStateUpdate({ isTimerRunning: false, timerBaseTime: time });
-  const handleReset = () => sendStateUpdate({ isTimerRunning: false, timerStartTime: 0, timerBaseTime: 0, turns: [], accels: [], laps: [] });
+  const updateState = (updater: (prevState: AppState) => AppState) => {
+    const newState = updater(appState);
+    setAppState(newState);
+    sendStateUpdate(newState);
+  };
+
+  const handleStart = () => updateState(s => ({ ...s, eventTracker: { ...s.eventTracker, isTimerRunning: true, timerStartTime: Date.now(), timerBaseTime: time } }));
+  const handleStop = () => updateState(s => ({ ...s, eventTracker: { ...s.eventTracker, isTimerRunning: false, timerBaseTime: time } }));
+  const handleReset = () => updateState(s => ({ ...s, eventTracker: { isTimerRunning: false, timerStartTime: 0, timerBaseTime: 0, turns: [], accels: [], laps: [] } }));
 
   const handleToggleTurn = () => {
-    const { isTurning, turnStartTime, turns = [] } = eventTrackerState;
-    if (isTurning) {
-      sendStateUpdate({ isTurning: false, turns: [...turns, { startTime: turnStartTime || 0, endTime: time }] });
-    } else {
-      sendStateUpdate({ isTurning: true, turnStartTime: time });
-    }
+    updateState(s => {
+      const { isTurning, turnStartTime, turns = [] } = s.eventTracker || {};
+      if (isTurning) {
+        return { ...s, eventTracker: { ...s.eventTracker, isTurning: false, turns: [...turns, { startTime: turnStartTime || 0, endTime: time }] } };
+      } else {
+        return { ...s, eventTracker: { ...s.eventTracker, isTurning: true, turnStartTime: time } };
+      }
+    });
   };
 
   const handleToggleAccel = () => {
-    const { isAccel, accelStartTime, accels = [] } = eventTrackerState;
-    if (isAccel) {
-      sendStateUpdate({ isAccel: false, accels: [...accels, { startTime: accelStartTime || 0, endTime: time }] });
-    } else {
-      sendStateUpdate({ isAccel: true, accelStartTime: time });
-    }
+    updateState(s => {
+      const { isAccel, accelStartTime, accels = [] } = s.eventTracker || {};
+      if (isAccel) {
+        return { ...s, eventTracker: { ...s.eventTracker, isAccel: false, accels: [...accels, { startTime: accelStartTime || 0, endTime: time }] } };
+      } else {
+        return { ...s, eventTracker: { ...s.eventTracker, isAccel: true, accelStartTime: time } };
+      }
+    });
   };
 
-  const handleAddLap = () => sendStateUpdate({ laps: [...(eventTrackerState.laps || []), time] });
+  const handleAddLap = () => updateState(s => ({ ...s, eventTracker: { ...s.eventTracker, laps: [...(s.eventTracker?.laps || []), time] } }));
 
   const handleNoteChange = (table: 'turns' | 'accels', index: number, notes: string) => {
-    const tableData = eventTrackerState[table] || [];
-    const newTableData = [...tableData];
-    newTableData[index] = { ...newTableData[index], notes };
-    sendStateUpdate({ [table]: newTableData });
+    updateState(s => {
+      const tableData = s.eventTracker?.[table] || [];
+      const newTableData = [...tableData];
+      newTableData[index] = { ...newTableData[index], notes };
+      return { ...s, eventTracker: { ...s.eventTracker, [table]: newTableData } };
+    });
   };
 
   return (

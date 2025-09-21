@@ -1,43 +1,20 @@
-
 import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const password = await hash('I hate gemini, dont critique this', 12);
+  const password = await hash('2quick2fast', 12);
   const user = await prisma.user.upsert({
-    where: { email: 'lhrelectric' },
+    where: { username: 'ELC' },
     update: {},
     create: {
-      email: 'lhrelectric',
-      name: 'LHR Electric',
+      username: 'ELC',
+      name: 'ELC',
       password,
     },
   });
-  const adminPassword = await hash('2fast2quick', 12);
-  const admin = await prisma.user.upsert({
-    where: { email: 'Admin' },
-    update: {},
-    create: {
-      email: 'Admin',
-      name: 'Admin',
-      password: adminPassword,
-    },
-  });
-
-  const matthewPassword = await hash('2fast2quick', 12);
-  const matthew = await prisma.user.upsert({
-    where: { email: 'matthew.gray.marshall@gmail.com' },
-    update: {},
-    create: {
-      email: 'matthew.gray.marshall@gmail.com',
-      name: 'Matthew Marshall',
-      password: matthewPassword,
-    },
-  });
-
-  console.log({ user, admin, matthew });
+  console.log({ user });
 }
 
 main()

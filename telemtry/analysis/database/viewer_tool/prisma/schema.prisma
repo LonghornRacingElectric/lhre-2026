@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -37,9 +38,7 @@ model Session {
 model User {
   id            String    @id @default(cuid())
   name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
+  username      String?   @unique
   password      String?
   accounts      Account[]
   sessions      Session[]
@@ -51,4 +50,10 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model ActiveUser {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  lastSeen  DateTime
 }

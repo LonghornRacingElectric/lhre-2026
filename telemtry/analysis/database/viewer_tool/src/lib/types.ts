@@ -46,6 +46,7 @@ export interface EventTrackerState {
 }
 
 export interface AppState {
+  lastUpdatedBy?: string;
   currentPage?: string;
   driveDay?: DriveDayState;
   newEvent?: NewEventState;

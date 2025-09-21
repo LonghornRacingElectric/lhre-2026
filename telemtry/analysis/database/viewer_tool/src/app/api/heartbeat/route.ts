@@ -1,14 +1,17 @@
-
 import { NextRequest, NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
 
-const activeUsers = new Map<string, number>();
 const TIMEOUT = 15000; // 15 seconds
 
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await request.json();
     if (userId) {
-      activeUsers.set(userId, Date.now());
+      await prisma.activeUser.upsert({
+        where: { userId },
+        update: { lastSeen: new Date() },
+        create: { userId, lastSeen: new Date() },
+      });
       return NextResponse.json({ success: true });
     }
     return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
@@ -18,12 +21,13 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-  const now = Date.now();
-  let activeCount = 0;
-  for (const lastSeen of activeUsers.values()) {
-    if (now - lastSeen <= TIMEOUT) {
-      activeCount++;
-    }
-  }
+  const timeout = new Date(Date.now() - TIMEOUT);
+  const activeCount = await prisma.activeUser.count({
+    where: {
+      lastSeen: {
+        gte: timeout,
+      },
+    },
+  });
   return NextResponse.json({ activeUsers: activeCount });
 }

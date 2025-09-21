@@ -17,6 +17,7 @@ import { AppState, DriveDayState } from '@/lib/types';
 
 export default function DrivedayPage() {
   const router = useRouter();
+  const [clientId] = useState(() => crypto.randomUUID());
   const [appState, setAppState] = useState<AppState>({});
   const [driveDayState, setDriveDayState] = useState<DriveDayState>({});
 
@@ -24,7 +25,7 @@ export default function DrivedayPage() {
   appStateRef.current = appState;
 
   const sendStateUpdate = useCallback(async (newState: Partial<AppState>) => {
-    const fullState = { ...appStateRef.current, ...newState };
+    const fullState = { ...appStateRef.current, ...newState, lastUpdatedBy: clientId };
     try {
       await fetch('/api/event-sync', {
         method: 'POST',
@@ -34,19 +35,19 @@ export default function DrivedayPage() {
     } catch (error) {
       console.error('Failed to send state update:', error);
     }
-  }, []);
+  }, [clientId]);
 
   useEffect(() => {
     const eventSource = new EventSource('/api/event-sync');
     eventSource.onmessage = (event) => {
       const newState: AppState = JSON.parse(event.data);
       setAppState(newState);
-      if (newState.driveDay) {
+      if (newState.lastUpdatedBy !== clientId && newState.driveDay) {
         setDriveDayState(newState.driveDay);
       }
     };
     return () => eventSource.close();
-  }, []);
+  }, [clientId]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;

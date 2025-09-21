@@ -10,8 +10,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from '@/components/ui/button';
+import { signOut, useSession } from 'next-auth/react';
 
 const Banner = () => {
+  const { data: session } = useSession();
   const [time, setTime] = useState("");
   const [date, setDate] = useState("");
 
@@ -24,8 +26,13 @@ const Banner = () => {
     return () => clearInterval(timer);
   }, []);
 
+  const handleSignOut = async () => {
+    await signOut({ redirect: false, callbackUrl: '/login' });
+    window.location.href = '/login'; // Force a hard reload to re-evaluate middleware
+  };
+
   return (
-    <div className="bg-gray-800 text-white w-full h-14 flex items-center justify-between px-4 fixed top-0 left-0 right-0 z-50">
+    <div className="bg-gray-800 text-white w-full h-14 flex items-center justify-between px-4 fixed top-0 left-0 right-0 z-[1000]">
       <div className="flex items-center">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -38,10 +45,11 @@ const Banner = () => {
             <DropdownMenuItem asChild><Link href="/driveday">Driveday Page</Link></DropdownMenuItem>
             <DropdownMenuItem asChild><Link href="/tune">Texas Tune</Link></DropdownMenuItem>
             <DropdownMenuItem asChild><Link href="/dashboards">Grafana</Link></DropdownMenuItem>
+            <DropdownMenuItem onClick={handleSignOut}>Logout</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <div className="w-8 h-8 bg-gray-500 mr-2 ml-2"></div>
-        <span>Welcome, User</span>
+        <span>Welcome, {session?.user?.name || session?.user?.username || 'Guest'}</span>
       </div>
       <div className="flex items-center">
         <span className="mr-4">{date}</span>
