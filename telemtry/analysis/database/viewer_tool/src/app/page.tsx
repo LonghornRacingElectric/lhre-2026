@@ -1,15 +1,15 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { AppState } from '@/lib/types';
 
-const SplashBox = ({ href, title, bgColor }: { href: string; title: string; bgColor: string }) => (
-  <Link href={href}>
-    <div className={`relative flex items-center justify-center h-full rounded-lg shadow-lg cursor-pointer transition-transform hover:scale-105 ${bgColor}`}>
-      <div className="absolute inset-0 bg-black bg-opacity-40 rounded-lg"></div>
-      <span className="relative text-white text-3xl font-bold text-center">{title}</span>
+const SplashBox = ({ href, title, imageUrl }: { href: string; title: string; imageUrl: string }) => (
+  <Link href={href} className="flex-grow">
+    <div className={`relative flex items-center justify-center h-full rounded-lg shadow-lg cursor-pointer overflow-hidden group`}>
+      <img src={imageUrl} alt={title} className="absolute inset-0 z-0 object-cover w-full h-full transition-transform duration-300 group-hover:scale-105" />
+      <span className="relative text-white text-3xl font-bold text-center z-20">{title}</span>
     </div>
   </Link>
 );
@@ -40,11 +40,11 @@ export default function SplashPage() {
   };
 
   return (
-    <div className="h-screen w-screen p-8 pt-20">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 h-full">
-        <SplashBox href={getDrivedayHref()} title="Driveday Page" bgColor="bg-blue-500" />
-        <SplashBox href="/tune" title="Texas Tune" bgColor="bg-orange-500" />
-        <SplashBox href="/dashboards" title="Grafana & Database" bgColor="bg-green-500" />
+    <div className="min-h-screen flex flex-col justify-between pt-14">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 flex-grow p-8">
+        <SplashBox href={getDrivedayHref()} title="Driveday Page" imageUrl="/car.png" />
+        <SplashBox href="/tune" title="Texas Tune" imageUrl="/tune.png" />
+        <SplashBox href="/dashboards" title="Grafana & Database" imageUrl="/graph.png" />
       </div>
     </div>
   );

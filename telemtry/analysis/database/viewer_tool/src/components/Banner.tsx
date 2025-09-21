@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -48,8 +49,8 @@ const Banner = () => {
             <DropdownMenuItem onClick={handleSignOut}>Logout</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <div className="w-8 h-8 bg-gray-500 mr-2 ml-2"></div>
-        <span>Welcome, {session?.user?.name || session?.user?.username || 'Guest'}</span>
+        <Image src="/telem_logo.png" alt="Telemetry Logo" width={40} height={40} className="ml-2" />
+        <span className="ml-2">Welcome, {session?.user?.name || session?.user?.username || 'Guest'}</span>
       </div>
       <div className="flex items-center">
         <span className="mr-4">{date}</span>

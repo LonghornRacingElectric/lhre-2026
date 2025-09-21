@@ -1,9 +1,9 @@
-
 'use client';
 
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -39,7 +39,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex items-center justify-center h-screen">
+    <div className="flex flex-col items-center justify-center min-h-screen p-4">
+      <div className="mb-8">
+        <Image src="/telem_logo.png" alt="Telemetry Logo" width={200} height={100} />
+      </div>
       <Card className="w-[350px]">
         <CardHeader>
           <CardTitle>Login</CardTitle>
