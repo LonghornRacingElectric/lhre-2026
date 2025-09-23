@@ -85,3 +85,5 @@ VCU/firmware/.mxproject
 
 !drivers/stm32g4/USB_Device/Target
 /aspects
+
+/venv

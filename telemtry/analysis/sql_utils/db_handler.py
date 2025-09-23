@@ -432,23 +432,24 @@ class DBHandler:
 
         def send_body(cur: psycopg.cursor.Cursor):
             now = start_time if start_time else int(time.time() * 1000)
+            params = {}
+
             if status == 1:
                 # Set event status to running
-                q = f'''UPDATE event SET start_time = {now}, status = 1
-                        WHERE event_id = {event_id}
-                        '''
+                q = "UPDATE event SET start_time = %(now)s, status = 1 WHERE event_id = %(event_id)s"
+                params = {'now': now, 'event_id': event_id}
             elif status == 0:
                 # Signal end of event and update final packet
                 if packet_end is None:
                     raise ValueError('Packet end argument was none while ending event.')
-                q = f'''UPDATE event SET end_time = {now}, status = 0, packet_end = {packet_end}
-                        WHERE event_id = {event_id}
-                        '''
+                q = "UPDATE event SET end_time = %(now)s, status = 0, packet_end = %(packet_end)s WHERE event_id = %(event_id)s"
+                params = {'now': now, 'packet_end': packet_end, 'event_id': event_id}
             else:
                 # Used for recording less than 0 status (error) codes
-                q = f'''UPDATE event SET status = {status} WHERE event_id = {event_id}'''
+                q = "UPDATE event SET status = %(status)s WHERE event_id = %(event_id)s"
+                params = {'status': status, 'event_id': event_id}
 
-            cur.execute(q)
+            cur.execute(q, params)
 
         if handler.unsafe:
             if handler.conn_pool_size == 1:
