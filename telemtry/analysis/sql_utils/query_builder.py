@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 from sqlalchemy import text
 from sqlalchemy.orm import Query, aliased
-from telemtry.analysis.sql_utils.db_session import get_db
-from telemtry.analysis.sql_utils.models import (
+from .db_session import get_db
+from .models import (
     DriveDay,
     LutDriver,
     LutLocation,
@@ -24,12 +24,18 @@ from telemtry.analysis.sql_utils.models import (
     AngeliqueThermal,
     Partitions,
 )
+from sqlalchemy.dialects.postgresql import ARRAY
+from geoalchemy2 import Geometry
+from sqlalchemy.dialects.postgresql import JSONB # Added for JSONB type handling
 
 class QueryBuilder:
     def __init__(self, car="Nightwatch"):
-        self.session_generator = get_db(car)
-        self.session = next(self.session_generator)
-        self._query: Query = self.session.query()
+        self._car = car # Store car name
+        self._db_context_manager = get_db(car) # Store the context manager
+        self.session = None # Session will be set in __enter__
+        self._query: Query = None # Query will be set in __enter__
+        
+        # Initialize _models based on the car
         self._models = {
             "DriveDay": DriveDay,
             "LutDriver": LutDriver,
@@ -38,21 +44,70 @@ class QueryBuilder:
             "LutEventType": LutEventType,
             "Event": Event,
             "Packet": Packet,
-            "Dynamics": Dynamics if car == "Nightwatch" else AngeliqueDynamics,
-            "Controls": Controls if car == "Nightwatch" else AngeliqueControls,
-            "Pack": Pack,
-            "DiagnosticsHigh": DiagnosticsHigh,
-            "DiagnosticsLow": DiagnosticsLow,
-            "Thermal": Thermal if car == "Nightwatch" else AngeliqueThermal,
             "Classifier": Classifier,
             "Partitions": Partitions,
         }
 
+        if car == "Nightwatch":
+            self._models["Dynamics"] = Dynamics
+            self._models["Controls"] = Controls
+            self._models["Pack"] = Pack
+            self._models["DiagnosticsHigh"] = DiagnosticsHigh
+            self._models["DiagnosticsLow"] = DiagnosticsLow
+            self._models["Thermal"] = Thermal
+        elif car == "Angelique":
+            self._models["Dynamics"] = AngeliqueDynamics
+            self._models["Controls"] = AngeliqueControls
+            self._models["Pack"] = Pack # Assuming Pack is same for Angelique
+            self._models["Diagnostics"] = AngeliqueDiagnostics # This is the key
+            self._models["Thermal"] = AngeliqueThermal
+        else:
+            raise ValueError(f"Car {car} is not supported.")
+
+    def get_table_column_specs(self, force=False, verbose=False, target=None):
+        table_specs = {}
+        for model_name, model_class in self._models.items():
+            table_name = model_class.__tablename__
+            
+            if table_name not in table_specs:
+                table_specs[table_name] = {}
+
+            for column in model_class.__table__.columns:
+                try:
+                    dtype = column.type.python_type
+                except NotImplementedError:
+                    if isinstance(column.type, Geometry):
+                        dtype = 'point'
+                    elif str(column.type) == 'JSONB':
+                        dtype = dict
+                    elif str(column.type) == 'BYTEA':
+                        dtype = bytes
+                    else:
+                        dtype = str # Generic fallback
+                ndims = 0
+
+                if isinstance(column.type, ARRAY):
+                    ndims = 1 # Assuming 1D array for simplicity, can be extended
+                    if hasattr(column.type, 'item_type'):
+                        dtype = column.type.item_type.python_type
+                elif isinstance(column.type, Geometry):
+                    dtype = 'point' # Special handling for POINT type
+                    ndims = 0 # A point is a single entity, not an array of values
+                elif str(column.type) == 'JSONB': # Handle JSONB type
+                    dtype = dict
+                    ndims = 0
+
+                table_specs[table_name][column.name] = (dtype, ndims)
+
+        return table_specs
+
     def __enter__(self):
+        self.session = self._db_context_manager.__enter__() # Get the session from the context manager
+        self._query = self.session.query() # Initialize query here
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.session.close()
+        self._db_context_manager.__exit__(exc_type, exc_val, exc_tb)
 
     def select(self, *args):
         entities = []
@@ -80,9 +135,9 @@ class QueryBuilder:
         model = self._models.get(table)
         if model:
             if abbreviation:
-                self._query = self.session.query(aliased(model, name=abbreviation))
+                self._query = self._query.query(aliased(model, name=abbreviation))
             else:
-                self._query = self.session.query(model)
+                self._query = self._query.query(model)
         return self
 
     def join(self, *args):

@@ -11,7 +11,8 @@ from sqlalchemy import (
     Text,
     ForeignKey,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, POINT, BYTEA, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, JSONB
+from geoalchemy2 import Geometry
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -141,8 +142,8 @@ class Dynamics(Base):
     bl_spring_displace = Column(Float)
     br_spring_displace = Column(Float)
     dash_speed = Column(Float)
-    f_gps = Column(POINT)
-    b_gps = Column(POINT)
+    f_gps = Column(Geometry('POINT'))
+    b_gps = Column(Geometry('POINT'))
     f_gps_velocity = Column(Float)
     b_gps_velocity = Column(Float)
     f_gps_heading = Column(Float)
@@ -280,12 +281,13 @@ class Classifier(Base):
 
 class AngeliqueDynamics(Base):
     __tablename__ = 'dynamics'
+    __table_args__ = {'extend_existing': True}
     packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
     torque_request = Column(Float)
     vcu_position = Column(ARRAY(Float))
     vcu_velocity = Column(ARRAY(Float))
     vcu_accel = Column(ARRAY(Float))
-    gps = Column(POINT)
+    gps = Column(Geometry('POINT'))
     gps_velocity = Column(Float)
     gps_heading = Column(Float)
     body1_accel = Column(ARRAY(Float))
@@ -304,12 +306,11 @@ class AngeliqueDynamics(Base):
     brw_speed = Column(Float)
     inverter_v = Column(Float)
     inverter_c = Column(Float)
-    inverter_rpm = Column(SmallInteger)
-    inverter_torque = Column(Float)
-    packet = relationship("Packet", back_populates="dynamics")
+    packet = relationship("Packet", viewonly=True)
 
 class AngeliqueControls(Base):
     __tablename__ = 'controls'
+    __table_args__ = {'extend_existing': True}
     packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
     vcu_flags = Column(BYTEA)
     vcu_flags_json = Column(JSONB)
@@ -320,7 +321,7 @@ class AngeliqueControls(Base):
     sus1_v = Column(Float)
     sus2_v = Column(Float)
     steer_v = Column(Float)
-    packet = relationship("Packet", back_populates="controls")
+    packet = relationship("Packet", viewonly=True)
 
 class AngeliqueDiagnostics(Base):
     __tablename__ = 'diagnostics'
@@ -332,10 +333,11 @@ class AngeliqueDiagnostics(Base):
     cells_v = Column(ARRAY(Float))
     hv_charge_state = Column(Float)
     lv_charge_state = Column(Float)
-    packet = relationship("Packet", back_populates="diagnostics")
+    packet = relationship("Packet", viewonly=True)
 
 class AngeliqueThermal(Base):
     __tablename__ = 'thermal'
+    __table_args__ = {'extend_existing': True}
     packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
     cells_temp = Column(ARRAY(SmallInteger))
     ambient_temp = Column(SmallInteger)
@@ -349,7 +351,7 @@ class AngeliqueThermal(Base):
     batt_fan_set = Column(SmallInteger)
     batt_fan_rpm = Column(SmallInteger)
     flow_rate = Column(SmallInteger)
-    packet = relationship("Packet", back_populates="thermal")
+    packet = relationship("Packet", viewonly=True)
 
 class Partitions(Base):
     __tablename__ = 'partitions'

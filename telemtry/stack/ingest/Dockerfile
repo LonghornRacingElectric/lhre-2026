@@ -1,10 +1,10 @@
 FROM python:3.11.4 AS builder
-COPY requirements.txt .
+COPY stack/ingest/requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
 FROM builder AS executor
-WORKDIR /ingest
-COPY . /ingest
+WORKDIR /app
+COPY . /app
 
-CMD ["python", "./mqtt_handler.py"]
+CMD ["python", "./stack/ingest/mqtt_handler.py"]

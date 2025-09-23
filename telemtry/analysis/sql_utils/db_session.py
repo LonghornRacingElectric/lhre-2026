@@ -4,6 +4,7 @@ from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
+from contextlib import contextmanager
 
 load_dotenv()
 
@@ -52,6 +53,7 @@ SessionLocal_nightwatch = sessionmaker(autocommit=False, autoflush=False, bind=e
 engine_angelique = create_engine(get_db_url(car="Angelique"))
 SessionLocal_angelique = sessionmaker(autocommit=False, autoflush=False, bind=engine_angelique)
 
+@contextmanager
 def get_db(car="Nightwatch"):
     if car == "Nightwatch":
         db = SessionLocal_nightwatch()

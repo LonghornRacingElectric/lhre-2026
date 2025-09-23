@@ -22,7 +22,8 @@ from google.protobuf.message import Message
 
 sys.path.append(str(Path(__file__).parents[2]))
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
-from analysis.sql_utils.db_handler import get_table_column_specs, DBHandler, DBTarget
+from analysis.sql_utils.db_session import get_db, DBTarget
+from analysis.sql_utils.query_builder import QueryBuilder
 from stack.ingest.protobuf.template_pb2 import SensorData
 
 
@@ -66,7 +67,8 @@ class DataTester:
         if isinstance(tables, str):
             tables = [tables]
 
-        desc = get_table_column_specs(get_specs.get('force'), get_specs.get('verbose'), target=get_specs.get('target'))
+        with QueryBuilder(car=get_specs.get('target')) as qb:
+            desc = qb.get_table_column_specs(get_specs.get('force'), get_specs.get('verbose'), target=get_specs.get('target'))
 
         if rm_cols:
             for table in (desc if db else tables):
@@ -177,7 +179,7 @@ class DataTester:
             row = self.create_row(table_desc, i + 1)
             if kwargs.get('verbose') and (num_rows < 1000 or not i % (num_rows // 100)):
                 logging.info(f'Publishing payload #{i:>3} to {table}: {row}')
-            if kwargs.get('target') and kwargs.get('target')['dbname'] == "angelique":
+            if kwargs.get('target') == "Angelique":
                 self.mqtt.publish(f'angelique/{table}', pickle.dumps(row), qos=0)
             else:
                 self.mqtt.publish(f'data/{table}', pickle.dumps(row), qos=0)
@@ -263,21 +265,25 @@ class DataTester:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    target = DBTarget.get(car="Angelique")
-    with DBHandler(unsafe=True, target=DBTarget.get(car="Nightwatch")) as nightwatch_handler, DBHandler(unsafe=True, target=DBTarget.get(car="Angelique")) as angelique_handler:
-        db_handlers = {'Nightwatch': nightwatch_handler, 'Angelique': angelique_handler}
-        with MQTTHandler('paho_test', db_handlers=db_handlers) as mqtt:
+    car_name = "Angelique"
+    with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session:
+        db_sessions = {'Nightwatch': nightwatch_session, 'Angelique': angelique_session}
+        with MQTTHandler('paho_test', db_sessions=db_sessions) as mqtt:
             # Protobuf message testing
             # dt = DataTester(mqtt=mqtt, seed=42)
             # dt.send_proto_rows(
             #     tables=['packet', 'dynamics', 'controls', 'pack', 'diagnostics_low', 'diagnostics_high', 'thermal'],
             #     num_rows= 2000,
             #     delay= 0.01,
-            #     target=target
+            #     target=car_name
             # )
 
             # data_ingest with fully processed data
             dt = DataTester(mqtt=mqtt, seed=42)
-            dt.single_table_test('packet', 2000, 0.01, target=target)  # sequential
-            dt.concurrent_tables_test(['dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
-                                      2000, 0.01, target=target)  # batch
+            dt.single_table_test('packet', 2000, 0.01, target=car_name)  # sequential
+            if car_name == "Nightwatch":
+                dt.concurrent_tables_test(['dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'],
+                                          2000, 0.01, target=car_name)  # batch
+            elif car_name == "Angelique":
+                dt.concurrent_tables_test(['dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
+                                          2000, 0.01, target=car_name)  # batch

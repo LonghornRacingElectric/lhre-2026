@@ -12,20 +12,20 @@ from paho.mqtt import client as mqtt_client
 from google.protobuf.json_format import MessageToDict
 from pathlib import Path
 
+sys.path.append(str(Path(__file__).parents[2]))
+
+# Custom
+from analysis.sql_utils.db_session import get_db
+from analysis.sql_utils.query_builder import QueryBuilder
+from stack.ingest.protobuf import template_pb2
+
+
 if os.getenv('IN_DOCKER'):
     with open("/net_configs.json", "r") as file:
         global_target = json.load(file)
 else:
     with open(os.path.join(Path(__file__).parents[2], "net_configs.json"), "r") as file:
         global_target = json.load(file)
-
-if os.getenv('IN_DOCKER'):
-    import protobuf.template_pb2 as template_pb2
-else:
-    sys.path.append(str(Path(__file__).parents[3]))
-    from telemtry.stack.ingest.protobuf import template_pb2
-    from telemtry.analysis.sql_utils.db_session import get_db, DBTarget
-    from telemtry.analysis.sql_utils.query_builder import QueryBuilder
 
 class MQTTTarget:
     @staticmethod
@@ -45,7 +45,7 @@ class MQTTHandler:
         '''
         self.target = target
         self.sessions = db_sessions
-        self.client = mqtt_client.Client(mqtt_client.CallbackAPIVersion.VERSION1, name)
+        self.client = mqtt_client.Client(name)
         self.client.username_pw_set(name)
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect
