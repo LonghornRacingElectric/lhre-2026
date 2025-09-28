@@ -395,10 +395,9 @@ class CSVToDB():
             #! CHANGE FOR PROD
             # response = requests.post("http://" + MQTTTarget.get() + ":5000/webtool/create_event/", data=sample_event)
             # response = requests.post("http://" + DBTarget.resolve_ip(DBTarget.get(client=True)) + "/webtool/create_event/", data=sample_event)
-            response = requests.post("https://localhost:3000.org/create_event/", data=sample_event)
+            response = requests.post("http://localhost:3000/api/create-event", json=sample_event)
             
-            with MQTTHandler('flask_app') as mqtt:
-                mqtt.publish('config/page_sync', "running_event_page")
+            requests.post("http://localhost:3000/api/event-sync", json={"currentPage": "running_event_page"})
                 
         #! NEED TO CHANGE BASED ON TRACK
         config = {"event_id": 1, "gate": ((30.3870, -97.7253), (30.3869, -97.7252)), "status": 0, "start_packet": 0}
@@ -414,8 +413,7 @@ class CSVToDB():
         logging.info(f"STARTED TIMER AT {start_time if REALTIME else time.time() * 1000} | (OR {start_time})")
         logging.info(config)
         time.sleep(1)
-        logging.info("SENT CONFIG AT EVENT UPDATE SYNC")
-        self.mqtt.publish('config/event_update_sync', json.dumps(config, indent=4))
+        requests.post("http://localhost:3000/api/event-sync", json=config)
         
     def stop_timer(self):
         config = {
@@ -423,7 +421,7 @@ class CSVToDB():
             "useInternalTime": True
         }
         logging.info(config)
-        self.mqtt.publish('config/event_update_sync', json.dumps(config, indent=4))
+        requests.post("http://localhost:3000/api/event-sync", json=config)
 
     def csv_event_injection(self, time_threshold = 300):
         """

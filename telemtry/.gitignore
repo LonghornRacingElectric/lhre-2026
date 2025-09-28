@@ -1,4 +1,5 @@
-/venv
+/venv*
+.venv312
 /stack/telegraf_conf_gen/telegraf.conf
 __pycache__/
 /analysis/sql_utils/DB_description.pkl
