@@ -23,6 +23,8 @@ from .models import (
     AngeliqueDiagnostics,
     AngeliqueThermal,
     Partitions,
+    AngeliquePack, 
+    AngeliquePacket
 )
 from sqlalchemy.dialects.postgresql import ARRAY
 from geoalchemy2 import Geometry
@@ -58,9 +60,10 @@ class QueryBuilder:
         elif car == "Angelique":
             self._models["Dynamics"] = AngeliqueDynamics
             self._models["Controls"] = AngeliqueControls
-            self._models["Pack"] = Pack # Assuming Pack is same for Angelique
+            self._models["Pack"] = AngeliquePack # Assuming Pack is same for Angelique
             self._models["Diagnostics"] = AngeliqueDiagnostics # This is the key
             self._models["Thermal"] = AngeliqueThermal
+            self._models["Packet"] = AngeliquePacket
         else:
             raise ValueError(f"Car {car} is not supported.")
 

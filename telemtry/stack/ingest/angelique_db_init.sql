@@ -120,14 +120,14 @@ CREATE TABLE public.event (
 );
 
 -- Packet Table
-CREATE TABLE public.packet (
+CREATE TABLE public.angelique_packet (
     packet_id           bigint   NOT NULL,
     "time"              bigint   NOT NULL,
     CONSTRAINT packet_pk PRIMARY KEY (packet_id)
 );
 
 -- Dynamics table
-CREATE TABLE public.dynamics (
+CREATE TABLE public.angelique_dynamics (
     packet_id           bigint   NOT NULL,
     torque_request      real,
     vcu_position        real[],
@@ -154,11 +154,11 @@ CREATE TABLE public.dynamics (
     inverter_c          real,
     inverter_rpm        smallint,
     inverter_torque     real,
-    CONSTRAINT fk_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
+    CONSTRAINT fk_angelique_dynamics_packet_id FOREIGN KEY(packet_id) REFERENCES angelique_packet(packet_id)
 );
 
 -- Controls table
-CREATE TABLE public.controls (
+CREATE TABLE public.angelique_controls (
     packet_id           bigint   NOT NULL,
     vcu_flags           bytea,
     vcu_flags_json      jsonb,
@@ -169,11 +169,11 @@ CREATE TABLE public.controls (
     sus1_v              real,
     sus2_v              real,
     steer_v             real,
-    CONSTRAINT fk_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
+    CONSTRAINT fk_angelique_controls_packet_id FOREIGN KEY(packet_id) REFERENCES angelique_packet(packet_id)
 );
 
 -- Pack table
-CREATE TABLE public.pack (
+CREATE TABLE public.angelique_pack (
     packet_id           bigint   NOT NULL,
     hv_pack_v           real,
     hv_tractive_v       real,
@@ -183,12 +183,12 @@ CREATE TABLE public.pack (
     contactor_state     smallint,
     avg_cell_v          real,
     avg_cell_temp       real,
-    CONSTRAINT fk_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
+    CONSTRAINT fk_angelique_pack_packet_id FOREIGN KEY(packet_id) REFERENCES angelique_packet(packet_id)
 );
 
 
 -- Diagnostics table
-CREATE TABLE public.diagnostics (
+CREATE TABLE public.angelique_diagnostics (
     packet_id               bigint   NOT NULL,
     current_errors          bytea,
     current_errors_json     jsonb,
@@ -197,11 +197,11 @@ CREATE TABLE public.diagnostics (
     cells_v                 real[],
     hv_charge_state         real,
     lv_charge_state         real,
-    CONSTRAINT fk_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
+    CONSTRAINT fk_angelique_diagnostics_packet_id FOREIGN KEY(packet_id) REFERENCES angelique_packet(packet_id)
 );
 
 -- Thermal table
-CREATE TABLE public.thermal
+CREATE TABLE public.angelique_thermal
 (
     packet_id           bigint   NOT NULL,
     cells_temp          smallint[],
@@ -216,7 +216,7 @@ CREATE TABLE public.thermal
     batt_fan_set        smallint,
     batt_fan_rpm        smallint,
     flow_rate           smallint,
-    CONSTRAINT fk_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
+    CONSTRAINT fk_angelique_thermal_packet_id FOREIGN KEY(packet_id) REFERENCES angelique_packet(packet_id)
 );
 
 -- Classifier table

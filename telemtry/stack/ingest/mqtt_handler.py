@@ -123,8 +123,9 @@ class MQTTHandler:
                 # Protobuf serialized string sent
                 self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable)
         elif (topic_split := msg.topic.split('/'))[0] == 'angelique':
-            if (topic_split[-1] in {'packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'}):
-                self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car="Angelique")
+            table = topic_split[-1].replace('angelique_', '')
+            if (table in {'packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'}):
+                self._data_ingest(msg.payload, table, cache_enable=self.cache_enable, car="Angelique")
         else:
             logging.warning(f'No corresponding topic found for {msg.topic}')
 
@@ -174,6 +175,7 @@ class MQTTHandler:
 
         session = self.sessions[car]
         model = QueryBuilder(car)._models.get(table.capitalize())
+        print (f":Model found: {model}")
 
         if model:
             if isinstance(data_dict, list):
@@ -231,7 +233,7 @@ class MQTTHandler:
         session = self.sessions["Angelique"]
         builder = QueryBuilder("Angelique")
 
-        for table in ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal']:
+        for table in ['packet', 'angelique_dynamics', 'angelique_controls', 'angelique_pack', 'angelique_diagnostics', 'angelique_thermal']:
             model = builder._models.get(table.capitalize())
             if model:
                 data = {col.name: data_dict[col.name] for col in model.__table__.columns if col.name in data_dict}

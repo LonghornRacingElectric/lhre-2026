@@ -280,9 +280,9 @@ class Classifier(Base):
 # Angelique Models
 
 class AngeliqueDynamics(Base):
-    __tablename__ = 'dynamics'
+    __tablename__ = 'angelique_dynamics'
     __table_args__ = {'extend_existing': True}
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    packet_id = Column(BigInteger, ForeignKey('angelique_packet.packet_id'), primary_key=True)
     torque_request = Column(Float)
     vcu_position = Column(ARRAY(Float))
     vcu_velocity = Column(ARRAY(Float))
@@ -305,13 +305,12 @@ class AngeliqueDynamics(Base):
     blw_speed = Column(Float)
     brw_speed = Column(Float)
     inverter_v = Column(Float)
-    inverter_c = Column(Float)
-    packet = relationship("Packet", viewonly=True)
+    packet = relationship("AngeliquePacket", viewonly=True)
 
 class AngeliqueControls(Base):
-    __tablename__ = 'controls'
+    __tablename__ = 'angelique_controls'
     __table_args__ = {'extend_existing': True}
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    packet_id = Column(BigInteger, ForeignKey('angelique_packet.packet_id'), primary_key=True)
     vcu_flags = Column(BYTEA)
     vcu_flags_json = Column(JSONB)
     apps1_v = Column(Float)
@@ -320,12 +319,11 @@ class AngeliqueControls(Base):
     bse2_v = Column(Float)
     sus1_v = Column(Float)
     sus2_v = Column(Float)
-    steer_v = Column(Float)
-    packet = relationship("Packet", viewonly=True)
+    packet = relationship("AngeliquePacket", viewonly=True)
 
 class AngeliqueDiagnostics(Base):
-    __tablename__ = 'diagnostics'
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    __tablename__ = 'angelique_diagnostics'
+    packet_id = Column(BigInteger, ForeignKey('angelique_packet.packet_id'), primary_key=True)
     current_errors = Column(BYTEA)
     current_errors_json = Column(JSONB)
     latching_faults = Column(BYTEA)
@@ -333,12 +331,12 @@ class AngeliqueDiagnostics(Base):
     cells_v = Column(ARRAY(Float))
     hv_charge_state = Column(Float)
     lv_charge_state = Column(Float)
-    packet = relationship("Packet", viewonly=True)
+    packet = relationship("AngeliquePacket", viewonly=True)
 
 class AngeliqueThermal(Base):
-    __tablename__ = 'thermal'
+    __tablename__ = 'angelique_thermal'
     __table_args__ = {'extend_existing': True}
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    packet_id = Column(BigInteger, ForeignKey('angelique_packet.packet_id'), primary_key=True)
     cells_temp = Column(ARRAY(SmallInteger))
     ambient_temp = Column(SmallInteger)
     inverter_temp = Column(SmallInteger)
@@ -351,7 +349,32 @@ class AngeliqueThermal(Base):
     batt_fan_set = Column(SmallInteger)
     batt_fan_rpm = Column(SmallInteger)
     flow_rate = Column(SmallInteger)
-    packet = relationship("Packet", viewonly=True)
+    packet = relationship("AngeliquePacket", viewonly=True)
+
+class AngeliquePack(Base):
+    __tablename__ = 'angelique_pack'
+    __table_args__ = {'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('angelique_packet.packet_id'), primary_key=True)
+    hv_pack_v = Column(Float)
+    hv_tractive_v = Column(Float)
+    hv_c = Column(Float)
+    lv_v = Column(Float)
+    lv_c = Column(Float)
+    contactor_state = Column(SmallInteger)
+    avg_cell_v = Column(Float)
+    avg_cell_temp = Column(Float)
+    packet = relationship("AngeliquePacket", viewonly=True)
+
+class AngeliquePacket(Base):
+    __tablename__ = 'angelique_packet'
+    __table_args__ = {'extend_existing': True}
+    packet_id = Column(BigInteger, primary_key=True)
+    time = Column(BigInteger, nullable=False)
+    dynamics = relationship("AngeliqueDynamics", uselist=False, back_populates="packet")
+    controls = relationship("AngeliqueControls", uselist=False, back_populates="packet")
+    pack = relationship("AngeliquePack", uselist=False, back_populates="packet")
+    diagnostics = relationship("AngeliqueDiagnostics", uselist=False, back_populates="packet")
+    thermal = relationship("AngeliqueThermal", uselist=False, back_populates="packet")
 
 class Partitions(Base):
     __tablename__ = 'partitions'

@@ -141,12 +141,13 @@ class DataTester:
                 row[col] = np.random.randint(1, 101, size=140).tolist()
             elif dtype is datetime.datetime:
                 row[col] = datetime.date.today()
-            elif dtype is Jsonb:
+            elif dtype is Jsonb or dtype is dict:
                 # row[col] = Jsonb({'fake_jsonb_data': self.get_random_data(int, 3)})
                 row[col] = {'fake_jsonb_data': self.get_random_data(int, 3)} 
             elif dtype == 'point':
-                row[col] = random.choice([(30.289464, -97.735303), (30.389670, -97.728152)])
-            elif dtype is bytearray:
+                point = random.choice([(30.289464, -97.735303), (30.389670, -97.728152)])
+                row[col] = f'SRID=4326;POINT({point[0]} {point[1]})'
+            elif dtype is bytearray or dtype is bytes:
                 row[col] = secrets.token_bytes(16)
             else:
                 if ndims == 0:
@@ -280,10 +281,11 @@ if __name__ == '__main__':
 
             # data_ingest with fully processed data
             dt = DataTester(mqtt=mqtt, seed=42)
-            dt.single_table_test('packet', 2000, 0.01, target=car_name)  # sequential
+            dt.single_table_test('angelique_packet', 2000, 0.01, target=car_name)  # sequential
+            time.sleep(1)
             if car_name == "Nightwatch":
                 dt.concurrent_tables_test(['dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'],
                                           2000, 0.01, target=car_name)  # batch
             elif car_name == "Angelique":
-                dt.concurrent_tables_test(['dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
+                dt.concurrent_tables_test(['angelique_dynamics', 'angelique_controls', 'angelique_pack', 'angelique_diagnostics', 'angelique_thermal'],
                                           2000, 0.01, target=car_name)  # batch

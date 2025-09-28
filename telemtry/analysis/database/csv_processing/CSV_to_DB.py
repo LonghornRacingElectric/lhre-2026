@@ -532,4 +532,4 @@ if __name__ == '__main__':
             #mqtt.connect()
             #Where the csv is stored in csv_data to be sent here
                 #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
-            #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_12__12_35_00.csv"), table_desc=table_desc)
+            #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_12__12_35_00.csv"), table_desc=table_desc)  target = DBTarget(car = "Nightwatch")
