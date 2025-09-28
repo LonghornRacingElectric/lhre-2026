@@ -34,7 +34,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    appState = body;
+    appState = { ...appState, ...body }; // Merge the new state
     emitter.emit('update', appState);
     return NextResponse.json({ success: true });
   } catch (error) {

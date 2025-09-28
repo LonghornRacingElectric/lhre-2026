@@ -93,24 +93,6 @@ const EventTrackerPage = () => {
   const handleStop = () => updateState(s => ({ ...s, eventTracker: { ...s.eventTracker, isTimerRunning: false, timerBaseTime: time } }));
   const handleReset = () => updateState(s => ({ ...s, eventTracker: { isTimerRunning: false, timerStartTime: 0, timerBaseTime: 0, turns: [], accels: [], laps: [] } }));
 
-  const [liveImageSrc, setLiveImageSrc] = useState('/images/events.png');
-
-  // Effect for refreshing the live image
-  useEffect(() => {
-    if (!isRunning) {
-      return; // Do nothing if not running
-    }
-
-    const interval = setInterval(() => {
-      setLiveImageSrc('/images/events.png?t=' + Date.now());
-    }, 1000);
-
-    // Cleanup function
-    return () => {
-      clearInterval(interval);
-    };
-  }, [isRunning]);
-
   const handleToggleTurn = () => {
     updateState(s => {
       const { isTurning, turnStartTime, turns = [] } = s.eventTracker || {};
@@ -170,9 +152,9 @@ const EventTrackerPage = () => {
             <CardHeader><CardTitle>Live Data</CardTitle></CardHeader>
             <CardContent className="h-64 bg-gray-200 rounded-md">
               <img
-                key={liveImageSrc} // Force re-mount on src change
+                key={appState.liveImage || 'no-image'}
                 id="live-image"
-                src={liveImageSrc}
+                src={appState.liveImage ? `data:image/png;base64,${appState.liveImage}` : '/images/events.png'}
                 alt="Live Data"
                 className="w-full h-full object-contain"
               />

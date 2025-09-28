@@ -3,6 +3,9 @@ import os
 import logging
 from time import sleep
 import pandas as pd
+import io
+import base64
+import requests
 import numpy as np
 from paho.mqtt import client as mqtt_client
 import threading
@@ -87,10 +90,6 @@ class Visualizer:
                 start_index = self.gps['Time_Since_Start'].ge(self.events['Time'].iloc[-1]).idxmax()
             ax.plot(self.gps['Latitude'].iloc[start_index:len(self.gps)].values, self.gps['Longitude'].iloc[start_index:len(self.gps)].values, zs=self.gps['Time_Since_Start'].iloc[start_index:len(self.gps)].values, color='black')
         np.Inf = np.inf
-        # Save the plot to files
-
-        save_path = os.path.join(visualizer_image_path, "events.png")
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
         
         legend_elements = [
             Line2D([0], [0], color='green', lw=2, label='Linear Acceleration'),
@@ -99,8 +98,22 @@ class Visualizer:
         ]
         ax.legend(handles=legend_elements, loc='upper right')
         
-        fig1.savefig(save_path)
-        # logging.info(f"Image saved at {visualizer_image_path}/events.png")
+        # Save the plot to a memory buffer
+        buf = io.BytesIO()
+        fig1.savefig(buf, format='png')
+        buf.seek(0)
+        img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+        buf.close()
+        plt.close(fig1)
+        plt.close(fig2)
+
+        # Send the image data to the Next.js backend
+        try:
+            response = requests.post("http://host.docker.internal:3001/api/live-image-update", json={"image": img_base64})
+            logging.info(f"Sent image to backend, status: {response.status_code}")
+            response.raise_for_status() # Raise an exception for bad status codes
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Failed to send image to backend: {e}")
         
     def run_thread(self, sleep_time: int):
         while True:

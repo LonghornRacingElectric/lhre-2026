@@ -95,6 +95,8 @@ services:
       - ./mqtt_handler.py:/app/mqtt_handler.py
       - ../../analysis/database/viewer_tool/public/images:/gps_classifier/public/images
       - ../../net_configs.json:/net_configs.json
+      - ../../analysis/sql_utils/DB_description.pkl:/DB_description.pkl
+      - ../../analysis/sql_utils/angelique_DB_description.pkl:/angelique_DB_description.pkl
       - ./protobuf:/app/protobuf
     networks:
       - telemetry_network
