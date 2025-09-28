@@ -93,6 +93,28 @@ const EventTrackerPage = () => {
   const handleStop = () => updateState(s => ({ ...s, eventTracker: { ...s.eventTracker, isTimerRunning: false, timerBaseTime: time } }));
   const handleReset = () => updateState(s => ({ ...s, eventTracker: { isTimerRunning: false, timerStartTime: 0, timerBaseTime: 0, turns: [], accels: [], laps: [] } }));
 
+  const [liveImageSrc, setLiveImageSrc] = useState('/images/events.png');
+
+  // Effect for refreshing the live image
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isRunning) {
+      interval = setInterval(() => {
+        setLiveImageSrc('/images/events.png?t=' + Date.now());
+      }, 1000);
+    } else {
+      // Optional: clear interval if not running
+      if (interval) {
+        clearInterval(interval);
+      }
+    }
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [isRunning]);
+
   const handleToggleTurn = () => {
     updateState(s => {
       const { isTurning, turnStartTime, turns = [] } = s.eventTracker || {};
@@ -148,7 +170,12 @@ const EventTrackerPage = () => {
         </Card>
         <div className="space-y-8">
           <Card><CardHeader><CardTitle>Map</CardTitle></CardHeader><CardContent className="h-64"><DynamicMap /></CardContent></Card>
-          <Card><CardHeader><CardTitle>Live Data</CardTitle></CardHeader><CardContent className="h-64 bg-gray-200 rounded-md"></CardContent></Card>
+          <Card>
+            <CardHeader><CardTitle>Live Data</CardTitle></CardHeader>
+            <CardContent className="h-64 bg-gray-200 rounded-md">
+              <img id="live-image" src={liveImageSrc} alt="Live Data" className="w-full h-full object-contain" />
+            </CardContent>
+          </Card>
         </div>
       </div>
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">

@@ -17,13 +17,13 @@ import pandas as pd
 warnings.simplefilter('ignore', np.linalg.LinAlgError)
 warnings.filterwarnings("ignore")
 
-visualizer_image_path = "../../../analysis/database/viewer_tool/static/images"
+visualizer_image_path = "../../../analysis/database/viewer_tool/public/images"
 
 
 if os.getenv('IN_DOCKER'):
     from db_handler import DBHandler, DBTarget, get_table_column_specs    # Cheesed import statement using bind mount
     from mqtt_handler import MQTTHandler, MQTTTarget
-    visualizer_image_path = "./static/images"
+    visualizer_image_path = "./public/images"
 else:
     from analysis.sql_utils.db_handler import DBHandler, DBTarget, get_table_column_specs
     from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget

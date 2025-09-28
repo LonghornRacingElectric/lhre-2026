@@ -395,7 +395,7 @@ class CSVToDB():
             #! CHANGE FOR PROD
             # response = requests.post("http://" + MQTTTarget.get() + ":5000/webtool/create_event/", data=sample_event)
             # response = requests.post("http://" + DBTarget.resolve_ip(DBTarget.get(client=True)) + "/webtool/create_event/", data=sample_event)
-            response = requests.post("http://localhost:3000/api/create-event", json=sample_event)
+            response = requests.post("http://localhost:3001/api/create-event", json=sample_event)
             
             requests.post("http://localhost:3000/api/event-sync", json={"currentPage": "running_event_page"})
                 
@@ -413,7 +413,7 @@ class CSVToDB():
         logging.info(f"STARTED TIMER AT {start_time if REALTIME else time.time() * 1000} | (OR {start_time})")
         logging.info(config)
         time.sleep(1)
-        requests.post("http://localhost:3000/api/event-sync", json=config)
+        requests.post("http://localhost:3001/api/event-sync", json=config)
         
     def stop_timer(self):
         config = {
@@ -421,7 +421,7 @@ class CSVToDB():
             "useInternalTime": True
         }
         logging.info(config)
-        requests.post("http://localhost:3000/api/event-sync", json=config)
+        requests.post("http://localhost:3001/api/event-sync", json=config)
 
     def csv_event_injection(self, time_threshold = 300):
         """
