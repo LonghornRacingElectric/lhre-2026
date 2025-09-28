@@ -19,6 +19,7 @@ from pathlib import Path
 from psycopg.types.json import Jsonb
 from typing import Union, Tuple
 from google.protobuf.message import Message
+from geoalchemy2 import WKTElement
 
 sys.path.append(str(Path(__file__).parents[2]))
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
@@ -144,9 +145,9 @@ class DataTester:
             elif dtype is Jsonb or dtype is dict:
                 # row[col] = Jsonb({'fake_jsonb_data': self.get_random_data(int, 3)})
                 row[col] = {'fake_jsonb_data': self.get_random_data(int, 3)} 
-            elif dtype == 'point':
+            elif dtype == 'point' or dtype == "POINT" or (isinstance(dtype, str) and dtype.lower() == 'point') or (isinstance(dtype, str) and dtype.lower() == 'POINT'):
                 point = random.choice([(30.289464, -97.735303), (30.389670, -97.728152)])
-                row[col] = f'SRID=4326;POINT({point[0]} {point[1]})'
+                row[col] = point
             elif dtype is bytearray or dtype is bytes:
                 row[col] = secrets.token_bytes(16)
             else:
@@ -289,3 +290,4 @@ if __name__ == '__main__':
             elif car_name == "Angelique":
                 dt.concurrent_tables_test(['angelique_dynamics', 'angelique_controls', 'angelique_pack', 'angelique_diagnostics', 'angelique_thermal'],
                                           2000, 0.01, target=car_name)  # batch
+            #print (dt.get_desc(db=True, target=car_name))

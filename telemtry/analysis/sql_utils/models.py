@@ -12,9 +12,9 @@ from sqlalchemy import (
     ForeignKey,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, JSONB
-from geoalchemy2 import Geometry
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
+from .point_type import PointType
 
 Base = declarative_base()
 
@@ -142,8 +142,8 @@ class Dynamics(Base):
     bl_spring_displace = Column(Float)
     br_spring_displace = Column(Float)
     dash_speed = Column(Float)
-    f_gps = Column(Geometry('POINT'))
-    b_gps = Column(Geometry('POINT'))
+    f_gps = Column(PointType())
+    b_gps = Column(PointType())
     f_gps_velocity = Column(Float)
     b_gps_velocity = Column(Float)
     f_gps_heading = Column(Float)
@@ -287,7 +287,7 @@ class AngeliqueDynamics(Base):
     vcu_position = Column(ARRAY(Float))
     vcu_velocity = Column(ARRAY(Float))
     vcu_accel = Column(ARRAY(Float))
-    gps = Column(Geometry('POINT'))
+    gps = Column(PointType())
     gps_velocity = Column(Float)
     gps_heading = Column(Float)
     body1_accel = Column(ARRAY(Float))

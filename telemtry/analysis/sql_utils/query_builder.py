@@ -79,7 +79,7 @@ class QueryBuilder:
                 try:
                     dtype = column.type.python_type
                 except NotImplementedError:
-                    if isinstance(column.type, Geometry):
+                    if str(column.type).upper() == 'POINT':
                         dtype = 'point'
                     elif str(column.type) == 'JSONB':
                         dtype = dict

@@ -175,7 +175,6 @@ class MQTTHandler:
 
         session = self.sessions[car]
         model = QueryBuilder(car)._models.get(table.capitalize())
-        print (f":Model found: {model}")
 
         if model:
             if isinstance(data_dict, list):
