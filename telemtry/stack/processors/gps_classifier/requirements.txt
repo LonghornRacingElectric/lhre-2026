@@ -5,3 +5,4 @@ psycopg[binary]==3.2.3
 psycopg[pool]==3.2.3
 matplotlib==3.4.3
 protobuf==6.30.2
+python-dotenv==1.0.0

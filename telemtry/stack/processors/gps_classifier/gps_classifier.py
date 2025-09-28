@@ -14,11 +14,13 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import pandas as pd
 
+import sys
+from pathlib import Path
+
 warnings.simplefilter('ignore', np.linalg.LinAlgError)
 warnings.filterwarnings("ignore")
 
 visualizer_image_path = "../../../analysis/database/viewer_tool/public/images"
-
 
 if os.getenv('IN_DOCKER'):
     from db_handler import DBHandler, DBTarget, get_table_column_specs    # Cheesed import statement using bind mount

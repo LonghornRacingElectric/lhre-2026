@@ -97,21 +97,17 @@ const EventTrackerPage = () => {
 
   // Effect for refreshing the live image
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isRunning) {
-      interval = setInterval(() => {
-        setLiveImageSrc('/images/events.png?t=' + Date.now());
-      }, 1000);
-    } else {
-      // Optional: clear interval if not running
-      if (interval) {
-        clearInterval(interval);
-      }
+    if (!isRunning) {
+      return; // Do nothing if not running
     }
+
+    const interval = setInterval(() => {
+      setLiveImageSrc('/images/events.png?t=' + Date.now());
+    }, 1000);
+
+    // Cleanup function
     return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
+      clearInterval(interval);
     };
   }, [isRunning]);
 
@@ -173,7 +169,13 @@ const EventTrackerPage = () => {
           <Card>
             <CardHeader><CardTitle>Live Data</CardTitle></CardHeader>
             <CardContent className="h-64 bg-gray-200 rounded-md">
-              <img id="live-image" src={liveImageSrc} alt="Live Data" className="w-full h-full object-contain" />
+              <img
+                key={liveImageSrc} // Force re-mount on src change
+                id="live-image"
+                src={liveImageSrc}
+                alt="Live Data"
+                className="w-full h-full object-contain"
+              />
             </CardContent>
           </Card>
         </div>
