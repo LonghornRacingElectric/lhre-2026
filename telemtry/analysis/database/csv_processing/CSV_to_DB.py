@@ -395,7 +395,7 @@ class CSVToDB():
             #! CHANGE FOR PROD
             # response = requests.post("http://" + MQTTTarget.get() + ":5000/webtool/create_event/", data=sample_event)
             # response = requests.post("http://" + DBTarget.resolve_ip(DBTarget.get(client=True)) + "/webtool/create_event/", data=sample_event)
-            response = requests.post("https://lhrelectric.org/webtool/create_event/", data=sample_event)
+            response = requests.post("https://localhost:3000.org/create_event/", data=sample_event)
             
             with MQTTHandler('flask_app') as mqtt:
                 mqtt.publish('config/page_sync', "running_event_page")
@@ -475,54 +475,13 @@ class CSVToDB():
 
 if __name__ == '__main__':
 
-    logging.basicConfig(level=logging.CRITICAL)
-    target = DBTarget.get(car="Angelique")
-    # Playback testing ---------------------------------------------------------------------------------------------
+    target = DBTarget.get(car="Nightwatch")
     with DBHandler(unsafe=True, target=DBTarget.get(car="Nightwatch")) as nightwatch_handler, DBHandler(unsafe=True, target=DBTarget.get(car="Angelique")) as angelique_handler:
         db_handlers = {'Nightwatch': nightwatch_handler, 'Angelique': angelique_handler}
         with MQTTHandler(name ='event_playback_test', target = MQTTTarget.get(), db_handlers=db_handlers) as mqtt:
-            db_handlers["Angelique"].connect(target = target, user = 'electric')
-            dataSender = CSVToDB( db_handler=db_handlers["Angelique"], mqtt=mqtt, DB_target=target)
-            #while True:
-                #dataSender.handle_event_start()
-            
+            db_handlers["Nightwatch"].connect(target = target, user = 'electric')
+            dataSender = CSVToDB( db_handler=db_handlers["Nightwatch"], mqtt=mqtt, DB_target=target)
             table_desc = get_table_column_specs(target=target)
-
-             #Finds events in the database and records them into the event table
-
-            csv_data_folders = Path(__file__).parent.joinpath("csv_data/").iterdir()
-            for csv_folder in csv_data_folders:
-                if csv_folder.is_dir():
-                    print(f"Processing folder: {csv_folder.name}")
-                    csv_files = list(csv_folder.glob("*.csv"))
-                    for csv_file in csv_files:
-                        print(f"Processing file: {csv_file.name}")
-                        try:
-                            dataSender.insert_multi_row_from_csv(
-                                df=pd.read_csv(csv_file), 
-                                table_desc=table_desc, amt=500
-                            )
-                            print(f"Successfully processed: {csv_file.name}")
-                        except Exception as e:
-                            print(f"Error processing {csv_file.name}: {e}")
-                            continue
-                else:
-                    if csv_folder.name.endswith('.csv'):
-                        print(f"Processing file: {csv_folder.name}")
-                        try:
-                            dataSender.insert_multi_row_from_csv(
-                                df=pd.read_csv(csv_folder), 
-                                table_desc=table_desc, amt=500
-                            )
-                            print(f"Successfully processed: {csv_folder.name}")
-                        except Exception as e:
-                            print(f"Error processing {csv_folder.name}: {e}")
-                            continue
-            dataSender.csv_event_injection(time_threshold=300)
-            ## Event playback functionarlity code TODO---------------------------------------------------------------------------------
-            #dataSender.event_seperator(threshold=5, speed_filter=True) #Saves list to harddrive
-            #mqtt.connect()
-            #Where the csv is stored in csv_data to be sent here
-                #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
-            #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_12__12_35_00.csv"), table_desc=table_desc)       
-
+            while True:
+                dataSender.handle_event_start()
+                dataSender.event_playback(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
