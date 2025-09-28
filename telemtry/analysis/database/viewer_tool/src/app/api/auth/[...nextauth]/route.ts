@@ -1,4 +1,5 @@
-import NextAuth from 'next-auth';
+import NextAuth, { User, Session } from 'next-auth';
+import { JWT } from 'next-auth/jwt';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import prisma from '@/lib/prisma';
@@ -19,7 +20,7 @@ export const authOptions = {
         }
 
         const user = await prisma.user.findFirst({
-          where: { username: credentials.username } as any,
+          where: { username: credentials.username },
         });
 
         if (!user || !user.password) {
@@ -38,6 +39,20 @@ export const authOptions = {
   ],
   session: {
     strategy: 'jwt' as const,
+  },
+  callbacks: {
+    async jwt({ token, user }: { token: JWT; user: User }) {
+      if (user) {
+        token.username = user.username;
+      }
+      return token;
+    },
+    async session({ session, token }: { session: Session; token: JWT }) {
+      if (session.user) {
+        session.user.username = token.username;
+      }
+      return session;
+    },
   },
   secret: process.env.NEXTAUTH_SECRET,
   pages: {
