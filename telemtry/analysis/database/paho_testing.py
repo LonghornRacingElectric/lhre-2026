@@ -19,7 +19,6 @@ from pathlib import Path
 from psycopg.types.json import Jsonb
 from typing import Union, Tuple
 from google.protobuf.message import Message
-from geoalchemy2 import WKTElement
 
 sys.path.append(str(Path(__file__).parents[2]))
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget

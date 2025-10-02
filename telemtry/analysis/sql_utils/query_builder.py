@@ -27,7 +27,6 @@ from .models import (
     AngeliquePacket
 )
 from sqlalchemy.dialects.postgresql import ARRAY
-from geoalchemy2 import Geometry
 from sqlalchemy.dialects.postgresql import JSONB # Added for JSONB type handling
 
 class QueryBuilder:
@@ -93,9 +92,6 @@ class QueryBuilder:
                     ndims = 1 # Assuming 1D array for simplicity, can be extended
                     if hasattr(column.type, 'item_type'):
                         dtype = column.type.item_type.python_type
-                elif isinstance(column.type, Geometry):
-                    dtype = 'point' # Special handling for POINT type
-                    ndims = 0 # A point is a single entity, not an array of values
                 elif str(column.type) == 'JSONB': # Handle JSONB type
                     dtype = dict
                     ndims = 0

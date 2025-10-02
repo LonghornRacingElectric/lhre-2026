@@ -38,7 +38,7 @@ services:
       - telemetry_network
 
   db:
-    image: postgis/postgis:16-3.4
+    image: postgres
     container_name: db
     restart: unless-stopped
     env_file:

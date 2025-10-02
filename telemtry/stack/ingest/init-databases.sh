@@ -7,5 +7,4 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "telemetry" -f /app
 
 # Create and initialize the test database
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "postgres" -c "CREATE DATABASE angelique"
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "angelique" -c "CREATE EXTENSION postgis; ALTER DATABASE angelique OWNER TO \"$POSTGRES_USER\";"
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "angelique" -f /app/angelique_db_init.sql

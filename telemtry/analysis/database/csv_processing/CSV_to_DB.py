@@ -21,15 +21,15 @@ REALTIME = True
 
 sys.path.append(str(Path(__file__).parents[3]))
 
-from telemtry.analysis.sql_utils.db_session import get_db, DBTarget
-from telemtry.analysis.sql_utils.models import (
+from analysis.sql_utils.db_session import get_db, DBTarget
+from analysis.sql_utils.models import (
     Packet,
     Event,
     DriveDay,
     Partitions,
 )
-from telemtry.analysis.sql_utils.query_builder import QueryBuilder
-from telemtry.stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
+from analysis.sql_utils.query_builder import QueryBuilder
+from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 
 class CSVToDB():
 
