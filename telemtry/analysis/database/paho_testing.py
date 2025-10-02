@@ -267,7 +267,7 @@ class DataTester:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    car_name = "Angelique"
+    car_name = "Nightwatch"
     with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session:
         db_sessions = {'Nightwatch': nightwatch_session, 'Angelique': angelique_session}
         with MQTTHandler('paho_test', db_sessions=db_sessions) as mqtt:
@@ -282,7 +282,7 @@ if __name__ == '__main__':
 
             # data_ingest with fully processed data
             dt = DataTester(mqtt=mqtt, seed=42)
-            dt.single_table_test('angelique_packet', 2000, 0.01, target=car_name)  # sequential
+            dt.single_table_test('packet', 2000, 0.01, target=car_name)  # sequential
             time.sleep(1)
             if car_name == "Nightwatch":
                 dt.concurrent_tables_test(['dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'],
