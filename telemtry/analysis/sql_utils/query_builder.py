@@ -1,6 +1,10 @@
 import pandas as pd
 import numpy as np
+import datetime
+import logging
+import time
 from sqlalchemy import text
+from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import Query, aliased
 from .db_session import get_db
 from .models import (
@@ -221,6 +225,74 @@ class QueryBuilder:
                 return results
             else:
                 raise NotImplementedError(f'Send query has not been implemented for {return_type} yet.')
+            
+
+    @staticmethod
+    def normalize_value(val, expected_type):
+        """Convert to psycopg2-acceptable value for bulk inserts."""
+        if val is None:
+            return None
+
+        # Handle numpy → python conversions
+        if isinstance(val, (np.integer,)):
+            return int(val)
+        if isinstance(val, (np.floating,)):
+            return float(val)
+        if isinstance(val, (np.bool_,)):
+            return bool(val)
+        if isinstance(val, (np.datetime64,)):
+            return val.astype("M8[ms]").astype(datetime.datetime)
+        if isinstance(val, (np.ndarray,)):
+            return val.tolist()
+
+        # Try to cast into the expected type
+        try:
+            return expected_type(val)
+        except Exception:
+            return val
+
+    @staticmethod
+    def get_insert_values(table: str, data: dict, model, table_desc):
+        """
+        Collects data to be inserted into DB via SQLAlchemy bulk insert.
+        Applies table-specific preprocessing and type normalization.
+        """
+        # --- Find missing columns ---
+        missing_cols = [col for col in table_desc if col not in data]
+        if missing_cols:
+            logging.warning(f"Missing columns in {table}: {', '.join(missing_cols)}")
+
+        # --- Handle NaN/empty values ---
+        nan_flags = [val == 0 or bool(val) for _, val in data.items()]
+        nans = {k: v for (k, v), ok in zip(data.items(), nan_flags) if not ok}
+        if nans:
+            logging.warning(f"NaN-like data in {table}: {nans}")
+
+        # --- Normalize values ---
+        processed = {}
+        for (key, val), ok in zip(data.items(), nan_flags):
+            if not ok:
+                continue
+            if key not in table_desc:
+                continue  # skip unknown keys
+            expected_type = table_desc[key][0]
+            processed[key] = QueryBuilder.normalize_value(val, expected_type)
+
+        return processed
+    
+    @staticmethod
+    def bulk_insert(session, table_name, model, rows, table_desc, commit=True):
+        processed = [QueryBuilder.get_insert_values(table_name, row, model, table_desc) for row in rows]
+        session.bulk_insert_mappings(model, processed)
+        if commit:
+            session.commit()
+
+    @staticmethod
+    def insert(session, table_name, model, row, table_desc, commit=True):
+        processed = QueryBuilder.get_insert_values(table_name, row, model, table_desc)
+        session.add(model(**processed))
+        if commit:
+            session.commit()
 
 if __name__ == '__main__':
     with QueryBuilder() as qb:

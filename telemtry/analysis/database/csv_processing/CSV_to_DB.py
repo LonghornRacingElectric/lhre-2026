@@ -199,8 +199,8 @@ class CSVToDB():
                     convert[table][column] = dt_list
                 elif (column == "packet_id"):
                     convert[table][column] = packet_ids
-                elif (column in ['gps', 'f_gps', 'b_gps']):
-                    convert[table][column] = np.column_stack((df["Latitude"], df["Longitude"])).tolist()
+                elif (dtype == "point"):
+                    convert[table][column] = [tuple(row) for row in np.column_stack((df["Latitude"], df["Longitude"]))]
                 else:
                     convert[table][column] = []
 
@@ -215,7 +215,12 @@ class CSVToDB():
         if self.car == "Nightwatch":
             raise Exception("This function is not supported for the Nightwatch database. ")
         data = self.dataConvert(df, table_desc=table_desc)
-        packets = data["packet"]
+        packets = None
+        if (self.car == "Angelique"):
+            packets = data["angelique_packet"]
+        else:
+            packets = data["packet"]
+
         for i in tqdm(range(num_rows)):
             row_dict = {j : packets[j][i] for j in packets if (len(packets[j] != 0))}
             self.db_session.add(Packet(**row_dict))
@@ -241,30 +246,33 @@ class CSVToDB():
         Inserts data into the database in larger batches determined by the given amt value. 
         """
         # Setup data within method--------------------------------------------------------------------------------
-        if self.car == "Nightwatch":
-            raise Exception("This function is not supported for the Nightwatch database. ")
         data = self.dataConvert(df, table_desc=table_desc)
-        packets = data["packet"]
+        packets = None
+        if (self.car == "Angelique"):
+            packets = data["angelique_packet"]
+        else:
+            packets = data["packet"]
 
-        def insert_chunk(start, end, packets, data, session):
-            pack_list = [
-                {j: packets[j][i] for j in packets if len(packets[j]) != 0}
-                for i in range(start, end)
-            ]
-            session.bulk_insert_mappings(Packet, pack_list)
+        def insert_chunk(start, end, packets, data):
+            with get_db(self.car) as session:
+                pack_list = [
+                    {j: packets[j][i] for j in packets if len(packets[j]) != 0}
+                    for i in range(start, end)
+                ]
+                QueryBuilder.bulk_insert(session, "packet", Packet, pack_list, table_desc[Packet.__tablename__], commit=False)
 
-            # Insert into other tables
-            for table_name, values in data.items():
-                if not table_name in {"packet", "event", "classifier", "drive_day",
-                                "lut_driver", "lut_location", "lut_car", "lut_event_type", "partitions"}:
-                    model = QueryBuilder(self.car)._models.get(table_name.capitalize())
-                    if model:
-                        row_list = [
-                            {k: values[k][i] for k in values if len(values[k]) != 0}
-                            for i in range(start, end)
-                        ]
-                        session.bulk_insert_mappings(model, row_list)
-            session.commit()
+                # Insert into other tables
+                for table_name, values in data.items():
+                    if not table_name in {"packet", "event", "classifier", "drive_day",
+                                    "lut_driver", "lut_location", "lut_car", "lut_event_type", "partitions"}:
+                        model = QueryBuilder(self.car)._models.get(table_name.capitalize())
+                        if model:
+                            row_list = [
+                                {k: values[k][i] for k in values if len(values[k]) != 0}
+                                for i in range(start, end)
+                            ]
+                            QueryBuilder.bulk_insert(session, table_name, model, row_list, table_desc[model.__tablename__], commit=False)
+                session.commit()
 
 
         futures = []
@@ -281,7 +289,7 @@ class CSVToDB():
                     futures = list(not_done)  # raise exception if any
 
                 # Submit a new job
-                f = executor.submit(insert_chunk, j, high, packets, data, self.db_session)
+                f = executor.submit(insert_chunk, j, high, packets, data)
                 f.add_done_callback(self._insert_chunk_callback)
                 futures.append(f)
 
@@ -301,7 +309,7 @@ class CSVToDB():
         if (self.car == "Nightwatch"):
             tables = ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal']
         elif (self.car == "Angelique"):
-            tables = ['packet', 'dynamics', 'controls', 'pack',  'diagnostics', 'thermal']
+            tables = ['angelique_packet', 'angelique_dynamics', 'angelique_controls', 'angelique_pack',  'angelique_diagnostics', 'angelqiue_thermal']
         else:
             raise Exception("DBTarget not specified")
         
@@ -341,14 +349,14 @@ class CSVToDB():
         def setup_rows(df, table_desc, time_adjustment):
             """"
             Formats the rows in the form of dictionaries to be sent into database
-            """
+            """ 
             data = self.dataConvert(df, table_desc=table_desc)
             differences = []
             times = np.array(data["packet"]["time"])
             differences = np.insert(np.diff(times), 0, 0)
             if (time_adjustment):
-                data["packet"]["time"] = current_time[0] + np.cumsum(differences)
-                current_time[0] =  current_time[0] + np.sum(differences)
+                data["packet"]["time"] = (current_time[0] + np.cumsum(differences)).tolist()
+                current_time[0] =  int(current_time[0] + np.sum(differences))
 
             row_dict_list = {}
             for i, values in data.items():
@@ -356,7 +364,7 @@ class CSVToDB():
                 if (i not in {"event", "classifier", "drive_day", "lut_driver", "lut_location", "lut_car", "lut_event_type", "partitions"}):
                     model = QueryBuilder(self.car)._models.get(i.capitalize())
                     if model:
-                        row_list = [model(**{k : values[k][j] for k in values if (len(values[k]) != 0)}) for j in range(len(df.index))]
+                        row_list = [{k : values[k][j] for k in values if (len(values[k]) != 0)} for j in range(len(df.index))]
                     row_dict_list[i] = row_list
             return differences, row_dict_list
     
@@ -488,48 +496,20 @@ class CSVToDB():
 if __name__ == '__main__':
 
     logging.basicConfig(level=logging.CRITICAL)
-    car = "Angelique"
+    car = "Nightwatch"
     # Playback testing ---------------------------------------------------------------------------------------------
     with get_db(car) as session:
         with MQTTHandler(name ='event_playback_test', target = MQTTTarget.get()) as mqtt:
             dataSender = CSVToDB(db_session=session, mqtt=mqtt, car=car)
             
-            table_desc = {model.__tablename__: {c.name: (c.type.python_type, 0) for c in model.__table__.columns} for model in QueryBuilder(car)._models.values()}
+            table_desc = QueryBuilder(car).get_table_column_specs()
 
              #Finds events in the database and records them into the event table
+            dataSender.insert_multi_row_from_csv(df = pd.read_csv(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_11__05_50_47.csv")), table_desc=table_desc, amt=500)
 
-            csv_data_folders = Path(__file__).parent.joinpath("csv_data/").iterdir()
-            for csv_folder in csv_data_folders:
-                if csv_folder.is_dir():
-                    print(f"Processing folder: {csv_folder.name}")
-                    csv_files = list(csv_folder.glob("*.csv"))
-                    for csv_file in csv_files:
-                        print(f"Processing file: {csv_file.name}")
-                        try:
-                            dataSender.insert_multi_row_from_csv(
-                                df=pd.read_csv(csv_file), 
-                                table_desc=table_desc, amt=500
-                            )
-                            print(f"Successfully processed: {csv_file.name}")
-                        except Exception as e:
-                            print(f"Error processing {csv_file.name}: {e}")
-                            continue
-                else:
-                    if csv_folder.name.endswith('.csv'):
-                        print(f"Processing file: {csv_folder.name}")
-                        try:
-                            dataSender.insert_multi_row_from_csv(
-                                df=pd.read_csv(csv_folder), 
-                                table_desc=table_desc, amt=500
-                            )
-                            print(f"Successfully processed: {csv_folder.name}")
-                        except Exception as e:
-                            print(f"Error processing {csv_folder.name}: {e}")
-                            continue
-            dataSender.csv_event_injection(time_threshold=300)
             ## Event playback functionarlity code TODO---------------------------------------------------------------------------------
             #dataSender.event_seperator(threshold=5, speed_filter=True) #Saves list to harddrive
             #mqtt.connect()
             #Where the csv is stored in csv_data to be sent here
                 #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
-            #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_12__12_35_00.csv"), table_desc=table_desc)  target = DBTarget(car = "Nightwatch")
+            #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)

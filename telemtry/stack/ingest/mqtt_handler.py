@@ -53,6 +53,10 @@ class MQTTHandler:
         self.scalar_or_list = lambda val, scalar: val.tolist()[0] if scalar else val.tolist()
         self.cache = []
         self.cache_enable = cache_enable
+        self.table_specs = {
+            "Nightwatch": QueryBuilder("Nightwatch").get_table_column_specs(),
+            "Angelique": QueryBuilder("Angelique").get_table_column_specs()
+        }
 
     @staticmethod
     def on_connect(client: mqtt_client.Client, userdata, flags: dict, rc: int):
@@ -177,14 +181,14 @@ class MQTTHandler:
         model = QueryBuilder(car)._models.get(table.capitalize())
 
         if model:
+            table_desc = self.table_specs[car][model.__tablename__]
             if isinstance(data_dict, list):
                 if len(data_dict) > 1:
-                    session.bulk_insert_mappings(model, data_dict)
+                    QueryBuilder.bulk_insert(session, table, model, data_dict, table_desc, commit=True)
                 else:
-                    session.add(model(**data_dict[0]))
+                    QueryBuilder.insert(session, table, model, data_dict[0], table_desc, commit=True)
             elif not cache_enable:
-                session.add(model(**data_dict))
-            session.commit()
+                QueryBuilder.insert(session, table, model, data_dict, table_desc, commit=True)
     
     def _proto_ingest(self, payload:str, cache_enable = False):
         message_dict = self._proto_decode(payload=payload)
@@ -194,19 +198,21 @@ class MQTTHandler:
 
         session = self.sessions["Nightwatch"]
         builder = QueryBuilder("Nightwatch")
+        table_specs = self.table_specs["Nightwatch"]
 
         for table in ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal']:
             model = builder._models.get(table.capitalize())
             if model:
+                table_desc = table_specs[model.__tablename__]
                 data = {col.name: message_dict[col.name] for col in model.__table__.columns if col.name in message_dict} if table == "packet" else None
                 if (data is None):
                     data = ({col.name: message_dict[table][col.name] for col in model.__table__.columns if col.name in message_dict[table]}
                     | {"packet_id": message_dict["packet_id"]}) if table in message_dict else None
 
                 if not cache_enable:
-                    session.add(model(**data))
+                    QueryBuilder.insert(session, table, model, data, table_desc, commit=False)
                 elif table == 'packet':
-                    session.add(model(**data))
+                    QueryBuilder.insert(session, table, model, data, table_desc, commit=False)
                 elif table != 'packet':
                     self.cache.append((model, data))
                     if (len(self.cache) == 24):
@@ -231,13 +237,15 @@ class MQTTHandler:
 
         session = self.sessions["Angelique"]
         builder = QueryBuilder("Angelique")
+        table_specs = self.table_specs["Angelique"]
 
         for table in ['packet', 'angelique_dynamics', 'angelique_controls', 'angelique_pack', 'angelique_diagnostics', 'angelique_thermal']:
             model = builder._models.get(table.capitalize())
             if model:
+                table_desc = table_specs[model.__tablename__]
                 data = {col.name: data_dict[col.name] for col in model.__table__.columns if col.name in data_dict}
                 if data:
-                    session.add(model(**data))
+                    QueryBuilder.insert(session, table, model, data, table_desc, commit=False)
                 else:
                     logging.warning(f'\tNo data received for {table}...')
         session.commit()
