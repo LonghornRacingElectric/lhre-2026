@@ -505,11 +505,11 @@ if __name__ == '__main__':
             table_desc = QueryBuilder(car).get_table_column_specs()
 
              #Finds events in the database and records them into the event table
-            dataSender.insert_multi_row_from_csv(df = pd.read_csv(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_11__05_50_47.csv")), table_desc=table_desc, amt=500)
+            #dataSender.insert_multi_row_from_csv(df = pd.read_csv(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_11__05_50_47.csv")), table_desc=table_desc, amt=500)
 
             ## Event playback functionarlity code TODO---------------------------------------------------------------------------------
             #dataSender.event_seperator(threshold=5, speed_filter=True) #Saves list to harddrive
             #mqtt.connect()
             #Where the csv is stored in csv_data to be sent here
                 #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data/gps_classifier_tests", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
-            #dataSender.event_playback(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
+            dataSender.event_playback(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)

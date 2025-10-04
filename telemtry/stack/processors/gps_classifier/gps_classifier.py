@@ -12,6 +12,7 @@ import warnings
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import pandas as pd
+from sqlalchemy import func
 
 warnings.simplefilter('ignore', np.linalg.LinAlgError)
 warnings.filterwarnings("ignore")
@@ -23,10 +24,10 @@ if os.getenv('IN_DOCKER'):
     from mqtt_handler import MQTTHandler, MQTTTarget
     visualizer_image_path = "./static/images"
 else:
-    from telemtry.analysis.sql_utils.db_session import get_db, DBTarget
-    from telemtry.analysis.sql_utils.query_builder import QueryBuilder
-    from telemtry.stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
-    from telemtry.analysis.sql_utils.models import Classifier, Dynamics, Packet
+    from analysis.sql_utils.db_session import get_db, DBTarget
+    from analysis.sql_utils.query_builder import QueryBuilder
+    from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
+    from analysis.sql_utils.models import Classifier, Dynamics, Packet, Controls
 
 
 class ProcessType(Enum):
@@ -109,7 +110,7 @@ visualizer = Visualizer()
     
 
 class Event:    
-    def __init__(self, type: ProcessType, starting_time: int, starting_heading: float, event_id: int = -9999, session=None):
+    def __init__(self, type: ProcessType, starting_time: int, starting_heading: float, event_id: int = -9999, session=None, table_specs=None):
         self.type: ProcessType = type
         self.starting_time: int = starting_time
         
@@ -119,6 +120,7 @@ class Event:
         self.event_id = event_id
         
         self.session = session
+        self.table_specs = table_specs
     
     def _stop_event(self, time: int):
         """
@@ -141,8 +143,8 @@ class Event:
                 "notes": f"{self.type.name}"
         }
         #! Will crash if no event
-        self.session.add(Classifier(**db_obj))
-        self.session.commit()
+        table_desc = self.table_specs[Classifier.__tablename__]
+        QueryBuilder.insert(self.session, 'classifier', Classifier, db_obj, table_desc, commit=True)
         
         visualizer.start_event(self.starting_time, self.type)
         visualizer.stop_event(time, self.type)
@@ -170,6 +172,7 @@ class GPSClassifierProcessor:
         self.started_event: Event = None
         
         self.min_time = 0
+        self.table_specs = QueryBuilder("Nightwatch").get_table_column_specs()
    
     def _start_event(self, time: int, heading:int, type: ProcessType):
         # Stop any previous process
@@ -181,7 +184,7 @@ class GPSClassifierProcessor:
             return
         
         
-        self.started_event = Event(type=type, starting_time=time, starting_heading=heading, event_id=self.event_id, session=self.session)
+        self.started_event = Event(type=type, starting_time=time, starting_heading=heading, event_id=self.event_id, session=self.session, table_specs=self.table_specs)
         
         
     def _detect_events(self, points: NDArray, la_threshold: float, t_threshold: float, la_time_window: float, t_time_window: float, check_delay: int):

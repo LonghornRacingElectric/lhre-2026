@@ -13,10 +13,10 @@ import requests
 if os.getenv('IN_DOCKER'):
     from mqtt_handler import MQTTHandler, MQTTTarget
 else:
-    from telemtry.analysis.sql_utils.db_session import get_db, DBTarget
-    from telemtry.analysis.sql_utils.query_builder import QueryBuilder
-    from telemtry.stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
-    from telemtry.analysis.sql_utils.models import Classifier, Dynamics, Packet, Event
+    from analysis.sql_utils.db_session import get_db, DBTarget
+    from analysis.sql_utils.query_builder import QueryBuilder
+    from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
+    from analysis.sql_utils.models import Classifier, Dynamics, Packet, Event
 
 
 class LapTimerProcessor:
@@ -26,7 +26,8 @@ class LapTimerProcessor:
         self.gate: tuple[tuple[float], tuple[float]]  = None
         self.status: int = None
         
-        self.start_packet: int = 0        
+        self.start_packet: int = 0
+        self.table_specs = QueryBuilder("Nightwatch").get_table_column_specs()
 
     def _track_lap(self, gate: tuple[tuple[float, float], tuple[float, float]], points: list) -> float | None:
         """
@@ -85,11 +86,10 @@ class LapTimerProcessor:
             if event:
                 event.status = 1
                 event.start_time = time
-                self.session.commit()
 
-        
-        self.session.add(Classifier(**db_obj))
-        self.session.commit()
+        table_desc = self.table_specs[Classifier.__tablename__]
+        QueryBuilder.insert(self.session, 'classifier', Classifier, db_obj, table_desc, commit=True)
+
         try:
             # requests.post("http://host.docker.internal:5000/webtool/new_lap", data={"time": time})  #! DIDN'T WORK ON PROD
             requests.post("https://lhrelectric.org/webtool/new_lap", data={"time": time})
@@ -158,8 +158,8 @@ class LapTimerProcessor:
             "notes": f"{gates[0][0]}_{gates[0][1]}_{gates[1][0]}_{gates[1][1]}",
             "start_time": time.time() * 1000
         }
-        self.session.add(Classifier(**db_obj))
-        self.session.commit()
+        table_desc = self.table_specs[Classifier.__tablename__]
+        QueryBuilder.insert(self.session, 'classifier', Classifier, db_obj, table_desc, commit=True)
         
         logging.info("Published gates to classifier", db_obj)
    
