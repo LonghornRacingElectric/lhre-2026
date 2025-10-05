@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input';
 import { AppState } from '@/lib/types';
 import LapTimer from '@/components/LapTimer';
 import { useSortableTile } from '@/hooks/useSortableTile';
+import CarVisualization from '@/components/CarVisualization';
 
 const DynamicMap = dynamic(() => import('@/components/Map'), {
   ssr: false,
@@ -62,11 +63,9 @@ const Tile = ({ feature, appState, note, setNote, handleSubmitNote, isDragging }
                 );
             case '3d-simulation':
                 return (
-                    <img
-                      src="/window.svg"
-                      alt="3D Simulation"
-                      className="w-full h-full object-contain"
-                    />
+                  <div className="w-full h-full object-contain">
+                    <CarVisualization/>
+                  </div>
                 );
             case 'space-time-trajectory':
                 return (
