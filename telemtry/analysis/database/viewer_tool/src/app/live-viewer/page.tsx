@@ -82,7 +82,7 @@ const Tile = ({ feature, appState, note, setNote, handleSubmitNote, isDragging }
             case 'gg-plot':
                 return (
                     <img
-                      src="/window.svg"
+                      src="/images/fake_gg.gif"
                       alt="GG Plot"
                       className="w-full h-full object-contain"
                     />
