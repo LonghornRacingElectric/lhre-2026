@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useState, useEffect, useRef } from 'react';
+import { nanoid } from 'nanoid';
 
 // Fix for default icon issue with webpack
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,7 +34,7 @@ const Map = () => {
   const [position, setPosition] = useState<[number, number]>([51.505, -0.09]);
   const [error, setError] = useState<string | null>(null);
   const watcherRef = useRef<number | null>(null);
-
+  const mapId = useRef(nanoid());
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -68,7 +69,7 @@ const Map = () => {
   }
 
   return (
-    <MapContainer center={position} zoom={19} style={{ height: '100%', width: '100%' }}>
+    <MapContainer key={mapId.current} id={mapId.current} center={position} zoom={19} style={{ height: '100%', width: '100%' }}>
       <TileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
