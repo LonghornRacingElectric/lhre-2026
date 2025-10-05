@@ -76,7 +76,16 @@ export default function NewEventPage() {
     sendStateUpdate({ newEvent: newFormState });
   };
 
-  const handleCreateEvent = () => {
+  const handleCreateEvent = async () => {
+    const response = await fetch('/api/create-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newEventState),
+    });
+    if(response.status != 201) {
+      console.error('Failed to create new drive day');
+      return;
+    }
     sendStateUpdate({ currentPage: '/event/in-progress' });
     router.push('/event/in-progress');
   };

@@ -9,7 +9,9 @@
     "lint": "next lint",
     "prisma-auth-generate": "npx prisma generate --schema=prisma/auth.prisma",
     "prisma-telemtry-generate": "npx prisma generate --schema=prisma/telemtry.prisma",
-    "prisma-seed": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"
+    "prisma-auth-seed": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/auth_seed.ts",
+    "prisma-telemtry-seed": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/telemtry_seed.ts",
+    "prisma-studio": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/prisma-studio.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
