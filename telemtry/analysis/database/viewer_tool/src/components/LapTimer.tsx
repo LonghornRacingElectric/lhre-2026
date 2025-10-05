@@ -25,7 +25,7 @@ const LapTimer = () => {
     ];
 
     useEffect(() => {
-        start();
+        start(Date.now(), 0);
     }, [start]);
 
   return (

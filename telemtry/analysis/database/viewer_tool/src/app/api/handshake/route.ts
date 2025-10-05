@@ -10,8 +10,9 @@ export async function GET(req: NextRequest) {
     const last_packet = lastPacketRes.rows[0]?.packet_id || 0;
 
     return NextResponse.json({ time, last_packet });
-  } catch (error) {
-    console.error('Error in handshake:', error);
+  } catch (e) {
+    console.error('Error in handshake:', e);
+    const error = e as { code?: string };
     // If the packet table does not exist, we should still return a time.
     if (error.code === '42P01') { // undefined_table
         return NextResponse.json({ time: Date.now(), last_packet: 0 });
