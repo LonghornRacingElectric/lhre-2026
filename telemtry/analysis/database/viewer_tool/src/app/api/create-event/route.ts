@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
         day_id: lastDriveDay.day_id,
         status,
         creation_time,
+        start_time: creation_time,
         packet_start,
         car_id: car_id ? parseInt(car_id) : 9999,
         driver_id: driver_id ? parseInt(driver_id) : 9999,
