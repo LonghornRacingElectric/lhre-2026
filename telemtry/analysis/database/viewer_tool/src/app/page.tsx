@@ -41,10 +41,11 @@ export default function SplashPage() {
 
   return (
     <div className="min-h-screen flex flex-col justify-between pt-14">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 flex-grow p-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 flex-grow p-8">
         <SplashBox href={getDrivedayHref()} title="Driveday Page" imageUrl="/car.png" />
         <SplashBox href="/tune" title="Texas Tune" imageUrl="/tune.png" />
         <SplashBox href="/dashboards" title="Grafana & Database" imageUrl="/graph.png" />
+        <SplashBox href="/live-viewer" title="Live Viewer" imageUrl="/window.svg" />
       </div>
     </div>
   );
