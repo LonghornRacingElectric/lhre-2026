@@ -77,8 +77,8 @@ export default function NewEventPage() {
   };
 
   const handleCreateEvent = () => {
-    sendStateUpdate({ currentPage: '/event/tracker' });
-    router.push('/event/tracker');
+    sendStateUpdate({ currentPage: '/event/in-progress' });
+    router.push('/event/in-progress');
   };
 
   return (
