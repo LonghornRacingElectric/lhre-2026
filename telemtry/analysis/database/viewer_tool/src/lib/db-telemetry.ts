@@ -6,21 +6,19 @@ declare global {
   var pool: Pool | undefined;
 }
 
-if (process.env.NODE_ENV === 'production') {
-  pool = new Pool({
-    connectionString: process.env.TELEMETRY_DATABASE_URL,
-  });
-} else {
-  if (!global.pool) {
-    global.pool = new Pool({
-      host: 'localhost',
-      port: 5432,
-      database: 'telemetry',
-      user: 'electric',
-      password: process.env.ELECTRIC_PWD,
-    });
-  }
-  pool = global.pool;
+const database = {
+  username: "electric",
+  password: process.env.ELECTRIC_PWD,
+  host: "localhost",
+  port: 5432,
+  dbName: "telemetry",
 }
+
+if (!global.pool) {
+  global.pool = new Pool({
+    connectionString: `postgresql://${database.username}:${database.password}@${database.host}:${database.port}/${database.dbName}`
+  });
+}
+pool = global.pool;
 
 export default pool;

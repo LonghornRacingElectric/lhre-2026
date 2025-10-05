@@ -6,10 +6,10 @@
     "dev": "next dev --turbopack --port 3001",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "next lint"
-  },
-  "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+    "lint": "next lint",
+    "prisma-auth-generate": "npx prisma generate --schema=prisma/auth.prisma",
+    "prisma-telemtry-generate": "npx prisma generate --schema=prisma/telemtry.prisma",
+    "prisma-seed": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"
   },
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",

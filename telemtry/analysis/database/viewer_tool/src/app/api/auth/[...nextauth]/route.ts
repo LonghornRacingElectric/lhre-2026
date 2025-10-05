@@ -2,11 +2,12 @@ import NextAuth, { User, Session } from 'next-auth';
 import { JWT } from 'next-auth/jwt';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import prisma from '@/lib/prisma';
+import prismaAuth from '@/lib/prisma/auth';
 import { compare } from 'bcrypt';
+import type { PrismaClient as DefaultPrismaClient } from '@prisma/client';
 
 export const authOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: PrismaAdapter(prismaAuth as DefaultPrismaClient),
   providers: [
     CredentialsProvider({
       name: 'Credentials',
@@ -19,7 +20,7 @@ export const authOptions = {
           return null;
         }
 
-        const user = await prisma.user.findFirst({
+        const user = await prismaAuth.user.findFirst({
           where: { username: credentials.username },
         });
 

@@ -56,7 +56,19 @@ export default function DrivedayPage() {
     sendStateUpdate({ driveDay: newDriveDayState });
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
+    const response = await fetch('/api/new-drive-day', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        power_limit: driveDayState.powerLimit,
+        conditions: driveDayState.drivingConditions,
+      }),
+    });
+    if(response.status != 201) {
+      console.error('Failed to create new drive day');
+      return;
+    }
     sendStateUpdate({ currentPage: '/event/new' });
     router.push('/event/new');
   };
