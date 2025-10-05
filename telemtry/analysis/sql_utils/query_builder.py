@@ -22,13 +22,13 @@ from .models import (
     DiagnosticsLow,
     Thermal,
     Classifier,
+    Partitions,
+    AngeliquePacket,
     AngeliqueDynamics,
     AngeliqueControls,
+    AngeliquePack,
     AngeliqueDiagnostics,
     AngeliqueThermal,
-    Partitions,
-    AngeliquePack, 
-    AngeliquePacket
 )
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import JSONB # Added for JSONB type handling
@@ -63,8 +63,8 @@ class QueryBuilder:
         elif car == "Angelique":
             self._models["Dynamics"] = AngeliqueDynamics
             self._models["Controls"] = AngeliqueControls
-            self._models["Pack"] = AngeliquePack # Assuming Pack is same for Angelique
-            self._models["Diagnostics"] = AngeliqueDiagnostics # This is the key
+            self._models["Pack"] = AngeliquePack
+            self._models["Diagnostics"] = AngeliqueDiagnostics
             self._models["Thermal"] = AngeliqueThermal
             self._models["Packet"] = AngeliquePacket
         else:
@@ -107,6 +107,10 @@ class QueryBuilder:
     def __enter__(self):
         self.session = self._db_context_manager.__enter__() # Get the session from the context manager
         self._query = self.session.query() # Initialize query here
+        if self._car.lower() == "angelique":
+            self.session.execute(text("SET search_path TO angelique"))
+        else:
+            self.session.execute(text("SET search_path TO telemetry"))
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
