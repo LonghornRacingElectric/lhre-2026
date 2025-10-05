@@ -47,8 +47,8 @@ export default function CarVisualization() {
   const brWheelRot = React.useRef(0);
 
   return (
-    <div className="overflow-hidden">
-      <div className="flex gap-4 mb-2">
+    <div className="h-full flex flex-col">
+      <div className="flex gap-4 mb-2 overflow-x-auto">
         {/* ...existing code for controls... */}
         <label>
           Wheel Speed
@@ -170,18 +170,20 @@ export default function CarVisualization() {
           {carState.br_spring_displace.toFixed(2)}
         </label>
       </div>
-      <Canvas camera={{ position: [0, 5, 12], fov: 50 }}>
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[5, 10, 5]} intensity={1} />
-        <SuspensionSystem
-          {...carState}
-          flWheelRot={flWheelRot}
-          frWheelRot={frWheelRot}
-          blWheelRot={blWheelRot}
-          brWheelRot={brWheelRot}
-        />
-        <OrbitControls />
-      </Canvas>
+      <div className="flex-grow">
+        <Canvas camera={{ position: [0, 5, 12], fov: 50 }}>
+          <ambientLight intensity={0.5} />
+          <directionalLight position={[5, 10, 5]} intensity={1} />
+          <SuspensionSystem
+            {...carState}
+            flWheelRot={flWheelRot}
+            frWheelRot={frWheelRot}
+            blWheelRot={blWheelRot}
+            brWheelRot={brWheelRot}
+          />
+          <OrbitControls />
+        </Canvas>
+      </div>
     </div>
   );
 
