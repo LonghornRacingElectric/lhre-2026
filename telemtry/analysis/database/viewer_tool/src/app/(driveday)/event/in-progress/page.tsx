@@ -40,7 +40,11 @@ const EventInProgressPage = () => {
     sendStateUpdate(newState);
   };
 
-  const handleEndEvent = () => {
+  const handleEndEvent = async () => {
+    const response = await fetch('/api/end-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
     updateState(s => ({ ...s, eventTracker: { isTimerRunning: false, timerStartTime: 0, timerBaseTime: 0, turns: [], accels: [], laps: [] }, newEvent: undefined, currentPage: '/event/new' }));
     router.push('/event/new');
   };
