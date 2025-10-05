@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import prisma from '@/lib/prisma/auth';
 
 const TIMEOUT = 15000; // 15 seconds
 
