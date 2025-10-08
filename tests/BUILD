@@ -7,5 +7,10 @@ build_test(
 
 build_test(
     name = "rust_cand_build_test",
-    targets = ["//BEVO/cand:real"],
+    targets = ["//BEVO/cand:cand"],
+)
+
+build_test(
+    name = "rust_dashd_build_test",
+    targets = ["//BEVO/dashd:dashd"],
 )
