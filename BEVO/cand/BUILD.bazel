@@ -6,7 +6,7 @@ rust_binary(
     deps = [
     ] + select({
         "@platforms//os:linux": [
-            "@crate_index//:socketcan",
+            "@crates//:socketcan",
         ],
         "//conditions:default": [],
     }),
