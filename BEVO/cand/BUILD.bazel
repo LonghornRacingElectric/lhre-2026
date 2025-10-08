@@ -4,15 +4,16 @@ rust_binary(
     name = "real",
     srcs = ["main.rs"],
     deps = [
-        "@crate_index//:anyhow",
-        "@crate_index//:clap",
+        "@crates//:anyhow",
+        "@crates//:clap",
+        "@crates//:tokio",
+        "@crates//:log",
+        "@crates//:env_logger",
     ] + select({
         "@platforms//os:linux": [
             "@crate_index//:socketcan",
         ],
-        "//conditions:default": [
-        ],
+        "//conditions:default": [],
     }),
-
-    visibility = ["//visibility:public"]
+    visibility = ["//visibility:public"],
 )

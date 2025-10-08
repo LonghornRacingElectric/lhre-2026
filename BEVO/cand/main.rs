@@ -1,66 +1,71 @@
-use clap::Parser;
+use std::io::Write;
+use std::os::unix::net::UnixListener;
+use std::path::Path;
+use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::Duration;
 
-/// Command-line options
-#[derive(Parser)]
-struct Args {
-    #[arg(short, long, default_value = "real")]
-    mode: String,
-}
+fn main() -> std::io::Result<()> {
+    let socket_path = "/tmp/simple_stream.sock";
 
-fn main() -> anyhow::Result<()> {
-    let args = Args::parse();
+    if Path::new(socket_path).exists() {
+        std::fs::remove_file(socket_path)?;
+    }
 
-    // match args.mode.as_str() {
-    //     "real" => run_real(),
-    //     "fake" => run_fake(),
-    //     _ => anyhow::bail!("Invalid mode: use 'real' or 'fake'"),
-    // }
+    let listener = UnixListener::bind(socket_path)?;
+    println!("[Publisher] Server listening for multiple clients at {}", socket_path);
 
-    run();
+    let clients = Arc::new(Mutex::new(Vec::new()));
 
-    return { Ok(()) };
-}
+    let clients_clone = clients.clone();
+    thread::spawn(move || {
+        for stream in listener.incoming() {
+            match stream {
+                Ok(stream) => {
+                    println!("[Publisher] New listener connected!");
+                    clients_clone.lock().unwrap().push(stream);
+                }
+                Err(err) => {
+                    eprintln!("[Publisher] Error accepting connection: {}", err);
+                    break;
+                }
+            }
+        }
+    });
 
-#[cfg(target_os = "linux")]
-async fn run() -> anyhow::Result<()> {
-    // Import the Socket trait here
-    use socketcan::{CanFrame, CanSocket, Socket};
-    use std::time::Duration;
+    // 3. The main thread will now act as the publisher.
+    let mut count = 0;
+    loop {
+        let message = format!("Broadcast message: {}\n", count);
+        let mut dead_clients = Vec::new();
 
-    println!("Running in REAL mode: reading from CAN bus");
+        // Lock the list of clients to safely send data to them.
+        let mut clients_guard = clients.lock().unwrap();
+        
+        if !clients_guard.is_empty() {
+             println!("[Publisher] Sending to {} listeners.", clients_guard.len());
+        }
 
-    async fn main() -> Result<()> {
-        let mut sock_rx = CanSocket::open("vcan0")?;
-        let sock_tx = CanSocket::open("can0")?;
-
-        while let Some(Ok(frame)) = sock_rx.next().await {
-            if matches!(frame, CanFrame::Data(_)) {
-                sock_tx.write_frame(frame)?.await?;
+        // Iterate over each connected client.
+        for (i, mut stream) in clients_guard.iter().enumerate() {
+            // Try to write the message.
+            if stream.write_all(message.as_bytes()).is_err() {
+                // If the write fails, the client has disconnected.
+                // We can't remove it now (we're borrowing), so we mark it for removal.
+                println!("[Publisher] A listener disconnected. Marking for removal.");
+                dead_clients.push(i);
             }
         }
 
-        Ok(())
-    }
+        // Remove any disconnected clients from our list.
+        // We iterate in reverse to avoid messing up the indices.
+        for &index in dead_clients.iter().rev() {
+            clients_guard.remove(index);
+        }
+        
+        // The lock on `clients_guard` is released here automatically.
 
-}
-
-#[cfg(not(target_os = "linux"))]
-fn run() -> anyhow::Result<()> {
-    // use socketcan::CANFrame;
-
-    println!("Running in FAKE mode: generating dummy CAN frames");
-
-    let mut counter = 0;
-
-    loop {
-        let fake_data = [counter as u8, 0xAB, 0xCD, 0xEF, 0x12, 0x34, 0x56, 0x78];
-        // let fake_frame = CANFrame::new(0x123, &fake_data, false, false)?;
-
-        // println!("[FAKE] Generated CAN frame: {:?}", fake_frame);
-        // TODO: Publish to message bus
-
-        counter = (counter + 1) % 256;
-        std::thread::sleep(Duration::from_millis(500));
+        count += 1;
+        thread::sleep(Duration::from_millis(1));
     }
 }

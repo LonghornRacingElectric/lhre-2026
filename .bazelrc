@@ -3,3 +3,5 @@
 build --incompatible_enable_cc_toolchain_resolution
 build:firmware --platforms=//:arm_none_eabi
 run --platforms=@platforms//host
+
+build --strategy=rust_build_script=local
