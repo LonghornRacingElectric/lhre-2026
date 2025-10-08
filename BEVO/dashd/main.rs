@@ -1,17 +1,48 @@
-use tokio::time::{sleep, Duration};
-use zeromq::{SubSocket, Socket, SocketRecv};
+use std::io::Read;
+use std::os::unix::net::UnixStream;
+use std::path::Path;
+use std::thread;
+use std::time::Duration;
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let mut socket = SubSocket::new();
-    socket.connect("ipc:///tmp/vehicle_data.ipc").await?;
+const SOCKET_PATH: &str = "/tmp/main.sock";
 
+fn main() {
     loop {
-        let msg = socket.recv().await?;  // this gives a single Bytes payload
-        let data = msg.into_vec();          // convert to Vec<u8> if needed
+        println!(
+            "[dashd] Attempting to connect to server at {}...",
+            SOCKET_PATH
+        );
 
-        println!("Received: {:?}", data);
+        // Attempt to connect to the server's Unix socket.
+        match UnixStream::connect(SOCKET_PATH) {
+            Ok(mut stream) => {
+                println!("[dashd] Connected successfully!");
 
-        sleep(Duration::from_millis(500)).await;
+                let mut buffer = [0; 1024];
+
+                loop {
+                    match stream.read(&mut buffer) {
+                        Ok(bytes_read) => {
+                            if bytes_read == 0 {
+                                println!("[dashd] Server disconnected. Reconnecting...");
+                                break;
+                            }
+
+                            let message = String::from_utf8_lossy(&buffer[..bytes_read]);
+                            print!("[dashd] Received: {}", message);
+                        }
+                        Err(e) => {
+                            eprintln!("[dashd] Connection error: {}. Reconnecting...", e);
+                            break;
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("[dashd] Failed to connect: {}. Retrying in 2 seconds...", e);
+            }
+        }
+
+        thread::sleep(Duration::from_secs(2));
     }
 }

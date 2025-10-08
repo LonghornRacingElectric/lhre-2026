@@ -4,9 +4,6 @@ rust_binary(
     name = "dashd",
     srcs = ["main.rs"],
     deps = [
-        "@crates//:zeromq",
-        "@crates//:tokio",
-        "@crates//:anyhow",
     ],
     visibility = ["//visibility:public"],
 )

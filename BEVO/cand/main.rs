@@ -1,71 +1,67 @@
 use std::io::Write;
-use std::os::unix::net::UnixListener;
+use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-fn main() -> std::io::Result<()> {
-    let socket_path = "/tmp/simple_stream.sock";
+const WAIT: u64 = 10;
+const SOCKET_PATH: &str = "/tmp/main.sock";
 
-    if Path::new(socket_path).exists() {
-        std::fs::remove_file(socket_path)?;
+fn main() -> std::io::Result<()> {
+    // Remove old socket file if it exists
+    if Path::new(SOCKET_PATH).exists() {
+        std::fs::remove_file(SOCKET_PATH)?;
     }
 
-    let listener = UnixListener::bind(socket_path)?;
-    println!("[Publisher] Server listening for multiple clients at {}", socket_path);
+    let listener = UnixListener::bind(SOCKET_PATH)?;
+    println!("[CAND] Server listening at {}", SOCKET_PATH);
 
     let clients = Arc::new(Mutex::new(Vec::new()));
 
-    let clients_clone = clients.clone();
-    thread::spawn(move || {
-        for stream in listener.incoming() {
-            match stream {
-                Ok(stream) => {
-                    println!("[Publisher] New listener connected!");
-                    clients_clone.lock().unwrap().push(stream);
-                }
-                Err(err) => {
-                    eprintln!("[Publisher] Error accepting connection: {}", err);
-                    break;
-                }
-            }
-        }
-    });
+    // thread to accept clients
+    let clients_accept = Arc::clone(&clients);
+    thread::spawn(move || accept_clients(listener, clients_accept));
 
-    // 3. The main thread will now act as the publisher.
+    // thread broadcasts messages
+    broadcast_loop(clients);
+
+    Ok(())
+}
+
+// Accepts incoming Unix socket clients and stores them in the shared list
+fn accept_clients(listener: UnixListener, clients: Arc<Mutex<Vec<UnixStream>>>) {
+    for stream in listener.incoming() {
+        match stream {
+            Ok(stream) => {
+                println!("[CAND] New client connected");
+                clients.lock().unwrap().push(stream);
+            }
+            Err(err) => eprintln!("[CAND] Connection error: {}", err),
+        }
+    }
+}
+
+// Broadcasts messages to all connected clients
+fn broadcast_loop(clients: Arc<Mutex<Vec<UnixStream>>>) {
     let mut count = 0;
     loop {
         let message = format!("Broadcast message: {}\n", count);
         let mut dead_clients = Vec::new();
 
-        // Lock the list of clients to safely send data to them.
         let mut clients_guard = clients.lock().unwrap();
-        
-        if !clients_guard.is_empty() {
-             println!("[Publisher] Sending to {} listeners.", clients_guard.len());
-        }
-
-        // Iterate over each connected client.
-        for (i, mut stream) in clients_guard.iter().enumerate() {
-            // Try to write the message.
+        for (i, stream) in clients_guard.iter_mut().enumerate() {
             if stream.write_all(message.as_bytes()).is_err() {
-                // If the write fails, the client has disconnected.
-                // We can't remove it now (we're borrowing), so we mark it for removal.
-                println!("[Publisher] A listener disconnected. Marking for removal.");
+                println!("[CAND] Client disconnected");
                 dead_clients.push(i);
             }
         }
 
-        // Remove any disconnected clients from our list.
-        // We iterate in reverse to avoid messing up the indices.
-        for &index in dead_clients.iter().rev() {
-            clients_guard.remove(index);
+        for &i in dead_clients.iter().rev() {
+            clients_guard.remove(i);
         }
-        
-        // The lock on `clients_guard` is released here automatically.
 
         count += 1;
-        thread::sleep(Duration::from_millis(1));
+        thread::sleep(Duration::from_millis(WAIT));
     }
 }

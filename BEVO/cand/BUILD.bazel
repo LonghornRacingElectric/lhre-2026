@@ -1,14 +1,9 @@
 load("@rules_rust//rust:defs.bzl", "rust_binary")
 
 rust_binary(
-    name = "real",
+    name = "cand",
     srcs = ["main.rs"],
     deps = [
-        "@crates//:anyhow",
-        "@crates//:clap",
-        "@crates//:tokio",
-        "@crates//:log",
-        "@crates//:env_logger",
     ] + select({
         "@platforms//os:linux": [
             "@crate_index//:socketcan",
