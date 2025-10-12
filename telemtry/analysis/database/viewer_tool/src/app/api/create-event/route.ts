@@ -54,17 +54,18 @@ export async function POST(req: NextRequest) {
       undertrayOn,
     } = body;
 
-    const newEvent = await prisma.event.create({
+      let DEFAULT = 9999;
+      const newEvent = await prisma.event.create({
       data: {
         day_id: currentDriveDay.day_id,
         status,
         creation_time,
         start_time: creation_time,
         packet_start,
-        car_id: carId ? parseInt(carId) : 9999,
-        driver_id: driverId ? parseInt(driverId) : 9999,
-        location_id: locationId ? parseInt(locationId) : 9999,
-        event_type: eventType ? parseInt(eventType) : 9999,
+        car_id: carId ? parseInt(carId) : DEFAULT,
+        driver_id: driverId ? parseInt(driverId) : DEFAULT,
+        location_id: locationId ? parseInt(locationId) : DEFAULT,
+        event_type: eventType ? parseInt(eventType) : DEFAULT,
         car_weight: carWeight ? parseInt(carWeight) : null,
         tow_angle: towAngle ? parseFloat(towAngle) : null,
         camber: camber ? parseFloat(camber) : null,

@@ -11,9 +11,6 @@ sys.path.append(str(Path(__file__).parents[3]))
 from analysis.sql_utils.db_handler import DBHandler, DBTarget, get_table_column_specs
 
 def main():
-    # Set a dummy password. This might fail.
-    os.environ['ELECTRIC_PWD'] = 'password'
-    
     try:
         with DBHandler(unsafe=True, target=DBTarget.get(car="Nightwatch")) as handler:
             table_specs = get_table_column_specs(force=True, verbose=True, handler=handler, target=DBTarget.get(car='Nightwatch'))
