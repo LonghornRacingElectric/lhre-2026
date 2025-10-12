@@ -18,7 +18,14 @@ from analysis.sql_utils.db_session import get_db
 from analysis.sql_utils.query_builder import QueryBuilder
 from stack.ingest.protobuf import template_pb2
 
-net_config_path = "/app/net_configs.json" if os.getenv("IN_DOCKER") else "net_configs.json"
+# Determine path to net_configs.json based on execution context
+if os.getenv("IN_DOCKER"):
+    # Inside docker, path is absolute from the /app directory
+    net_config_path = "/app/net_configs.json"
+else:
+    # For local execution, construct path relative to this file's location
+    net_config_path = Path(__file__).parents[2] / "net_configs.json"
+
 with open(net_config_path, "r") as file:
     global_target = json.load(file)
 

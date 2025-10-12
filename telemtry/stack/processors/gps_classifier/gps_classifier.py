@@ -341,7 +341,7 @@ class GPSClassifierProcessor:
                 gps_df = pd.DataFrame(points, columns=['f_gps_velocity', 'accel_pedal_t', 'steer_col_angle', 'Time', 'packet_id', 'gps'])[['Time', 'gps']]
 
                 # Extract latitude & longitude from the `gps` column
-                gps_df[['Latitude', 'Longitude']] = gps_df['gps'].apply(lambda gps_str: pd.Series(tuple(map(float, gps_str[1:-1].split(',')))))
+                gps_df[['Latitude', 'Longitude']] = gps_df['gps'].apply(lambda gps_tuple: pd.Series(gps_tuple))
 
                 # Append and remove duplicates in one step
                 if visualizer.starting_time == None: visualizer.starting_time = gps_df['Time'].iloc[0]

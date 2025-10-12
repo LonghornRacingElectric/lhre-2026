@@ -149,6 +149,17 @@ class LapTimerProcessor:
         points[:] = smoothed_points
 
     def _upload_gates_to_db(self, gates: tuple[tuple[float, float], tuple[float, float]]):
+        retries = 5
+        for i in range(retries):
+            event = self.session.query(Event).filter(Event.event_id == self.event_id).first()
+            if event:
+                break
+            logging.warning(f"Event {self.event_id} not found, retrying...")
+            sleep(1)
+        else:
+            logging.error(f"Event {self.event_id} not found after {retries} retries, cannot upload gates.")
+            return
+
         db_obj = {
             "event_id": self.event_id,
             "type": "gate",
@@ -187,7 +198,7 @@ class LapTimerProcessor:
             
             # Parse points
             df = pd.DataFrame(points, columns=['gps_str', 'timestamp'])
-            df['parsed_coordinates'] = df['gps_str'].apply(lambda gps_str: tuple(map(float, gps_str[1:-1].split(','))))
+            df['parsed_coordinates'] = df['gps_str'].apply(lambda gps_point: tuple(pd.Series(gps_point, dtype=float)))
             points: list[tuple[tuple[float, float], int]] = list(zip(df['parsed_coordinates'], df['timestamp']))
             
             # logging.info("Data is parsed")
@@ -220,14 +231,18 @@ class LapTimerProcessor:
             if msg.topic == 'config/test':
                 data = json.loads(msg.payload.decode())
                 print(data)
+
+                gate_changed = self.gate != data['gate']
+
                 # Modify object variables
                 self.event_id = data['event_id']
                 self.status = data['status']
-                if self.gate != data['gate']:
-                    self._upload_gates_to_db(gates=data['gate'])
                 self.gate = data['gate']
                 if self.start_packet < data['start_packet']:
                     self.start_packet = data['start_packet']
+
+                if gate_changed:
+                    self._upload_gates_to_db(gates=data['gate'])
         except json.JSONDecodeError:
             self.event_id = None
             self.gate = None

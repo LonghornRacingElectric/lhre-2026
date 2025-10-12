@@ -398,14 +398,21 @@ class CSVToDB():
     def handle_event_start(self):
         # ---- START EVENT ----
         try:
-            event_id = self.db_session.query(Event.event_id).filter(Event.status == 1).order_by(Event.event_id.desc()).first()[0]
-            logging.info("EVENT ID: ", event_id)
+            result = self.db_session.query(Event.event_id).filter(Event.status == 1).order_by(Event.event_id.desc()).first()
+            if result is None:
+                raise ValueError("No running event found.")
+            event_id = result[0]
+            logging.info("EVENT ID: %s", event_id)
             if event_id == -1: raise Exception("No event is currently running")
         # Creating a new event
-        except Exception as e:
-            logging.info("EXCEPTION IN CSV")
+        except (ValueError, TypeError, Exception) as e:
+            logging.info("No running event found, creating a new one.")
             
-            sample_drive_day = {'power_limit': '', 'conditions': ''}
+            sample_drive_day = {
+                'date': datetime.date.today(),
+                'power_limit': None, 
+                'conditions': 'Auto-created by CSV_to_DB'
+            }
             sample_event = {'driver_id': '0', 'location_id': '0', 'event_type': '0', 'car_id': '1', 'car_weight': '', 'tow_angle': '', 'camber': '', 'ride_height': '', 'ackerman_adjustment': '', 'power_limit': '', 'shock_dampening': '', 'torque_limit': '', 'frw_pressure': '', 'flw_pressure': '', 'brw_pressure': '', 'blw_pressure': '', 'day_id': '1'}
             logging.info("http://" + MQTTTarget.get() + ":5000/webtool/create_event/")
             day = DriveDay(**sample_drive_day)
