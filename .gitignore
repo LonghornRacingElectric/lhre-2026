@@ -88,3 +88,5 @@ VCU/firmware/.mxproject
 /aspects
 
 /venv
+DUI/Drivers/*
+DUI/Middlewares/*
