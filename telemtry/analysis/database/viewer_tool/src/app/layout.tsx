@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Banner from "@/components/Banner";
+import PageLayout from "@/components/PageLayout";
 
 import Providers from "@/components/Providers";
 
@@ -33,10 +33,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-100`}
       >
         <Providers>
-          <Banner />
-          <main className="pt-14">
+          <PageLayout>
             {children}
-          </main>
+          </PageLayout>
         </Providers>
       </body>
     </html>

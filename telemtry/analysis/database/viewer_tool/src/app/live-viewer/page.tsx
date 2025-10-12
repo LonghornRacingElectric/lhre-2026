@@ -22,7 +22,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AppState } from '@/lib/types';
-import LapTimer from '@/components/LapTimer';
+import TimingDeltas from '@/components/TimingDeltas';
+import LiveViewerBanner from '@/components/LiveViewerBanner';
 import { useSortableTile } from '@/hooks/useSortableTile';
 import CarVisualization from '@/components/CarVisualization';
 
@@ -47,7 +48,7 @@ const Tile = ({ feature, appState, note, setNote, handleSubmitNote, isDragging }
 
         switch (feature.id) {
             case 'lap-timer':
-                return <LapTimer />;
+                return <TimingDeltas />;
             case 'flagging-inputs':
                 return (
                     <div className="flex flex-col space-y-2">
@@ -87,6 +88,14 @@ const Tile = ({ feature, appState, note, setNote, handleSubmitNote, isDragging }
                       className="w-full h-full object-contain"
                     />
                 );
+            case 'thermal-headroom':
+            case 'driver-input':
+            case 'energy-budget':
+                return (
+                    <div className="flex items-center justify-center h-full">
+                        <p className="text-gray-500">Soon&trade;</p>
+                    </div>
+                );
             default:
                 return null;
         }
@@ -118,12 +127,15 @@ const LiveViewerPage = () => {
   const [appState, setAppState] = useState<AppState>({});
   const [note, setNote] = useState('');
   const [features, setFeatures] = useState([
-    { id: 'lap-timer', name: 'Lap Timer' },
-    { id: 'flagging-inputs', name: 'Flagging Inputs' },
+    { id: 'lap-timer', name: 'Timing & Deltas' },
+    { id: 'flagging-inputs', name: 'Flagging Events' },
     { id: '3d-simulation', name: '3D Simulation' },
     { id: 'space-time-trajectory', name: 'Space-Time Trajectory' },
     { id: 'live-map', name: 'Live Map' },
     { id: 'gg-plot', name: 'GG Plot' },
+    { id: 'thermal-headroom', name: 'Thermal Headroom Meter' },
+    { id: 'driver-input', name: 'Driver Input Visualizer' },
+    { id: 'energy-budget', name: 'Energy Budget & Predictive SOC' },
   ]);
   const [isDragging, setIsDragging] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -182,23 +194,25 @@ const LiveViewerPage = () => {
   }
 
   return (
-    <div className="container mx-auto p-8">
-      <h1 className="text-4xl font-bold mb-8 text-center">Live Viewer</h1>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext items={features.map(f => f.id)} strategy={rectSortingStrategy}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature) => (
-              <Tile key={feature.id} feature={feature} appState={appState} note={note} setNote={setNote} handleSubmitNote={handleSubmitNote} isDragging={isDragging} />
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
-    </div>
+    <>
+      <LiveViewerBanner />
+      <div className="container mx-auto p-8 pt-20">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={features.map(f => f.id)} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {features.map((feature) => (
+                <Tile key={feature.id} feature={feature} appState={appState} note={note} setNote={setNote} handleSubmitNote={handleSubmitNote} isDragging={isDragging} />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      </div>
+    </>
   );
 };
 

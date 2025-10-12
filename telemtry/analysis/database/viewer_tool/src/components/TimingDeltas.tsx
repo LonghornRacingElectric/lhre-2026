@@ -13,16 +13,20 @@ import {
 import { useStopwatch } from '@/hooks/useStopwatch';
 import Link from 'next/link';
 
-const LapTimer = () => {
+const TimingDeltas = () => {
     const { formattedTime, start } = useStopwatch();
 
-    // Fake data for laps and sectors
+    // FAKE DATA: Replace with actual data from the backend
     const fakeLapData = [
         ['0:25.123', '0:30.456', '0:28.789'],
         ['0:24.987', '0:30.123', '0:28.543'],
         ['0:25.543', '0:30.789', '0:29.123'],
         ['0:24.789', '0:29.987', '0:28.321'],
     ];
+
+    // TEMPORARY: This is a temporary variable for display purposes.
+    // Replace with the actual delta value from the backend.
+    const currentDelta = -0.13;
 
     useEffect(() => {
         start(Date.now(), 0);
@@ -40,7 +44,13 @@ const LapTimer = () => {
                 animation: pulse-size 1.5s infinite;
             }
         `}</style>
-        <div className="text-4xl font-mono text-center mb-2">{formattedTime}</div>
+        <div className="flex justify-between items-center mb-2">
+            <div className="text-2xl font-mono text-gray-500">{formattedTime}</div>
+            <div className={`text-4xl font-mono ${currentDelta >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+                {/* TODO: Wire up the actual delta value here */}
+                {currentDelta.toFixed(2)}
+            </div>
+        </div>
         <p className="text-center text-xs text-gray-500 mb-2">(Fake Data)</p>
         <div className="flex-grow overflow-auto">
             <Table>
@@ -85,4 +95,4 @@ const LapTimer = () => {
   );
 };
 
-export default LapTimer;
+export default TimingDeltas;

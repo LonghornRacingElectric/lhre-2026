@@ -12,10 +12,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { signOut, useSession } from 'next-auth/react';
 
-const Banner = () => {
+const LiveViewerBanner = () => {
   const { data: session } = useSession();
   const [time, setTime] = useState("");
   const [date, setDate] = useState("");
+
+  // TEMPORARY: This is a temporary variable for display purposes.
+  // Replace with the actual connection status from the backend.
+  const isConnected = true;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -51,13 +55,24 @@ const Banner = () => {
         </DropdownMenu>
         <Image src="/telem_logo.png" alt="Telemetry Logo" width={40} height={40} className="ml-2" />
         <span className="ml-2">Welcome, {session?.user?.name || session?.user?.username || 'Guest'}</span>
+        <span className="ml-4">|</span>
+        <span className="ml-4 font-bold">Live Viewer</span>
       </div>
       <div className="flex items-center">
+        <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-4">
+          {/* TODO: Wire up the actual connection status here */}
+          <div 
+              className={`w-4 h-4 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'} mr-2 pulse-size`}
+              title={isConnected ? 'Connected to car' : 'Not connected to car'}
+          ></div>
+          <span>Car Connection</span>
+        </div>
         <span className="mr-4">{date}</span>
-        <span>{time}</span>
+        <span className="mr-4">{time}</span>
+        <Button onClick={() => { localStorage.removeItem('featuresOrder'); window.location.reload(); }} className="bg-red-500 hover:bg-red-600">Clear localStorage</Button>
       </div>
     </div>
   );
 };
 
-export default Banner;
+export default LiveViewerBanner;

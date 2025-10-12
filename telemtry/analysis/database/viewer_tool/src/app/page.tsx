@@ -5,11 +5,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { AppState } from '@/lib/types';
 
-const SplashBox = ({ href, title, imageUrl }: { href: string; title: string; imageUrl: string }) => (
+const SplashBox = ({ href, title, imageUrl, textColor }: { href: string; title: string; imageUrl: string; textColor?: string }) => (
   <Link href={href} className="flex-grow">
     <div className={`relative flex items-center justify-center h-full rounded-lg shadow-lg cursor-pointer overflow-hidden group`}>
       <img src={imageUrl} alt={title} className="absolute inset-0 z-0 object-cover w-full h-full transition-transform duration-300 group-hover:scale-105" />
-      <span className="relative text-white text-3xl font-bold text-center z-20">{title}</span>
+      <span className={`relative text-3xl font-bold text-center z-20 ${textColor || 'text-white'}`}>{title}</span>
     </div>
   </Link>
 );
@@ -43,9 +43,9 @@ export default function SplashPage() {
     <div className="min-h-screen flex flex-col justify-between pt-14">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 flex-grow p-8">
         <SplashBox href={getDrivedayHref()} title="Driveday Page" imageUrl="/car.png" />
-        <SplashBox href="/tune" title="Texas Tune" imageUrl="/tune.png" />
+        <SplashBox href="/tune" title="Texas Tune" imageUrl="/tune.png" textColor="text-black" />
         <SplashBox href="/dashboards" title="Grafana & Database" imageUrl="/graph.png" />
-        <SplashBox href="/live-viewer" title="Live Viewer" imageUrl="/window.svg" />
+        <SplashBox href="/live-viewer" title="Live Viewer" imageUrl="/images/live.png" textColor="text-black" />
       </div>
     </div>
   );
