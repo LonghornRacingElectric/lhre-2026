@@ -1,14 +1,15 @@
 "use client";
 
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
+// STLLoader lives in three/examples; import at runtime via useLoader below
 import { useRef } from "react";
 import * as THREE from "three";
 import React from "react";
 
 const CarConstants = {
   suspension: {
-    rest_length: 0.7,
+    rest_length: 0.5,
     max_compression: 0.3,
     max_extension: 0.5,
   },
@@ -250,51 +251,52 @@ export default function CarVisualization() {
         const blTop = blSpringLength;
         const brTop = brSpringLength;
         // Center position
-        const avgY = (flTop + frTop + blTop + brTop) / 4 + 0.25;
+        const avgY = (flTop + frTop + blTop + brTop) / 4;
         carBody.current.position.y = avgY;
 
         // Pitch (x axis): difference between front and rear average
         const frontAvg = (flTop + frTop) / 2;
         const rearAvg = (blTop + brTop) / 2;
-        carBody.current.rotation.x = (rearAvg - frontAvg) * 0.3;
+        carBody.current.rotation.x = (rearAvg - frontAvg) * 0.3 + Math.PI / 2;
 
         // Roll (z axis): difference between left and right average
         const leftAvg = (flTop + blTop) / 2;
         const rightAvg = (frTop + brTop) / 2;
-        carBody.current.rotation.z = (rightAvg - leftAvg) * 0.3;
+        carBody.current.rotation.z = (rightAvg - leftAvg) * 0.3 + Math.PI / 2;
+
+        carBody.current.rotation.y = -Math.PI; // Face along +Z
       }
     });
 
+    const scale = 5;
+
     return (
       <group>
-        {/* Car body */}
-        <mesh ref={carBody} position={[0, 0.5, 0]}>
-          <boxGeometry args={[4, .5, 5]} />
-          <meshStandardMaterial color="orange" />
-        </mesh>
+        {/* Car body - load STL model if available (scale X and Z to 90%) */}
+          <CarBodyModel ref={carBody} position={[0, 0.25, 0]} scale={scale} />
 
         {/* Wheels locked to ground, at corners */}
         {/* Front Left (with pivot for steering) */}
-        <group ref={flPivot} position={[-1.8, 0, 2]}>
+        <group ref={flPivot} position={[-0.28 * scale, 0, 0.27 * scale]}>
           <Wheel ref={flWheel} position={[0, 0, 0]} />
         </group>
 
         {/* Front Right */}
-        <group ref={frPivot} position={[1.8, 0, 2]}>
+        <group ref={frPivot} position={[0.28 * scale, 0, 0.27 * scale]}>
           <Wheel ref={frWheel} position={[0, 0, 0]} />
         </group>
 
         {/* Back Left (no pivot needed) */}
-        <Wheel ref={blWheel} position={[-1.8, 0, -2]} />
+        <Wheel ref={blWheel} position={[-0.28 * scale, 0, -0.43 * scale]} />
 
         {/* Back Right */}
-        <Wheel ref={brWheel} position={[1.8, 0, -2]} />
+        <Wheel ref={brWheel} position={[0.28 * scale, 0, -0.43 * scale]} />
 
         {/* Springs visually connect wheels to body */}
-        <Spring x={-1.8} z={2} length={flSpringLength} />
+        {/* <Spring x={-1.8} z={2} length={flSpringLength} />
         <Spring x={1.8} z={2} length={frSpringLength} />
         <Spring x={-1.8} z={-2} length={blSpringLength} />
-        <Spring x={1.8} z={-2} length={brSpringLength} />
+        <Spring x={1.8} z={-2} length={brSpringLength} /> */}
       </group>
     );
   }
@@ -306,11 +308,11 @@ const Wheel = React.forwardRef<
 >(({ position }, ref) => (
   <mesh ref={ref} position={position} rotation={[0, 0, Math.PI / 2]}>
     {/* Tire */}
-    <cylinderGeometry args={[0.6, 0.6, 0.4, 32]} />
+    <cylinderGeometry args={[0.4, 0.4, 0.4, 32]} />
     <meshStandardMaterial color="black" />
     {/* Rim */}
     <mesh position={[0, 0, 0]}>
-      <cylinderGeometry args={[0.4, 0.4, 0.45, 16]} />
+      <cylinderGeometry args={[0.3, 0.3, 0.45, 16]} />
       <meshStandardMaterial color="gray" />
     </mesh>
     {/* Central hub */}
@@ -319,31 +321,14 @@ const Wheel = React.forwardRef<
       <meshStandardMaterial color="silver" />
     </mesh>
     {/* X rim pattern on both side faces */}
-    {/* Left side face */}
-    <mesh position={[0, 0, 0.2]} rotation={[0, 0, 0]}>
-      <boxGeometry args={[0.45, 0.08, 0.4]} />
+    <mesh position={[0, 0, 0.1]} rotation={[0, 0, Math.PI / 2]}>
+      <boxGeometry args={[0.51, 0.06, 0.375]} />
       <meshStandardMaterial color="yellow" />
     </mesh>
-    <mesh position={[0, 0, 0.2]} rotation={[0, 0, Math.PI / 2]}>
-      <boxGeometry args={[0.45, 0.08, 0.4]} />
+    <mesh position={[0, 0, -0.1]} rotation={[0, 0, Math.PI / 2]}>
+      <boxGeometry args={[0.51, 0.06, 0.375]} />
       <meshStandardMaterial color="yellow" />
     </mesh>
-    {/* Right side face */}
-    <mesh position={[0, 0, -0.2]} rotation={[0, 0, 0]}>
-      <boxGeometry args={[0.45, 0.08, 0.4]} />
-      <meshStandardMaterial color="yellow" />
-    </mesh>
-    <mesh position={[0, 0, -0.2]} rotation={[0, 0, Math.PI / 2]}>
-      <boxGeometry args={[0.45, 0.08, 0.4]} />
-      <meshStandardMaterial color="yellow" />
-    </mesh>
-    {/* Multiple spokes for better rotation visibility */}
-    {[...Array(4)].map((_, i) => (
-      <mesh key={i} rotation={[0, 0, (Math.PI / 2) * i]}>
-        <boxGeometry args={[0.05, 0.05, 0.9]} />
-        <meshStandardMaterial color={i % 2 === 0 ? "red" : "white"} />
-      </mesh>
-    ))}
   </mesh>
 ));
 
@@ -365,3 +350,37 @@ function Spring({
     </mesh>
   );
 }
+
+// CarBodyModel: loads `public/models/carBody.stl` and forwards a mesh ref.
+const CarBodyModel = React.forwardRef<
+  THREE.Mesh,
+  { position?: [number, number, number]; scale?: number; }
+>(({ position, scale }, ref) => {
+  // Lazy-import STLLoader type at runtime via three/examples
+  let geom: THREE.BufferGeometry | null = null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { STLLoader } = require('three/examples/jsm/loaders/STLLoader');
+    // @ts-ignore: useLoader with STLLoader
+    const loaded = useLoader((STLLoader as any), '/models/carBody.stl');
+    geom = loaded instanceof THREE.BufferGeometry ? loaded : loaded?.children?.[0]?.geometry ?? loaded;
+  } catch (e) {
+    geom = null;
+  }
+
+  if (geom) {
+    return (
+      <mesh ref={ref} position={position} scale={scale} geometry={geom}>
+        <meshStandardMaterial color="gray" />
+      </mesh>
+    );
+  }
+
+  // Fallback: simple box that behaves like the car body
+  return (
+    <mesh ref={ref} position={position} scale={scale}>
+      <boxGeometry args={[4, 0.5, 5]} />
+      <meshStandardMaterial color="orange" />
+    </mesh>
+  );
+});
