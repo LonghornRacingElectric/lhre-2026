@@ -4,6 +4,7 @@ import "./globals.css";
 import PageLayout from "@/components/PageLayout";
 
 import Providers from "@/components/Providers";
+import { ToastContainer } from 'react-toastify';
 
 
 
@@ -35,6 +36,7 @@ export default function RootLayout({
         <Providers>
           <PageLayout>
             {children}
+            <ToastContainer position="bottom-right" autoClose={2000} />
           </PageLayout>
         </Providers>
       </body>
