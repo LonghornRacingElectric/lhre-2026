@@ -33,7 +33,7 @@ services:
       LOGLEVEL: 'DEBUG'
     volumes:
       - ../../.env:/.env
-      - ../../net_configs.json:/net_configs.json
+      - ../../net_configs.json:/app/net_configs.json
     networks:
       - telemetry_network
 

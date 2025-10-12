@@ -3,17 +3,16 @@ import json
 from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
 from contextlib import contextmanager
 
-load_dotenv()
-
 if os.getenv('IN_DOCKER'):
-    with open("/net_configs.json", "r") as file:
+    with open("/app/net_configs.json", "r") as file:
         global_target = json.load(file)
 else:
     with open(os.path.join(Path(__file__).parents[2], "net_configs.json"), "r") as file:
         global_target = json.load(file)
+    from dotenv import load_dotenv
+    load_dotenv()
 
 class DBTarget:
     @staticmethod

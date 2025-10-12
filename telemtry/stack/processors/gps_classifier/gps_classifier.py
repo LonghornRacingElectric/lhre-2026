@@ -17,17 +17,15 @@ from sqlalchemy import func
 warnings.simplefilter('ignore', np.linalg.LinAlgError)
 warnings.filterwarnings("ignore")
 
-visualizer_image_path = "../../../analysis/database/viewer_tool/static/images"
-
+from analysis.sql_utils.db_session import get_db, DBTarget
+from analysis.sql_utils.query_builder import QueryBuilder
+from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
+from analysis.sql_utils.models import Classifier, Dynamics, Packet, Controls
 
 if os.getenv('IN_DOCKER'):
-    from mqtt_handler import MQTTHandler, MQTTTarget
-    visualizer_image_path = "./static/images"
+    visualizer_image_path = "/app/analysis/database/viewer_tool/static/images"
 else:
-    from analysis.sql_utils.db_session import get_db, DBTarget
-    from analysis.sql_utils.query_builder import QueryBuilder
-    from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
-    from analysis.sql_utils.models import Classifier, Dynamics, Packet, Controls
+    visualizer_image_path = "analysis/database/viewer_tool/static/images"
 
 
 class ProcessType(Enum):
