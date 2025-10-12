@@ -3,9 +3,13 @@ import os
 import logging
 from time import sleep
 import pandas as pd
+import io
+import base64
+import requests
 import numpy as np
 from paho.mqtt import client as mqtt_client
 import threading
+from psycopg import logger
 from enum import Enum
 from numpy.typing import NDArray
 import warnings
@@ -13,6 +17,8 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import pandas as pd
 from sqlalchemy import func
+import sys
+from pathlib import Path
 
 warnings.simplefilter('ignore', np.linalg.LinAlgError)
 warnings.filterwarnings("ignore")
@@ -171,7 +177,7 @@ class GPSClassifierProcessor:
         
         self.min_time = 0
         self.table_specs = QueryBuilder("Nightwatch").get_table_column_specs()
-   
+
     def _start_event(self, time: int, heading:int, type: ProcessType):
         # Stop any previous process
         if self.started_event and self.started_event.type != type:
@@ -324,7 +330,7 @@ class GPSClassifierProcessor:
             if not debug and (not self.event_id or self.status != 1):
                 sleep(1 / frequency)
                 continue
-            
+
             points = []
             while len(points) < window_size:
                 points = np.array(self.session.query(Dynamics.f_gps_velocity, Controls.accel_pedal_t, Dynamics.steer_col_angle, Packet.time, Packet.packet_id, Dynamics.f_gps)

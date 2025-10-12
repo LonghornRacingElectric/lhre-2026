@@ -59,6 +59,7 @@ xcuserdata/
 .env
 .envrc
 .venv
+.venv312
 env/
 venv/
 ENV/

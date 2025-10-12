@@ -6,6 +6,7 @@ import time
 import logging
 import datetime
 import os
+import psycopg
 import sys
 import json
 import matplotlib.pyplot as plt
@@ -14,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 from multiprocessing import cpu_count
 from pathlib import Path
 from tqdm import tqdm
+from psycopg.types.json import Jsonb
 from queue import Queue
 import requests
 
@@ -349,7 +351,7 @@ class CSVToDB():
         def setup_rows(df, table_desc, time_adjustment):
             """"
             Formats the rows in the form of dictionaries to be sent into database
-            """ 
+            """
             data = self.dataConvert(df, table_desc=table_desc)
             differences = []
             times = np.array(data["packet"]["time"])
@@ -410,7 +412,7 @@ class CSVToDB():
             
             sample_drive_day = {
                 'date': datetime.date.today(),
-                'power_limit': None, 
+                'power_limit': None,
                 'conditions': 'Auto-created by CSV_to_DB'
             }
             sample_event = {'driver_id': '0', 'location_id': '0', 'event_type': '0', 'car_id': '1', 'car_weight': '', 'tow_angle': '', 'camber': '', 'ride_height': '', 'ackerman_adjustment': '', 'power_limit': '', 'shock_dampening': '', 'torque_limit': '', 'frw_pressure': '', 'flw_pressure': '', 'brw_pressure': '', 'blw_pressure': '', 'day_id': '1'}
@@ -508,7 +510,7 @@ if __name__ == '__main__':
     with get_db(car) as session:
         with MQTTHandler(name ='event_playback_test', target = MQTTTarget.get()) as mqtt:
             dataSender = CSVToDB(db_session=session, mqtt=mqtt, car=car)
-            
+
             table_desc = QueryBuilder(car).get_table_column_specs()
 
              #Finds events in the database and records them into the event table
@@ -522,5 +524,5 @@ if __name__ == '__main__':
 
             while True:
                 dataSender.handle_event_start()
-                
+
                 dataSender.event_playback(Path(__file__).parent.joinpath("csv_data", "Log__2024_10_11__05_50_47.csv"), table_desc=table_desc)
