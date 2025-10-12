@@ -10,13 +10,10 @@ import threading
 import math
 import requests
 
-if os.getenv('IN_DOCKER'):
-    from mqtt_handler import MQTTHandler, MQTTTarget
-else:
-    from analysis.sql_utils.db_session import get_db, DBTarget
-    from analysis.sql_utils.query_builder import QueryBuilder
-    from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
-    from analysis.sql_utils.models import Classifier, Dynamics, Packet, Event
+from analysis.sql_utils.db_session import get_db, DBTarget
+from analysis.sql_utils.query_builder import QueryBuilder
+from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
+from analysis.sql_utils.models import Classifier, Dynamics, Packet, Event
 
 
 class LapTimerProcessor:
