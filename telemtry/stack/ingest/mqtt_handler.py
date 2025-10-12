@@ -12,13 +12,14 @@ from paho.mqtt import client as mqtt_client
 from google.protobuf.json_format import MessageToDict
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).parents[2]))
+if os.getenv('IN_DOCKER'):
+    # import get_db. querybuilder, protobuf
 
-# Custom
-from analysis.sql_utils.db_session import get_db
-from analysis.sql_utils.query_builder import QueryBuilder
-from stack.ingest.protobuf import template_pb2
-
+else:
+    sys.path.append(str(Path(__file__).parents[2]))
+    from analysis.sql_utils.db_session import get_db
+    from analysis.sql_utils.query_builder import QueryBuilder
+    from stack.ingest.protobuf import template_pb2
 
 if os.getenv('IN_DOCKER'):
     with open("/net_configs.json", "r") as file:

@@ -56,6 +56,15 @@ class LutEventType(Base):
     event_type = Column(Text, nullable=False)
     events = relationship("Event", back_populates="event_type_ref")
 
+class Classifier(Base):
+    __tablename__ = 'classifier'
+    event_id = Column(BigInteger, ForeignKey('event.event_id'), primary_key=True)
+    type = Column(Text, nullable=False, primary_key=True)
+    start_time = Column(BigInteger, nullable=False, primary_key=True)
+    end_time = Column(BigInteger)
+    notes = Column(Text)
+    event = relationship("Event", back_populates="classifiers")
+
 class Event(Base):
     __tablename__ = 'event'
     event_id = Column(SmallInteger, primary_key=True, autoincrement=True)
@@ -271,16 +280,6 @@ class Thermal(BaseTelemetry):
     discharge_r_temp = Column(Float)
     batt_over_temp = Column(Boolean)
     packet = relationship("Packet", back_populates="thermal")
-
-class Classifier(BaseTelemetry):
-    __tablename__ = 'classifier'
-    event_id = Column(BigInteger, ForeignKey('event.event_id'), primary_key=True)
-    type = Column(Text, nullable=False, primary_key=True)
-    start_time = Column(BigInteger, nullable=False, primary_key=True)
-    end_time = Column(BigInteger)
-    notes = Column(Text)
-    event = relationship("Event", back_populates="classifiers")
-
 # Angelique Models
 
 class AngeliqueDynamics(BaseAngelique):

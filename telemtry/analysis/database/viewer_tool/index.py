@@ -23,9 +23,9 @@ REALTIME = True
 sys.path.append(str(Path(__file__).parents[3]))
 from flask import Flask, render_template, url_for, request, redirect, jsonify, json, Response, stream_with_context
 
-from telemtry.analysis.sql_utils.db_session import get_db, DBTarget
-from telemtry.analysis.sql_utils.models import DriveDay, Event, Packet
-from telemtry.stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
+from analysis.sql_utils.db_session import get_db, DBTarget
+from analysis.sql_utils.models import DriveDay, Event, Packet
+from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 
 config = {}
 active_users = {}
