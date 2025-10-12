@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db-telemetry';
 
 export async function POST(req: NextRequest) {
+  if (!pool) {
+    return NextResponse.json({ error: 'Database connection not configured' }, { status: 500 });
+  }
   const client = await pool.connect();
   try {
     const body = await req.json();

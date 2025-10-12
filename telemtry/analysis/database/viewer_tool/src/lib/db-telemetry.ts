@@ -1,7 +1,5 @@
 import { Pool } from 'pg';
 
-let pool;
-
 declare global {
   var pool: Pool | undefined;
 }
@@ -19,6 +17,5 @@ if (!global.pool) {
     connectionString: `postgresql://${database.username}:${database.password}@${database.host}:${database.port}/${database.dbName}`
   });
 }
-pool = global.pool;
 
-export default pool;
+export default global.pool;

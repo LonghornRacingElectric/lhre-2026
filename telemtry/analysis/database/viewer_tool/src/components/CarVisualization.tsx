@@ -332,6 +332,8 @@ const Wheel = React.forwardRef<
   </mesh>
 ));
 
+Wheel.displayName = 'Wheel';
+
 function Spring({
   x,
   z,
@@ -351,36 +353,34 @@ function Spring({
   );
 }
 
+function StlModel({ url, ...props }) {
+  // This is a workaround for the fact that STLLoader is not available in the main three.js bundle
+  // and must be imported from the examples folder.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { STLLoader } = require('three/examples/jsm/loaders/STLLoader');
+  const geom = useLoader(STLLoader, url);
+  return (
+    <mesh {...props} geometry={geom}>
+      <meshStandardMaterial color="gray" />
+    </mesh>
+  );
+}
+
 // CarBodyModel: loads `public/models/carBody.stl` and forwards a mesh ref.
 const CarBodyModel = React.forwardRef<
   THREE.Mesh,
   { position?: [number, number, number]; scale?: number; }
 >(({ position, scale }, ref) => {
-  // Lazy-import STLLoader type at runtime via three/examples
-  let geom: THREE.BufferGeometry | null = null;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { STLLoader } = require('three/examples/jsm/loaders/STLLoader');
-    // @ts-ignore: useLoader with STLLoader
-    const loaded = useLoader((STLLoader as any), '/models/carBody.stl');
-    geom = loaded instanceof THREE.BufferGeometry ? loaded : loaded?.children?.[0]?.geometry ?? loaded;
-  } catch (e) {
-    geom = null;
-  }
-
-  if (geom) {
-    return (
-      <mesh ref={ref} position={position} scale={scale} geometry={geom}>
-        <meshStandardMaterial color="gray" />
-      </mesh>
-    );
-  }
-
-  // Fallback: simple box that behaves like the car body
   return (
-    <mesh ref={ref} position={position} scale={scale}>
-      <boxGeometry args={[4, 0.5, 5]} />
-      <meshStandardMaterial color="orange" />
-    </mesh>
+    <React.Suspense fallback={
+      <mesh ref={ref} position={position} scale={scale}>
+        <boxGeometry args={[4, 0.5, 5]} />
+        <meshStandardMaterial color="orange" />
+      </mesh>
+    }>
+      <StlModel ref={ref} position={position} scale={scale} url='/models/carBody.stl' />
+    </React.Suspense>
   );
 });
+
+CarBodyModel.displayName = 'CarBodyModel';

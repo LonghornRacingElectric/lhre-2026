@@ -9,7 +9,7 @@ if (!global.auth_prisma) {
   global.auth_prisma = new PrismaClient();
 }
 
-var auth_prisma: PrismaClient = global.auth_prisma!;
+const auth_prisma: PrismaClient = global.auth_prisma!;
 
 
 export default auth_prisma;

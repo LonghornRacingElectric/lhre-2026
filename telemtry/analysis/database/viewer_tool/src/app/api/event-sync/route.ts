@@ -10,69 +10,71 @@ let appState: AppState = {}; // In-memory state
 let initialized = false;
 
 async function initAppState() {
-  let currentPage: string | undefined = undefined;
+  try {
+    let currentPage: string | undefined = undefined;
 
-  // Fetch the current drive day
-  const currentDriveDay = await prisma.drive_day.findFirst({
-    orderBy: { day_id: "desc" },
-    where: { date: new Date() },
-  });
+    // Fetch the current drive day
+    const currentDriveDay = await prisma.drive_day.findFirst({
+      orderBy: { day_id: "desc" },
+      where: { date: new Date() },
+    });
 
-  let driveDay: DriveDayState | undefined;
-  if (currentDriveDay) {
-    driveDay = {
-      dayId: currentDriveDay.day_id,
-      powerLimit: currentDriveDay.power_limit?.toString(),
-      drivingConditions: currentDriveDay.conditions || undefined,
+    let driveDay: DriveDayState | undefined;
+    if (currentDriveDay) {
+      driveDay = {
+        dayId: currentDriveDay.day_id,
+        powerLimit: currentDriveDay.power_limit?.toString(),
+        drivingConditions: currentDriveDay.conditions || undefined,
+      };
+      currentPage = "/event/new";
+    }
+
+    // Fetch the currently active event (status = 2, for example)
+    const activeEvent = await prisma.event.findFirst({
+      where: { status: 2 }, // adjust the status value for "active"
+      orderBy: { creation_time: "desc" },
+    });
+
+    let newEvent: NewEventState | undefined;
+    if (currentDriveDay && activeEvent) {
+      newEvent = {
+        eventId: activeEvent.event_id,
+        driverId: activeEvent.driver_id,
+        locationId: activeEvent.location_id,
+        eventType: activeEvent.event_type,
+        carId: activeEvent.car_id,
+        carWeight: activeEvent.car_weight?.toString(),
+        towAngle: activeEvent.tow_angle?.toString(),
+        camber: activeEvent.camber?.toString(),
+        rideHeight: activeEvent.ride_height?.toString(),
+        ackermanAdjustment: activeEvent.ackerman_adjustment?.toString(),
+        powerLimit: activeEvent.power_limit?.toString(),
+        shockDampening: activeEvent.shock_dampening?.toString(),
+        torqueLimit: activeEvent.torque_limit?.toString(),
+        frwPressure: activeEvent.frw_pressure?.toString(),
+        flwPressure: activeEvent.flw_pressure?.toString(),
+        brwPressure: activeEvent.brw_pressure?.toString(),
+        blwPressure: activeEvent.blw_pressure?.toString(),
+        frontWingOn: false, // default, or fetch from DB if stored
+        rearWingOn: false,
+        regenOn: false,
+        undertrayOn: false,
+      };
+
+      currentPage = "/event/in-progress";
+    }
+
+    // Set app state
+    appState = {
+      ...appState,
+      newEvent,
+      driveDay,
+      lastUpdatedBy: undefined,
+      currentPage: currentPage,
     };
-    currentPage = "/event/new";
+  } catch (e) {
+    console.error("Database not available, running in offline mode.");
   }
-
-  // Fetch the currently active event (status = 2, for example)
-  const activeEvent = await prisma.event.findFirst({
-    where: { status: 2 }, // adjust the status value for "active"
-    orderBy: { creation_time: "desc" },
-  });
-
-  let newEvent: NewEventState | undefined;
-  if (currentDriveDay && activeEvent) {
-    newEvent = {
-      eventId: activeEvent.event_id,
-      driverId: activeEvent.driver_id,
-      locationId: activeEvent.location_id,
-      eventType: activeEvent.event_type,
-      carId: activeEvent.car_id,
-      carWeight: activeEvent.car_weight?.toString(),
-      towAngle: activeEvent.tow_angle?.toString(),
-      camber: activeEvent.camber?.toString(),
-      rideHeight: activeEvent.ride_height?.toString(),
-      ackermanAdjustment: activeEvent.ackerman_adjustment?.toString(),
-      powerLimit: activeEvent.power_limit?.toString(),
-      shockDampening: activeEvent.shock_dampening?.toString(),
-      torqueLimit: activeEvent.torque_limit?.toString(),
-      frwPressure: activeEvent.frw_pressure?.toString(),
-      flwPressure: activeEvent.flw_pressure?.toString(),
-      brwPressure: activeEvent.brw_pressure?.toString(),
-      blwPressure: activeEvent.blw_pressure?.toString(),
-      frontWingOn: false, // default, or fetch from DB if stored
-      rearWingOn: false,
-      regenOn: false,
-      undertrayOn: false,
-    };
-
-    currentPage = "/event/in-progress";
-  }
-
-
-
-  // Set app state
-  appState = {
-    ...appState,
-    newEvent,
-    driveDay,
-    lastUpdatedBy: undefined,
-    currentPage: currentPage,
-  };
 
   initialized = true;
 }

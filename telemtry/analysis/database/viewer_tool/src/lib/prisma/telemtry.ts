@@ -9,7 +9,7 @@ if (!global.telemtry_prisma) {
   global.telemtry_prisma = new PrismaClient();
 }
 
-var telemtry_prisma: PrismaClient = global.telemtry_prisma!;
+const telemtry_prisma: PrismaClient = global.telemtry_prisma!;
 
 
 export default telemtry_prisma;
