@@ -8,27 +8,26 @@ import sys
 import time
 import numpy as np
 import copy
-from paho.mqtt import client as mqtt_client 
-from google.protobuf.json_format import MessageToDict
 from paho.mqtt import client as mqtt_client
-import json
+from google.protobuf.json_format import MessageToDict
 from pathlib import Path
 
-if os.getenv('IN_DOCKER'):
-    with open("/net_configs.json", "r") as file:
-        global_target = json.load(file)
-else:
-    with open(os.path.join(Path(__file__).parents[2], "net_configs.json"), "r") as file:
-        global_target = json.load(file)
+sys.path.append(str(Path(__file__).parents[2]))
 
-if os.getenv('IN_DOCKER'):
-    from db_handler import get_table_column_specs, DBTarget, DBHandler    # Cheesed import statement using bind mount
-    import protobuf.template_pb2 as template_pb2
-else:
-    from analysis.sql_utils.db_handler import get_table_column_specs, DBTarget, DBHandler
-    sys.path.append(str(Path(__file__).parents[3]))
-    from stack.ingest.protobuf import template_pb2
+from analysis.sql_utils.db_session import get_db
+from analysis.sql_utils.query_builder import QueryBuilder
+from stack.ingest.protobuf import template_pb2
 
+# Determine path to net_configs.json based on execution context
+if os.getenv("IN_DOCKER"):
+    # Inside docker, path is absolute from the /app directory
+    net_config_path = "/app/net_configs.json"
+else:
+    # For local execution, construct path relative to this file's location
+    net_config_path = Path(__file__).parents[2] / "net_configs.json"
+
+with open(net_config_path, "r") as file:
+    global_target = json.load(file)
 
 class MQTTTarget:
     @staticmethod
@@ -41,21 +40,25 @@ class MQTTHandler:
     This class handles MQTT payloads: connecting to MQTT broker and publishing or subscribing to topics
     '''
 
-    def __init__(self, name='python_client', target=None, db_handlers=None, on_message=None, cache_enable = False):
+    def __init__(self, name='python_client', target=None, db_sessions=None, on_message=None, cache_enable = False):
         '''
         :param name:    str         determining name of client to self-report to MQTT broker
         :param target:  MQTTTarget  MQTT target server
         '''
         self.target = target
-        self.handlers = db_handlers
+        self.sessions = db_sessions
         self.client = mqtt_client.Client(name)
-        self.client.username = name
+        self.client.username_pw_set(name)
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect
         self.client.on_message = on_message if on_message else self.on_message
         self.scalar_or_list = lambda val, scalar: val.tolist()[0] if scalar else val.tolist()
         self.cache = []
         self.cache_enable = cache_enable
+        self.table_specs = {
+            "Nightwatch": QueryBuilder("Nightwatch").get_table_column_specs(),
+            "Angelique": QueryBuilder("Angelique").get_table_column_specs()
+        }
 
     @staticmethod
     def on_connect(client: mqtt_client.Client, userdata, flags: dict, rc: int):
@@ -65,7 +68,7 @@ class MQTTHandler:
         if rc:
             logging.error(f'Failed to connect to Mosquitto Broker, return code {rc}\n')
         else:
-            logging.info(f'\t\t{client.username} connected to Mosquitto Broker')
+            logging.info(f'\t\t{client._client_id} connected to Mosquitto Broker')
 
     @staticmethod
     def on_disconnect(client: mqtt_client.Client, userdata, rc: int):
@@ -121,15 +124,14 @@ class MQTTHandler:
         # Handle Normal Data Ingest
         elif (topic_split := msg.topic.split('/'))[0] == 'data':
             if (topic_split[-1] in {'packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'}):
-                message_id = (topic_split[-1], msg.payload) # table, payload key
                 self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car = "Nightwatch")
             else:
                 # Protobuf serialized string sent
                 self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable)
         elif (topic_split := msg.topic.split('/'))[0] == 'angelique':
-            if (topic_split[-1] in {'packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'}):
-                message_id = (topic_split[-1], msg.payload) # table, payload key
-                self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car="Angelique")
+            table = topic_split[-1].replace('angelique_', '')
+            if (table in {'packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'}):
+                self._data_ingest(msg.payload, table, cache_enable=self.cache_enable, car="Angelique")
         else:
             logging.warning(f'No corresponding topic found for {msg.topic}')
 
@@ -158,7 +160,9 @@ class MQTTHandler:
 
     def cache_flush(self, car):
         if (len(self.cache) > 0):
-            DBHandler.batch_insert(target=DBTarget.get(car=car), user = 'electric', handler=self.handlers[car], data=self.cache)
+            session = self.sessions[car]
+            session.bulk_insert_mappings(self.cache[0][0], [item[1] for item in self.cache])
+            session.commit()
 
     def _data_ingest(self, payload: str, table: str, car:str, cache_enable = False):
         '''
@@ -174,35 +178,50 @@ class MQTTHandler:
             #logging.debug('\tPickle Payload received, likely coming from debug source...')
         except pickle.UnpicklingError:
             data_dict = json.loads(payload.decode().replace("'", '"'))
-        if (isinstance(data_dict, list)):
-            if (len(data_dict) > 1):
-                DBHandler.insert_multi_rows(table, target=DBTarget.get(car=car), user='electric', handler=self.handlers[car], data=data_dict)
-            else:
-                DBHandler.insert(table, target=DBTarget.get(car=car), user='electric', handler=self.handlers[car], data=data_dict[0])
-        elif not cache_enable:
-            DBHandler.insert(table, target=DBTarget.get(car=car), user='electric', handler=self.handlers[car], data=data_dict)
+
+        session = self.sessions[car]
+        model = QueryBuilder(car)._models.get(table.capitalize())
+
+        if model:
+            table_desc = self.table_specs[car][model.__tablename__]
+            if isinstance(data_dict, list):
+                if len(data_dict) > 1:
+                    QueryBuilder.bulk_insert(session, table, model, data_dict, table_desc, commit=True)
+                else:
+                    QueryBuilder.insert(session, table, model, data_dict[0], table_desc, commit=True)
+            elif not cache_enable:
+                QueryBuilder.insert(session, table, model, data_dict, table_desc, commit=True)
     
     def _proto_ingest(self, payload:str, cache_enable = False):
         message_dict = self._proto_decode(payload=payload)
 
         if ("time" not in message_dict or "packet_id" not in message_dict):
             raise Exception("time/packet_id MISSING FROM PAYLOAD")
-        db_desc = get_table_column_specs(handler=self.handlers["Nightwatch"])
-        avail_tables = list(message_dict.keys())[2:]
+
+        session = self.sessions["Nightwatch"]
+        builder = QueryBuilder("Nightwatch")
+        table_specs = self.table_specs["Nightwatch"]
+
         for table in ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal']:
-            data = {col: message_dict[col] for col in db_desc[table] if col in message_dict} if table == "packet" else None
-            if (data is None):
-                data = ({col: message_dict[table][col] for col in db_desc[table] if col in message_dict[table]}
-                | {"packet_id": message_dict["packet_id"]}) if table in avail_tables else None
-            if not cache_enable:
-                DBHandler.insert(table=table, target=DBTarget.get(car="Nightwatch"), user='electric', handler=self.handlers["Nightwatch"], data=data)
-            elif table == 'packet':
-                DBHandler.insert(table=table, target=DBTarget.get(car="Nightwatch"), user='electric', handler=self.handlers["Nightwatch"], data=data)
-            elif table != 'packet':
-                self.cache.append((table, data))
-                if (len(self.cache) == 24):
-                    DBHandler.batch_insert(target = DBTarget.get(car="Nightwatch"), user='electric', handler=self.handlers["Nightwatch"], data=self.cache)
-                    self.cache.clear()
+            model = builder._models.get(table.capitalize())
+            if model:
+                table_desc = table_specs[model.__tablename__]
+                data = {col.name: message_dict[col.name] for col in model.__table__.columns if col.name in message_dict} if table == "packet" else None
+                if (data is None):
+                    data = ({col.name: message_dict[table][col.name] for col in model.__table__.columns if col.name in message_dict[table]}
+                    | {"packet_id": message_dict["packet_id"]}) if table in message_dict else None
+
+                if not cache_enable:
+                    QueryBuilder.insert(session, table, model, data, table_desc, commit=False)
+                elif table == 'packet':
+                    QueryBuilder.insert(session, table, model, data, table_desc, commit=False)
+                elif table != 'packet':
+                    self.cache.append((model, data))
+                    if (len(self.cache) == 24):
+                        self.cache_flush("Nightwatch")
+                        self.cache.clear()
+        session.commit()
+
 
     def _b64_ingest(self, payload: str, high_freq: bool):
         '''
@@ -217,13 +236,21 @@ class MQTTHandler:
         logging.info(f'\tData received. Inserting to Database now...')
         data_dict = self._base64_decode(payload, high_freq)
         data_dict = self.preprocess_payload(data_dict, high_freq)
-        db_desc = get_table_column_specs(handler=self.handlers["Angelique"])
-        for table in ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal']:
-            data = {col: data_dict[col] for col in db_desc[table] if col in data_dict}
-            if data:
-                DBHandler.insert(table, target=DBTarget.get(car="Angelique"), handler=self.handlers["Angelique"], user='electric', data=data)
-            else:
-                logging.warning(f'\tNo data received for {table}...')
+
+        session = self.sessions["Angelique"]
+        builder = QueryBuilder("Angelique")
+        table_specs = self.table_specs["Angelique"]
+
+        for table in ['packet', 'angelique_dynamics', 'angelique_controls', 'angelique_pack', 'angelique_diagnostics', 'angelique_thermal']:
+            model = builder._models.get(table.capitalize())
+            if model:
+                table_desc = table_specs[model.__tablename__]
+                data = {col.name: data_dict[col.name] for col in model.__table__.columns if col.name in data_dict}
+                if data:
+                    QueryBuilder.insert(session, table, model, data, table_desc, commit=False)
+                else:
+                    logging.warning(f'\tNo data received for {table}...')
+        session.commit()
 
     def _proto_decode(self, payload: str) -> dict:
         logging.info('Data Received via Protobuf')
@@ -336,23 +363,9 @@ def main():
     except ValueError:
         raise ValueError('DB_CONN_TYPE must be an integer 1-10.')
 
-    # 1
-    if conn_type == 1:
-        with MQTTHandler('ingest') as mqtt:
-            mqtt.subscribe(topic='#')
-
-    # 2
-    elif conn_type == 2:
-        with DBHandler(unsafe=True, target=DBTarget.get(car="Nightwatch")) as nightwatch_handler, DBHandler(unsafe=True, target=DBTarget.get(car="Angelique")) as angelique_handler:
-            db_handlers = {'Nightwatch': nightwatch_handler, 'Angelique': angelique_handler}
-            with MQTTHandler('ingest', db_handlers=db_handlers) as mqtt:
-                    mqtt.subscribe(topic='#')
-
-    # 3+
-    else:
-        with DBHandler(unsafe=True, target=DBTarget.get(car="Nightwatch"), conn_pool_size=conn_type) as nightwatch_handler, DBHandler(unsafe=True, target=DBTarget.get(car="Angelique"), conn_pool_size=conn_type) as angelique_handler:
-            db_handlers = {'Nightwatch': nightwatch_handler, 'Angelique': angelique_handler}
-            with MQTTHandler('ingest', db_handlers=db_handlers, cache_enable=False) as mqtt:
+    with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session:
+        db_sessions = {'Nightwatch': nightwatch_session, 'Angelique': angelique_session}
+        with MQTTHandler('ingest', db_sessions=db_sessions) as mqtt:
                 mqtt.subscribe(topic='#')
 
 
@@ -364,12 +377,3 @@ if __name__ == '__main__':
         os.environ['RTC_START'] = "-99999"
         os.environ['EVENT_ID'] = "-99999"
     main()
-
-    # with MQTTHandler('Test') as mqtt:
-    #     mqtt.publish('config/event_sync', 'nothing_notable')
-    # os.environ['RTC_START'] = '0'
-    # os.environ['EVENT_ID'] = '0'
-    # # data = mqtt.base64_decode(b'AZMiAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAFNEAABUAAAA89gEAABmEC8oF/QHjAbkBlgFvAwQmgQG3wvz8PgBmif4Iev/K2gAAAAAAAMr+8/5LJ2HXT/1NAgAAAAAAAIX+rx3rGLcB1+MbGwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAAAAAAAAAA+I18TQMpCCb5QbRjBAAAAAAAAAAA=', True)
-    # data = mqtt.preprocess_payload(mqtt._base64_decode(b'AfYDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA89gAAAADHCD0EAALaAeoBjAEWBB8xFgFfSYH8EQBaeUEJcf8S2wAAAAAAACv+/f5CJyTXh/ydAgAAAAAAACv+wx3XGFQBc+NdGgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC+L0cXwQAAAAAAAAAAAAAAANej8L4=', True), True)
-    # print(data)
-    # print(MQTTHandler.preprocess_payload(data, True))

@@ -14,8 +14,8 @@ services:
 
   ingest:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: ./stack/ingest/Dockerfile
     image: telemetry_backend
     container_name: ingest
     restart: unless-stopped
@@ -32,11 +32,8 @@ services:
       DB_CONN_TYPE: 6
       LOGLEVEL: 'DEBUG'
     volumes:
-      - ../../analysis/sql_utils/db_handler.py:/ingest/db_handler.py
       - ../../.env:/.env
-      - ../../analysis/sql_utils/DB_description.pkl:/DB_description.pkl
-      - ../../analysis/sql_utils/angelique_DB_description.pkl:/angelique_DB_description.pkl
-      - ../../net_configs.json:/net_configs.json
+      - ../../net_configs.json:/app/net_configs.json
     networks:
       - telemetry_network
 

@@ -10,21 +10,21 @@ import threading
 import math
 import requests
 
-if os.getenv('IN_DOCKER'):
-    from db_handler import DBHandler, DBTarget, get_table_column_specs    # Cheesed import statement using bind mount
-    from mqtt_handler import MQTTHandler, MQTTTarget
-else:
-    from analysis.sql_utils.db_handler import DBHandler, DBTarget, get_table_column_specs
-    from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
+from analysis.sql_utils.db_session import get_db, DBTarget
+from analysis.sql_utils.query_builder import QueryBuilder
+from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
+from analysis.sql_utils.models import Classifier, Dynamics, Packet, Event
+
 
 class LapTimerProcessor:
-    def __init__(self, db_handler: DBHandler=None):
-        self.handler = db_handler if db_handler else DBHandler()
+    def __init__(self, session=None):
+        self.session = session
         self.event_id: int = None
         self.gate: tuple[tuple[float], tuple[float]]  = None
         self.status: int = None
         
-        self.start_packet: int = 0        
+        self.start_packet: int = 0
+        self.table_specs = QueryBuilder("Nightwatch").get_table_column_specs()
 
     def _track_lap(self, gate: tuple[tuple[float, float], tuple[float, float]], points: list) -> float | None:
         """
@@ -60,11 +60,11 @@ class LapTimerProcessor:
     def _is_valid(self, time:int, delta: int):
         if self.event_id == None:
             return False
-        query = DBHandler.simple_select(f"SELECT start_time FROM classifier c WHERE event_id = {self.event_id} ORDER BY start_time DESC LIMIT 1", handler=self.handler)
-        if not query or len(query) == 0:
+
+        last_lap = self.session.query(Classifier.start_time).filter(Classifier.event_id == self.event_id).order_by(Classifier.start_time.desc()).first()
+        if not last_lap:
             return True
-        last_lap: int = query[0][0]
-        return time - last_lap > delta
+        return time - last_lap[0] > delta
         
     
     def _record_time(self, time: int):
@@ -79,9 +79,14 @@ class LapTimerProcessor:
         
         # Start time
         if self.status != 1:
-            DBHandler.set_event_status(event_id=self.event_id, status=1, user='electric', start_time=time, returning='day_id', handler=self.handler)
-        
-        DBHandler.insert(table="classifier", data=db_obj, target=DBTarget.get(), user="electric", handler=self.handler)
+            event = self.session.query(Event).filter(Event.event_id == self.event_id).first()
+            if event:
+                event.status = 1
+                event.start_time = time
+
+        table_desc = self.table_specs[Classifier.__tablename__]
+        QueryBuilder.insert(self.session, 'classifier', Classifier, db_obj, table_desc, commit=True)
+
         try:
             # requests.post("http://host.docker.internal:5000/webtool/new_lap", data={"time": time})  #! DIDN'T WORK ON PROD
             requests.post("https://lhrelectric.org/webtool/new_lap", data={"time": time})
@@ -144,13 +149,25 @@ class LapTimerProcessor:
         points[:] = smoothed_points
 
     def _upload_gates_to_db(self, gates: tuple[tuple[float, float], tuple[float, float]]):
+        retries = 5
+        for i in range(retries):
+            event = self.session.query(Event).filter(Event.event_id == self.event_id).first()
+            if event:
+                break
+            logging.warning(f"Event {self.event_id} not found, retrying...")
+            sleep(1)
+        else:
+            logging.error(f"Event {self.event_id} not found after {retries} retries, cannot upload gates.")
+            return
+
         db_obj = {
             "event_id": self.event_id,
             "type": "gate",
             "notes": f"{gates[0][0]}_{gates[0][1]}_{gates[1][0]}_{gates[1][1]}",
             "start_time": time.time() * 1000
         }
-        DBHandler.insert(table="classifier", data=db_obj, target=DBTarget.get(), user="electric", handler=self.handler)
+        table_desc = self.table_specs[Classifier.__tablename__]
+        QueryBuilder.insert(self.session, 'classifier', Classifier, db_obj, table_desc, commit=True)
         
         logging.info("Published gates to classifier", db_obj)
    
@@ -164,7 +181,7 @@ class LapTimerProcessor:
             else:
                 logging.debug(f"Event ID: {self.event_id} | Gate: {self.gate} | Status: {self.status}")
                 
-            points: list[tuple[str, int]] = DBHandler.simple_select(f"SELECT d.f_gps, p.time FROM dynamics d JOIN packet p ON p.packet_id = d.packet_id WHERE d.packet_id >= {self.start_packet} ORDER BY d.packet_id DESC LIMIT {window_size}", handler=self.handler, target=DBTarget.get())
+            points: list[tuple[str, int]] = self.session.query(Dynamics.f_gps, Packet.time).join(Packet, Packet.packet_id == Dynamics.packet_id).filter(Dynamics.packet_id >= self.start_packet).order_by(Dynamics.packet_id.desc()).limit(window_size).all()
 
             # Not enough points
             if len(points) < window_size:
@@ -181,7 +198,7 @@ class LapTimerProcessor:
             
             # Parse points
             df = pd.DataFrame(points, columns=['gps_str', 'timestamp'])
-            df['parsed_coordinates'] = df['gps_str'].apply(lambda gps_str: tuple(map(float, gps_str[1:-1].split(','))))
+            df['parsed_coordinates'] = df['gps_str'].apply(lambda gps_point: tuple(pd.Series(gps_point, dtype=float)))
             points: list[tuple[tuple[float, float], int]] = list(zip(df['parsed_coordinates'], df['timestamp']))
             
             # logging.info("Data is parsed")
@@ -214,14 +231,18 @@ class LapTimerProcessor:
             if msg.topic == 'config/test':
                 data = json.loads(msg.payload.decode())
                 print(data)
+
+                gate_changed = self.gate != data['gate']
+
                 # Modify object variables
                 self.event_id = data['event_id']
                 self.status = data['status']
-                if self.gate != data['gate']:
-                    self._upload_gates_to_db(gates=data['gate'])
                 self.gate = data['gate']
                 if self.start_packet < data['start_packet']:
                     self.start_packet = data['start_packet']
+
+                if gate_changed:
+                    self._upload_gates_to_db(gates=data['gate'])
         except json.JSONDecodeError:
             self.event_id = None
             self.gate = None
@@ -231,12 +252,12 @@ class LapTimerProcessor:
 
         
 def run_processor():
-    with DBHandler(unsafe=True, target=DBTarget.get(car="Nightwatch")) as nightwatch_handler, DBHandler(unsafe=True, target=DBTarget.get(car="Angelique")) as angelique_handler:
-        db_handlers = {'Nightwatch': nightwatch_handler, 'Angelique': angelique_handler}
-        with MQTTHandler(name="lap_timer_processor", target=MQTTTarget.get(), db_handlers=db_handlers) as mqtt:
+    with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session:
+        db_sessions = {'Nightwatch': nightwatch_session, 'Angelique': angelique_session}
+        with MQTTHandler(name="lap_timer_processor", target=MQTTTarget.get(), db_sessions=db_sessions) as mqtt:
         
-            handler = db_handlers["Nightwatch"]
-            processor = LapTimerProcessor(db_handler=handler)
+            session = db_sessions["Nightwatch"]
+            processor = LapTimerProcessor(session=session)
             
             frequency = 100
             window_size = 200

@@ -23,7 +23,8 @@ REALTIME = True
 sys.path.append(str(Path(__file__).parents[3]))
 from flask import Flask, render_template, url_for, request, redirect, jsonify, json, Response, stream_with_context
 
-from analysis.sql_utils.db_handler import DBHandler, DBTarget
+from analysis.sql_utils.db_session import get_db, DBTarget
+from analysis.sql_utils.models import DriveDay, Event, Packet
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 
 config = {}
@@ -33,9 +34,10 @@ os.environ["event_id"] = "-1"
 os.environ["page_details"] = "index_page"
 latest_page_details = os.getenv("page_details")
 try:
-    os.environ["date_id"] = str(DBHandler.simple_select('SELECT date FROM drive_day ORDER BY day_id DESC LIMIT 1')[0][0])
-except IndexError:
-    # os.environ["date_id"] = datetime.today().strftime("%Y-%m-%d")
+    with get_db() as session:
+        latest_date = session.query(DriveDay.date).order_by(DriveDay.day_id.desc()).first()
+        os.environ["date_id"] = str(latest_date[0]) if latest_date else datetime.today().strftime("2024-02-02")
+except Exception:
     os.environ["date_id"] = datetime.today().strftime("2024-02-02")
 
 def config_subscribe(client, userdata, msg):
@@ -136,121 +138,135 @@ def make_app():
     @app.route('/index', methods=['GET'])
     @login_required
     def index():
-        #Print Environs for Debug
-        logging.debug("PING Index Call, Event Details: " + os.getenv("event_details")) # TODO Remove, DEBUG only
-        logging.debug("RES Today is: " + str(date.today()) + " | And date_id stores: " + os.getenv("date_id"))
+        with get_db() as session:
+            #Print Environs for Debug
+            logging.debug("PING Index Call, Event Details: " + os.getenv("event_details")) # TODO Remove, DEBUG only
+            logging.debug("RES Today is: " + str(date.today()) + " | and date_id stores: " + os.getenv("date_id"))
 
-        #Check if there is an active event
-        try:
-            os.environ["event_id"] = str(DBHandler.simple_select('SELECT event_id FROM event WHERE status = 1 ORDER BY event_id DESC LIMIT 1')[0][0])
-            logging.debug("event_id Database Select returns: " + os.getenv("event_id"))
-        except (ValueError, IndexError) as e:
-            #When in debug, set to debug event id
-            if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
-                os.environ["event_id"] = "-9999"
-            logging.debug("event_id Database Select 'event-running' check failed with error: " + str(e))
-        #If an event is currently active, redirect to its page
-        if int(event_id := os.getenv("event_id")) > 0 or event_id == "-9999" or os.getenv("event_details"): #TODO more robust check than -1 pls
-            logging.debug("Redirecting to Running Event.")
-            return redirect(url_for('create_event'))
+            #Check if there is an active event
+            try:
+                active_event = session.query(Event.event_id).filter(Event.status == 1).order_by(Event.event_id.desc()).first()
+                os.environ["event_id"] = str(active_event[0]) if active_event else "-1"
+                logging.debug("event_id Database Select returns: " + os.getenv("event_id"))
+            except (ValueError, IndexError) as e:
+                #When in debug, set to debug event id
+                if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+                    os.environ["event_id"] = "-9999"
+                logging.debug("event_id Database Select 'event-running' check failed with error: " + str(e))
+            #If an event is currently active, redirect to its page
+            if int(event_id := os.getenv("event_id")) > 0 or event_id == "-9999" or os.getenv("event_details"): #TODO more robust check than -1 pls
+                logging.debug("Redirecting to Running Event.")
+                return redirect(url_for('create_event'))
 
-        try:
-            day_id = DBHandler.simple_select('SELECT day_id FROM drive_day ORDER BY day_id DESC LIMIT 1')[0][0]
-            logging.debug("DEBUG select day_id returns: " + str(day_id))
-            os.environ["day_id"] = str(day_id)
-        except (ValueError, IndexError) as e:
-            os.environ["day_id"] = "0"
+            try:
+                latest_day = session.query(DriveDay.day_id).order_by(DriveDay.day_id.desc()).first()
+                day_id = str(latest_day[0]) if latest_day else "0"
+                logging.debug("DEBUG select day_id returns: " + str(day_id))
+                os.environ["day_id"] = day_id
+            except (ValueError, IndexError) as e:
+                os.environ["day_id"] = "0"
 
-        #If no event running but drive day has been created, set current page to event details config page
-        if os.getenv("date_id") == str(date.today()):
-            logging.debug("DEBUG: Date ID equal.")
-            # day_id = DBHandler.simple_select(table='drive_day', target=DBTarget.get(), user='electric', returning='day_id')
+            #If no event running but drive day has been created, set current page to event details config page
+            if os.getenv("date_id") == str(date.today()):
+                logging.debug("DEBUG: Date ID equal.")
+                return redirect(url_for('new_event', day_id=os.getenv("day_id"))) #temporary routing
+            else:
+                logging.debug("DEBUG: Date ID NOT equal.")
 
-            return redirect(url_for('new_event', day_id=os.getenv("day_id"))) #temporary routing
-        else:
-            logging.debug("DEBUG: Date ID NOT equal.")
-
-        #No drive day or event running, set current page to index in page_sync and return render template for creating the drive day
-        os.environ["page_details"] = "index_page"
-        #with MQTTHandler(f'flask_app_{uuid.uuid4()}') as mqtt:
-        #    mqtt.publish('config/page_sync', "index_page")
-        return render_template('index.html', day_id=os.getenv("day_id"), host_ip=DBTarget.resolve_target(DBTarget.get(client=True)))
+            #No drive day or event running, set current page to index in page_sync and return render template for creating the drive day
+            os.environ["page_details"] = "index_page"
+            return render_template('index.html', day_id=os.getenv("day_id"), host_ip=DBTarget.get(client=True)['host'])
 
     @app.route('/new_drive_day/', methods=['GET'])
     @login_required
     def new_drive_day():
-        day_id = DBHandler.insert(table='drive_day', target=DBTarget.get(), user='electric', data=request.args, returning='day_id')
-        os.environ["date_id"] = str(date.today())
-        os.environ["day_id"] = str(day_id)
-        logging.debug("NEW_DRIVE_DAY Reset date_id to: " + os.getenv("date_id"))
-        return redirect(url_for('new_event', day_id=day_id))
+        with get_db() as session:
+            new_day = DriveDay(**request.args)
+            session.add(new_day)
+            session.commit()
+            day_id = new_day.day_id
+            os.environ["date_id"] = str(date.today())
+            os.environ["day_id"] = str(day_id)
+            logging.debug("NEW_DRIVE_DAY Reset date_id to: " + os.getenv("date_id"))
+            return redirect(url_for('new_event', day_id=day_id))
 
 
     @app.route('/new_event/', methods=['GET'])
     @login_required
     def new_event():
-        return render_template('input_screen.html', host_ip=DBTarget.resolve_target(DBTarget.get(client=True)), day_id=request.form.get('day_id', request.args['day_id']))
+        return render_template('input_screen.html', host_ip=DBTarget.get(client=True)['host'], day_id=request.form.get('day_id', request.args['day_id']))
 
 
     @app.route('/create_event/', methods=['GET', 'POST'])
     @login_required
     def create_event():
+        with get_db() as session:
+            #! TODO: PROTECT
+            print("CREATE EVENT")
+            current_date = datetime.today().strftime("%B %d, %Y")
+            if request.method == 'POST':
+                inputs = request.form.to_dict()
+            else:
+                return render_template('event_tracker.html', current_date=current_date,
+                        host_ip=DBTarget.get(client=True)['host'],
+                        event_id = os.getenv("event_id"), config_image = os.getenv("event_details"))
+            inputs['status'] = 2
+            try:
+                last_packet = session.query(Event.packet_end).filter(Event.status == 0).order_by(Event.event_id.desc()).first()
+                inputs['packet_start'] = (last_packet[0] + 1) if last_packet else 1
+            except IndexError as e:
+                inputs['packet_start'] = 1
 
-        #! TODO: PROTECT
-        print("CREATE EVENT")
-        current_date = datetime.today().strftime("%B %d, %Y")
-        if request.method == 'POST':
-            inputs = request.form.to_dict()
-        else:
-            return render_template('event_tracker.html', current_date=current_date,
-                    host_ip=DBTarget.resolve_target(DBTarget.get(client=True)),
-                    event_id = os.getenv("event_id"), config_image = os.getenv("event_details"))
-        inputs['status'] = 2
-        try:
-            last_packet = DBHandler.simple_select('SELECT packet_end FROM event WHERE status = 0 ORDER BY event_id DESC LIMIT 1')[0][0]
-        except IndexError as e:
-            last_packet = 0
-        inputs['packet_start'] = last_packet + 1
+            try:
+                latest_day = session.query(DriveDay.day_id).order_by(DriveDay.day_id.desc()).first()
+                day_id = str(latest_day[0]) if latest_day else "0"
+                logging.debug("DEBUG select day_id returns: " + str(day_id))
+                os.environ["day_id"] = day_id
+            except (ValueError, IndexError) as e:
+                os.environ["day_id"] = "0"
 
-        try:
-            day_id = DBHandler.simple_select('SELECT day_id FROM drive_day ORDER BY day_id DESC LIMIT 1')[0][0]
-            logging.debug("DEBUG select day_id returns: " + str(day_id))
-            os.environ["day_id"] = str(day_id)
-        except (ValueError, IndexError) as e:
-            os.environ["day_id"] = "0"
+            print("INPUTS: ", inputs)
+            new_event = Event(**inputs)
+            session.add(new_event)
+            session.commit()
+            event_id = new_event.event_id
+            os.environ["event_id"] = str(event_id)
 
-        print("INPUTS: ", inputs)
-        day_id, event_id = DBHandler.insert(table='event', target=DBTarget.get(),
-                                            user='electric', data=inputs, returning=['day_id', 'event_id'])
-        os.environ["event_id"] = str(event_id)
+            logging.debug("DEBUG event_id in create_event assigns: " + str(event_id))
 
-        logging.debug("DEBUG event_id in create_event assigns: " + str(event_id))
-
-        with MQTTHandler(f'flask_app_{uuid.uuid4()}') as mqtt:
-            mqtt.publish('config/flask', json.dumps({'event_id': event_id}, indent=4))
-        return render_template('event_tracker.html', current_date=current_date, host_ip=DBTarget.resolve_target(DBTarget.get(client=True)), event_id=os.getenv("event_id"), config_image = os.getenv("event_details"))
+            with MQTTHandler(f'flask_app_{uuid.uuid4()}') as mqtt:
+                mqtt.publish('config/flask', json.dumps({'event_id': event_id}, indent=4))
+            return render_template('event_tracker.html', current_date=current_date, host_ip=DBTarget.get(client=True)['host'], event_id=os.getenv("event_id"), config_image = os.getenv("event_details"))
 
 
     @app.route('/set_event_time/', methods=['POST'])
     @login_required
     def set_event_time():
-        if request.json['status'] == 0:
-            try:
-                request.json['packet_end'] = DBHandler.simple_select('SELECT packet_id FROM packet ORDER BY packet_id DESC LIMIT 1')[0][0]
-            except IndexError as e:
-                request.json['packet_end'] = 1
-            with MQTTHandler(f'flask_app_{uuid.uuid4()}') as mqtt:
-                mqtt.publish('config/flask', 'end_event')
-        DBHandler.set_event_status(**request.json, target=DBTarget.get(), user='electric', returning='day_id')
-        return render_template('event_tracker.html', host_ip=DBTarget.resolve_target(DBTarget.get(client=True)), event_id=request.json['event_id'])
+        with get_db() as session:
+            data = request.json
+            event = session.query(Event).filter(Event.event_id == data['event_id']).first()
+            if event:
+                event.status = data['status']
+                if data['status'] == 0:
+                    try:
+                        last_packet = session.query(Packet.packet_id).order_by(Packet.packet_id.desc()).first()
+                        event.packet_end = last_packet[0] if last_packet else 1
+                    except IndexError as e:
+                        event.packet_end = 1
+                    with MQTTHandler(f'flask_app_{uuid.uuid4()}') as mqtt:
+                        mqtt.publish('config/flask', 'end_event')
+                session.commit()
+            return render_template('event_tracker.html', host_ip=DBTarget.get(client=True)['host'], event_id=data['event_id'])
 
     @app.route('/handshake/', methods=['GET'])
     def handshake():
-        try:
-            last_pack = DBHandler.simple_select('SELECT packet_id FROM packet ORDER BY packet_id DESC LIMIT 1')[0][0]
-        except IndexError as e:
-            last_pack = 0
-        return json.dumps({'time': time.time() * 1000, 'last_packet': last_pack}), 200, {'ContentType': 'application/json'}
+        with get_db() as session:
+            try:
+                last_pack = session.query(Packet.packet_id).order_by(Packet.packet_id.desc()).first()
+                last_pack = last_pack[0] if last_pack else 0
+            except IndexError as e:
+                last_pack = 0
+            return json.dumps({'time': time.time() * 1000, 'last_packet': last_pack}), 200, {'ContentType': 'application/json'}
 
     @app.route('/reset_config_image', methods=['POST', 'GET'])
     def reset_config_image():
@@ -261,14 +277,7 @@ def make_app():
         os.environ["page_details"] = "index_page"
         latest_page_details = os.getenv("page_details")
         latest_event_details = os.getenv("event_details")
-
-        # Update correct current page to be new event
-        #with MQTTHandler(f'flask_app_{uuid.uuid4()}') as mqtt:
-        #    mqtt.publish('config/page_sync', "index_page")
-
-        print("1 - Config Reset, Passing Index")
         return redirect(url_for('index'))
-        #return json.dumps({'success': True}), 200, {'ContentType': 'application/json'}
 
     @app.route('/tune_data', methods=['GET', 'POST'])
     @login_required
@@ -284,7 +293,7 @@ def make_app():
         data = request.data
         json_object = json.loads(data)
         print(json_object)
-        return render_template('event_tracker.html', host_ip=DBTarget.resolve_target(DBTarget.get(client=True)))
+        return render_template('event_tracker.html', host_ip=DBTarget.get(client=True)['host'])
 
 
     @app.route('/accel_data', methods=['GET', 'POST'])
@@ -293,7 +302,7 @@ def make_app():
         data = request.data
         json_object = json.loads(data)
         logging.debug(json_object)
-        return render_template('event_tracker.html', host_ip=DBTarget.resolve_target(DBTarget.get(client=True)))
+        return render_template('event_tracker.html', host_ip=DBTarget.get(client=True)['host'])
 
 
     @app.route('/texas_tune/', methods=['GET', 'POST'])
@@ -418,47 +427,50 @@ def make_app():
 
     @app.route('/update-event-sync', methods=['POST'])
     def update_event_sync():
-        print("Call to Update Event Sync")
-        """
-        Endpoint to receive JSON updates from the client.
-        """
-        global latest_event_details
-        # Parse the JSON data from the client
-        json_data = request.get_json()
+        with get_db() as session:
+            print("Call to Update Event Sync")
+            """
+            Endpoint to receive JSON updates from the client.
+            """
+            global latest_event_details
+            # Parse the JSON data from the client
+            json_data = request.get_json()
 
-        if json_data.get("endFlag"):
-            #Handle event termination logic
-            logging.debug("End Flag Detected. Closing event on DB.")
+            if json_data.get("endFlag"):
+                #Handle event termination logic
+                logging.debug("End Flag Detected. Closing event on DB.")
 
-            # Packet Generation for Testing
-            # for i in tqdm(range(1, 100)):
-            #    DBHandler.insert('packet', target=DBTarget.LOCAL, user='electric', data={'packet_id': i, 'time': int(time.time())})
+                #Close event in database
+                try:
+                    last_pack = session.query(Packet.packet_id).order_by(Packet.packet_id.desc()).first()
+                    last_pack = last_pack[0] if last_pack else 0
+                except IndexError as e:
+                    last_pack = 0
 
-            #Close event in database
-            try:
-                last_pack = DBHandler.simple_select('SELECT packet_id FROM packet ORDER BY packet_id DESC LIMIT 1')[0][0]
-            except IndexError as e:
-                last_pack = 0
+                event = session.query(Event).filter(Event.event_id == int(os.getenv("event_id"))).first()
+                if event:
+                    event.status = 0
+                    event.packet_end = last_pack
+                    session.commit()
 
-            DBHandler.set_event_status(int(os.getenv("event_id")), 0, packet_end=last_pack, user='electric')
-            #Reset event variables
-            os.environ["event_id"] = "-1"
-            os.environ["event_details"] = ""
+                #Reset event variables
+                os.environ["event_id"] = "-1"
+                os.environ["event_details"] = ""
 
-            #Update target page
-            os.environ["page_details"] = "index_page"  # update shared env variable
-            global latest_page_details
-            latest_page_details = "index_page"
+                #Update target page
+                os.environ["page_details"] = "index_page"  # update shared env variable
+                global latest_page_details
+                latest_page_details = "index_page"
 
-        # Update the global event details. Store it as a JSON-formatted string.
-        os.environ['event_details'] = json.dumps(json_data)
-        latest_event_details = os.getenv("event_details")
+            # Update the global event details. Store it as a JSON-formatted string.
+            os.environ['event_details'] = json.dumps(json_data)
+            latest_event_details = os.getenv("event_details")
 
-        app.logger.debug("Event sync updated: %s", latest_event_details)
-        print("Event Details stores: " + latest_event_details)
+            app.logger.debug("Event sync updated: %s", latest_event_details)
+            print("Event Details stores: " + latest_event_details)
 
-        # Respond with a success message.
-        return jsonify({"success": True})
+            # Respond with a success message.
+            return jsonify({"success": True})
 
     # New endpoint: update the page target based on client POST request
     @app.route('/update-page-target', methods=['POST'])

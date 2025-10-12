@@ -154,7 +154,7 @@ CREATE TABLE public.dynamics (
     inverter_c          real,
     inverter_rpm        smallint,
     inverter_torque     real,
-    CONSTRAINT fk_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
+    CONSTRAINT fk_dynamics_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
 
 -- Controls table
@@ -169,7 +169,7 @@ CREATE TABLE public.controls (
     sus1_v              real,
     sus2_v              real,
     steer_v             real,
-    CONSTRAINT fk_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
+    CONSTRAINT fk_controls_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
 
 -- Pack table
@@ -183,7 +183,7 @@ CREATE TABLE public.pack (
     contactor_state     smallint,
     avg_cell_v          real,
     avg_cell_temp       real,
-    CONSTRAINT fk_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
+    CONSTRAINT fk_pack_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
 
 
@@ -197,7 +197,7 @@ CREATE TABLE public.diagnostics (
     cells_v                 real[],
     hv_charge_state         real,
     lv_charge_state         real,
-    CONSTRAINT fk_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
+    CONSTRAINT fk_diagnostics_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
 
 -- Thermal table
@@ -216,7 +216,7 @@ CREATE TABLE public.thermal
     batt_fan_set        smallint,
     batt_fan_rpm        smallint,
     flow_rate           smallint,
-    CONSTRAINT fk_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
+    CONSTRAINT fk_thermal_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
 
 -- Classifier table
