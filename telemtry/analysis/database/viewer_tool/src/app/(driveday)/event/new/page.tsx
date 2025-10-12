@@ -71,7 +71,16 @@ export default function NewEventPage() {
   };
 
   const handleSelectChange = (id: keyof NewEventState, value: string) => {
-    const newFormState = { ...newEventState, [id]: value };
+    // Fields that are numeric in NewEventState
+    const numericKeys: Array<keyof NewEventState> = ['driverId', 'locationId', 'eventType', 'carId'];
+
+    let parsedValue: any = value;
+    if (numericKeys.includes(id)) {
+      const n = Number(value);
+      parsedValue = Number.isNaN(n) ? undefined : n;
+    }
+
+    const newFormState = { ...newEventState, [id]: parsedValue };
     setNewEventState(newFormState);
     sendStateUpdate({ newEvent: newFormState });
   };
@@ -102,7 +111,7 @@ export default function NewEventPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="flex flex-col space-y-1.5">
                 <Label htmlFor="driverId">Choose a driver</Label>
-                <Select onValueChange={(v) => handleSelectChange('driverId', v)} value={newEventState.driverId}><SelectTrigger><SelectValue placeholder="Select a driver" /></SelectTrigger><SelectContent>
+                <Select onValueChange={(v) => handleSelectChange('driverId', v)} value={newEventState.driverId?.toString()}><SelectTrigger><SelectValue placeholder="Select a driver" /></SelectTrigger><SelectContent>
                   <SelectItem value="0">Other</SelectItem>
                   <SelectItem value="1">Rylan Hanks</SelectItem>
                   <SelectItem value="2">Sohan Agnihotri</SelectItem>
@@ -114,7 +123,7 @@ export default function NewEventPage() {
               </div>
               <div className="flex flex-col space-y-1.5">
                 <Label htmlFor="locationId">Choose a location</Label>
-                <Select onValueChange={(v) => handleSelectChange('locationId', v)} value={newEventState.locationId}><SelectTrigger><SelectValue placeholder="Select a location" /></SelectTrigger><SelectContent>
+                <Select onValueChange={(v) => handleSelectChange('locationId', v)} value={newEventState.locationId?.toString()}><SelectTrigger><SelectValue placeholder="Select a location" /></SelectTrigger><SelectContent>
                   <SelectItem value="0">Other</SelectItem>
                   <SelectItem value="1">Pickle - Innovation Blvd</SelectItem>
                   <SelectItem value="2">Pickle - Front Lot</SelectItem>
@@ -126,7 +135,7 @@ export default function NewEventPage() {
               </div>
               <div className="flex flex-col space-y-1.5">
                 <Label htmlFor="eventType">Choose an event type</Label>
-                <Select onValueChange={(v) => handleSelectChange('eventType', v)} value={newEventState.eventType}><SelectTrigger><SelectValue placeholder="Select an event type" /></SelectTrigger><SelectContent>
+                <Select onValueChange={(v) => handleSelectChange('eventType', v)} value={newEventState.eventType?.toString()}><SelectTrigger><SelectValue placeholder="Select an event type" /></SelectTrigger><SelectContent>
                   <SelectItem value="0">Other</SelectItem>
                   <SelectItem value="1">Endurance</SelectItem>
                   <SelectItem value="2">Autocross</SelectItem>
@@ -137,7 +146,7 @@ export default function NewEventPage() {
               </div>
               <div className="flex flex-col space-y-1.5">
                 <Label htmlFor="carId">Choose a car</Label>
-                <Select onValueChange={(v) => handleSelectChange('carId', v)} value={newEventState.carId}><SelectTrigger><SelectValue placeholder="Select a car" /></SelectTrigger><SelectContent>
+                <Select onValueChange={(v) => handleSelectChange('carId', v)} value={newEventState.carId?.toString()}><SelectTrigger><SelectValue placeholder="Select a car" /></SelectTrigger><SelectContent>
                   <SelectItem value="1">Easy Driver</SelectItem>
                   <SelectItem value="2">Lady Luck</SelectItem>
                 </SelectContent></Select>

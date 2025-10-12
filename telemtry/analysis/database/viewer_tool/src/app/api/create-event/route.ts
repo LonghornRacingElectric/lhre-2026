@@ -18,50 +18,72 @@ export async function POST(req: NextRequest) {
     const packet_start = Number(lastEvent?.packet_end ?? 0) + 1;
 
     // Find the latest drive_day
-    const lastDriveDay = await prisma.drive_day.findFirst({
+    const currentDriveDay = await prisma.drive_day.findFirst({
       orderBy: { day_id: 'desc' },
+      where: { date: new Date() },
       select: { day_id: true },
     });
 
-    if (!lastDriveDay?.day_id) {
+    if (!currentDriveDay?.day_id) {
       return NextResponse.json({ error: 'No drive day found' }, { status: 500 });
     }
 
     const creation_time = Date.now();
 
-    const { 
-      driver_id, location_id, event_type, car_id, car_weight, tow_angle, camber,
-      ride_height, ackerman_adjustment, power_limit, shock_dampening, torque_limit,
-      frw_pressure, flw_pressure, brw_pressure, blw_pressure
+    const {
+      eventId,
+      driverId,
+      locationId,
+      eventType,
+      carId,
+      carWeight,
+      towAngle,
+      camber,
+      rideHeight,
+      ackermanAdjustment,
+      powerLimit,
+      shockDampening,
+      torqueLimit,
+      frwPressure,
+      flwPressure,
+      brwPressure,
+      blwPressure,
+      frontWingOn,
+      rearWingOn,
+      regenOn,
+      undertrayOn,
     } = body;
 
     const newEvent = await prisma.event.create({
       data: {
-        day_id: lastDriveDay.day_id,
+        day_id: currentDriveDay.day_id,
         status,
         creation_time,
         start_time: creation_time,
         packet_start,
-        car_id: car_id ? parseInt(car_id) : 9999,
-        driver_id: driver_id ? parseInt(driver_id) : 9999,
-        location_id: location_id ? parseInt(location_id) : 9999,
-        event_type: event_type ? parseInt(event_type) : 9999,
-        car_weight: car_weight ? parseInt(car_weight) : null,
-        tow_angle: tow_angle ? parseFloat(tow_angle) : null,
-        camber: camber ? parseFloat(camber) : null,
-        ride_height: ride_height ? parseFloat(ride_height) : null,
-        ackerman_adjustment: ackerman_adjustment ? parseFloat(ackerman_adjustment) : null,
-        power_limit: power_limit ? parseInt(power_limit) : null,
-        shock_dampening: shock_dampening ? parseInt(shock_dampening) : null,
-        torque_limit: torque_limit ? parseInt(torque_limit) : null,
-        frw_pressure: frw_pressure ? parseFloat(frw_pressure) : null,
-        flw_pressure: flw_pressure ? parseFloat(flw_pressure) : null,
-        brw_pressure: brw_pressure ? parseFloat(brw_pressure) : null,
-        blw_pressure: blw_pressure ? parseFloat(blw_pressure) : null,
+        car_id: carId ? parseInt(carId as any) : 9999,
+        driver_id: driverId ? parseInt(driverId as any) : 9999,
+        location_id: locationId ? parseInt(locationId as any) : 9999,
+        event_type: eventType ? parseInt(eventType as any) : 9999,
+        car_weight: carWeight ? parseInt(carWeight as any) : null,
+        tow_angle: towAngle ? parseFloat(towAngle as any) : null,
+        camber: camber ? parseFloat(camber as any) : null,
+        ride_height: rideHeight ? parseFloat(rideHeight as any) : null,
+        ackerman_adjustment: ackermanAdjustment ? parseFloat(ackermanAdjustment as any) : null,
+        power_limit: powerLimit ? parseInt(powerLimit as any) : null,
+        shock_dampening: shockDampening ? parseInt(shockDampening as any) : null,
+        torque_limit: torqueLimit ? parseInt(torqueLimit as any) : null,
+        frw_pressure: frwPressure ? parseFloat(frwPressure as any) : null,
+        flw_pressure: flwPressure ? parseFloat(flwPressure as any) : null,
+        brw_pressure: brwPressure ? parseFloat(brwPressure as any) : null,
+        blw_pressure: blwPressure ? parseFloat(blwPressure as any) : null,
+        front_wing_on: frontWingOn ?? false,
+        rear_wing_on: rearWingOn ?? false,
+        regen_on: regenOn ?? false,
+        undertray_on: undertrayOn ?? false,
       }
+      
     });
-
-    // TODO: Publish event_id to MQTT
 
     return NextResponse.json({ event_id: newEvent.event_id }, { status: 201 });
   } catch (error) {

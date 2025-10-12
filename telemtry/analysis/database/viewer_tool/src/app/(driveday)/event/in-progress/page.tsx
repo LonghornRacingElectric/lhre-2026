@@ -41,7 +41,7 @@ const EventInProgressPage = () => {
   };
 
   const handleEndEvent = async () => {
-    const response = await fetch('/api/end-event', {
+    await fetch('/api/end-event', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -49,17 +49,11 @@ const EventInProgressPage = () => {
     router.push('/event/new');
   };
 
-  const handleEndDriveDay = () => {
-    updateState(s => ({ ...s, eventTracker: undefined, newEvent: undefined, driveDay: undefined, currentPage: '/driveday' }));
-    router.push('/driveday');
-  };
-
   return (
     <div className="container mx-auto p-8 flex flex-col items-center justify-center">
       <h1 className="text-4xl font-bold mb-8">Event in Progress</h1>
       <div className="flex space-x-4">
         <Button onClick={handleEndEvent} variant="destructive">End Event</Button>
-        <Button onClick={handleEndDriveDay} variant="destructive">End Drive Day</Button>
       </div>
     </div>
   );

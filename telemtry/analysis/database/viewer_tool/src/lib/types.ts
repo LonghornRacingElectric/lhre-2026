@@ -5,15 +5,17 @@ export interface LapData {
 }
 
 export interface DriveDayState {
+  dayId?: number;
   powerLimit?: string;
   drivingConditions?: string;
 }
 
 export interface NewEventState {
-  driverId?: string;
-  locationId?: string;
-  eventType?: string;
-  carId?: string;
+  eventId?: number;
+  driverId?: number;
+  locationId?: number;
+  eventType?: number;
+  carId?: number;
   carWeight?: string;
   towAngle?: string;
   camber?: string;
