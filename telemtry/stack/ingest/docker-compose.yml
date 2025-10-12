@@ -14,8 +14,8 @@ services:
 
   ingest:
     build:
-      context: ../..
-      dockerfile: ./stack/ingest/Dockerfile
+      context: .
+      dockerfile: Dockerfile
     image: telemetry_backend
     container_name: ingest
     restart: unless-stopped
@@ -26,17 +26,17 @@ services:
       - path: ../../.env
         required: true
     environment:
-      PYTHONUNBUFFERED: 1   # Allows output in Docker Compose console
-      IN_DOCKER: 1          # Custom env variable used for IP resolution
+      PYTHONUNBUFFERED: 1
+      IN_DOCKER: 1
       SERVER_TARGET: 'LOCAL'
       DB_CONN_TYPE: 6
       LOGLEVEL: 'DEBUG'
+      PYTHONPATH: /app
     volumes:
       - ../../.env:/.env
       - ../../net_configs.json:/app/net_configs.json
     networks:
       - telemetry_network
-
   db:
     image: postgres
     container_name: db
@@ -56,7 +56,6 @@ services:
     tmpfs:
       - /tmp
       - /run/postgresql
-
   grafana:
     image: grafana/grafana-oss
     container_name: grafana
@@ -72,13 +71,11 @@ services:
       - telemetry_network
     ports:
       - "3000:3000"
-
 volumes:
   grafana_storage:
     external: true
   telemetry_db:
     external: true
-
 networks:
   telemetry_network:
     external: true
