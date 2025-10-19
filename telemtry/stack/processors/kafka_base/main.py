@@ -2,10 +2,10 @@ from kafka import KafkaConsumer
 import time
 
 consumer = KafkaConsumer(
-    'testing_kafka',
+    'db_inserts',
     bootstrap_servers='kafka:9092',
     group_id='test-group',
-    max_poll_records=100,
+    max_poll_records=5,
     enable_auto_commit=False,
     auto_offset_reset='earliest',
     consumer_timeout_ms=5000
