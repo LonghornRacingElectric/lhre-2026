@@ -1,0 +1,85 @@
+syntax = "proto3";
+message SensorData {
+    int64 time = 1;
+    int64 packet_id = 2;
+    Dynamics dynamics = 3;
+    Controls controls = 4;
+    Pack pack = 5;
+    Diagnostics diagnostics = 6;
+    Thermal thermal = 7;
+}
+message Dynamics {
+    float torque_request = 1;
+    repeated float vcu_position = 2;
+    repeated float vcu_velocity = 3;
+    repeated float vcu_accel = 4;
+    repeated float gps = 5;
+    float gps_velocity = 6;
+    float gps_heading = 7;
+    repeated float body1_accel = 8;
+    repeated float body2_accel = 9;
+    repeated float body3_accel = 10;
+    repeated float flw_accel = 11;
+    repeated float frw_accel = 12;
+    repeated float blw_accel = 13;
+    repeated float brw_accel = 14;
+    repeated float body1_gyro = 15;
+    repeated float body2_gyro = 16;
+    repeated float body3_gyro = 17;
+    float flw_speed = 18;
+    float frw_speed = 19;
+    float blw_speed = 20;
+    float brw_speed = 21;
+    float inverter_v = 22;
+    float inverter_c = 23;
+    int32 inverter_rpm = 24;
+    float inverter_torque = 25;
+}
+
+message Controls {
+    bytes vcu_flags = 1;
+    string vcu_flags_json = 2;
+    float apps1_v = 3;
+    float apps2_v = 4;
+    float bse1_v = 5;
+    float bse2_v = 6;
+    float sus1_v = 7;
+    float sus2_v = 8;
+    float steer_v = 9;
+}
+
+message Pack {
+    float hv_pack_v = 1;
+    float hv_tractive_v = 2;
+    float hv_c = 3;
+    float lv_v = 4;
+    float lv_c = 5;
+    int32 contactor_state = 6;
+    float avg_cell_v = 7;
+    float avg_cell_temp = 8;
+}
+
+message Diagnostics {
+    bytes current_errors = 1;
+    string current_errors_json = 2;
+    bytes latching_faults = 3;
+    string latching_faults_json = 4;
+    repeated float cells_v = 5;
+    float hv_charge_state = 6;
+    float lv_charge_state = 7;
+}
+
+message Thermal {
+    repeated int32 cells_temp = 1;
+    int32 ambient_temp = 2;
+    int32 inverter_temp = 3;
+    int32 motor_temp = 4;
+    int32 water_motor_temp = 5;
+    int32 water_inverter_temp = 6;
+    int32 water_rad_temp = 7;
+    int32 rad_fan_set = 8;
+    int64 rad_fan_rpm = 9;
+    int32 batt_fan_set = 10;
+    int32 batt_fan_rpm = 11;
+    int32 flow_rate = 12;
+}

@@ -16,7 +16,7 @@ sys.path.append(str(Path(__file__).parents[2]))
 
 from analysis.sql_utils.db_session import get_db
 from analysis.sql_utils.query_builder import QueryBuilder
-from stack.ingest.protobuf import template_pb2
+from stack.ingest.protobuf import template_pb2, angelique_pb2
 
 # Determine path to net_configs.json based on execution context
 if os.getenv("IN_DOCKER"):
@@ -192,17 +192,22 @@ class MQTTHandler:
             elif not cache_enable:
                 QueryBuilder.insert(session, table, model, data_dict, table_desc, commit=True)
     
-    def _proto_ingest(self, payload:str, cache_enable = False):
-        message_dict = self._proto_decode(payload=payload)
+    def _proto_ingest(self, payload:str, cache_enable = False, car = "Nightwatch"):
+        message_dict = self._proto_decode(payload=payload, car=car)
 
         if ("time" not in message_dict or "packet_id" not in message_dict):
             raise Exception("time/packet_id MISSING FROM PAYLOAD")
+        
+        if (car == "Angelique"):
+            session = self.sessions["Angelique"]
+            builder = QueryBuilder("Angelique")
+            table_specs = self.table_specs["Angelique"]
+        else:
+            session = self.sessions["Nightwatch"]
+            builder = QueryBuilder("Nightwatch")
+            table_specs = self.table_specs["Nightwatch"]
 
-        session = self.sessions["Nightwatch"]
-        builder = QueryBuilder("Nightwatch")
-        table_specs = self.table_specs["Nightwatch"]
-
-        for table in ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal']:
+        for table in table_specs.keys():
             model = builder._models.get(table.capitalize())
             if model:
                 table_desc = table_specs[model.__tablename__]
@@ -218,7 +223,7 @@ class MQTTHandler:
                 elif table != 'packet':
                     self.cache.append((model, data))
                     if (len(self.cache) == 24):
-                        self.cache_flush("Nightwatch")
+                        self.cache_flush(car)
                         self.cache.clear()
         session.commit()
 
@@ -252,9 +257,12 @@ class MQTTHandler:
                     logging.warning(f'\tNo data received for {table}...')
         session.commit()
 
-    def _proto_decode(self, payload: str) -> dict:
+    def _proto_decode(self, payload: str, car = "Nightwatch") -> dict:
         logging.info('Data Received via Protobuf')
-        row = template_pb2.SensorData()
+        if (car == "Angelique"):
+            row = angelique_pb2.SensorData()
+        else:
+            row = template_pb2.SensorData()
         row.ParseFromString(payload)
         row = MessageToDict(row, preserving_proto_field_name=True, always_print_fields_with_no_presence=True)
         logging.debug(row)
