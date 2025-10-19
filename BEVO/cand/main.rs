@@ -6,7 +6,7 @@ use std::thread;
 use std::time::Duration;
 
 const WAIT: u64 = 10;
-const SOCKET_PATH: &str = "/tmp/main.sock";
+const SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
 
 fn main() -> std::io::Result<()> {
     // Remove old socket file if it exists
