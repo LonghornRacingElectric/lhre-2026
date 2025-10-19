@@ -35,7 +35,16 @@ fn accept_clients(listener: UnixListener, clients: Arc<Mutex<Vec<UnixStream>>>) 
         match stream {
             Ok(stream) => {
                 println!("[CAND] New client connected");
-                clients.lock().unwrap().push(stream);
+
+                // checks if thread panics when locked (ie poisoned)
+                let mut clients_guard = match clients.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => {
+                        eprintln!("[CAND] Mutex poisoned. Recovering...");
+                        poisoned.into_inner()
+                    }
+                };
+                clients_guard.push(stream);
             }
             Err(err) => eprintln!("[CAND] Connection error: {}", err),
         }
@@ -49,7 +58,7 @@ fn broadcast_loop(clients: Arc<Mutex<Vec<UnixStream>>>) {
         let message = format!("Broadcast message: {}\n", count);
         let mut dead_clients = Vec::new();
 
-        let mut clients_guard = clients.lock().unwrap();
+        let mut clients_guard = clients.lock().expect("Failed to lock clients mutex");
         for (i, stream) in clients_guard.iter_mut().enumerate() {
             if stream.write_all(message.as_bytes()).is_err() {
                 println!("[CAND] Client disconnected");
