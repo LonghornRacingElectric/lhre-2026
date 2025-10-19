@@ -79,6 +79,10 @@ external/
 /VCU/firmware/Drivers
 VCU/firmware/.mxproject
 
+PDU/Drivers
+PDU/.mxproject
+PDU/Middlewares
+
 .mxproject
 /.clwb
 /VCU/firmware/Middlewares

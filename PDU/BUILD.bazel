@@ -1,0 +1,13 @@
+load("//tools:outputs/build_outputs.bzl", "binary_out", "hex_out", "firmware_project_g4")
+
+firmware_project_g4(
+    name = "pdu_firmware",
+    linker_script = "STM32G474VETx_FLASH.ld",
+    startup_script = "startup_stm32g474xx.s",
+    defines = [
+        "STM32G474xx", # e.g. "STM32G474xx"
+    ],
+    
+    enable_freertos = True,
+
+)
