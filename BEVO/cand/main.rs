@@ -20,13 +20,11 @@ fn main() -> std::io::Result<()> {
     let clients = Arc::new(Mutex::new(Vec::new()));
 
     // thread to accept clients
-    let clients_accept = Arc::clone(&clients);
-    thread::spawn(move || accept_clients(listener, clients_accept));
+    let clients_clone = Arc::clone(&clients);
+    thread::spawn(move || accept_clients(listener, clients_clone));
 
     // thread broadcasts messages
     broadcast_loop(clients);
-
-    Ok(())
 }
 
 // Accepts incoming Unix socket clients and stores them in the shared list
@@ -35,16 +33,7 @@ fn accept_clients(listener: UnixListener, clients: Arc<Mutex<Vec<UnixStream>>>) 
         match stream {
             Ok(stream) => {
                 println!("[CAND] New client connected");
-
-                // checks if thread panics when locked (ie poisoned)
-                let mut clients_guard = match clients.lock() {
-                    Ok(guard) => guard,
-                    Err(poisoned) => {
-                        eprintln!("[CAND] Mutex poisoned. Recovering...");
-                        poisoned.into_inner()
-                    }
-                };
-                clients_guard.push(stream);
+                clients.lock().expect("Mutex lock poisoned").push(stream);
             }
             Err(err) => eprintln!("[CAND] Connection error: {}", err),
         }
@@ -52,22 +41,21 @@ fn accept_clients(listener: UnixListener, clients: Arc<Mutex<Vec<UnixStream>>>) 
 }
 
 // Broadcasts messages to all connected clients
-fn broadcast_loop(clients: Arc<Mutex<Vec<UnixStream>>>) {
+fn broadcast_loop(clients: Arc<Mutex<Vec<UnixStream>>>) -> ! {
     let mut count = 0;
     loop {
         let message = format!("Broadcast message: {}\n", count);
-        let mut dead_clients = Vec::new();
 
-        let mut clients_guard = clients.lock().expect("Failed to lock clients mutex");
-        for (i, stream) in clients_guard.iter_mut().enumerate() {
-            if stream.write_all(message.as_bytes()).is_err() {
-                println!("[CAND] Client disconnected");
-                dead_clients.push(i);
-            }
-        }
-
-        for &i in dead_clients.iter().rev() {
-            clients_guard.remove(i);
+        {
+            let mut clients_guard = clients.lock().expect("Mutex lock poisoned");
+            clients_guard.retain_mut(|stream| {
+                if stream.write_all(message.as_bytes()).is_err() {
+                    println!("[CAND] Client disconnected");
+                    false
+                } else {
+                    true
+                }
+            });
         }
 
         count += 1;
