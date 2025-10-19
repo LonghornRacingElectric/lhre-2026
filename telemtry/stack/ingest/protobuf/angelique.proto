@@ -1,5 +1,5 @@
 syntax = "proto3";
-message SensorData {
+message AngeliqueSensorData {
     int64 time = 1;
     int64 packet_id = 2;
     Dynamics dynamics = 3;
