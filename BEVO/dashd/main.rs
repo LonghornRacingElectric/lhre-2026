@@ -4,7 +4,7 @@ use std::path::Path;
 use std::thread;
 use std::time::Duration;
 
-const SOCKET_PATH: &str = "/tmp/main.sock";
+const SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
 
 fn main() {
     loop {
