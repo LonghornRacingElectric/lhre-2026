@@ -66,6 +66,7 @@ services:
       GF_SERVER_ROOT_URL: 'https://lhrelectric.org/grafana/'
       GF_SERVER_SERVE_FROM_SUB_PATH: 'true'
       GF_SERVER_PROTOCOL: 'http'
+      GF_INSTALL_PLUGINS: 'hamedkarbasi93-kafka-datasource'
     volumes:
       - grafana_storage:/var/lib/grafana
     networks:
