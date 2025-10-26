@@ -30,9 +30,9 @@ while ($true) {
             }
             "2" {
                 Set-Location (Get-ChildItem -Recurse -Directory | Where-Object { $_.Name -eq "kafka" }).FullName
-                if (-not (Test-Path .\processors))
+                if (-not (Test-Path .\kafka))
                 {
-                    Write-Host "Failed to find processors"
+                    Write-Host "Failed to find kafka"
                     exit
                 }
                 docker-compose down
@@ -55,9 +55,9 @@ while ($true) {
             }
             "3" {
                 Set-Location (Get-ChildItem -Recurse -Directory | Where-Object { $_.Name -eq "kafka" }).FullName
-                if (-not (Test-Path .\processors))
+                if (-not (Test-Path .\kafka))
                 {
-                    Write-Host "Failed to find processors"
+                    Write-Host "Failed to find kafka"
                     exit
                 }
                 docker-compose down
