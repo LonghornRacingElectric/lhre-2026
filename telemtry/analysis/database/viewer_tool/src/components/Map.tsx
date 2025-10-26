@@ -25,7 +25,7 @@ const dotIcon = new L.DivIcon({
 const MapUpdater = ({ position }: { position: [number, number] }) => {
   const map = useMap();
   useEffect(() => {
-    map.flyTo(position, map.getZoom());
+    map.setView(position, map.getZoom());
   }, [position, map]);
   return null;
 }
