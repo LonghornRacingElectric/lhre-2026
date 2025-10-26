@@ -4,6 +4,7 @@ import { bus, KafkaEvent } from "./bus";
 let started = false;
 let readyPromise: Promise<void> | null = null;
 let subscribedTopics = new Set<string>();
+let subscribedRegex = new Set<string>();
 let consumer: import("kafkajs").Consumer | null = null;
 
 export async function startKafkaConsumer(): Promise<void> {
@@ -47,11 +48,27 @@ export async function startKafkaConsumer(): Promise<void> {
   return readyPromise;
 }
 
-export async function ensureSubscribe(topic: string): Promise<void> {
+export async function ensureSubscribe(topic: string | RegExp): Promise<void> {
   if (!topic) return;
   await startKafkaConsumer();
   if (!consumer) return;
-  if (subscribedTopics.has(topic)) return;
-  await consumer.subscribe({ topic, fromBeginning: false });
-  subscribedTopics.add(topic);
+  if (typeof topic === "string") {
+    if (subscribedTopics.has(topic)) return;
+    await consumer.subscribe({ topic, fromBeginning: false });
+    subscribedTopics.add(topic);
+  } else {
+    const key = topic.toString();
+    if (subscribedRegex.has(key)) return;
+    await consumer.subscribe({ topic, fromBeginning: false });
+    subscribedRegex.add(key);
+  }
+}
+
+export function ensureSubscribePrefix(base: string): Promise<void> {
+  const regex = new RegExp(`^${escapeRegex(base)}(?:\\/.*)?$`);
+  return ensureSubscribe(regex);
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
