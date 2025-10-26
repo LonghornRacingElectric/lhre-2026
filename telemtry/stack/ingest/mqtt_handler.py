@@ -260,7 +260,7 @@ class MQTTHandler:
         session.commit()
 
     def _proto_decode(self, payload: str, car = "Nightwatch") -> dict:
-        logging.info('Data Received via Protobuf')
+        logging.debug('Data Received via Protobuf')
         if (car == "Angelique"):
             row = angelique_pb2.AngeliqueSensorData()
         else:

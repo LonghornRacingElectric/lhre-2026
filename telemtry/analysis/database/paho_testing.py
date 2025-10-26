@@ -24,6 +24,7 @@ sys.path.append(str(Path(__file__).parents[2]))
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 from analysis.sql_utils.db_session import get_db, DBTarget
 from analysis.sql_utils.query_builder import QueryBuilder
+from analysis.sql_utils.models import Packet
 from stack.ingest.protobuf.template_pb2 import SensorData
 from stack.ingest.protobuf.angelique_pb2 import AngeliqueSensorData
 
@@ -270,14 +271,14 @@ class DataTester:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    car_name = "Angelique"
+    car_name = "Nightwatch"
     with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session:
         db_sessions = {'Nightwatch': nightwatch_session, 'Angelique': angelique_session}
         with MQTTHandler('paho_test', db_sessions=db_sessions) as mqtt:
             # Protobuf message testing
             dt = DataTester(mqtt=mqtt, seed=42)
             dt.send_proto_rows(
-                tables=['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
+                tables=['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'],
                 num_rows= 2000,
                 delay= 0.01,
                 target=car_name
