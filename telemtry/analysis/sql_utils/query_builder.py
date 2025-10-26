@@ -33,7 +33,23 @@ from .models import (
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import JSONB # Added for JSONB type handling
 
+from kafka import KafkaProducer
+import json
+import os
+
 class QueryBuilder:
+    # Initialize Kafka producer
+    if os.getenv("IN_DOCKER"):
+        producer = KafkaProducer(
+            bootstrap_servers='kafka:9092',
+            value_serializer=lambda v: json.dumps(v).encode('utf-8')
+        )
+    else:
+        producer = KafkaProducer(
+            bootstrap_servers='localhost:9092',
+            value_serializer=lambda v: json.dumps(v).encode('utf-8')
+        )
+
     def __init__(self, car="Nightwatch"):
         self._car = car # Store car name
         self._db_context_manager = get_db(car) # Store the context manager
@@ -297,6 +313,7 @@ class QueryBuilder:
         session.add(model(**processed))
         if commit:
             session.commit()
+            QueryBuilder.producer.send('db_inserts', {'table': table_name, 'data': processed})
 
 if __name__ == '__main__':
     with QueryBuilder() as qb:
