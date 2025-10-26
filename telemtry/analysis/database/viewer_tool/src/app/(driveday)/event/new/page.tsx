@@ -100,7 +100,7 @@ export default function NewEventPage() {
   };
 
   return (
-    <div className="p-8 flex justify-center items-center">
+    <div className="p-8 flex justify-center items-center pt-20">
       <Card className="w-full max-w-4xl">
         <CardHeader>
           <CardTitle>Create New Event</CardTitle>

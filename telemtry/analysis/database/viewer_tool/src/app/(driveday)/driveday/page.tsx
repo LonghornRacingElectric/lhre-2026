@@ -74,7 +74,7 @@ export default function DrivedayPage() {
   };
 
   return (
-    <div className="p-8 flex justify-center items-center">
+    <div className="p-8 flex justify-center items-center pt-20">
       <Card className="w-[350px]">
         <CardHeader>
           <CardTitle>Create New Drive Day</CardTitle>

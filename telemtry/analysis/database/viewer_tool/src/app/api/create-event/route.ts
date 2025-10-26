@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       undertrayOn,
     } = body;
 
-      let DEFAULT = 9999;
+      const DEFAULT = 9999;
       const newEvent = await prisma.event.create({
       data: {
         day_id: currentDriveDay.day_id,

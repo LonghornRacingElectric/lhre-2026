@@ -17,7 +17,7 @@ import {
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
 import screenfull from "screenfull";
-import { toast } from 'react-toastify';
+import { toast } from "react-toastify";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,13 +39,7 @@ enum EventFlags {
   OTHER_FLAG = "other",
 }
 
-const Tile = ({
-  feature,
-  appState,
-  note,
-  setNote,
-  isDragging,
-}) => {
+const Tile = ({ feature, appState, note, setNote, isDragging }) => {
   const { attributes, listeners, setNodeRef, style } = useSortableTile(
     feature.id
   );
@@ -69,11 +63,10 @@ const Tile = ({
       }),
     });
 
-    if(response.ok) {
-      if(eventFlag === EventFlags.OTHER_FLAG) setNote("");
-      toast("Flag added successfully", { type: 'success' });
-    }
-    else toast("Failed to add flag", { type: 'error' });
+    if (response.ok) {
+      if (eventFlag === EventFlags.OTHER_FLAG) setNote("");
+      toast("Flag added successfully", { type: "success" });
+    } else toast("Failed to add flag", { type: "error" });
   };
 
   const renderFeature = (feature) => {
