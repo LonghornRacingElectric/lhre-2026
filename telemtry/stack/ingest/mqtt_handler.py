@@ -129,7 +129,7 @@ class MQTTHandler:
                 # Protobuf serialized string sent
                 self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Nightwatch")
         elif (topic_split := msg.topic.split('/'))[0] == 'angelique':
-            if (topic_split[-1] in {'packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'}):
+            if topic_split[-1] in self.table_specs["Angelique"]:
                 self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car="Angelique")
             else:
                 self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Angelique")
@@ -199,14 +199,14 @@ class MQTTHandler:
         if ("time" not in message_dict or "packet_id" not in message_dict):
             raise Exception("time/packet_id MISSING FROM PAYLOAD")
         
-        if (car == "Angelique"):
-            session = self.sessions["Angelique"]
-            builder = QueryBuilder("Angelique")
-            table_specs = self.table_specs["Angelique"]
-        else:
-            session = self.sessions["Nightwatch"]
-            builder = QueryBuilder("Nightwatch")
-            table_specs = self.table_specs["Nightwatch"]
+        session = self.sessions[car]
+        builder = QueryBuilder(car)
+        table_specs = self.table_specs[car]
+
+
+
+
+
 
         for table in table_specs.keys():
             model = builder._models.get(table.capitalize())
