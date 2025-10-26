@@ -24,7 +24,6 @@ sys.path.append(str(Path(__file__).parents[2]))
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 from analysis.sql_utils.db_session import get_db, DBTarget
 from analysis.sql_utils.query_builder import QueryBuilder
-from analysis.sql_utils.models import Packet
 from stack.ingest.protobuf.template_pb2 import SensorData
 from stack.ingest.protobuf.angelique_pb2 import AngeliqueSensorData
 
