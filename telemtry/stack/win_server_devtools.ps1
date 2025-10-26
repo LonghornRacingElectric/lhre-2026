@@ -29,6 +29,20 @@ while ($true) {
                 break
             }
             "2" {
+                Set-Location (Get-ChildItem -Recurse -Directory | Where-Object { $_.Name -eq "kafka" }).FullName
+                if (-not (Test-Path .\processors))
+                {
+                    Write-Host "Failed to find processors"
+                    exit
+                }
+                docker-compose down
+                docker-compose up -d
+                Set-Location (Get-ChildItem -Recurse -Directory | Where-Object { $_.Name -eq "ingest" }).FullName
+                if (-not (Test-Path .\processors))
+                {
+                    Write-Host "Failed to find processors"
+                    exit
+                }
                 # Option 2: Delete the existing images
                 docker-compose down
                 $telemetryBackendImages = docker image ls --filter "reference=telemetry_backend" -q
@@ -40,6 +54,20 @@ while ($true) {
                 break
             }
             "3" {
+                Set-Location (Get-ChildItem -Recurse -Directory | Where-Object { $_.Name -eq "kafka" }).FullName
+                if (-not (Test-Path .\processors))
+                {
+                    Write-Host "Failed to find processors"
+                    exit
+                }
+                docker-compose down
+                docker-compose up -d
+                Set-Location (Get-ChildItem -Recurse -Directory | Where-Object { $_.Name -eq "ingest" }).FullName
+                if (-not (Test-Path .\processors))
+                {
+                    Write-Host "Failed to find processors"
+                    exit
+                }
                 # Option 3: Delete the existing images and telemetry_db volume
                 docker-compose down
                 $telemetryBackendImages = docker image ls --filter "reference=telemetry_backend" -q
