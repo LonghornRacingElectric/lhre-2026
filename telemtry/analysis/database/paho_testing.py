@@ -25,6 +25,7 @@ from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 from analysis.sql_utils.db_session import get_db, DBTarget
 from analysis.sql_utils.query_builder import QueryBuilder
 from stack.ingest.protobuf.template_pb2 import SensorData
+from stack.ingest.protobuf.angelique_pb2 import AngeliqueSensorData
 
 
 
@@ -215,16 +216,14 @@ class DataTester:
         return 0
     
     def send_proto_rows(self, tables:list,  num_rows:int, delay:float, rm_cols = None, **kwargs):
-
-        if kwargs.get('target') and kwargs.get('target')['dbname'] == "angelique":
-            raise KeyError('Angelique does not support protobuf ingestion. Use pickle instead.')
         db_desc = self.get_desc(tables=tables, rm_cols=rm_cols, **kwargs)
+        topic = 'angelique/data' if kwargs.get('target') == "Angelique" else 'data'
         for i in tqdm(range(num_rows)):
-            data = self.create_proto_message(i + 1, db_desc)
-            mqtt.publish('data', data.SerializeToString(), qos=0)
+            data = self.create_proto_message(i + 1, db_desc, target=kwargs.get('target', 'Nightwatch'))
+            mqtt.publish(topic, data.SerializeToString(), qos=0)
             time.sleep(delay)
 
-    def create_proto_message(self, packet:int, db_desc):
+    def create_proto_message(self, packet:int, db_desc, target="Nightwatch"):
         """
         This function creates a protobuf message using the current protobuf template(SensorData) and db_description with
         random data. 
@@ -234,7 +233,10 @@ class DataTester:
 
         :return: returns protbuf message with random data
         """
-        data = SensorData()
+        if (target == "Angelique"):
+            data = AngeliqueSensorData()
+        else:
+            data = SensorData()
         for table in db_desc:
             row = self.create_row(db_desc[table], packet) # Create random data
             if hasattr(data, table):  
@@ -244,6 +246,8 @@ class DataTester:
                         if hasattr(table_instance, key): # Set values in protobuf message
                             if (isinstance(value, list) or isinstance(value, tuple)):
                                 getattr(table_instance, key).extend(value)
+                            elif isinstance(value, dict):
+                                setattr(table_instance, key, json.dumps(value))
                             else:
                                 setattr(table_instance, key, value)
             else:
@@ -266,27 +270,27 @@ class DataTester:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    car_name = "Angelique"
+    car_name = "Nightwatch"
     with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session:
         db_sessions = {'Nightwatch': nightwatch_session, 'Angelique': angelique_session}
         with MQTTHandler('paho_test', db_sessions=db_sessions) as mqtt:
             # Protobuf message testing
-            # dt = DataTester(mqtt=mqtt, seed=42)
-            # dt.send_proto_rows(
-            #     tables=['packet', 'dynamics', 'controls', 'pack', 'diagnostics_low', 'diagnostics_high', 'thermal'],
-            #     num_rows= 2000,
-            #     delay= 0.01,
-            #     target=car_name
-            # )
+            dt = DataTester(mqtt=mqtt, seed=42)
+            dt.send_proto_rows(
+                tables=['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'],
+                num_rows= 2000,
+                delay= 0.01,
+                target=car_name
+            )
 
             # data_ingest with fully processed data
-            dt = DataTester(mqtt=mqtt, seed=42)
-            dt.single_table_test('packet', 2000, 0.01, target=car_name)  # sequential
-            time.sleep(1)
-            if car_name == "Nightwatch":
-                dt.concurrent_tables_test(['dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'],
-                                          2000, 0.01, target=car_name)  # batch
-            elif car_name == "Angelique":
-                dt.concurrent_tables_test(['dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
-                                          2000, 0.01, target=car_name)  # batch
+            # dt = DataTester(mqtt=mqtt, seed=42)
+            # dt.single_table_test('packet', 2000, 0.01, target=car_name)  # sequential
+            # time.sleep(1)
+            # if car_name == "Nightwatch":
+            #     dt.concurrent_tables_test(['dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'],
+            #                               2000, 0.01, target=car_name)  # batch
+            # elif car_name == "Angelique":
+            #     dt.concurrent_tables_test(['dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
+            #                               2000, 0.01, target=car_name)  # batch
             #print (dt.get_desc(db=True, target=car_name))

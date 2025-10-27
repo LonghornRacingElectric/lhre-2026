@@ -250,6 +250,8 @@ class QueryBuilder:
             return val.tolist()
 
         # Try to cast into the expected type
+        if expected_type is bytes and isinstance(val, str):
+            return val.encode('utf-8')
         try:
             return expected_type(val)
         except Exception:

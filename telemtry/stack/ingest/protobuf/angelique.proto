@@ -1,0 +1,85 @@
+syntax = "proto3";
+message AngeliqueSensorData {
+    int64 time = 1;
+    int64 packet_id = 2;
+    AngeliqueDynamics dynamics = 3;
+    AngeliqueControls controls = 4;
+    AngeliquePack pack = 5;
+    AngeliqueDiagnostics diagnostics = 6;
+    AngeliqueThermal thermal = 7;
+}
+message AngeliqueDynamics {
+    float torque_request = 8;
+    repeated float vcu_position = 9;
+    repeated float vcu_velocity = 10;
+    repeated float vcu_accel = 11;
+    repeated float gps = 12;
+    float gps_velocity = 13;
+    float gps_heading = 14;
+    repeated float body1_accel = 15;
+    repeated float body2_accel = 16;
+    repeated float body3_accel = 17;
+    repeated float flw_accel = 18;
+    repeated float frw_accel = 19;
+    repeated float blw_accel = 20;
+    repeated float brw_accel = 21;
+    repeated float body1_gyro = 22;
+    repeated float body2_gyro = 23;
+    repeated float body3_gyro = 24;
+    float flw_speed = 25;
+    float frw_speed = 26;
+    float blw_speed = 27;
+    float brw_speed = 28;
+    float inverter_v = 29;
+    float inverter_c = 30;
+    int32 inverter_rpm = 31;
+    float inverter_torque = 32;
+}
+
+message AngeliqueControls {
+    bytes vcu_flags = 33;
+    string vcu_flags_json = 34;
+    float apps1_v = 35;
+    float apps2_v = 36;
+    float bse1_v = 37;
+    float bse2_v = 38;
+    float sus1_v = 39;
+    float sus2_v = 40;
+    float steer_v = 41;
+}
+
+message AngeliquePack {
+    float hv_pack_v = 42;
+    float hv_tractive_v = 43;
+    float hv_c = 44;
+    float lv_v = 45;
+    float lv_c = 46;
+    int32 contactor_state = 47;
+    float avg_cell_v = 48;
+    float avg_cell_temp = 49;
+}
+
+message AngeliqueDiagnostics {
+    bytes current_errors = 50;
+    string current_errors_json = 51;
+    bytes latching_faults = 52;
+    string latching_faults_json = 53;
+    repeated float cells_v = 54;
+    float hv_charge_state = 55;
+    float lv_charge_state = 56;
+}
+
+message AngeliqueThermal {
+    repeated int32 cells_temp = 57;
+    int32 ambient_temp = 58;
+    int32 inverter_temp = 59;
+    int32 motor_temp = 60;
+    int32 water_motor_temp = 61;
+    int32 water_inverter_temp = 62;
+    int32 water_rad_temp = 63;
+    int32 rad_fan_set = 64;
+    int64 rad_fan_rpm = 65;
+    int32 batt_fan_set = 66;
+    int32 batt_fan_rpm = 67;
+    int32 flow_rate = 68;
+}

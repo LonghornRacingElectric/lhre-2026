@@ -16,7 +16,7 @@ sys.path.append(str(Path(__file__).parents[2]))
 
 from analysis.sql_utils.db_session import get_db
 from analysis.sql_utils.query_builder import QueryBuilder
-from stack.ingest.protobuf import template_pb2
+from stack.ingest.protobuf import template_pb2, angelique_pb2
 
 # Determine path to net_configs.json based on execution context
 if os.getenv("IN_DOCKER"):
@@ -127,11 +127,12 @@ class MQTTHandler:
                 self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car = "Nightwatch")
             else:
                 # Protobuf serialized string sent
-                self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable)
+                self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Nightwatch")
         elif (topic_split := msg.topic.split('/'))[0] == 'angelique':
-            table = topic_split[-1].replace('angelique_', '')
-            if (table in {'packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'}):
-                self._data_ingest(msg.payload, table, cache_enable=self.cache_enable, car="Angelique")
+            if topic_split[-1] in self.table_specs["Angelique"]:
+                self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car="Angelique")
+            else:
+                self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Angelique")
         else:
             logging.warning(f'No corresponding topic found for {msg.topic}')
 
@@ -192,17 +193,22 @@ class MQTTHandler:
             elif not cache_enable:
                 QueryBuilder.insert(session, table, model, data_dict, table_desc, commit=True)
     
-    def _proto_ingest(self, payload:str, cache_enable = False):
-        message_dict = self._proto_decode(payload=payload)
+    def _proto_ingest(self, payload:str, cache_enable = False, car = "Nightwatch"):
+        message_dict = self._proto_decode(payload=payload, car=car)
 
         if ("time" not in message_dict or "packet_id" not in message_dict):
             raise Exception("time/packet_id MISSING FROM PAYLOAD")
+        
+        session = self.sessions[car]
+        builder = QueryBuilder(car)
+        table_specs = self.table_specs[car]
 
-        session = self.sessions["Nightwatch"]
-        builder = QueryBuilder("Nightwatch")
-        table_specs = self.table_specs["Nightwatch"]
 
-        for table in ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal']:
+
+
+
+
+        for table in table_specs.keys():
             model = builder._models.get(table.capitalize())
             if model:
                 table_desc = table_specs[model.__tablename__]
@@ -211,15 +217,16 @@ class MQTTHandler:
                     data = ({col.name: message_dict[table][col.name] for col in model.__table__.columns if col.name in message_dict[table]}
                     | {"packet_id": message_dict["packet_id"]}) if table in message_dict else None
 
-                if not cache_enable:
-                    QueryBuilder.insert(session, table, model, data, table_desc, commit=False)
-                elif table == 'packet':
-                    QueryBuilder.insert(session, table, model, data, table_desc, commit=False)
-                elif table != 'packet':
-                    self.cache.append((model, data))
-                    if (len(self.cache) == 24):
-                        self.cache_flush("Nightwatch")
-                        self.cache.clear()
+                if data is not None:
+                    if not cache_enable:
+                        QueryBuilder.insert(session, table, model, data, table_desc, commit=False)
+                    elif table == 'packet':
+                        QueryBuilder.insert(session, table, model, data, table_desc, commit=False)
+                    elif table != 'packet':
+                        self.cache.append((model, data))
+                        if (len(self.cache) == 24):
+                            self.cache_flush(car)
+                            self.cache.clear()
         session.commit()
 
 
@@ -252,9 +259,12 @@ class MQTTHandler:
                     logging.warning(f'\tNo data received for {table}...')
         session.commit()
 
-    def _proto_decode(self, payload: str) -> dict:
-        logging.info('Data Received via Protobuf')
-        row = template_pb2.SensorData()
+    def _proto_decode(self, payload: str, car = "Nightwatch") -> dict:
+        logging.debug('Data Received via Protobuf')
+        if (car == "Angelique"):
+            row = angelique_pb2.AngeliqueSensorData()
+        else:
+            row = template_pb2.SensorData()
         row.ParseFromString(payload)
         row = MessageToDict(row, preserving_proto_field_name=True, always_print_fields_with_no_presence=True)
         logging.debug(row)
