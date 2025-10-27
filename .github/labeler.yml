@@ -11,6 +11,10 @@
   - changed-files:
       - any-glob-to-any-file: "BEVO/**"
 
+"Telemetry":
+  - changed-files:
+      - any-glob-to-any-file: "telemtry/**"
+
 # Component labels
 "drivers":
   - changed-files:
