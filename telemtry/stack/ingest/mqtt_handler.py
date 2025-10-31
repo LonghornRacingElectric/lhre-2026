@@ -32,6 +32,8 @@ with open(net_config_path, "r") as file:
 class MQTTTarget:
     @staticmethod
     def get():
+        if (os.environ.get("AWS_MQTT_IP")):
+            return os.environ.get("AWS_MQTT_IP")
         return 'mosquitto' if os.environ.get("IN_DOCKER") else global_target["TARGETS"][global_target["SERVER_TARGET"]]
 
 
@@ -372,10 +374,15 @@ def main():
             raise ValueError
     except ValueError:
         raise ValueError('DB_CONN_TYPE must be an integer 1-10.')
+    
+    aws_ip =  None # "3.135.193.194"
+    if (os.getenv('AWS_MQTT_IP')):
+        aws_ip = os.getenv('AWS_MQTT_IP')
 
     with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session:
         db_sessions = {'Nightwatch': nightwatch_session, 'Angelique': angelique_session}
-        with MQTTHandler('ingest', db_sessions=db_sessions) as mqtt:
+        with MQTTHandler('ingest', db_sessions=db_sessions, target=aws_ip) as mqtt:
+                mqtt.connect(ip = aws_ip)
                 mqtt.subscribe(topic='#')
 
 
