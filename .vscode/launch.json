@@ -8,11 +8,11 @@
       "executable": "${workspaceFolder}/bazel-bin/VCU/firmware/vcu_firmware_2026.elf",
       "request": "launch",
       "servertype": "stlink",
-      "device": "STM32H7A3ZITxQ", //MCU used
+      "device": "STM32G474VETx",
       "interface": "swd",
-      "serialNumber": "", //Set ST-Link ID if you use multiple at the same time
+      "serialNumber": "",
       "runToEntryPoint": "main",
-      "svdFile": "${config:STM32VSCodeExtension.cubeCLT.path}/STMicroelectronics_CMSIS_SVD/STM32H7A3.svd",
+      "svdFile": "${config:STM32VSCodeExtension.cubeCLT.path}/STMicroelectronics_CMSIS_SVD/STM32G474.svd",
       "v1": false, //Change it depending on ST Link version
       "serverpath": "${config:STM32VSCodeExtension.cubeCLT.path}/STLink-gdb-server/bin/ST-LINK_gdbserver",
       "stm32cubeprogrammer": "${config:STM32VSCodeExtension.cubeCLT.path}/STM32CubeProgrammer/bin",
