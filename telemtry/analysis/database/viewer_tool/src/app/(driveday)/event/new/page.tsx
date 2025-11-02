@@ -32,6 +32,12 @@ export default function NewEventPage() {
   const appStateRef = useRef(appState);
   appStateRef.current = appState;
 
+  useEffect(() => {
+    if (appState.currentPage) {
+      router.push(appState.currentPage);
+    }
+  }, [appState.currentPage, router]);
+
   const sendStateUpdate = useCallback(async (newState: Partial<AppState>) => {
     const fullState = { ...appStateRef.current, ...newState, lastUpdatedBy: clientId };
     try {

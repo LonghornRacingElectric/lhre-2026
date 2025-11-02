@@ -27,11 +27,14 @@ export default function SplashPage() {
   }, []);
 
   const getDrivedayHref = () => {
+    if (appState.currentPage) {
+      return appState.currentPage;
+    }
     if (appState.eventTracker?.isTimerRunning) {
-      return '/event/tracker';
+      return '/event/in-progress';
     }
     if (appState.newEvent) {
-      return '/event/tracker';
+      return '/event/in-progress';
     }
     if (appState.driveDay) {
       return '/event/new';
