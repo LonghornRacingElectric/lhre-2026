@@ -59,6 +59,31 @@ const LiveViewerBanner = () => {
         <span className="ml-4 font-bold">Live Viewer</span>
       </div>
       <div className="flex items-center">
+        {/* Battery Percentage Display */}
+        <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-4">
+          {/* TODO: Wire up actual battery percentage */}
+          {(() => {
+            const batteryPercentage = 67; // Example value, wire this to actual data
+            let batteryColor = 'gray';
+            if (batteryPercentage > 50) {
+              batteryColor = 'green';
+            } else if (batteryPercentage > 20) {
+              batteryColor = 'yellow';
+            } else {
+              batteryColor = 'red';
+            }
+            return (
+              <>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-2">
+                  <rect x="2" y="6" width="16" height="12" rx="1" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M20 9H22V15H20V9Z" fill="currentColor"/>
+                  <rect x="4" y="8" width={14 * (batteryPercentage / 100)} height="8" rx="0.5" fill={batteryColor}/>
+                </svg>
+                <span>{batteryPercentage}%</span>
+              </>
+            );
+          })()}
+        </div>
         <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-4">
           {/* TODO: Wire up the actual connection status here */}
           <div 
