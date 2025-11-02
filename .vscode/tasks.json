@@ -34,6 +34,27 @@
       "runOptions": {
         "runOn": "folderOpen"
       }
+    },
+    {
+      "label": "vcu-firmware-build",
+      "command": "bazel",
+      "problemMatcher": [],
+      "args": [
+        "build",
+        "//VCU/firmware:vcu_firmware_2026_elf",
+        "--config=debug"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
     }
   ]
 }
