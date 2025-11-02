@@ -16,7 +16,9 @@ sys.path.append(str(Path(__file__).parents[2]))
 
 from analysis.sql_utils.db_session import get_db
 from analysis.sql_utils.query_builder import QueryBuilder
-from stack.ingest.protobuf import template_pb2, angelique_pb2
+from stack.ingest.protobuf import template_pb2
+
+from kafka import KafkaProducer
 
 # Determine path to net_configs.json based on execution context
 if os.getenv("IN_DOCKER"):
@@ -59,6 +61,12 @@ class MQTTHandler:
             "Nightwatch": QueryBuilder("Nightwatch").get_table_column_specs(),
             "Angelique": QueryBuilder("Angelique").get_table_column_specs()
         }
+
+        # Kafka logic
+        self.kafka_producer = KafkaProducer(
+            bootstrap_servers='kafka:9092',
+            value_serializer=lambda v: json.dumps(v).encode('utf-8')
+        )
 
     @staticmethod
     def on_connect(client: mqtt_client.Client, userdata, flags: dict, rc: int):
@@ -127,7 +135,9 @@ class MQTTHandler:
                 self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car = "Nightwatch")
             else:
                 # Protobuf serialized string sent
-                self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Nightwatch")
+                # TODO: this method right now uses flush to wait, which may be slowing us
+                self.send_kafka_protobuf(payload=msg.payload)
+                self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable)
         elif (topic_split := msg.topic.split('/'))[0] == 'angelique':
             if topic_split[-1] in self.table_specs["Angelique"]:
                 self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car="Angelique")
@@ -135,6 +145,17 @@ class MQTTHandler:
                 self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Angelique")
         else:
             logging.warning(f'No corresponding topic found for {msg.topic}')
+
+    def send_kafka_protobuf(self, payload: str):
+        '''
+        This function sends the protobuf encoded message to a Kafka topic.
+
+        :param payload:     str         protobuf encoded payload string
+        '''
+
+        # Send the message to Kafka topic 'sensor_data'
+        self.kafka_producer.send('sensor_data', value=payload)
+        self.kafka_producer.flush()
 
         
     def _flask_handler(self, payload):
