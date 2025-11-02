@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { signOut, useSession } from 'next-auth/react';
 
+
 const LiveViewerBanner = () => {
   const { data: session } = useSession();
   const [time, setTime] = useState("");
@@ -59,6 +60,11 @@ const LiveViewerBanner = () => {
         <span className="ml-4 font-bold">Live Viewer</span>
       </div>
       <div className="flex items-center">
+        {/* Odometer Display */}
+        <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-4">
+          {/* TODO: Wire up actual odometer value */}
+          <span>6767.67 mi</span>
+        </div>
         {/* Battery Percentage Display */}
         <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-4">
           {/* TODO: Wire up actual battery percentage */}
