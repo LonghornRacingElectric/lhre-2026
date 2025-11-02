@@ -2,6 +2,7 @@ version: '3.8'
 services:
  kafka:
    image: apache/kafka:4.1.0
+   platform: linux/amd64
    container_name: kafka
    networks:
       - telemetry_network
