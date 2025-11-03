@@ -1,3 +1,20 @@
+## New Setup
+
+### Starting the Docker Containers
+- This starts kafka, the db, and the mqtt handler: `cd stack`, `./server_devtool.sh` --> `2`
+- To reset the database while starting the same services, run: `./server_devtool.sh` --> `3` instead.
+- To start a processor, look into option e,f,z.
+
+### Starting the webtool
+- Make sure that the .env file is fully complete
+- `cd analysis/database/viewer_tool`
+- To load the database schemas for prisma, run: `npm run prisma-angelique-generate` and `npm run prisma-telemtry-generate`
+- To launch the website, run `npm run dev`
+
+
+
+## Old Setup ----
+
 ### To start the pipeline, create two terminals. In the first, `cd` to `/stack/` and run `docker compose up`. In the second terminal, activate a venv, `cd` to `/analysis/database/viewer_tool` and run `python index.py`. To ingest data, visit `host:5000` and start an event--data will only be ingested after the start time button has been pressed.
 
 ### Notes on jank solutions:
