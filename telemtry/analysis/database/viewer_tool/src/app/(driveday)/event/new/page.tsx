@@ -52,6 +52,12 @@ export default function NewEventPage() {
   );
 
   useEffect(() => {
+    if (appState.currentPage) {
+      router.push(appState.currentPage);
+    }
+  }, [appState.currentPage, router]);
+
+  useEffect(() => {
     const eventSource = new EventSource("/api/event-sync");
     eventSource.onmessage = (event) => {
       const newState: AppState = JSON.parse(event.data);
