@@ -27,6 +27,7 @@ import TimingDeltas from "@/components/TimingDeltas";
 import LiveViewerBanner from "@/components/LiveViewerBanner";
 import { useSortableTile } from "@/hooks/useSortableTile";
 import CarVisualization from "@/components/CarVisualization";
+import DriverInputVisualizer from "@/components/DriverInputVisualizer";
 
 const DynamicMap = dynamic(() => import("@/components/Map"), {
   ssr: false,
@@ -151,8 +152,9 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
             className="w-full h-full object-contain"
           />
         );
-      case "thermal-headroom":
       case "driver-input":
+        return <DriverInputVisualizer />;
+      case "thermal-headroom":
       case "energy-budget":
         return (
           <div className="flex items-center justify-center h-full">
