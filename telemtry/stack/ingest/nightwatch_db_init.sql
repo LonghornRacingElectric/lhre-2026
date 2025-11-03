@@ -34,7 +34,9 @@ CREATE TABLE public.drive_day (
 	day_id              smallserial NOT NULL,
 	date                date        NOT NULL,
 	power_limit         integer,
-	conditions          text,
+	air_temperature         real,
+    relative_humidity       real,
+    track_temperature       real,
 	CONSTRAINT drive_day_pk PRIMARY KEY (day_id)
 );
 
@@ -77,6 +79,8 @@ CREATE TABLE public.lut_car (
 );
 INSERT INTO public.lut_car (car_id, car_name) VALUES (E'1', E'Easy Driver');
 INSERT INTO public.lut_car (car_id, car_name) VALUES (E'2', E'Lady Luck');
+INSERT INTO public.lut_car (car_id, car_name) VALUES (E'3', E'Angelique');
+INSERT INTO public.lut_car (car_id, car_name) VALUES (E'4', E'Nightwatch');
 
 
 -- LUT for Event Types
@@ -94,36 +98,82 @@ INSERT INTO public.lut_event_type (type_id, event_type) VALUES (E'5', E'Straight
 
 -- Event Table
 CREATE TABLE public.event (
-	event_id            smallserial NOT NULL,
-	day_id              smallint    NOT NULL,
-    status              smallint,
-	creation_time       bigint      NOT NULL,
-	start_time          bigint,
-	end_time            bigint,
-    packet_start        bigint,
-    packet_end          bigint,
-	car_id              smallint    NOT NULL,
-	driver_id           smallint    NOT NULL,
-	location_id         smallint    NOT NULL,
-	event_type          smallint    NOT NULL,
-	event_index         smallint    GENERATED ALWAYS AS (public.get_event_index(car_id, day_id)) STORED,
-	car_weight          smallint,
-	tow_angle           real,
-	camber              real,
-	ride_height         real,
-	ackerman_adjustment real,
-	shock_dampening     smallint,
-	power_limit         integer,
-	torque_limit        smallint,
-	frw_pressure        real,
-	flw_pressure        real,
-	brw_pressure        real,
-	blw_pressure        real,
-	front_wing_on       boolean,
-	rear_wing_on        boolean,
-	regen_on            boolean,
-	undertray_on        boolean,
-	CONSTRAINT event_pk PRIMARY KEY (event_id),
+    event_id                 smallserial NOT NULL,
+    day_id                   smallint    NOT NULL,
+    status                   smallint,
+    creation_time            bigint      NOT NULL,
+    start_time               bigint,
+    end_time                 bigint,
+    packet_start             bigint,
+    packet_end               bigint,
+    car_id                   smallint    NOT NULL,
+    driver_id                smallint    NOT NULL,
+    location_id              smallint    NOT NULL,
+    event_type               smallint    NOT NULL,
+    event_index              smallint    GENERATED ALWAYS AS (public.get_event_index(car_id, day_id)) STORED,
+    car_weight               smallint,
+    tow_angle                real,
+    -- Alignment
+    camber_front             real,
+    camber_rear              real,
+    toe_front                real,
+    toe_rear                 real,
+    -- Ride height
+    ride_height_front        real,
+    ride_height_rear         real,
+    -- Legacy single ride_height retained for back-compat
+    ride_height              real,
+    ackerman_adjustment      real,
+    -- Legacy shock_dampening retained though unused in new UI
+    shock_dampening          smallint,
+    power_limit              integer,
+    torque_limit             smallint,
+    -- Tire cold pressures (existing columns)
+    frw_pressure             real,
+    flw_pressure             real,
+    brw_pressure             real,
+    blw_pressure             real,
+    -- Tire wear depth and durometer
+    fr_wear_depth            real,
+    fl_wear_depth            real,
+    rr_wear_depth            real,
+    rl_wear_depth            real,
+    fr_durometer             real,
+    fl_durometer             real,
+    rr_durometer             real,
+    rl_durometer             real,
+    -- Shock damping per corner (LSC/LSR/HSC/HSR)
+    fr_lsc                   smallint,
+    fr_lsr                   smallint,
+    fr_hsc                   smallint,
+    fr_hsr                   smallint,
+    fl_lsc                   smallint,
+    fl_lsr                   smallint,
+    fl_hsc                   smallint,
+    fl_hsr                   smallint,
+    rr_lsc                   smallint,
+    rr_lsr                   smallint,
+    rr_hsc                   smallint,
+    rr_hsr                   smallint,
+    rl_lsc                   smallint,
+    rl_lsr                   smallint,
+    rl_hsc                   smallint,
+    rl_hsr                   smallint,
+    -- Aero
+    front_wing_on            boolean,
+    rear_wing_on             boolean,
+    front_wing_pitch         real,
+    rear_wing_pitch          real,
+    regen_on                 boolean,
+    undertray_on             boolean,
+    -- 2026 per-axle corner spring rates (available in Nightwatch)
+    front_corner_spring_rate real,
+    rear_corner_spring_rate  real,
+    -- Note: Angelique-only specialty roll/heave springs are not present in Nightwatch schema
+    -- ARB settings (free text: low|medium|stiff)
+    front_arb_setting        text,
+    rear_arb_setting         text,
+    CONSTRAINT event_pk PRIMARY KEY (event_id),
     CONSTRAINT fk_event_id FOREIGN KEY(day_id) REFERENCES drive_day(day_id),
     CONSTRAINT fk_car_id FOREIGN KEY(car_id) REFERENCES lut_car(car_id),
     CONSTRAINT fk_driver_id FOREIGN KEY(driver_id) REFERENCES lut_driver(driver_id),

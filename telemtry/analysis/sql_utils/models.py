@@ -19,16 +19,20 @@ from sqlalchemy import MetaData
 
 Base = declarative_base()
 
-BaseTelemetry = declarative_base(metadata=MetaData())  # for Nightwatch / telemetry DB
-BaseAngelique = declarative_base(metadata=MetaData())
+# Separate bases to reflect two distinct DB schemas
+BaseTelemetry = declarative_base(metadata=MetaData())  # Nightwatch / telemetry DB
+BaseAngelique = declarative_base(metadata=MetaData())   # Angelique DB
+
+# -----------------------------
+# Shared Base models (as before)
+# -----------------------------
 
 class DriveDay(Base):
     __tablename__ = 'drive_day'
     day_id = Column(SmallInteger, primary_key=True, autoincrement=True)
     date = Column(Date, nullable=False)
     power_limit = Column(Integer)
-    conditions = Column(Text)
-    events = relationship("Event", back_populates="drive_day")
+    events = relationship("Event", back_populates="drive_day", overlaps="drive_day")
 
 class LutDriver(Base):
     __tablename__ = 'lut_driver'
@@ -63,7 +67,7 @@ class Classifier(Base):
     start_time = Column(BigInteger, nullable=False, primary_key=True)
     end_time = Column(BigInteger)
     notes = Column(Text)
-    event = relationship("Event", back_populates="classifiers")
+    event = relationship("Event", back_populates="classifiers", overlaps="classifiers,event")
 
 class Event(Base):
     __tablename__ = 'event'
@@ -82,7 +86,14 @@ class Event(Base):
     event_index = Column(SmallInteger)
     car_weight = Column(SmallInteger)
     tow_angle = Column(Float)
-    camber = Column(Float)
+    # Alignment per axle
+    camber_front = Column(Float)
+    camber_rear = Column(Float)
+    toe_front = Column(Float)
+    toe_rear = Column(Float)
+    # Ride height per axle (+ legacy single)
+    ride_height_front = Column(Float)
+    ride_height_rear = Column(Float)
     ride_height = Column(Float)
     ackerman_adjustment = Column(Float)
     shock_dampening = Column(SmallInteger)
@@ -92,10 +103,44 @@ class Event(Base):
     flw_pressure = Column(Float)
     brw_pressure = Column(Float)
     blw_pressure = Column(Float)
+    # Tire wear depth and durometer
+    fr_wear_depth = Column(Float)
+    fl_wear_depth = Column(Float)
+    rr_wear_depth = Column(Float)
+    rl_wear_depth = Column(Float)
+    fr_durometer = Column(Float)
+    fl_durometer = Column(Float)
+    rr_durometer = Column(Float)
+    rl_durometer = Column(Float)
+    # Damping per corner (LSC/LSR/HSC/HSR)
+    fr_lsc = Column(SmallInteger)
+    fr_lsr = Column(SmallInteger)
+    fr_hsc = Column(SmallInteger)
+    fr_hsr = Column(SmallInteger)
+    fl_lsc = Column(SmallInteger)
+    fl_lsr = Column(SmallInteger)
+    fl_hsc = Column(SmallInteger)
+    fl_hsr = Column(SmallInteger)
+    rr_lsc = Column(SmallInteger)
+    rr_lsr = Column(SmallInteger)
+    rr_hsc = Column(SmallInteger)
+    rr_hsr = Column(SmallInteger)
+    rl_lsc = Column(SmallInteger)
+    rl_lsr = Column(SmallInteger)
+    rl_hsc = Column(SmallInteger)
+    rl_hsr = Column(SmallInteger)
     front_wing_on = Column(Boolean)
     rear_wing_on = Column(Boolean)
+    front_wing_pitch = Column(Float)
+    rear_wing_pitch = Column(Float)
     regen_on = Column(Boolean)
     undertray_on = Column(Boolean)
+    # 2026 per-axle corner spring rates (Nightwatch)
+    front_corner_spring_rate = Column(Float)
+    rear_corner_spring_rate = Column(Float)
+    # ARB settings (free text)
+    front_arb_setting = Column(Text)
+    rear_arb_setting = Column(Text)
     drive_day = relationship("DriveDay", back_populates="events")
     car = relationship("LutCar", back_populates="events")
     driver = relationship("LutDriver", back_populates="events")
@@ -281,6 +326,12 @@ class Thermal(BaseTelemetry):
     batt_over_temp = Column(Boolean)
     packet = relationship("Packet", back_populates="thermal")
 # Angelique Models
+
+# -----------------------------
+# Angelique schema
+# -----------------------------
+
+    
 
 class AngeliqueDynamics(BaseAngelique):
     __tablename__ = 'dynamics'
