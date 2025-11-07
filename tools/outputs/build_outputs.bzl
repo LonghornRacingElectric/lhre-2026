@@ -219,6 +219,7 @@ def firmware_project_g4(
                 "-ffunction-sections",
                 "-fdata-sections",
                 "-Og",
+                "-g3",
             ],
             visibility = ["//visibility:private"],
             features = ["generate_linkmap"],
