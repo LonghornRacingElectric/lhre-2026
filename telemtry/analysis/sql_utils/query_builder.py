@@ -314,11 +314,46 @@ class QueryBuilder:
         if commit:
             session.commit()
             QueryBuilder.producer.send('db_inserts', {'table': table_name, 'data': processed})
+            
+    @staticmethod
+    def send_kafka(topic: str, message: dict, key: str | bytes | None = None, partition: int | None = None, flush: bool = False):
+        """Send a JSON-serializable object to a Kafka topic.
+
+        Args:
+            topic: Kafka topic name.
+            message: JSON-serializable payload (dict, list, etc.).
+            key: Optional message key (string or bytes) for partitioning.
+            partition: Optional explicit partition number.
+            flush: If True, force a flush after send (synchronous-ish).
+        """
+        k = key if isinstance(key, bytes) else (key.encode("utf-8") if key is not None else None)
+        future = QueryBuilder.producer.send(topic, value=message, key=k, partition=partition)
+        if flush:
+            # Block until the message is sent (raises on error)
+            future.get(timeout=10)
+            QueryBuilder.producer.flush()
+        return future
+
+    def send_status(self, payload: dict | None = None, topic: str = 'status', **kwargs):
+        """Convenience wrapper to publish a status object to a topic.
+
+        Example:
+            qb.send_status({"connected": True, "battery": 67})
+            QueryBuilder.send_kafka('status', {"connected": True})
+        """
+        data = payload or {"ts": int(time.time() * 1000), "ok": True}
+        return QueryBuilder.send_kafka(topic, data, **kwargs)
 
 if __name__ == '__main__':
-    with QueryBuilder() as qb:
-        data = (qb
-                .select("Event")
-                .limit(10)
-            ).send_query(pd.DataFrame)
-        print(data)
+    with QueryBuilder("angelique") as qb:
+        qb.send_status({
+            "connected": True,
+            "battery": 85,
+            "odometer": 12345
+        })
+
+        # data = (qb
+        #         .select("Event")
+        #         .limit(10)
+        #     ).send_query(pd.DataFrame)
+        # print(data)

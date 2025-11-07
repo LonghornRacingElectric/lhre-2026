@@ -15,7 +15,9 @@ model drive_day {
   day_id      Int      @id @default(autoincrement())
   date        DateTime
   power_limit Int?
-  conditions  String?
+  air_temperature Float?
+  relative_humidity Float?
+  track_temperature Float?
 
   // Relations
   events      event[]

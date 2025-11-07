@@ -22,7 +22,9 @@ CREATE TABLE public.drive_day (
 	day_id              smallserial NOT NULL,
 	date                date        NOT NULL,
 	power_limit         integer,
-	conditions          text,
+	air_temperature         real,
+    relative_humidity       real,
+    track_temperature       real,
 	CONSTRAINT drive_day_pk PRIMARY KEY (day_id)
 );
 

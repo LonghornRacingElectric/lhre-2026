@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from '@/components/ui/button';
 import { signOut, useSession } from 'next-auth/react';
+import { useKafkaJSON } from '@/hooks/useKafkaStream';
 
 
 const LiveViewerBanner = () => {
@@ -18,9 +19,19 @@ const LiveViewerBanner = () => {
   const [time, setTime] = useState("");
   const [date, setDate] = useState("");
 
-  // TEMPORARY: This is a temporary variable for display purposes.
-  // Replace with the actual connection status from the backend.
-  const isConnected = true;
+  // Live connection and status via Kafka "status" topic
+  // Expecting messages like: { connected: boolean, battery?: number, odometer?: number }
+  const { data: status, connected: sseConnected } = useKafkaJSON<{
+    connected?: boolean;
+    battery?: number;
+    odometer?: number;
+  }>({
+    topic: 'status',
+    // No custom select: we want the whole object; default parser handles JSON
+  });
+
+  const isConnected = (status?.connected ?? false) && sseConnected;
+
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -62,18 +73,17 @@ const LiveViewerBanner = () => {
       <div className="flex items-center">
         {/* Odometer Display */}
         <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-4">
-          {/* TODO: Wire up actual odometer value */}
-          <span>6767.67 mi</span>
+          <span>{typeof status?.odometer === 'number' ? `${status.odometer.toFixed(2)} mi` : '— mi'}</span>
         </div>
         {/* Battery Percentage Display */}
         <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-4">
-          {/* TODO: Wire up actual battery percentage */}
           {(() => {
-            const batteryPercentage = 67; // Example value, wire this to actual data
+            const batteryPercentage =
+              typeof status?.battery === 'number' ? Math.max(0, Math.min(100, Math.round(status.battery))) : undefined;
             let batteryColor = 'gray';
-            if (batteryPercentage > 50) {
+            if (typeof batteryPercentage === 'number' && batteryPercentage > 50) {
               batteryColor = 'green';
-            } else if (batteryPercentage > 20) {
+            } else if (typeof batteryPercentage === 'number' && batteryPercentage > 20) {
               batteryColor = 'yellow';
             } else {
               batteryColor = 'red';
@@ -83,9 +93,9 @@ const LiveViewerBanner = () => {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-2">
                   <rect x="2" y="6" width="16" height="12" rx="1" stroke="currentColor" strokeWidth="2"/>
                   <path d="M20 9H22V15H20V9Z" fill="currentColor"/>
-                  <rect x="4" y="8" width={14 * (batteryPercentage / 100)} height="8" rx="0.5" fill={batteryColor}/>
+                  <rect x="4" y="8" width={typeof batteryPercentage === 'number' ? 14 * (batteryPercentage / 100) : 0} height="8" rx="0.5" fill={batteryColor}/>
                 </svg>
-                <span>{batteryPercentage}%</span>
+                <span>{typeof batteryPercentage === 'number' ? `${batteryPercentage}%` : '— %'}</span>
               </>
             );
           })()}
