@@ -29,7 +29,7 @@ const ChartPlaceholder = ({ title }: { title: string }) => (
 
 export default function TunePage() {
   return (
-    <div className="container mx-auto p-8">
+    <div className="container mx-auto p-8 pt-20">
       <h1 className="text-3xl font-bold mb-8">Texas Tune</h1>
 
       <Section title="APPS">

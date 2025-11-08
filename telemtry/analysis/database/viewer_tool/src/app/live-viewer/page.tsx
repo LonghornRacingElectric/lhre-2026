@@ -131,7 +131,7 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
         );
       case "space-time-trajectory":
         return (
-          <div className="w-full h-full object-contain" style={{ position: "relative", width: "400px", height: "400px" }}>
+          <div className="w-full h-full object-contain" style={{ position: "relative", width: "400px", height: "400px", maxWidth: "100%" }}>
             <Image
               key={appState.liveImage || "no-image"}
               id="live-image"
@@ -148,13 +148,13 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
         );
       case "live-map":
         return (
-            <div style={{ width: "400px", height: "400px" }}>
+            <div style={{ width: "400px", height: "400px", maxWidth: "100%" }}>
                 <DynamicMap />
             </div>
         );
       case "gg-plot":
         return (
-          <div className="w-full h-full object-contain" style={{ position: "relative", width: "400px", height: "400px" }}>
+          <div className="w-full h-full object-contain" style={{ position: "relative", width: "400px", height: "400px", maxWidth: "100%" }}>
             <Image
               src="/images/fake_gg.gif"
               alt="GG Plot"
