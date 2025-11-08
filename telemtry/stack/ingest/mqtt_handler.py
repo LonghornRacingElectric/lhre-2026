@@ -64,8 +64,8 @@ class MQTTHandler:
 
         # Kafka logic
         self.kafka_producer = KafkaProducer(
-            bootstrap_servers='kafka:9092',
-            value_serializer=lambda v: json.dumps(v).encode('utf-8')
+            bootstrap_servers='kafka:9092' if os.getenv("IN_DOCKER") else 'localhost:9092',
+            value_serializer=lambda v: json.dumps(v).encode('utf-8') if isinstance(v, dict) else v
         )
 
     @staticmethod
@@ -117,7 +117,21 @@ class MQTTHandler:
         self.client.loop_forever()
 
     def publish(self, *args, **kwargs):
-        self.client.publish(*args, **kwargs)
+        result = self.client.publish(*args, **kwargs)
+        # Determine payload from kwargs or positional args (publish(topic, payload, ...))
+        payload = kwargs.get('payload', None)
+        if payload is None:
+            if len(args) >= 2:
+                payload = args[1]
+            else:
+                payload = None
+
+        if payload is not None:
+            try:
+                self.send_kafka_protobuf(payload=payload)
+            except Exception as e:
+                logging.exception("Failed to send payload to Kafka: %s", e)
+        return result
 
     def on_message(self, client: mqtt_client.Client, userdata, msg):
         # Handle Start & End Event
@@ -281,7 +295,7 @@ class MQTTHandler:
         session.commit()
 
     @staticmethod
-    def _proto_decode(self, payload: str) -> dict:
+    def _proto_decode(payload: str) -> dict:
         logging.info('Data Received via Protobuf')
         row = template_pb2.SensorData()
         row.ParseFromString(payload)

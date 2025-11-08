@@ -1,5 +1,5 @@
 FROM python:3.11.4 AS builder
-COPY ./stack/processors/gps_classifier/requirements.txt .
+COPY ./stack/processors/kafka_base/requirements.txt .
 RUN pip install -r requirements.txt
 
 FROM builder AS executor
