@@ -124,6 +124,13 @@ do
             $SUDO docker compose up
             break
             ;;
+        g|G)
+            cd ../processors/kafka_test || (echo "Failed to find processors" && exit)
+            $SUDO docker compose down
+            $SUDO docker rmi "$($SUDO docker image ls | grep kafka_test | awk '{print $3}')"
+            $SUDO docker compose up
+            break
+            ;;
         z|Z)
             $SUDO docker compose down
             $SUDO docker rmi "$($SUDO docker image ls | grep telemetry_backend | awk '{print $3}')"

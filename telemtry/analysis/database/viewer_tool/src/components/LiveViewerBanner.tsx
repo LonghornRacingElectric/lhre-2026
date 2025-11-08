@@ -22,7 +22,6 @@ const LiveViewerBanner = () => {
   // Live connection and status via Kafka "status" topic
   // Expecting messages like: { connected: boolean, battery?: number, odometer?: number }
   const { data: status, connected: sseConnected } = useKafkaJSON<{
-    connected?: boolean;
     battery?: number;
     odometer?: number;
   }>({
@@ -30,7 +29,7 @@ const LiveViewerBanner = () => {
     // No custom select: we want the whole object; default parser handles JSON
   });
 
-  const isConnected = (status?.connected ?? false) && sseConnected;
+  const isConnected = sseConnected;
 
 
   useEffect(() => {
@@ -39,6 +38,7 @@ const LiveViewerBanner = () => {
       setTime(now.toLocaleTimeString());
       setDate(now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }));
     }, 1000);
+
     return () => clearInterval(timer);
   }, []);
 
