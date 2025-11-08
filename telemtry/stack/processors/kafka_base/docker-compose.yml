@@ -1,0 +1,25 @@
+services:
+  db_processor:
+    build:
+      # Build context set to the repository root so COPY can reference files under `stack/`.
+      context: ../../..
+      # Dockerfile path is relative to the build context. Point it to the actual Dockerfile
+      # location under the repo root.
+      dockerfile: stack/processors/kafka_base/Dockerfile
+    image: kafka_consumer
+    container_name: kafka_processor_base
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: 1
+      IN_DOCKER: 1
+    volumes:
+      - ../../../analysis/sql_utils/DB_description.pkl:/DB_description.pkl
+      - ../../../analysis/database/viewer_tool/static/images:/kafka_processor_base/static/images
+      - ../../../net_configs.json:/net_configs.json
+      - ../../ingest/protobuf:/kafka_processor_base/protobuf
+    networks:
+      - telemetry_network
+
+networks:
+  telemetry_network:
+    external: true

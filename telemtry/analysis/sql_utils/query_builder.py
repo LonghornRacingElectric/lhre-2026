@@ -33,7 +33,11 @@ from .models import (
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import JSONB # Added for JSONB type handling
 
+import json
+import os
+
 class QueryBuilder:
+
     def __init__(self, car="Nightwatch"):
         self._car = car # Store car name
         self._db_context_manager = get_db(car) # Store the context manager
