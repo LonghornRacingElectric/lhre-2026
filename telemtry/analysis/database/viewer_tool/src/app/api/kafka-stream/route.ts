@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
   const heartbeat = () => writer.write(enc.encode(`: ping\n\n`));
 
   const handler = (msg: any) => {
+    console.log("Received message on SSE route for topic: " + msg?.topic);
     if (!msg?.topic) return;
     if (isPrefix) {
       if (msg.topic === base || msg.topic.startsWith(base + "/")) write(msg);

@@ -21,8 +21,7 @@ const LiveViewerBanner = () => {
 
   // Live connection and status via Kafka "status" topic
   // Expecting messages like: { connected: boolean, battery?: number, odometer?: number }
-  const { data: status, connected: sseConnected } = useKafkaJSON<{
-    connected?: boolean;
+  const { data: status, connected: sseConnected, kafkaConnected } = useKafkaJSON<{
     battery?: number;
     odometer?: number;
   }>({
@@ -30,8 +29,7 @@ const LiveViewerBanner = () => {
     // No custom select: we want the whole object; default parser handles JSON
   });
 
-  const isConnected = (status?.connected ?? false) && sseConnected;
-
+  const isConnected = sseConnected && kafkaConnected;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -39,6 +37,7 @@ const LiveViewerBanner = () => {
       setTime(now.toLocaleTimeString());
       setDate(now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }));
     }, 1000);
+
     return () => clearInterval(timer);
   }, []);
 
@@ -103,12 +102,11 @@ const LiveViewerBanner = () => {
           })()}
         </div>
         <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-2 text-sm">
-          {/* TODO: Wire up the actual connection status here */}
           <div 
               className={`w-4 h-4 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'} mr-2 pulse-size`}
-              title={isConnected ? 'Connected to car' : 'Not connected to car'}
+              title={isConnected ? 'Receiving live data' : 'No recent Kafka data'}
           ></div>
-          <span>Car Connection</span>
+          <span className="mr-2">Car Connection</span>
         </div>
         <div className="hidden md:flex items-center">
           <span className="mr-4">{date}</span>

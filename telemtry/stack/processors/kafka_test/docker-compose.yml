@@ -1,0 +1,22 @@
+services:
+  db_processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kafka_test
+    container_name: kafka_test_processor
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: 1
+      IN_DOCKER: 1
+    volumes:
+      - ../../../analysis/sql_utils/DB_description.pkl:/DB_description.pkl
+      - ../../../analysis/database/viewer_tool/static/images:/kafka_processor_base/static/images
+      - ../../../net_configs.json:/net_configs.json
+      - ../../ingest/protobuf:/kafka_processor_base/protobuf
+    networks:
+      - telemetry_network
+
+networks:
+  telemetry_network:
+    external: true
