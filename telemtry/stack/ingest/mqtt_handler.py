@@ -131,7 +131,6 @@ class MQTTHandler:
             except Exception as e:
                 logging.exception("Failed to send payload to Kafka: %s", e)
         result = self.client.publish(*args, **kwargs)
-        self.kafka_producer.flush()
         return result
 
     def on_message(self, client: mqtt_client.Client, userdata, msg):
@@ -160,7 +159,6 @@ class MQTTHandler:
                 self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Angelique")
         else:
             logging.warning(f'No corresponding topic found for {msg.topic}')
-        self.kafka_producer.flush()
 
     def send_kafka_protobuf(self, payload: str):
         '''
@@ -171,8 +169,6 @@ class MQTTHandler:
 
         # Send the message to Kafka topic 'sensor_data'
         self.kafka_producer.send('sensor_data', value=payload)
-        self.kafka_producer.flush()
-
         
     def _flask_handler(self, payload):
         '''
