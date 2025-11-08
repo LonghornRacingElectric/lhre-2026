@@ -21,12 +21,15 @@ export type UseKafkaStreamOptions<TData = unknown, TSelected = TData> = {
   onMessage?: (evt: KafkaEvent, data: TData, selected: TSelected) => void; // side-effects
   onError?: (err: Event) => void;
   ssePath?: string;         // override SSE route, default "/api/kafka-stream"
+  staleAfterMs?: number;    // consider data flow stale if no message for this duration (default 5000)
 };
 
 export type UseKafkaStreamState<TSelected> = {
   data: TSelected | undefined;
   lastEvent?: KafkaEvent;
-  connected: boolean;
+  connected: boolean;        // SSE transport connected/open
+  kafkaConnected: boolean;   // Receiving fresh messages within staleAfterMs window
+  lastMessageAt?: number;    // timestamp (ms) when last message arrived
   error?: string;
   restart: () => void;
   close: () => void;
@@ -61,14 +64,17 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
     onMessage,
     onError,
     ssePath = "/api/kafka-stream",
+    staleAfterMs = 1000,
   } = opts;
 
-  const [connected, setConnected] = useState(false);
+  const [connected, setConnected] = useState(false); // SSE socket state
   const [error, setError] = useState<string | undefined>(undefined);
   const [lastEvent, setLastEvent] = useState<KafkaEvent | undefined>(undefined);
   const [data, setData] = useState<TSelected | undefined>(() =>
     typeof initial === "function" ? (initial as any)() : initial
   );
+  const [lastMessageAt, setLastMessageAt] = useState<number | undefined>(undefined);
+  const [kafkaConnected, setKafkaConnected] = useState<boolean>(false); // message freshness state
 
   const esRef = useRef<EventSource | null>(null);
   const restartRef = useRef<() => void>(() => {});
@@ -110,6 +116,10 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
         const selected: TSelected = (select ? select(parsed, evt) : (parsed as unknown as TSelected));
         setLastEvent(evt);
         setData(selected);
+        const now = Date.now();
+        setLastMessageAt(now);
+        // Immediately mark kafkaConnected true upon a message
+        setKafkaConnected(true);
         onMessage?.(evt, parsed, selected);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
@@ -136,10 +146,31 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
     return close;
   }, [url, filter, parse, select, onMessage, onError]);
 
+  // Freshness monitoring: mark kafkaConnected false if stale
+  useEffect(() => {
+    let interval: any;
+    const poll = () => {
+      if (!lastMessageAt) {
+        setKafkaConnected(false);
+        return;
+      }
+      const age = Date.now() - lastMessageAt;
+      if (age > staleAfterMs) {
+        if (kafkaConnected) setKafkaConnected(false);
+      } else if (!kafkaConnected) {
+        setKafkaConnected(true);
+      }
+    };
+    interval = setInterval(poll, Math.min(1000, Math.max(250, staleAfterMs / 2)));
+    return () => interval && clearInterval(interval);
+  }, [lastMessageAt, staleAfterMs, kafkaConnected]);
+
   return {
     data,
     lastEvent,
     connected,
+    kafkaConnected,
+    lastMessageAt,
     error,
     restart: () => restartRef.current?.(),
     close: () => { try { esRef.current?.close(); } finally { esRef.current = null; setConnected(false); } },
