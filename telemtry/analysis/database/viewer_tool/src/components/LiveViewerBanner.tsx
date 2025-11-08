@@ -48,35 +48,37 @@ const LiveViewerBanner = () => {
   };
 
   return (
-    <div className="bg-gray-800 text-white w-full h-14 flex items-center justify-between px-4 fixed top-0 left-0 right-0 z-[1000]">
-      <div className="flex items-center">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem asChild><Link href="/">Home</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/driveday">Driveday Page</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/tune">Texas Tune</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/dashboards">Grafana</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/live-viewer">Live Viewer</Link></DropdownMenuItem>
-            <DropdownMenuItem onClick={handleSignOut}>Logout</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Image src="/telem_logo.png" alt="Telemetry Logo" width={40} height={40} className="ml-2" />
-        <span className="ml-2">Welcome, {session?.user?.name || session?.user?.username || 'Guest'}</span>
-        <span className="ml-4">|</span>
-        <span className="ml-4 font-bold">Live Viewer</span>
+    <div className="bg-gray-800 text-white w-full min-h-14 h-auto md:h-14 flex flex-col md:flex-row items-center justify-between px-4 fixed top-0 left-0 right-0 z-[1000]">
+      <div className="flex items-center justify-between w-full md:w-auto">
+        <div className="flex items-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="z-[1001]">
+              <DropdownMenuItem asChild><Link href="/">Home</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/driveday">Driveday Page</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/tune">Texas Tune</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/dashboards">Grafana</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/live-viewer">Live Viewer</Link></DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSignOut}>Logout</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Image src="/telem_logo.png" alt="Telemetry Logo" width={40} height={40} className="ml-2" />
+          <span className="ml-2">Welcome, {session?.user?.name || session?.user?.username || 'Guest'}</span>
+          <span className="ml-4">|</span>
+          <span className="ml-4 font-bold">Live Viewer</span>
+        </div>
       </div>
-      <div className="flex items-center">
+      <div className="flex items-center flex-wrap justify-center md:justify-end w-full md:w-auto">
         {/* Odometer Display */}
-        <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-4">
+        <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-2 text-sm">
           <span>{typeof status?.odometer === 'number' ? `${status.odometer.toFixed(2)} mi` : '— mi'}</span>
         </div>
         {/* Battery Percentage Display */}
-        <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-4">
+        <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-2 text-sm">
           {(() => {
             const batteryPercentage =
               typeof status?.battery === 'number' ? Math.max(0, Math.min(100, Math.round(status.battery))) : undefined;
@@ -100,7 +102,7 @@ const LiveViewerBanner = () => {
             );
           })()}
         </div>
-        <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-4">
+        <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-2 text-sm">
           {/* TODO: Wire up the actual connection status here */}
           <div 
               className={`w-4 h-4 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'} mr-2 pulse-size`}
@@ -108,9 +110,17 @@ const LiveViewerBanner = () => {
           ></div>
           <span>Car Connection</span>
         </div>
-        <span className="mr-4">{date}</span>
-        <span className="mr-4">{time}</span>
-        <Button onClick={() => { localStorage.removeItem('featuresOrder'); window.location.reload(); }} className="bg-red-500 hover:bg-red-600">Clear localStorage</Button>
+        <div className="hidden md:flex items-center">
+          <span className="mr-4">{date}</span>
+          <span className="mr-4">{time}</span>
+        </div>
+        <Button 
+          onClick={() => { localStorage.removeItem('featuresOrder'); window.location.reload(); }} 
+          className="bg-red-500 hover:bg-red-600 text-sm px-2 py-1"
+          title="Clear layout and other local data"
+        >
+          Clear
+        </Button>
       </div>
     </div>
   );
