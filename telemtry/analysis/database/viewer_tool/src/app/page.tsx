@@ -8,7 +8,7 @@ import { AppState } from '@/lib/types';
 const SplashBox = ({ href, title, imageUrl, textColor }: { href: string; title: string; imageUrl: string; textColor?: string }) => (
   <Link href={href} className="flex-grow">
     <div className={`relative flex items-center justify-center h-full rounded-lg shadow-lg cursor-pointer overflow-hidden group`}>
-      <img src={imageUrl} alt={title} className="absolute inset-0 z-0 object-cover w-full h-full transition-transform duration-300 group-hover:scale-105" />
+      <Image src={imageUrl} alt={title} fill style={{ objectFit: "cover" }} className="transition-transform duration-300 group-hover:scale-105" />
       <span className={`relative text-3xl font-bold text-center z-20 ${textColor || 'text-white'}`}>{title}</span>
     </div>
   </Link>

@@ -3,8 +3,8 @@ import { bus, KafkaEvent } from "./bus";
 
 let started = false;
 let readyPromise: Promise<void> | null = null;
-let subscribedTopics = new Set<string>();
-let subscribedRegex = new Set<string>();
+const subscribedTopics = new Set<string>();
+const subscribedRegex = new Set<string>();
 let consumer: import("kafkajs").Consumer | null = null;
 
 export async function startKafkaConsumer(): Promise<void> {

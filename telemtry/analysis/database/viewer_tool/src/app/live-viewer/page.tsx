@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import dynamic from "next/dynamic";
 import {
   DndContext,
@@ -130,27 +131,33 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
         );
       case "space-time-trajectory":
         return (
-          <img
-            key={appState.liveImage || "no-image"}
-            id="live-image"
-            src={
-              appState.liveImage
-                ? `data:image/png;base64,${appState.liveImage}`
-                : "/images/events.png"
-            }
-            alt="Live Data"
-            className="w-full h-full object-contain"
-          />
+          <div className="w-full h-full object-contain" style={{ position: "relative" }}>
+            <Image
+              key={appState.liveImage || "no-image"}
+              id="live-image"
+              src={
+                appState.liveImage
+                  ? `data:image/png;base64,${appState.liveImage}`
+                  : "/images/events.png"
+              }
+              alt="Live Data"
+              fill
+              style={{ objectFit: "contain" }}
+            />
+          </div>
         );
       case "live-map":
         return <DynamicMap />;
       case "gg-plot":
         return (
-          <img
-            src="/images/fake_gg.gif"
-            alt="GG Plot"
-            className="w-full h-full object-contain"
-          />
+          <div className="w-full h-full object-contain" style={{ position: "relative" }}>
+            <Image
+              src="/images/fake_gg.gif"
+              alt="GG Plot"
+              fill
+              style={{ objectFit: "contain" }}
+            />
+          </div>
         );
       case "driver-input":
         return <DriverInputVisualizer />;
