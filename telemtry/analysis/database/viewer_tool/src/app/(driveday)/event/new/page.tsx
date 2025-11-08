@@ -140,7 +140,7 @@ export default function NewEventPage() {
       "rearCornerSpringRate",
     ];
 
-    let next = { ...newEventState } as any;
+    const next = { ...newEventState } as any;
 
     if (numericStringKeys.includes(id as keyof NewEventState)) {
       if (valueStr === "" || numericStringAllowed(valueStr)) {

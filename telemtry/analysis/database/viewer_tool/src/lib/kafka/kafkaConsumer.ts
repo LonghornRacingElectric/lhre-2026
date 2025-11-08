@@ -4,8 +4,8 @@ import type { Kafka, Admin } from "kafkajs";
 
 let started = false;
 let readyPromise: Promise<void> | null = null;
-let subscribedTopics = new Set<string>();
-let subscribedRegex = new Set<string>();
+const subscribedTopics = new Set<string>();
+const subscribedRegex = new Set<string>();
 let consumer: import("kafkajs").Consumer | null = null;
 let kafkaInstance: Kafka | null = null;
 let adminPromise: Promise<Admin> | null = null;

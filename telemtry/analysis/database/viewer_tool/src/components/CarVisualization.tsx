@@ -356,7 +356,6 @@ function Spring({
 function StlModel({ url, ...props }) {
   // This is a workaround for the fact that STLLoader is not available in the main three.js bundle
   // and must be imported from the examples folder.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { STLLoader } = require("three/examples/jsm/loaders/STLLoader");
   const geom = useLoader(STLLoader, url);
   return (

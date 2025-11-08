@@ -23,8 +23,10 @@ async function initAppState() {
     if (currentDriveDay) {
       driveDay = {
         dayId: currentDriveDay.day_id,
-        powerLimit: currentDriveDay.power_limit?.toString(),
-        drivingConditions: currentDriveDay.conditions || undefined,
+        powerLimit: currentDriveDay.power_limit ?? undefined,
+        airTemperature: currentDriveDay.air_temperature ?? undefined,
+        relativeHumidity: currentDriveDay.relative_humidity ?? undefined,
+        trackTemperature: currentDriveDay.track_temperature ?? undefined,
       };
       currentPage = "/event/new";
     }
@@ -45,16 +47,18 @@ async function initAppState() {
         carId: activeEvent.car_id,
         carWeight: activeEvent.car_weight?.toString(),
         towAngle: activeEvent.tow_angle?.toString(),
-        camber: activeEvent.camber?.toString(),
-        rideHeight: activeEvent.ride_height?.toString(),
-        ackermanAdjustment: activeEvent.ackerman_adjustment?.toString(),
+        camberFront: activeEvent.camber_front?.toString(),
+        camberRear: activeEvent.camber_rear?.toString(),
+        toeFront: activeEvent.toe_front?.toString(),
+        toeRear: activeEvent.toe_rear?.toString(),
+        rideHeightFront: activeEvent.ride_height_front?.toString(),
+        rideHeightRear: activeEvent.ride_height_rear?.toString(),
         powerLimit: activeEvent.power_limit?.toString(),
-        shockDampening: activeEvent.shock_dampening?.toString(),
         torqueLimit: activeEvent.torque_limit?.toString(),
-        frwPressure: activeEvent.frw_pressure?.toString(),
-        flwPressure: activeEvent.flw_pressure?.toString(),
-        brwPressure: activeEvent.brw_pressure?.toString(),
-        blwPressure: activeEvent.blw_pressure?.toString(),
+        frPressure: activeEvent.frw_pressure?.toString(),
+        flPressure: activeEvent.flw_pressure?.toString(),
+        rrPressure: activeEvent.brw_pressure?.toString(),
+        rlPressure: activeEvent.blw_pressure?.toString(),
         frontWingOn: false, // default, or fetch from DB if stored
         rearWingOn: false,
         regenOn: false,

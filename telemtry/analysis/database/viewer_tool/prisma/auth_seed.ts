@@ -4,14 +4,20 @@ import { hash } from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  const password = await hash('', 12);
-  const user = await prisma.user.upsert({
-    where: { username: 'ELC' },
-    update: {},
-    create: {
-      username: 'ELC',
-      name: 'ELC',
-      password,
+  const username = process.argv[2];
+  const password = process.argv[3];
+
+  if (!username || !password) {
+    console.error('Please provide both a username and a password.');
+    process.exit(1);
+  }
+
+  const hashedPassword = await hash(password, 12);
+  const user = await prisma.user.create({
+    data: {
+      username,
+      name: username,
+      password: hashedPassword,
     },
   });
   console.log({ user });

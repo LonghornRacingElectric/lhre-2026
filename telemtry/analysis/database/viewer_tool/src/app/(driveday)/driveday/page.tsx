@@ -98,7 +98,7 @@ export default function DrivedayPage() {
       "trackTemperature",
     ];
 
-    let updated: DriveDayState = { ...driveDayState };
+    const updated: DriveDayState = { ...driveDayState };
 
     if (integerFields.includes(id as keyof DriveDayState)) {
       if (valueStr === "") {
