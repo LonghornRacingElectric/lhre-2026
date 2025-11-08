@@ -298,12 +298,12 @@ def firmware_project_g4(
             srcs = ["//tools/dfu:dfu_flashing_script"],
             main = "flash.py",
             data = [
-                ":" + target_name + ".elf",
+                ":" + target_name + ".bin",
                 "@dfu//:dfu",
             ],
             args = [
                 "$(rlocationpath @dfu//:dfu)",
-                "$(rlocationpath :" + target_name + ".elf" + ")",
+                "$(rlocationpath :" + target_name + ".bin" + ")",
             ],
             deps = [
                 "@rules_python//python/runfiles",
