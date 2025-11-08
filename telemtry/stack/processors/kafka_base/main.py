@@ -1,8 +1,9 @@
 from kafka import KafkaConsumer
+from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 import time
 
 consumer = KafkaConsumer(
-    'db_inserts',
+    'sensor_data',
     bootstrap_servers='kafka:9092',
     group_id='test-group',
     max_poll_records=5,
@@ -28,6 +29,8 @@ try:
             for record in records:
                 print(f"Processing message from topic '{record.topic}', partition {record.partition}: offset {record.offset}")
                 print(f"  Key: {record.key}, Value: {record.value}")
+                decoded_message = MQTTHandler._proto_decode(record.value)
+                print(f"  Decoded Message: {decoded_message}")
                 # Place your message processing logic here
 
         # After successfully processing the entire batch, manually commit the offsets.

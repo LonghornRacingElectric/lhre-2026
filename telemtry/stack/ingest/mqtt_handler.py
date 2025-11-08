@@ -280,12 +280,10 @@ class MQTTHandler:
                     logging.warning(f'\tNo data received for {table}...')
         session.commit()
 
-    def _proto_decode(self, payload: str, car = "Nightwatch") -> dict:
-        logging.debug('Data Received via Protobuf')
-        if (car == "Angelique"):
-            row = angelique_pb2.AngeliqueSensorData()
-        else:
-            row = template_pb2.SensorData()
+    @staticmethod
+    def _proto_decode(self, payload: str) -> dict:
+        logging.info('Data Received via Protobuf')
+        row = template_pb2.SensorData()
         row.ParseFromString(payload)
         row = MessageToDict(row, preserving_proto_field_name=True, always_print_fields_with_no_presence=True)
         logging.debug(row)

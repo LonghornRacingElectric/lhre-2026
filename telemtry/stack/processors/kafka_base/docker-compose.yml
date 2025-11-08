@@ -1,8 +1,11 @@
 services:
   db_processor:
     build:
-      context: .
-      dockerfile: Dockerfile
+      # Build context set to the repository root so COPY can reference files under `stack/`.
+      context: ../../..
+      # Dockerfile path is relative to the build context. Point it to the actual Dockerfile
+      # location under the repo root.
+      dockerfile: stack/processors/kafka_base/Dockerfile
     image: kafka_consumer
     container_name: kafka_processor_base
     restart: unless-stopped
