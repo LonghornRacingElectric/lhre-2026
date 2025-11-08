@@ -242,6 +242,7 @@ model diagnostics {
   cells_v             Float[]
   hv_charge_state     Float?
   lv_charge_state     Float?
+  odometer            Float?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }
