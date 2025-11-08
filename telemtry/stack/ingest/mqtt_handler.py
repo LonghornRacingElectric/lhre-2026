@@ -117,7 +117,6 @@ class MQTTHandler:
         self.client.loop_forever()
 
     def publish(self, *args, **kwargs):
-        result = self.client.publish(*args, **kwargs)
         # Determine payload from kwargs or positional args (publish(topic, payload, ...))
         payload = kwargs.get('payload', None)
         if payload is None:
@@ -131,6 +130,8 @@ class MQTTHandler:
                 self.send_kafka_protobuf(payload=payload)
             except Exception as e:
                 logging.exception("Failed to send payload to Kafka: %s", e)
+        result = self.client.publish(*args, **kwargs)
+        self.kafka_producer.flush()
         return result
 
     def on_message(self, client: mqtt_client.Client, userdata, msg):
@@ -159,6 +160,7 @@ class MQTTHandler:
                 self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Angelique")
         else:
             logging.warning(f'No corresponding topic found for {msg.topic}')
+        self.kafka_producer.flush()
 
     def send_kafka_protobuf(self, payload: str):
         '''
