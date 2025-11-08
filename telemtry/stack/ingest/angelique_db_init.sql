@@ -243,6 +243,7 @@ CREATE TABLE public.diagnostics (
     cells_v                 real[],
     hv_charge_state         real,
     lv_charge_state         real,
+    odometer                real,
     CONSTRAINT fk_diagnostics_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
 
