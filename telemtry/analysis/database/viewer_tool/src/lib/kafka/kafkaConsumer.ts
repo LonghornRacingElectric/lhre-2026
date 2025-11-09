@@ -40,13 +40,21 @@ export async function startKafkaConsumer(): Promise<void> {
   if (started) return readyPromise || Promise.resolve();
   started = true;
   readyPromise = (async () => {
-  const kafka = getKafka();
-  kafkaInstance = kafka;
-  consumer = kafka.consumer({ groupId: process.env.KAFKA_GROUP_ID || "viewer-tool-group" });
+    const kafka = getKafka();
+    kafkaInstance = kafka;
+    consumer = kafka.consumer({
+      groupId: process.env.KAFKA_GROUP_ID || "viewer-tool-group",
+    });
     await consumer.connect();
 
-    const defaultTopics = (process.env.KAFKA_TOPICS || process.env.KAFKA_TOPIC || "")
-      .split(",").map(t => t.trim()).filter(Boolean);
+    const defaultTopics = (
+      process.env.KAFKA_TOPICS ||
+      process.env.KAFKA_TOPIC ||
+      ""
+    )
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
     console.log("Default topics to subscribe:", defaultTopics);
     for (const t of defaultTopics) {
       await ensureSubscribe(t);
@@ -56,7 +64,10 @@ export async function startKafkaConsumer(): Promise<void> {
       eachMessage: async ({ topic, partition, message }) => {
         const payload = message.value ? message.value.toString() : "";
         const headers = Object.fromEntries(
-          Object.entries(message.headers || {}).map(([k, v]) => [k, v?.toString()])
+          Object.entries(message.headers || {}).map(([k, v]) => [
+            k,
+            v?.toString(),
+          ])
         );
         const evt: KafkaEvent = {
           topic,
@@ -66,6 +77,7 @@ export async function startKafkaConsumer(): Promise<void> {
           offset: message.offset,
           timestamp: message.timestamp,
         };
+
         console.log("Received message on topic:", topic);
         bus.emit(`kafka:${topic}` as const, evt);
         bus.emit("kafka:*", evt);
@@ -74,7 +86,9 @@ export async function startKafkaConsumer(): Promise<void> {
 
     // graceful-ish
     process.on("beforeExit", async () => {
-      try { await consumer?.disconnect(); } catch {}
+      try {
+        await consumer?.disconnect();
+      } catch {}
     });
   })();
   return readyPromise;
@@ -92,7 +106,7 @@ export async function ensureSubscribe(topic: string | RegExp): Promise<void> {
       console.log("Subscribed to topic:", topic);
       subscribedTopics.add(topic);
     } catch (e: any) {
-      if (e?.type === 'UNKNOWN_TOPIC_OR_PARTITION') {
+      if (e?.type === "UNKNOWN_TOPIC_OR_PARTITION") {
         // Retry once after forced creation
         console.warn("Topic unknown, retrying after create:", topic);
         await ensureTopicExists(topic);

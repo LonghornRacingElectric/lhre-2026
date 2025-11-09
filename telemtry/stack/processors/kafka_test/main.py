@@ -52,6 +52,7 @@ try:
             except Exception as e:
                 print(f"(failed to send dummy status: {e})")
             last_status_sent = now
+        continue
         # The poll() method returns a dictionary of partitions and their records.
         # It's non-blocking for the specified timeout.
         batch = consumer.poll(timeout_ms=1000)
