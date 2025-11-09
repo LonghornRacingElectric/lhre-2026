@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { getSSEState, onConnectionChange, restartSSE, subscribeSSE } from "@/lib/kafka/sseBus";
 
 export type KafkaEvent = {
   topic: string;
@@ -64,7 +65,7 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
     onMessage,
     onError,
     ssePath = "/api/kafka-stream",
-    staleAfterMs = 1000,
+    staleAfterMs = 3000,
   } = opts;
 
   const [connected, setConnected] = useState(false); // SSE socket state
@@ -76,7 +77,6 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
   const [lastMessageAt, setLastMessageAt] = useState<number | undefined>(undefined);
   const [kafkaConnected, setKafkaConnected] = useState<boolean>(false); // message freshness state
 
-  const esRef = useRef<EventSource | null>(null);
   const restartRef = useRef<() => void>(() => {});
 
   const { url, isPrefix } = useMemo(() => {
@@ -93,24 +93,16 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
   }, [topic, prefix, ssePath]);
 
   useEffect(() => {
-    // Ensure we only create EventSource in the browser
     if (typeof window === "undefined") return;
+    // track SSE connection state from the singleton bus
+    const offConn = onConnectionChange((c) => setConnected(c));
+    // set initial state
+    const st = getSSEState();
+    setConnected(st.connected);
+    if (st.lastMessageAt) setLastMessageAt(st.lastMessageAt);
 
-    const es = new EventSource(url);
-    esRef.current = es;
-    setConnected(false);
-    setError(undefined);
-
-    es.onopen = () => setConnected(true);
-    es.onerror = (evt) => {
-      setConnected(false);
-      setError("stream error");
-      onError?.(evt);
-    };
-
-    es.onmessage = (e) => {
+    const unsub = subscribeSSE(topic, (evt) => {
       try {
-        const evt: KafkaEvent = JSON.parse(e.data);
         if (filter && !filter(evt)) return;
         const parsed: TData = parse(evt.payload);
         const selected: TSelected = (select ? select(parsed, evt) : (parsed as unknown as TSelected));
@@ -118,33 +110,16 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
         setData(selected);
         const now = Date.now();
         setLastMessageAt(now);
-        // Immediately mark kafkaConnected true upon a message
         setKafkaConnected(true);
         onMessage?.(evt, parsed, selected);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       }
-    };
+    }, { ssePath });
 
-    const close = () => {
-      try { es.close(); } catch {}
-      esRef.current = null;
-      setConnected(false);
-    };
-
-    restartRef.current = () => {
-      close();
-      // Trigger effect to recreate EventSource by changing dependency; simplest approach is to rely on url changes.
-      // If url didn't change, we just re-open here:
-      const es2 = new EventSource(url);
-      esRef.current = es2;
-      es2.onopen = () => setConnected(true);
-      es2.onerror = (evt) => { setConnected(false); setError("stream error"); onError?.(evt); };
-      es2.onmessage = es.onmessage;
-    };
-
-    return close;
-  }, [url, filter, parse, select, onMessage, onError]);
+    restartRef.current = () => restartSSE();
+    return () => { offConn(); unsub(); };
+  }, [topic, ssePath, filter, parse, select, onMessage]);
 
   // Freshness monitoring: mark kafkaConnected false if stale
   useEffect(() => {
@@ -156,6 +131,9 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
       const age = Date.now() - lastMessageAt;
       if (age > staleAfterMs) {
         if (kafkaConnected) setKafkaConnected(false);
+        // Clear stale data so UI doesn't display outdated values that look "live"
+        setData(undefined);
+        setLastEvent(undefined);
       } else if (!kafkaConnected) {
         setKafkaConnected(true);
       }
@@ -163,6 +141,14 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
     const interval = setInterval(poll, Math.min(1000, Math.max(250, staleAfterMs / 2)));
     return () => interval && clearInterval(interval);
   }, [lastMessageAt, staleAfterMs, kafkaConnected]);
+
+  // Reset data when topic changes to avoid showing previous topic's last payload
+  useEffect(() => {
+    setData(typeof initial === "function" ? (initial as any)() : initial);
+    setLastEvent(undefined);
+    setLastMessageAt(undefined);
+    setKafkaConnected(false);
+  }, [topic]);
 
   return {
     data,
@@ -172,7 +158,8 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
     lastMessageAt,
     error,
     restart: () => restartRef.current?.(),
-    close: () => { try { esRef.current?.close(); } finally { esRef.current = null; setConnected(false); } },
+    // With singleton SSE we just trigger a restart (no direct close to individual ES)
+    close: () => { restartSSE(); },
   };
 }
 

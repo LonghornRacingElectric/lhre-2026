@@ -1,0 +1,8 @@
+{
+  "status": [
+    {
+      "to": "livebanner",
+      "pick": ["battery", "odometer"]
+    }
+  ]
+}

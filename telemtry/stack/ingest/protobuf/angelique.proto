@@ -67,19 +67,20 @@ message AngeliqueDiagnostics {
     repeated float cells_v = 54;
     float hv_charge_state = 55;
     float lv_charge_state = 56;
+    float odometer = 57;
 }
 
 message AngeliqueThermal {
-    repeated int32 cells_temp = 57;
-    int32 ambient_temp = 58;
-    int32 inverter_temp = 59;
-    int32 motor_temp = 60;
-    int32 water_motor_temp = 61;
-    int32 water_inverter_temp = 62;
-    int32 water_rad_temp = 63;
-    int32 rad_fan_set = 64;
-    int64 rad_fan_rpm = 65;
-    int32 batt_fan_set = 66;
-    int32 batt_fan_rpm = 67;
-    int32 flow_rate = 68;
+    repeated int32 cells_temp = 58;
+    int32 ambient_temp = 59;
+    int32 inverter_temp = 60;
+    int32 motor_temp = 61;
+    int32 water_motor_temp = 62;
+    int32 water_inverter_temp = 63;
+    int32 water_rad_temp = 64;
+    int32 rad_fan_set = 65;
+    int64 rad_fan_rpm = 66;
+    int32 batt_fan_set = 67;
+    int32 batt_fan_rpm = 68;
+    int32 flow_rate = 69;
 }

@@ -78,6 +78,7 @@ export interface AngeliqueDiagnostics {
   cellsV: number[];
   hvChargeState: number;
   lvChargeState: number;
+  odometer: number;
 }
 
 export interface AngeliqueThermal {
@@ -1304,6 +1305,7 @@ function createBaseAngeliqueDiagnostics(): AngeliqueDiagnostics {
     cellsV: [],
     hvChargeState: 0,
     lvChargeState: 0,
+    odometer: 0,
   };
 }
 
@@ -1331,6 +1333,9 @@ export const AngeliqueDiagnostics: MessageFns<AngeliqueDiagnostics> = {
     }
     if (message.lvChargeState !== 0) {
       writer.uint32(453).float(message.lvChargeState);
+    }
+    if (message.odometer !== 0) {
+      writer.uint32(461).float(message.odometer);
     }
     return writer;
   },
@@ -1408,6 +1413,14 @@ export const AngeliqueDiagnostics: MessageFns<AngeliqueDiagnostics> = {
           message.lvChargeState = reader.float();
           continue;
         }
+        case 57: {
+          if (tag !== 461) {
+            break;
+          }
+
+          message.odometer = reader.float();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1428,6 +1441,7 @@ export const AngeliqueDiagnostics: MessageFns<AngeliqueDiagnostics> = {
       cellsV: globalThis.Array.isArray(object?.cellsV) ? object.cellsV.map((e: any) => globalThis.Number(e)) : [],
       hvChargeState: isSet(object.hvChargeState) ? globalThis.Number(object.hvChargeState) : 0,
       lvChargeState: isSet(object.lvChargeState) ? globalThis.Number(object.lvChargeState) : 0,
+      odometer: isSet(object.odometer) ? globalThis.Number(object.odometer) : 0,
     };
   },
 
@@ -1454,6 +1468,9 @@ export const AngeliqueDiagnostics: MessageFns<AngeliqueDiagnostics> = {
     if (message.lvChargeState !== 0) {
       obj.lvChargeState = message.lvChargeState;
     }
+    if (message.odometer !== 0) {
+      obj.odometer = message.odometer;
+    }
     return obj;
   },
 
@@ -1469,6 +1486,7 @@ export const AngeliqueDiagnostics: MessageFns<AngeliqueDiagnostics> = {
     message.cellsV = object.cellsV?.map((e) => e) || [];
     message.hvChargeState = object.hvChargeState ?? 0;
     message.lvChargeState = object.lvChargeState ?? 0;
+    message.odometer = object.odometer ?? 0;
     return message;
   },
 };
@@ -1492,43 +1510,43 @@ function createBaseAngeliqueThermal(): AngeliqueThermal {
 
 export const AngeliqueThermal: MessageFns<AngeliqueThermal> = {
   encode(message: AngeliqueThermal, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    writer.uint32(458).fork();
+    writer.uint32(466).fork();
     for (const v of message.cellsTemp) {
       writer.int32(v);
     }
     writer.join();
     if (message.ambientTemp !== 0) {
-      writer.uint32(464).int32(message.ambientTemp);
+      writer.uint32(472).int32(message.ambientTemp);
     }
     if (message.inverterTemp !== 0) {
-      writer.uint32(472).int32(message.inverterTemp);
+      writer.uint32(480).int32(message.inverterTemp);
     }
     if (message.motorTemp !== 0) {
-      writer.uint32(480).int32(message.motorTemp);
+      writer.uint32(488).int32(message.motorTemp);
     }
     if (message.waterMotorTemp !== 0) {
-      writer.uint32(488).int32(message.waterMotorTemp);
+      writer.uint32(496).int32(message.waterMotorTemp);
     }
     if (message.waterInverterTemp !== 0) {
-      writer.uint32(496).int32(message.waterInverterTemp);
+      writer.uint32(504).int32(message.waterInverterTemp);
     }
     if (message.waterRadTemp !== 0) {
-      writer.uint32(504).int32(message.waterRadTemp);
+      writer.uint32(512).int32(message.waterRadTemp);
     }
     if (message.radFanSet !== 0) {
-      writer.uint32(512).int32(message.radFanSet);
+      writer.uint32(520).int32(message.radFanSet);
     }
     if (message.radFanRpm !== 0) {
-      writer.uint32(520).int64(message.radFanRpm);
+      writer.uint32(528).int64(message.radFanRpm);
     }
     if (message.battFanSet !== 0) {
-      writer.uint32(528).int32(message.battFanSet);
+      writer.uint32(536).int32(message.battFanSet);
     }
     if (message.battFanRpm !== 0) {
-      writer.uint32(536).int32(message.battFanRpm);
+      writer.uint32(544).int32(message.battFanRpm);
     }
     if (message.flowRate !== 0) {
-      writer.uint32(544).int32(message.flowRate);
+      writer.uint32(552).int32(message.flowRate);
     }
     return writer;
   },
@@ -1540,14 +1558,14 @@ export const AngeliqueThermal: MessageFns<AngeliqueThermal> = {
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
-        case 57: {
-          if (tag === 456) {
+        case 58: {
+          if (tag === 464) {
             message.cellsTemp.push(reader.int32());
 
             continue;
           }
 
-          if (tag === 458) {
+          if (tag === 466) {
             const end2 = reader.uint32() + reader.pos;
             while (reader.pos < end2) {
               message.cellsTemp.push(reader.int32());
@@ -1558,20 +1576,12 @@ export const AngeliqueThermal: MessageFns<AngeliqueThermal> = {
 
           break;
         }
-        case 58: {
-          if (tag !== 464) {
-            break;
-          }
-
-          message.ambientTemp = reader.int32();
-          continue;
-        }
         case 59: {
           if (tag !== 472) {
             break;
           }
 
-          message.inverterTemp = reader.int32();
+          message.ambientTemp = reader.int32();
           continue;
         }
         case 60: {
@@ -1579,7 +1589,7 @@ export const AngeliqueThermal: MessageFns<AngeliqueThermal> = {
             break;
           }
 
-          message.motorTemp = reader.int32();
+          message.inverterTemp = reader.int32();
           continue;
         }
         case 61: {
@@ -1587,7 +1597,7 @@ export const AngeliqueThermal: MessageFns<AngeliqueThermal> = {
             break;
           }
 
-          message.waterMotorTemp = reader.int32();
+          message.motorTemp = reader.int32();
           continue;
         }
         case 62: {
@@ -1595,7 +1605,7 @@ export const AngeliqueThermal: MessageFns<AngeliqueThermal> = {
             break;
           }
 
-          message.waterInverterTemp = reader.int32();
+          message.waterMotorTemp = reader.int32();
           continue;
         }
         case 63: {
@@ -1603,7 +1613,7 @@ export const AngeliqueThermal: MessageFns<AngeliqueThermal> = {
             break;
           }
 
-          message.waterRadTemp = reader.int32();
+          message.waterInverterTemp = reader.int32();
           continue;
         }
         case 64: {
@@ -1611,7 +1621,7 @@ export const AngeliqueThermal: MessageFns<AngeliqueThermal> = {
             break;
           }
 
-          message.radFanSet = reader.int32();
+          message.waterRadTemp = reader.int32();
           continue;
         }
         case 65: {
@@ -1619,7 +1629,7 @@ export const AngeliqueThermal: MessageFns<AngeliqueThermal> = {
             break;
           }
 
-          message.radFanRpm = longToNumber(reader.int64());
+          message.radFanSet = reader.int32();
           continue;
         }
         case 66: {
@@ -1627,7 +1637,7 @@ export const AngeliqueThermal: MessageFns<AngeliqueThermal> = {
             break;
           }
 
-          message.battFanSet = reader.int32();
+          message.radFanRpm = longToNumber(reader.int64());
           continue;
         }
         case 67: {
@@ -1635,11 +1645,19 @@ export const AngeliqueThermal: MessageFns<AngeliqueThermal> = {
             break;
           }
 
-          message.battFanRpm = reader.int32();
+          message.battFanSet = reader.int32();
           continue;
         }
         case 68: {
           if (tag !== 544) {
+            break;
+          }
+
+          message.battFanRpm = reader.int32();
+          continue;
+        }
+        case 69: {
+          if (tag !== 552) {
             break;
           }
 

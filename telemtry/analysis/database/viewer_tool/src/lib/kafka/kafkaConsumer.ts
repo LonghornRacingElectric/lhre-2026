@@ -1,5 +1,58 @@
 import { getKafka } from "./kafka";
 import { bus, KafkaEvent } from "./bus";
+import fs from "fs";
+import path from "path";
+
+// Mapping rules: raw Kafka topic -> array of outbound logical component topics with transformers.
+// Configure via process.env.KAFKA_ROUTES_JSON (JSON string) or build defaults here.
+// Example JSON:
+// {
+//   "raw-status": [{ "to": "3d-visualizer", "pick": ["battery", "odometer"] },
+//                   { "to": "gg-plot", "pick": ["battery"] }],
+//   "raw-telemetry": [{ "to": "gg-plot", "pick": ["rpm","speed"] }]
+// }
+type RouteRule = { to: string; pick?: string[]; rename?: Record<string,string>; }; // simple transformation config
+let routeConfig: Record<string, RouteRule[]> = {};
+
+function loadRouteConfig() {
+  if (routeConfig && Object.keys(routeConfig).length) return routeConfig;
+  // 1) Prefer file path via KAFKA_ROUTES_FILE
+  const fileEnv = process.env.KAFKA_ROUTES_FILE;
+  if (fileEnv) {
+    try {
+      const filePath = path.isAbsolute(fileEnv) ? fileEnv : path.join(process.cwd(), fileEnv);
+      const txt = fs.readFileSync(filePath, "utf8");
+      routeConfig = JSON.parse(txt);
+      console.log("Loaded route config from KAFKA_ROUTES_FILE:", filePath);
+      return routeConfig;
+    } catch (e) {
+      console.warn("Failed to load KAFKA_ROUTES_FILE, falling back to env or default", e);
+    }
+  }
+  // 2) Backward-compat: support JSON in env var
+  try {
+    const json = process.env.KAFKA_ROUTES_JSON;
+    if (json) {
+      routeConfig = JSON.parse(json);
+      console.log("Loaded KAFKA_ROUTES_JSON routeConfig");
+      return routeConfig;
+    }
+  } catch (e) {
+    console.warn("Failed parsing KAFKA_ROUTES_JSON", e);
+  }
+  // 3) Try default file kafka.routes.json at project root
+  try {
+    const defaultPath = path.join(process.cwd(), "kafka.routes.json");
+    if (fs.existsSync(defaultPath)) {
+      const txt = fs.readFileSync(defaultPath, "utf8");
+      routeConfig = JSON.parse(txt);
+      console.log("Loaded route config from default kafka.routes.json");
+    }
+  } catch (e) {
+    console.warn("No routing config found (this is OK if you only consume raw topics)");
+  }
+  return routeConfig;
+}
 import type { Kafka, Admin } from "kafkajs";
 
 let started = false;
@@ -79,8 +132,45 @@ export async function startKafkaConsumer(): Promise<void> {
         };
 
         console.log("Received message on topic:", topic);
-        bus.emit(`kafka:${topic}` as const, evt);
+        bus.emit(`kafka:${topic}` as const, evt); // raw event
         bus.emit("kafka:*", evt);
+
+        // Routing layer: transform and emit logical component topics
+        const routes = loadRouteConfig()[topic];
+        if (routes && routes.length) {
+          let parsed: any;
+          try { parsed = JSON.parse(payload); } catch { parsed = payload; }
+          for (const rule of routes) {
+            let outData = parsed;
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              if (rule.pick) {
+                const subset: Record<string, any> = {};
+                for (const key of rule.pick) if (key in parsed) subset[key] = parsed[key];
+                outData = subset;
+              }
+              if (rule.rename) {
+                const renamed: Record<string, any> = {};
+                for (const [k,v] of Object.entries(parsed)) {
+                  const newKey = rule.rename![k] || k;
+                  if (!rule.pick || rule.pick.includes(k)) {
+                    renamed[newKey] = parsed[k];
+                  }
+                }
+                outData = renamed;
+              }
+            }
+            const routed: KafkaEvent = {
+              topic: rule.to,
+              partition,
+              payload: typeof outData === 'string' ? outData : JSON.stringify(outData),
+              headers,
+              offset: message.offset,
+              timestamp: message.timestamp,
+            };
+            bus.emit(`kafka:${rule.to}` as const, routed);
+            console.log(`Routed message from topic ${topic} to ${rule.to}`);
+          }
+        }
       },
     });
 
