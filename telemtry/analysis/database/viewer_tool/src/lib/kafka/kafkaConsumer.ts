@@ -54,6 +54,7 @@ function loadRouteConfig() {
   return routeConfig;
 }
 import type { Kafka, Admin } from "kafkajs";
+import { AngeliqueSensorData } from "../../../protobuf/angelique";
 
 let started = false;
 let readyPromise: Promise<void> | null = null;
@@ -130,6 +131,17 @@ export async function startKafkaConsumer(): Promise<void> {
           offset: message.offset,
           timestamp: message.timestamp,
         };
+
+        try {
+          if (message.value) {
+            const decodedPayload = AngeliqueSensorData.decode(
+              new Uint8Array(message.value)
+            );
+            evt.payload = JSON.stringify(decodedPayload);
+          }
+        } catch (error) {
+          console.error("Failed to decode message payload", error);
+        }
 
         console.log("Received message on topic:", topic);
         bus.emit(`kafka:${topic}` as const, evt); // raw event
