@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "VCU Debug",
-      "cwd": "${workspaceFolder}/VCU/firmware",
+      // "cwd": "${workspaceFolder}/VCU/firmware",
       "type": "cortex-debug",
       "executable": "${workspaceFolder}/bazel-bin/VCU/firmware/vcu_firmware_2026.elf",
       "request": "launch",
