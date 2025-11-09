@@ -71,7 +71,7 @@ const LiveViewerBanner = () => {
           <span className="ml-4 font-bold">Live Viewer</span>
         </div>
       </div>
-      <div className="flex items-center flex-wrap justify-center md:justify-end w-full md:w-auto">
+      <div className="flex items-center flex-wrap justify-center md:justify-end w-full md:w-auto pb-2 md:pb-0">
         {/* Odometer Display */}
         <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-2 text-sm">
           <span>{typeof status?.odometer === 'number' ? `${status.odometer.toFixed(2)} mi` : '— mi'}</span>

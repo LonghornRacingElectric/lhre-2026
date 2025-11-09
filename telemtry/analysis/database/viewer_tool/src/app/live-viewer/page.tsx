@@ -131,7 +131,7 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
         );
       case "space-time-trajectory":
         return (
-          <div className="w-full h-full object-contain" style={{ position: "relative" }}>
+          <div className="w-full h-full object-contain" style={{ position: "relative", width: "400px", height: "400px", maxWidth: "100%" }}>
             <Image
               key={appState.liveImage || "no-image"}
               id="live-image"
@@ -147,10 +147,14 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
           </div>
         );
       case "live-map":
-        return <DynamicMap />;
+        return (
+            <div style={{ width: "400px", height: "400px", maxWidth: "100%" }}>
+                <DynamicMap />
+            </div>
+        );
       case "gg-plot":
         return (
-          <div className="w-full h-full object-contain" style={{ position: "relative" }}>
+          <div className="w-full h-full object-contain" style={{ position: "relative", width: "400px", height: "400px", maxWidth: "100%" }}>
             <Image
               src="/images/fake_gg.gif"
               alt="GG Plot"
@@ -219,7 +223,7 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="flex-grow">
+        <CardContent className="flex-grow h-full">
           {renderFeature(feature)}
         </CardContent>
       </Card>
@@ -305,7 +309,7 @@ const LiveViewerPage = () => {
             items={features.map((f) => f.id)}
             strategy={rectSortingStrategy}
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 grid-auto-rows-[400px]">
               {features.map((feature) => (
                 <Tile
                   key={feature.id}
