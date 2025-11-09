@@ -79,8 +79,8 @@ void setup_channel(volatile uint32_t* ccr, unsigned int channel) {
     }
 }
 
-void led_init(rainbow_led_t config) {
-    led = config;
+void led_init(const rainbow_led_t* config) {
+    led = *config;
     // Setup all the channels
     setup_channel(led.ccr1, led.channel1);
     setup_channel(led.ccr2, led.channel2);
