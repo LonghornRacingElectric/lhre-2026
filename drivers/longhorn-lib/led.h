@@ -42,7 +42,7 @@ void led_set(float r, float g, float b);
  *
  * @param config rainbow_led_t configuration for the LED to run.
  */
-void led_init(rainbow_led_t config);
+void led_init(const rainbow_led_t* config);
 
 /**
  * @brief Starts a new thread that runs every 33ms for the LED to rainbow.

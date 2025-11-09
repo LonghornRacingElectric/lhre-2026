@@ -25,7 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "longhorn/led.h"
+#include "led.h"
 #include "tim.h"
 /* USER CODE END Includes */
 
@@ -109,7 +109,7 @@ void MX_FREERTOS_Init(void) {
         .timer_handle = &htim2,
     };
 
-    led_init(led);
+    led_init(&led);
     led_start_thread();
     /* USER CODE END RTOS_THREADS */
 

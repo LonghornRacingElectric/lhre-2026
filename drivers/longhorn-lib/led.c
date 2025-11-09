@@ -23,7 +23,8 @@ void led_rainbow(float deltaTime) {
     // keep track of LED rainbow phase so we can step forward into the rainbow
     static float phase = 0.0f;
     const float RAINBOW_PHASE_RANGE = 3.0f;
-    float phase_advance = deltaTime * (RAINBOW_PHASE_RANGE / RAINBOW_CYCLE_TIME_S);
+    float phase_advance =
+        deltaTime * (RAINBOW_PHASE_RANGE / RAINBOW_CYCLE_TIME_S);
     phase += phase_advance;
     while (phase >= RAINBOW_PHASE_RANGE) {
         phase -= RAINBOW_PHASE_RANGE;
