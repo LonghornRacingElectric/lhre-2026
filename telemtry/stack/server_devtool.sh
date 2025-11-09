@@ -39,12 +39,20 @@ do
             break
             ;;
         2)
+            cd ../kafka || (echo "Failed to find kafka" && exit)
+            $SUDO docker compose down
+            $SUDO docker compose up -d
+            cd ../ingest || (echo "Failed to find ingest" && exit)
             $SUDO docker compose down
             $SUDO docker rmi "$($SUDO docker image ls | grep telemetry_backend | awk '{print $3}')"
             $SUDO docker compose up
             break
             ;;
         3)
+            cd ../kafka || (echo "Failed to find kafka" && exit)
+            $SUDO docker compose down
+            $SUDO docker compose up -d
+            cd ../ingest || (echo "Failed to find ingest" && exit)
             $SUDO docker compose down
             $SUDO docker rmi "$($SUDO docker image ls | grep telemetry_backend | awk '{print $3}')"
             $SUDO docker volume rm telemetry_db && $SUDO docker volume create telemetry_db
@@ -113,6 +121,13 @@ do
             cd ../processors/gps_classifier || (echo "Failed to find processors" && exit)
             $SUDO docker compose down
             $SUDO docker rmi "$($SUDO docker image ls | grep gps_classifier | awk '{print $3}')"
+            $SUDO docker compose up
+            break
+            ;;
+        g|G)
+            cd ../processors/kafka_test || (echo "Failed to find processors" && exit)
+            $SUDO docker compose down
+            $SUDO docker rmi "$($SUDO docker image ls | grep kafka_test | awk '{print $3}')"
             $SUDO docker compose up
             break
             ;;

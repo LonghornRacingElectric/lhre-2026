@@ -29,22 +29,69 @@ while ($true) {
                 break
             }
             "2" {
-                # Option 2: Delete the existing images
+            # --- robustly locate sibling dirs from current (likely ...\ingest) ---
+                $orig = Get-Location
+                $root = $orig
+                while (-not (Test-Path (Join-Path $root 'kafka')) -and (Split-Path $root -Parent) -ne $root) {
+                    $root = Split-Path $root -Parent
+                }
+                if (-not (Test-Path (Join-Path $root 'kafka'))) {
+                    Write-Host "Failed to find 'kafka' directory relative to $orig"
+                    break
+                }
+                $kafkaDir  = Join-Path $root 'kafka'
+                $ingestDir = Join-Path $root 'ingest'
+
+                # --- kafka first ---
+                Set-Location $kafkaDir
+                docker-compose down
+                docker-compose up -d
+
+                # --- then ingest ---
+                if (-not (Test-Path $ingestDir)) {
+                    Write-Host "Failed to find 'ingest' directory relative to $orig"
+                    break
+                }
+                Set-Location $ingestDir
+
                 docker-compose down
                 $telemetryBackendImages = docker image ls --filter "reference=telemetry_backend" -q
-                foreach ($image in $telemetryBackendImages)
-                {
+                foreach ($image in $telemetryBackendImages) {
                     docker rmi $image
                 }
                 docker-compose up
                 break
             }
             "3" {
-                # Option 3: Delete the existing images and telemetry_db volume
+                # --- robustly locate sibling dirs from current (likely ...\ingest) ---
+                $orig = Get-Location
+                $root = $orig
+                while (-not (Test-Path (Join-Path $root 'kafka')) -and (Split-Path $root -Parent) -ne $root) {
+                    $root = Split-Path $root -Parent
+                }
+                if (-not (Test-Path (Join-Path $root 'kafka'))) {
+                    Write-Host "Failed to find 'kafka' directory relative to $orig"
+                    break
+                }
+                $kafkaDir  = Join-Path $root 'kafka'
+                $ingestDir = Join-Path $root 'ingest'
+
+                # --- kafka first ---
+                Set-Location $kafkaDir
+                docker-compose down
+                docker-compose up -d
+
+                # --- then ingest ---
+                if (-not (Test-Path $ingestDir)) {
+                    Write-Host "Failed to find 'ingest' directory relative to $orig"
+                    break
+                }
+                Set-Location $ingestDir
+
+                # Option 3: Delete images + reset telemetry_db volume
                 docker-compose down
                 $telemetryBackendImages = docker image ls --filter "reference=telemetry_backend" -q
-                foreach ($image in $telemetryBackendImages)
-                {
+                foreach ($image in $telemetryBackendImages) {
                     docker rmi $image
                 }
                 docker volume rm telemetry_db

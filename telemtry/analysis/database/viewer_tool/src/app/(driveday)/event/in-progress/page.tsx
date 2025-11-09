@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { AppState } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 const EventInProgressPage = () => {
   const router = useRouter();
@@ -50,10 +51,13 @@ const EventInProgressPage = () => {
   };
 
   return (
-    <div className="container mx-auto p-8 flex flex-col items-center justify-center">
+    <div className="container mx-auto p-8 flex flex-col items-center justify-center pt-20">
       <h1 className="text-4xl font-bold mb-8">Event in Progress</h1>
       <div className="flex space-x-4">
         <Button onClick={handleEndEvent} variant="destructive">End Event</Button>
+        <Link href="/live-viewer">
+          <Button variant="default">Go to Live Viewer</Button>
+        </Link>
       </div>
     </div>
   );

@@ -1,10 +1,17 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-# Initialize the main telemetry database
-# The default POSTGRES_DB is 'telemetry', which is created by the entrypoint
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "telemetry" -f /app/nightwatch_db_init.sql
+SCRIPT_DIR="/app"
 
-# Create and initialize the test database
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "postgres" -c "CREATE DATABASE angelique"
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "angelique" -f /app/angelique_db_init.sql
+# Create databases if they don't exist (independent of POSTGRES_DB)
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "postgres" -tAc \
+  "SELECT 1 FROM pg_database WHERE datname='telemetry'" | grep -q 1 || \
+  psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "postgres" -c "CREATE DATABASE telemetry"
+
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "postgres" -tAc \
+  "SELECT 1 FROM pg_database WHERE datname='angelique'" | grep -q 1 || \
+  psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "postgres" -c "CREATE DATABASE angelique"
+
+# Run DDL for each DB
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "telemetry"  -f "$SCRIPT_DIR/nightwatch_db_init.sql"
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "angelique"  -f "$SCRIPT_DIR/angelique_db_init.sql"

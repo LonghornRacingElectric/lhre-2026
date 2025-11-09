@@ -9,9 +9,10 @@
     "lint": "next lint",
     "prisma-auth-generate": "npx prisma generate --schema=prisma/auth.prisma",
     "prisma-telemtry-generate": "npx prisma generate --schema=prisma/telemtry.prisma",
-    "prisma-auth-seed": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/auth_seed.ts",
-    "prisma-telemtry-seed": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/telemtry_seed.ts",
-    "prisma-studio": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/prisma-studio.ts"
+    "prisma-angelique-generate": "npx prisma generate --schema=prisma/angelique.prisma",
+    "prisma-auth-seed": "npx ts-node --project tsconfig.ts-node.json prisma/auth_seed.ts",
+    "prisma-telemtry-seed": "npx ts-node --project tsconfig.ts-node.json prisma/telemtry_seed.ts",
+    "prisma-studio": "npx ts-node --project tsconfig.ts-node.json prisma/prisma-studio.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -34,7 +35,8 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "i": "^0.3.7",
-    "leaflet": "^1.9.4",
+  "leaflet": "^1.9.4",
+  "kafkajs": "^2.2.4",
     "lucide-react": "^0.544.0",
     "nanoid": "^5.1.6",
     "next": "15.5.3",

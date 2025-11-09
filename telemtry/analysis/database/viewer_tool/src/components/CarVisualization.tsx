@@ -49,7 +49,7 @@ export default function CarVisualization() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex gap-4 mb-2 overflow-x-auto">
+      <div className="flex gap-4 mb-2 overflow-x-auto items-start">
         {/* ...existing code for controls... */}
         <label>
           Wheel Speed
@@ -171,7 +171,7 @@ export default function CarVisualization() {
           {carState.br_spring_displace.toFixed(2)}
         </label>
       </div>
-      <div className="flex-grow">
+      <div className="flex-grow min-h-0">
         <Canvas camera={{ position: [0, 5, 12], fov: 50 }}>
           <ambientLight intensity={0.5} />
           <directionalLight position={[5, 10, 5]} intensity={1} />
@@ -196,16 +196,16 @@ export default function CarVisualization() {
     fr_spring_displace,
     bl_spring_displace,
     br_spring_displace,
-  flWheelRot,
-  frWheelRot,
-  blWheelRot,
-  brWheelRot,
-}: CarState & {
-  flWheelRot: React.RefObject<number>;
-  frWheelRot: React.RefObject<number>;
-  blWheelRot: React.RefObject<number>;
-  brWheelRot: React.RefObject<number>;
-}) {
+    flWheelRot,
+    frWheelRot,
+    blWheelRot,
+    brWheelRot,
+  }: CarState & {
+    flWheelRot: React.RefObject<number>;
+    frWheelRot: React.RefObject<number>;
+    blWheelRot: React.RefObject<number>;
+    brWheelRot: React.RefObject<number>;
+  }) {
     // Groups for front wheels (steering pivots)
     const flPivot = useRef<THREE.Group>(null);
     const frPivot = useRef<THREE.Group>(null);
@@ -273,7 +273,7 @@ export default function CarVisualization() {
     return (
       <group>
         {/* Car body - load STL model if available (scale X and Z to 90%) */}
-          <CarBodyModel ref={carBody} position={[0, 0.25, 0]} scale={scale} />
+        <CarBodyModel ref={carBody} position={[0, 0.25, 0]} scale={scale} />
 
         {/* Wheels locked to ground, at corners */}
         {/* Front Left (with pivot for steering) */}
@@ -332,7 +332,7 @@ const Wheel = React.forwardRef<
   </mesh>
 ));
 
-Wheel.displayName = 'Wheel';
+Wheel.displayName = "Wheel";
 
 function Spring({
   x,
@@ -356,8 +356,7 @@ function Spring({
 function StlModel({ url, ...props }) {
   // This is a workaround for the fact that STLLoader is not available in the main three.js bundle
   // and must be imported from the examples folder.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { STLLoader } = require('three/examples/jsm/loaders/STLLoader');
+  const { STLLoader } = require("three/examples/jsm/loaders/STLLoader");
   const geom = useLoader(STLLoader, url);
   return (
     <mesh {...props} geometry={geom}>
@@ -369,18 +368,25 @@ function StlModel({ url, ...props }) {
 // CarBodyModel: loads `public/models/carBody.stl` and forwards a mesh ref.
 const CarBodyModel = React.forwardRef<
   THREE.Mesh,
-  { position?: [number, number, number]; scale?: number; }
+  { position?: [number, number, number]; scale?: number }
 >(({ position, scale }, ref) => {
   return (
-    <React.Suspense fallback={
-      <mesh ref={ref} position={position} scale={scale}>
-        <boxGeometry args={[4, 0.5, 5]} />
-        <meshStandardMaterial color="orange" />
-      </mesh>
-    }>
-      <StlModel ref={ref} position={position} scale={scale} url='/models/carBody.stl' />
+    <React.Suspense
+      fallback={
+        <mesh ref={ref} position={position} scale={scale}>
+          <boxGeometry args={[4, 0.5, 5]} />
+          <meshStandardMaterial color="orange" />
+        </mesh>
+      }
+    >
+      <StlModel
+        ref={ref}
+        position={position}
+        scale={scale}
+        url="/models/carBody.stl"
+      />
     </React.Suspense>
   );
 });
 
-CarBodyModel.displayName = 'CarBodyModel';
+CarBodyModel.displayName = "CarBodyModel";

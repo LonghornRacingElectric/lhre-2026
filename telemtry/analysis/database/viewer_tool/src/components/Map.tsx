@@ -7,7 +7,6 @@ import { useState, useEffect, useRef } from 'react';
 import { nanoid } from 'nanoid';
 
 // Fix for default icon issue with webpack
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
@@ -25,7 +24,7 @@ const dotIcon = new L.DivIcon({
 const MapUpdater = ({ position }: { position: [number, number] }) => {
   const map = useMap();
   useEffect(() => {
-    map.flyTo(position, map.getZoom());
+    map.setView(position, map.getZoom());
   }, [position, map]);
   return null;
 }

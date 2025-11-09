@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import dynamic from "next/dynamic";
 import {
   DndContext,
@@ -17,7 +18,7 @@ import {
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
 import screenfull from "screenfull";
-import { toast } from 'react-toastify';
+import { toast } from "react-toastify";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ import TimingDeltas from "@/components/TimingDeltas";
 import LiveViewerBanner from "@/components/LiveViewerBanner";
 import { useSortableTile } from "@/hooks/useSortableTile";
 import CarVisualization from "@/components/CarVisualization";
+import DriverInputVisualizer from "@/components/DriverInputVisualizer";
 
 const DynamicMap = dynamic(() => import("@/components/Map"), {
   ssr: false,
@@ -39,13 +41,7 @@ enum EventFlags {
   OTHER_FLAG = "other",
 }
 
-const Tile = ({
-  feature,
-  appState,
-  note,
-  setNote,
-  isDragging,
-}) => {
+const Tile = ({ feature, appState, note, setNote, isDragging }) => {
   const { attributes, listeners, setNodeRef, style } = useSortableTile(
     feature.id
   );
@@ -69,11 +65,10 @@ const Tile = ({
       }),
     });
 
-    if(response.ok) {
-      if(eventFlag === EventFlags.OTHER_FLAG) setNote("");
-      toast("Flag added successfully", { type: 'success' });
-    }
-    else toast("Failed to add flag", { type: 'error' });
+    if (response.ok) {
+      if (eventFlag === EventFlags.OTHER_FLAG) setNote("");
+      toast("Flag added successfully", { type: "success" });
+    } else toast("Failed to add flag", { type: "error" });
   };
 
   const renderFeature = (feature) => {
@@ -136,30 +131,41 @@ const Tile = ({
         );
       case "space-time-trajectory":
         return (
-          <img
-            key={appState.liveImage || "no-image"}
-            id="live-image"
-            src={
-              appState.liveImage
-                ? `data:image/png;base64,${appState.liveImage}`
-                : "/images/events.png"
-            }
-            alt="Live Data"
-            className="w-full h-full object-contain"
-          />
+          <div className="w-full h-full object-contain" style={{ position: "relative", width: "400px", height: "400px", maxWidth: "100%" }}>
+            <Image
+              key={appState.liveImage || "no-image"}
+              id="live-image"
+              src={
+                appState.liveImage
+                  ? `data:image/png;base64,${appState.liveImage}`
+                  : "/images/events.png"
+              }
+              alt="Live Data"
+              fill
+              style={{ objectFit: "contain" }}
+            />
+          </div>
         );
       case "live-map":
-        return <DynamicMap />;
+        return (
+            <div style={{ width: "400px", height: "400px", maxWidth: "100%" }}>
+                <DynamicMap />
+            </div>
+        );
       case "gg-plot":
         return (
-          <img
-            src="/images/fake_gg.gif"
-            alt="GG Plot"
-            className="w-full h-full object-contain"
-          />
+          <div className="w-full h-full object-contain" style={{ position: "relative", width: "400px", height: "400px", maxWidth: "100%" }}>
+            <Image
+              src="/images/fake_gg.gif"
+              alt="GG Plot"
+              fill
+              style={{ objectFit: "contain" }}
+            />
+          </div>
         );
-      case "thermal-headroom":
       case "driver-input":
+        return <DriverInputVisualizer />;
+      case "thermal-headroom":
       case "energy-budget":
         return (
           <div className="flex items-center justify-center h-full">
@@ -217,7 +223,7 @@ const Tile = ({
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="flex-grow">
+        <CardContent className="flex-grow h-full">
           {renderFeature(feature)}
         </CardContent>
       </Card>
@@ -303,7 +309,7 @@ const LiveViewerPage = () => {
             items={features.map((f) => f.id)}
             strategy={rectSortingStrategy}
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 grid-auto-rows-[400px]">
               {features.map((feature) => (
                 <Tile
                   key={feature.id}
