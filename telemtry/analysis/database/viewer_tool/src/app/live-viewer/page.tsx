@@ -298,7 +298,7 @@ const LiveViewerPage = () => {
   return (
     <>
       <LiveViewerBanner />
-      <div className="container mx-auto p-8 pt-20">
+      <div className="container mx-auto p-8 pt-24 md:pt-20">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
