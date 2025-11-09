@@ -46,6 +46,27 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
     feature.id
   );
   const cardRef = useRef<HTMLDivElement>(null);
+  const [renderKey, setRenderKey] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleScreenfullChange = () => {
+      setIsFullscreen(screenfull.isFullscreen);
+      if (!screenfull.isFullscreen) {
+        setRenderKey(prevKey => prevKey + 1);
+      }
+    };
+
+    if (screenfull.isEnabled) {
+      screenfull.on('change', handleScreenfullChange);
+    }
+
+    return () => {
+      if (screenfull.isEnabled) {
+        screenfull.off('change', handleScreenfullChange);
+      }
+    };
+  }, []);
 
   const handleFullscreen = () => {
     if (screenfull.isEnabled && cardRef.current) {
@@ -126,7 +147,7 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
       case "3d-simulation":
         return (
           <div className="w-full h-full object-contain">
-            <CarVisualization />
+            <CarVisualization key={renderKey} />
           </div>
         );
       case "space-time-trajectory":
@@ -148,9 +169,9 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
         );
       case "live-map":
         return (
-            <div style={{ width: "400px", height: "400px", maxWidth: "100%" }}>
-                <DynamicMap />
-            </div>
+          <div className="w-full" style={{ height: isFullscreen ? '100%' : '350px' }}>
+            <DynamicMap key={renderKey} resize={renderKey} />
+          </div>
         );
       case "gg-plot":
         return (
@@ -223,7 +244,7 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="flex-grow h-full">
+        <CardContent className="flex-grow">
           {renderFeature(feature)}
         </CardContent>
       </Card>
@@ -298,7 +319,7 @@ const LiveViewerPage = () => {
   return (
     <>
       <LiveViewerBanner />
-      <div className="container mx-auto p-8 pt-20">
+      <div className="container mx-auto p-8 pt-24 md:pt-20">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}

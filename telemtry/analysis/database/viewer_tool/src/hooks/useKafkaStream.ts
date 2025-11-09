@@ -148,7 +148,6 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
 
   // Freshness monitoring: mark kafkaConnected false if stale
   useEffect(() => {
-    let interval: any;
     const poll = () => {
       if (!lastMessageAt) {
         setKafkaConnected(false);
@@ -161,7 +160,7 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
         setKafkaConnected(true);
       }
     };
-    interval = setInterval(poll, Math.min(1000, Math.max(250, staleAfterMs / 2)));
+    const interval = setInterval(poll, Math.min(1000, Math.max(250, staleAfterMs / 2)));
     return () => interval && clearInterval(interval);
   }, [lastMessageAt, staleAfterMs, kafkaConnected]);
 

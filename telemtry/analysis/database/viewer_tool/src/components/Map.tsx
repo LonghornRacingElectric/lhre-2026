@@ -29,7 +29,17 @@ const MapUpdater = ({ position }: { position: [number, number] }) => {
   return null;
 }
 
-const Map = () => {
+const MapResizer = ({ resize }: { resize: any }) => {
+  const map = useMap();
+  useEffect(() => {
+    if(resize) {
+      map.invalidateSize();
+    }
+  }, [resize, map]);
+  return null;
+}
+
+const Map = ({ resize }: { resize?: any }) => {
   const [position, setPosition] = useState<[number, number]>([51.505, -0.09]);
   const [error, setError] = useState<string | null>(null);
   const watcherRef = useRef<number | null>(null);
@@ -79,6 +89,7 @@ const Map = () => {
         </Popup>
       </Marker>
       <MapUpdater position={position} />
+      <MapResizer resize={resize} />
     </MapContainer>
   );
 };
