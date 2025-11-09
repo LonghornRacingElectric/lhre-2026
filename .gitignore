@@ -90,3 +90,4 @@ VCU/firmware/.mxproject
 /venv
 DUI/Drivers/*
 DUI/Middlewares/*
+MODULE.bazel.lock
