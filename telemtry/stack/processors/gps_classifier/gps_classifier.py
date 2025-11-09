@@ -9,7 +9,6 @@ import requests
 import numpy as np
 from paho.mqtt import client as mqtt_client
 import threading
-from psycopg import logger
 from enum import Enum
 from numpy.typing import NDArray
 import warnings
