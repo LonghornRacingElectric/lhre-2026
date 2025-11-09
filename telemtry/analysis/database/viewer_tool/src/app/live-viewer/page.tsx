@@ -46,6 +46,25 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
     feature.id
   );
   const cardRef = useRef<HTMLDivElement>(null);
+  const [renderKey, setRenderKey] = useState(0);
+
+  useEffect(() => {
+    const handleScreenfullChange = () => {
+      if (!screenfull.isFullscreen) {
+        setRenderKey(prevKey => prevKey + 1);
+      }
+    };
+
+    if (screenfull.isEnabled) {
+      screenfull.on('change', handleScreenfullChange);
+    }
+
+    return () => {
+      if (screenfull.isEnabled) {
+        screenfull.off('change', handleScreenfullChange);
+      }
+    };
+  }, []);
 
   const handleFullscreen = () => {
     if (screenfull.isEnabled && cardRef.current) {
@@ -126,7 +145,7 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
       case "3d-simulation":
         return (
           <div className="w-full h-full object-contain">
-            <CarVisualization />
+            <CarVisualization key={renderKey} />
           </div>
         );
       case "space-time-trajectory":
