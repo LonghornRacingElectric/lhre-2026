@@ -52,7 +52,7 @@
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
     .name = "defaultTask",
-    .priority = (osPriority_t)osPriorityRealtime,
+    .priority = (osPriority_t)osPriorityLow,
     .stack_size = 128 * 4};
 
 /* Private function prototypes -----------------------------------------------*/
