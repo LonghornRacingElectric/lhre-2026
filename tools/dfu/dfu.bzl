@@ -7,7 +7,8 @@ def _dfu_util_repo_impl(ctx):
     arch = ctx.os.arch
 
     sha256 = "6450de30a7dcd8d8c1273f43f0b153f054fd24d85f7f38296b1ad8edbd2ddb25"
-    url = "https://dfu-util.sourceforge.net/releases/dfu-util-0.11-binaries.tar.xz"
+    # url = "https://dfu-util.sourceforge.net/releases/dfu-util-0.11-binaries.tar.xz"
+    url = "https://firebasestorage.googleapis.com/v0/b/bazel-binaries-lhre.firebasestorage.app/o/dfu-util-0.11-binaries.tar.xz?alt=media&token=82a16dfc-30dd-4bc2-a505-7af514d63e22"
 
     if os_name.startswith("linux"):
         bin_path = "linux-amd64/dfu-util"
