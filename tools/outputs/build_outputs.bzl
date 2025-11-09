@@ -149,6 +149,8 @@ def firmware_project_g4(
     final_extra_deps = extra_deps[:]
     final_defines = defines[:]
 
+    final_extra_srcs.append("//drivers/longhorn-lib:longhorn_lib_srcs")
+
     if (enable_usb):
         final_extra_srcs.append("//drivers/stm32g4:usb_device_srcs")
         final_extra_deps.append("//drivers/stm32g4:usb_device_headers")
@@ -194,6 +196,7 @@ def firmware_project_g4(
             ] + extra_includes,
             deps = final_extra_deps + [
                 "//drivers/stm32g4:stm32_headers",
+                "//drivers/longhorn-lib:longhorn_lib"
             ],
             linkopts = MCU_FLAGS + [
                 "-Wl,-Map=" + target_name + ".map,--cref",  # Use unique map file
@@ -219,6 +222,7 @@ def firmware_project_g4(
                 "-ffunction-sections",
                 "-fdata-sections",
                 "-Og",
+                "-g3",
             ],
             visibility = ["//visibility:private"],
             features = ["generate_linkmap"],
@@ -297,12 +301,12 @@ def firmware_project_g4(
             srcs = ["//tools/dfu:dfu_flashing_script"],
             main = "flash.py",
             data = [
-                ":" + target_name + ".elf",
+                ":" + target_name + ".bin",
                 "@dfu//:dfu",
             ],
             args = [
                 "$(rlocationpath @dfu//:dfu)",
-                "$(rlocationpath :" + target_name + ".elf" + ")",
+                "$(rlocationpath :" + target_name + ".bin" + ")",
             ],
             deps = [
                 "@rules_python//python/runfiles",

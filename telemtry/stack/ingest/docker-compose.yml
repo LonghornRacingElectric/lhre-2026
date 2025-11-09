@@ -38,7 +38,7 @@ services:
       - telemetry_network
 
   db:
-    image: postgres
+    image: postgres:17
     container_name: db
     restart: unless-stopped
     env_file:
@@ -66,6 +66,7 @@ services:
       GF_SERVER_ROOT_URL: 'http://localhost:3000'  # Adjust if using a different host or port
       GF_SERVER_SERVE_FROM_SUB_PATH: 'false'
       GF_SERVER_PROTOCOL: 'http'
+      GF_INSTALL_PLUGINS: 'hamedkarbasi93-kafka-datasource'
     volumes:
       - grafana_storage:/var/lib/grafana
     networks:
