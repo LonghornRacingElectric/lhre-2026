@@ -47,9 +47,11 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
   );
   const cardRef = useRef<HTMLDivElement>(null);
   const [renderKey, setRenderKey] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     const handleScreenfullChange = () => {
+      setIsFullscreen(screenfull.isFullscreen);
       if (!screenfull.isFullscreen) {
         setRenderKey(prevKey => prevKey + 1);
       }
@@ -167,9 +169,9 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
         );
       case "live-map":
         return (
-            <div style={{ width: "400px", height: "400px", maxWidth: "100%" }}>
-                <DynamicMap />
-            </div>
+          <div className="w-full" style={{ height: isFullscreen ? '100%' : '350px' }}>
+            <DynamicMap key={renderKey} resize={renderKey} />
+          </div>
         );
       case "gg-plot":
         return (
@@ -242,7 +244,7 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="flex-grow h-full">
+        <CardContent className="flex-grow">
           {renderFeature(feature)}
         </CardContent>
       </Card>
