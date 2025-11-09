@@ -88,7 +88,7 @@ void led_init(rainbow_led_t config) {
 
 const osThreadAttr_t led_attributes = {
     .name = "LED Rainbow",
-    .priority = (osPriority_t)osPriorityRealtime,
+    .priority = (osPriority_t)osPriorityNormal,
     .stack_size = configMINIMAL_STACK_SIZE * 2};
 
 osThreadId_t led_start_thread() {
