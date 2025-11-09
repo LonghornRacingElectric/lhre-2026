@@ -10,7 +10,7 @@
 ### Starting the webtool
 - Make sure that the `.env` file is fully complete
 - Move to the Next.js root `cd analysis/database/viewer_tool`
-- To load the database schemas for prisma, run: `npm run prisma-angelique-generate` and `npm run prisma-telemtry-generate`
+- To load the database schemas for prisma, run: `npm run prisma-auth-generate` (loading auth database), `npm run prisma-angelique-generate` (loading angelique database) and `npm run prisma-telemtry-generate` (loading nightwatch database)
 - To launch the website in dev mode, run `npm run dev`
 - To launch the website for deployment, run `npm run build`
 
