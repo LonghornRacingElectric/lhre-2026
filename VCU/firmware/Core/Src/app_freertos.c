@@ -130,7 +130,6 @@ void StartDefaultTask(void* argument) {
     /* Infinite loop */
 
     for (;;) {
-        led_set(0.5, 0.5, 0.5);
         osDelay(1000);
     }
     /* USER CODE END StartDefaultTask */
