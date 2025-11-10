@@ -1,9 +1,7 @@
-#ifndef LONGHORN_LIBRARY_2025_LED_H
-#define LONGHORN_LIBRARY_2025_LED_H
+#ifndef LONGHORN_LIBRARY_2025_LED_BASE_H
+#define LONGHORN_LIBRARY_2025_LED_BASE_H
 
 #include <stdint.h>
-
-#include "cmsis_os2.h"
 
 /** Time in seconds we want the Rainbow LED to cycle back to starting color */
 #define RAINBOW_CYCLE_TIME_S 5.0f
@@ -28,6 +26,13 @@ typedef struct rainbow_led {
 } rainbow_led_t;
 
 /**
+ * @brief Runs the LED through a rainbow pattern with a pre-defined cycle time.
+ *
+ * @param deltaTime time elapsed between calls to this function
+ */
+void led_rainbow(float deltaTime);
+
+/**
  * @brief Sets the LED to a specified color/brightness, where RGB values are
  * percentage brightness
  *
@@ -44,12 +49,4 @@ void led_set(float r, float g, float b);
  */
 void led_init(const rainbow_led_t* config);
 
-/**
- * @brief Starts a new thread that runs every 33ms for the LED to rainbow.
- *
- *
- * @return osThreadId_t ID of the newly created thread/task in FreeRTOS
- */
-osThreadId_t led_start_thread();
-
-#endif  // LONGHORN_LIBRARY_2025_LED_H
+#endif

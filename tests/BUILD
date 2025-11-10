@@ -30,3 +30,8 @@ build_test(
     name = "tsm_firmware_build_test",
     targets = ["//TSM/firmware:release"],
 )
+
+build_test(
+    name = "longhorn_lib_build_test",
+    targets = ["//drivers/longhorn-lib:longhorn_lib"],
+)
