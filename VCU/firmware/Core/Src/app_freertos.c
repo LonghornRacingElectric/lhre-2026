@@ -26,8 +26,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "rtos/led.h"
+#include "longhorn/rtos/led.h"
+#include "longhorn/usb_base.h"
 #include "tim.h"
+#include "usbd_cdc_if.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -53,7 +55,7 @@
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
     .name = "defaultTask",
-    .priority = (osPriority_t)osPriorityNormal,
+    .priority = (osPriority_t)osPriorityLow,
     .stack_size = 128 * 4};
 
 /* Private function prototypes -----------------------------------------------*/
@@ -130,10 +132,15 @@ void StartDefaultTask(void* argument) {
     /* init code for USB_Device */
     MX_USB_Device_Init();
     /* USER CODE BEGIN StartDefaultTask */
+
+    usb_init(CDC_Transmit_FS);
     /* Infinite loop */
 
     for (;;) {
-        osDelay(1000);
+        usb_printf(
+            "Hello World! Code Running from the VCU, current OS Tick: %d",
+            osKernelGetTickCount());
+        osDelay(pdMS_TO_TICKS(1000));
     }
     /* USER CODE END StartDefaultTask */
 }
