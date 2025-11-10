@@ -16,7 +16,7 @@ sys.path.append(str(Path(__file__).parents[2]))
 
 from analysis.sql_utils.db_session import get_db
 from analysis.sql_utils.query_builder import QueryBuilder
-from stack.ingest.protobuf import template_pb2
+from stack.ingest.protobuf import template_pb2, angelique_pb2
 
 from kafka import KafkaProducer
 
@@ -34,6 +34,9 @@ with open(net_config_path, "r") as file:
 class MQTTTarget:
     @staticmethod
     def get():
+        aws = os.getenv("AWS_MQTT_IP")
+        if aws and aws.strip():
+            return aws.strip()
         return 'mosquitto' if os.environ.get("IN_DOCKER") else global_target["TARGETS"][global_target["SERVER_TARGET"]]
 
 
@@ -61,8 +64,7 @@ class MQTTHandler:
             "Nightwatch": QueryBuilder("Nightwatch").get_table_column_specs(),
             "Angelique": QueryBuilder("Angelique").get_table_column_specs()
         }
-
-        # Kafka logic
+                # Kafka logic
         self.kafka_producer = KafkaProducer(
             bootstrap_servers='kafka:9092' if os.getenv("IN_DOCKER") else 'localhost:9092',
             value_serializer=lambda v: json.dumps(v).encode('utf-8') if isinstance(v, dict) else v
@@ -117,21 +119,7 @@ class MQTTHandler:
         self.client.loop_forever()
 
     def publish(self, *args, **kwargs):
-        # Determine payload from kwargs or positional args (publish(topic, payload, ...))
-        payload = kwargs.get('payload', None)
-        if payload is None:
-            if len(args) >= 2:
-                payload = args[1]
-            else:
-                payload = None
-
-        if payload is not None:
-            try:
-                self.send_kafka_protobuf(payload=payload)
-            except Exception as e:
-                logging.exception("Failed to send payload to Kafka: %s", e)
-        result = self.client.publish(*args, **kwargs)
-        return result
+        self.client.publish(*args, **kwargs)
 
     def on_message(self, client: mqtt_client.Client, userdata, msg):
         # Handle Start & End Event
@@ -149,17 +137,18 @@ class MQTTHandler:
                 self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car = "Nightwatch")
             else:
                 # Protobuf serialized string sent
-                # TODO: this method right now uses flush to wait, which may be slowing us
+                self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Nightwatch")
+                # Route based on car
                 self.send_kafka_protobuf(payload=msg.payload)
-                self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable)
         elif (topic_split := msg.topic.split('/'))[0] == 'angelique':
             if topic_split[-1] in self.table_specs["Angelique"]:
                 self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car="Angelique")
             else:
                 self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Angelique")
+                self.send_kafka_protobuf(payload=msg.payload) # Route based on car
         else:
             logging.warning(f'No corresponding topic found for {msg.topic}')
-
+    
     def send_kafka_protobuf(self, payload: str):
         '''
         This function sends the protobuf encoded message to a Kafka topic.
@@ -169,6 +158,7 @@ class MQTTHandler:
 
         # Send the message to Kafka topic 'sensor_data'
         self.kafka_producer.send('sensor_data', value=payload)
+
         
     def _flask_handler(self, payload):
         '''
@@ -236,11 +226,6 @@ class MQTTHandler:
         builder = QueryBuilder(car)
         table_specs = self.table_specs[car]
 
-
-
-
-
-
         for table in table_specs.keys():
             model = builder._models.get(table.capitalize())
             if model:
@@ -292,10 +277,12 @@ class MQTTHandler:
                     logging.warning(f'\tNo data received for {table}...')
         session.commit()
 
-    @staticmethod
-    def _proto_decode(payload: str) -> dict:
-        logging.info('Data Received via Protobuf')
-        row = template_pb2.SensorData()
+    def _proto_decode(self, payload: str, car = "Nightwatch") -> dict:
+        logging.debug('Data Received via Protobuf')
+        if (car == "Angelique"):
+            row = angelique_pb2.AngeliqueSensorData()
+        else:
+            row = template_pb2.SensorData()
         row.ParseFromString(payload)
         row = MessageToDict(row, preserving_proto_field_name=True, always_print_fields_with_no_presence=True)
         logging.debug(row)
@@ -406,8 +393,8 @@ def main():
 
     with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session:
         db_sessions = {'Nightwatch': nightwatch_session, 'Angelique': angelique_session}
-        with MQTTHandler('ingest', db_sessions=db_sessions) as mqtt:
-                mqtt.subscribe(topic='#')
+        with MQTTHandler('ingest', db_sessions=db_sessions, target=MQTTTarget.get()) as mqtt:
+            mqtt.subscribe(topic='#')
 
 
 if __name__ == '__main__':

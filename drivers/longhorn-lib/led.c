@@ -94,5 +94,5 @@ const osThreadAttr_t led_attributes = {
     .stack_size = configMINIMAL_STACK_SIZE * 2};
 
 osThreadId_t led_start_thread() {
-    osThreadNew(RainbowLED, NULL, &led_attributes);
+    return osThreadNew(RainbowLED, NULL, &led_attributes);
 }
