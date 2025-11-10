@@ -51,4 +51,9 @@ TEST_F(LEDTest, LedInit_StartsAllPwmChannels) {
         .Times(1);
 
     led_init(&led_conf);
+
+    // Verify the CCR registers are initialized to the boot brightness
+    EXPECT_EQ(ccr1, 125);
+    EXPECT_EQ(ccr2, 125);
+    EXPECT_EQ(ccr3, 125);
 }
