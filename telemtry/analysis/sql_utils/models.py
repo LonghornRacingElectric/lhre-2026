@@ -373,6 +373,7 @@ class AngeliqueControls(BaseAngelique):
     bse2_v = Column(Float)
     sus1_v = Column(Float)
     sus2_v = Column(Float)
+    steer_v = Column(Float)
     packet = relationship("AngeliquePacket", back_populates="controls")
 
 class AngeliqueDiagnostics(BaseAngelique):
