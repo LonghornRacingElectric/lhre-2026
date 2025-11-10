@@ -28,16 +28,4 @@ void usb_init(CDC_Transmit_Fn_ptr transmit_function);
  */
 void usb_printf(const char* format, ...);
 
-/**
- * @brief
- *
- * This function is similar to usb_printf but takes a va_list argument
- * directly. It is useful for creating other variadic functions that
- * need to print formatted output.
- *
- * @param format The format string, following standard printf conventions.
- * @param args A va_list of the arguments to be formatted.
- */
-void usb_vprintf(const char* format, va_list args);
-
 #endif  // DRIVERS_LONGHORN_LIB_USB_BASE_H

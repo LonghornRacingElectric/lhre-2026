@@ -16,6 +16,10 @@ void usb_init(CDC_Transmit_Fn_ptr transmit_function) {
 static char out_buffer[OUT_BUFFER_SIZE];
 
 void usb_println(const char* buffer) {
+    if (!transmit_fn) {
+        return;
+    }
+
     size_t len = strlen(buffer);
 
     // Truncate if the string is too long (to fit \r\n)
@@ -35,6 +39,10 @@ void usb_println(const char* buffer) {
 }
 
 void usb_printf(const char* format, ...) {
+    if (!transmit_fn) {
+        return;
+    }
+
     va_list args;
     va_start(args, format);
 
@@ -44,8 +52,6 @@ void usb_printf(const char* format, ...) {
     if (len < 0) {
         len = 0;
     }
-
-    char buf[len + 2];
 
     out_buffer[len] = '\r';
     out_buffer[len + 1] = '\n';
