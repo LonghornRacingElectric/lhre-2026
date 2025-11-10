@@ -7,6 +7,6 @@ cc_test(
     deps = [
         "@googletest//:gtest",
         "@googletest//:gtest_main",
-        "//drivers/longhorn-lib:longhorn_lib"
+        "//drivers/longhorn-lib:longhorn_lib_base"
     ],
 )
