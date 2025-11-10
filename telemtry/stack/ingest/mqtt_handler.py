@@ -136,16 +136,16 @@ class MQTTHandler:
             if (topic_split[-1] in {'packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'}):
                 self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car = "Nightwatch")
             else:
-                # Protobuf serialized string sent
-                self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Nightwatch")
                 # Route based on car
                 self.send_kafka_protobuf(payload=msg.payload)
+                # Protobuf serialized string sent
+                self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Nightwatch")
         elif (topic_split := msg.topic.split('/'))[0] == 'angelique':
             if topic_split[-1] in self.table_specs["Angelique"]:
                 self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car="Angelique")
             else:
-                self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Angelique")
                 self.send_kafka_protobuf(payload=msg.payload) # Route based on car
+                self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Angelique")
         else:
             logging.warning(f'No corresponding topic found for {msg.topic}')
     
