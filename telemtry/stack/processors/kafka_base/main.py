@@ -37,7 +37,7 @@ try:
                 print(f"Processing message from topic '{record.topic}', partition {record.partition}: offset {record.offset}")
                 print(f"  Key: {record.key}, Value: {record.value}")
                 try:
-                    decoded_message = MQTTHandler._proto_decode(payload=record.value)
+                    decoded_message = MQTTHandler._proto_decode(payload=record.value, car="Angelique")
                     print(f"  Decoded Message: {decoded_message}")
                 except Exception as decode_error:
                     print(f"  Error decoding message: {decode_error}")

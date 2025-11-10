@@ -277,7 +277,7 @@ class MQTTHandler:
                     logging.warning(f'\tNo data received for {table}...')
         session.commit()
 
-    def _proto_decode(self, payload: str, car = "Nightwatch") -> dict:
+    def _proto_decode(payload: str, car = "Nightwatch") -> dict:
         logging.debug('Data Received via Protobuf')
         if (car == "Angelique"):
             row = angelique_pb2.AngeliqueSensorData()
