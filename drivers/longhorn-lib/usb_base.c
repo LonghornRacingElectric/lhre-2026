@@ -12,7 +12,7 @@ void usb_init(CDC_Transmit_Fn_ptr transmit_function) {
     transmit_fn = transmit_function;
 }
 
-/** Buffer holding the message(s) that will be sent over USB. */
+/** Buffers holding the message(s) that will be sent over USB. */
 static char out_buffer[OUT_BUFFER_SIZE];
 
 void usb_println(const char* buffer) {
@@ -22,20 +22,17 @@ void usb_println(const char* buffer) {
 
     size_t len = strlen(buffer);
 
-    // Truncate if the string is too long (to fit \r\n)
     if (len > OUT_BUFFER_SIZE - 3) {
         len = OUT_BUFFER_SIZE - 3;
     }
 
-    char buf[len + 2];
+    memcpy(out_buffer, buffer, len);
 
-    memcpy(buf, buffer, len);
+    out_buffer[len] = '\r';
+    out_buffer[len + 1] = '\n';
 
-    buf[len] = '\r';
-    buf[len + 1] = '\n';
-
-    // Transmit the global buffer. The flag will be cleared in the callback.
-    transmit_fn((uint8_t*)buf, len + 2);
+    // Transmit the global buffer
+    transmit_fn((uint8_t*)out_buffer, len + 2);
 }
 
 void usb_printf(const char* format, ...) {
