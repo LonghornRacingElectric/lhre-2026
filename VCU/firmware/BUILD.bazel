@@ -8,6 +8,6 @@ firmware_project_g4(
         "STM32G474xx",
     ],
     enable_freertos = True,
-    # enable_usb = True,
-    # usb_device_name = "Vehicle Control Unit",
+    enable_usb = True,
+    usb_device_name = "Vehicle Control Unit",
 )
