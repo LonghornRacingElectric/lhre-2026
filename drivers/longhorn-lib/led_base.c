@@ -20,10 +20,7 @@ void led_rainbow(float deltaTime) {
     const float RAINBOW_PHASE_RANGE = 3.0f;
     float phase_advance =
         deltaTime * (RAINBOW_PHASE_RANGE / RAINBOW_CYCLE_TIME_S);
-    phase += phase_advance;
-    while (phase >= RAINBOW_PHASE_RANGE) {
-        phase -= RAINBOW_PHASE_RANGE;
-    }
+    phase = fmodf(phase + phase_advance, RAINBOW_PHASE_RANGE);
 
     float r = 0.0f, g = 0.0f, b = 0.0f;
 
@@ -44,7 +41,7 @@ void led_rainbow(float deltaTime) {
     led_set(r * 0.5f, g * 0.5f, b * 0.5f);
 }
 
-void setup_channel(volatile uint32_t* ccr, unsigned int channel) {
+static void setup_channel(volatile uint32_t* ccr, unsigned int channel) {
     if (ccr) {
         // make sure we actually have a channel, and then start it
         // we start the LED with a mid-brightness white so that we know the
