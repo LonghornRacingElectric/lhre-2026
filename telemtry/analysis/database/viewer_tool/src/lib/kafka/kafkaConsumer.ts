@@ -54,7 +54,7 @@ function loadRouteConfig() {
   return routeConfig;
 }
 import type { Kafka, Admin } from "kafkajs";
-import { AngeliqueSensorData } from "../../../protobuf/angelique";
+import { AngeliqueSensorData } from "@protobuf/angelique";
 
 let started = false;
 let readyPromise: Promise<void> | null = null;
@@ -116,13 +116,36 @@ export async function startKafkaConsumer(): Promise<void> {
 
     await consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
-        const payload = message.value ? message.value.toString() : "";
+        let payload = message.value ? message.value.toString() : "";
+        let parsed: any = null;
+        
         const headers = Object.fromEntries(
           Object.entries(message.headers || {}).map(([k, v]) => [
             k,
             v?.toString(),
           ])
         );
+
+        // Try to decode protobuf first, fall back to JSON/string
+        try {
+          if (message.value) {
+            const decodedPayload = AngeliqueSensorData.decode(
+              new Uint8Array(message.value)
+            );
+            parsed = AngeliqueSensorData.toJSON(decodedPayload);
+            payload = JSON.stringify(parsed);
+            console.log("Decoded AngeliqueSensorData payload for topic:", topic);
+          }
+        } catch (error) {
+          console.log("Failed to decode as protobuf, trying JSON for topic:", topic);
+          // If protobuf decoding fails, try JSON
+          try {
+            parsed = JSON.parse(payload);
+          } catch {
+            parsed = payload; // Keep as string if JSON parse also fails
+          }
+        }
+
         const evt: KafkaEvent = {
           topic,
           partition,
@@ -132,17 +155,6 @@ export async function startKafkaConsumer(): Promise<void> {
           timestamp: message.timestamp,
         };
 
-        try {
-          if (message.value) {
-            const decodedPayload = AngeliqueSensorData.decode(
-              new Uint8Array(message.value)
-            );
-            evt.payload = JSON.stringify(decodedPayload);
-          }
-        } catch (error) {
-          console.error("Failed to decode message payload", error);
-        }
-
         console.log("Received message on topic:", topic);
         bus.emit(`kafka:${topic}` as const, evt); // raw event
         bus.emit("kafka:*", evt);
@@ -150,8 +162,7 @@ export async function startKafkaConsumer(): Promise<void> {
         // Routing layer: transform and emit logical component topics
         const routes = loadRouteConfig()[topic];
         if (routes && routes.length) {
-          let parsed: any;
-          try { parsed = JSON.parse(payload); } catch { parsed = payload; }
+          // Use the already parsed data instead of re-parsing
           for (const rule of routes) {
             let outData = parsed;
             if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {

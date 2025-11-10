@@ -4,5 +4,11 @@
       "to": "livebanner",
       "pick": ["battery", "odometer"]
     }
+  ],
+  "sensor_data": [
+    {
+      "to": "driver_input_visualizer",
+      "pick": ["dynamics"]
+    }
   ]
 }
