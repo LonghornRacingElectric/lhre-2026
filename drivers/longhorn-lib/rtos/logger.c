@@ -1,0 +1,107 @@
+#include "rtos/logger.h"
+
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "FreeRTOSConfig.h"
+#include "cmsis_os2.h"
+#include "usb_base.h"
+
+// max size of a message that can be sent
+#define MAX_LOG_MESSAGE_LEN 128
+
+// max of 8 messages at once in the queue
+#define LOG_QUEUE_LENGTH 8
+
+#define LOGGER_TASK_STACK_SIZE (configMINIMAL_STACK_SIZE + 128 * 8)
+
+#define LOGGER_TASK_PRIORITY (osPriorityLow)
+
+// Timeout -- set to 0 since we'd rather drop a message than block high priority
+#define LOG_QUEUE_PUT_TIMEOUT_TICKS 0
+
+/**
+ * @brief The data structure that is sent through the queue.
+ * Using a struct ensures we send a fixed-size block of memory.
+ */
+typedef struct {
+    char buffer[MAX_LOG_MESSAGE_LEN];
+} LogMessage_t;
+
+static osMessageQueueId_t s_logQueue = NULL;
+static osThreadId_t s_loggerTaskHandle = NULL;
+
+/**
+ * @brief Logging thread
+ *
+ * This thread waits for new messages to appear on the message queue and then
+ * simply sends them over the USB serial interface. It assumes pre-formatted
+ * messages. The messages can be added to the queue using the ts_printf method.
+ *
+ * @param argument Not used.
+ */
+static void loggerTask(void* argument) {
+    LogMessage_t msg;
+    osStatus_t status;
+
+    for (;;) {
+        // Wait forever for a message to arrive in the queue
+        status = osMessageQueueGet(s_logQueue, &msg, NULL, osWaitForever);
+
+        if (status == osOK) {
+            // We successfully received a message. Send it.
+            // we can safely do this without worrying about threads
+            // because this is the only thread calling printf.
+            usb_println(msg.buffer);
+        }
+    }
+}
+
+int init_logging(CDC_Transmit_Fn_ptr transmit_function) {
+    // Initialize the drivers
+    usb_init(transmit_function);
+
+    // create a new queue that can be used by the logger
+    s_logQueue =
+        osMessageQueueNew(LOG_QUEUE_LENGTH, sizeof(LogMessage_t), NULL);
+    if (s_logQueue == NULL) {
+        // not enough heap memory, couldn't create a new task
+        return -1;
+    }
+
+    const osThreadAttr_t loggerTask_attributes = {
+        .name = "Logger",
+        .stack_size = LOGGER_TASK_STACK_SIZE,
+        .priority = LOGGER_TASK_PRIORITY,
+    };
+
+    s_loggerTaskHandle = osThreadNew(loggerTask, NULL, &loggerTask_attributes);
+
+    // weren't able to create a new method
+    if (s_loggerTaskHandle == NULL) {
+        return -1;
+    }
+
+    return 0;
+}
+
+void ts_printf(const char* format, ...) {
+    if (s_logQueue == NULL) {
+        return;
+    }
+
+    LogMessage_t msg;
+    va_list args;
+    va_start(args, format);
+    int len = vsnprintf(msg.buffer, MAX_LOG_MESSAGE_LEN, format, args);
+    va_end(args);
+
+    if (len < 0) {
+        // some error happened in creating our string
+        return;
+    }
+
+    // add messages with the same priority every time to the queue
+    osMessageQueuePut(s_logQueue, &msg, 0U, LOG_QUEUE_PUT_TIMEOUT_TICKS);
+}

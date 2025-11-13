@@ -16,6 +16,15 @@ typedef uint8_t (*CDC_Transmit_Fn_ptr)(uint8_t* Buf, uint16_t Len);
 void usb_init(CDC_Transmit_Fn_ptr transmit_function);
 
 /**
+ * @brief Sends a message with newline and return characters appended. This is
+ * sent over to the USB serial interface. Note that this method does NOT apply
+ * any formatting or styling to the output, nor does it accept inputs for such.
+ *
+ * @param message the message to print to the USB interface
+ */
+void usb_println(const char* message);
+
+/**
  * @brief Prints a formatted string to the USB serial connection.
  *
  * This function takes a format string and a variable number of arguments,
@@ -27,5 +36,13 @@ void usb_init(CDC_Transmit_Fn_ptr transmit_function);
  * @param ... The variable arguments to be formatted.
  */
 void usb_printf(const char* format, ...);
+
+/**
+ * @brief Takes in a VA list and completes USB logic.
+ *
+ * @param format
+ * @param args
+ */
+void v_usb_printf(const char* format, va_list args);
 
 #endif  // DRIVERS_LONGHORN_LIB_USB_BASE_H
