@@ -6,6 +6,7 @@ import { OrbitControls } from "@react-three/drei";
 import { useRef } from "react";
 import * as THREE from "three";
 import React from "react";
+import { useKafkaJSON } from "@/hooks/useKafkaStream";
 
 const CarConstants = {
   suspension: {
@@ -22,7 +23,6 @@ const CarConstants = {
 };
 
 type CarState = {
-  wheel_speed: number;
   fl_wheel_angle: number;
   fr_wheel_angle: number;
   fl_spring_displace: number;
@@ -30,9 +30,45 @@ type CarState = {
   bl_spring_displace: number;
   br_spring_displace: number;
 };
+
+type CarData = {
+  dynamics?: {
+    flwSpeed?: number;
+    frwSpeed?: number;
+    blwSpeed?: number;
+    brwSpeed?: number;
+  };
+};
+
 export default function CarVisualization() {
+  const { data: carData } = useKafkaJSON<CarData>({
+    topic: 'car_visualization',
+    // Extend staleness so we keep last sample between slower updates
+    staleAfterMs: 1000,
+  });
+
+  // Normalize speeds (guard against undefined / string / NaN) and apply a visual scaling factor.
+  const speedScale = 4000; // tweak for visual rotation rate
+  // Support both nested (dynamics.flw_speed) and flat (flw_speed) routing outputs.
+  const flSpeedRaw = carData?.dynamics?.flwSpeed ?? 0;
+  const frSpeedRaw = carData?.dynamics?.frwSpeed ?? 0;
+  const blSpeedRaw = carData?.dynamics?.blwSpeed ?? 0;
+  const brSpeedRaw = carData?.dynamics?.brwSpeed ?? 0;
+
+  const flSpeed = Number(flSpeedRaw) || 0;
+  const frSpeed = Number(frSpeedRaw) || 0;
+  const blSpeed = Number(blSpeedRaw) || 0;
+  const brSpeed = Number(brSpeedRaw) || 0;
+  // Removed per-message onMessage and counters to avoid side-effects during streaming
+
+  // const carData = {
+  //   flw_speed: 0,
+  //   frw_speed: 0,
+  //   blw_speed: 0,
+  //   brw_speed: 0,
+  // };
+
   const [carState, setCarState] = React.useState<CarState>({
-    wheel_speed: 2,
     fl_wheel_angle: 0,
     fr_wheel_angle: 0,
     fl_spring_displace: 0,
@@ -52,22 +88,22 @@ export default function CarVisualization() {
       <div className="flex gap-4 mb-2 overflow-x-auto items-start">
         {/* ...existing code for controls... */}
         <label>
-          Wheel Speed
-          <input
-            type="range"
-            min={CarConstants.wheel.min_speed}
-            max={CarConstants.wheel.max_speed}
-            step={0.1}
-            value={carState.wheel_speed}
-            onChange={(e) =>
-              setCarState((s) => ({
-                ...s,
-                wheel_speed: Number(e.target.value),
-              }))
-            }
-          />
-          {carState.wheel_speed}
+          FR Wheel Speed
+          {frSpeed}
         </label>
+        <label>
+          FL Wheel Speed
+          {flSpeed}
+        </label>
+        <label>
+          BR Wheel Speed
+          {brSpeed}
+        </label>
+        <label>
+          BL Wheel Speed
+          {blSpeed}
+        </label>
+
         <label>
           FL Wheel Angle
           <input
@@ -177,6 +213,10 @@ export default function CarVisualization() {
           <directionalLight position={[5, 10, 5]} intensity={1} />
           <SuspensionSystem
             {...carState}
+            flSpeed={flSpeed * speedScale}
+            frSpeed={frSpeed * speedScale}
+            blSpeed={blSpeed * speedScale}
+            brSpeed={brSpeed * speedScale}
             flWheelRot={flWheelRot}
             frWheelRot={frWheelRot}
             blWheelRot={blWheelRot}
@@ -189,7 +229,10 @@ export default function CarVisualization() {
   );
 
   function SuspensionSystem({
-    wheel_speed,
+    flSpeed,
+    frSpeed,
+    blSpeed,
+    brSpeed,
     fl_wheel_angle,
     fr_wheel_angle,
     fl_spring_displace,
@@ -201,6 +244,10 @@ export default function CarVisualization() {
     blWheelRot,
     brWheelRot,
   }: CarState & {
+    flSpeed: number;
+    frSpeed: number;
+    blSpeed: number;
+    brSpeed: number;
     flWheelRot: React.RefObject<number>;
     frWheelRot: React.RefObject<number>;
     blWheelRot: React.RefObject<number>;
@@ -226,13 +273,17 @@ export default function CarVisualization() {
     const brSpringLength = restLength + br_spring_displace;
 
     useFrame((_, delta) => {
-      const rotationSpeed = -wheel_speed * delta;
+      // Compute per-wheel rotation increments (negative to match original direction)
+      const flInc = -(flSpeed ?? 0) * delta;
+      const frInc = -(frSpeed ?? 0) * delta;
+      const blInc = -(blSpeed ?? 0) * delta;
+      const brInc = -(brSpeed ?? 0) * delta;
 
-      // Roll wheels (local X axis), persist rotation
-      flWheelRot.current -= rotationSpeed;
-      frWheelRot.current -= rotationSpeed;
-      blWheelRot.current -= rotationSpeed;
-      brWheelRot.current -= rotationSpeed;
+      // Roll wheels (local X axis), persist rotation independently
+      flWheelRot.current += flInc;
+      frWheelRot.current += frInc;
+      blWheelRot.current += blInc;
+      brWheelRot.current += brInc;
 
       if (flWheel.current) flWheel.current.rotation.x = flWheelRot.current;
       if (frWheel.current) frWheel.current.rotation.x = frWheelRot.current;

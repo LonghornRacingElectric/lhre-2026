@@ -13,7 +13,7 @@ const SteeringWheelIcon = () => (
 
 const DriverInputVisualizer = () => {
   // Live connection to Kafka "sensor_data" topic
-  const { data: sensorData, connected: kafkaConnected } = useKafkaJSON<{
+  const { data: sensorData } = useKafkaJSON<{
     controls: { steerV: number };
   }>({
     topic: 'driver_input_visualizer',
