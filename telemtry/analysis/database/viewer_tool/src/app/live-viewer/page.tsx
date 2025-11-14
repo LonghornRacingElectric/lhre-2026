@@ -29,6 +29,7 @@ import LiveViewerBanner from "@/components/LiveViewerBanner";
 import { useSortableTile } from "@/hooks/useSortableTile";
 import CarVisualization from "@/components/CarVisualization";
 import DriverInputVisualizer from "@/components/DriverInputVisualizer";
+import GGPlot from "@/components/GGPlot";
 
 const DynamicMap = dynamic(() => import("@/components/Map"), {
   ssr: false,
@@ -174,16 +175,7 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
           </div>
         );
       case "gg-plot":
-        return (
-          <div className="w-full h-full object-contain" style={{ position: "relative", width: "400px", height: "400px", maxWidth: "100%" }}>
-            <Image
-              src="/images/fake_gg.gif"
-              alt="GG Plot"
-              fill
-              style={{ objectFit: "contain" }}
-            />
-          </div>
-        );
+        return <GGPlot />;
       case "driver-input":
         return <DriverInputVisualizer />;
       case "thermal-headroom":
