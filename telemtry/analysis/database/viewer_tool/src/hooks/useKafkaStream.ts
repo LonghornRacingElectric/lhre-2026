@@ -65,7 +65,7 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
     onMessage,
     onError,
     ssePath = "/api/kafka-stream",
-    staleAfterMs = 3000,
+    staleAfterMs = 100,
   } = opts;
 
   const [connected, setConnected] = useState(false); // SSE socket state
@@ -165,5 +165,5 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
 
 /** Convenience helper for JSON payloads with a simple selector. */
 export function useKafkaJSON<TSelected = unknown>(opts: Omit<UseKafkaStreamOptions<any, TSelected>, "parse">) {
-  return useKafkaStream<any, TSelected>({ ...opts, parse: defaultParse });
+  return useKafkaStream<any, TSelected>({ ...opts, parse: defaultParse, staleAfterMs: 100 });
 }
