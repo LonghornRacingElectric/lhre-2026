@@ -139,8 +139,12 @@ export async function startKafkaConsumer(): Promise<void> {
       await ensureSubscribe(t);
     }
 
+    // Ensure the Kafka consumer processes messages as soon as they arrive
     await consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
+        // Added logging to track message processing time
+        console.log(`Processing message from topic ${topic} at ${new Date().toISOString()}`);
+
         let payload = message.value ? message.value.toString() : "";
         let parsed: any = null;
         

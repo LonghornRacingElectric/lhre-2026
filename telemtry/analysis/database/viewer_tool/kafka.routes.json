@@ -8,11 +8,7 @@
   "sensor_data": [
     {
       "to": "driver_input_visualizer",
-      "pick": ["dynamics"]
-    },
-    {
-      "to": "car_visualizer",
-      "pick": ["dynamics"]
+      "pick": ["controls"]
     }
   ]
 }

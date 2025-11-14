@@ -277,6 +277,7 @@ class MQTTHandler:
                     logging.warning(f'\tNo data received for {table}...')
         session.commit()
 
+    @staticmethod
     def _proto_decode(payload: str, car = "Nightwatch") -> dict:
         logging.debug('Data Received via Protobuf')
         if (car == "Angelique"):
