@@ -64,6 +64,31 @@ let consumer: import("kafkajs").Consumer | null = null;
 let kafkaInstance: Kafka | null = null;
 let adminPromise: Promise<Admin> | null = null;
 
+// Helpers to support dot-path picks like "dynamics.speed"
+function getByPath(obj: any, path: string | string[]): any {
+  const parts = Array.isArray(path) ? path : path.split(".").filter(Boolean);
+  let cur = obj;
+  for (const p of parts) {
+    if (cur == null || typeof cur !== "object" || !(p in cur)) return undefined;
+    cur = (cur as any)[p];
+  }
+  return cur;
+}
+
+function setByPath(target: any, path: string | string[], value: any): void {
+  const parts = Array.isArray(path) ? path : path.split(".").filter(Boolean);
+  if (!parts.length) return;
+  let cur = target;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const p = parts[i];
+    if (cur[p] == null || typeof cur[p] !== "object" || Array.isArray(cur[p])) {
+      cur[p] = {};
+    }
+    cur = cur[p];
+  }
+  cur[parts[parts.length - 1]] = value;
+}
+
 async function getAdmin(): Promise<Admin> {
   if (!kafkaInstance) throw new Error("Kafka instance not initialized yet");
   if (!adminPromise) {
@@ -165,19 +190,29 @@ export async function startKafkaConsumer(): Promise<void> {
           // Use the already parsed data instead of re-parsing
           for (const rule of routes) {
             let outData = parsed;
-            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-              if (rule.pick) {
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+              if (rule.pick && rule.pick.length) {
                 const subset: Record<string, any> = {};
-                for (const key of rule.pick) if (key in parsed) subset[key] = parsed[key];
-                outData = subset;
-              }
-              if (rule.rename) {
-                const renamed: Record<string, any> = {};
-                for (const [k,v] of Object.entries(parsed)) {
-                  const newKey = rule.rename![k] || k;
-                  if (!rule.pick || rule.pick.includes(k)) {
-                    renamed[newKey] = parsed[k];
+                for (const key of rule.pick) {
+                  const val = getByPath(parsed, key);
+                  if (val !== undefined) {
+                    // If rename provided, allow renaming of the leaf property name
+                    const parts = key.split(".").filter(Boolean);
+                    if (rule.rename && parts.length) {
+                      const leaf = parts[parts.length - 1];
+                      const renamedLeaf = rule.rename[leaf];
+                      if (renamedLeaf) parts[parts.length - 1] = renamedLeaf;
+                    }
+                    setByPath(subset, parts, val);
                   }
+                }
+                outData = subset;
+              } else if (rule.rename && Object.keys(rule.rename).length) {
+                // Back-compat: if only rename is provided, apply to top-level keys
+                const renamed: Record<string, any> = {};
+                for (const [k, v] of Object.entries(parsed)) {
+                  const newKey = rule.rename![k] || k;
+                  renamed[newKey] = v;
                 }
                 outData = renamed;
               }

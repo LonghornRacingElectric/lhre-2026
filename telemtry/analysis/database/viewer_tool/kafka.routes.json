@@ -9,6 +9,10 @@
     {
       "to": "driver_input_visualizer",
       "pick": ["dynamics"]
+    },
+    {
+      "to": "car_visualizer",
+      "pick": ["dynamics"]
     }
   ]
 }
