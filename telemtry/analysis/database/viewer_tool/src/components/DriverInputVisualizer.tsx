@@ -14,16 +14,16 @@ const SteeringWheelIcon = () => (
 const DriverInputVisualizer = () => {
   // Live connection to Kafka "sensor_data" topic
   const { data: sensorData, connected: kafkaConnected } = useKafkaJSON<{
-    dynamics: { inverterC: number };
+    controls: { steerV: number };
   }>({
-    topic: 'sensor_data',
+    topic: 'driver_input_visualizer',
     // No custom select: we want the whole object; default parser handles JSON
   });
-
+  
   // Default values if no data is available
   const brakeInput = 0//sensorData?.brakeInput ?? 0; // Percentage (0-100)
   const throttleInput = 0//sensorData?.throttleInput ?? 0; // Percentage (0-100)
-  const steerVoltage = sensorData?.dynamics?.inverterC ?? 0; // Voltage (0 to 2.5)
+  const steerVoltage = sensorData?.controls?.steerV ?? 0; // Voltage (0 to 2.5)
 
   const getStatus = () => {
     if (brakeInput > 5) return 'Braking';
