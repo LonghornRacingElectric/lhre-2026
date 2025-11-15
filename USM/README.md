@@ -1,0 +1,7 @@
+# Upright Sensor Module (USM) Firmware and Model
+
+The Upright Sensor Board collects and processes wheel-area data from the car’s unsprung. It reads wheel-speed information from three differential Hall-effect sensors and transmits data over CAN.
+
+USM Firmware will live in the `USM/Firmware` directory.
+
+This directory can be recursively built by running `bazel build //USM/firmware/...`.
