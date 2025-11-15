@@ -10,3 +10,14 @@ cc_test(
         "//drivers/longhorn-lib:longhorn_lib_base"
     ],
 )
+
+cc_test(
+    name = "longhorn_lib_usb_test",
+    size = "small",
+    srcs = ["usb_test.cpp"],
+    deps = [
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+        "//drivers/longhorn-lib:longhorn_lib_base"
+    ],
+)

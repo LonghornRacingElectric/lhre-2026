@@ -27,7 +27,11 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "rtos/led.h"
+#include "rtos/logger.h"
+#include "rtos/usb.h"
 #include "tim.h"
+#include "usb_base.h"
+#include "usbd_cdc_if.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -51,10 +55,15 @@
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
+osThreadId_t ledHandle;
 const osThreadAttr_t defaultTask_attributes = {
     .name = "defaultTask",
-    .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 128 * 4};
+    .priority = (osPriority_t)osPriorityLow,
+    .stack_size = 128 + 1024};
+const osThreadAttr_t defaultTask2_attributes = {
+    .name = "defaultTask2",
+    .priority = (osPriority_t)osPriorityLow,
+    .stack_size = 128 + 1024};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -64,6 +73,20 @@ const osThreadAttr_t defaultTask_attributes = {
 void StartDefaultTask(void* argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
+
+void StartDefaultTask2(void* argument) {
+    /* init code for USB_Device */
+    /* USER CODE BEGIN StartDefaultTask */
+
+    /* Infinite loop */
+
+    for (;;) {
+        ts_printf("2! Code Running from the VCU, current OS Tick: %d",
+                  osKernelGetTickCount());
+        osDelay(pdMS_TO_TICKS(1000));
+    }
+    /* USER CODE END StartDefaultTask */
+}
 
 /**
  * @brief  FreeRTOS initialization
@@ -111,7 +134,10 @@ void MX_FREERTOS_Init(void) {
     };
 
     led_init(&led);
-    led_start_thread();
+    ledHandle = led_start_thread();
+
+    osThreadNew(StartDefaultTask2, NULL, &defaultTask2_attributes);
+
     /* USER CODE END RTOS_THREADS */
 
     /* USER CODE BEGIN RTOS_EVENTS */
@@ -130,10 +156,18 @@ void StartDefaultTask(void* argument) {
     /* init code for USB_Device */
     MX_USB_Device_Init();
     /* USER CODE BEGIN StartDefaultTask */
+
+    // init_usb(CDC_Transmit_FS);
+    if (init_logging(CDC_Transmit_FS) == -1) {
+        osThreadTerminate(ledHandle);
+    };
+
     /* Infinite loop */
 
     for (;;) {
-        osDelay(1000);
+        ts_printf("Hello World! Code Running from the VCU, current OS Tick: %d",
+                  osKernelGetTickCount());
+        osDelay(pdMS_TO_TICKS(2905));
     }
     /* USER CODE END StartDefaultTask */
 }
