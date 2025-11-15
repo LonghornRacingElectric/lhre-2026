@@ -149,8 +149,6 @@ def firmware_project_g4(
     final_extra_deps = extra_deps[:]
     final_defines = defines[:]
 
-    final_extra_srcs.append("//drivers/longhorn-lib:longhorn_lib_srcs")
-
     if (enable_usb):
         final_extra_srcs.append("//drivers/stm32g4:usb_device_srcs")
         final_extra_deps.append("//drivers/stm32g4:usb_device_headers")
@@ -180,6 +178,9 @@ def firmware_project_g4(
             project_name = name + "_" + location
             location_defines.append("BOARD_" + location)
 
+        # Longhorn Lib is defined for both bare metal and FreeRTOS targets 
+        ll_version = "//drivers/longhorn-lib:longhorn_lib_stm32g4" if enable_freertos else "//drivers/longhorn-lib:longhorn_lib_base_stm32g4"
+
         # Main cc_binary target for the elf file
         cc_binary(
             name = target_name + "_project",
@@ -196,7 +197,7 @@ def firmware_project_g4(
             ] + extra_includes,
             deps = final_extra_deps + [
                 "//drivers/stm32g4:stm32_headers",
-                "//drivers/longhorn-lib:longhorn_lib"
+                ll_version
             ],
             linkopts = MCU_FLAGS + [
                 "-Wl,-Map=" + target_name + ".map,--cref",  # Use unique map file
