@@ -16,6 +16,7 @@ void init_dfu(dfu_config config) {
 
     config.semaphore_release_fn = (SemaphoreRelease_Fn)xQueueGiveFromISR;
     config.semaphore_id = dfu_binary_sempahore;
+    config.yield_fn = yield;
     dfu_init(config);
 }
 
