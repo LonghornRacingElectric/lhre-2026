@@ -26,8 +26,13 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "rtos/dfu.h"
 #include "rtos/led.h"
+#include "rtos/logger.h"
+#include "rtos/usb.h"
 #include "tim.h"
+#include "usb_base.h"
+#include "usbd_cdc_if.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -54,10 +59,11 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
     .name = "defaultTask",
     .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 128 * 32};
+    .stack_size = 128 + 1024};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
+osThreadId_t led_handle;
 
 /* USER CODE END FunctionPrototypes */
 
@@ -100,8 +106,8 @@ void MX_FREERTOS_Init(void) {
     /* add threads, ... */
 
     rainbow_led_t led = {
-        .ccr1 = &TIM2->CCR1,
-        .ccr2 = &TIM2->CCR2,
+        .ccr2 = &TIM2->CCR1,
+        .ccr1 = &TIM2->CCR2,
         .ccr3 = &TIM2->CCR3,
         .channel1 = TIM_CHANNEL_1,
         .channel2 = TIM_CHANNEL_2,
@@ -111,7 +117,8 @@ void MX_FREERTOS_Init(void) {
     };
 
     led_init(&led);
-    led_start_thread();
+    led_handle = led_start_thread();
+
     /* USER CODE END RTOS_THREADS */
 
     /* USER CODE BEGIN RTOS_EVENTS */
@@ -130,10 +137,28 @@ void StartDefaultTask(void* argument) {
     /* init code for USB_Device */
     MX_USB_Device_Init();
     /* USER CODE BEGIN StartDefaultTask */
+
+    if (init_logging(CDC_Transmit_FS) == -1) {
+        osThreadTerminate(led_handle);
+    }
+
+    dfu_config dfu_conf = {
+        .delay_fn = osDelay,
+        .gpiox = GPIOB,
+        .pin = GPIO_PIN_7,
+        .pin_set_fn = HAL_GPIO_WritePin,
+        .reset_fn = HAL_NVIC_SystemReset,
+    };
+
+    init_dfu(dfu_conf);
+    dfu_start_thread();
+
     /* Infinite loop */
 
     for (;;) {
-        osDelay(1000);
+        ts_printf("Main thread! Code Running from the DUI, current OS Tick: %d",
+                  osKernelGetTickCount());
+        osDelay(pdMS_TO_TICKS(1000));
     }
     /* USER CODE END StartDefaultTask */
 }
