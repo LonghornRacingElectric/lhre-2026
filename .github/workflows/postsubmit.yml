@@ -25,6 +25,6 @@ jobs:
           # Share repository cache between workflows.
           repository-cache: true
       - name: Build All
-        run: bazel build //...
+        run: bazel build //... --config=ci
       - name: Test All
-        run: bazel test //... --test_output=all
+        run: bazel test //... --test_output=all --config=ci

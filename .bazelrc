@@ -7,3 +7,6 @@ run --platforms=@platforms//host
 build:debug --spawn_strategy=local --strip=never
 
 test --test_output=all
+
+build:ci --bes_results_url=https://app.buildbuddy.io/invocation/
+build:ci --bes_backend=grpcs://remote.buildbuddy.io
