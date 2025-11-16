@@ -82,8 +82,8 @@ void StartDefaultTask2(void* argument) {
     /* Infinite loop */
 
     for (;;) {
-        ts_printf("2! Code Running from the VCU, current OS Tick: %d",
-                  osKernelGetTickCount());
+        log("2! Code Running from the VCU, current OS Tick: %d",
+            osKernelGetTickCount());
         osDelay(pdMS_TO_TICKS(1000));
     }
     /* USER CODE END StartDefaultTask */
@@ -177,8 +177,8 @@ void StartDefaultTask(void* argument) {
     /* Infinite loop */
 
     for (;;) {
-        ts_printf("Hello World! Code Running from the VCU, current OS Tick: %d",
-                  osKernelGetTickCount());
+        log("Hello World! Code Running from the VCU, current OS Tick: %d",
+            osKernelGetTickCount());
         osDelay(pdMS_TO_TICKS(2905));
     }
     /* USER CODE END StartDefaultTask */

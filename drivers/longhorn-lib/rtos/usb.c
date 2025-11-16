@@ -32,7 +32,7 @@ void init_usb(CDC_Transmit_Fn_ptr transmit_fn) {
     }
 }
 
-void ts_printf2(const char* pcFormat, ...) {
+void ts_printf(const char* pcFormat, ...) {
     if (!initialized) {
         return;
     }

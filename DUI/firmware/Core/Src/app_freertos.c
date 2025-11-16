@@ -26,6 +26,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "fdcan.h"
 #include "rtos/dfu.h"
 #include "rtos/led.h"
 #include "rtos/logger.h"
@@ -126,6 +127,44 @@ void MX_FREERTOS_Init(void) {
     /* USER CODE END RTOS_EVENTS */
 }
 
+const osThreadAttr_t fakecantaskattributes = {
+    .name = "fakecan",
+    .priority = (osPriority_t)osPriorityNormal,
+    .stack_size = 128 + 1024};
+
+void fakeCANTask(void* argument) {
+    // initialize can buses
+    HAL_FDCAN_Init(&hfdcan2);
+    HAL_FDCAN_Init(&hfdcan1);
+    HAL_FDCAN_Start(&hfdcan1);
+    HAL_FDCAN_Start(&hfdcan2);
+
+    FDCAN_TxHeaderTypeDef tx_header;
+    char fakedata[1] = {100};
+
+    tx_header.DataLength = 1;
+    tx_header.IdType = FDCAN_STANDARD_ID;
+    tx_header.Identifier = 0x100;
+    tx_header.TxFrameType = FDCAN_DATA_FRAME;
+    tx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+    tx_header.BitRateSwitch = FDCAN_BRS_OFF;
+    tx_header.FDFormat = FDCAN_CLASSIC_CAN;
+    tx_header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+    for (;;) {
+        HAL_StatusTypeDef hal_status =
+            HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &tx_header, &fakedata);
+        log("Sending FDCAN Data: %d, Bus Status: %d", fakedata[0], hal_status);
+
+        hal_status =
+            HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &tx_header, &fakedata);
+        log("Sending FDCAN2 Data: %d, Bus Status: %d", fakedata[0], hal_status);
+
+        fakedata[0]++;
+
+        osDelay(100);
+    }
+}
+
 /* USER CODE BEGIN Header_StartDefaultTask */
 /**
  * @brief  Function implementing the defaultTask thread.
@@ -150,14 +189,17 @@ void StartDefaultTask(void* argument) {
         .reset_fn = HAL_NVIC_SystemReset,
     };
 
+    osThreadNew(fakeCANTask, NULL, &fakecantaskattributes);
+
     init_dfu(dfu_conf);
     dfu_start_thread();
 
     /* Infinite loop */
 
     for (;;) {
-        ts_printf("Main thread! Code Running from the DUI, current OS Tick: %d",
-                  osKernelGetTickCount());
+        log("Main thread! Code Running from the DUI, current OS Tick: %d",
+            osKernelGetTickCount());
+
         osDelay(pdMS_TO_TICKS(1000));
     }
     /* USER CODE END StartDefaultTask */

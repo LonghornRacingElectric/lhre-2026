@@ -7,7 +7,7 @@
  * @brief Initializes the logging system.
  *
  * This function creates the message queue and the dedicated logger task.
- * It must be called once before any call to ts_printf(), typically
+ * It must be called once before any call to log(), typically
  * during OS initialization.
  *
  * @param transmit_fn the USB serial transmit function pointer
@@ -27,6 +27,6 @@ int init_logging(CDC_Transmit_Fn_ptr transmit_fn);
  * @param format The standard printf format string.
  * @param ...    Variable arguments for the format string.
  */
-void ts_printf(const char* format, ...);
+void log(const char* format, ...);
 
 #endif
