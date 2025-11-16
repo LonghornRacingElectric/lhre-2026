@@ -26,6 +26,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "rtos/dfu.h"
 #include "rtos/led.h"
 #include "rtos/logger.h"
 #include "rtos/usb.h"
@@ -123,18 +124,19 @@ void MX_FREERTOS_Init(void) {
     /* add threads, ... */
 
     rainbow_led_t led = {
-        .ccr1 = &TIM2->CCR1,
-        .ccr2 = &TIM2->CCR2,
+        .ccr2 = &TIM2->CCR1,
+        .ccr1 = &TIM2->CCR2,
         .ccr3 = &TIM2->CCR3,
         .channel1 = TIM_CHANNEL_1,
         .channel2 = TIM_CHANNEL_2,
         .channel3 = TIM_CHANNEL_3,
-        .pwm_start = HAL_TIM_PWM_Start,
+        .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
         .timer_handle = &htim2,
     };
 
     led_init(&led);
     ledHandle = led_start_thread();
+    // led_set(0.80f, 0.1f, 0.0f);
 
     osThreadNew(StartDefaultTask2, NULL, &defaultTask2_attributes);
 
@@ -157,10 +159,20 @@ void StartDefaultTask(void* argument) {
     MX_USB_Device_Init();
     /* USER CODE BEGIN StartDefaultTask */
 
-    // init_usb(CDC_Transmit_FS);
     if (init_logging(CDC_Transmit_FS) == -1) {
         osThreadTerminate(ledHandle);
     };
+
+    dfu_config dfu = {
+        .delay_fn = (Delay_fn)osDelay,
+        .gpiox = GPIOB,
+        .pin = GPIO_PIN_7,
+        .pin_set_fn = (PinSet_fn)HAL_GPIO_WritePin,
+        .reset_fn = (SystemReset_fn)HAL_NVIC_SystemReset,
+    };
+
+    init_dfu(dfu);
+    dfu_start_thread();
 
     /* Infinite loop */
 

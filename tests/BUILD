@@ -32,6 +32,6 @@ build_test(
 )
 
 build_test(
-    name = "longhorn_lib_build_test",
-    targets = ["//drivers/longhorn-lib:longhorn_lib"],
+    name = "longhorn_lib_base_build_test",
+    targets = ["//drivers/longhorn-lib:longhorn_lib_base"],
 )

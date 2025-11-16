@@ -21,3 +21,14 @@ cc_test(
         "//drivers/longhorn-lib:longhorn_lib_base"
     ],
 )
+
+cc_test(
+    name = "longhorn_lib_dfu_test",
+    size = "small",
+    srcs = ["dfu_test.cpp"],
+    deps = [
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+        "//drivers/longhorn-lib:longhorn_lib_base"
+    ],
+)

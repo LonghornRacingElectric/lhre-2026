@@ -106,7 +106,7 @@ void MX_FREERTOS_Init(void) {
         .channel1 = TIM_CHANNEL_1,
         .channel2 = TIM_CHANNEL_2,
         .channel3 = TIM_CHANNEL_3,
-        .pwm_start = HAL_TIM_PWM_Start,
+        .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
         .timer_handle = &htim2,
     };
 

@@ -39,13 +39,14 @@ python.toolchain(
 )
 
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+
 pip.parse(
-    hub_name = "pypi",
+    hub_name = "dfu_reqs",
     python_version = "3.13",
-    requirements_lock = "//:requirements_lock.txt",
+    requirements_lock = "//tools/dfu:requirements_lock.txt",
 )
 
-use_repo(pip, "pypi")
+use_repo(pip, "dfu_reqs")
 
 bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
 git_override(
