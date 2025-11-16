@@ -26,7 +26,10 @@ void DFU(void* argument) {
 
 const osThreadAttr_t dfu_attributes = {
     .name = "DFU Helper",
-    .priority = (osPriority_t)osPriorityLow,
+    .priority = (osPriority_t)
+        osPriorityRealtime,  // MAX priority so that IF we ever send an update
+                             // command, we WILL go into reset mode IMMEDIATELY,
+                             // not wait for other tasks
     .stack_size = configMINIMAL_STACK_SIZE,
 };
 
