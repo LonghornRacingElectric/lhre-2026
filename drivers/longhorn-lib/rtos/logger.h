@@ -1,5 +1,5 @@
-#ifndef LOGGER_H
-#define LOGGER_H
+#ifndef DRIVERS_LONGHORN_LIB_RTOS_LOGGER_H
+#define DRIVERS_LONGHORN_LIB_RTOS_LOGGER_H
 
 #include "usb_base.h"
 

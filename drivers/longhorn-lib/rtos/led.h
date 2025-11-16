@@ -1,5 +1,5 @@
-#ifndef LONGHORN_LIBRARY_2025_LED_H
-#define LONGHORN_LIBRARY_2025_LED_H
+#ifndef DRIVERS_LONGHORN_LIB_RTOS_LED_H
+#define DRIVERS_LONGHORN_LIB_RTOS_LED_H
 
 #include "cmsis_os2.h"
 #include "led_base.h"

@@ -26,6 +26,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "dfu_base.h"
 #include "rtos/led.h"
 #include "rtos/logger.h"
 #include "rtos/usb.h"
@@ -123,8 +124,8 @@ void MX_FREERTOS_Init(void) {
     /* add threads, ... */
 
     rainbow_led_t led = {
-        .ccr1 = &TIM2->CCR1,
-        .ccr2 = &TIM2->CCR2,
+        .ccr2 = &TIM2->CCR1,
+        .ccr1 = &TIM2->CCR2,
         .ccr3 = &TIM2->CCR3,
         .channel1 = TIM_CHANNEL_1,
         .channel2 = TIM_CHANNEL_2,
@@ -134,7 +135,8 @@ void MX_FREERTOS_Init(void) {
     };
 
     led_init(&led);
-    ledHandle = led_start_thread();
+    // ledHandle = led_start_thread();
+    led_set(0.80f, 0.1f, 0.0f);
 
     osThreadNew(StartDefaultTask2, NULL, &defaultTask2_attributes);
 
@@ -155,6 +157,16 @@ void MX_FREERTOS_Init(void) {
 void StartDefaultTask(void* argument) {
     /* init code for USB_Device */
     MX_USB_Device_Init();
+
+    dfu_config dfu = {
+        .delay_fn = osDelay,
+        .gpiox = GPIOB,
+        .pin = GPIO_PIN_7,
+        .pin_set_fn = HAL_GPIO_WritePin,
+        .reset_fn = HAL_NVIC_SystemReset,
+    };
+
+    dfu_init(dfu);
     /* USER CODE BEGIN StartDefaultTask */
 
     // init_usb(CDC_Transmit_FS);
@@ -168,6 +180,7 @@ void StartDefaultTask(void* argument) {
         ts_printf("Hello World! Code Running from the VCU, current OS Tick: %d",
                   osKernelGetTickCount());
         osDelay(pdMS_TO_TICKS(2905));
+        check_dfu();
     }
     /* USER CODE END StartDefaultTask */
 }

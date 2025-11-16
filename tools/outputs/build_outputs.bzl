@@ -120,6 +120,7 @@ def firmware_project_g4(
         usb_device_name = None,
         extra_includes = [],
         enable_freertos = False,
+        enable_dfu = False,
         locations = [],
         **kwargs):
     """Creates a firmware project for the STM32G4 family of chips.
@@ -135,6 +136,7 @@ def firmware_project_g4(
         usb_device_name (_type_, optional): name you want the USB driver to have. Defaults to None.
         extra_includes (list, optional): extra include paths to compile with. Defaults to [].
         enable_freertos (bool, optional): Whether or not to use FreeRTOS. Defaults to False.
+        enable_dfu (bool, optional): Whether or not to accept strings to go into DFU. Defaults to False.
         locations (list, optional): A list of location identifiers (e.g., ["FR", "FL"]).
                                     For each location, a separate binary will be generated
                                     with a "BOARD_<location>" define. Defaults to [].
@@ -157,6 +159,10 @@ def firmware_project_g4(
     if (enable_freertos):
         final_extra_srcs.append("//drivers/stm32g4:freertos_srcs")
         final_extra_deps.append("//drivers/stm32g4:freertos_headers")
+
+    # enable DFU if the board has it enabled
+    if(enable_dfu):
+        final_defines.append("ENABLE_DFU")
 
     # --- Target generation logic ---
     release_srcs = []
