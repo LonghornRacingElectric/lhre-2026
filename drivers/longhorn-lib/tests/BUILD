@@ -9,6 +9,7 @@ cc_test(
         "@googletest//:gtest_main",
         "//drivers/longhorn-lib:longhorn_lib_base"
     ],
+    linkstatic = True,
 )
 
 cc_test(
@@ -20,6 +21,7 @@ cc_test(
         "@googletest//:gtest_main",
         "//drivers/longhorn-lib:longhorn_lib_base"
     ],
+    linkstatic = True,
 )
 
 cc_test(
@@ -31,4 +33,5 @@ cc_test(
         "@googletest//:gtest_main",
         "//drivers/longhorn-lib:longhorn_lib_base"
     ],
+    linkstatic = True,
 )
