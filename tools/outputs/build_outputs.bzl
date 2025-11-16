@@ -317,6 +317,7 @@ def firmware_project_g4(
             ],
             deps = [
                 "@rules_python//python/runfiles",
+                "@dfu_reqs//pyserial"
             ],
             tags = ["local", "flasher"],
         )

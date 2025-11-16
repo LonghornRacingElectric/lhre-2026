@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include "FreeRTOS.h"
+
 #define RECEIVE_BUFFER_SIZE 256
 
 static uint8_t receive_buffer[RECEIVE_BUFFER_SIZE];
@@ -29,6 +31,7 @@ void dfu_init(dfu_config config) {
 }
 
 void dfu_receiveData(uint8_t* buf, uint32_t len) {
+    // add to the circular queue
     for (uint32_t i = 0; i < len; i++) {
         uint32_t next_head = (buffer_head + 1) % RECEIVE_BUFFER_SIZE;
 
@@ -39,6 +42,19 @@ void dfu_receiveData(uint8_t* buf, uint32_t len) {
         } else {
             receive_buffer[buffer_head] = buf[i];
             buffer_head = next_head;
+        }
+    }
+
+    // if we're using RTOS, we want to wake our thread so it can check the DFU
+    // status
+    if (system_config.semaphore_id) {
+        // we have an RTOS
+        bool yielding = false;
+        system_config.semaphore_release_fn(system_config.semaphore_id,
+                                           &yielding);
+
+        if (yielding) {
+            portYIELD_FROM_ISR(true);
         }
     }
 }
