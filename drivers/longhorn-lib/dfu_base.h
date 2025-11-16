@@ -24,11 +24,9 @@ typedef struct dfu_config {
 } dfu_config;
 
 /**
- * @brief DFU initialization function, takes in the system reset function
- * which will be called once an update command is sent to the board.
+ * @brief DFU initialization function.
  *
- * @param reset_fn
- */
+ * @param config Configuration struct with necessary callbacks and GPIO info.
 void dfu_init(dfu_config config);
 
 /**
