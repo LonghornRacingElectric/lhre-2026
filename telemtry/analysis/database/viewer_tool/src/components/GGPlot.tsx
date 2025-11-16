@@ -6,7 +6,7 @@ const GGPlot = () => {
 
   // Live connection to Kafka "gg_plot_data" topic
   const { data: newPoint, connected: kafkaConnected } = useKafkaJSON<{
-    dynamics: { vcuAccel: [number, number] };
+    data: { x: number; y: number };
   }>({
     topic: 'gg-plot',
   });
@@ -17,7 +17,7 @@ const GGPlot = () => {
       console.log('Received new point:', newPoint);
       setPoints((prevPoints) => [
         ...prevPoints,
-        { x: newPoint.dynamics.vcuAccel[0] * 100, y: newPoint.dynamics.vcuAccel[1] * 100 },
+        { x: newPoint.data.x * 100, y: newPoint.data.y * 100 },
       ]);
     }
   }, [newPoint]);
