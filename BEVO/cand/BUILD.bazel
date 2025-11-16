@@ -1,18 +1,18 @@
-load("@rules_rust//rust:defs.bzl", "rust_binary")
+# load("@rules_rust//rust:defs.bzl", "rust_binary")
 
-rust_binary(
-    name = "real",
-    srcs = ["main.rs"],
-    deps = [
-        "@crate_index//:anyhow",
-        "@crate_index//:clap",
-    ] + select({
-        "@platforms//os:linux": [
-            "@crate_index//:socketcan",
-        ],
-        "//conditions:default": [
-        ],
-    }),
+# rust_binary(
+#     name = "real",
+#     srcs = ["main.rs"],
+#     deps = [
+#         "@crate_index//:anyhow",
+#         "@crate_index//:clap",
+#     ] + select({
+#         "@platforms//os:linux": [
+#             "@crate_index//:socketcan",
+#         ],
+#         "//conditions:default": [
+#         ],
+#     }),
 
-    visibility = ["//visibility:public"]
-)
+#     visibility = ["//visibility:public"]
+# )
