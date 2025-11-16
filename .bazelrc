@@ -5,3 +5,5 @@ build:firmware --platforms=//:arm_none_eabi
 run --platforms=@platforms//host
 
 build:debug --spawn_strategy=local --strip=never
+
+test --test_output=all

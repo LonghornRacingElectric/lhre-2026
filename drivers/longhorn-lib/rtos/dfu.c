@@ -5,10 +5,16 @@
 
 SemaphoreHandle_t dfu_binary_sempahore;
 
+/**
+ * @brief Function to bridge non-RTOS to allow yielding from ISR
+ *
+ */
+void yield() { portYIELD_FROM_ISR(true); }
+
 void init_dfu(dfu_config config) {
     dfu_binary_sempahore = xSemaphoreCreateBinary();
 
-    config.semaphore_release_fn = xQueueGiveFromISR;
+    config.semaphore_release_fn = (SemaphoreRelease_Fn)xQueueGiveFromISR;
     config.semaphore_id = dfu_binary_sempahore;
     dfu_init(config);
 }

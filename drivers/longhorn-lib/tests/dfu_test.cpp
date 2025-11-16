@@ -43,6 +43,8 @@ class DfuBaseTest : public ::testing::Test {
         config.pin_set_fn = MockDfuCallbacks::StaticPinSetCallback;
         config.gpiox = DUMMY_GPIOX;
         config.pin = DUMMY_PIN;
+        config.semaphore_id = NULL;
+        config.semaphore_release_fn = NULL;
         dfu_init(config);
     }
 

@@ -49,12 +49,12 @@ void dfu_receiveData(uint8_t* buf, uint32_t len) {
     // status
     if (system_config.semaphore_id) {
         // we have an RTOS
-        bool yielding = false;
+        long yielding = 0;
         system_config.semaphore_release_fn(system_config.semaphore_id,
                                            &yielding);
 
         if (yielding) {
-            portYIELD_FROM_ISR(true);
+            system_config.yield_fn();
         }
     }
 }

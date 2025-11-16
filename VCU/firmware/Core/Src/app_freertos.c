@@ -130,7 +130,7 @@ void MX_FREERTOS_Init(void) {
         .channel1 = TIM_CHANNEL_1,
         .channel2 = TIM_CHANNEL_2,
         .channel3 = TIM_CHANNEL_3,
-        .pwm_start = HAL_TIM_PWM_Start,
+        .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
         .timer_handle = &htim2,
     };
 
@@ -164,11 +164,11 @@ void StartDefaultTask(void* argument) {
     };
 
     dfu_config dfu = {
-        .delay_fn = osDelay,
+        .delay_fn = (Delay_fn)osDelay,
         .gpiox = GPIOB,
         .pin = GPIO_PIN_7,
-        .pin_set_fn = HAL_GPIO_WritePin,
-        .reset_fn = HAL_NVIC_SystemReset,
+        .pin_set_fn = (PinSet_fn)HAL_GPIO_WritePin,
+        .reset_fn = (SystemReset_fn)HAL_NVIC_SystemReset,
     };
 
     init_dfu(dfu);

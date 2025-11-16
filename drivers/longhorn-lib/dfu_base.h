@@ -9,13 +9,15 @@
 typedef void (*SystemReset_fn)(void);
 typedef void (*Delay_fn)(uint32_t delay);
 typedef void (*PinSet_fn)(void* gpiox, uint16_t pin, uint8_t pin_state);
-typedef void (*MutexRelease_fn)(void* semaphore_id, bool* yieldToHigher);
+typedef long (*SemaphoreRelease_Fn)(void*, long* const);
+typedef void (*Yield_Fn)(void);
 
 typedef struct dfu_config {
     SystemReset_fn reset_fn;
     Delay_fn delay_fn;
     PinSet_fn pin_set_fn;
-    MutexRelease_fn semaphore_release_fn;
+    SemaphoreRelease_Fn semaphore_release_fn;
+    Yield_Fn yield_fn;
     void* semaphore_id;
     void* gpiox;
     uint16_t pin;
