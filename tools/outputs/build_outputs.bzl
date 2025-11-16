@@ -254,12 +254,6 @@ def firmware_project_g4(
             tags = ["stm32_firmware"],
         )
 
-        # # Generate .bin and .hex files
-        # firmware_outputs(
-        #   name = target_name + "_out",
-        #   src = target_name,
-        #   project_name = project_name, # Pass the unique project name for file naming
-        # )
         elf_out(
             name = project_name,
             src = target_name,
