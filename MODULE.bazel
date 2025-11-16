@@ -72,19 +72,19 @@ dfu = use_extension("//tools/dfu:dfu.bzl", "dfu")
 use_repo(dfu, "dfu")
 
 # Hermetic Rust Toolchain
-rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
-rust.toolchain(
-    edition = "2024",
-    versions = [ "1.85.0" ],
-)
+# rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+# rust.toolchain(
+#     edition = "2024",
+#     versions = [ "1.85.0" ],
+# )
 
-# Crate Universe / Crate (Cargo integration)
-crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+# # Crate Universe / Crate (Cargo integration)
+# crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
 
-crate.from_cargo(
-    name = "crate_index",
-    manifests = ["//:Cargo.toml"],
-    cargo_lockfile = "//:Cargo.lock", 
-)
+# crate.from_cargo(
+#     name = "crate_index",
+#     manifests = ["//:Cargo.toml"],
+#     cargo_lockfile = "//:Cargo.lock", 
+# )
 
-use_repo(crate, "crate_index")
+# use_repo(crate, "crate_index")
