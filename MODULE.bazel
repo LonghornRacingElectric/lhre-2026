@@ -3,6 +3,7 @@
 module(name = "lhre-2026")
 
 # bazel_dep(name = "toolchains_llvm", version = "1.4.0")
+bazel_dep(name = "hermetic_cc_toolchain", version = "3.2.0")
 bazel_dep(name = "toolchains_arm_gnu", version = "1.1.0")
 bazel_dep(name = "rules_cc", version = "0.2.0")
 bazel_dep(name = "platforms", version = "1.0.0")
@@ -23,6 +24,13 @@ bazel_dep(name = "rules_python", version = "1.5.3")
 # use_repo(llvm, "llvm_toolchain")
 
 # register_toolchains("@llvm_toolchain//:all")
+
+toolchains = use_extension("@hermetic_cc_toolchain//toolchain:ext.bzl", "toolchains")
+use_repo(toolchains, "zig_sdk")
+register_toolchains(
+    "@zig_sdk//libc_aware/toolchain/...",
+    "@zig_sdk//toolchain/...",
+)
 
 # Hermetic C/C++ ARM Toolchain
 arm_toolchain = use_extension("@toolchains_arm_gnu//:extensions.bzl", "arm_toolchain")
