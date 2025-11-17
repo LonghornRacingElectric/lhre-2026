@@ -19,6 +19,7 @@ from pathlib import Path
 from psycopg.types.json import Jsonb
 from typing import Union, Tuple
 from google.protobuf.message import Message
+import pandas as pd
 
 sys.path.append(str(Path(__file__).parents[2]))
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
@@ -31,16 +32,76 @@ from stack.ingest.protobuf.angelique_pb2 import AngeliqueSensorData
 
 class DataTester:
     """
-    Class for testing database with random values in correct data types.
+    Class for testing database with random values in correct data types or CSV data.
     """
-    def __init__(self, mqtt, seed=None):
+    def __init__(self, mqtt, seed=None, csv_path=None, mapping_path=None):
         """
         Initializes DataTester class by initiating a numpy.random.Generator.
 
         :param seed:        seed to pass to numpy.random.Generator constructor
+        :param csv_path:    path to CSV file to read data from (optional)
+        :param mapping_path: path to JSON mapping file (optional)
         """
         self.rng = default_rng(seed)
         self.mqtt = mqtt
+        self.csv_path = csv_path
+        self.mapping_path = mapping_path
+        self.csv_data = None
+        self.mapping = None
+        self.csv_index = 0
+        
+        if csv_path:
+            self.load_csv(csv_path)
+        if mapping_path:
+            self.load_mapping(mapping_path)
+
+    def load_csv(self, csv_path):
+        """
+        Load CSV file into memory.
+        
+        :param csv_path: path to CSV file
+        """
+        self.csv_data = pd.read_csv(csv_path)
+        self.csv_index = 0
+        logging.info(f"Loaded CSV with {len(self.csv_data)} rows and columns: {list(self.csv_data.columns)}")
+    
+    def load_mapping(self, mapping_path):
+        """
+        Load JSON mapping file.
+        
+        :param mapping_path: path to JSON mapping file
+        """
+        with open(mapping_path, 'r') as f:
+            self.mapping = json.load(f)
+        logging.info(f"Loaded mapping with {len(self.mapping)} fields")
+    
+    def create_row_from_csv(self, packet: int, table_desc: dict = None):
+        """
+        Create a row of data from CSV using the mapping.
+        
+        :param packet: packet ID
+        :param table_desc: optional table description with type information
+        :return: dict with database column names as keys
+        """
+        if self.csv_data is None or self.mapping is None:
+            raise ValueError("CSV data or mapping is not loaded.")
+
+        if self.csv_index >= len(self.csv_data):
+            self.csv_index = 0  # Reset index if we reach the end of the CSV
+
+        csv_row = self.csv_data.iloc[self.csv_index]
+        self.csv_index += 1
+
+        row = {}
+        row['packet_id'] = packet
+
+        for db_col, csv_col in self.mapping.items():
+            if isinstance(csv_col, list):
+                row[db_col] = [csv_row[col] for col in csv_col]
+            else:
+                row[db_col] = csv_row[csv_col]
+
+        return row
 
     @staticmethod
     def get_desc(db=False, tables=None, rm_cols=None, **get_specs):
@@ -161,7 +222,7 @@ class DataTester:
                     raise ValueError(f'Invalid number of dimensions: {ndims}')
         return row
 
-    def single_table_test(self, table: str, num_rows: int, delay: float, rm_cols=None, **kwargs):
+    def single_table_test(self, table: str, num_rows: int, delay: float, rm_cols=None, use_csv=False, **kwargs):
         """
         This function runs an ingestion test on an individual table, sequentially publishing data to the table at
         "delay" intervals.
@@ -170,6 +231,7 @@ class DataTester:
         :param num_rows: int representing number of rows to send to the ingest server in total
         :param delay: float representing time to sleep for between each row write
         :param rm_cols: str | list | dict to be passed to get_desc for removal from description
+        :param use_csv: bool indicating whether to use CSV data instead of random data
         :param kwargs: accepts an existing client or table_desc for parallel runs and kwargs to pass to get_desc
 
         :return: returns 0 for successful runs
@@ -178,7 +240,10 @@ class DataTester:
 
         # for i in range(num_rows) if kwargs.get('verbose') else tqdm(range(num_rows)):
         for i in range(num_rows) if kwargs.get('verbose') else tqdm(range(num_rows)):
-            row = self.create_row(table_desc, i + 1)
+            if use_csv and self.csv_data is not None and self.mapping is not None:
+                row = self.create_row_from_csv(i + 1, table_desc)
+            else:
+                row = self.create_row(table_desc, i + 1)
             if kwargs.get('verbose') and (num_rows < 1000 or not i % (num_rows // 100)):
                 logging.info(f'Publishing payload #{i:>3} to {table}: {row}')
             if kwargs.get('target') == "Angelique":
@@ -188,7 +253,7 @@ class DataTester:
             time.sleep(delay)
         return 0
 
-    def concurrent_tables_test(self, tables: list, num_rows: int, delay: float, rm_cols=None, **kwargs):
+    def concurrent_tables_test(self, tables: list, num_rows: int, delay: float, rm_cols=None, use_csv=False, **kwargs):
         """
         This function runs an ingestion test on an multiple tables simultaneously, sequentially publishing data to the
         table at "delay" intervals.
@@ -197,6 +262,7 @@ class DataTester:
         :param num_rows: int representing number of rows to send to the ingest server in total
         :param delay: float representing time to sleep for between each row write
         :param rm_cols: str | list | dict to be passed to get_desc for removal from description
+        :param use_csv: bool indicating whether to use CSV data instead of random data
         :param kwargs: accepts an existing client or table_desc for parallel runs and kwargs to pass to get_desc
 
         :return: returns 0 for successful runs
@@ -204,7 +270,7 @@ class DataTester:
         db_desc = self.get_desc(tables=tables, rm_cols=rm_cols, **kwargs)
 
         with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
-            futures = [executor.submit(self.single_table_test, table, num_rows, delay, rm_cols,
+            futures = [executor.submit(self.single_table_test, table, num_rows, delay, rm_cols, use_csv,
                                        table_desc=db_desc[table], **kwargs) for table in tables]
 
             try:
@@ -215,45 +281,72 @@ class DataTester:
 
         return 0
     
-    def send_proto_rows(self, tables:list,  num_rows:int, delay:float, rm_cols = None, **kwargs):
+    def send_proto_rows(self, tables:list,  num_rows:int, delay:float, rm_cols = None, use_csv=False, **kwargs):
         db_desc = self.get_desc(tables=tables, rm_cols=rm_cols, **kwargs)
         topic = 'angelique/data' if kwargs.get('target') == "Angelique" else 'data'
         for i in tqdm(range(num_rows)):
-            data = self.create_proto_message(i + 1, db_desc, target=kwargs.get('target', 'Nightwatch'))
+            data = self.create_proto_message(i + 1, db_desc, use_csv=use_csv, target=kwargs.get('target', 'Nightwatch'))
             mqtt.publish(topic, data.SerializeToString(), qos=0)
             time.sleep(delay)
 
-    def create_proto_message(self, packet:int, db_desc, target="Nightwatch"):
+    def create_proto_message(self, packet: int, db_desc, use_csv=False, target="Nightwatch"):
         """
-        This function creates a protobuf message using the current protobuf template(SensorData) and db_description with
-        random data. 
-
-        :param packet: int representing packet_id which is assigned to the returned message
-        :param db_desc: dict output from database description
-
-        :return: returns protbuf message with random data
+        Create a protobuf message using either random data or CSV data.
+        
+        :param packet: packet ID
+        :param db_desc: database description
+        :param use_csv: whether to use CSV data
+        :param target: target database
+        :return: protobuf message
         """
+        if use_csv:
+            row = self.create_row_from_csv(packet, db_desc)
+        else:
+            row = self.create_row(db_desc, packet)
+
         if (target == "Angelique"):
             data = AngeliqueSensorData()
         else:
             data = SensorData()
+        
+        # Get data from CSV once if needed
+        csv_row = None
+        if use_csv and self.csv_data is not None and self.mapping is not None:
+            # We need to pass table_desc but we'll use a merged version for all tables
+            # or just handle type conversion more carefully
+            csv_row = self.create_row_from_csv(packet, table_desc=None)
+        
         for table in db_desc:
-            row = self.create_row(db_desc[table], packet) # Create random data
+            if use_csv and csv_row is not None:
+                row = csv_row  # Use the CSV data for all tables
+            else:
+                row = self.create_row(db_desc[table], packet)  # Create random data
+            
             if hasattr(data, table):  
                 table_instance = getattr(data, table)
                 if isinstance(table_instance, Message): # Iterate through a specific tbale (not packet table)
                     for key, value in row.items():
                         if hasattr(table_instance, key): # Set values in protobuf message
-                            if (isinstance(value, list) or isinstance(value, tuple)):
-                                getattr(table_instance, key).extend(value)
-                            elif isinstance(value, dict):
-                                setattr(table_instance, key, json.dumps(value))
-                            else:
-                                setattr(table_instance, key, value)
+                            try:
+                                if (isinstance(value, list) or isinstance(value, tuple)):
+                                    getattr(table_instance, key).extend(value)
+                                elif isinstance(value, dict):
+                                    setattr(table_instance, key, json.dumps(value))
+                                else:
+                                    setattr(table_instance, key, value)
+                            except TypeError as e:
+                                # If type error, try converting to int
+                                if isinstance(value, float):
+                                    setattr(table_instance, key, int(value))
+                                else:
+                                    logging.warning(f"Type error setting {table}.{key} = {value}: {e}")
             else:
                 for key, value in row.items(): # Edit packet and time
-                    if hasattr(data, key):  
-                        setattr(data, key, int(value))
+                    if hasattr(data, key):
+                        try:
+                            setattr(data, key, int(value))
+                        except (TypeError, ValueError):
+                            logging.warning(f"Could not set {key} = {value}")
         return data
     
     def send_base64_row(self, ver: int, high_freq=True):
@@ -271,15 +364,21 @@ class DataTester:
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     car_name = "Angelique"  # Change to "Nightwatch" or "Angelique" as needed
+    
+    # Paths for CSV and mapping files
+    csv_path = Path(__file__).parent / 'csv_processing/csv_data/Log__2024_10_11__05_50_47.csv'
+    mapping_path = Path(__file__).parent / 'csv_processing/angelique_pg_to_csv.json'
+    
     with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session:
         db_sessions = {'Nightwatch': nightwatch_session, 'Angelique': angelique_session}
         with MQTTHandler('paho_test', db_sessions=db_sessions, target=MQTTTarget.get()) as mqtt:
-            # Protobuf message testing
-            dt = DataTester(mqtt=mqtt, seed=42)
+            # Protobuf message testing with CSV data
+            dt = DataTester(mqtt=mqtt, seed=42, csv_path=csv_path, mapping_path=mapping_path)
             dt.send_proto_rows(
                 tables=['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
                 num_rows= 2000,
-                delay= 0.01,
+                delay= 0.25,
+                use_csv=True,
                 target=car_name
             )
 
