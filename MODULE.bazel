@@ -3,16 +3,15 @@
 module(name = "lhre-2026")
 
 # bazel_dep(name = "toolchains_llvm", version = "1.4.0")
+bazel_dep(name = "hermetic_cc_toolchain", version = "3.2.0")
 bazel_dep(name = "toolchains_arm_gnu", version = "1.1.0")
 bazel_dep(name = "rules_cc", version = "0.2.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "aspect_bazel_lib", version = "2.20.0")
 bazel_dep(name = "googletest", version = "1.17.0")
 bazel_dep(name = "bazel_skylib", version = "1.8.1")
-
 bazel_dep(name = "rules_rust", version = "0.63.0")
 bazel_dep(name = "rules_python", version = "1.5.3")
-
 
 # Hermetic C/C++ Host Toolchain
 # llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
@@ -24,13 +23,20 @@ bazel_dep(name = "rules_python", version = "1.5.3")
 
 # register_toolchains("@llvm_toolchain//:all")
 
+toolchains = use_extension("@hermetic_cc_toolchain//toolchain:ext.bzl", "toolchains")
+use_repo(toolchains, "zig_sdk", "zig_sdk-linux-amd64", "zig_sdk-linux-arm64", "zig_sdk-macos-amd64", "zig_sdk-macos-arm64", "zig_sdk-windows-amd64")
+
+register_toolchains(
+    "@zig_sdk//libc_aware/toolchain/...",
+    "@zig_sdk//toolchain/...",
+)
+
 # Hermetic C/C++ ARM Toolchain
 arm_toolchain = use_extension("@toolchains_arm_gnu//:extensions.bzl", "arm_toolchain")
-
 arm_toolchain.arm_none_eabi(version = "13.2.1")
 use_repo(arm_toolchain, "arm_none_eabi")
-register_toolchains("@arm_none_eabi//toolchain:all")
 
+register_toolchains("@arm_none_eabi//toolchain:all")
 
 # Hermetic Python Toolchain
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
@@ -39,20 +45,18 @@ python.toolchain(
 )
 
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
-
 pip.parse(
     hub_name = "dfu_reqs",
     python_version = "3.13",
     requirements_lock = "//tools/dfu:requirements_lock.txt",
 )
-
 use_repo(pip, "dfu_reqs")
 
 bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
 git_override(
     module_name = "hedron_compile_commands",
-    remote = "https://github.com/hedronvision/bazel-compile-commands-extractor.git",
     commit = "abb61a688167623088f8768cc9264798df6a9d10",
+    remote = "https://github.com/hedronvision/bazel-compile-commands-extractor.git",
 )
 
 # Hermetic OpenOCD
@@ -64,19 +68,19 @@ dfu = use_extension("//tools/dfu:dfu.bzl", "dfu")
 use_repo(dfu, "dfu")
 
 # Hermetic Rust Toolchain
-rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
-rust.toolchain(
-    edition = "2024",
-    versions = [ "1.85.0" ],
-)
+# rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+# rust.toolchain(
+#     edition = "2024",
+#     versions = [ "1.85.0" ],
+# )
 
-# Crate Universe / Crate (Cargo integration)
-crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+# # Crate Universe / Crate (Cargo integration)
+# crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
 
-crate.from_cargo(
-    name = "crate_index",
-    manifests = ["//:Cargo.toml"],
-    cargo_lockfile = "//:Cargo.lock", 
-)
+# crate.from_cargo(
+#     name = "crate_index",
+#     manifests = ["//:Cargo.toml"],
+#     cargo_lockfile = "//:Cargo.lock",
+# )
 
-use_repo(crate, "crate_index")
+# use_repo(crate, "crate_index")
