@@ -26,8 +26,14 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "fdcan.h"
+#include "rtos/dfu.h"
 #include "rtos/led.h"
+#include "rtos/logger.h"
+#include "rtos/usb.h"
 #include "tim.h"
+#include "usb_base.h"
+#include "usbd_cdc_if.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -54,10 +60,11 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
     .name = "defaultTask",
     .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 128 * 32};
+    .stack_size = 128 + 1024};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
+osThreadId_t led_handle;
 
 /* USER CODE END FunctionPrototypes */
 
@@ -100,8 +107,8 @@ void MX_FREERTOS_Init(void) {
     /* add threads, ... */
 
     rainbow_led_t led = {
-        .ccr1 = &TIM2->CCR1,
-        .ccr2 = &TIM2->CCR2,
+        .ccr2 = &TIM2->CCR1,
+        .ccr1 = &TIM2->CCR2,
         .ccr3 = &TIM2->CCR3,
         .channel1 = TIM_CHANNEL_1,
         .channel2 = TIM_CHANNEL_2,
@@ -111,12 +118,60 @@ void MX_FREERTOS_Init(void) {
     };
 
     led_init(&led);
-    led_start_thread();
+    led_handle = led_start_thread();
+
     /* USER CODE END RTOS_THREADS */
 
     /* USER CODE BEGIN RTOS_EVENTS */
     /* add events, ... */
     /* USER CODE END RTOS_EVENTS */
+}
+
+const osThreadAttr_t fakecantaskattributes = {
+    .name = "fakecan",
+    .priority = (osPriority_t)osPriorityNormal,
+    .stack_size = 128 + 1024};
+
+void fakeCANTask(void* argument) {
+    // initialize can buses
+    HAL_FDCAN_Init(&hfdcan2);
+    HAL_FDCAN_Init(&hfdcan1);
+    HAL_FDCAN_Start(&hfdcan1);
+    HAL_FDCAN_Start(&hfdcan2);
+
+    FDCAN_TxHeaderTypeDef tx_header;
+    char fakedata[1] = {100};
+
+    tx_header.DataLength = 1;
+    tx_header.IdType = FDCAN_STANDARD_ID;
+    tx_header.Identifier = 0x100;
+    tx_header.TxFrameType = FDCAN_DATA_FRAME;
+    tx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+    tx_header.BitRateSwitch = FDCAN_BRS_OFF;
+    tx_header.FDFormat = FDCAN_CLASSIC_CAN;
+    tx_header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+    for (;;) {
+        HAL_StatusTypeDef hal_status =
+            HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &tx_header, &fakedata);
+
+        if (hal_status) {
+            // error occurred
+            log(LOG_ERROR, "Sending FDCAN Data: %d, Bus Status: %d",
+                fakedata[0], hal_status);
+        } else {
+            log(LOG_INFO, "Sending FDCAN Data: %d, Bus Status: %d", fakedata[0],
+                hal_status);
+        }
+
+        hal_status =
+            HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &tx_header, &fakedata);
+        log(hal_status ? LOG_ERROR : LOG_SUCCESS,
+            "Sending FDCAN2 Data: %d, Bus Status: %d", fakedata[0], hal_status);
+
+        fakedata[0]++;
+
+        osDelay(33);
+    }
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -130,10 +185,31 @@ void StartDefaultTask(void* argument) {
     /* init code for USB_Device */
     MX_USB_Device_Init();
     /* USER CODE BEGIN StartDefaultTask */
+
+    if (init_logging(CDC_Transmit_FS) == -1) {
+        osThreadTerminate(led_handle);
+    }
+
+    dfu_config dfu_conf = {
+        .delay_fn = osDelay,
+        .gpiox = GPIOB,
+        .pin = GPIO_PIN_7,
+        .pin_set_fn = HAL_GPIO_WritePin,
+        .reset_fn = HAL_NVIC_SystemReset,
+    };
+
+    osThreadNew(fakeCANTask, NULL, &fakecantaskattributes);
+
+    init_dfu(dfu_conf);
+    dfu_start_thread();
+
     /* Infinite loop */
 
     for (;;) {
-        osDelay(1000);
+        log(LOG_INFO, "Main thread! Code Running from the DUI",
+            osKernelGetTickCount());
+
+        osDelay(pdMS_TO_TICKS(1000));
     }
     /* USER CODE END StartDefaultTask */
 }
