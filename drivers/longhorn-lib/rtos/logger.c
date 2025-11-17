@@ -1,4 +1,4 @@
-#include "rtos/logger.h"
+#include "longhorn/rtos/logger.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -6,7 +6,7 @@
 
 #include "FreeRTOSConfig.h"
 #include "cmsis_os2.h"
-#include "usb_base.h"
+#include "longhorn/usb_base.h"
 
 // max size of a message that can be sent
 #define MAX_LOG_MESSAGE_LEN 256

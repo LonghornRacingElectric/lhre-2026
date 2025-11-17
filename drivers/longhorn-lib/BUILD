@@ -11,7 +11,7 @@ cc_library(
     deps = ["//drivers/stm32g4:freertos_headers"],
     hdrs = ["longhorn_lib_base_headers"],
     visibility = ["//visibility:public"],
-    includes = ["."],
+    includes = ["config"],
     include_prefix = "longhorn",
 )
 
@@ -21,7 +21,7 @@ cc_library(
     deps = ["//drivers/stm32g4:freertos_headers"],
     hdrs = ["longhorn_lib_headers"],
     visibility = ["//visibility:public"],
-    includes = ["."],
+    includes = ["config"],
     include_prefix = "longhorn",
     target_compatible_with = [
         "@platforms//cpu:arm",
@@ -36,7 +36,7 @@ cc_library(
     deps = ["//drivers/stm32g4:freertos_headers"],
     hdrs = ["longhorn_lib_base_headers"],
     visibility = ["//visibility:public"],
-    includes = ["."],
+    includes = ["config"],
     include_prefix = "longhorn",
     target_compatible_with = [
         "@platforms//cpu:arm",

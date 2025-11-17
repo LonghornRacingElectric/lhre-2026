@@ -1,7 +1,7 @@
 #ifndef DRIVERS_LONGHORN_LIB_RTOS_LOGGER_H
 #define DRIVERS_LONGHORN_LIB_RTOS_LOGGER_H
 
-#include "usb_base.h"
+#include "longhorn/usb_base.h"
 
 typedef enum LOG_LEVEL {
     LOG_INFO,

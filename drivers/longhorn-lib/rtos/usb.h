@@ -6,7 +6,7 @@
 #define DRIVERS_LONGHORN_LIB_RTOS_USB_H
 
 #include "FreeRTOS.h"
-#include "usb_base.h"
+#include "longhorn/usb_base.h"
 
 /**
  * @brief Initializes a thread-safe variant of the USB logging interface.

@@ -32,6 +32,36 @@ cc_library(
     visibility = ["//visibility:public"],
 )
 
+cc_library(
+    name = "stm32_hal",
+    srcs = glob([
+        "STM32G4xx_HAL_Driver/Src/**/*.c",
+    ],
+    exclude = [
+            # don't export templates (firmware provides its own)
+            "STM32G4xx_HAL_Driver/Src/*template.c",
+        ],
+    ),
+    hdrs = glob([
+        "STM32G4xx_HAL_Driver/Inc/**/*.h",
+        "STM32G4xx_HAL_Driver/Inc/Legacy/**/*.h",
+        "CMSIS/Device/ST/STM32G4xx/Include/**/*.h",
+        "CMSIS/Include/**/*.h",
+    ]),
+
+    includes = [
+        "STM32G4xx_HAL_Driver/Inc",
+        "STM32G4xx_HAL_Driver/Inc/Legacy",
+        "CMSIS/Device/ST/STM32G4xx/Include",
+        "CMSIS/Include",
+    ],
+    target_compatible_with = [
+        "@platforms//cpu:arm",
+        "@platforms//os:none",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 # FreeRTOS Library
 cc_library(
     name = "freertos_headers",

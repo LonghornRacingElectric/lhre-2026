@@ -2,7 +2,7 @@
 #define DRIVERS_LONGHORN_LIB_RTOS_DFU_H
 
 #include "cmsis_os2.h"
-#include "dfu_base.h"
+#include "longhorn/dfu_base.h"
 
 /**
  * @brief Initializes DFU
