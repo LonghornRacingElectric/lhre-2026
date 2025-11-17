@@ -1,5 +1,9 @@
 # Telemetry Webtool
 
+## Resetting the Database
+- psql -h localhost -U electric -d angelique
+- DELETE FROM dynamics; DELETE FROM controls; DELETE FROM pack; DELETE FROM diagnostics; DELETE FROM thermal; DELETE FROM packet;
+
 ## Normal Operating Procedures
 ### Starting the Docker Containers
 - This starts kafka, the db, and the mqtt handler: `cd stack`, `./server_devtool.sh` and select option `2`
