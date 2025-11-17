@@ -6,6 +6,6 @@ DUI Firmware will live in the `DUI/firmware` directory, while the model files wi
 
 This directory can be recursively built by running `bazel build //DUI/...`. Additionally, the generated files will be placed in the `bazel-bin/DUI/` directory.
 
-The firmware target is `//DUi/firmware:dui_firmware_2026`.
+The firmware target is `//DUI/firmware:dui_firmware_2026`.
 
 Model firmware target: `//DUI/model:dui_model_2026`.
