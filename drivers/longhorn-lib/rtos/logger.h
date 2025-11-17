@@ -114,6 +114,6 @@ int init_logging(CDC_Transmit_Fn_ptr transmit_fn);
  * @param format The standard printf format string.
  * @param ...    Variable arguments for the format string.
  */
-void log(LOG_LEVEL log_level, const char* format, ...);
+void log_printf(LOG_LEVEL log_level, const char* format, ...);
 
 #endif

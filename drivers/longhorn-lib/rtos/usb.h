@@ -16,7 +16,7 @@
 void init_usb(CDC_Transmit_Fn_ptr transmit_fn);
 
 /**
- * @brief PREFER TO USE log WITH THE LOGGER THREAD OVER THIS. FreeRTOS
+ * @brief PREFER TO USE log_printf WITH THE LOGGER THREAD OVER THIS. FreeRTOS
  * Thread safe implementation of printf (uses a binary mutex to lock thread
  * access)
  *

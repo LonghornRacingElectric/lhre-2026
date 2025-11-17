@@ -160,17 +160,17 @@ void fakeCANTask(void* argument) {
 
         if (hal_status) {
             // error occurred
-            // log(LOG_ERROR, "Sending FDCAN Data: %d, Bus Status: %d",
+            // log_printf(LOG_ERROR, "Sending FDCAN Data: %d, Bus Status: %d",
             //     fakedata[0], hal_status);
         } else {
-            // log(LOG_INFO, "Sending FDCAN Data: %d, Bus Status: %d",
+            // log_printf(LOG_INFO, "Sending FDCAN Data: %d, Bus Status: %d",
             // fakedata[0],
             //     hal_status);
         }
 
         hal_status =
             HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &tx_header, &fakedata);
-        // log(hal_status ? LOG_ERROR : LOG_SUCCESS,
+        // log_printf(hal_status ? LOG_ERROR : LOG_SUCCESS,
         //     "Sending FDCAN2 Data: %d, Bus Status: %d", fakedata[0],
         //     hal_status);
 
@@ -213,9 +213,9 @@ void StartDefaultTask(void* argument) {
     /* Infinite loop */
 
     for (;;) {
-        // log(LOG_INFO, "Main thread! Code Running from the DUI",
+        // log_printf(LOG_INFO, "Main thread! Code Running from the DUI",
         //     osKernelGetTickCount());
-        log(LOG_INFO, "The ADC data was %d", AD_RES);
+        log_printf(LOG_INFO, "The ADC data was %d", AD_RES);
 
         osDelay(pdMS_TO_TICKS(1000));
 

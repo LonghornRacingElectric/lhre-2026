@@ -86,7 +86,7 @@ int init_logging(CDC_Transmit_Fn_ptr transmit_function) {
     return 0;
 }
 
-void log(LOG_LEVEL log_level, const char* format, ...) {
+void log_printf(LOG_LEVEL log_level, const char* format, ...) {
     if (s_logQueue == NULL) {
         return;
     }
