@@ -52,7 +52,7 @@ try:
                     print(f"  Decoded Message: {decoded_message}")
 
                     # Extract dynamics.vcuAccel data
-                    accel_data = decoded_message.get('dynamics', {}).get('vcuAccel', [0, 0])
+                    accel_data = decoded_message.get('dynamics', {}).get('body3_accel', [0, 0, 0])
                     if not accel_data or len(accel_data) < 2:
                         print("  Warning: Missing or incomplete vcuAccel data.")
                         continue
