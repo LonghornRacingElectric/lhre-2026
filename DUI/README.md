@@ -4,8 +4,7 @@ The DUI board receives drive inputs from the steering wheel/dash and communicate
 
 DUI Firmware will live in the `DUI/firmware` directory, while the model files will be located in the `DUI/model` directory.
 
-This directory can be recursively built by running `bazel build //DUI/...`. Additionally, the generated files will be placed in the `bazel-bin/DUI/` directory.
+This directory can be recursively built by running `bazel build //DUI/...`.
 
-The firmware target is `//DUI/firmware:dui_firmware_2026`.
 
-Model firmware target: `//DUI/model:dui_model_2026`.
+
