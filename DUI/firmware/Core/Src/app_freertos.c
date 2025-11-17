@@ -153,15 +153,24 @@ void fakeCANTask(void* argument) {
     for (;;) {
         HAL_StatusTypeDef hal_status =
             HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &tx_header, &fakedata);
-        log("Sending FDCAN Data: %d, Bus Status: %d", fakedata[0], hal_status);
+
+        if (hal_status) {
+            // error occurred
+            log(LOG_ERROR, "Sending FDCAN Data: %d, Bus Status: %d",
+                fakedata[0], hal_status);
+        } else {
+            log(LOG_INFO, "Sending FDCAN Data: %d, Bus Status: %d", fakedata[0],
+                hal_status);
+        }
 
         hal_status =
             HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &tx_header, &fakedata);
-        log("Sending FDCAN2 Data: %d, Bus Status: %d", fakedata[0], hal_status);
+        log(hal_status ? LOG_ERROR : LOG_SUCCESS,
+            "Sending FDCAN2 Data: %d, Bus Status: %d", fakedata[0], hal_status);
 
         fakedata[0]++;
 
-        osDelay(100);
+        osDelay(33);
     }
 }
 
@@ -197,7 +206,7 @@ void StartDefaultTask(void* argument) {
     /* Infinite loop */
 
     for (;;) {
-        log("Main thread! Code Running from the DUI, current OS Tick: %d",
+        log(LOG_INFO, "Main thread! Code Running from the DUI",
             osKernelGetTickCount());
 
         osDelay(pdMS_TO_TICKS(1000));

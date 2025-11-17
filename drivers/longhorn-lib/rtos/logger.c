@@ -9,12 +9,12 @@
 #include "usb_base.h"
 
 // max size of a message that can be sent
-#define MAX_LOG_MESSAGE_LEN 128
+#define MAX_LOG_MESSAGE_LEN 256
 
 // max of 8 messages at once in the queue
 #define LOG_QUEUE_LENGTH 8
 
-#define LOGGER_TASK_STACK_SIZE (configMINIMAL_STACK_SIZE + 128 * 8)
+#define LOGGER_TASK_STACK_SIZE (configMINIMAL_STACK_SIZE + 256 * 8)
 
 #define LOGGER_TASK_PRIORITY (osPriorityLow)
 
@@ -86,7 +86,7 @@ int init_logging(CDC_Transmit_Fn_ptr transmit_function) {
     return 0;
 }
 
-void log(const char* format, ...) {
+void log(LOG_LEVEL log_level, const char* format, ...) {
     if (s_logQueue == NULL) {
         return;
     }
@@ -96,9 +96,27 @@ void log(const char* format, ...) {
     // Get the current OS tick count
     uint32_t now_ticks = osKernelGetTickCount();
 
+    char* prefix;
+
+    switch (log_level) {
+        case LOG_ERROR:
+            prefix = ERROR_PREFIX;
+            break;
+        case LOG_WARNING:
+            prefix = WARNING_PREFIX;
+            break;
+        case LOG_SUCCESS:
+            prefix = SUCCESS_PREFIX;
+            break;
+        case LOG_INFO:
+        default:
+            prefix = INFO_PREFIX;
+            break;
+    }
+
     // Format the timestamp prefix into the buffer
-    int prefix_len =
-        snprintf(msg.buffer, MAX_LOG_MESSAGE_LEN, "[%lu] ", now_ticks);
+    int prefix_len = snprintf(msg.buffer, MAX_LOG_MESSAGE_LEN, "[%lu] %s ",
+                              now_ticks, prefix);
 
     // Check for encoding error or if the prefix filled the entire buffer
     if (prefix_len < 0 || prefix_len >= MAX_LOG_MESSAGE_LEN) {
