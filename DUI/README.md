@@ -1,6 +1,6 @@
 # Driver User Interface (DUI) Board Firmware
 
-The DUI board receives drive inputs from the steering wheel/dash and communicates vehicle status (IMD, BMS, etc) to driver.
+The DUI board interfaces dash buttons and communicates vehicle status (IMD, BMS, etc) to driver.
 
 DUI Firmware will live in the `DUI/firmware` directory.
 
