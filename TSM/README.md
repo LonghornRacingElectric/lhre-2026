@@ -1,6 +1,6 @@
 # Thermal Sensor Module (TSM) Firmware and Model
 
-The Thermal Sensor Module (TSM) measures the ambient temperature near the radiator such that the radiator fan speeds can be properly set and controlled. It also works with the cooling loop flow rate and cooling fluid temperature.
+The Thermal Sensor Module (TSM) measures the ambient temperature near the radiator such that the radiator fan speeds can be properly set and controlled. It works in tandem with sensors measuring the cooling loop flow rate and cooling fluid temperature.
 
 TSM Firmware will live in the `TSM/firmware` directory.
 
