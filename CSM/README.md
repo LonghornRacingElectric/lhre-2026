@@ -1,11 +1,9 @@
-# Corner Sensor Module (CSM) Firmware and Model
+# Corner Sensor Module (CSM) Firmware
 
-The Corner Sensor Module (CSM) collects data from the vehicle suspension. There are four CSM boards located at the corners of the car.
+The Corner Sensor Module (CSM) collects the vehicle's ride height. There are four CSM boards located at the corners of the car.
 
-CSM firmware will live in the `CSM/Firmware` directory, while the model files will be located in the `CSM/Model` directory.
+CSM firmware will live in the `CSM/firmware` directory.
 
 This directory can be recursively built by running `bazel build //CSM/...`. Additionally, the generated files will be placed in the `bazel-bin/CSM/` directory.
 
-The firmware target is `//CSM/Firmware:csm_firmware_2026`.
-
-Model firmware target: `//CSM/Model:csm_model_2026`.
+The firmware target is `//CSM/firmware:csm_firmware_2026`.
