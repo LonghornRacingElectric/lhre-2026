@@ -209,7 +209,7 @@ def generate_source_content(json_data, output_header_name):
     source_lines.append(f"// Implements functions declared in: {header_basename}")
     source_lines.append("// DO NOT EDIT MANUALLY")
     source_lines.append("")
-    source_lines.append(f'#include "{header_basename}"')
+    source_lines.append(f'#include "longhorn/can/{header_basename}"')
     source_lines.append("")
 
     for packet in json_data:

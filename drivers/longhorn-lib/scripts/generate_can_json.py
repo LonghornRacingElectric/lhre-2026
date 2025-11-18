@@ -95,7 +95,7 @@ def parse_participants(participant_str):
     participant_str = participant_str.strip()
     if not participant_str:
         return []
-    return [participant_str]
+    return [p.strip() for p in participant_str.split(",")]
 
 
 def load_bitfield_definitions(filepath):
