@@ -7,16 +7,12 @@ cc_binary(
     deps = ["vcu_model_2026"]
 )
 
-_vcu_model_lib_attrs = {
-    "srcs": glob(["src/**/*.c"]),
-    "hdrs": glob(["inc/**/*.h"]),
-    "include_prefix": "vcu_model",
-    "visibility": ["//visibility:public"],
-}
-
 cc_library(
     name = "vcu_model_2026",
-    **_vcu_model_lib_attrs
+    srcs = glob(["src/**/*.c"]),
+    hdrs = glob(["inc/**/*.h"]),
+    include_prefix = "vcu_model",
+    visibility = ["//visibility:public"],
 )
 
 cc_library(
@@ -25,5 +21,8 @@ cc_library(
         "@platforms//cpu:arm",
         "@platforms//os:none",
     ],
-    **_vcu_model_lib_attrs
+    srcs = glob(["src/**/*.c"]),
+    hdrs = glob(["inc/**/*.h"]),
+    include_prefix = "vcu_model",
+    visibility = ["//visibility:public"],
 )
