@@ -7,5 +7,3 @@ TSM Firmware will live in the `TSM/firmware` directory.
 This directory can be recursively built by running `bazel build //TSM/firmware/...`. Additionally, the generated files will be placed in the `bazel-bin/TSM/` directory.
 
 The firmware target is `//TSM/firmware:tsm_firmware_2026`.
-
-Model firmware target: `//TSM/model:tsm_model_2026`.
