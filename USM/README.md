@@ -4,4 +4,6 @@ The Upright Sensor Board collects and processes wheel-area data from the car’s
 
 USM Firmware will live in the `USM/firmware` directory.
 
-This directory can be recursively built by running `bazel build //USM/firmware:usm_firmware_2026`.
+This directory can be recursively built by running `bazel build //USM/...`.
+
+The firmware target is `//USM/firmware:usm_firmware_2026`.
