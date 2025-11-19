@@ -1,15 +1,24 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("//tools:outputs/build_outputs.bzl", "MCU_FLAGS")
 
+load("@rules_python//python:defs.bzl", "py_binary")
+
 # Longhorn Lib is defined for both Bare Metal and FreeRTOS targets.
 # If using the FreeRTOS version, it is expected that the build target that includes 
 # longhorn_lib will have the freertos sources. (longhorn_lib is built without linking)
 # Bare metal target for Longhorn Lib -- Use when NOT running FreeRTOS
 cc_library(
     name = "longhorn_lib_base",
-    srcs = ["longhorn_lib_base_srcs"],
-    deps = ["//drivers/stm32g4:freertos_headers"],
-    hdrs = ["longhorn_lib_base_headers"],
+    srcs = [
+            "longhorn_lib_base_srcs",
+        ],
+    deps = [
+            "//drivers/stm32g4:freertos_headers",
+            "generated_can"
+        ],
+    hdrs = [
+            "longhorn_lib_base_headers",
+        ],
     visibility = ["//visibility:public"],
     includes = ["."],
     include_prefix = "longhorn",
@@ -18,7 +27,10 @@ cc_library(
 cc_library(
     name = "longhorn_lib_stm32g4",
     srcs = ["longhorn_lib_srcs"],
-    deps = ["//drivers/stm32g4:freertos_headers"],
+    deps = [
+        "//drivers/stm32g4:freertos_headers",
+        "generated_can"
+        ],
     hdrs = ["longhorn_lib_headers"],
     visibility = ["//visibility:public"],
     includes = ["."],
@@ -43,6 +55,61 @@ cc_library(
         "@platforms//os:none",
     ],
     copts = MCU_FLAGS
+)
+
+cc_library(
+    name = "generated_can",
+    srcs = [
+        "can_ids.c",
+    ],
+    hdrs = [
+        "can_ids.h",
+    ],
+    include_prefix = "longhorn/can"
+)
+
+genrule(
+    name = "can_json",
+    srcs = [
+        "config/can_bitfields.csv",
+        "config/can_packets.csv",
+    ],
+    tools = [
+        "generate_can_json",
+    ],
+    outs = [
+        "can.json"
+    ],
+    cmd = """$(location generate_can_json) \\
+            $(location config/can_packets.csv) $(location config/can_bitfields.csv) \\
+            $(location can.json)""",
+)
+
+genrule(
+    name = "can_definitions",
+    srcs = [
+        "can.json",
+    ],
+    tools = [
+        "generate_can_lib",
+    ],
+    outs = [
+        "can_ids.h",
+        "can_ids.c",
+    ],
+    cmd = """$(location generate_can_lib) \\
+                $(location can.json) --c-file $(location can_ids.c) \\
+                --h-file $(location can_ids.h)""",
+)
+
+py_binary(
+    name = "generate_can_json",
+    srcs = ["scripts/generate_can_json.py"],
+)
+
+py_binary(
+    name = "generate_can_lib",
+    srcs = ["scripts/generate_can_lib.py"],
 )
 
 filegroup(
@@ -98,3 +165,4 @@ filegroup(
 
     visibility = ["//visibility:public"],
 )
+
