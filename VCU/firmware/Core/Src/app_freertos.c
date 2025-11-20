@@ -33,6 +33,12 @@
 #include "tim.h"
 #include "usb_base.h"
 #include "usbd_cdc_if.h"
+
+
+extern ADC_HandleTypeDef hadc1;
+extern ADC_HandleTypeDef hadc2;
+extern ADC_HandleTypeDef hadc3;
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -52,77 +58,48 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
-
-/* USER CODE END Variables */
-/* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
+osThreadId_t defaultTask2Handle;
 osThreadId_t ledHandle;
+osThreadId_t adcTaskHandle;
+
 const osThreadAttr_t defaultTask_attributes = {
     .name = "defaultTask",
     .priority = (osPriority_t)osPriorityLow,
-    .stack_size = 128 + 1024};
+    .stack_size = 128 + 1024
+};
+
 const osThreadAttr_t defaultTask2_attributes = {
     .name = "defaultTask2",
     .priority = (osPriority_t)osPriorityLow,
-    .stack_size = 128 + 1024};
+    .stack_size = 128 + 1024
+};
+
+const osThreadAttr_t adcTask_attributes = {
+    .name = "ADC_Task",
+    .priority = (osPriority_t)osPriorityNormal,
+    .stack_size = 128 + 512
+};
+/* USER CODE END Variables */
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-
+void StartDefaultTask(void* argument);
+void StartDefaultTask2(void* argument);
+void StartADCTask(void* argument);
 /* USER CODE END FunctionPrototypes */
 
-void StartDefaultTask(void* argument);
-
-void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
-
-void StartDefaultTask2(void* argument) {
-    /* init code for USB_Device */
-    /* USER CODE BEGIN StartDefaultTask */
-
-    /* Infinite loop */
-
-    for (;;) {
-        ts_printf("2! Code Running from the VCU, current OS Tick: %d",
-                  osKernelGetTickCount());
-        osDelay(pdMS_TO_TICKS(1000));
-    }
-    /* USER CODE END StartDefaultTask */
-}
-
-/**
- * @brief  FreeRTOS initialization
- * @param  None
- * @retval None
- */
 void MX_FREERTOS_Init(void) {
     /* USER CODE BEGIN Init */
 
     /* USER CODE END Init */
 
-    /* USER CODE BEGIN RTOS_MUTEX */
-    /* add mutexes, ... */
-    /* USER CODE END RTOS_MUTEX */
-
-    /* USER CODE BEGIN RTOS_SEMAPHORES */
-    /* add semaphores, ... */
-    /* USER CODE END RTOS_SEMAPHORES */
-
-    /* USER CODE BEGIN RTOS_TIMERS */
-    /* start timers, add new ones, ... */
-    /* USER CODE END RTOS_TIMERS */
-
-    /* USER CODE BEGIN RTOS_QUEUES */
-    /* add queues, ... */
-    /* USER CODE END RTOS_QUEUES */
-
     /* Create the thread(s) */
-    /* creation of defaultTask */
-    defaultTaskHandle =
-        osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+    defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
     /* USER CODE BEGIN RTOS_THREADS */
-    /* add threads, ... */
 
+    // LED setup
     rainbow_led_t led = {
         .ccr2 = &TIM2->CCR1,
         .ccr1 = &TIM2->CCR2,
@@ -133,35 +110,24 @@ void MX_FREERTOS_Init(void) {
         .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
         .timer_handle = &htim2,
     };
-
     led_init(&led);
     ledHandle = led_start_thread();
-    // led_set(0.80f, 0.1f, 0.0f);
 
-    osThreadNew(StartDefaultTask2, NULL, &defaultTask2_attributes);
+    defaultTask2Handle = osThreadNew(StartDefaultTask2, NULL, &defaultTask2_attributes);
+
+    // ADC Task
+    adcTaskHandle = osThreadNew(StartADCTask, NULL, &adcTask_attributes);
 
     /* USER CODE END RTOS_THREADS */
-
-    /* USER CODE BEGIN RTOS_EVENTS */
-    /* add events, ... */
-    /* USER CODE END RTOS_EVENTS */
 }
 
-/* USER CODE BEGIN Header_StartDefaultTask */
-/**
- * @brief  Function implementing the defaultTask thread.
- * @param  argument: Not used
- * @retval None
- */
-/* USER CODE END Header_StartDefaultTask */
+/* USER CODE BEGIN StartDefaultTask */
 void StartDefaultTask(void* argument) {
-    /* init code for USB_Device */
     MX_USB_Device_Init();
-    /* USER CODE BEGIN StartDefaultTask */
 
     if (init_logging(CDC_Transmit_FS) == -1) {
         osThreadTerminate(ledHandle);
-    };
+    }
 
     dfu_config dfu = {
         .delay_fn = (Delay_fn)osDelay,
@@ -174,17 +140,52 @@ void StartDefaultTask(void* argument) {
     init_dfu(dfu);
     dfu_start_thread();
 
-    /* Infinite loop */
-
     for (;;) {
-        ts_printf("Hello World! Code Running from the VCU, current OS Tick: %d",
-                  osKernelGetTickCount());
+        // ts_printf("Hello World! OS Tick: %d", osKernelGetTickCount());
         osDelay(pdMS_TO_TICKS(2905));
     }
-    /* USER CODE END StartDefaultTask */
+}
+/* USER CODE END StartDefaultTask */
+
+void StartDefaultTask2(void* argument) {
+    for (;;) {
+        // ts_printf("2! Code Running from the VCU, OS Tick: %d", osKernelGetTickCount());
+        osDelay(pdMS_TO_TICKS(1000));
+    }
 }
 
-/* Private application code --------------------------------------------------*/
-/* USER CODE BEGIN Application */
+/* USER CODE BEGIN ADC_Task */
+void StartADCTask(void* argument) {
+    uint32_t adc1_val = 0;
+    uint32_t adc2_val = 0;
+    uint32_t adc3_val = 0;
 
-/* USER CODE END Application */
+    for (;;) {
+        // Start and poll ADC1 PA3 - Steering angle
+        HAL_ADC_Start(&hadc1);
+        if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
+            adc1_val = HAL_ADC_GetValue(&hadc1);
+        }
+        HAL_ADC_Stop(&hadc1);
+
+        // Start and poll ADC2 PA6 - BSPD BSE
+        HAL_ADC_Start(&hadc2);
+        if (HAL_ADC_PollForConversion(&hadc2, 10) == HAL_OK) {
+            adc2_val = HAL_ADC_GetValue(&hadc2);
+        }
+        HAL_ADC_Stop(&hadc2);
+
+        // Start and poll ADC3 PD13 - APPS
+        HAL_ADC_Start(&hadc3);
+        if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK) {
+            adc3_val = HAL_ADC_GetValue(&hadc3);
+        }
+        HAL_ADC_Stop(&hadc3);
+
+        // Print values
+        ts_printf("ADC1: %lu  ADC2: %lu  ADC3: %lu", adc1_val, adc2_val, adc3_val);
+
+        osDelay(pdMS_TO_TICKS(500));
+    }
+}
+/* USER CODE END ADC_Task */
