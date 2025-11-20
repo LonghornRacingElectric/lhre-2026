@@ -27,7 +27,7 @@ typedef struct dfu_config {
  * @brief DFU initialization function.
  *
  * @param config Configuration struct with necessary callbacks and GPIO info.
-*/
+ */
 void dfu_init(dfu_config config);
 
 /**

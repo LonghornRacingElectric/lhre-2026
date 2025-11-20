@@ -1,4 +1,4 @@
-#include "rtos/dfu.h"
+#include "longhorn/rtos/dfu.h"
 
 #include "FreeRTOS.h"
 #include "semphr.h"

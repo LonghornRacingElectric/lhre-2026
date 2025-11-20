@@ -19,14 +19,14 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "task.h"
-#include "main.h"
 #include "cmsis_os.h"
+#include "main.h"
+#include "task.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "longhorn/rtos/led.h"
 #include "tim.h"
-#include "rtos/led.h"
 
 /* USER CODE END Includes */
 
@@ -62,7 +62,7 @@ osThreadId_t ledHandle;
 
 /* USER CODE END FunctionPrototypes */
 
-void StartDefaultTask(void *argument);
+void StartDefaultTask(void* argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -71,52 +71,52 @@ void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
  * @param  None
  * @retval None
  */
-void MX_FREERTOS_Init(void)
-{
-  /* USER CODE BEGIN Init */
+void MX_FREERTOS_Init(void) {
+    /* USER CODE BEGIN Init */
 
-  /* USER CODE END Init */
+    /* USER CODE END Init */
 
-  /* USER CODE BEGIN RTOS_MUTEX */
-  /* add mutexes, ... */
-  /* USER CODE END RTOS_MUTEX */
+    /* USER CODE BEGIN RTOS_MUTEX */
+    /* add mutexes, ... */
+    /* USER CODE END RTOS_MUTEX */
 
-  /* USER CODE BEGIN RTOS_SEMAPHORES */
-  /* add semaphores, ... */
-  /* USER CODE END RTOS_SEMAPHORES */
+    /* USER CODE BEGIN RTOS_SEMAPHORES */
+    /* add semaphores, ... */
+    /* USER CODE END RTOS_SEMAPHORES */
 
-  /* USER CODE BEGIN RTOS_TIMERS */
-  /* start timers, add new ones, ... */
-  /* USER CODE END RTOS_TIMERS */
+    /* USER CODE BEGIN RTOS_TIMERS */
+    /* start timers, add new ones, ... */
+    /* USER CODE END RTOS_TIMERS */
 
-  /* USER CODE BEGIN RTOS_QUEUES */
-  /* add queues, ... */
-  /* USER CODE END RTOS_QUEUES */
+    /* USER CODE BEGIN RTOS_QUEUES */
+    /* add queues, ... */
+    /* USER CODE END RTOS_QUEUES */
 
-  /* Create the thread(s) */
-  /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+    /* Create the thread(s) */
+    /* creation of defaultTask */
+    defaultTaskHandle =
+        osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
-  /* USER CODE BEGIN RTOS_THREADS */
-  rainbow_led_t led = {
-      .ccr2 = &TIM8->CCR1,
-      .ccr1 = &TIM8->CCR2,
-      .ccr3 = &TIM8->CCR3,
-      .channel1 = TIM_CHANNEL_1,
-      .channel2 = TIM_CHANNEL_2,
-      .channel3 = TIM_CHANNEL_3,
-      .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
-      .timer_handle = &htim8,
-  };
+    /* USER CODE BEGIN RTOS_THREADS */
+    rainbow_led_t led = {
+        .ccr2 = &TIM8->CCR1,
+        .ccr1 = &TIM8->CCR2,
+        .ccr3 = &TIM8->CCR3,
+        .channel1 = TIM_CHANNEL_1,
+        .channel2 = TIM_CHANNEL_2,
+        .channel3 = TIM_CHANNEL_3,
+        .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
+        .timer_handle = &htim8,
+    };
 
-  led_init(&led);
-  ledHandle = led_start_thread();
-  /* add threads, ... */
-  /* USER CODE END RTOS_THREADS */
+    led_init(&led);
+    ledHandle = led_start_thread();
+    /* add threads, ... */
+    /* USER CODE END RTOS_THREADS */
 
-  /* USER CODE BEGIN RTOS_EVENTS */
-  /* add events, ... */
-  /* USER CODE END RTOS_EVENTS */
+    /* USER CODE BEGIN RTOS_EVENTS */
+    /* add events, ... */
+    /* USER CODE END RTOS_EVENTS */
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -126,17 +126,15 @@ void MX_FREERTOS_Init(void)
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
-{
-  /* init code for USB_Device */
-  MX_USB_Device_Init();
-  /* USER CODE BEGIN StartDefaultTask */
-  /* Infinite loop */
-  for (;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END StartDefaultTask */
+void StartDefaultTask(void* argument) {
+    /* init code for USB_Device */
+    MX_USB_Device_Init();
+    /* USER CODE BEGIN StartDefaultTask */
+    /* Infinite loop */
+    for (;;) {
+        osDelay(1);
+    }
+    /* USER CODE END StartDefaultTask */
 }
 
 /* Private application code --------------------------------------------------*/

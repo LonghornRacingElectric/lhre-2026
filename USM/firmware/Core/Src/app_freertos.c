@@ -26,7 +26,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "rtos/led.h"
+#include "longhorn/rtos/led.h"
 #include "tim.h"
 /* USER CODE END Includes */
 

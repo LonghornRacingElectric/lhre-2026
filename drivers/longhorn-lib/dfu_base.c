@@ -1,9 +1,10 @@
-#include "dfu_base.h"
+#include "longhorn/dfu_base.h"
 
 #include <stdbool.h>
 #include <string.h>
 
 #include "FreeRTOS.h"
+#include "FreeRTOSConfig.h"
 
 #define RECEIVE_BUFFER_SIZE 256
 

@@ -1,7 +1,7 @@
 #ifndef DRIVERS_LONGHORN_LIB_RTOS_LOGGER_H
 #define DRIVERS_LONGHORN_LIB_RTOS_LOGGER_H
 
-#include "usb_base.h"
+#include "longhorn/usb_base.h"
 
 typedef enum LOG_LEVEL {
     LOG_INFO,
@@ -114,6 +114,6 @@ int init_logging(CDC_Transmit_Fn_ptr transmit_fn);
  * @param format The standard printf format string.
  * @param ...    Variable arguments for the format string.
  */
-void log(LOG_LEVEL log_level, const char* format, ...);
+void log_printf(LOG_LEVEL log_level, const char* format, ...);
 
 #endif

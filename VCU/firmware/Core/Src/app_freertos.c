@@ -26,12 +26,12 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "rtos/dfu.h"
-#include "rtos/led.h"
-#include "rtos/logger.h"
-#include "rtos/usb.h"
+#include "longhorn/rtos/dfu.h"
+#include "longhorn/rtos/led.h"
+#include "longhorn/rtos/logger.h"
+#include "longhorn/rtos/usb.h"
+#include "longhorn/usb_base.h"
 #include "tim.h"
-#include "usb_base.h"
 #include "usbd_cdc_if.h"
 /* USER CODE END Includes */
 
@@ -82,8 +82,9 @@ void StartDefaultTask2(void* argument) {
     /* Infinite loop */
 
     for (;;) {
-        log(LOG_INFO, "2! Code Running from the VCU, current OS Tick: %d",
-            osKernelGetTickCount());
+        log_printf(LOG_INFO,
+                   "2! Code Running from the VCU, current OS Tick: %d",
+                   osKernelGetTickCount());
         osDelay(pdMS_TO_TICKS(1000));
     }
     /* USER CODE END StartDefaultTask */
@@ -177,7 +178,8 @@ void StartDefaultTask(void* argument) {
     /* Infinite loop */
 
     for (;;) {
-        log(LOG_INFO,
+        log_printf(
+            LOG_INFO,
             "Hello World! Code Running from the VCU, current OS Tick: %d",
             osKernelGetTickCount());
         osDelay(pdMS_TO_TICKS(2905));
