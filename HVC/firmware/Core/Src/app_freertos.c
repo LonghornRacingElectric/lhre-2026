@@ -27,7 +27,13 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "longhorn/rtos/dfu.h"
+#include "longhorn/rtos/led.h"
+#include "longhorn/rtos/logger.h"
+#include "longhorn/rtos/usb.h"
+#include "longhorn/usb_base.h"
+#include "tim.h"
+#include "usbd_cdc_if.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -51,6 +57,7 @@
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
+osThreadId_t ledHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .priority = (osPriority_t) osPriorityNormal,
@@ -98,10 +105,26 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
+  
+  rainbow_led_t led = {
+    .ccr2 = &TIM2->CCR1,
+    .ccr1 = &TIM2->CCR2,
+    .ccr3 = &TIM2->CCR3,
+    .channel1 = TIM_CHANNEL_1,
+    .channel2 = TIM_CHANNEL_2,
+    .channel3 = TIM_CHANNEL_3,
+    .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
+    .timer_handle = &htim2,
+  };
+
+  led_init(&led);
+  led_start_thread();
+  
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
+  
   /* USER CODE END RTOS_EVENTS */
 
 }
@@ -118,6 +141,19 @@ void StartDefaultTask(void *argument)
   /* init code for USB_Device */
   MX_USB_Device_Init();
   /* USER CODE BEGIN StartDefaultTask */
+  
+  // Initialize DFU
+  dfu_config dfu = {
+    .delay_fn = (Delay_fn)osDelay,
+    .gpiox = GPIOB,
+    .pin = GPIO_PIN_7,
+    .pin_set_fn = (PinSet_fn)HAL_GPIO_WritePin,
+    .reset_fn = (SystemReset_fn)HAL_NVIC_SystemReset,
+  };
+
+  init_dfu(dfu);
+  dfu_start_thread();
+  
   /* Infinite loop */
   for(;;)
   {
