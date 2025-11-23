@@ -195,3 +195,19 @@ Then, in your main loop, add the following:
 // you may want to replace the 0.01f with the amount of time (in seconds) between LED updates
 led_rainbow(0.01f); // updates the LED colors
 ```
+
+### Other Drivers
+
+#### AFBR-S50 API
+
+To use the AFBR-S50 API, include the following in your Bazel BUILD file's `firmware_project_g4` declaration:
+
+```bazel
+extra_deps = [
+        "@afbr_s50_lib//:afbr_s50_lib"
+],
+```
+
+If you already have an `extra_deps` attribute, just add the above line to the list.
+
+Then, in your code, use the API as specified by the official documentation.
