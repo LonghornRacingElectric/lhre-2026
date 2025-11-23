@@ -67,6 +67,18 @@ use_repo(openocd, "openocd")
 dfu = use_extension("//tools/dfu:dfu.bzl", "dfu")
 use_repo(dfu, "dfu")
 
+# AFBR-S50 API Library
+git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
+git_repository(
+    name = "afbr_s50_lib",
+    remote = "https://github.com/Broadcom/AFBR-S50-API.git",
+    commit = "68b16693bedae0704b49edcfa2a79e82e5520ae3",
+    shallow_since = "2024-01-01",
+    build_file = "//drivers:afbr-s50/afbr-s50.BUILD", 
+)
+
+
 # Hermetic Rust Toolchain
 # rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
 # rust.toolchain(
