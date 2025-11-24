@@ -1,0 +1,47 @@
+# telemtry/stack/tests/BUILD.bazel
+
+load("@rules_python//python:defs.bzl", "py_binary")
+load("@telemtry_reqs//:requirements.bzl", "requirement")
+
+# This is the Python script that will contain the logic for testing the stack.
+# It's defined as a binary so the sh_test can execute it.
+py_binary(
+    name = "stack_test_client",
+    srcs = ["test_stack_client.py"],
+    # Add any dependencies your test client needs, e.g. from requirements.txt
+    deps = [
+        requirement("Flask"),
+        requirement("jupyter"),
+        requirement("numpy"),
+        requirement("matplotlib"),
+        requirement("paho-mqtt"),
+        requirement("pandas"),
+        requirement("protobuf"),
+        requirement("SQLAlchemy"),
+        requirement("psycopg2-binary"),
+        requirement("requests"),
+        requirement("seaborn"),
+        requirement("tqdm"),
+        requirement("flask_login"),
+        requirement("gunicorn"),
+        requirement("flask_bcrypt"),
+        requirement("python-dotenv"),
+        requirement("kafka-python"),
+    ],
+)
+
+# This is the main integration test target.
+# It runs a shell script that manages the docker-compose lifecycle.
+sh_test(
+    name = "stack_integration_test",
+    srcs = ["run_integration_test.sh"],
+    # The 'data' attribute makes the test client and docker-compose files
+    # available to the shell script at runtime.
+    data = [
+        ":stack_test_client",
+        # Add paths to all relevant docker-compose files
+        "//telemtry/stack/ingest:docker-compose.yml",
+        "//telemtry/stack/kafka:docker-compose.yml",
+        # Add other compose files for processors etc.
+    ],
+)
