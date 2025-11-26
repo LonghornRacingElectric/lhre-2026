@@ -50,7 +50,12 @@ pip.parse(
     python_version = "3.13",
     requirements_lock = "//tools/dfu:requirements_lock.txt",
 )
-use_repo(pip, "dfu_reqs")
+pip.parse(
+    hub_name = "telemtry_reqs",
+    python_version = "3.11",
+    requirements_lock = "//telemtry/analysis:requirements_lock.txt",
+)
+use_repo(pip, "dfu_reqs", "telemtry_reqs")
 
 bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
 git_override(
