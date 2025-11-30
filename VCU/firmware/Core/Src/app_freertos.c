@@ -13,6 +13,7 @@
 #include "main.h"
 #include "task.h"
 #include "usb_device.h"
+#include <math.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -36,10 +37,11 @@ void StartTorqueTask(void *argument);
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define APPS_MIN_ADC      350
-#define APPS_MAX_ADC      3800
+#define APPS_MIN_ADC      815 // arbitrary pedal tuning
+#define APPS_MAX_ADC      3390 
 #define MAX_TORQUE_NM     80.0f
-#define TORQUE_ALPHA      0.2f
+#define TORQUE_ALPHA      0.5f // new_value = old_value + smoothing * (new_input - old_value) 
+
 /* USER CODE END PD */
 
 /* Private variables ---------------------------------------------------------*/
@@ -162,38 +164,49 @@ void StartADCTask(void *argument) {
 
 // new torque task
 void StartTorqueTask(void *argument) {
+    osDelay(pdMS_TO_TICKS(1000));  // allow system to start
 
-    osDelay(pdMS_TO_TICKS(1000));  // give it some time to start
-
-    float tq_filt = 0.0f;
+    float raw_filt = APPS_MIN_ADC; // filtered raw ADC
+    float tq_filt  = 0.0f;         // filtered torque
 
     for (;;) {
         HAL_ADC_Start(&hadc3);
-        if (HAL_ADC_PollForConversion(&hadc3, 10) != HAL_OK) {
+        if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK) {
+            uint32_t raw = HAL_ADC_GetValue(&hadc3);
             HAL_ADC_Stop(&hadc3);
-            osDelay(50);
-            continue;
-        }
 
-        uint32_t raw = HAL_ADC_GetValue(&hadc3);
-        HAL_ADC_Stop(&hadc3);
+            // Clamp raw ADC
+            if (raw < APPS_MIN_ADC) raw = APPS_MIN_ADC;
+            if (raw > APPS_MAX_ADC) raw = APPS_MAX_ADC;
 
-        float pct = (float)(raw - APPS_MIN_ADC) / (float)(APPS_MAX_ADC - APPS_MIN_ADC);
-        if (pct < 0) pct = 0;
-        if (pct > 1) pct = 1;
+            // Low-pass filter on raw ADC
+            raw_filt = raw_filt + TORQUE_ALPHA * ((float)raw - raw_filt);
 
-        float tq_raw = pct * MAX_TORQUE_NM;
-        tq_filt = tq_filt + TORQUE_ALPHA * (tq_raw - tq_filt);
+            // Convert to percent
+            float pct = (raw_filt - APPS_MIN_ADC) / (float)(APPS_MAX_ADC - APPS_MIN_ADC);
+            if (pct < 0.0f) pct = 0.0f;
+            if (pct > 1.0f) pct = 1.0f;
 
-        // print every 250ms
-        static uint32_t last_print = 0;
-        uint32_t now = osKernelGetTickCount();
-        if (now - last_print > 250) {
-            int pct_i  = (int)(pct * 1000);      // integer
-            int tq_i   = (int)(tq_filt * 100);  
+            // Calculate torque
+            float tq_raw = pct * MAX_TORQUE_NM;
 
-            ts_printf("APPS=%lu  pct=%d.%03d  torque=%d.%02d Nm", raw, pct_i / 1000, pct_i % 1000, tq_i / 100,   tq_i % 100); // torque w 2 decimal
-            last_print = now;
+            // Low-pass filter torque (optional)
+            tq_filt = tq_raw; // instant torque from filtered ADC
+
+            // Print every 250ms
+            static uint32_t last_print = 0;
+            uint32_t now = osKernelGetTickCount();
+            if (now - last_print > 250) {
+                int pct_i = (int)(pct * 1000);
+                int tq_i  = (int)(tq_filt * 100);
+
+                ts_printf("APPS=%lu  pct=%d.%03d  torque=%d.%02d Nm",
+                          raw, pct_i / 1000, pct_i % 1000, tq_i / 100, tq_i % 100);
+
+                last_print = now;
+            }
+        } else {
+            HAL_ADC_Stop(&hadc3);
         }
 
         osDelay(50);
