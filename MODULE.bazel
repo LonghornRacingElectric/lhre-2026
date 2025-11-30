@@ -32,6 +32,13 @@ register_toolchains(
 )
 
 # Hermetic C/C++ ARM Toolchain
+
+git_override(
+    module_name = "toolchains_arm_gnu",
+    remote = "https://github.com/LonghornRacingElectric/toolchains_arm_gnu.git",
+    commit = "4b8b8e5ab8b4b2fa0758662735f7d96e0b690a43",
+)
+
 arm_toolchain = use_extension("@toolchains_arm_gnu//:extensions.bzl", "arm_toolchain")
 arm_toolchain.arm_none_eabi(version = "13.2.1")
 use_repo(arm_toolchain, "arm_none_eabi")
