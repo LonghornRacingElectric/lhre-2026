@@ -32,7 +32,7 @@ register_toolchains(
 )
 
 # Hermetic C/C++ ARM Toolchain
-
+# Override to use a custom fork for the ARM toolchain, allowing for patches.
 git_override(
     module_name = "toolchains_arm_gnu",
     remote = "https://github.com/LonghornRacingElectric/toolchains_arm_gnu.git",
