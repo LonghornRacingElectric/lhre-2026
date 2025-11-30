@@ -38,7 +38,6 @@
 /* HVC Application Modules */
 #include "hvc_state_machine.h"
 #include "hvc_contactors.h"
-#include "hvc_bms.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -67,14 +66,6 @@ const osThreadAttr_t stateMachineTask_attributes = {
   .stack_size = 256 * 4
 };
 
-/* Definitions for bmsTask */
-osThreadId_t bmsTaskHandle;
-const osThreadAttr_t bmsTask_attributes = {
-  .name = "bmsTask",
-  .priority = (osPriority_t) osPriorityAboveNormal,
-  .stack_size = 512 * 4
-};
-
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -87,7 +78,6 @@ const osThreadAttr_t defaultTask_attributes = {
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 void StartStateMachineTask(void *argument);
-void StartBmsTask(void *argument);
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
@@ -129,15 +119,6 @@ void MX_FREERTOS_Init(void) {
   
   /* HVC State Machine Task - 10Hz update rate */
   stateMachineTaskHandle = osThreadNew(StartStateMachineTask, NULL, &stateMachineTask_attributes);
-  
-  /* HVC BMS Task - 5Hz update rate (200ms period) */
-  bmsTaskHandle = osThreadNew(StartBmsTask, NULL, &bmsTask_attributes);
-  
-  // Check if BMS task creation failed
-  if (bmsTaskHandle == NULL) {
-    // Task creation failed - likely out of heap memory
-    // This will be checked in default task
-  }
   
   /* Rainbow LED for visual feedback */
   rainbow_led_t led = {
@@ -199,18 +180,7 @@ void StartDefaultTask(void *argument)
   CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
   osDelay(100);
   
-  // Check BMS task creation
-  if (bmsTaskHandle == NULL) {
-    msg = "ERROR: BMS task creation failed!\r\n";
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    osDelay(100);
-  } else {
-    msg = "BMS task created successfully\r\n";
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    osDelay(100);
-  }
-  
-  msg = "System running - BMS task disabled for debugging\r\n";
+  msg = "System running\r\n";
   CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
   osDelay(100);
   
@@ -255,47 +225,7 @@ void StartStateMachineTask(void *argument)
   }
 }
 
-/**
- * @brief BMS Task
- * @details Runs at 5Hz to read cell voltages and temperatures from ADBMS6830 chips
- * @param argument Not used
- */
-void StartBmsTask(void *argument)
-{
-  // Wait for USB - BMS starts after state machine
-  osDelay(4500);
-  
-  const char* msg = "BMS Task started\r\n";
-  CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-  osDelay(200);
-  
-  // Initialize BMS
-  bms_init();
-  
-  msg = "BMS initialized - ready for development\r\n";
-  CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-  osDelay(200);
-  
-  // Task loop - 5Hz update rate (200ms period)
-  const uint32_t task_period_ms = 200;
-  uint32_t loop_count = 0;
-  char buffer[128];
-  
-  for(;;)
-  {
-    // Update BMS readings
-    bms_update();
-    
-    // Heartbeat every 5 seconds while we develop the driver
-    if (loop_count % 25 == 0) {
-      snprintf(buffer, sizeof(buffer), "BMS heartbeat: %lu\r\n", loop_count / 25);
-      CDC_Transmit_FS((uint8_t*)buffer, strlen(buffer));
-    }
-    
-    loop_count++;
-    osDelay(task_period_ms);
-  }
-}
+
 
 /* USER CODE END Application */
 
