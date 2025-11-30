@@ -11,4 +11,12 @@ firmware_project_g4(
     enable_freertos = True,
     enable_usb = True,
     usb_device_name = "High Voltage Controller",
+    extra_srcs = [
+        "App/Src/hvc_state_machine.c",
+        "App/Src/hvc_contactors.c",
+        "App/Src/hvc_bms.c",
+    ],
+    extra_includes = [
+        "App/Inc",
+    ],
 )

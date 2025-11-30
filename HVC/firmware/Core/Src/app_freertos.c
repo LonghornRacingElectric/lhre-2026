@@ -34,6 +34,11 @@
 #include "longhorn/usb_base.h"
 #include "tim.h"
 #include "usbd_cdc_if.h"
+
+/* HVC Application Modules */
+#include "hvc_state_machine.h"
+#include "hvc_contactors.h"
+#include "hvc_bms.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -54,6 +59,22 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
 
+/* Definitions for stateMachineTask */
+osThreadId_t stateMachineTaskHandle;
+const osThreadAttr_t stateMachineTask_attributes = {
+  .name = "stateMachine",
+  .priority = (osPriority_t) osPriorityHigh,
+  .stack_size = 256 * 4
+};
+
+/* Definitions for bmsTask */
+osThreadId_t bmsTaskHandle;
+const osThreadAttr_t bmsTask_attributes = {
+  .name = "bmsTask",
+  .priority = (osPriority_t) osPriorityAboveNormal,
+  .stack_size = 512 * 4
+};
+
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -65,7 +86,8 @@ const osThreadAttr_t defaultTask_attributes = {
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-
+void StartStateMachineTask(void *argument);
+void StartBmsTask(void *argument);
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
@@ -105,6 +127,19 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   
+  /* HVC State Machine Task - 10Hz update rate */
+  stateMachineTaskHandle = osThreadNew(StartStateMachineTask, NULL, &stateMachineTask_attributes);
+  
+  /* HVC BMS Task - 5Hz update rate (200ms period) */
+  bmsTaskHandle = osThreadNew(StartBmsTask, NULL, &bmsTask_attributes);
+  
+  // Check if BMS task creation failed
+  if (bmsTaskHandle == NULL) {
+    // Task creation failed - likely out of heap memory
+    // This will be checked in default task
+  }
+  
+  /* Rainbow LED for visual feedback */
   rainbow_led_t led = {
     .ccr2 = &TIM2->CCR1,
     .ccr1 = &TIM2->CCR2,
@@ -141,6 +176,13 @@ void StartDefaultTask(void *argument)
   MX_USB_Device_Init();
   /* USER CODE BEGIN StartDefaultTask */
   
+  // Wait for USB to enumerate
+  osDelay(3000);
+  
+  const char* msg = "\r\n=== HVC Firmware Starting ===\r\n";
+  CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+  osDelay(100);
+  
   // Initialize DFU
   dfu_config dfu = {
     .delay_fn = (Delay_fn)osDelay,
@@ -153,16 +195,107 @@ void StartDefaultTask(void *argument)
   init_dfu(dfu);
   dfu_start_thread();
   
+  msg = "DFU initialized\r\n";
+  CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+  osDelay(100);
+  
+  // Check BMS task creation
+  if (bmsTaskHandle == NULL) {
+    msg = "ERROR: BMS task creation failed!\r\n";
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    osDelay(100);
+  } else {
+    msg = "BMS task created successfully\r\n";
+    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    osDelay(100);
+  }
+  
+  msg = "System running - BMS task disabled for debugging\r\n";
+  CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+  osDelay(100);
+  
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    osDelay(1000);
   }
   /* USER CODE END StartDefaultTask */
 }
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+
+/**
+ * @brief State Machine Task
+ * @details Runs at 10Hz to manage HVC states, precharge, and contactor control
+ * @param argument Not used
+ */
+void StartStateMachineTask(void *argument)
+{
+  // Wait for USB
+  osDelay(3500);
+  
+  const char* msg = "State Machine initialized\r\n";
+  CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+  osDelay(200);
+  
+  // Initialize state machine and contactors
+  state_machine_init();
+  contactors_init();
+  
+  // Task loop - 10Hz update rate (100ms period)
+  const uint32_t task_period_ms = 100;
+  
+  for(;;)
+  {
+    // Update state machine
+    update_state_machine();
+    
+    osDelay(task_period_ms);
+  }
+}
+
+/**
+ * @brief BMS Task
+ * @details Runs at 5Hz to read cell voltages and temperatures from ADBMS6830 chips
+ * @param argument Not used
+ */
+void StartBmsTask(void *argument)
+{
+  // Wait for USB - BMS starts after state machine
+  osDelay(4500);
+  
+  const char* msg = "BMS Task started\r\n";
+  CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+  osDelay(200);
+  
+  // Initialize BMS
+  bms_init();
+  
+  msg = "BMS initialized - ready for development\r\n";
+  CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+  osDelay(200);
+  
+  // Task loop - 5Hz update rate (200ms period)
+  const uint32_t task_period_ms = 200;
+  uint32_t loop_count = 0;
+  char buffer[128];
+  
+  for(;;)
+  {
+    // Update BMS readings
+    bms_update();
+    
+    // Heartbeat every 5 seconds while we develop the driver
+    if (loop_count % 25 == 0) {
+      snprintf(buffer, sizeof(buffer), "BMS heartbeat: %lu\r\n", loop_count / 25);
+      CDC_Transmit_FS((uint8_t*)buffer, strlen(buffer));
+    }
+    
+    loop_count++;
+    osDelay(task_period_ms);
+  }
+}
 
 /* USER CODE END Application */
 

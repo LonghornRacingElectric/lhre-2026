@@ -57,6 +57,8 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define SPI4_CS_Pin GPIO_PIN_3
+#define SPI4_CS_GPIO_Port GPIOE
 #define Temp_Sense_3_Pin GPIO_PIN_0
 #define Temp_Sense_3_GPIO_Port GPIOC
 #define Temp_Sense_4_Pin GPIO_PIN_1
