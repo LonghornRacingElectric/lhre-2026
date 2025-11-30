@@ -160,10 +160,10 @@ void StartADCTask(void *argument) {
 /* USER CODE END ADC_Task */
 
 
-/* ========== TORQUE TASK — NEW ========== */
+// new torque task
 void StartTorqueTask(void *argument) {
 
-    osDelay(pdMS_TO_TICKS(1000));  // allow USB & logging to start
+    osDelay(pdMS_TO_TICKS(1000));  // give it some time to start
 
     float tq_filt = 0.0f;
 
@@ -189,10 +189,10 @@ void StartTorqueTask(void *argument) {
         static uint32_t last_print = 0;
         uint32_t now = osKernelGetTickCount();
         if (now - last_print > 250) {
-            int pct_i  = (int)(pct * 1000);      // 0.421 → 421
-            int tq_i   = (int)(tq_filt * 100);   // 32.48 → 3248
+            int pct_i  = (int)(pct * 1000);      // integer
+            int tq_i   = (int)(tq_filt * 100);  
 
-            ts_printf("APPS=%lu  pct=%d.%03d  torque=%d.%02d Nm", raw, pct_i / 1000, pct_i % 1000, tq_i / 100,   tq_i % 100);
+            ts_printf("APPS=%lu  pct=%d.%03d  torque=%d.%02d Nm", raw, pct_i / 1000, pct_i % 1000, tq_i / 100,   tq_i % 100); // torque w 2 decimal
             last_print = now;
         }
 
