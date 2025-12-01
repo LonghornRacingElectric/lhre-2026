@@ -11,4 +11,10 @@ firmware_project_g4(
     enable_freertos = True,
     enable_usb = True,
     usb_device_name = "High Voltage Controller",
+    extra_srcs = [
+        "//HVC/adbms6830:adbms_sources",
+    ],
+    extra_includes = [
+        "../adbms6830/inc",
+    ],
 )

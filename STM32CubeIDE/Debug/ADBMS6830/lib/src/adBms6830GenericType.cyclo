@@ -1,0 +1,15 @@
+../ADBMS6830/lib/src/adBms6830GenericType.c:97:10:Pec15_Calc	2
+../ADBMS6830/lib/src/adBms6830GenericType.c:113:10:pec10_calc	7
+../ADBMS6830/lib/src/adBms6830GenericType.c:163:10:adi_pec10_calc_table	5
+../ADBMS6830/lib/src/adBms6830GenericType.c:203:10:CalcPEC10	5
+../ADBMS6830/lib/src/adBms6830GenericType.c:241:6:spiSendCmd	1
+../ADBMS6830/lib/src/adBms6830GenericType.c:276:6:spiReadData	5
+../ADBMS6830/lib/src/adBms6830GenericType.c:360:6:adBmsReadData	51
+../ADBMS6830/lib/src/adBms6830GenericType.c:616:6:spiWriteData	3
+../ADBMS6830/lib/src/adBms6830GenericType.c:694:6:adBmsWriteData	21
+../ADBMS6830/lib/src/adBms6830GenericType.c:866:6:adBms6830_Adcv	1
+../ADBMS6830/lib/src/adBms6830GenericType.c:892:6:adBms6830_Snap	1
+../ADBMS6830/lib/src/adBms6830GenericType.c:911:6:adBms6830_Unsnap	1
+../ADBMS6830/lib/src/adBms6830GenericType.c:937:6:adBms6830_Adsv	1
+../ADBMS6830/lib/src/adBms6830GenericType.c:969:6:adBms6830_Adax	1
+../ADBMS6830/lib/src/adBms6830GenericType.c:996:6:adBms6830_Adax2	1
