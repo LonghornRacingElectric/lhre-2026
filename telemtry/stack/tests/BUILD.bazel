@@ -1,15 +1,39 @@
 # telemtry/stack/tests/BUILD.bazel
+# Integration tests for the telemetry stack
+# Tests communication between Docker containers and non-Docker scripts
 
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("@telemtry_reqs//:requirements.bzl", "requirement")
 
-# This is the Python script that will contain the logic for testing the stack.
-# It's defined as a binary so the sh_test can execute it.
+package(default_visibility = ["//telemtry:__subpackages__"])
+
+# Common test utilities library
+py_library(
+    name = "test_utils",
+    srcs = ["test_utils.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//telemtry/analysis:analysis_lib",
+        "//telemtry/stack/ingest:ingest_lib",
+        requirement("kafka-python"),
+        requirement("numpy"),
+        requirement("paho-mqtt"),
+        requirement("pandas"),
+        requirement("protobuf"),
+        requirement("psycopg2-binary"),
+        requirement("python-dotenv"),
+        requirement("requests"),
+        requirement("SQLAlchemy"),
+    ],
+)
+
+# Stack test client - tests container communication
 py_binary(
     name = "stack_test_client",
     srcs = ["test_stack_client.py"],
-    # Add any dependencies your test client needs, e.g. from requirements.txt
+    main = "test_stack_client.py",
     deps = [
+        ":test_utils",
         requirement("Flask"),
         requirement("jupyter"),
         requirement("numpy"),
@@ -30,18 +54,135 @@ py_binary(
     ],
 )
 
-# This is the main integration test target.
-# It runs a shell script that manages the docker-compose lifecycle.
+# MQTT connectivity test
+py_test(
+    name = "mqtt_connectivity_test",
+    srcs = ["test_mqtt_connectivity.py"],
+    main = "test_mqtt_connectivity.py",
+    data = ["//telemtry:env_files"],
+    deps = [
+        ":test_utils",
+        requirement("paho-mqtt"),
+        requirement("python-dotenv"),
+    ],
+    tags = ["integration", "docker"],
+)
+
+# Kafka connectivity test
+py_test(
+    name = "kafka_connectivity_test",
+    srcs = ["test_kafka_connectivity.py"],
+    main = "test_kafka_connectivity.py",
+    data = ["//telemtry:env_files"],
+    deps = [
+        ":test_utils",
+        requirement("kafka-python"),
+        requirement("python-dotenv"),
+    ],
+    tags = ["integration", "docker"],
+)
+
+# Database connectivity test
+py_test(
+    name = "db_connectivity_test",
+    srcs = ["test_db_connectivity.py"],
+    main = "test_db_connectivity.py",
+    data = ["//telemtry:env_files"],
+    deps = [
+        ":test_utils",
+        "//telemtry/analysis:analysis_lib",
+        requirement("psycopg2-binary"),
+        requirement("SQLAlchemy"),
+        requirement("python-dotenv"),
+    ],
+    tags = ["integration", "docker"],
+)
+
+# End-to-end data flow test (MQTT -> Ingest -> Kafka -> DB)
+py_test(
+    name = "data_flow_test",
+    srcs = ["test_data_flow.py"],
+    main = "test_data_flow.py",
+    data = ["//telemtry:env_files"],
+    deps = [
+        ":test_utils",
+        "//telemtry/analysis:analysis_lib",
+        "//telemtry/stack/ingest:ingest_lib",
+        requirement("kafka-python"),
+        requirement("paho-mqtt"),
+        requirement("protobuf"),
+        requirement("psycopg2-binary"),
+        requirement("python-dotenv"),
+        requirement("SQLAlchemy"),
+    ],
+    tags = ["integration", "docker", "e2e"],
+)
+
+# Protobuf serialization test (tests paho_testing.py patterns)
+py_test(
+    name = "protobuf_test",
+    srcs = ["test_protobuf.py"],
+    main = "test_protobuf.py",
+    data = ["//telemtry:env_files"],
+    deps = [
+        ":test_utils",
+        "//telemtry/analysis:analysis_lib",
+        "//telemtry/stack/ingest:ingest_lib",
+        requirement("numpy"),
+        requirement("protobuf"),
+        requirement("python-dotenv"),
+    ],
+    tags = ["unit"],
+)
+
+# Export shell scripts and docker-compose files
+exports_files([
+    "run_integration_test.sh",
+    "test_stack_client.py",
+])
+
+# Integration test target - uses shell script to manage Docker lifecycle
 sh_test(
     name = "stack_integration_test",
     srcs = ["run_integration_test.sh"],
-    # The 'data' attribute makes the test client and docker-compose files
-    # available to the shell script at runtime.
     data = [
         ":stack_test_client",
-        # Add paths to all relevant docker-compose files
         "//telemtry/stack/ingest:docker-compose.yml",
         "//telemtry/stack/kafka:docker-compose.yml",
-        # Add other compose files for processors etc.
+        "//telemtry/stack/processors/gps_classifier:docker-compose.yml",
+        "//telemtry/stack/processors/kafka_base:docker-compose.yml",
+        "//telemtry/stack/processors/lap_timer:docker-compose.yml",
+        "//telemtry:config_files",
+    ],
+    tags = ["integration", "docker", "manual"],
+)
+
+# Test suite for all integration tests (requires Docker to be running)
+test_suite(
+    name = "integration_tests",
+    tags = ["integration"],
+    tests = [
+        ":data_flow_test",
+        ":db_connectivity_test",
+        ":kafka_connectivity_test",
+        ":mqtt_connectivity_test",
+    ],
+)
+
+# Test suite for unit tests (no Docker required)
+test_suite(
+    name = "unit_tests",
+    tags = ["unit"],
+    tests = [
+        ":protobuf_test",
+    ],
+)
+
+# All telemetry stack tests
+test_suite(
+    name = "all_tests",
+    tests = [
+        ":integration_tests",
+        ":unit_tests",
     ],
 )
