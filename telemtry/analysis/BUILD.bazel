@@ -17,6 +17,7 @@ compile_pip_requirements(
     name = "telemetry_requirements",
     src = "requirements.txt",
     requirements_txt = "requirements_lock.txt",
+    requirements_darwin = "requirements_lock_darwin.txt",
     python_version = "3.11",
     generate_hashes = False,
 )
