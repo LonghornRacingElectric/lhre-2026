@@ -1,19 +1,19 @@
 /* USER CODE BEGIN Header */
 /**
- ******************************************************************************
- * File Name          : app_freertos.c
- * Description        : Code for freertos applications
- ******************************************************************************
- */
+  ******************************************************************************
+  * File Name          : app_freertos.c
+  * Description        : Code for freertos applications
+  ******************************************************************************
+  */
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "cmsis_os.h"
-#include "main.h"
 #include "task.h"
+#include "main.h"
+#include "cmsis_os.h"
+
 #include "usb_device.h"
-#include <math.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -32,17 +32,24 @@ extern ADC_HandleTypeDef hadc3;
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+void StartDefaultTask(void *argument);
+void StartDefaultTask2(void *argument);
+void StartADCTask(void *argument);
 void StartTorqueTask(void *argument);
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define APPS_MIN_ADC      815 // arbitrary pedal tuning
-#define APPS_MAX_ADC      3390 
+#define APPS_MAX_ADC      3390
 #define MAX_TORQUE_NM     80.0f
-#define TORQUE_ALPHA      0.5f // new_value = old_value + smoothing * (new_input - old_value) 
-
+#define TORQUE_ALPHA      0.5f // new_value = old_value + smoothing * (new_input - old_value)
 /* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
@@ -65,19 +72,49 @@ const osThreadAttr_t torqueTask_attributes = {
 };
 /* USER CODE END Variables */
 
-/* Private function prototypes -----------------------------------------------*/
-void StartDefaultTask(void *argument);
-void StartDefaultTask2(void *argument);
-void StartADCTask(void *argument);
+/* Definitions for defaultTask */
+const osThreadAttr_t defaultTask_attributes = {
+  .name = "defaultTask",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 128 * 4
+};
 
+/* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
+/* (already declared above) */
 /* USER CODE END FunctionPrototypes */
 
+/**
+  * @brief  FreeRTOS initialization
+  * @param  None
+  * @retval None
+  */
 void MX_FREERTOS_Init(void) {
+  /* USER CODE BEGIN Init */
 
-    defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, NULL);
+  /* USER CODE END Init */
 
-    /* USER CODE BEGIN RTOS_THREADS */
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* creation of defaultTask */
+  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+
+  /* USER CODE BEGIN RTOS_THREADS */
     // LED setup
     rainbow_led_t led = {
         .ccr2 = &TIM2->CCR1,
@@ -92,17 +129,30 @@ void MX_FREERTOS_Init(void) {
     led_init(&led);
     ledHandle = led_start_thread();
 
+    /* create additional tasks */
     defaultTask2Handle = osThreadNew(StartDefaultTask2, NULL, NULL);
-
     adcTaskHandle = osThreadNew(StartADCTask, NULL, &adcTask_attributes);
-
     torqueTaskHandle = osThreadNew(StartTorqueTask, NULL, &torqueTask_attributes);
-    /* USER CODE END RTOS_THREADS */
+  /* USER CODE END RTOS_THREADS */
+
+  /* USER CODE BEGIN RTOS_EVENTS */
+  /* add events, ... */
+  /* USER CODE END RTOS_EVENTS */
 }
 
-/* USER CODE BEGIN StartDefaultTask */
-void StartDefaultTask(void *argument) {
+/* USER CODE BEGIN Header_StartDefaultTask */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartDefaultTask */
+void StartDefaultTask(void *argument)
+{
+  /* init code for USB_Device */
+  MX_USB_Device_Init();
 
+  /* USER CODE BEGIN StartDefaultTask */
     MX_USB_Device_Init();   // MUST happen before logging
 
     if (init_logging(CDC_Transmit_FS) == -1) {
@@ -123,14 +173,16 @@ void StartDefaultTask(void *argument) {
     for (;;) {
         osDelay(pdMS_TO_TICKS(500));
     }
+  /* USER CODE END StartDefaultTask */
 }
-/* USER CODE END StartDefaultTask */
 
+/* USER CODE BEGIN StartDefaultTask2 */
 void StartDefaultTask2(void *argument) {
     for (;;) {
         osDelay(pdMS_TO_TICKS(1000));
     }
 }
+/* USER CODE END StartDefaultTask2 */
 
 /* USER CODE BEGIN ADC_Task */
 void StartADCTask(void *argument) {
@@ -162,11 +214,11 @@ void StartADCTask(void *argument) {
 /* USER CODE END ADC_Task */
 
 
-// new torque task
+/* USER CODE BEGIN Torque_Task */
 void StartTorqueTask(void *argument) {
     osDelay(pdMS_TO_TICKS(1000));  // allow system to start
 
-    float raw_filt = APPS_MIN_ADC; // filtered raw ADC
+    float raw_filt = (float)APPS_MIN_ADC; // filtered raw ADC
     float tq_filt  = 0.0f;         // filtered torque
 
     for (;;) {
@@ -197,8 +249,8 @@ void StartTorqueTask(void *argument) {
             static uint32_t last_print = 0;
             uint32_t now = osKernelGetTickCount();
             if (now - last_print > 250) {
-                int pct_i = (int)(pct * 1000);
-                int tq_i  = (int)(tq_filt * 100);
+                int pct_i = (int)(pct * 1000.0f);
+                int tq_i  = (int)(tq_filt * 100.0f);
 
                 ts_printf("APPS=%lu  pct=%d.%03d  torque=%d.%02d Nm",
                           raw, pct_i / 1000, pct_i % 1000, tq_i / 100, tq_i % 100);
@@ -209,6 +261,12 @@ void StartTorqueTask(void *argument) {
             HAL_ADC_Stop(&hadc3);
         }
 
-        osDelay(50);
+        osDelay(pdMS_TO_TICKS(50));
     }
 }
+/* USER CODE END Torque_Task */
+
+/* Private application code --------------------------------------------------*/
+/* USER CODE BEGIN Application */
+
+/* USER CODE END Application */
