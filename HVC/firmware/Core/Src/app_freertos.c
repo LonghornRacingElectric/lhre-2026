@@ -38,11 +38,12 @@
 /* HVC Application Modules */
 #include "hvc_state_machine.h"
 #include "hvc_contactors.h"
+#include "hvc_bms.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+extern SPI_HandleTypeDef hspi4;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -59,6 +60,12 @@
 /* USER CODE BEGIN Variables */
 
 /* Definitions for stateMachineTask */
+osThreadId_t bmsTaskHandle;
+const osThreadAttr_t bmsTask_attributes = {
+  .name = "bms_Task",
+  .priority = (osPriority_t) osPriorityNormal,  // Same as other tasks
+  .stack_size = 256 * 4
+};
 osThreadId_t stateMachineTaskHandle;
 const osThreadAttr_t stateMachineTask_attributes = {
   .name = "stateMachine",
@@ -78,6 +85,7 @@ const osThreadAttr_t defaultTask_attributes = {
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 void StartStateMachineTask(void *argument);
+void StartBmsTask(void *argument);
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
@@ -119,7 +127,7 @@ void MX_FREERTOS_Init(void) {
   
   /* HVC State Machine Task - 10Hz update rate */
   stateMachineTaskHandle = osThreadNew(StartStateMachineTask, NULL, &stateMachineTask_attributes);
-  
+  bmsTaskHandle = osThreadNew(StartBmsTask, NULL, &bmsTask_attributes);
   /* Rainbow LED for visual feedback */
   rainbow_led_t led = {
     .ccr2 = &TIM2->CCR1,

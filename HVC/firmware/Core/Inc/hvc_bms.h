@@ -28,4 +28,6 @@ void bms_init(void);
  */
 void bms_update(void);
 
+void StartBmsTask(void *argument);
+
 #endif // HVC_BMS_H
