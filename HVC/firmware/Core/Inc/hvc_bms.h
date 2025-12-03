@@ -28,6 +28,8 @@ void bms_init(void);
  */
 void bms_update(void);
 
+uint32_t getPackVoltage_mv(void);
+
 void StartBmsTask(void *argument);
 
 #endif // HVC_BMS_H

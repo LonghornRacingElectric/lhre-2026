@@ -206,6 +206,8 @@ __attribute__((weak)) float get_tractive_voltage(void) {
 }
 
 __attribute__((weak)) float get_pack_voltage(void) {
-    // Default: return 0V (safe default)
-    return 0.0f;
+    // Default: return pack voltage (read from BMS) in volts
+    extern uint32_t getPackVoltage_mv(void);
+    uint32_t pack_mv = getPackVoltage_mv();
+    return ((float)pack_mv) / 1000.0f;
 }

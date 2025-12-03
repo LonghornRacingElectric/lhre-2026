@@ -25,23 +25,47 @@ extern uint8_t WRPWM2[2];
 #define TOTAL_IC 1
 #define NUM_CELLS 5
 #define DISCHARGE_CELL 0  // Which cell to discharge (0-4)
+// Mask covering all cells (bits 0..NUM_CELLS-1)
+#define ALL_DISCHARGE_MASK ((1U << NUM_CELLS) - 1)
 
 static cell_asic IC[TOTAL_IC];
 static uint8_t discharge_active = 0;
 
-void bms_enable_discharge(uint8_t cell_num)
+// Returns pack voltage in millivolts by summing all cell voltages
+uint32_t getPackVoltage_mv(void)
+{
+    uint32_t pack_mv = 0;
+    uint16_t code;
+    int i;
+
+    for (i = 0; i < NUM_CELLS; i++) {
+        code = IC[0].cell.c_codes[i];
+        pack_mv += (uint32_t)((code * 8) / 30);
+    }
+
+    return pack_mv;
+}
+
+// Return BMS status: 1 if discharging active, 0 otherwise
+uint8_t getbmsStatus(void)
+{
+    return discharge_active ? 1 : 0;
+}
+
+void bms_enable_discharge()
 {
     char msg[128];
     
     // Set discharge bit for specified cell in Config B register
-    IC[0].tx_cfgb.dcc = (1 << cell_num);
+    // Enable discharge on all cells
+    IC[0].tx_cfgb.dcc = (uint16_t)ALL_DISCHARGE_MASK;
     
     // Write configuration with discharge enabled
     adBmsWakeupIc(TOTAL_IC);
     adBms6830_write_config(TOTAL_IC, IC);
     
-    snprintf(msg, sizeof(msg), "Discharge enabled on cell %d (DCC=0x%04X)\r\n", 
-             cell_num, IC[0].tx_cfgb.dcc);
+    snprintf(msg, sizeof(msg), "Discharge enabled on ALL CELLS (DCC=0x%04X)\r\n", 
+             IC[0].tx_cfgb.dcc);
     CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
     
     discharge_active = 1;
@@ -73,7 +97,7 @@ void bms_init(void)
     // This allows long discharge tests
     SetConfigB_DischargeTimeOutValue(TOTAL_IC, IC, RANG_0_TO_63_MIN, 63);
     
-    // Set PWM duty cycle to 72.6% for controlled discharge current
+    // Set PWM duty cycle to 100%
     SetPwmDutyCycle(TOTAL_IC, IC, PWM_100_0_PCT);
     
     // Initialize Config B with discharge disabled
@@ -119,16 +143,18 @@ void bms_update(void)
     // Read cell voltages
     adBms6830_read_cell_voltages(TOTAL_IC, IC);
     
-    // Print only the discharging cell voltage
-    code = IC[0].cell.c_codes[DISCHARGE_CELL];
-    voltage_mv = (code * 8) / 30;  // Convert to mV
-    
-    if (discharge_active) {
-        snprintf(msg, sizeof(msg), "Cell %d: %lu mV [DISCHARGING]\r\n", DISCHARGE_CELL, voltage_mv);
-    } else {
-        snprintf(msg, sizeof(msg), "Cell %d: %lu mV\r\n", DISCHARGE_CELL, voltage_mv);
+    // Print all cell voltages, marking the discharging cell
+    for (i = 0; i < NUM_CELLS; i++) {
+        code = IC[0].cell.c_codes[i];
+        voltage_mv = (code * 8) / 30;  // Convert to mV
+        
+        if (discharge_active) {
+            snprintf(msg, sizeof(msg), "Cell %d: %lu mV [DISCHARGING]\r\n", i, voltage_mv);
+        } else {
+            snprintf(msg, sizeof(msg), "Cell %d: %lu mV\r\n", i, voltage_mv);
+        }
+        CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
     }
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
 }
 
 void StartBmsTask(void *argument)
@@ -148,7 +174,7 @@ void StartBmsTask(void *argument)
     }
     
     // Enable discharge on specified cell
-    bms_enable_discharge(DISCHARGE_CELL);
+    bms_enable_discharge();
 
     // Monitor for 500 seconds with discharge active
     CDC_Transmit_FS((uint8_t*)"\r\n*** DISCHARGE ACTIVE FOR 500 SECONDS ***\r\n\r\n", 48);
