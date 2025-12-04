@@ -22,7 +22,7 @@
 
 /* USER CODE BEGIN 0 */
 
-/* ADC3 DMA buffer: [0] = ADC3_IN9, [1] = ADC3_IN10 */
+// ADC3 DMA buffer: [0] = ADC3_IN9, [1] = ADC3_IN10
 volatile uint16_t adc3_dma_buf[2];
 
 /* USER CODE END 0 */

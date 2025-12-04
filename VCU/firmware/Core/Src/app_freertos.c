@@ -7,7 +7,6 @@
   */
 /* USER CODE END Header */
 
-/* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
 #include "task.h"
 #include "main.h"
@@ -15,7 +14,6 @@
 
 #include "usb_device.h"
 
-/* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "rtos/dfu.h"
 #include "rtos/led.h"
@@ -32,11 +30,10 @@ extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc2;
 extern ADC_HandleTypeDef hadc3;
 
-/* DMA buffer declared in adc.c */
+// Declared DMA buffer declared in adc.c
 extern volatile uint16_t adc3_dma_buf[2];
 /* USER CODE END Includes */
 
-/* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 void StartDefaultTask(void *argument);
 void StartDefaultTask2(void *argument);
@@ -49,33 +46,31 @@ typedef struct {
 } apps_cal_t;
 /* USER CODE END PTD */
 
-/* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-/* Measured calibration values */
+// APPS raw ranges
 #define APPS1_MIN_ADC   782u
 #define APPS1_MAX_ADC   3262u
 #define APPS2_MIN_ADC   382u
 #define APPS2_MAX_ADC   1586u
 
-/* Torque request range */
+// Torque limit for motor spin
 #define TORQUE_MAX_NM   5.0f
 
-/* FSAE-style plausibility thresholds */
-#define APPS_MIN_TRAVEL_FOR_CHECK   0.10f    /* 10 % */
-#define APPS_MAX_DIFF_ALLOWED       0.10f    /* 10 % */
-#define APPS_IMPLAUS_TIME_MS        100u     /* must persist this long */
+// Rules parameters
+#define APPS_MIN_TRAVEL_FOR_CHECK   0.10f    //10%
+#define APPS_MAX_DIFF_ALLOWED       0.10f   
+#define APPS_IMPLAUS_TIME_MS        100u     // By rules
 
-/* Task rate for torque task */
+// Task rate for torque task
 #define TORQUE_TASK_PERIOD_MS       50u
 #define APPS_IMPLAUS_COUNT  (APPS_IMPLAUS_TIME_MS / TORQUE_TASK_PERIOD_MS)
 
-/* Optional pedal low-pass filtering */
+// Arbitrary pedal low-pass filtering
 #define PEDAL_FILTER_ALPHA          0.4f
 
 /* USER CODE END PD */
 
-/* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 static float apps_adc_to_travel(uint16_t raw, const apps_cal_t *cal)
 {
@@ -89,7 +84,6 @@ static float apps_adc_to_travel(uint16_t raw, const apps_cal_t *cal)
 }
 /* USER CODE END PM */
 
-/* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
 osThreadId_t defaultTaskHandle;
 osThreadId_t defaultTask2Handle;
@@ -98,7 +92,7 @@ osThreadId_t adcTaskHandle;
 osThreadId_t torqueTaskHandle;
 /* USER CODE END Variables */
 
-/* Definitions for defaultTask */
+// Definitions for defaultTask 
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .priority = osPriorityNormal,
@@ -125,7 +119,7 @@ const osThreadAttr_t torqueTask_attributes = {
   */
 void MX_FREERTOS_Init(void) {
 
-  /* Create core tasks */
+// Core tasks
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
@@ -149,10 +143,10 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END RTOS_THREADS */
 }
 
-/* DefaultTask: USB Init + DFU Thread */
+// DefaultTask: USB Init + DFU Thread
 void StartDefaultTask(void *argument)
 {
-    /* USB MUST init inside a running RTOS task */
+    // USB MUST init inside a running RTOS task don't mess with this Alice you've done fucked up once
     MX_USB_Device_Init();
 
     if (init_logging(CDC_Transmit_FS) == -1) {
@@ -182,10 +176,10 @@ void StartDefaultTask2(void *argument)
     }
 }
 
-/* StartADCTask: starts DMA and prints raw ADC values */
+// StartADCTask: starts DMA and prints raw ADC values
 void StartADCTask(void *argument)
 {
-    /* Start DMA once for ADC3 (2 channels: CH9, CH10) */
+    // Start DMA once for ADC3 (2 channels: CH9, CH10) dual sensor APPS W
     if (HAL_ADC_Start_DMA(&hadc3, (uint32_t*)adc3_dma_buf, 2) != HAL_OK) {
         Error_Handler();
     }
@@ -195,19 +189,19 @@ void StartADCTask(void *argument)
 
     for (;;)
     {
-        /* ADC1 polling (if you care about that channel) */
+        // TO-DO: ADC1 polling empty for now until test BSE
         HAL_ADC_Start(&hadc1);
         if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
             adc1_val = HAL_ADC_GetValue(&hadc1);
         HAL_ADC_Stop(&hadc1);
 
-        /* ADC2 polling (if you care about that channel) */
+        // TO-DO: ADC2 polling for reading BSPD status
         HAL_ADC_Start(&hadc2);
         if (HAL_ADC_PollForConversion(&hadc2, 10) == HAL_OK)
             adc2_val = HAL_ADC_GetValue(&hadc2);
         HAL_ADC_Stop(&hadc2);
 
-        /* Trigger one ADC3 scan (2 channels → DMA into adc3_dma_buf) */
+        // TO-DO: Trigger one ADC3 scan (2 channels → DMA into adc3_dma_buf)
         HAL_ADC_Start(&hadc3);
         osDelay(1);    // allow DMA transfer to complete
 
@@ -221,10 +215,10 @@ void StartADCTask(void *argument)
     }
 }
 
-/* Torque Task: dual APPS, plausibility, 0–5 Nm mapping */
+// Torque Task: dual APPS, plausibility, 0–5 Nm mapping
 void StartTorqueTask(void *argument)
 {
-    /* Let DMA + ADC settle */
+    // Let DMA + ADC settle for a bit
     osDelay(pdMS_TO_TICKS(200));
 
     const apps_cal_t apps1 = { APPS1_MIN_ADC, APPS1_MAX_ADC };
@@ -243,18 +237,18 @@ void StartTorqueTask(void *argument)
         uint16_t raw1 = adc3_dma_buf[0];   // APPS1 = CH9
         uint16_t raw2 = adc3_dma_buf[1];   // APPS2 = CH10
 
-        /* Convert each to 0–1 travel using calibration */
+        // Convert each to 0–1 travel using calibration
         float p1 = apps_adc_to_travel(raw1, &apps1);
         float p2 = apps_adc_to_travel(raw2, &apps2);
 
-        /* Clamp */
+        // Clamp
         if (p1 < 0.0f) p1 = 0.0f; if (p1 > 1.0f) p1 = 1.0f;
         if (p2 < 0.0f) p2 = 0.0f; if (p2 > 1.0f) p2 = 1.0f;
 
         float p_max = (p1 > p2) ? p1 : p2;
         float diff  = fabsf(p1 - p2);
 
-        /* Plausibility: only when pedal > 10% */
+        // Plausibility: only when pedal > 10%
         if (p_max > APPS_MIN_TRAVEL_FOR_CHECK)
         {
             if (diff > APPS_MAX_DIFF_ALLOWED)
@@ -272,18 +266,18 @@ void StartTorqueTask(void *argument)
             implaus_counter = 0;
         }
 
-        /* Implausible if mismatch persists for >100 ms */
+        // Implausible if mismatch persists for >100 ms
         if (implaus_counter >= APPS_IMPLAUS_COUNT)
             apps_implaus = true;
 
-        /* Reset implausibility once both pedals basically released */
+        // Reset implausibility once both pedals basically released
         if (apps_implaus && p1 < 0.05f && p2 < 0.05f)
         {
             apps_implaus    = false;
             implaus_counter = 0;
         }
 
-        /* Fuse two sensors into one pedal command (average) when valid */
+        // Fuse two APPS into one pedal command when valid
         float pedal = 0.0f;
         if (!apps_implaus)
             pedal = 0.5f * (p1 + p2);
@@ -291,10 +285,10 @@ void StartTorqueTask(void *argument)
         if (pedal < 0.0f) pedal = 0.0f;
         if (pedal > 1.0f) pedal = 1.0f;
 
-        /* Optional low-pass filter on pedal */
+        // Optional low-pass filter on pedal ? 
         pedal_filt += PEDAL_FILTER_ALPHA * (pedal - pedal_filt);
 
-        /* Brake + APPS rule (stub: replace brake_active with real BSE) */
+        // Brake + APPS rule (replace brake_active with real BSE at Pickle)
         bool brake_active = false;  // TODO: wire to BSE inputs when available
 
         if (brake_active && pedal_filt > 0.25f)
@@ -303,13 +297,13 @@ void StartTorqueTask(void *argument)
         if (brake_latched && pedal_filt < 0.05f)
             brake_latched = false;
 
-        /* Final torque command (0–5 Nm) */
+        // Final torque command (0–5 Nm)
         if (apps_implaus || brake_latched)
             tq_cmd = 0.0f;
         else
             tq_cmd = pedal_filt * TORQUE_MAX_NM;
 
-        /* Debug printing */
+        // Debug printing
         int p1_i  = (int)(p1 * 1000.0f);
         int p2_i  = (int)(p2 * 1000.0f);
         int pf_i  = (int)(pedal_filt * 1000.0f);
