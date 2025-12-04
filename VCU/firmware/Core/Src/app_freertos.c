@@ -71,8 +71,8 @@ const osThreadAttr_t torqueTask_attributes = {
     .stack_size = 2048
 };
 /* USER CODE END Variables */
+
 /* Definitions for defaultTask */
-osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .priority = (osPriority_t) osPriorityNormal,
@@ -83,10 +83,6 @@ const osThreadAttr_t defaultTask_attributes = {
 /* USER CODE BEGIN FunctionPrototypes */
 /* (already declared above) */
 /* USER CODE END FunctionPrototypes */
-
-void StartDefaultTask(void *argument);
-
-void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /**
   * @brief  FreeRTOS initialization
@@ -142,7 +138,6 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
   /* USER CODE END RTOS_EVENTS */
-
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -156,6 +151,7 @@ void StartDefaultTask(void *argument)
 {
   /* init code for USB_Device */
   MX_USB_Device_Init();
+
   /* USER CODE BEGIN StartDefaultTask */
     MX_USB_Device_Init();   // MUST happen before logging
 
@@ -180,8 +176,97 @@ void StartDefaultTask(void *argument)
   /* USER CODE END StartDefaultTask */
 }
 
+/* USER CODE BEGIN StartDefaultTask2 */
+void StartDefaultTask2(void *argument) {
+    for (;;) {
+        osDelay(pdMS_TO_TICKS(1000));
+    }
+}
+/* USER CODE END StartDefaultTask2 */
+
+/* USER CODE BEGIN ADC_Task */
+void StartADCTask(void *argument) {
+    uint32_t adc1_val = 0;
+    uint32_t adc2_val = 0;
+    uint32_t adc3_val = 0;
+
+    for (;;) {
+        HAL_ADC_Start(&hadc1);
+        if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
+            adc1_val = HAL_ADC_GetValue(&hadc1);
+        HAL_ADC_Stop(&hadc1);
+
+        HAL_ADC_Start(&hadc2);
+        if (HAL_ADC_PollForConversion(&hadc2, 10) == HAL_OK)
+            adc2_val = HAL_ADC_GetValue(&hadc2);
+        HAL_ADC_Stop(&hadc2);
+
+        HAL_ADC_Start(&hadc3);
+        if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK)
+            adc3_val = HAL_ADC_GetValue(&hadc3);
+        HAL_ADC_Stop(&hadc3);
+
+        ts_printf("ADC1:%lu  ADC2:%lu  APPS:%lu", adc1_val, adc2_val, adc3_val);
+
+        osDelay(pdMS_TO_TICKS(300));
+    }
+}
+/* USER CODE END ADC_Task */
+
+
+/* USER CODE BEGIN Torque_Task */
+void StartTorqueTask(void *argument) {
+    osDelay(pdMS_TO_TICKS(1000));  // allow system to start
+
+    float raw_filt = (float)APPS_MIN_ADC; // filtered raw ADC
+    float tq_filt  = 0.0f;         // filtered torque
+
+    for (;;) {
+        HAL_ADC_Start(&hadc3);
+        if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK) {
+            uint32_t raw = HAL_ADC_GetValue(&hadc3);
+            HAL_ADC_Stop(&hadc3);
+
+            // Clamp raw ADC
+            if (raw < APPS_MIN_ADC) raw = APPS_MIN_ADC;
+            if (raw > APPS_MAX_ADC) raw = APPS_MAX_ADC;
+
+            // Low-pass filter on raw ADC
+            raw_filt = raw_filt + TORQUE_ALPHA * ((float)raw - raw_filt);
+
+            // Convert to percent
+            float pct = (raw_filt - APPS_MIN_ADC) / (float)(APPS_MAX_ADC - APPS_MIN_ADC);
+            if (pct < 0.0f) pct = 0.0f;
+            if (pct > 1.0f) pct = 1.0f;
+
+            // Calculate torque
+            float tq_raw = pct * MAX_TORQUE_NM;
+
+            // Low-pass filter torque (optional)
+            tq_filt = tq_raw; // instant torque from filtered ADC
+
+            // Print every 250ms
+            static uint32_t last_print = 0;
+            uint32_t now = osKernelGetTickCount();
+            if (now - last_print > 250) {
+                int pct_i = (int)(pct * 1000.0f);
+                int tq_i  = (int)(tq_filt * 100.0f);
+
+                ts_printf("APPS=%lu  pct=%d.%03d  torque=%d.%02d Nm",
+                          raw, pct_i / 1000, pct_i % 1000, tq_i / 100, tq_i % 100);
+
+                last_print = now;
+            }
+        } else {
+            HAL_ADC_Stop(&hadc3);
+        }
+
+        osDelay(pdMS_TO_TICKS(50));
+    }
+}
+/* USER CODE END Torque_Task */
+
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
 
 /* USER CODE END Application */
-
