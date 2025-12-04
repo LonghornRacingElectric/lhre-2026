@@ -303,3 +303,79 @@ TEST_F(CanBaseTest, RxCallback_UnpacksDataCorrectly) {
     // Verify the library updated the timestamp for this message
     EXPECT_EQ(rx_msg._latest_rx_ms, 1000);
 }
+
+TEST_F(CanBaseTest, RxCallback_HandlesHashCollisionsCorrectly) {
+    // 0. Reset Global State
+    can_reset_internals();
+
+    // 1. Setup Collision IDs
+    // ID_2 will hash to the same bucket as ID_1
+    const uint32_t ID_1 = 0x100;
+    const uint32_t ID_2 = 0x100 + RECEIVE_TABLE_SIZE;
+
+    can_receive_message_t rx_msg_1;
+    int struct_1 = 0;
+    rx_msg_1.packet_id = ID_1;
+    rx_msg_1.latest_msg = &struct_1;
+    rx_msg_1.unpacking_fn = Mock_Unpack;
+    rx_msg_1._next = NULL;
+
+    can_receive_message_t rx_msg_2;
+    int struct_2 = 0;
+    rx_msg_2.packet_id = ID_2;
+    rx_msg_2.latest_msg = &struct_2;
+    rx_msg_2.unpacking_fn = Mock_Unpack;
+    rx_msg_2._next = NULL;
+
+    // 2. Setup Time Simulation
+    // We use InSequence or just WillOnce ordering to simulate time passing.
+    // Call 1 & 2: During registration (Initialization time)
+    // Call 3+:    During the callback (Receive time)
+    EXPECT_CALL(mockHal, Tick())
+        .WillOnce(Return(100))          // Time for rx_msg_1 init
+        .WillOnce(Return(100))          // Time for rx_msg_2 init
+        .WillRepeatedly(Return(2000));  // Time when packet arrives
+
+    // 3. Register Interface and Packets
+    EXPECT_CALL(mockHal, Init(_)).WillRepeatedly(Return(cHAL_OK));
+    EXPECT_CALL(mockHal, Start(_)).WillRepeatedly(Return(cHAL_OK));
+    // Fix for GMOCK WARNING: Expect Stop to be called during filter add
+    EXPECT_CALL(mockHal, Stop(_)).WillRepeatedly(Return(cHAL_OK));
+    EXPECT_CALL(mockHal, AddFilter(_, _)).WillRepeatedly(Return(cHAL_OK));
+    EXPECT_CALL(mockHal, ActivateNotifications(_, _, _))
+        .WillOnce(Return(cHAL_OK));
+
+    can_register_interface(&test_interface);
+    can_register_receive_packet(&test_interface, &rx_msg_1);
+    can_register_receive_packet(&test_interface, &rx_msg_2);
+
+    // 4. Test Scenario: Receive the Colliding ID (ID_2)
+    uint8_t simulated_data[] = {0xAA, 0xBB};
+
+    EXPECT_CALL(mockHal,
+                GetRxMessage(test_interface.handle, FDCAN_RX_FIFO0, _, _))
+        .WillOnce(Invoke([&](void* h, uint32_t loc,
+                             cFDCAN_RxHeaderTypeDef* header, uint8_t* data) {
+            header->Identifier = ID_2;  // Incoming packet is ID_2
+            header->DataLength = 2;
+            data[0] = simulated_data[0];
+            data[1] = simulated_data[1];
+            return cHAL_OK;
+        }));
+
+    // Expect Unpack to be called ONLY on struct_2
+    EXPECT_CALL(mockHal, Unpack(_, &struct_2)).WillOnce(Return(0));
+
+    // Explicitly fail if Unpack is called on struct_1
+    EXPECT_CALL(mockHal, Unpack(_, &struct_1)).Times(0);
+
+    // 5. Act
+    HAL_FDCAN_RxFifo0Callback(test_interface.handle, NEW_MESSAGE_FIFO0);
+
+    // 6. Verify State
+    // rx_msg_2 should be updated to the "Receive Time" (2000)
+    EXPECT_EQ(rx_msg_2._latest_rx_ms, 2000);
+
+    // rx_msg_1 should still be at "Initialization Time" (100)
+    EXPECT_EQ(rx_msg_1._latest_rx_ms, 100);
+}

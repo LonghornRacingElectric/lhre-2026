@@ -90,11 +90,17 @@ __attribute__((weak)) void can_register_receive_packet(
     if (interface->receive_table[index] != NULL) {
         // we already have a message registered for this ID
         // add to the linked list at this spot (bucket method)
-        msg->_next = interface->receive_table[index];
+        can_receive_message_t *cur = interface->receive_table[index];
+
+        while (cur->_next != NULL) {
+            cur = cur->_next;
+        }
+
+        cur->_next = msg;
+    } else {
         interface->receive_table[index] = msg;
     }
 
-    interface->receive_table[index] = msg;
     msg->_latest_rx_ms = can.tick_fn();
     msg->timed_out = false;
 
@@ -202,9 +208,22 @@ void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t RxFifo0ITs) {
             if (msg == NULL) {
                 // we don't have a message registered for this ID
                 continue;
+            } else {
+                // we have a message registered for this ID OR a clash on our
+                // hash table
+                // we need to check the linked list
+                while (msg != NULL) {
+                    if (msg->packet_id == rx_header.Identifier) {
+                        // we found the message
+                        break;
+                    }
+                    msg = msg->_next;
+                }
+                if (msg == NULL) {
+                    // we don't have a message registered for this ID
+                    continue;
+                }
             }
-
-            memcpy(msg->data, rx_data, rx_header.DataLength);
 
             // call the unpack function
             msg->unpacking_fn(rx_data, msg->latest_msg);
