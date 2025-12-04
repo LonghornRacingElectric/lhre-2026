@@ -3,6 +3,21 @@ telemtry/stack/tests/test_utils.py
 
 Common test utilities for telemetry integration tests.
 Provides helper functions for connecting to MQTT, Kafka, and PostgreSQL services.
+
+Environment Loading Strategy:
+-----------------------------
+1. First check if required environment variables are already set (e.g., from CI secrets).
+2. If env vars are missing, attempt to load from telemtry/.env file (for local development).
+3. This allows CI to work with secrets (no .env file needed) while local dev uses .env file.
+
+For GitHub CI:
+- Secrets are set as environment variables in the workflow
+- No .env file is created or committed
+- Secrets remain private
+
+For Local Development:
+- Copy .env.example to .env and fill in values
+- The .env file is gitignored and never committed
 """
 
 import os
@@ -12,10 +27,45 @@ from typing import Optional, Callable, Any
 from dataclasses import dataclass
 from pathlib import Path
 
-# Load .env file from workspace root or telemtry directory
-# This is necessary for Bazel tests which run in a sandboxed environment
-try:
-    from dotenv import load_dotenv
+# List of required environment variables for telemetry
+REQUIRED_ENV_VARS = [
+    "POSTGRES_USER",
+    "POSTGRES_DB", 
+    "POSTGRES_PASSWORD",
+    "POSTGRES_HOST",
+    "POSTGRES_PORT",
+]
+
+# Optional env vars that have sensible defaults
+OPTIONAL_ENV_VARS = [
+    "KAFKA_BROKERS",
+    "KAFKA_CLIENT_ID",
+    "KAFKA_GROUP_ID",
+    "KAFKA_TOPICS",
+    "KAFKA_AUTO_CREATE",
+    "KAFKA_ROUTES_FILE",
+    "ELECTRIC_PWD",
+    "GRAFANA_PWD",
+    "ANALYSIS_PWD",
+    "NEXTAUTH_SECRET",
+    "AUTH_DATABASE_URL",
+]
+
+
+def _check_env_vars_set() -> bool:
+    """Check if required environment variables are already set."""
+    return all(os.environ.get(var) for var in REQUIRED_ENV_VARS)
+
+
+def _load_env_file() -> bool:
+    """
+    Attempt to load .env file from various locations.
+    Returns True if successfully loaded, False otherwise.
+    """
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return False
     
     # Try multiple potential locations for the .env file
     # In Bazel runfiles, the structure is: <workspace>/<package>/<file>
@@ -34,26 +84,30 @@ try:
         Path.cwd() / ".env",
     ]
     
-    env_loaded = False
     for env_path in possible_env_paths:
         if env_path.exists():
             load_dotenv(env_path)
-            env_loaded = True
-            break
+            return True
     
-    if not env_loaded:
-        # Try to find via runfiles
-        try:
-            from rules_python.python.runfiles import runfiles
-            r = runfiles.Create()
-            env_file = r.Rlocation("_main/telemtry/.env")
-            if env_file and Path(env_file).exists():
-                load_dotenv(env_file)
-        except ImportError:
-            pass
-            
-except ImportError:
-    pass  # python-dotenv not available
+    # Try to find via runfiles
+    try:
+        from rules_python.python.runfiles import runfiles
+        r = runfiles.Create()
+        env_file = r.Rlocation("_main/telemtry/.env")
+        if env_file and Path(env_file).exists():
+            load_dotenv(env_file)
+            return True
+    except ImportError:
+        pass
+    
+    return False
+
+
+# Environment loading logic:
+# 1. If env vars are already set (CI), don't load .env file
+# 2. If env vars are missing (local dev), try to load .env file
+if not _check_env_vars_set():
+    _load_env_file()
 
 # Configure logging
 logging.basicConfig(level=os.getenv('LOGLEVEL', 'INFO'))

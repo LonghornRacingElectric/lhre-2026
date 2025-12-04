@@ -21,14 +21,15 @@ package(default_visibility = ["//telemtry:__subpackages__"])
 # Export the network configuration file for all telemetry services
 exports_files([
     "net_configs.json",
-    ".env",
     ".env.example",
 ])
 
 # Environment configuration files for tests
+# Uses glob() so .env is optional - CI uses env vars from secrets instead
+# Local development uses .env file (copy from .env.example)
 filegroup(
     name = "env_files",
-    srcs = [".env"],
+    srcs = glob([".env"], allow_empty = True),
     visibility = ["//visibility:public"],
 )
 

@@ -7,24 +7,111 @@ on:
 jobs:
   bazel-build-test:
     runs-on: ubuntu-22.04
+    # Define environment variables from secrets at the job level
+    env:
+      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+      POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+      POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
+      ELECTRIC_PWD: ${{ secrets.ELECTRIC_PWD }}
+      GRAFANA_PWD: ${{ secrets.GRAFANA_PWD }}
+      ANALYSIS_PWD: ${{ secrets.ANALYSIS_PWD }}
+      NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+      AUTH_DATABASE_URL: ${{ secrets.AUTH_DATABASE_URL }}
+      KAFKA_BROKERS: ${{ secrets.KAFKA_BROKERS }}
+      KAFKA_CLIENT_ID: ${{ secrets.KAFKA_CLIENT_ID }}
+      KAFKA_GROUP_ID: ${{ secrets.KAFKA_GROUP_ID }}
+      KAFKA_TOPICS: ${{ secrets.KAFKA_TOPICS }}
+      KAFKA_AUTO_CREATE: ${{ secrets.KAFKA_AUTO_CREATE }}
+      KAFKA_ROUTES_FILE: ${{ secrets.KAFKA_ROUTES_FILE }}
     steps:
-      # - name: Install build dependencies
-      #   run: sudo apt-get update && sudo apt-get install libtinfo5
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
+
       - name: Get Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
         with:
-          # Avoid downloading Bazel every time.
           bazelisk-cache: true
-          # Store build cache per workflow.
           disk-cache: ${{ github.workflow }}
-          # Share repository cache between workflows.
           repository-cache: true
+
       - name: Build All
         run: bazel build //... --config=ci
-      - name: Test All
-        run: bazel test //... --test_output=all --config=ci
+
+      # Run unit tests first (no Docker required)
+      - name: Run Unit Tests
+        run: |
+          bazel test //... --config=ci --test_output=errors \
+            --test_tag_filters=-integration,-docker \
+            --test_env=POSTGRES_USER \
+            --test_env=POSTGRES_DB \
+            --test_env=POSTGRES_PASSWORD \
+            --test_env=POSTGRES_HOST \
+            --test_env=POSTGRES_PORT \
+            --test_env=KAFKA_BROKERS
+
+      # Set up Docker environment for integration tests
+      - name: Create Docker network and volumes
+        run: |
+          docker network create telemetry_network || true
+          docker volume create grafana_storage || true
+          docker volume create telemetry_db || true
+
+      - name: Create telemtry/.env from secrets
+        run: |
+          cat > telemtry/.env << 'EOF'
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}
+          POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}
+          ELECTRIC_PWD=${{ secrets.ELECTRIC_PWD }}
+          GRAFANA_PWD=${{ secrets.GRAFANA_PWD }}
+          ANALYSIS_PWD=${{ secrets.ANALYSIS_PWD }}
+          NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+          AUTH_DATABASE_URL=${{ secrets.AUTH_DATABASE_URL }}
+          KAFKA_BROKERS=${{ secrets.KAFKA_BROKERS }}
+          KAFKA_CLIENT_ID=${{ secrets.KAFKA_CLIENT_ID }}
+          KAFKA_GROUP_ID=${{ secrets.KAFKA_GROUP_ID }}
+          KAFKA_TOPICS=${{ secrets.KAFKA_TOPICS }}
+          KAFKA_AUTO_CREATE=${{ secrets.KAFKA_AUTO_CREATE }}
+          KAFKA_ROUTES_FILE=${{ secrets.KAFKA_ROUTES_FILE }}
+          EOF
+          chmod 600 telemtry/.env
+
+      - name: Start Kafka
+        run: |
+          docker compose -f telemtry/stack/kafka/docker-compose.yml up -d
+          # Wait for Kafka to be ready
+          sleep 10
+
+      - name: Start telemetry services (Mosquitto, DB, Grafana)
+        run: |
+          # Start infrastructure services only (not ingest, which needs to be built)
+          docker compose -f telemtry/stack/ingest/docker-compose.yml up -d mosquitto db grafana
+          # Wait for services to be ready
+          sleep 15
+
+      - name: Run Integration Tests
+        run: |
+          bazel test //... --config=ci --test_output=errors \
+            --test_tag_filters=integration \
+            --test_env=POSTGRES_USER \
+            --test_env=POSTGRES_DB \
+            --test_env=POSTGRES_PASSWORD \
+            --test_env=POSTGRES_HOST \
+            --test_env=POSTGRES_PORT \
+            --test_env=KAFKA_BROKERS \
+            --test_env=KAFKA_CLIENT_ID \
+            --test_env=KAFKA_GROUP_ID
+
+      - name: Teardown Docker services
+        if: always()
+        run: |
+          docker compose -f telemtry/stack/ingest/docker-compose.yml down -v || true
+          docker compose -f telemtry/stack/kafka/docker-compose.yml down -v || true
+          rm -f telemtry/.env || true
