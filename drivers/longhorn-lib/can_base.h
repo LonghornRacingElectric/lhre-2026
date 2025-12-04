@@ -136,4 +136,6 @@ cHAL_StatusTypeDef can_send_immediate(can_interface_t *interface,
  */
 void can_service(can_interface_t *can);
 
+void can_reset_internals(void);
+
 #endif  // LONGHORN_LIB_CAN_BASE_H

@@ -214,3 +214,10 @@ void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t RxFifo0ITs) {
         }
     }
 }
+
+void can_reset_internals(void) {
+    interface_count = 0;
+    for (int i = 0; i < MAX_INTERFACES; i++) {
+        interfaces[i] = NULL;
+    }
+}

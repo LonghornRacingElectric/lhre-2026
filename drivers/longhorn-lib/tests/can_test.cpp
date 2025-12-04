@@ -241,6 +241,7 @@ TEST_F(CanBaseTest, RegisterReceivePacket_ConfiguresFilter) {
 using ::testing::Invoke;
 
 TEST_F(CanBaseTest, RxCallback_UnpacksDataCorrectly) {
+    can_reset_internals();
     // 1. Setup the Receive Message
     can_receive_message_t rx_msg;
     int destination_struct = 0;  // The data "model" we want to unpack into
