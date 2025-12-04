@@ -37,7 +37,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "generated_can",
+        "generated_can_stm32g4",
         "//drivers/stm32g4:freertos_headers",
         "//drivers/stm32g4:stm32_headers",
     ],
@@ -55,7 +55,10 @@ cc_library(
         "@platforms//os:none",
     ],
     visibility = ["//visibility:public"],
-    deps = ["//drivers/stm32g4:freertos_headers"],
+    deps = [
+        "generated_can_stm32g4",
+        "//drivers/stm32g4:freertos_headers",
+    ],
 )
 
 cc_library(
@@ -67,6 +70,23 @@ cc_library(
         "can_ids.h",
     ],
     include_prefix = "longhorn/can",
+)
+
+cc_library(
+    name = "generated_can_stm32g4",
+    srcs = [
+        "can_ids.c",
+    ],
+    hdrs = [
+        "can_ids.h",
+    ],
+    copts = MCU_FLAGS,
+    include_prefix = "longhorn/can",
+    target_compatible_with = [
+        "@platforms//cpu:arm",
+        "@platforms//os:none",
+    ],
+    visibility = ["//visibility:public"],
 )
 
 genrule(

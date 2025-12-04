@@ -106,7 +106,7 @@ MCU_FLAGS = [
     "-mthumb",
     "-mfpu=fpv4-sp-d16",
     "-mfloat-abi=hard",
-    "-fdiagnostics-color"
+    "-fdiagnostics-color",
 ]
 
 def firmware_project_g4(
@@ -161,7 +161,7 @@ def firmware_project_g4(
         final_extra_deps.append("//drivers/stm32g4:freertos_headers")
 
     # enable DFU if the board has it enabled
-    if(enable_dfu):
+    if (enable_dfu):
         final_defines.append("ENABLE_DFU")
 
     # --- Target generation logic ---
@@ -184,7 +184,7 @@ def firmware_project_g4(
             project_name = name + "_" + location
             location_defines.append("BOARD_" + location)
 
-        # Longhorn Lib is defined for both bare metal and FreeRTOS targets 
+        # Longhorn Lib is defined for both bare metal and FreeRTOS targets
         ll_version = "//drivers/longhorn-lib:longhorn_lib_stm32g4" if enable_freertos else "//drivers/longhorn-lib:longhorn_lib_base_stm32g4"
 
         # Main cc_binary target for the elf file
@@ -203,7 +203,7 @@ def firmware_project_g4(
             ] + extra_includes,
             deps = final_extra_deps + [
                 "//drivers/stm32g4:stm32_headers",
-                ll_version
+                ll_version,
             ],
             linkopts = MCU_FLAGS + [
                 "-Wl,-Map=" + target_name + ".map,--cref",  # Use unique map file
@@ -214,6 +214,7 @@ def firmware_project_g4(
                 "-lnosys",
                 "-lc",
                 "-lm",
+                "-u _printf_float",
             ],
             defines = final_defines + location_defines + ["USE_HAL_DRIVER"],
             additional_linker_inputs = [
@@ -311,7 +312,7 @@ def firmware_project_g4(
             ],
             deps = [
                 "@rules_python//python/runfiles",
-                "@dfu_reqs//pyserial"
+                "@dfu_reqs//pyserial",
             ],
             tags = ["local", "flasher"],
         )

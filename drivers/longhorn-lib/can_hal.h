@@ -260,4 +260,36 @@ typedef enum {
 #define FDCAN_DLC_BYTES_48 ((uint32_t)0x0000000EU) /*!< 48 bytes data field */
 #define FDCAN_DLC_BYTES_64 ((uint32_t)0x0000000FU) /*!< 64 bytes data field */
 
+#define FDCAN_FILTER_RANGE \
+    ((uint32_t)0x00000000U) /*!< Range filter from FilterID1 to FilterID2 */
+#define FDCAN_FILTER_DUAL \
+    ((uint32_t)0x00000001U) /*!< Dual ID filter for FilterID1 or FilterID2 */
+#define FDCAN_FILTER_MASK                                                      \
+    ((uint32_t)0x00000002U) /*!< Classic filter: FilterID1 = filter, FilterID2 \
+                               = mask            */
+#define FDCAN_FILTER_RANGE_NO_EIDM                                         \
+    ((uint32_t)0x00000003U) /*!< Range filter from FilterID1 to FilterID2, \
+                               EIDM mask not applied */
+
+#define FDCAN_FILTER_DISABLE \
+    ((uint32_t)0x00000000U) /*!< Disable filter element */
+#define FDCAN_FILTER_TO_RXFIFO0 \
+    ((uint32_t)0x00000001U) /*!< Store in Rx FIFO 0 if filter matches */
+#define FDCAN_FILTER_TO_RXFIFO1 \
+    ((uint32_t)0x00000002U) /*!< Store in Rx FIFO 1 if filter matches */
+#define FDCAN_FILTER_REJECT \
+    ((uint32_t)0x00000003U) /*!< Reject ID if filter matches */
+#define FDCAN_FILTER_HP \
+    ((uint32_t)0x00000004U) /*!< Set high priority if filter matches */
+#define FDCAN_FILTER_TO_RXFIFO0_HP                                        \
+    ((uint32_t)0x00000005U) /*!< Set high priority and store in FIFO 0 if \
+                               filter matches   */
+#define FDCAN_FILTER_TO_RXFIFO1_HP                                        \
+    ((uint32_t)0x00000006U) /*!< Set high priority and store in FIFO 1 if \
+                               filter matches   */
+
+#define FDCAN_RX_FIFO0 \
+    ((uint32_t)0x00000040U) /*!< Get received message from Rx FIFO 0    */
+#define FDCAN_RX_FIFO1 \
+    ((uint32_t)0x00000041U) /*!< Get received message from Rx FIFO 1    */
 #endif
