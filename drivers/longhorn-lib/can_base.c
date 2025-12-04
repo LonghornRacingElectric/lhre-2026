@@ -4,21 +4,22 @@
 #include <stdlib.h>
 
 #include "longhorn/can_hal.h"
+#include "longhorn/rtos/logger.h"
 
 #define MAX_INTERFACES 2
 
 static can_config_t can;
 
-static can_interface_t *interfaces[MAX_INTERFACES];
+static can_interface_t* interfaces[MAX_INTERFACES];
 
 static uint8_t interface_count = 0;
 
-void can_init(can_config_t *config) {
+void can_init(can_config_t* config) {
     // set our can library to use the correct functions
     can = *config;
 }
 
-void can_register_interface(can_interface_t *interface) {
+void can_register_interface(can_interface_t* interface) {
     // Initialize the CAN interface
     can.init_fn(interface->handle);
 
@@ -37,9 +38,9 @@ void can_register_interface(can_interface_t *interface) {
 }
 
 /* Overwritten in the FreeRTOS implementation of Longhorn Lib */
-__attribute__((weak)) can_message_t *can_get_message_handle(void *msg) {
+__attribute__((weak)) can_message_t* can_get_message_handle(void* msg) {
     // Malloc and receive a pointer to a new object that can then be populated
-    can_message_t *new_msg = can.malloc_fn(sizeof(can_message_t));
+    can_message_t* new_msg = can.malloc_fn(sizeof(can_message_t));
     if (new_msg == NULL) return NULL;
 
     new_msg->msg = msg;
@@ -50,8 +51,8 @@ __attribute__((weak)) can_message_t *can_get_message_handle(void *msg) {
     return new_msg;
 }
 
-__attribute__((weak)) void can_register_send_packet(can_interface_t *interface,
-                                                    can_message_t *msg) {
+__attribute__((weak)) void can_register_send_packet(can_interface_t* interface,
+                                                    can_message_t* msg) {
     // Last time it was sent is right now
     msg->_is_scheduled = true;
     msg->_last_tx_time_ms = can.tick_fn();
@@ -69,9 +70,9 @@ __attribute__((weak)) void can_register_send_packet(can_interface_t *interface,
     interface->_filter_index++;
 }
 
-__attribute__((weak)) can_receive_message_t *can_get_receive_message_handle(
-    void *msg) {
-    can_receive_message_t *new_msg =
+__attribute__((weak)) can_receive_message_t* can_get_receive_message_handle(
+    void* msg) {
+    can_receive_message_t* new_msg =
         can.malloc_fn(sizeof(can_receive_message_t));
     if (new_msg == NULL) return NULL;
 
@@ -83,14 +84,14 @@ __attribute__((weak)) can_receive_message_t *can_get_receive_message_handle(
 }
 
 __attribute__((weak)) void can_register_receive_packet(
-    can_interface_t *interface, can_receive_message_t *msg) {
+    can_interface_t* interface, can_receive_message_t* msg) {
     // add to the hash table
     uint32_t index = msg->packet_id % RECEIVE_TABLE_SIZE;
 
     if (interface->receive_table[index] != NULL) {
         // we already have a message registered for this ID
         // add to the linked list at this spot (bucket method)
-        can_receive_message_t *cur = interface->receive_table[index];
+        can_receive_message_t* cur = interface->receive_table[index];
 
         while (cur->_next != NULL) {
             cur = cur->_next;
@@ -117,8 +118,8 @@ __attribute__((weak)) void can_register_receive_packet(
     can.start_fn(interface->handle);
 }
 
-cHAL_StatusTypeDef can_send_immediate(can_interface_t *interface,
-                                      can_message_t *msg) {
+cHAL_StatusTypeDef can_send_immediate(can_interface_t* interface,
+                                      can_message_t* msg) {
     cFDCAN_TxHeaderTypeDef tx_header;
     tx_header.DataLength = msg->dlc;
     tx_header.IdType = msg->id_type;
@@ -130,7 +131,7 @@ cHAL_StatusTypeDef can_send_immediate(can_interface_t *interface,
     tx_header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
 
     // max CAN FD size
-    uint8_t data_packet[64] = {0};
+    uint8_t* data_packet = can.malloc_fn(msg->dlc);
 
     msg->packing_fn(msg->msg, data_packet);
     interface->_messages_sent++;
@@ -142,11 +143,13 @@ cHAL_StatusTypeDef can_send_immediate(can_interface_t *interface,
         interface->_error_code_send = error;
     }
 
+    can.free_fn(data_packet);
+
     return error;
 }
 
-void can_service(can_interface_t *interface) {
-    can_message_t *cur = interface->_head;
+void can_service(can_interface_t* interface) {
+    can_message_t* cur = interface->_head;
 
     while (cur) {
         // we have a potential message we need to send
@@ -174,7 +177,7 @@ void can_service(can_interface_t *interface) {
  * @param hfdcan
  * @param RxFifo0ITs
  */
-void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t RxFifo0ITs) {
+void HAL_FDCAN_RxFifo0Callback(void* hfdcan, uint32_t RxFifo0ITs) {
     if ((RxFifo0ITs & NEW_MESSAGE_FIFO0) == 0) {
         // callback didn't fire for a new message
         return;
@@ -184,7 +187,7 @@ void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t RxFifo0ITs) {
     for (int i = 0; i < interface_count; i++) {
         if (interfaces[i]->handle == hfdcan) {
             // we found the interface
-            can_interface_t *interface = interfaces[i];
+            can_interface_t* interface = interfaces[i];
 
             // see what message it was
             cFDCAN_RxHeaderTypeDef rx_header;
@@ -201,7 +204,7 @@ void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t RxFifo0ITs) {
             interfaces[i]->_last_id_received = rx_header.Identifier;
 
             // make sure it exists in our table
-            can_receive_message_t *msg =
+            can_receive_message_t* msg =
                 interface->receive_table[rx_header.Identifier %
                                          RECEIVE_TABLE_SIZE];
 
