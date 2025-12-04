@@ -4,7 +4,6 @@
 #include <stdlib.h>
 
 #include "longhorn/can_hal.h"
-#include "longhorn/rtos/logger.h"
 
 #define MAX_INTERFACES 2
 
@@ -38,12 +37,18 @@ void can_register_interface(can_interface_t* interface) {
 }
 
 /* Overwritten in the FreeRTOS implementation of Longhorn Lib */
-__attribute__((weak)) can_message_t* can_get_message_handle(void* msg) {
+__attribute__((weak)) can_message_t* can_get_message_handle(
+    void* msg, uint32_t packet_id, uint16_t freq, uint8_t dlc,
+    CAN_pack_message_fn packing_fn) {
     // Malloc and receive a pointer to a new object that can then be populated
     can_message_t* new_msg = can.malloc_fn(sizeof(can_message_t));
     if (new_msg == NULL) return NULL;
 
     new_msg->msg = msg;
+    new_msg->dlc = dlc;
+    new_msg->packet_id = packet_id;
+    new_msg->period_ms = freq;
+    new_msg->packing_fn = packing_fn;
 
     new_msg->_next = NULL;
     new_msg->_is_scheduled = false;
@@ -71,12 +76,14 @@ __attribute__((weak)) void can_register_send_packet(can_interface_t* interface,
 }
 
 __attribute__((weak)) can_receive_message_t* can_get_receive_message_handle(
-    void* msg) {
+    void* msg, uint32_t packet_id, CAN_unpack_message_fn unpacking_fn) {
     can_receive_message_t* new_msg =
         can.malloc_fn(sizeof(can_receive_message_t));
     if (new_msg == NULL) return NULL;
 
     new_msg->latest_msg = msg;
+    new_msg->unpacking_fn = unpacking_fn;
+    new_msg->packet_id = packet_id;
 
     new_msg->_next = NULL;
 
@@ -153,7 +160,7 @@ void can_service(can_interface_t* interface) {
 
     while (cur) {
         // we have a potential message we need to send
-        if (cur->_is_scheduled &&
+        if (cur->_is_scheduled && cur->period_ms > 0 &&
             (can.tick_fn() - cur->_last_tx_time_ms) >= cur->period_ms) {
             // send the message
             cHAL_StatusTypeDef error = can_send_immediate(interface, cur);

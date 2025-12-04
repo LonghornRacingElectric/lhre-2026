@@ -13,39 +13,39 @@
 
 /* Add Message to Tx FIFO Q */
 typedef cHAL_StatusTypeDef (*CAN_AddToQ_fn)(
-    void *hfdcan, const cFDCAN_TxHeaderTypeDef *pTxHeader,
-    const uint8_t *pTxData);
+    void* hfdcan, const cFDCAN_TxHeaderTypeDef* pTxHeader,
+    const uint8_t* pTxData);
 
 /* Init */
-typedef cHAL_StatusTypeDef (*CAN_Init_fn)(void *hfdcan);
+typedef cHAL_StatusTypeDef (*CAN_Init_fn)(void* hfdcan);
 
 /* Start */
-typedef cHAL_StatusTypeDef (*CAN_Start_fn)(void *hfdcan);
+typedef cHAL_StatusTypeDef (*CAN_Start_fn)(void* hfdcan);
 
 /* Stop */
-typedef cHAL_StatusTypeDef (*CAN_Stop_fn)(void *hfdcan);
+typedef cHAL_StatusTypeDef (*CAN_Stop_fn)(void* hfdcan);
 
 /* HAL Notifications Enabling */
 typedef cHAL_StatusTypeDef (*CAN_ActivateNotifications_fn)(
-    void *hfdcan, uint32_t ActiveITs, uint32_t BufferIndexes);
+    void* hfdcan, uint32_t ActiveITs, uint32_t BufferIndexes);
 
 /* HAL Rx Message */
 typedef cHAL_StatusTypeDef (*CAN_GetRxMessage_fn)(
-    void *hfdcan, uint32_t RxLocation, cFDCAN_RxHeaderTypeDef *pRxHeader,
-    uint8_t *pRxData);
+    void* hfdcan, uint32_t RxLocation, cFDCAN_RxHeaderTypeDef* pRxHeader,
+    uint8_t* pRxData);
 
 /* Packing function pointer */
-typedef int (*CAN_pack_message_fn)(const void *msg, uint8_t *tx_buf);
-typedef int (*CAN_unpack_message_fn)(uint8_t *tx_buf, const void *msg);
+typedef int (*CAN_pack_message_fn)(const void* msg, uint8_t* tx_buf);
+typedef int (*CAN_unpack_message_fn)(uint8_t* tx_buf, const void* msg);
 
 typedef uint32_t (*Tick_fn)();
 
 typedef cHAL_StatusTypeDef (*CAN_AddFilter_fn)(
-    void *hfdcan, const cFDCAN_FilterTypeDef *pFilterConfig);
+    void* hfdcan, const cFDCAN_FilterTypeDef* pFilterConfig);
 
-typedef void *(*Malloc_fn)(size_t size);
+typedef void* (*Malloc_fn)(size_t size);
 
-typedef void (*Free_fn)(void *ptr);
+typedef void (*Free_fn)(void* ptr);
 
 /* Define configuration for CAN */
 typedef struct can_config_t {
@@ -62,7 +62,7 @@ typedef struct can_config_t {
 } can_config_t;
 
 typedef struct can_handle_t {
-    void *handle;
+    void* handle;
 } can_handle_t;
 
 typedef struct can_message_t {
@@ -71,30 +71,30 @@ typedef struct can_message_t {
     uint8_t id_type;
     uint8_t dlc;                    /* data length code */
     CAN_pack_message_fn packing_fn; /* Function used to pack this message */
-    void *msg;                      /* Actual message */
+    void* msg;                      /* Actual message */
 
     /* Internal State */
     uint32_t _last_tx_time_ms;
     bool _is_scheduled;
-    struct can_message_t *_next;  // pointer for linked list to the next node
+    struct can_message_t* _next;  // pointer for linked list to the next node
 } can_message_t;
 
 typedef struct can_receive_message_t {
-    void *latest_msg;
+    void* latest_msg;
     uint8_t data[8];
     uint32_t _latest_rx_ms;
     uint32_t packet_id;
-    struct can_receive_message_t *_next;
+    struct can_receive_message_t* _next;
     CAN_unpack_message_fn unpacking_fn;
     bool timed_out;
 } can_receive_message_t;
 
 typedef struct can_interface_t {
-    void *handle;
-    struct can_message_t *_head;
-    struct can_message_t *_tail;
+    void* handle;
+    struct can_message_t* _head;
+    struct can_message_t* _tail;
     uint32_t dropped_packets;
-    struct can_receive_message_t *receive_table[RECEIVE_TABLE_SIZE];
+    struct can_receive_message_t* receive_table[RECEIVE_TABLE_SIZE];
     // Internal state
     bool _started;
     uint8_t _filter_index;
@@ -110,31 +110,34 @@ typedef struct can_interface_t {
  *
  * @param config configuration for all the functions that the lib needs to call
  */
-void can_init(can_config_t *config);
+void can_init(can_config_t* config);
 
 /**
  * @brief For registering hfdcan1/2/3 etc.
  *
  * @param interface struct of the interface needing to be registered and started
  */
-void can_register_interface(can_interface_t *interface);
+void can_register_interface(can_interface_t* interface);
 
-can_message_t *can_get_message_handle(void *msg);
-can_receive_message_t *can_get_receive_message_handle(void *msg);
+can_message_t* can_get_message_handle(void* msg, uint32_t packet_id,
+                                      uint16_t freq, uint8_t dlc,
+                                      CAN_pack_message_fn packing_fn);
+can_receive_message_t* can_get_receive_message_handle(
+    void* msg, uint32_t packet_id, CAN_unpack_message_fn unpacking_fn);
 
-void can_register_send_packet(can_interface_t *interface, can_message_t *msg);
-void can_register_receive_packet(can_interface_t *interface,
-                                 can_receive_message_t *msg);
+void can_register_send_packet(can_interface_t* interface, can_message_t* msg);
+void can_register_receive_packet(can_interface_t* interface,
+                                 can_receive_message_t* msg);
 
-cHAL_StatusTypeDef can_send_immediate(can_interface_t *interface,
-                                      can_message_t *msg);
+cHAL_StatusTypeDef can_send_immediate(can_interface_t* interface,
+                                      can_message_t* msg);
 
 /**
  * @brief Periodically send CAN packets
  *
  * @param can
  */
-void can_service(can_interface_t *can);
+void can_service(can_interface_t* can);
 
 void can_reset_internals(void);
 

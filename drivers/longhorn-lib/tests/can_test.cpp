@@ -119,7 +119,6 @@ class CanBaseTest : public ::testing::Test {
     can_config_t config;
     can_interface_t test_interface;
 };
-
 // -----------------------------------------------------------------------------
 // 4. Unit Tests
 // -----------------------------------------------------------------------------
@@ -141,25 +140,28 @@ TEST_F(CanBaseTest, RegisterInterface_InitializesAndStartsHardware) {
 
 TEST_F(CanBaseTest, GetMessageHandle_AllocatesMemory) {
     int dummy_data = 0;
-    can_message_t* msg = can_get_message_handle(&dummy_data);
+
+    // Updated to use new signature: msg, packet_id, freq, dlc, packing_fn
+    can_message_t* msg = can_get_message_handle(&dummy_data, 0x123, 100,
+                                                FDCAN_DLC_BYTES_8, Mock_Pack);
 
     ASSERT_NE(msg, nullptr);
     EXPECT_EQ(msg->msg, &dummy_data);
+    EXPECT_EQ(msg->packet_id, 0x123);
     EXPECT_FALSE(msg->_is_scheduled);
 
-    // Cleanup (since we used real malloc)
+    // Cleanup
     free(msg);
 }
 
 TEST_F(CanBaseTest, SendImmediate_PacksAndAddsToQueue) {
-    // 1. Create a dummy message
-    can_message_t msg;
+    // 1. Create a message using the factory
     int payload = 42;
-    msg.msg = &payload;
-    msg.dlc = FDCAN_DLC_BYTES_8;
-    msg.packet_id = 0x100;
-    msg.id_type = FDCAN_STANDARD_ID;
-    msg.packing_fn = Mock_Pack;
+    // freq=0 (not periodic), dlc=8
+    can_message_t* msg = can_get_message_handle(&payload, 0x100, 0,
+                                                FDCAN_DLC_BYTES_8, Mock_Pack);
+
+    ASSERT_NE(msg, nullptr);
 
     // 2. Expectation: Pack is called, then AddToQueue is called
     EXPECT_CALL(mockHal, Pack(&payload, _)).Times(1);
@@ -173,26 +175,28 @@ TEST_F(CanBaseTest, SendImmediate_PacksAndAddsToQueue) {
         });
 
     // 3. Act
-    cHAL_StatusTypeDef result = can_send_immediate(&test_interface, &msg);
+    cHAL_StatusTypeDef result = can_send_immediate(&test_interface, msg);
 
     EXPECT_EQ(result, cHAL_OK);
+
+    free(msg);
 }
 
 TEST_F(CanBaseTest, Service_SendsMessage_WhenTimeElapsed) {
     // 1. Register a message to the interface
-    can_message_t msg;
-    msg.period_ms = 100;
-    msg.msg = (void*)1;
-    msg.packing_fn = Mock_Pack;
-    msg._next = NULL;
+    int payload = 1;
+    can_message_t* msg = can_get_message_handle(&payload, 0x200, 100,
+                                                FDCAN_DLC_BYTES_8, Mock_Pack);
+
+    ASSERT_NE(msg, nullptr);
 
     // Use a trampoline or logic to set init time
     EXPECT_CALL(mockHal, Tick()).WillRepeatedly(Return(1000));
-    can_register_send_packet(&test_interface, &msg);
+    can_register_send_packet(&test_interface, msg);
 
     // Verify it was added to linked list
-    EXPECT_EQ(test_interface._head, &msg);
-    EXPECT_TRUE(msg._is_scheduled);
+    EXPECT_EQ(test_interface._head, msg);
+    EXPECT_TRUE(msg->_is_scheduled);
 
     // 2. Call service before period has elapsed
     // Last sent: 1000. Current: 1050. Period: 100. Diff: 50. Should NOT send.
@@ -208,12 +212,17 @@ TEST_F(CanBaseTest, Service_SendsMessage_WhenTimeElapsed) {
     EXPECT_CALL(mockHal, AddToQueue(_, _, _)).WillOnce(Return(cHAL_OK));
 
     can_service(&test_interface);
+
+    free(msg);
 }
 
 TEST_F(CanBaseTest, RegisterReceivePacket_ConfiguresFilter) {
-    can_receive_message_t rx_msg;
-    rx_msg.packet_id = 0x500;
-    rx_msg._next = NULL;
+    int dummy_rx = 0;
+    // Updated to use factory: msg, packet_id, unpacking_fn
+    can_receive_message_t* rx_msg =
+        can_get_receive_message_handle(&dummy_rx, 0x500, Mock_Unpack);
+
+    ASSERT_NE(rx_msg, nullptr);
 
     // Setup expectations
     EXPECT_CALL(mockHal, Tick()).WillOnce(Return(5000));
@@ -230,26 +239,28 @@ TEST_F(CanBaseTest, RegisterReceivePacket_ConfiguresFilter) {
 
     EXPECT_CALL(mockHal, Start(test_interface.handle));
 
-    can_register_receive_packet(&test_interface, &rx_msg);
+    can_register_receive_packet(&test_interface, rx_msg);
 
     // Verify it was added to the hash table
     // Index = 0x500 % 8 = 1280 % 8 = 0
     uint32_t expected_index = 0x500 % RECEIVE_TABLE_SIZE;
-    EXPECT_EQ(test_interface.receive_table[expected_index], &rx_msg);
+    EXPECT_EQ(test_interface.receive_table[expected_index], rx_msg);
+
+    free(rx_msg);
 }
 
 using ::testing::Invoke;
 
 TEST_F(CanBaseTest, RxCallback_UnpacksDataCorrectly) {
     can_reset_internals();
-    // 1. Setup the Receive Message
-    can_receive_message_t rx_msg;
+
+    // 1. Setup the Receive Message using factory
     int destination_struct = 0;  // The data "model" we want to unpack into
 
-    rx_msg.packet_id = 0x100;
-    rx_msg.latest_msg = &destination_struct;
-    rx_msg.unpacking_fn = Mock_Unpack;  // Use our mock trampoline
-    rx_msg._next = NULL;
+    can_receive_message_t* rx_msg =
+        can_get_receive_message_handle(&destination_struct, 0x100, Mock_Unpack);
+
+    ASSERT_NE(rx_msg, nullptr);
 
     // 2. Register Interface and Packet
     // We expect standard initialization calls here, so we default them to OK
@@ -262,22 +273,21 @@ TEST_F(CanBaseTest, RxCallback_UnpacksDataCorrectly) {
     EXPECT_CALL(mockHal, Tick()).WillRepeatedly(Return(1000));
 
     can_register_interface(&test_interface);
-    can_register_receive_packet(&test_interface, &rx_msg);
+    can_register_receive_packet(&test_interface, rx_msg);
 
     // 3. Define Expected Data
     // We simulate receiving 2 bytes: 0xCA, 0xFE
     uint8_t simulated_rx_data[] = {0xCA, 0xFE};
 
     // 4. Expectation: GetRxMessage
-    // When the callback runs, it asks HAL for data. We use Invoke to write
-    // to the pointers provided by the C-code.
+    // When the callback runs, it asks HAL for data.
     EXPECT_CALL(mockHal,
                 GetRxMessage(test_interface.handle, FDCAN_RX_FIFO0, _, _))
         .WillOnce(Invoke([&](void* h, uint32_t loc,
                              cFDCAN_RxHeaderTypeDef* header, uint8_t* data) {
             // Fill the header info expected by the logic
             header->Identifier = 0x100;
-            header->DataLength = 2;  // FDCAN_DLC_BYTES_2
+            header->DataLength = 2;
 
             // Fill the data buffer
             data[0] = simulated_rx_data[0];
@@ -287,8 +297,7 @@ TEST_F(CanBaseTest, RxCallback_UnpacksDataCorrectly) {
         }));
 
     // 5. Expectation: Unpack
-    // Verify that the unpack function is called with the data we just
-    // "received"
+    // Verify that the unpack function is called
     EXPECT_CALL(mockHal, Unpack(_, &destination_struct))
         .WillOnce(Invoke([&](uint8_t* buf, const void* msg) {
             EXPECT_EQ(buf[0], 0xCA);
@@ -300,8 +309,9 @@ TEST_F(CanBaseTest, RxCallback_UnpacksDataCorrectly) {
     HAL_FDCAN_RxFifo0Callback(test_interface.handle, NEW_MESSAGE_FIFO0);
 
     // 7. Verify internal state
-    // Verify the library updated the timestamp for this message
-    EXPECT_EQ(rx_msg._latest_rx_ms, 1000);
+    EXPECT_EQ(rx_msg->_latest_rx_ms, 1000);
+
+    free(rx_msg);
 }
 
 TEST_F(CanBaseTest, RxCallback_HandlesHashCollisionsCorrectly) {
@@ -313,24 +323,15 @@ TEST_F(CanBaseTest, RxCallback_HandlesHashCollisionsCorrectly) {
     const uint32_t ID_1 = 0x100;
     const uint32_t ID_2 = 0x100 + RECEIVE_TABLE_SIZE;
 
-    can_receive_message_t rx_msg_1;
     int struct_1 = 0;
-    rx_msg_1.packet_id = ID_1;
-    rx_msg_1.latest_msg = &struct_1;
-    rx_msg_1.unpacking_fn = Mock_Unpack;
-    rx_msg_1._next = NULL;
+    can_receive_message_t* rx_msg_1 =
+        can_get_receive_message_handle(&struct_1, ID_1, Mock_Unpack);
 
-    can_receive_message_t rx_msg_2;
     int struct_2 = 0;
-    rx_msg_2.packet_id = ID_2;
-    rx_msg_2.latest_msg = &struct_2;
-    rx_msg_2.unpacking_fn = Mock_Unpack;
-    rx_msg_2._next = NULL;
+    can_receive_message_t* rx_msg_2 =
+        can_get_receive_message_handle(&struct_2, ID_2, Mock_Unpack);
 
     // 2. Setup Time Simulation
-    // We use InSequence or just WillOnce ordering to simulate time passing.
-    // Call 1 & 2: During registration (Initialization time)
-    // Call 3+:    During the callback (Receive time)
     EXPECT_CALL(mockHal, Tick())
         .WillOnce(Return(100))          // Time for rx_msg_1 init
         .WillOnce(Return(100))          // Time for rx_msg_2 init
@@ -339,15 +340,14 @@ TEST_F(CanBaseTest, RxCallback_HandlesHashCollisionsCorrectly) {
     // 3. Register Interface and Packets
     EXPECT_CALL(mockHal, Init(_)).WillRepeatedly(Return(cHAL_OK));
     EXPECT_CALL(mockHal, Start(_)).WillRepeatedly(Return(cHAL_OK));
-    // Fix for GMOCK WARNING: Expect Stop to be called during filter add
     EXPECT_CALL(mockHal, Stop(_)).WillRepeatedly(Return(cHAL_OK));
     EXPECT_CALL(mockHal, AddFilter(_, _)).WillRepeatedly(Return(cHAL_OK));
     EXPECT_CALL(mockHal, ActivateNotifications(_, _, _))
         .WillOnce(Return(cHAL_OK));
 
     can_register_interface(&test_interface);
-    can_register_receive_packet(&test_interface, &rx_msg_1);
-    can_register_receive_packet(&test_interface, &rx_msg_2);
+    can_register_receive_packet(&test_interface, rx_msg_1);
+    can_register_receive_packet(&test_interface, rx_msg_2);
 
     // 4. Test Scenario: Receive the Colliding ID (ID_2)
     uint8_t simulated_data[] = {0xAA, 0xBB};
@@ -374,8 +374,11 @@ TEST_F(CanBaseTest, RxCallback_HandlesHashCollisionsCorrectly) {
 
     // 6. Verify State
     // rx_msg_2 should be updated to the "Receive Time" (2000)
-    EXPECT_EQ(rx_msg_2._latest_rx_ms, 2000);
+    EXPECT_EQ(rx_msg_2->_latest_rx_ms, 2000);
 
     // rx_msg_1 should still be at "Initialization Time" (100)
-    EXPECT_EQ(rx_msg_1._latest_rx_ms, 100);
+    EXPECT_EQ(rx_msg_1->_latest_rx_ms, 100);
+
+    free(rx_msg_1);
+    free(rx_msg_2);
 }
