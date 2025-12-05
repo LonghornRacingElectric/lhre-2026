@@ -148,7 +148,7 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
     setLastEvent(undefined);
     setLastMessageAt(undefined);
     setKafkaConnected(false);
-  }, [topic]);
+  }, [topic, initial]);
 
   return {
     data,

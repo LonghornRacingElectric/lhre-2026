@@ -14,5 +14,9 @@
       "to": "car_visualization",
       "pick": ["dynamics"]
     }
-  ]
+  ],
+  "gg-plot": {
+    "to": "gg-plot",
+    "pick": ["data"]
+  }
 }
