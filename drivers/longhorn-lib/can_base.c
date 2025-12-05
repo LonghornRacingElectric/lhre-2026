@@ -31,6 +31,13 @@ void can_register_interface(can_interface_t* interface) {
     // note that the interface started
     interface->_started = true;
 
+    if (interface_count >= MAX_INTERFACES) {
+        // too many interfaces registered
+        return;
+    }
+    interfaces[interface_count] = interface;
+    interface_count++;
+
     // keep track of the interface
     interfaces[interface_count] = interface;
     interface_count++;
@@ -71,8 +78,6 @@ __attribute__((weak)) void can_register_send_packet(can_interface_t* interface,
         interface->_tail->_next = msg;
         interface->_tail = msg;
     }
-
-    interface->_filter_index++;
 }
 
 __attribute__((weak)) can_receive_message_t* can_get_receive_message_handle(
@@ -115,7 +120,7 @@ __attribute__((weak)) void can_register_receive_packet(
     can.stop_fn(interface->handle);
     cFDCAN_FilterTypeDef sFilterConfig;
     sFilterConfig.IdType = FDCAN_STANDARD_ID;
-    sFilterConfig.FilterIndex = 0;
+    sFilterConfig.FilterIndex = interface->_filter_index;
     sFilterConfig.FilterType = FDCAN_FILTER_DUAL;
     sFilterConfig.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
     sFilterConfig.FilterID1 = msg->packet_id;
@@ -123,6 +128,7 @@ __attribute__((weak)) void can_register_receive_packet(
 
     can.add_filter_fn(interface->handle, &sFilterConfig);
     can.start_fn(interface->handle);
+    interface->_filter_index++;
 }
 
 cHAL_StatusTypeDef can_send_immediate(can_interface_t* interface,
@@ -137,7 +143,7 @@ cHAL_StatusTypeDef can_send_immediate(can_interface_t* interface,
     tx_header.FDFormat = FDCAN_CLASSIC_CAN;
     tx_header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
 
-    // max CAN FD size
+    // CAN packet
     uint8_t* data_packet = can.malloc_fn(msg->dlc);
 
     msg->packing_fn(msg->msg, data_packet);

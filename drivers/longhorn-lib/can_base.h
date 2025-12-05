@@ -9,7 +9,7 @@
 
 /* Function Pointers for HAL functions */
 
-#define RECEIVE_TABLE_SIZE 8
+#define RECEIVE_TABLE_SIZE 61
 
 /* Add Message to Tx FIFO Q */
 typedef cHAL_StatusTypeDef (*CAN_AddToQ_fn)(
@@ -81,7 +81,6 @@ typedef struct can_message_t {
 
 typedef struct can_receive_message_t {
     void* latest_msg;
-    uint8_t data[8];
     uint32_t _latest_rx_ms;
     uint32_t packet_id;
     struct can_receive_message_t* _next;
