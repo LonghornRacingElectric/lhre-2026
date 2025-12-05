@@ -35,10 +35,7 @@ void can_register_interface(can_interface_t* interface) {
         // too many interfaces registered
         return;
     }
-    interfaces[interface_count] = interface;
-    interface_count++;
 
-    // keep track of the interface
     interfaces[interface_count] = interface;
     interface_count++;
 }
