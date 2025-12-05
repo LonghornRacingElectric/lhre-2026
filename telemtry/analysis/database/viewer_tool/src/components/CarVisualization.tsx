@@ -45,6 +45,7 @@ export default function CarVisualization() {
     topic: 'car_visualization',
     // Extend staleness so we keep last sample between slower updates
     staleAfterMs: 1000,
+    merge: true,
   });
 
   // Normalize speeds (guard against undefined / string / NaN) and apply a visual scaling factor.

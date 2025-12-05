@@ -23,6 +23,7 @@ export type UseKafkaStreamOptions<TData = unknown, TSelected = TData> = {
   onError?: (err: Event) => void;
   ssePath?: string;         // override SSE route, default "/api/kafka-stream"
   staleAfterMs?: number;    // consider data flow stale if no message for this duration (default 5000)
+  merge?: boolean;          // if true, shallow merge new data with existing data (reset if new data is empty object)
 };
 
 export type UseKafkaStreamState<TSelected> = {
@@ -42,6 +43,29 @@ function defaultParse(payload: string): any {
   } catch {
     return payload;
   }
+}
+
+function isObject(item: any) {
+  return (item && typeof item === 'object' && !Array.isArray(item));
+}
+
+function deepMerge(target: any, source: any): any {
+  if (isObject(target) && isObject(source)) {
+    const output = { ...target };
+    Object.keys(source).forEach(key => {
+      if (isObject(source[key])) {
+        if (!(key in target)) {
+          Object.assign(output, { [key]: source[key] });
+        } else {
+          output[key] = deepMerge(target[key], source[key]);
+        }
+      } else {
+        Object.assign(output, { [key]: source[key] });
+      }
+    });
+    return output;
+  }
+  return source;
 }
 
 /**
@@ -66,6 +90,7 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
     onError,
     ssePath = "/api/kafka-stream",
     staleAfterMs = 100,
+    merge = false,
   } = opts;
 
   const [connected, setConnected] = useState(false); // SSE socket state
@@ -107,7 +132,24 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
         const parsed: TData = parse(evt.payload);
         const selected: TSelected = (select ? select(parsed, evt) : (parsed as unknown as TSelected));
         setLastEvent(evt);
-        setData(selected);
+        
+        if (merge) {
+          setData((prev) => {
+            // If selected is an empty object, treat as reset
+            if (selected && typeof selected === "object" && !Array.isArray(selected) && Object.keys(selected).length === 0) {
+              return selected;
+            }
+            // If both are objects, deep merge
+            if (prev && typeof prev === "object" && !Array.isArray(prev) && 
+                selected && typeof selected === "object" && !Array.isArray(selected)) {
+              return deepMerge(prev, selected);
+            }
+            return selected;
+          });
+        } else {
+          setData(selected);
+        }
+
         const now = Date.now();
         setLastMessageAt(now);
         setKafkaConnected(true);
