@@ -1,10 +1,10 @@
-#include "rtos/led.h"
+#include "longhorn/rtos/led.h"
 
 #include <math.h>
 
 #include "FreeRTOS.h"
 #include "FreeRTOSConfig.h"
-#include "led_base.h"
+#include "longhorn/led_base.h"
 
 void RainbowLED(void* argument) {
     const uint32_t periodTicks = pdMS_TO_TICKS(33);

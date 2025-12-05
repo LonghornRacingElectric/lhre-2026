@@ -1,8 +1,9 @@
 # bazelrc, defines default values for builds and bazel commands
 
 build --incompatible_enable_cc_toolchain_resolution
+common --incompatible_enable_proto_toolchain_resolution
 build:firmware --platforms=//:arm_none_eabi
-run --platforms=@platforms//host
+# run --platforms=@platforms//host
 
 build:debug --spawn_strategy=local --strip=never
 
@@ -10,3 +11,10 @@ test --test_output=all
 
 build:ci --bes_results_url=https://app.buildbuddy.io/invocation/
 build:ci --bes_backend=grpcs://remote.buildbuddy.io
+
+# Zig Compiler configuration
+common --enable_platform_specific_config
+build:linux --sandbox_add_mount_pair=/tmp
+build:macos --sandbox_add_mount_pair=/var/tmp
+build:windows --sandbox_add_mount_pair=C:\Temp
+build --action_env BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1

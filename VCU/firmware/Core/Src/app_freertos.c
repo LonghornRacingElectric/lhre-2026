@@ -15,12 +15,12 @@
 #include "usb_device.h"
 
 /* USER CODE BEGIN Includes */
-#include "rtos/dfu.h"
-#include "rtos/led.h"
-#include "rtos/logger.h"
-#include "rtos/usb.h"
+#include "longhorn/rtos/dfu.h"
+#include "longhorn/rtos/led.h"
+#include "longhorn/rtos/logger.h"
+#include "longhorn/rtos/usb.h"
+#include "longhorn/usb_base.h"
 #include "tim.h"
-#include "usb_base.h"
 #include "usbd_cdc_if.h"
 #include "adc.h"
 #include <math.h>

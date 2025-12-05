@@ -10,4 +10,10 @@ firmware_project_g4(
     enable_freertos = True,
     enable_usb = True,
     usb_device_name = "Corner Sensor Module",
+    locations = [
+    "RR",
+    "RL",
+    "FR",
+    "FL",
+    ],
 )

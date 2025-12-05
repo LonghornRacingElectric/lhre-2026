@@ -22,7 +22,7 @@
 #include "usbd_cdc_if.h"
 
 /* USER CODE BEGIN INCLUDE */
-#include "dfu_base.h"
+#include "longhorn/dfu_base.h"
 
 /* USER CODE END INCLUDE */
 
