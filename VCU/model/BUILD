@@ -11,7 +11,7 @@ cc_library(
     name = "vcu_model_2026",
     srcs = glob(["src/**/*.c"]),
     hdrs = glob(["inc/**/*.h"]),
-    # include_prefix = "vcu_model",
+    include_prefix = "vcu_model",
     visibility = ["//visibility:public"],
 )
 
