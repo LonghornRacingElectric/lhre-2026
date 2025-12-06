@@ -29,12 +29,17 @@
 #include "tim.h"
 #include "usbd_cdc_if.h"
 
-extern ADC_HandleTypeDef hadc1;
-extern ADC_HandleTypeDef hadc2;   // BSE (ADC2_IN3 on PA6, ADC2_IN4 on PA7)
-extern ADC_HandleTypeDef hadc3;   // APPS (ADC3_IN9/10 on PD12/PD13 via DMA)
+#include "vcu_model/vcu_model.h"
+#include "vcu_model/vcu_inputs.h"
+#include "vcu_model/vcu_outputs.h"
 
-extern volatile uint16_t adc3_dma_buf[2];   // [0] = APPS1 (CH9), [1] = APPS2 (CH10)
-volatile uint16_t adc2_dma_buf[2];          // [0] = BSE (CH3),  [1] = PA7 (CH4, unused)
+
+extern ADC_HandleTypeDef hadc1;
+extern ADC_HandleTypeDef hadc2;   // BSE (ADC2_IN3 on PA6)
+extern ADC_HandleTypeDef hadc3;   // APPS (ADC3_IN9/10 via DMA)
+
+extern volatile uint16_t adc3_dma_buf[2];   // [0] = APPS1, [1] = APPS2
+volatile uint16_t adc2_dma_buf[2];          // [0] = BSE, [1] = unused
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,45 +48,7 @@ void StartDefaultTask(void* argument);
 void StartDefaultTask2(void* argument);
 void StartADCTask(void* argument);
 void StartTorqueTask(void* argument);
-
-typedef struct {
-    uint16_t min_adc;
-    uint16_t max_adc;
-} apps_cal_t;
 /* USER CODE END PTD */
-
-/* Private define ------------------------------------------------------------*/
-/* USER CODE BEGIN PD */
-#define APPS1_MIN_ADC 782u
-#define APPS1_MAX_ADC 3262u
-#define APPS2_MIN_ADC 382u
-#define APPS2_MAX_ADC 1586u
-
-#define TORQUE_MAX_NM 5.0f
-
-#define APPS_MIN_TRAVEL_FOR_CHECK 0.10f
-#define APPS_MAX_DIFF_ALLOWED     0.10f
-#define APPS_IMPLAUS_TIME_MS      100u
-
-#define TORQUE_TASK_PERIOD_MS     50u
-#define APPS_IMPLAUS_COUNT        (APPS_IMPLAUS_TIME_MS / TORQUE_TASK_PERIOD_MS)
-
-#define PEDAL_FILTER_ALPHA        0.4f
-
-/* ---- BSE ---- */
-#define BSE_ACTIVE_ADC            1500u   // threshold for "brake active"
-/* USER CODE END PD */
-
-/* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-static float apps_adc_to_travel(uint16_t raw, const apps_cal_t* cal) {
-    if (raw < cal->min_adc) raw = cal->min_adc;
-    if (raw > cal->max_adc) raw = cal->max_adc;
-    float span = (float)(cal->max_adc - cal->min_adc);
-    if (span <= 1.0f) return 0.0f;
-    return ((float)raw - (float)cal->min_adc) / span;
-}
-/* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
@@ -146,61 +113,47 @@ void MX_FREERTOS_Init(void) {
 
 }
 
-/* USER CODE BEGIN Header_StartDefaultTask */
-/**
-  * @brief  Function implementing the defaultTask thread.
-  * @param  argument: Not used
-  * @retval None
-  */
-/* USER CODE END Header_StartDefaultTask */
+/* ---------------- DEFAULT TASK ---------------- */
 void StartDefaultTask(void *argument)
 {
   MX_USB_Device_Init();
-  /* USER CODE BEGIN StartDefaultTask */
 
-    if (init_logging(CDC_Transmit_FS) == -1) {
-        osThreadTerminate(ledHandle);
-    }
+  if (init_logging(CDC_Transmit_FS) == -1) {
+      osThreadTerminate(ledHandle);
+  }
 
-    dfu_config dfu = {
-        .delay_fn = (Delay_fn)osDelay,
-        .gpiox = GPIOB,
-        .pin = GPIO_PIN_7,
-        .pin_set_fn = (PinSet_fn)HAL_GPIO_WritePin,
-        .reset_fn = (SystemReset_fn)HAL_NVIC_SystemReset,
-    };
+  dfu_config dfu = {
+      .delay_fn = (Delay_fn)osDelay,
+      .gpiox = GPIOB,
+      .pin = GPIO_PIN_7,
+      .pin_set_fn = (PinSet_fn)HAL_GPIO_WritePin,
+      .reset_fn = (SystemReset_fn)HAL_NVIC_SystemReset,
+  };
 
-    init_dfu(dfu);
-    dfu_start_thread();
+  init_dfu(dfu);
+  dfu_start_thread();
 
-    for (;;) {
-        osDelay(pdMS_TO_TICKS(500));
-    }
-
-  /* USER CODE END StartDefaultTask */
+  for (;;) {
+      osDelay(pdMS_TO_TICKS(500));
+  }
 }
 
-/* USER CODE BEGIN Header_StartDefaultTask2 */
-/* USER CODE END Header_StartDefaultTask2 */
+/* ---------------- SECONDARY TASK ---------------- */
 void StartDefaultTask2(void* argument) {
-    /* USER CODE BEGIN StartDefaultTask2 */
     for (;;) {
         osDelay(pdMS_TO_TICKS(1000));
     }
-    /* USER CODE END StartDefaultTask2 */
 }
 
-/* USER CODE BEGIN Header_StartADCTask */
-/* USER CODE END Header_StartADCTask */
+/* ---------------- ADC TASK ---------------- */
 void StartADCTask(void* argument) {
-    /* USER CODE BEGIN StartADCTask */
 
-    /* --- Start DMA for APPS (ADC3, 2 channels) --- */
+    /* Start DMA for APPS (ADC3: channels 9 & 10) */
     if (HAL_ADC_Start_DMA(&hadc3, (uint32_t*)adc3_dma_buf, 2) != HAL_OK) {
         Error_Handler();
     }
 
-    /* --- Start DMA for BSE (ADC2, 2 channels: CH3=PA6, CH4=PA7) --- */
+    /* Start DMA for BSE (ADC2: channel 3 + unused channel) */
     if (HAL_ADC_Start_DMA(&hadc2, (uint32_t*)adc2_dma_buf, 2) != HAL_OK) {
         Error_Handler();
     }
@@ -208,128 +161,71 @@ void StartADCTask(void* argument) {
     uint32_t adc1_val = 0;
 
     for (;;) {
-        /* Optional: ADC1 single conversion (same as before) */
+
+        /* Optional ADC1 single conversion */
         HAL_ADC_Start(&hadc1);
         if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
             adc1_val = HAL_ADC_GetValue(&hadc1);
         HAL_ADC_Stop(&hadc1);
 
-        /* ---- trigger one regular sequence on ADC2 & ADC3 ----
-         * Since ContinuousConvMode is DISABLE, calling HAL_ADC_Start()
-         * kicks off one scan over the configured channels.
-         * With DMA in circular mode, the results land in adc*_dma_buf[]. */
+        /* Trigger ADC2 + ADC3 once */
         HAL_ADC_Start(&hadc2);
         HAL_ADC_Start(&hadc3);
 
-        osDelay(1);  // let DMA move samples
+        osDelay(1);  // give DMA time to update buffers
 
-        uint16_t apps_ch9  = adc3_dma_buf[0];   // APPS1
-        uint16_t apps_ch10 = adc3_dma_buf[1];   // APPS2
-        uint16_t bse       = adc2_dma_buf[0];   // BSE on ADC2_CH3 (PA6)
+        uint16_t apps1 = adc3_dma_buf[0];
+        uint16_t apps2 = adc3_dma_buf[1];
+        uint16_t bse   = adc2_dma_buf[0];
 
         log_printf(LOG_INFO,
             "ADC1:%lu  APPS1:%u  APPS2:%u  BSE:%u\r\n",
-            adc1_val, apps_ch9, apps_ch10, bse);
+            adc1_val, apps1, apps2, bse);
 
         osDelay(pdMS_TO_TICKS(300));
     }
-
-    /* USER CODE END StartADCTask */
 }
 
-/* USER CODE BEGIN Header_StartTorqueTask */
-/* USER CODE END Header_StartTorqueTask */
-void StartTorqueTask(void* argument) {
-    /* USER CODE BEGIN StartTorqueTask */
+/* ---------------- TORQUE MODEL TASK ---------------- */
 
-    osDelay(pdMS_TO_TICKS(200));
+void StartTorqueTask(void* argument)
+{
+    osDelay(pdMS_TO_TICKS(200));  // wait for system stability
 
-    const apps_cal_t apps1 = {APPS1_MIN_ADC, APPS1_MAX_ADC};
-    const apps_cal_t apps2 = {APPS2_MIN_ADC, APPS2_MAX_ADC};
+    vcu_inputs_t  in  = {0};
+    vcu_outputs_t out = {0};
 
-    float tq_cmd = 0.0f;
-    float pedal_filt = 0.0f;
+    vcu_model_init();
 
-    uint8_t implaus_counter = 0;
-    bool apps_implaus = false;
+    for (;;)
+    {
+        /* Fill model inputs from DMA buffers */
+        in.apps1_raw = adc3_dma_buf[0];
+        in.apps2_raw = adc3_dma_buf[1];
+        in.bse_raw   = adc2_dma_buf[0];
 
-    bool brake_latched = false;
+        /* Run model */
+        vcu_model_step(&in, &out);
 
-    for (;;) {
-        uint16_t raw1 = adc3_dma_buf[0];  // APPS1 (ADC3 DMA)
-        uint16_t raw2 = adc3_dma_buf[1];  // APPS2 (ADC3 DMA)
-        uint16_t bse  = adc2_dma_buf[0];  // BSE  (ADC2 DMA)
-
-        float p1 = apps_adc_to_travel(raw1, &apps1);
-        float p2 = apps_adc_to_travel(raw2, &apps2);
-
-        if (p1 < 0.0f) p1 = 0.0f;
-        if (p1 > 1.0f) p1 = 1.0f;
-        if (p2 < 0.0f) p2 = 0.0f;
-        if (p2 > 1.0f) p2 = 1.0f;
-
-        float p_max = (p1 > p2) ? p1 : p2;
-        float diff = fabsf(p1 - p2);
-
-        if (p_max > APPS_MIN_TRAVEL_FOR_CHECK) {
-            if (diff > APPS_MAX_DIFF_ALLOWED) {
-                if (implaus_counter < 255) implaus_counter++;
-            } else {
-                implaus_counter = 0;
-            }
-        } else {
-            implaus_counter = 0;
-        }
-
-        if (implaus_counter >= APPS_IMPLAUS_COUNT) apps_implaus = true;
-
-        if (apps_implaus && p1 < 0.05f && p2 < 0.05f) {
-            apps_implaus = false;
-            implaus_counter = 0;
-        }
-
-        float pedal = 0.0f;
-        if (!apps_implaus) pedal = 0.5f * (p1 + p2);
-
-        if (pedal < 0.0f) pedal = 0.0f;
-        if (pedal > 1.0f) pedal = 1.0f;
-
-        pedal_filt += PEDAL_FILTER_ALPHA * (pedal - pedal_filt);
-
-        /* ------ BSE SAFETY LOGIC ------ */
-        bool brake_active = (bse > BSE_ACTIVE_ADC);
-
-        /* Latch brake override when brake pressed AND throttle > 25% */
-        if (brake_active && pedal_filt > 0.25f)
-            brake_latched = true;
-
-        if (brake_latched && pedal_filt < 0.05f)
-            brake_latched = false;
-
-        if (apps_implaus || brake_latched)
-            tq_cmd = 0.0f;
-        else
-            tq_cmd = pedal_filt * TORQUE_MAX_NM;
-
-        int p1_i = (int)(p1 * 1000.0f);
-        int p2_i = (int)(p2 * 1000.0f);
-        int pf_i = (int)(pedal_filt * 1000.0f);
-        int tq_i = (int)(tq_cmd * 100.0f);
+        /* Format logs */
+        int p1_i = (int)(out.apps1_travel   * 1000.0f);
+        int p2_i = (int)(out.apps2_travel   * 1000.0f);
+        int pf_i = (int)(out.pedal_filtered * 1000.0f);
+        int tq_i = (int)(out.torque_cmd     * 100.0f);
 
         log_printf(LOG_INFO,
-            "APP1=%u (%d.%03d)  APP2=%u (%d.%03d)  BSE=%u  ped_f=%d.%03d  tq=%d.%02d Nm  impl=%d  brake=%d\r\n",
-            raw1, p1_i/1000, p1_i%1000,
-            raw2, p2_i/1000, p2_i%1000,
-            bse,
+            "APP1=%u (%d.%03d)  APP2=%u (%d.%03d)  BSE=%u  ped_f=%d.%03d  tq=%d.%02d Nm  impl=%d  brake_act=%d  brake_lat=%d\r\n",
+            in.apps1_raw, p1_i/1000, p1_i%1000,
+            in.apps2_raw, p2_i/1000, p2_i%1000,
+            in.bse_raw,
             pf_i/1000, pf_i%1000,
             tq_i/100, tq_i%100,
-            apps_implaus ? 1 : 0,
-            brake_latched ? 1 : 0);
+            out.apps_implaus ? 1 : 0,
+            out.brake_active ? 1 : 0,
+            out.brake_latched ? 1 : 0);
 
-        osDelay(pdMS_TO_TICKS(TORQUE_TASK_PERIOD_MS));
+        osDelay(pdMS_TO_TICKS(50));  // 50 ms loop
     }
-
-    /* USER CODE END StartTorqueTask */
 }
 
 /* USER CODE BEGIN Application */
