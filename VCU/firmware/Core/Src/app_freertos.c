@@ -1,9 +1,9 @@
 /* USER CODE BEGIN Header */
 /**
- ******************************************************************************
+ *******************************************************************************
  * File Name          : app_freertos.c
  * Description        : Code for freertos applications
- ******************************************************************************
+ *******************************************************************************
  */
 /* USER CODE END Header */
 
@@ -30,10 +30,11 @@
 #include "usbd_cdc_if.h"
 
 extern ADC_HandleTypeDef hadc1;
-extern ADC_HandleTypeDef hadc2;   // BSE ADC
-extern ADC_HandleTypeDef hadc3;   // APPS ADCs (DMA)
+extern ADC_HandleTypeDef hadc2;   // BSE (ADC2_IN3 on PA6, ADC2_IN4 on PA7)
+extern ADC_HandleTypeDef hadc3;   // APPS (ADC3_IN9/10 on PD12/PD13 via DMA)
 
-extern volatile uint16_t adc3_dma_buf[2];   // [0] = APPS1, [1] = APPS2
+extern volatile uint16_t adc3_dma_buf[2];   // [0] = APPS1 (CH9), [1] = APPS2 (CH10)
+volatile uint16_t adc2_dma_buf[2];          // [0] = BSE (CH3),  [1] = PA7 (CH4, unused)
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -62,13 +63,13 @@ typedef struct {
 #define APPS_MAX_DIFF_ALLOWED     0.10f
 #define APPS_IMPLAUS_TIME_MS      100u
 
-#define TORQUE_TASK_PERIOD_MS 50u
-#define APPS_IMPLAUS_COUNT (APPS_IMPLAUS_TIME_MS / TORQUE_TASK_PERIOD_MS)
+#define TORQUE_TASK_PERIOD_MS     50u
+#define APPS_IMPLAUS_COUNT        (APPS_IMPLAUS_TIME_MS / TORQUE_TASK_PERIOD_MS)
 
-#define PEDAL_FILTER_ALPHA 0.4f
+#define PEDAL_FILTER_ALPHA        0.4f
 
 /* ---- BSE ---- */
-#define BSE_ACTIVE_ADC 1500u   // threshold for "brake active"
+#define BSE_ACTIVE_ADC            1500u   // threshold for "brake active"
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -88,9 +89,6 @@ osThreadId_t defaultTask2Handle;
 osThreadId_t ledHandle;
 osThreadId_t adcTaskHandle;
 osThreadId_t torqueTaskHandle;
-
-/* Shared BSE value (updated in ADC task, used in torque task) */
-static volatile uint16_t g_bse_raw = 0;
 /* USER CODE END Variables */
 
 /* Definitions for defaultTask */
@@ -197,39 +195,41 @@ void StartDefaultTask2(void* argument) {
 void StartADCTask(void* argument) {
     /* USER CODE BEGIN StartADCTask */
 
-    /* APPS: ADC3 + DMA (unchanged from your original working code) */
+    /* --- Start DMA for APPS (ADC3, 2 channels) --- */
     if (HAL_ADC_Start_DMA(&hadc3, (uint32_t*)adc3_dma_buf, 2) != HAL_OK) {
         Error_Handler();
     }
 
+    /* --- Start DMA for BSE (ADC2, 2 channels: CH3=PA6, CH4=PA7) --- */
+    if (HAL_ADC_Start_DMA(&hadc2, (uint32_t*)adc2_dma_buf, 2) != HAL_OK) {
+        Error_Handler();
+    }
+
     uint32_t adc1_val = 0;
-    uint32_t adc2_val = 0;   // will be BSE
 
     for (;;) {
-        /* ADC1 (if you still care) */
+        /* Optional: ADC1 single conversion (same as before) */
         HAL_ADC_Start(&hadc1);
         if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
             adc1_val = HAL_ADC_GetValue(&hadc1);
         HAL_ADC_Stop(&hadc1);
 
-        /* ---- BSE on ADC2, polled ---- */
+        /* ---- trigger one regular sequence on ADC2 & ADC3 ----
+         * Since ContinuousConvMode is DISABLE, calling HAL_ADC_Start()
+         * kicks off one scan over the configured channels.
+         * With DMA in circular mode, the results land in adc*_dma_buf[]. */
         HAL_ADC_Start(&hadc2);
-        if (HAL_ADC_PollForConversion(&hadc2, 10) == HAL_OK) {
-            adc2_val  = HAL_ADC_GetValue(&hadc2);
-            g_bse_raw = (uint16_t)adc2_val;   // share with torque task
-        }
-        HAL_ADC_Stop(&hadc2);
-
-        /* retrigger ADC3 scan (DMA will fill adc3_dma_buf) */
         HAL_ADC_Start(&hadc3);
-        osDelay(1);
 
-        uint16_t apps_ch9  = adc3_dma_buf[0];
-        uint16_t apps_ch10 = adc3_dma_buf[1];
+        osDelay(1);  // let DMA move samples
+
+        uint16_t apps_ch9  = adc3_dma_buf[0];   // APPS1
+        uint16_t apps_ch10 = adc3_dma_buf[1];   // APPS2
+        uint16_t bse       = adc2_dma_buf[0];   // BSE on ADC2_CH3 (PA6)
 
         log_printf(LOG_INFO,
-            "ADC1:%lu  BSE:%lu  APPS9:%u  APPS10:%u\r\n",
-            adc1_val, adc2_val, apps_ch9, apps_ch10);
+            "ADC1:%lu  APPS1:%u  APPS2:%u  BSE:%u\r\n",
+            adc1_val, apps_ch9, apps_ch10, bse);
 
         osDelay(pdMS_TO_TICKS(300));
     }
@@ -256,9 +256,9 @@ void StartTorqueTask(void* argument) {
     bool brake_latched = false;
 
     for (;;) {
-        uint16_t raw1 = adc3_dma_buf[0];
-        uint16_t raw2 = adc3_dma_buf[1];
-        uint16_t bse  = g_bse_raw;
+        uint16_t raw1 = adc3_dma_buf[0];  // APPS1 (ADC3 DMA)
+        uint16_t raw2 = adc3_dma_buf[1];  // APPS2 (ADC3 DMA)
+        uint16_t bse  = adc2_dma_buf[0];  // BSE  (ADC2 DMA)
 
         float p1 = apps_adc_to_travel(raw1, &apps1);
         float p2 = apps_adc_to_travel(raw2, &apps2);
@@ -299,9 +299,12 @@ void StartTorqueTask(void* argument) {
         /* ------ BSE SAFETY LOGIC ------ */
         bool brake_active = (bse > BSE_ACTIVE_ADC);
 
-        if (brake_active && pedal_filt > 0.25f) brake_latched = true;
+        /* Latch brake override when brake pressed AND throttle > 25% */
+        if (brake_active && pedal_filt > 0.25f)
+            brake_latched = true;
 
-        if (brake_latched && pedal_filt < 0.05f) brake_latched = false;
+        if (brake_latched && pedal_filt < 0.05f)
+            brake_latched = false;
 
         if (apps_implaus || brake_latched)
             tq_cmd = 0.0f;
