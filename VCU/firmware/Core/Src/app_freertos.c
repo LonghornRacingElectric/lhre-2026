@@ -7,18 +7,13 @@
  */
 /* USER CODE END Header */
 
-/* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
 #include "cmsis_os.h"
 #include "main.h"
 #include "task.h"
 #include "usb_device.h"
 
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
-#include <math.h>
-#include <stdbool.h>
-
+/* Includes */
 #include "adc.h"
 #include "longhorn/rtos/dfu.h"
 #include "longhorn/rtos/led.h"
@@ -32,60 +27,47 @@
 #include "vcu_model/inc/vcu_outputs.h"
 
 extern ADC_HandleTypeDef hadc1;
-extern ADC_HandleTypeDef hadc2;  // BSE (ADC2_IN3 on PA6)
-extern ADC_HandleTypeDef hadc3;  // APPS (ADC3_IN9/10 via DMA)
+extern ADC_HandleTypeDef hadc2;
+extern ADC_HandleTypeDef hadc3;
 
-extern volatile uint16_t adc3_dma_buf[2];  // [0] = APPS1, [1] = APPS2
-volatile uint16_t adc2_dma_buf[2];         // [0] = BSE, [1] = unused
-/* USER CODE END Includes */
+extern volatile uint16_t adc3_dma_buf[2];
+volatile uint16_t adc2_dma_buf[2];
 
-/* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN PTD */
-void StartDefaultTask(void* argument);
-void StartDefaultTask2(void* argument);
-void StartADCTask(void* argument);
-void StartTorqueTask(void* argument);
-/* USER CODE END PTD */
-
-/* Private variables ---------------------------------------------------------*/
-/* USER CODE BEGIN Variables */
+/* Thread handles */
+osThreadId_t defaultTaskHandle;
 osThreadId_t defaultTask2Handle;
 osThreadId_t ledHandle;
 osThreadId_t adcTaskHandle;
 osThreadId_t torqueTaskHandle;
-/* USER CODE END Variables */
 
-/* Definitions for defaultTask */
-osThreadId_t defaultTaskHandle;
+/* Thread attributes */
 const osThreadAttr_t defaultTask_attributes = {
     .name = "defaultTask",
-    .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 128 * 4};
+    .priority = osPriorityNormal,
+    .stack_size = 128 * 4
+};
 
-/* USER CODE BEGIN ThreadsAttr */
 const osThreadAttr_t adcTask_attributes = {
-    .name = "ADC_Task", .priority = osPriorityNormal, .stack_size = 2048};
+    .name = "ADC_Task",
+    .priority = osPriorityNormal,
+    .stack_size = 2048
+};
 
-const osThreadAttr_t torqueTask_attributes = {.name = "TorqueTask",
-                                              .priority = osPriorityAboveNormal,
-                                              .stack_size = 2048};
-/* USER CODE END ThreadsAttr */
+const osThreadAttr_t torqueTask_attributes = {
+    .name = "TorqueTask",
+    .priority = osPriorityAboveNormal,
+    .stack_size = 2048
+};
 
-/* Private function prototypes -----------------------------------------------*/
 void StartDefaultTask(void* argument);
+void StartDefaultTask2(void* argument);
+void StartADCTask(void* argument);
+void StartTorqueTask(void* argument);
 
-void MX_FREERTOS_Init(void);
+void MX_FREERTOS_Init(void)
+{
+    defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
-/**
- * @brief  FreeRTOS initialization
- * @param  None
- * @retval None
- */
-void MX_FREERTOS_Init(void) {
-    defaultTaskHandle =
-        osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
-
-    /* USER CODE BEGIN RTOS_THREADS */
     rainbow_led_t led = {
         .ccr2 = &TIM2->CCR1,
         .ccr1 = &TIM2->CCR2,
@@ -94,20 +76,18 @@ void MX_FREERTOS_Init(void) {
         .channel2 = TIM_CHANNEL_2,
         .channel3 = TIM_CHANNEL_3,
         .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
-        .timer_handle = &htim2,
+        .timer_handle = &htim2
     };
     led_init(&led);
     ledHandle = led_start_thread();
 
     defaultTask2Handle = osThreadNew(StartDefaultTask2, NULL, NULL);
     adcTaskHandle = osThreadNew(StartADCTask, NULL, &adcTask_attributes);
-    torqueTaskHandle =
-        osThreadNew(StartTorqueTask, NULL, &torqueTask_attributes);
-    /* USER CODE END RTOS_THREADS */
+    torqueTaskHandle = osThreadNew(StartTorqueTask, NULL, &torqueTask_attributes);
 }
 
-/* ---------------- DEFAULT TASK ---------------- */
-void StartDefaultTask(void* argument) {
+void StartDefaultTask(void* argument)
+{
     MX_USB_Device_Init();
 
     if (init_logging(CDC_Transmit_FS) == -1) {
@@ -119,7 +99,7 @@ void StartDefaultTask(void* argument) {
         .gpiox = GPIOB,
         .pin = GPIO_PIN_7,
         .pin_set_fn = (PinSet_fn)HAL_GPIO_WritePin,
-        .reset_fn = (SystemReset_fn)HAL_NVIC_SystemReset,
+        .reset_fn = (SystemReset_fn)HAL_NVIC_SystemReset
     };
 
     init_dfu(dfu);
@@ -130,55 +110,49 @@ void StartDefaultTask(void* argument) {
     }
 }
 
-/* ---------------- SECONDARY TASK ---------------- */
-void StartDefaultTask2(void* argument) {
+void StartDefaultTask2(void* argument)
+{
     for (;;) {
         osDelay(pdMS_TO_TICKS(1000));
     }
 }
 
-/* ---------------- ADC TASK ---------------- */
-void StartADCTask(void* argument) {
-    /* Start DMA for APPS (ADC3: channels 9 & 10) */
-    if (HAL_ADC_Start_DMA(&hadc3, (uint32_t*)adc3_dma_buf, 2) != HAL_OK) {
+void StartADCTask(void* argument)
+{
+    if (HAL_ADC_Start_DMA(&hadc3, (uint32_t*)adc3_dma_buf, 2) != HAL_OK)
         Error_Handler();
-    }
 
-    /* Start DMA for BSE (ADC2: channel 3 + unused channel) */
-    if (HAL_ADC_Start_DMA(&hadc2, (uint32_t*)adc2_dma_buf, 2) != HAL_OK) {
+    if (HAL_ADC_Start_DMA(&hadc2, (uint32_t*)adc2_dma_buf, 2) != HAL_OK)
         Error_Handler();
-    }
 
     uint32_t adc1_val = 0;
 
     for (;;) {
-        /* Optional ADC1 single conversion */
         HAL_ADC_Start(&hadc1);
         if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
             adc1_val = HAL_ADC_GetValue(&hadc1);
         HAL_ADC_Stop(&hadc1);
 
-        /* Trigger ADC2 + ADC3 once */
         HAL_ADC_Start(&hadc2);
         HAL_ADC_Start(&hadc3);
 
-        osDelay(1);  // give DMA time to update buffers
+        osDelay(1);
 
         uint16_t apps1 = adc3_dma_buf[0];
         uint16_t apps2 = adc3_dma_buf[1];
-        uint16_t bse = adc2_dma_buf[0];
+        uint16_t bse   = adc2_dma_buf[0];
 
-        log_printf(LOG_INFO, "ADC1:%lu  APPS1:%u  APPS2:%u  BSE:%u\r\n",
+        log_printf(LOG_INFO,
+                   "ADC1:%lu  APPS1:%u  APPS2:%u  BSE:%u\r\n",
                    adc1_val, apps1, apps2, bse);
 
         osDelay(pdMS_TO_TICKS(300));
     }
 }
 
-/* ---------------- TORQUE MODEL TASK ---------------- */
-
-void StartTorqueTask(void* argument) {
-    osDelay(pdMS_TO_TICKS(200));  // wait for system stability
+void StartTorqueTask(void* argument)
+{
+    osDelay(pdMS_TO_TICKS(200));
 
     vcu_inputs_t in = {0};
     vcu_outputs_t out = {0};
@@ -186,32 +160,30 @@ void StartTorqueTask(void* argument) {
     vcu_model_init();
 
     for (;;) {
-        /* Fill model inputs from DMA buffers */
         in.apps1_raw = adc3_dma_buf[0];
         in.apps2_raw = adc3_dma_buf[1];
-        in.bse_raw = adc2_dma_buf[0];
+        in.bse_raw   = adc2_dma_buf[0];
 
-        /* Run model */
         vcu_model_step(&in, &out);
 
-        /* Format logs */
         int p1_i = (int)(out.apps1_travel * 1000.0f);
         int p2_i = (int)(out.apps2_travel * 1000.0f);
         int pf_i = (int)(out.pedal_filtered * 1000.0f);
         int tq_i = (int)(out.torque_cmd * 100.0f);
+        int psi_i = (int)(out.bse_psi);
 
-        log_printf(
-            LOG_INFO,
-            "APP1=%u (%d.%03d)  APP2=%u (%d.%03d)  BSE=%u  ped_f=%d.%03d  "
-            "tq=%d.%02d Nm  impl=%d  brake_act=%d  brake_lat=%d\r\n",
-            in.apps1_raw, p1_i / 1000, p1_i % 1000, in.apps2_raw, p2_i / 1000,
-            p2_i % 1000, in.bse_raw, pf_i / 1000, pf_i % 1000, tq_i / 100,
-            tq_i % 100, out.apps_implaus ? 1 : 0, out.brake_active ? 1 : 0,
-            out.brake_latched ? 1 : 0);
+        log_printf(LOG_INFO,
+            "APP1=%u (%d.%03d)  APP2=%u (%d.%03d)  BSE=%u (%d psi)  ped_f=%d.%03d  tq=%d.%02d Nm  impl=%d  brake_act=%d  brake_lat=%d\r\n",
+            in.apps1_raw, p1_i/1000, p1_i%1000,
+            in.apps2_raw, p2_i/1000, p2_i%1000,
+            in.bse_raw, psi_i,
+            pf_i/1000, pf_i%1000,
+            tq_i/100, tq_i%100,
+            out.apps_implaus ? 1:0,
+            out.brake_active ? 1:0,
+            out.brake_latched ? 1:0
+        );
 
-        osDelay(pdMS_TO_TICKS(50));  // 50 ms loop
+        osDelay(pdMS_TO_TICKS(50));
     }
 }
-
-/* USER CODE BEGIN Application */
-/* USER CODE END Application */

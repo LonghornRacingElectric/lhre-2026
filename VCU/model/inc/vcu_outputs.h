@@ -6,23 +6,27 @@
 
 typedef struct
 {
-    /* Normalized pedal travel [0.0, 1.0] */
-    float apps1_travel;     /* APPS1 normalized */
-    float apps2_travel;     /* APPS2 normalized */
-    float pedal;            /* avg of APPS1/2 after plausibility */
-    float pedal_filtered;   /* filtered pedal command */
+    /* Normalized pedal travel */
+    float apps1_travel;
+    float apps2_travel;
+    float pedal;
+    float pedal_filtered;
 
-    /* Torque command [Nm] */
+    /* Torque command */
     float torque_cmd;
 
     /* Status flags */
-    bool apps_implaus;      /* APPS implausibility active */
-    bool brake_active;      /* BSE above threshold this step */
-    bool brake_latched;     /* brake/throttle override latched */
+    bool apps_implaus;
+    bool brake_active;
+    bool brake_latched;
 
-    /* Debug / observability */
+    /* Debug data */
     uint8_t apps_implaus_counter;
-    float apps_diff;        /* |APPS1 - APPS2| in normalized units */
+    float apps_diff;
+
+    /* BSE pressure estimate (psi) */
+    float bse_psi;
+
 } vcu_outputs_t;
 
 #endif /* VCU_OUTPUTS_H */
