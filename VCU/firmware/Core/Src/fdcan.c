@@ -17,11 +17,9 @@
   ******************************************************************************
   */
 /* USER CODE END Header */
-/* Includes ------------------------------------------------------------------*/
-#include "fdcan.h"
 
 /* USER CODE BEGIN 0 */
-
+#include "fdcan.h"
 /* USER CODE END 0 */
 
 FDCAN_HandleTypeDef hfdcan1;
@@ -133,9 +131,9 @@ void HAL_FDCAN_MspInit(FDCAN_HandleTypeDef* fdcanHandle)
     }
 
     __HAL_RCC_GPIOD_CLK_ENABLE();
-    /**FDCAN1 GPIO Configuration
-    PD0     ------> FDCAN1_RX
-    PD1     ------> FDCAN1_TX
+    /*FDCAN1 GPIO Configuration
+    PD0     -> FDCAN1_RX
+    PD1     -> FDCAN1_TX
     */
     GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -170,9 +168,9 @@ void HAL_FDCAN_MspInit(FDCAN_HandleTypeDef* fdcanHandle)
     }
 
     __HAL_RCC_GPIOB_CLK_ENABLE();
-    /**FDCAN2 GPIO Configuration
-    PB12     ------> FDCAN2_RX
-    PB13     ------> FDCAN2_TX
+    /*FDCAN2 GPIO Configuration
+    PB12     -> FDCAN2_RX
+    PB13     -> FDCAN2_TX
     */
     GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -202,8 +200,8 @@ void HAL_FDCAN_MspDeInit(FDCAN_HandleTypeDef* fdcanHandle)
     }
 
     /**FDCAN1 GPIO Configuration
-    PD0     ------> FDCAN1_RX
-    PD1     ------> FDCAN1_TX
+    PD0     -> FDCAN1_RX
+    PD1     -> FDCAN1_TX
     */
     HAL_GPIO_DeInit(GPIOD, GPIO_PIN_0|GPIO_PIN_1);
 
@@ -222,9 +220,9 @@ void HAL_FDCAN_MspDeInit(FDCAN_HandleTypeDef* fdcanHandle)
       __HAL_RCC_FDCAN_CLK_DISABLE();
     }
 
-    /**FDCAN2 GPIO Configuration
-    PB12     ------> FDCAN2_RX
-    PB13     ------> FDCAN2_TX
+    /*FDCAN2 GPIO Configuration
+    PB12     -> FDCAN2_RX
+    PB13     -> FDCAN2_TX
     */
     HAL_GPIO_DeInit(GPIOB, GPIO_PIN_12|GPIO_PIN_13);
 

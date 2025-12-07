@@ -15,7 +15,6 @@
 
 #include "adc.h"
 #include "tim.h"
-#include "fdcan.h"
 #include "usbd_cdc_if.h"
 
 #include "longhorn/rtos/dfu.h"
@@ -28,15 +27,15 @@
 #include "vcu_model/inc/vcu_model.h"
 #include "vcu_model/inc/vcu_outputs.h"
 
-#include "inverter_cm200.h"
+#include "vcu_can.h"
 
 #include <stdint.h>
+#include <stdlib.h>
 
 // External handles
 extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc2;
 extern ADC_HandleTypeDef hadc3;
-extern FDCAN_HandleTypeDef hfdcan1;
 
 // DMA buffers
 extern volatile uint16_t adc3_dma_buf[2];   // APPS1, APPS2
@@ -68,7 +67,6 @@ const osThreadAttr_t torqueTask_attributes = {
     .stack_size = 2048
 };
 
-// Task prototypes
 void StartDefaultTask(void *argument);
 void StartDefaultTask2(void *argument);
 void StartADCTask(void *argument);
@@ -76,11 +74,9 @@ void StartTorqueTask(void *argument);
 
 void MX_FREERTOS_Init(void)
 {
-    // Logging / USB / DFU / initial task
     defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
-    // LED rainbow thread
-    rainbow_led_t led = {
+    rainbow_led_t led = (rainbow_led_t){
         .ccr2 = &TIM2->CCR1,
         .ccr1 = &TIM2->CCR2,
         .ccr3 = &TIM2->CCR3,
@@ -93,13 +89,8 @@ void MX_FREERTOS_Init(void)
     led_init(&led);
     ledHandle = led_start_thread();
 
-    // Second default task (placeholder)
     defaultTask2Handle = osThreadNew(StartDefaultTask2, NULL, NULL);
-
-    // ADC + model inputs task
     adcTaskHandle = osThreadNew(StartADCTask, NULL, &adcTask_attributes);
-
-    // Torque + inverter command task
     torqueTaskHandle = osThreadNew(StartTorqueTask, NULL, &torqueTask_attributes);
 }
 
@@ -113,16 +104,15 @@ void StartDefaultTask(void *argument)
 
     dfu_config dfu = {
         .delay_fn = (Delay_fn)osDelay,
-        .gpiox = GPIOB,
-        .pin = GPIO_PIN_7,
+        .gpiox    = GPIOB,
+        .pin      = GPIO_PIN_7,
         .pin_set_fn = (PinSet_fn)HAL_GPIO_WritePin,
-        .reset_fn = (SystemReset_fn)HAL_NVIC_SystemReset
+        .reset_fn   = (SystemReset_fn)HAL_NVIC_SystemReset
     };
     init_dfu(dfu);
     dfu_start_thread();
 
-    // Initialize inverter CAN (FDCAN1)
-    cm200_init(&hfdcan1);
+    vcu_can_init();
 
     for (;;) {
         osDelay(pdMS_TO_TICKS(500));
@@ -136,27 +126,26 @@ void StartDefaultTask2(void *argument)
     }
 }
 
-// ADC task: start DMA and log raw values (APPS/BSE + steering on ADC1)
 void StartADCTask(void *argument)
 {
-    if (HAL_ADC_Start_DMA(&hadc3, (uint32_t*)adc3_dma_buf, 2) != HAL_OK)
+    if (HAL_ADC_Start_DMA(&hadc3, (uint32_t *)adc3_dma_buf, 2) != HAL_OK)
         Error_Handler();
 
-    if (HAL_ADC_Start_DMA(&hadc2, (uint32_t*)adc2_dma_buf, 2) != HAL_OK)
+    if (HAL_ADC_Start_DMA(&hadc2, (uint32_t *)adc2_dma_buf, 2) != HAL_OK)
         Error_Handler();
 
     uint32_t adc1_val = 0;
 
     for (;;) {
-        // ADC1: steering or other single-ended sensor
         HAL_ADC_Start(&hadc1);
         if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
             adc1_val = HAL_ADC_GetValue(&hadc1);
         HAL_ADC_Stop(&hadc1);
 
-        // Kick DMA again if needed
         HAL_ADC_Start(&hadc2);
         HAL_ADC_Start(&hadc3);
+
+        osDelay(1);
 
         uint16_t apps1 = adc3_dma_buf[0];
         uint16_t apps2 = adc3_dma_buf[1];
@@ -170,40 +159,41 @@ void StartADCTask(void *argument)
     }
 }
 
-// Torque task: run VCU model and command inverter
 void StartTorqueTask(void *argument)
 {
-    // Give ADC / logging a little time to start
     osDelay(pdMS_TO_TICKS(200));
 
-    vcu_inputs_t in = (vcu_inputs_t){0};
-    vcu_outputs_t out = (vcu_outputs_t){0};
+    vcu_inputs_t in  = {0};
+    vcu_outputs_t out = {0};
 
     vcu_model_init();
 
     for (;;) {
-        // Fill model inputs from DMA buffers
+        vcu_can_service();
+
         in.apps1_raw = adc3_dma_buf[0];
         in.apps2_raw = adc3_dma_buf[1];
         in.bse_raw   = adc2_dma_buf[0];
 
-        // Run model: APPS/BSE plausibility + torque mapping
         vcu_model_step(&in, &out);
 
-        // Send torque command to inverter (CAN 0x0C0)
-        cm200_send_torque(out.torque_cmd);
+        vcu_can_set_torque(
+            out.torque_cmd,
+            100.0f,
+            true,
+            0
+        );
 
-        // Read any inverter feedback frames (0x0B0, 0x0AC)
-        cm200_process_rx();
+        vcu_can_set_brake_light(out.brake_active);
 
-        // Logging of model state
         int p1_i  = (int)(out.apps1_travel * 1000.0f);
         int p2_i  = (int)(out.apps2_travel * 1000.0f);
         int pf_i  = (int)(out.pedal_filtered * 1000.0f);
         int tq_i  = (int)(out.torque_cmd * 100.0f);
         int psi_i = (int)(out.bse_psi);
 
-        log_printf(LOG_INFO,
+        log_printf(
+            LOG_INFO,
             "APP1=%u (%d.%03d)  APP2=%u (%d.%03d)  BSE=%u (%d psi)  ped_f=%d.%03d  tq=%d.%02d Nm  impl=%d  brake_act=%d  brake_lat=%d\r\n",
             in.apps1_raw, p1_i / 1000, p1_i % 1000,
             in.apps2_raw, p2_i / 1000, p2_i % 1000,
@@ -212,9 +202,9 @@ void StartTorqueTask(void *argument)
             tq_i / 100, tq_i % 100,
             out.apps_implaus ? 1 : 0,
             out.brake_active ? 1 : 0,
-            out.brake_latched ? 1 : 0);
+            out.brake_latched ? 1 : 0
+        );
 
-        // ~20 Hz; can drop to 10–20 ms later if Cascadia wants higher update rate
         osDelay(pdMS_TO_TICKS(50));
     }
 }
