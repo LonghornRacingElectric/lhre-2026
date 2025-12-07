@@ -5,11 +5,9 @@ This library provides a flexible and abstract way to handle CAN communication on
 ## Table of Contents
 
 - [Introduction](#introduction)
-- [Integration](#integration)
+- [Integration with Bazel](#integration-with-bazel)
 - [Initialization](#initialization)
 - [Defining Messages](#defining-messages)
-  - [Packing and Unpacking](#packing-and-unpacking)
-  - [Creating Message Handles](#creating-message-handles)
 - [Sending Messages](#sending-messages)
   - [Periodic Sending](#periodic-sending)
   - [Immediate Sending](#immediate-sending)
@@ -23,26 +21,35 @@ The library is built around the concept of `can_interface_t` which represents a 
 
 It abstracts away the direct HAL calls for adding to queues or setting up filters, allowing you to focus on the data and the timing.
 
-## Integration
+## Integration with Bazel
 
-To use this library, you need to include the header:
+The library automatically generates C code for your CAN packets from CSV configuration files during the build process.
 
-```c
-#include "longhorn/can_base.h"
+To use it, add the appropriate dependency to your `BUILD` file:
+
+**For Bare Metal (No RTOS):**
+```bazel
+deps = [
+    "//drivers/longhorn-lib:longhorn_lib_base_stm32g4",
+]
 ```
 
-And ensure you have the appropriate HAL headers available (e.g., `stm32g4xx_hal.h`).
+**For FreeRTOS:**
+```bazel
+deps = [
+    "//drivers/longhorn-lib:longhorn_lib_stm32g4",
+]
+```
 
 ## Initialization
 
 Before using any CAN functions, you must initialize the library by providing a configuration struct `can_config_t`. This struct contains function pointers to the HAL functions and other utilities (like `malloc`, `free`, and a tick function).
 
 ```c
-// Example wrapper functions to match the function signatures if needed
-// Or simply cast the HAL functions if they match.
+#include "longhorn/can_base.h"
+#include "longhorn/can/can_ids.h" // Generated header
 
-// You might need wrappers if your HAL functions take extra arguments or return different types,
-// but for standard STM32 HAL, they often match or need slight adaptation.
+// ... (In your setup code)
 
 can_config_t config = {
     .init_fn = (CAN_Init_fn)HAL_FDCAN_Init,
@@ -79,63 +86,43 @@ can_register_interface(&can1_interface);
 
 ## Defining Messages
 
-Messages are defined by their ID, data length (DLC), and packing/unpacking functions.
+You do NOT need to define structs or packing functions manually. The build system generates `can_ids.h` and `can_ids.c` based on `drivers/longhorn-lib/config/can_packets.csv` and `can_bitfields.csv`.
 
-### Packing and Unpacking
+These generated files provide:
+1.  **Macros** for IDs, DLCs, and Frequencies (e.g., `INVERTER_STATUS_ID`, `INVERTER_STATUS_DLC`).
+2.  **Structs** for each message (e.g., `msg_inverter_status_t`).
+3.  **Packing/Unpacking Functions** (e.g., `pack_inverter_status`, `unpack_inverter_status`).
 
-You need to define functions that convert your application data structures to/from the raw byte array used by CAN.
-
-```c
-typedef struct {
-    uint32_t value;
-    uint8_t status;
-} my_data_t;
-
-// Packing function: serializes data into tx_buf
-int pack_my_data(const void* msg, uint8_t* tx_buf) {
-    const my_data_t* data = (const my_data_t*)msg;
-    // Example serialization (Little Endian)
-    tx_buf[0] = data->value & 0xFF;
-    tx_buf[1] = (data->value >> 8) & 0xFF;
-    tx_buf[2] = (data->value >> 16) & 0xFF;
-    tx_buf[3] = (data->value >> 24) & 0xFF;
-    tx_buf[4] = data->status;
-    return 0; // Success
-}
-
-// Unpacking function: deserializes rx_buf into msg
-int unpack_my_data(uint8_t* rx_buf, const void* msg) {
-    my_data_t* data = (my_data_t*)msg; // Note: cast to non-const for unpacking
-    data->value = rx_buf[0] | (rx_buf[1] << 8) | (rx_buf[2] << 16) | (rx_buf[3] << 24);
-    data->status = rx_buf[4];
-    return 0; // Success
-}
-```
+You simply instantiate the message handles using these generated artifacts.
 
 ### Creating Message Handles
 
 Use `can_get_message_handle` for messages you intend to send, and `can_get_receive_message_handle` for messages you expect to receive.
 
 ```c
-my_data_t my_tx_data = { .value = 100, .status = 1 };
-my_data_t my_rx_data = { 0 };
+// Prepare data structure
+msg_inverter_status_t tx_data = {
+    .motor_speed = 1000,
+    .motor_angle = 45.5f
+};
 
 // Create a handle for sending
-// ID: 0x100, Period: 100ms, DLC: 5 bytes
 can_message_t* tx_msg_handle = can_get_message_handle(
-    &my_tx_data,
-    0x100,
-    100, // Period in ms (0 for non-periodic)
-    FDCAN_DLC_BYTES_5,
-    pack_my_data
+    &tx_data,
+    INVERTER_STATUS_ID,
+    INVERTER_STATUS_FREQ, // Or 0 for non-periodic
+    INVERTER_STATUS_DLC,
+    pack_inverter_status // Generated packing function
 );
 
+// Prepare receive structure
+msg_inverter_temps_t rx_data = {0};
+
 // Create a handle for receiving
-// ID: 0x200
 can_receive_message_t* rx_msg_handle = can_get_receive_message_handle(
-    &my_rx_data,
-    0x200,
-    unpack_my_data
+    &rx_data,
+    INVERTER_TEMPS_ID,
+    unpack_inverter_temps // Generated unpacking function
 );
 ```
 
@@ -167,13 +154,9 @@ To receive messages, you must register the receive handle. This sets up the hard
 can_register_receive_packet(&can1_interface, rx_msg_handle);
 ```
 
-When a message with ID `0x200` is received, the library's internal interrupt handler (`HAL_FDCAN_RxFifo0Callback`) will:
-1. Identify the interface that received the message.
-2. Look up the corresponding `can_receive_message_t` handle.
-3. Call the `unpacking_fn` (e.g., `unpack_my_data`) to parse the data into your structure.
-4. Update the `_latest_rx_ms` timestamp.
+When a message is received, the library automatically handles the interrupt (`HAL_FDCAN_RxFifo0Callback`), matches the ID, calls the generated unpacking function, and updates your data structure.
 
-You do NOT need to implement `HAL_FDCAN_RxFifo0Callback` yourself; the library handles this automatically.
+**Important:** You do **NOT** need to implement `HAL_FDCAN_RxFifo0Callback` yourself.
 
 ## Service Loop
 
@@ -194,40 +177,19 @@ while (1) {
 
 ```c
 #include "longhorn/can_base.h"
+#include "longhorn/can/can_ids.h" // Generated by Bazel
 #include "main.h" // HAL definitions
 
 extern FDCAN_HandleTypeDef hfdcan1;
 
-// 1. Define Data Structures
-typedef struct {
-    uint16_t rpm;
-    uint16_t temp;
-} motor_status_t;
-
-motor_status_t motor_status = {0};
-motor_status_t received_status = {0};
-
-// 2. Define Pack/Unpack functions
-int pack_motor_status(const void* msg, uint8_t* tx_buf) {
-    const motor_status_t* s = (const motor_status_t*)msg;
-    tx_buf[0] = s->rpm & 0xFF;
-    tx_buf[1] = s->rpm >> 8;
-    tx_buf[2] = s->temp & 0xFF;
-    tx_buf[3] = s->temp >> 8;
-    return 0;
-}
-
-int unpack_motor_status(uint8_t* rx_buf, const void* msg) {
-    motor_status_t* s = (motor_status_t*)msg;
-    s->rpm = rx_buf[0] | (rx_buf[1] << 8);
-    s->temp = rx_buf[2] | (rx_buf[3] << 8);
-    return 0;
-}
+// 1. Define Data Structures using Generated Types
+msg_inverter_status_t inverter_status = {0};
+msg_inverter_temps_t inverter_temps = {0};
 
 can_interface_t can1;
 
 void setup_can() {
-    // 3. Configure Library
+    // 2. Configure Library
     can_config_t config = {
         .init_fn = (CAN_Init_fn)HAL_FDCAN_Init,
         .start_fn = (CAN_Start_fn)HAL_FDCAN_Start,
@@ -242,26 +204,33 @@ void setup_can() {
     };
     can_init(&config);
 
-    // 4. Register Interface
+    // 3. Register Interface
     can1.handle = &hfdcan1;
     can_register_interface(&can1);
 
-    // 5. Create & Register Send Message (10Hz)
+    // 4. Create & Register Send Message
+    // Using generated macros and functions
     can_message_t* tx_msg = can_get_message_handle(
-        &motor_status, 0x123, 100, FDCAN_DLC_BYTES_4, pack_motor_status
+        &inverter_status,
+        INVERTER_STATUS_ID,
+        INVERTER_STATUS_FREQ,
+        INVERTER_STATUS_DLC,
+        pack_inverter_status
     );
     can_register_send_packet(&can1, tx_msg);
 
-    // 6. Create & Register Receive Message
+    // 5. Create & Register Receive Message
     can_receive_message_t* rx_msg = can_get_receive_message_handle(
-        &received_status, 0x124, unpack_motor_status
+        &inverter_temps,
+        INVERTER_TEMPS_ID,
+        unpack_inverter_temps
     );
     can_register_receive_packet(&can1, rx_msg);
 }
 
 void loop() {
-    // Update data
-    motor_status.rpm++;
+    // Update data to be sent
+    inverter_status.motor_speed++;
 
     // Service CAN (sends periodic messages)
     can_service(&can1);
