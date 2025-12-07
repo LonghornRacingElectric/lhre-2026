@@ -1,0 +1,107 @@
+.modern-dash-container {
+    background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+    font-family: 'Segoe UI', 'Roboto', sans-serif;
+    color: #fff;
+    overflow: hidden;
+}
+
+/* Glassmorphism Cards */
+.dash-card {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    transition: all 0.3s ease;
+}
+
+.dash-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Gauge Glows */
+.gauge-glow .gauge-progress {
+    filter: drop-shadow(0 0 8px currentColor);
+}
+
+/* Specific glows based on color logic in TSX */
+.glow-orange .gauge-progress {
+    filter: drop-shadow(0 0 10px #BF5700);
+}
+
+.glow-yellow .gauge-progress {
+    filter: drop-shadow(0 0 10px #FFD700);
+}
+
+.glow-gradient .gauge-progress {
+    /* Gradient glow is tricky, approximating with yellow/orange mix */
+    filter: drop-shadow(0 0 10px rgba(255, 200, 0, 0.6));
+}
+
+.glow-blue .gauge-progress {
+    filter: drop-shadow(0 0 10px cyan);
+}
+
+/* Typography */
+.value-display {
+    font-family: 'Consolas', 'Monaco', monospace; /* Tabular numbers */
+    letter-spacing: -1px;
+}
+
+.label-small {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #888;
+    margin-bottom: 2px;
+}
+
+.unit-label {
+    font-size: 1rem;
+    color: #aaa;
+    margin-left: 4px;
+}
+
+/* Vertical Gauges */
+.vertical-gauge-container rect {
+    transition: height 0.3s ease, y 0.3s ease;
+}
+
+.vertical-gauge-container .fill-bar {
+    filter: drop-shadow(0 0 5px currentColor);
+}
+
+/* Animation for Alerts */
+@keyframes flash-alert {
+    0%, 100% { background-color: rgba(255, 215, 0, 0.95); }
+    50% { background-color: rgba(255, 215, 0, 0.5); }
+}
+
+.alert-overlay {
+    position: absolute;
+    top: 0;
+    left: 16.66%;
+    width: 66.66%;
+    color: #000;
+    text-align: center;
+    padding: 10px;
+    font-size: 1.5rem;
+    font-weight: 800;
+    z-index: 1000;
+    animation: flash-alert 1s infinite;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+
+/* Layout Utilities */
+.h-100-flex {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}

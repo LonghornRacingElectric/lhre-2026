@@ -9,6 +9,7 @@ interface VerticalGaugeProps {
     width?: number;
     height?: number;
     color?: string;
+    className?: string;
 }
 
 const VerticalGauge: React.FC<VerticalGaugeProps> = ({
@@ -18,7 +19,8 @@ const VerticalGauge: React.FC<VerticalGaugeProps> = ({
     label = "",
     width = 60,
     height = 200,
-    color = "#BF5700" // Burnt Orange
+    color = "#BF5700", // Burnt Orange
+    className = ""
 }) => {
     const clampedValue = Math.min(Math.max(value, min), max);
     const percentage = (clampedValue - min) / (max - min);
@@ -27,7 +29,7 @@ const VerticalGauge: React.FC<VerticalGaugeProps> = ({
     const y = height - barHeight;
 
     return (
-        <div className="vertical-gauge-container">
+        <div className={`vertical-gauge-container ${className}`}>
             <svg width={width} height={height + 40}>
                 {/* Background Bar */}
                 <rect
@@ -48,15 +50,25 @@ const VerticalGauge: React.FC<VerticalGaugeProps> = ({
                     fill={color}
                     rx="5"
                     style={{ transition: "all 0.3s ease-in-out" }}
+                    className="fill-bar"
                 />
                 
                 {/* Label & Value */}
-                <text x={width/2} y={height + 20} className="vertical-gauge-value">
-                    {Math.round(value)}
-                </text>
-                 <text x={width/2} y={height + 35} className="vertical-gauge-label">
-                    {label}
-                </text>
+                {/* We can keep these or hide them if the parent component handles layout. 
+                    Given the new modern design relies on the parent for labels, 
+                    we can keep them as fallbacks or hide them via CSS if needed. 
+                    For now, I'll leave them but maybe the parent passes label="" to hide them.
+                */}
+                {label && (
+                    <>
+                        <text x={width/2} y={height + 20} className="vertical-gauge-value">
+                            {Math.round(value)}
+                        </text>
+                        <text x={width/2} y={height + 35} className="vertical-gauge-label">
+                            {label}
+                        </text>
+                    </>
+                )}
             </svg>
         </div>
     );
