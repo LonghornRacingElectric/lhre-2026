@@ -1,14 +1,14 @@
-#include "rtos/usb.h"
+#include "longhorn/rtos/usb.h"
 
 #include <stdarg.h>
 #include <stdio.h>
 
 #include "FreeRTOS.h"
 #include "cmsis_os2.h"
+#include "longhorn/usb_base.h"
 #include "queue.h"
 #include "semphr.h"
 #include "stdbool.h"
-#include "usb_base.h"
 
 // wait 3(000) (m)s before failing
 #define TIME_BEFORE_FAIL 3000
@@ -32,7 +32,7 @@ void init_usb(CDC_Transmit_Fn_ptr transmit_fn) {
     }
 }
 
-void ts_printf2(const char* pcFormat, ...) {
+void ts_printf(const char* pcFormat, ...) {
     if (!initialized) {
         return;
     }

@@ -7,7 +7,7 @@
 #include <vector>
 
 extern "C" {
-#include "usb_base.h"
+#include "longhorn/usb_base.h"
 void usb_println(const char* buffer);
 }
 
