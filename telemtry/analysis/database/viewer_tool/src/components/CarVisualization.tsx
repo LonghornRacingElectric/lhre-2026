@@ -49,7 +49,7 @@ export default function CarVisualization() {
   });
 
   // Normalize speeds (guard against undefined / string / NaN) and apply a visual scaling factor.
-  const speedScale = 4000; // tweak for visual rotation rate
+  const speedScale = -1; // tweak for visual rotation rate
   // Support both nested (dynamics.flw_speed) and flat (flw_speed) routing outputs.
   const flSpeedRaw = carData?.dynamics?.flwSpeed ?? 0;
   const frSpeedRaw = carData?.dynamics?.frwSpeed ?? 0;
@@ -339,10 +339,10 @@ export default function CarVisualization() {
         </group>
 
         {/* Back Left (no pivot needed) */}
-        <Wheel ref={blWheel} position={[-0.28 * scale, 0, -0.43 * scale]} />
+        <Wheel ref={blWheel} position={[0.28 * scale, 0, -0.43 * scale]} />
 
         {/* Back Right */}
-        <Wheel ref={brWheel} position={[0.28 * scale, 0, -0.43 * scale]} />
+        <Wheel ref={brWheel} position={[-0.28 * scale, 0, -0.43 * scale]} />
 
         {/* Springs visually connect wheels to body */}
         {/* <Spring x={-1.8} z={2} length={flSpringLength} />

@@ -36,7 +36,10 @@ export async function GET(req: NextRequest) {
 
       const handlers: Array<{ topic: string; fn: (msg: any) => void }> = [];
       for (const t of topics) {
-        const fn = (msg: any) => { if (msg?.topic === t) write(msg); };
+        const fn = (msg: any) => { 
+          console.log("SSE sending message for topic:", t, "message:", msg);
+          if (msg?.topic === t) write(msg); 
+        };
         bus.on(`kafka:${t}`, fn);
         handlers.push({ topic: t, fn });
       }
@@ -64,7 +67,8 @@ export async function GET(req: NextRequest) {
     headers: {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-store, no-transform",
-      Connection: "keep-alive",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no", // Disable buffering for Nginx/proxies
     },
   });
 }

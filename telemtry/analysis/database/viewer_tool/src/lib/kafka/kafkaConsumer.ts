@@ -143,7 +143,7 @@ export async function startKafkaConsumer(): Promise<void> {
     await consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
         // Added logging to track message processing time
-        console.log(`Processing message from topic ${topic} at ${new Date().toISOString()}`);
+        // console.log(`Processing message from topic ${topic} at ${new Date().toISOString()}`);
 
         let payload = message.value ? message.value.toString() : "";
         let parsed: any = null;
@@ -163,7 +163,7 @@ export async function startKafkaConsumer(): Promise<void> {
             );
             parsed = AngeliqueSensorData.toJSON(decodedPayload);
             payload = JSON.stringify(parsed);
-            console.log("Decoded AngeliqueSensorData payload for topic:", topic);
+            // console.log("Decoded AngeliqueSensorData payload for topic:", topic);
           }
         } catch (error) {
           console.log("Failed to decode as protobuf, trying JSON for topic:", topic);
@@ -184,7 +184,7 @@ export async function startKafkaConsumer(): Promise<void> {
           timestamp: message.timestamp,
         };
 
-        console.log("Received message on topic:", topic);
+        // console.log("Received message on topic:", topic);
         bus.emit(`kafka:${topic}` as const, evt); // raw event
         bus.emit("kafka:*", evt);
 
@@ -230,7 +230,8 @@ export async function startKafkaConsumer(): Promise<void> {
               timestamp: message.timestamp,
             };
             bus.emit(`kafka:${rule.to}` as const, routed);
-            console.log(`Routed message from topic ${topic} to ${rule.to}`);
+            console.log(`Routed message from topic ${topic} to ${rule.to} with following data: `, routed);
+
           }
         }
       },

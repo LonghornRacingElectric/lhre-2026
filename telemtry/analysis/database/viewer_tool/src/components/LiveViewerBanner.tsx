@@ -25,7 +25,7 @@ const LiveViewerBanner = () => {
     battery?: number;
     odometer?: number;
   }>({
-    topic: 'livebanner',
+    topic: 'live_banner',
     // No custom select: we want the whole object; default parser handles JSON
   });
 

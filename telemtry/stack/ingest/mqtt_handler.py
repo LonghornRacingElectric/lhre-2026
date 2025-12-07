@@ -86,7 +86,7 @@ class MQTTHandler:
         Function called when MQTT client disconnects.
         '''
         if rc != 0:
-            print(f'Unexpected MQTT disconnection. Return code: {rc}')
+            logging.error(f'Unexpected MQTT disconnection. Return code: {rc}')
 
     def connect(self, ip=None):
         '''

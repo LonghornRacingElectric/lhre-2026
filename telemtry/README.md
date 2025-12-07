@@ -1,4 +1,5 @@
 # Telemetry Webtool
+pm2 start npm --name viewer_tool -- run start -- -p 3001
 
 ## Resetting the Database
 - psql -h localhost -U electric -d angelique

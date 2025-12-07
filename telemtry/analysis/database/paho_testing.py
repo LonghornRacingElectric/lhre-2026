@@ -275,7 +275,7 @@ class DataTester:
 
             try:
                 for future in as_completed(futures):
-                    future.result() if kwargs.get('verbose') else print(f'Exit Code: {future.result()}')
+                    future.result() if kwargs.get('verbose') else logging.error(f'Exit Code: {future.result()}')
             except KeyboardInterrupt:
                 executor.shutdown(False)
 

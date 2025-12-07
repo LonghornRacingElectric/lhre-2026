@@ -1,10 +1,4 @@
 {
-  "status": [
-    {
-      "to": "livebanner",
-      "pick": ["battery", "odometer"]
-    }
-  ],
   "sensor_data": [
     {
       "to": "driver_input_visualizer",
@@ -13,6 +7,10 @@
     {
       "to": "car_visualization",
       "pick": ["dynamics"]
+    },
+    {
+      "to": "live_banner",
+      "pick": ["battery", "odometer"]
     }
   ],
   "gg-plot": {
