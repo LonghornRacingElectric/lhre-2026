@@ -16,6 +16,10 @@
 #include <string.h>
 #include <stdint.h>
 
+#include "longhorn/rtos/logger.h"
+
+
+
 extern SPI_HandleTypeDef hspi4;
 
 // Declare PWM commands locally to avoid multiple definition errors
@@ -64,9 +68,13 @@ void bms_enable_discharge()
     adBmsWakeupIc(TOTAL_IC);
     adBms6830_write_config(TOTAL_IC, IC);
     
-    snprintf(msg, sizeof(msg), "Discharge enabled on ALL CELLS (DCC=0x%04X)\r\n", 
-             IC[0].tx_cfgb.dcc);
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    // snprintf(msg, sizeof(msg), "Discharge enabled on ALL CELLS (DCC=0x%04X)\r\n", 
+    //          IC[0].tx_cfgb.dcc);
+    // CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+
+    log_printf(LOG_INFO, "Discharge enabled on ALL CELLS (DCC=0x%04X)", IC[0].tx_cfgb.dcc);
+
+    
     
     discharge_active = 1;
 }
@@ -80,7 +88,8 @@ void bms_disable_discharge(void)
     adBmsWakeupIc(TOTAL_IC);
     adBms6830_write_config(TOTAL_IC, IC);
     
-    CDC_Transmit_FS((uint8_t*)"Discharge disabled\r\n", 20);
+    // CDC_Transmit_FS((uint8_t*)"Discharge disabled\r\n", 20);
+    log_printf(LOG_INFO, "Discharge disabled");
     discharge_active = 0;
 }
 
@@ -88,7 +97,8 @@ void bms_init(void)
 {
     char msg[128];
     
-    CDC_Transmit_FS((uint8_t*)"=== BMS Discharge Test ===\r\n", 29);
+    // CDC_Transmit_FS((uint8_t*)"=== BMS Discharge Test ===\r\n", 29);
+    log_printf(LOG_WARNING, "=== BMS Discharge Test ===");
     
     // Initialize driver structures
     adBms6830_init_config(TOTAL_IC, IC);
@@ -116,13 +126,20 @@ void bms_init(void)
     // Read initial configuration
     adBms6830_read_config(TOTAL_IC, IC);
     
-    snprintf(msg, sizeof(msg), "Initial CFGA: %02X %02X %02X %02X %02X %02X\r\n", 
-             IC[0].configa.rx_data[0], IC[0].configa.rx_data[1], 
+    // snprintf(msg, sizeof(msg), "Initial CFGA: %02X %02X %02X %02X %02X %02X\r\n", 
+    //          IC[0].configa.rx_data[0], IC[0].configa.rx_data[1], 
+    //          IC[0].configa.rx_data[2], IC[0].configa.rx_data[3],
+    //          IC[0].configa.rx_data[4], IC[0].configa.rx_data[5]);
+
+      log_printf(LOG_INFO, 
+             "Initial CFGA: %02X %02X %02X %02X %02X %02X",
+             IC[0].configa.rx_data[0], IC[0].configa.rx_data[1],
              IC[0].configa.rx_data[2], IC[0].configa.rx_data[3],
              IC[0].configa.rx_data[4], IC[0].configa.rx_data[5]);
-    CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+    // CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
     
-    CDC_Transmit_FS((uint8_t*)"Reading baseline voltages...\r\n", 31);
+    // CDC_Transmit_FS((uint8_t*)"Reading baseline voltages...\r\n", 31);
+    log_printf(LOG_INFO, "Reading baseline voltages...");
 }
 
 void bms_update(void)
@@ -149,11 +166,13 @@ void bms_update(void)
         voltage_mv = (code * 8) / 30;  // Convert to mV
         
         if (discharge_active) {
-            snprintf(msg, sizeof(msg), "Cell %d: %lu mV [DISCHARGING]\r\n", i, voltage_mv);
+            // snprintf(msg, sizeof(msg), "Cell %d: %lu mV [DISCHARGING]\r\n", i, voltage_mv);
+            log_printf(LOG_WARNING, "Cell %d: %lu mV [DISCHARGING]", i, voltage_mv);
         } else {
-            snprintf(msg, sizeof(msg), "Cell %d: %lu mV\r\n", i, voltage_mv);
+            // snprintf(msg, sizeof(msg), "Cell %d: %lu mV\r\n", i, voltage_mv);
+            log_printf(LOG_INFO, "Cell %d: %lu mV", i, voltage_mv);
         }
-        CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+        // CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
     }
 }
 
@@ -163,11 +182,11 @@ void StartBmsTask(void *argument)
     
     osDelay(3500);  // Wait for USB
     
-    CDC_Transmit_FS((uint8_t*)"[BMS] Starting discharge test\r\n", 32);
-    
-    bms_init();
-    
-    // Read baseline voltages for 3 seconds
+      // CDC_Transmit_FS((uint8_t*)"[BMS] Starting discharge test\r\n", 32);
+      
+      bms_init();
+      
+      // Read baseline voltages for 3 seconds
     for (loop_count = 0; loop_count < 3; loop_count++) {
         osDelay(1000);
         bms_update();
@@ -177,7 +196,8 @@ void StartBmsTask(void *argument)
     bms_enable_discharge();
 
     // Monitor for 500 seconds with discharge active
-    CDC_Transmit_FS((uint8_t*)"\r\n*** DISCHARGE ACTIVE FOR 500 SECONDS ***\r\n\r\n", 48);
+    // CDC_Transmit_FS((uint8_t*)"\r\n*** DISCHARGE ACTIVE FOR 500 SECONDS ***\r\n\r\n", 48);
+    log_printf(LOG_INFO, "*** DISCHARGE ACTIVE FOR 500 SECONDS ***");
     for (loop_count = 0; loop_count < 500; loop_count++) {
         osDelay(1000);
         bms_update();
@@ -187,7 +207,8 @@ void StartBmsTask(void *argument)
     bms_disable_discharge();
     
     // Continue monitoring
-    CDC_Transmit_FS((uint8_t*)"\r\n*** DISCHARGE STOPPED - MONITORING ***\r\n\r\n", 44);
+    // CDC_Transmit_FS((uint8_t*)"\r\n*** DISCHARGE STOPPED - MONITORING ***\r\n\r\n", 44);
+    log_printf(LOG_INFO, "*** DISCHARGE STOPPED - MONITORING ***");
     for (;;) {
         osDelay(1000);
         bms_update();

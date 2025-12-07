@@ -32,13 +32,20 @@
 #include "longhorn/rtos/logger.h"
 #include "longhorn/rtos/usb.h"
 #include "longhorn/usb_base.h"
+#include "longhorn/can_base.h"
 #include "tim.h"
 #include "usbd_cdc_if.h"
+#include <stdint.h>
 
 /* HVC Application Modules */
 #include "hvc_state_machine.h"
 #include "hvc_contactors.h"
 #include "hvc_bms.h"
+#include "can.h"
+#include "FreeRTOS.h"
+#include "cmsis_os.h"
+#include "tim.h"
+#include "fdcan.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -79,7 +86,7 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 128 * 4
+  .stack_size = 2048 * 4
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -142,6 +149,7 @@ void MX_FREERTOS_Init(void) {
 
   led_init(&led);
   led_start_thread();
+
   
   /* USER CODE END RTOS_THREADS */
 
@@ -168,8 +176,14 @@ void StartDefaultTask(void *argument)
   // Wait for USB to enumerate
   osDelay(3000);
   
+  // CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+
+  // usb_init(CDC_Transmit_FS)
+  init_logging(CDC_Transmit_FS);
+
   const char* msg = "\r\n=== HVC Firmware Starting ===\r\n";
-  CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+  log_printf(LOG_WARNING, msg);
+
   osDelay(100);
   
   // Initialize DFU
@@ -183,19 +197,54 @@ void StartDefaultTask(void *argument)
 
   init_dfu(dfu);
   dfu_start_thread();
+  // can_init(&can_config);
   
   msg = "DFU initialized\r\n";
-  CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-  osDelay(100);
+  log_printf(LOG_INFO, msg);
   
   msg = "System running\r\n";
-  CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-  osDelay(100);
+  log_printf(LOG_INFO, msg);
   
+  
+static can_config_t can_config = {
+        .init_fn = (CAN_Init_fn)HAL_FDCAN_Init,
+        .start_fn = (CAN_Start_fn)HAL_FDCAN_Start,
+        .noti_fn = (CAN_ActivateNotifications_fn)HAL_FDCAN_ActivateNotification,
+        .stop_fn = (CAN_Stop_fn)HAL_FDCAN_Stop,
+        .add_to_queue_fn = (CAN_AddToQ_fn)HAL_FDCAN_AddMessageToTxFifoQ,
+        .get_rx_message_fn = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
+        .tick_fn = (Tick_fn)osKernelGetTickCount,
+        .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
+        .malloc_fn = (Malloc_fn)pvPortMalloc,
+        .free_fn = (Free_fn)vPortFree,
+    };
+
+    can_init(&can_config);
+
+    static can_interface_t can_interface = {
+        .handle = &hfdcan1,
+    };
+
+    can_register_interface(&can_interface);
+
+    static msg_vcu_current_sense_t msg_content;
+    can_message_t* msg_can = can_get_message_handle(
+        &msg_content, VCU_CURRENT_SENSE_ID, VCU_CURRENT_SENSE_FREQ,
+        VCU_CURRENT_SENSE_DLC, pack_vcu_current_sense);
+    can_register_send_packet(&can_interface, msg_can);
+
+static msg_vcu_fuses_t rx_fuses;
+    can_receive_message_t* rx_msg = can_get_receive_message_handle(
+        &rx_fuses, VCU_FUSES_ID, unpack_vcu_fuses);
+    can_register_receive_packet(&can_interface, rx_msg);
   /* Infinite loop */
   for(;;)
   {
     osDelay(1000);
+    can_service(&can_interface);
+log_printf(LOG_WARNING, "Message Received: %f", rx_fuses.vcu_fuses_1);
+    msg_content.lv_boards_current = 1.0f;
+    // can_func();
   }
   /* USER CODE END StartDefaultTask */
 }
@@ -214,7 +263,7 @@ void StartStateMachineTask(void *argument)
   osDelay(3500);
   
   const char* msg = "State Machine initialized\r\n";
-  CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+  log_printf(LOG_INFO, msg);
   osDelay(200);
   
   // Initialize state machine and contactors
