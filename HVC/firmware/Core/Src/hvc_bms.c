@@ -26,8 +26,8 @@ extern SPI_HandleTypeDef hspi4;
 extern uint8_t WRPWM1[2];
 extern uint8_t WRPWM2[2];
 
-#define TOTAL_IC 1
-#define NUM_CELLS 5
+#define TOTAL_IC 10
+#define NUM_CELLS 14
 #define DISCHARGE_CELL 0  // Which cell to discharge (0-4)
 // Mask covering all cells (bits 0..NUM_CELLS-1)
 #define ALL_DISCHARGE_MASK ((1U << NUM_CELLS) - 1)
@@ -42,9 +42,11 @@ uint32_t getPackVoltage_mv(void)
     uint16_t code;
     int i;
 
-    for (i = 0; i < NUM_CELLS; i++) {
-        code = IC[0].cell.c_codes[i];
-        pack_mv += (uint32_t)((code * 8) / 30);
+    for (int i = 0; i < TOTAL_IC; i++) {
+        for (int j = 0; j < NUM_CELLS; j++) {
+            code = IC[i].cell.c_codes[j];
+            pack_mv += (code * 8) / 30;
+        }
     }
 
     return pack_mv;
@@ -147,7 +149,6 @@ void bms_update(void)
     char msg[128];
     uint16_t code;
     uint32_t voltage_mv;
-    int i;
     
     // Wake and start ADC conversion
     // Use DCP_ON to keep discharge active during measurement
@@ -159,21 +160,25 @@ void bms_update(void)
     
     // Read cell voltages
     adBms6830_read_cell_voltages(TOTAL_IC, IC);
-    
+    // int i;
+    // int j;
     // Print all cell voltages, marking the discharging cell
-    for (i = 0; i < NUM_CELLS; i++) {
-        code = IC[0].cell.c_codes[i];
-        voltage_mv = (code * 8) / 30;  // Convert to mV
-        
-        if (discharge_active) {
-            // snprintf(msg, sizeof(msg), "Cell %d: %lu mV [DISCHARGING]\r\n", i, voltage_mv);
-            log_printf(LOG_WARNING, "Cell %d: %lu mV [DISCHARGING]", i, voltage_mv);
-        } else {
-            // snprintf(msg, sizeof(msg), "Cell %d: %lu mV\r\n", i, voltage_mv);
-            log_printf(LOG_INFO, "Cell %d: %lu mV", i, voltage_mv);
+    for (int i = 0; i < TOTAL_IC; i++) {
+        log_printf(LOG_INFO, "IC %d Cell Voltages:", i);
+        for (int j = 0; j < NUM_CELLS; j++) {
+            code = IC[i].cell.c_codes[j];
+            voltage_mv = (code * 8) / 30;
+            
+            if (discharge_active) {
+                log_printf(LOG_WARNING, "Cell %d: %lu mV [DISCHARGING]", i, voltage_mv);
+            } else {
+                log_printf(LOG_INFO, "\t IC: %d  -  Cell %d: %lu mV", i,j, voltage_mv);
+            }
         }
-        // CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+
+        osDelay(10);
     }
+    log_printf(LOG_INFO, "Pack Voltage: %lu V", getPackVoltage_mv()/1000);
 }
 
 void StartBmsTask(void *argument)
@@ -187,24 +192,24 @@ void StartBmsTask(void *argument)
       bms_init();
       
       // Read baseline voltages for 3 seconds
-    for (loop_count = 0; loop_count < 3; loop_count++) {
+    for (loop_count = 0; loop_count < 3000; loop_count++) {
         osDelay(1000);
         bms_update();
     }
     
     // Enable discharge on specified cell
-    bms_enable_discharge();
+    //bms_enable_discharge();
 
     // Monitor for 500 seconds with discharge active
     // CDC_Transmit_FS((uint8_t*)"\r\n*** DISCHARGE ACTIVE FOR 500 SECONDS ***\r\n\r\n", 48);
-    log_printf(LOG_INFO, "*** DISCHARGE ACTIVE FOR 500 SECONDS ***");
-    for (loop_count = 0; loop_count < 500; loop_count++) {
-        osDelay(1000);
-        bms_update();
-    }
+    // log_printf(LOG_INFO, "*** DISCHARGE ACTIVE FOR 500 SECONDS ***");
+    // for (loop_count = 0; loop_count < 500; loop_count++) {
+    //     osDelay(1000);
+    //     bms_update();
+    // }
     
     // Disable discharge
-    bms_disable_discharge();
+    //bms_disable_discharge();
     
     // Continue monitoring
     // CDC_Transmit_FS((uint8_t*)"\r\n*** DISCHARGE STOPPED - MONITORING ***\r\n\r\n", 44);

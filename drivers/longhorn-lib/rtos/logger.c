@@ -12,9 +12,9 @@
 #define MAX_LOG_MESSAGE_LEN 256
 
 // max of 8 messages at once in the queue
-#define LOG_QUEUE_LENGTH 8
+#define LOG_QUEUE_LENGTH 32
 
-#define LOGGER_TASK_STACK_SIZE (configMINIMAL_STACK_SIZE + 256 * 8)
+#define LOGGER_TASK_STACK_SIZE (configMINIMAL_STACK_SIZE + 256 * 8 * 4)
 
 #define LOGGER_TASK_PRIORITY (osPriorityLow)
 
