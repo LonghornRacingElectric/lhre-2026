@@ -111,6 +111,13 @@ void MX_FREERTOS_Init(void)
 
   led_init(&led);
   ledHandle = led_start_thread();
+
+  //... pdu init
+
+  // struct with all the switches
+  // can thread update the switch struct with duty cycles
+  // vcu can set duty cycles and pdu "approves" baed on conditions
+
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
 
@@ -134,7 +141,12 @@ void StartDefaultTask(void *argument)
   /* Infinite loop */
   for (;;)
   {
-    osDelay(1);
+    HAL_GPIO_WritePin(GPIOA, EN_TSSI_G_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOC, EN_SDWN_Pin, GPIO_PIN_SET);
+    osDelay(10000);
+    HAL_GPIO_WritePin(GPIOA, EN_TSSI_G_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOC, EN_SDWN_Pin, GPIO_PIN_RESET);
+    osDelay(10000);
   }
   /* USER CODE END StartDefaultTask */
 }

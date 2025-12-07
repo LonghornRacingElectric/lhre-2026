@@ -57,6 +57,26 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define LATCH_TSSI_G_Pin GPIO_PIN_15
+#define LATCH_TSSI_G_GPIO_Port GPIOC
+#define EN_SDWN_Pin GPIO_PIN_0
+#define EN_SDWN_GPIO_Port GPIOC
+#define SW_SPARE_Pin GPIO_PIN_1
+#define SW_SPARE_GPIO_Port GPIOC
+#define SW_BOARDS_Pin GPIO_PIN_2
+#define SW_BOARDS_GPIO_Port GPIOC
+#define SW_FANS_Pin GPIO_PIN_3
+#define SW_FANS_GPIO_Port GPIOC
+#define SW_TSSI_R_Pin GPIO_PIN_0
+#define SW_TSSI_R_GPIO_Port GPIOA
+#define SW_BRAKEL_Pin GPIO_PIN_1
+#define SW_BRAKEL_GPIO_Port GPIOA
+#define EN_TSSI_G_Pin GPIO_PIN_2
+#define EN_TSSI_G_GPIO_Port GPIOA
+#define SNS_TSSI_G_Pin GPIO_PIN_0
+#define SNS_TSSI_G_GPIO_Port GPIOB
+#define ST_TSSI_G_Pin GPIO_PIN_15
+#define ST_TSSI_G_GPIO_Port GPIOE
 
 /* USER CODE BEGIN Private defines */
 
