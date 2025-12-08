@@ -3,62 +3,62 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* APPS calibration */
+// Calibration constants
+
+// APPS calibration
 #define APPS1_MIN_ADC 782u
 #define APPS1_MAX_ADC 3262u
 #define APPS2_MIN_ADC 382u
 #define APPS2_MAX_ADC 1586u
 
-/* Torque limit */
+// Torque limit (Nm)
 #define TORQUE_MAX_NM 5.0f
 
-/* APPS plausibility */
+// APPS plausibility
 #define APPS_MIN_TRAVEL_FOR_CHECK 0.10f
 #define APPS_MAX_DIFF_ALLOWED     0.10f
 #define APPS_IMPLAUS_TIME_MS      100u
 #define VCU_MODEL_STEP_MS         50u
 #define APPS_IMPLAUS_COUNT        (APPS_IMPLAUS_TIME_MS / VCU_MODEL_STEP_MS)
 
-/* APPS filtering */
+// Pedal filter
 #define PEDAL_FILTER_ALPHA 0.4f
 
-/* BSE calibration */
+// BSE calibration
 #define BSE_ADC_AT_0_PSI       156.0f
 #define BSE_ADC_AT_1000_PSI    635.0f
 #define BSE_MAX_PSI            1000.0f
 
-/* Soft brake thresholds */
+// Soft brake hysteresis
 #define BSE_SOFT_ON_PSI   50.0f
 #define BSE_SOFT_OFF_PSI  30.0f
 
 
+// Internal state
 typedef struct {
     float pedal_filtered;
     uint8_t implaus_counter;
     bool apps_implaus;
 
-    bool brake_active;   // soft brake
-    bool brake_latched;  // brake + throttle
+    bool brake_active;
+    bool brake_latched;
 } vcu_model_state_t;
 
 static vcu_model_state_t s_state;
 
+
+// Utility functions
+
 static float clamp_f(float x, float lo, float hi)
 {
-    if (x < lo) return lo;
-    if (x > hi) return hi;
-    return x;
+    return (x < lo) ? lo : (x > hi) ? hi : x;
 }
 
 static float apps_adc_to_travel(uint16_t raw, uint16_t min_adc, uint16_t max_adc)
 {
-    if (raw < min_adc) raw = min_adc;
-    if (raw > max_adc) raw = max_adc;
-
+    raw = clamp_f(raw, min_adc, max_adc);
     float span = (float)(max_adc - min_adc);
-    if (span <= 1.0f) return 0.0f;
-
-    return ((float)raw - (float)min_adc) / span;
+    return (span <= 1.0f) ? 0.0f : ((float)raw - min_adc) / span;
 }
 
 static float bse_adc_to_psi(uint16_t adc)
@@ -66,26 +66,25 @@ static float bse_adc_to_psi(uint16_t adc)
     float lo = BSE_ADC_AT_0_PSI;
     float hi = BSE_ADC_AT_1000_PSI;
 
-    if (adc < lo) adc = (uint16_t)lo;
-    if (adc > hi) adc = (uint16_t)hi;
-
-    float span = hi - lo;
-    return ((float)adc - lo) / span * BSE_MAX_PSI;
+    adc = clamp_f(adc, lo, hi);
+    return ((float)adc - lo) / (hi - lo) * BSE_MAX_PSI;
 }
+
+
+// Public API
 
 void vcu_model_init(void)
 {
     s_state.pedal_filtered = 0.0f;
     s_state.implaus_counter = 0;
     s_state.apps_implaus = false;
-
     s_state.brake_active = false;
     s_state.brake_latched = false;
 }
 
 void vcu_model_step(const vcu_inputs_t* in, vcu_outputs_t* out)
 {
-    // --- APPS ---
+    // APPS
     float p1 = apps_adc_to_travel(in->apps1_raw, APPS1_MIN_ADC, APPS1_MAX_ADC);
     float p2 = apps_adc_to_travel(in->apps2_raw, APPS2_MIN_ADC, APPS2_MAX_ADC);
 
@@ -93,69 +92,56 @@ void vcu_model_step(const vcu_inputs_t* in, vcu_outputs_t* out)
     p2 = clamp_f(p2, 0.0f, 1.0f);
 
     float diff = fabsf(p1 - p2);
-    float p_max = (p1 > p2) ? p1 : p2;
+    float p_max = fmaxf(p1, p2);
 
-    if (p_max > APPS_MIN_TRAVEL_FOR_CHECK) {
-        if (diff > APPS_MAX_DIFF_ALLOWED) {
-            if (s_state.implaus_counter < 255)
-                s_state.implaus_counter++;
-        } else {
-            s_state.implaus_counter = 0;
-        }
-    } else {
+    // Plausibility detection
+    if (p_max > APPS_MIN_TRAVEL_FOR_CHECK && diff > APPS_MAX_DIFF_ALLOWED)
+        s_state.implaus_counter++;
+    else
         s_state.implaus_counter = 0;
-    }
 
     if (s_state.implaus_counter >= APPS_IMPLAUS_COUNT)
         s_state.apps_implaus = true;
 
-    if (s_state.apps_implaus && p1 < 0.05f && p2 < 0.05f) {
+    // Reset implausibility if pedal returns to idle
+    if (s_state.apps_implaus && p_max < 0.05f) {
         s_state.apps_implaus = false;
         s_state.implaus_counter = 0;
     }
 
-    float pedal = 0.0f;
-    if (!s_state.apps_implaus)
-        pedal = 0.5f * (p1 + p2);
-
+    // Pedal value
+    float pedal = (s_state.apps_implaus) ? 0.0f : 0.5f * (p1 + p2);
     pedal = clamp_f(pedal, 0.0f, 1.0f);
 
-    // Filter pedal
+    // Filter
     s_state.pedal_filtered += PEDAL_FILTER_ALPHA * (pedal - s_state.pedal_filtered);
 
-    // --- Brake ---
+    // BSE (Brake)
     float bse_psi = bse_adc_to_psi(in->bse_raw);
 
-    // soft brake hysteresis
-    if (!s_state.brake_active) {
-        if (bse_psi > BSE_SOFT_ON_PSI)
-            s_state.brake_active = true;
-    } else {
-        if (bse_psi < BSE_SOFT_OFF_PSI)
-            s_state.brake_active = false;
-    }
+    if (!s_state.brake_active && bse_psi > BSE_SOFT_ON_PSI)
+        s_state.brake_active = true;
+    else if (s_state.brake_active && bse_psi < BSE_SOFT_OFF_PSI)
+        s_state.brake_active = false;
 
-    // brake latch: brake + throttle
+    // Brake latch (brake + throttle)
     if (s_state.brake_active && s_state.pedal_filtered > 0.25f)
         s_state.brake_latched = true;
 
     if (s_state.brake_latched && s_state.pedal_filtered < 0.05f)
         s_state.brake_latched = false;
 
-    // --- Torque ---
+    // Torque Command
     float tq_cmd = 0.0f;
-
-    if (!s_state.apps_implaus &&
-        !s_state.brake_latched)
-    {
+    if (!s_state.apps_implaus && !s_state.brake_latched)
         tq_cmd = s_state.pedal_filtered * TORQUE_MAX_NM;
-    }
 
-    // --- Outputs ---
+    // Outputs
     out->apps1_travel = p1;
     out->apps2_travel = p2;
     out->pedal = pedal;
     out->pedal_filtered = s_state.pedal_filtered;
+
     out->torque_cmd = tq_cmd;
 
     out->apps_implaus = s_state.apps_implaus;
@@ -164,5 +150,6 @@ void vcu_model_step(const vcu_inputs_t* in, vcu_outputs_t* out)
 
     out->brake_active = s_state.brake_active;
     out->brake_latched = s_state.brake_latched;
+
     out->bse_psi = bse_psi;
 }

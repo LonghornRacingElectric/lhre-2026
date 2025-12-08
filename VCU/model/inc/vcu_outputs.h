@@ -7,7 +7,7 @@
 typedef struct
 {
     /* Normalized pedal travel */
-    float apps1_travel;
+    float apps1_travel; 
     float apps2_travel;
     float pedal;
     float pedal_filtered;
