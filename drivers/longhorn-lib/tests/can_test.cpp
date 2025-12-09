@@ -12,6 +12,7 @@ extern void HAL_FDCAN_RxFifo0Callback(void* hfdcan, uint32_t RxFifo0ITs);
 using ::testing::_;
 using ::testing::DoAll;
 using ::testing::InSequence;
+using ::testing::Invoke;
 using ::testing::Return;
 using ::testing::SetArgPointee;
 
@@ -215,11 +216,11 @@ TEST_F(CanBaseTest, Service_SendsMessage_WithPhasing) {
 
     // Expect Msg1 (0x200) to send
     EXPECT_CALL(mockHal, AddToQueue(test_interface.handle, _, _))
-        .WillOnce(Invoke([](void*, const cFDCAN_TxHeaderTypeDef* header,
-                            const uint8_t*) {
-            EXPECT_EQ(header->Identifier, 0x200);
-            return cHAL_OK;
-        }));
+        .WillOnce(Invoke(
+            [](void*, const cFDCAN_TxHeaderTypeDef* header, const uint8_t*) {
+                EXPECT_EQ(header->Identifier, 0x200);
+                return cHAL_OK;
+            }));
 
     can_service(&test_interface);
 
@@ -239,11 +240,11 @@ TEST_F(CanBaseTest, Service_SendsMessage_WithPhasing) {
 
     // Expect Msg2 (0x201) to send
     EXPECT_CALL(mockHal, AddToQueue(test_interface.handle, _, _))
-        .WillOnce(Invoke([](void*, const cFDCAN_TxHeaderTypeDef* header,
-                            const uint8_t*) {
-            EXPECT_EQ(header->Identifier, 0x201);
-            return cHAL_OK;
-        }));
+        .WillOnce(Invoke(
+            [](void*, const cFDCAN_TxHeaderTypeDef* header, const uint8_t*) {
+                EXPECT_EQ(header->Identifier, 0x201);
+                return cHAL_OK;
+            }));
 
     can_service(&test_interface);
 
@@ -255,11 +256,11 @@ TEST_F(CanBaseTest, Service_SendsMessage_WithPhasing) {
     EXPECT_CALL(mockHal, Pack(&payload1, _)).Times(1);
 
     EXPECT_CALL(mockHal, AddToQueue(test_interface.handle, _, _))
-        .WillOnce(Invoke([](void*, const cFDCAN_TxHeaderTypeDef* header,
-                            const uint8_t*) {
-            EXPECT_EQ(header->Identifier, 0x200);
-            return cHAL_OK;
-        }));
+        .WillOnce(Invoke(
+            [](void*, const cFDCAN_TxHeaderTypeDef* header, const uint8_t*) {
+                EXPECT_EQ(header->Identifier, 0x200);
+                return cHAL_OK;
+            }));
 
     can_service(&test_interface);
 
@@ -299,8 +300,6 @@ TEST_F(CanBaseTest, RegisterReceivePacket_ConfiguresFilter) {
 
     free(rx_msg);
 }
-
-using ::testing::Invoke;
 
 TEST_F(CanBaseTest, RxCallback_UnpacksDataCorrectly) {
     can_reset_internals();
