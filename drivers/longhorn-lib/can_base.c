@@ -6,6 +6,7 @@
 #include "longhorn/can_hal.h"
 
 #define MAX_INTERFACES 2
+#define PHASE_STAGGER_MS 5
 
 static can_config_t can;
 
@@ -62,9 +63,27 @@ __attribute__((weak)) can_message_t* can_get_message_handle(
 
 __attribute__((weak)) void can_register_send_packet(can_interface_t* interface,
                                                     can_message_t* msg) {
-    // Last time it was sent is right now
     msg->_is_scheduled = true;
-    msg->_last_tx_time_ms = can.tick_fn();
+
+    if (msg->period_ms > 0) {
+        uint32_t msg_count = 0;
+        can_message_t* cur = interface->_head;
+        while (cur != NULL) {
+            msg_count++;
+            cur = cur->_next;
+        }
+
+        // Calculate staggered start time
+        // We modulo by period_ms so we don't push the start time too far into
+        // the future if we have many messages
+        uint32_t phase_offset = (msg_count * PHASE_STAGGER_MS) % msg->period_ms;
+
+        // Last = Now + offset - Period
+        // Means that we're going to be sending at some phased offset now
+        msg->_last_tx_time_ms = can.tick_fn() + phase_offset - msg->period_ms;
+    } else {
+        msg->_last_tx_time_ms = can.tick_fn();
+    }
 
     if (!interface->_head) {
         // we haven't yet created anything
