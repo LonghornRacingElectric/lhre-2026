@@ -4,9 +4,7 @@
 #include <stdlib.h>
 
 #include "longhorn/can_hal.h"
-
-#define MAX_INTERFACES 2
-#define PHASE_STAGGER_MS 5
+#include "longhorn/led_base.h"
 
 static can_config_t can;
 
@@ -48,6 +46,10 @@ __attribute__((weak)) can_message_t* can_get_message_handle(
     // Malloc and receive a pointer to a new object that can then be populated
     can_message_t* new_msg = can.malloc_fn(sizeof(can_message_t));
     if (new_msg == NULL) return NULL;
+
+    if (dlc <= 0) {
+        led_disable();
+    }
 
     new_msg->msg = msg;
     new_msg->dlc = dlc;
@@ -147,7 +149,7 @@ __attribute__((weak)) void can_register_receive_packet(
     interface->_filter_index++;
 }
 
-static uint8_t data_packet[64];
+static uint8_t data_packet[MAX_CAN_DATA_LEN];
 
 cHAL_StatusTypeDef can_send_immediate(can_interface_t* interface,
                                       can_message_t* msg) {
@@ -217,7 +219,7 @@ void HAL_FDCAN_RxFifo0Callback(void* hfdcan, uint32_t RxFifo0ITs) {
 
             // see what message it was
             cFDCAN_RxHeaderTypeDef rx_header;
-            uint8_t rx_data[64] = {0};
+            uint8_t rx_data[MAX_CAN_DATA_LEN] = {0};
             cHAL_StatusTypeDef status = can.get_rx_message_fn(
                 interface->handle, FDCAN_RX_FIFO0, &rx_header, rx_data);
 

@@ -9,9 +9,7 @@
 #include "task.h"
 
 // Max data length for CAN FD is 64 bytes
-#define MAX_CAN_DATA_LEN 64
 #define RX_QUEUE_LENGTH 32
-#define MAX_INTERFACES 2  // Matching can_base.c
 
 // Mutex for thread safety
 static SemaphoreHandle_t can_mutex = NULL;
@@ -134,7 +132,8 @@ static void transceiver_task(void* params) {
 
         give_mutex();
 
-        vTaskDelay(pdMS_TO_TICKS(CAN_FREQ_GCD));  // Service every 1ms
+        vTaskDelay(pdMS_TO_TICKS(
+            CAN_FREQ_GCD));  // Service at greatest denominator of packets
     }
 }
 

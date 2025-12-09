@@ -10,6 +10,9 @@
 /* Function Pointers for HAL functions */
 
 #define RECEIVE_TABLE_SIZE 61
+#define MAX_INTERFACES 2
+#define PHASE_STAGGER_MS 5
+#define MAX_CAN_DATA_LEN 64
 
 /* Add Message to Tx FIFO Q */
 typedef cHAL_StatusTypeDef (*CAN_AddToQ_fn)(
