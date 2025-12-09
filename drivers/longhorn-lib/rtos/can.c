@@ -41,6 +41,23 @@ void can_rx_hook(can_receive_message_t* msg, uint8_t* rx_data) {
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
+// Internal helper to take mutex safely even before scheduler starts
+static void take_mutex(void) {
+    if (can_mutex != NULL) {
+        TickType_t wait_time = portMAX_DELAY;
+        if (xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED) {
+            wait_time = 0;
+        }
+        xSemaphoreTake(can_mutex, wait_time);
+    }
+}
+
+static void give_mutex(void) {
+    if (can_mutex != NULL) {
+        xSemaphoreGive(can_mutex);
+    }
+}
+
 void can_rtos_init(can_config_t* config) {
     can_init(config);
     if (can_mutex == NULL) {
@@ -53,9 +70,7 @@ void can_rtos_init(can_config_t* config) {
 }
 
 void can_rtos_register_interface(can_interface_t* interface) {
-    if (can_mutex != NULL) {
-        xSemaphoreTake(can_mutex, portMAX_DELAY);
-    }
+    take_mutex();
 
     can_register_interface(interface);
 
@@ -64,61 +79,45 @@ void can_rtos_register_interface(can_interface_t* interface) {
         rtos_interfaces[rtos_interface_count++] = interface;
     }
 
-    if (can_mutex != NULL) {
-        xSemaphoreGive(can_mutex);
-    }
+    give_mutex();
 }
 
 void can_rtos_register_send_packet(can_interface_t* interface,
                                    can_message_t* msg) {
-    if (can_mutex != NULL) {
-        xSemaphoreTake(can_mutex, portMAX_DELAY);
-    }
+    take_mutex();
 
     can_register_send_packet(interface, msg);
 
-    if (can_mutex != NULL) {
-        xSemaphoreGive(can_mutex);
-    }
+    give_mutex();
 }
 
 void can_rtos_register_receive_packet(can_interface_t* interface,
                                       can_receive_message_t* msg) {
-    if (can_mutex != NULL) {
-        xSemaphoreTake(can_mutex, portMAX_DELAY);
-    }
+    take_mutex();
 
     // Critical section to protect against ISR accessing the list while we modify it
     taskENTER_CRITICAL();
     can_register_receive_packet(interface, msg);
     taskEXIT_CRITICAL();
 
-    if (can_mutex != NULL) {
-        xSemaphoreGive(can_mutex);
-    }
+    give_mutex();
 }
 
 cHAL_StatusTypeDef can_rtos_send_immediate(can_interface_t* interface,
                                            can_message_t* msg) {
     cHAL_StatusTypeDef status;
-    if (can_mutex != NULL) {
-        xSemaphoreTake(can_mutex, portMAX_DELAY);
-    }
+    take_mutex();
 
     status = can_send_immediate(interface, msg);
 
-    if (can_mutex != NULL) {
-        xSemaphoreGive(can_mutex);
-    }
+    give_mutex();
     return status;
 }
 
 static void transceiver_task(void* params) {
     (void)params;
     while (1) {
-        if (can_mutex != NULL) {
-            xSemaphoreTake(can_mutex, portMAX_DELAY);
-        }
+        take_mutex();
 
         for (int i = 0; i < rtos_interface_count; i++) {
             if (rtos_interfaces[i] != NULL) {
@@ -126,9 +125,7 @@ static void transceiver_task(void* params) {
             }
         }
 
-        if (can_mutex != NULL) {
-            xSemaphoreGive(can_mutex);
-        }
+        give_mutex();
 
         vTaskDelay(pdMS_TO_TICKS(1));  // Service every 1ms
     }
