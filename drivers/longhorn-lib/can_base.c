@@ -45,7 +45,7 @@ __attribute__((weak)) can_message_t* can_get_message_handle(
     CAN_pack_message_fn packing_fn) {
     if (dlc <= 0) {
         led_disable();
-        return;
+        return NULL;
     }
     // Malloc and receive a pointer to a new object that can then be populated
     can_message_t* new_msg = can.malloc_fn(sizeof(can_message_t));
