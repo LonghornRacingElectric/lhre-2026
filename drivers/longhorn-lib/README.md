@@ -60,8 +60,8 @@ can_config_t config = {
     .get_rx_message_fn = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
     .tick_fn = HAL_GetTick, // or osKernelGetTickCount for FreeRTOS
     .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
-    .malloc_fn = malloc,
-    .free_fn = free
+    .malloc_fn = malloc, // use pvPortMalloc in FreeRTOS
+    .free_fn = free // use vPortFree in FreeRTOS
 };
 
 can_init(&config);
