@@ -43,13 +43,13 @@ void can_register_interface(can_interface_t* interface) {
 __attribute__((weak)) can_message_t* can_get_message_handle(
     void* msg, uint32_t packet_id, uint16_t freq, uint8_t dlc,
     CAN_pack_message_fn packing_fn) {
+    if (dlc <= 0) {
+        led_disable();
+        return;
+    }
     // Malloc and receive a pointer to a new object that can then be populated
     can_message_t* new_msg = can.malloc_fn(sizeof(can_message_t));
     if (new_msg == NULL) return NULL;
-
-    if (dlc <= 0) {
-        led_disable();
-    }
 
     new_msg->msg = msg;
     new_msg->dlc = dlc;
