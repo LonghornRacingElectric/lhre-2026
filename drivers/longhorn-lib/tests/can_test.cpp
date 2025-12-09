@@ -182,38 +182,89 @@ TEST_F(CanBaseTest, SendImmediate_PacksAndAddsToQueue) {
     free(msg);
 }
 
-TEST_F(CanBaseTest, Service_SendsMessage_WhenTimeElapsed) {
-    // 1. Register a message to the interface
-    int payload = 1;
-    can_message_t* msg = can_get_message_handle(&payload, 0x200, 100,
-                                                FDCAN_DLC_BYTES_8, Mock_Pack);
+TEST_F(CanBaseTest, Service_SendsMessage_WithPhasing) {
+    // 1. Setup - Create two messages with the same period
+    int payload1 = 1;
+    int payload2 = 2;
+    // Both have 100ms period
+    can_message_t* msg1 = can_get_message_handle(&payload1, 0x200, 100,
+                                                 FDCAN_DLC_BYTES_8, Mock_Pack);
+    can_message_t* msg2 = can_get_message_handle(&payload2, 0x201, 100,
+                                                 FDCAN_DLC_BYTES_8, Mock_Pack);
 
-    ASSERT_NE(msg, nullptr);
+    ASSERT_NE(msg1, nullptr);
+    ASSERT_NE(msg2, nullptr);
 
-    // Use a trampoline or logic to set init time
+    // 2. Registration
+    // Set start time to 1000 ms
     EXPECT_CALL(mockHal, Tick()).WillRepeatedly(Return(1000));
-    can_register_send_packet(&test_interface, msg);
 
-    // Verify it was added to linked list
-    EXPECT_EQ(test_interface._head, msg);
-    EXPECT_TRUE(msg->_is_scheduled);
+    // Register msg1 (1st msg).
+    // Logic: last_tx = 1000 + (0*5) - 100 = 900. Due at 1000.
+    can_register_send_packet(&test_interface, msg1);
 
-    // 2. Call service before period has elapsed
-    // Last sent: 1000. Current: 1050. Period: 100. Diff: 50. Should NOT send.
-    EXPECT_CALL(mockHal, Tick()).WillRepeatedly(Return(1050));
-    EXPECT_CALL(mockHal, AddToQueue(_, _, _)).Times(0);  // Should not occur
+    // Register msg2 (2nd msg).
+    // Logic: last_tx = 1000 + (1*5) - 100 = 905. Due at 1005.
+    can_register_send_packet(&test_interface, msg2);
+
+    // 3. Service at T = 1000
+    // Msg1 (Due 1000) should send immediately.
+    // Msg2 (Due 1005) should NOT send yet (Diff 95 < 100).
+    EXPECT_CALL(mockHal, Tick()).WillRepeatedly(Return(1000));
+    EXPECT_CALL(mockHal, Pack(&payload1, _)).Times(1);
+
+    // Expect Msg1 (0x200) to send
+    EXPECT_CALL(mockHal, AddToQueue(test_interface.handle, _, _))
+        .WillOnce(Invoke([](void*, const cFDCAN_TxHeaderTypeDef* header,
+                            const uint8_t*) {
+            EXPECT_EQ(header->Identifier, 0x200);
+            return cHAL_OK;
+        }));
 
     can_service(&test_interface);
 
-    // 3. Call service after period has elapsed
-    // Last sent: 1000. Current: 1100. Period: 100. Diff: 100. Should SEND.
+    // 4. Service at T = 1004 (Just before Msg2 phase)
+    // Msg1 sent at 1000, due 1100.
+    // Msg2 due 1005.
+    // Neither should send.
+    EXPECT_CALL(mockHal, Tick()).WillRepeatedly(Return(1004));
+    EXPECT_CALL(mockHal, AddToQueue(_, _, _)).Times(0);
+
+    can_service(&test_interface);
+
+    // 5. Service at T = 1005 (Msg2 Phase Time)
+    // Msg2 is now due.
+    EXPECT_CALL(mockHal, Tick()).WillRepeatedly(Return(1005));
+    EXPECT_CALL(mockHal, Pack(&payload2, _)).Times(1);
+
+    // Expect Msg2 (0x201) to send
+    EXPECT_CALL(mockHal, AddToQueue(test_interface.handle, _, _))
+        .WillOnce(Invoke([](void*, const cFDCAN_TxHeaderTypeDef* header,
+                            const uint8_t*) {
+            EXPECT_EQ(header->Identifier, 0x201);
+            return cHAL_OK;
+        }));
+
+    can_service(&test_interface);
+
+    // 6. Service at T = 1100 (Msg1 Second Cycle)
+    // Msg1 (Period 100) due at 1000 + 100 = 1100.
+    // Msg2 (Period 100) due at 1005 + 100 = 1105.
+    // Only Msg1 should send.
     EXPECT_CALL(mockHal, Tick()).WillRepeatedly(Return(1100));
-    EXPECT_CALL(mockHal, Pack(_, _));
-    EXPECT_CALL(mockHal, AddToQueue(_, _, _)).WillOnce(Return(cHAL_OK));
+    EXPECT_CALL(mockHal, Pack(&payload1, _)).Times(1);
+
+    EXPECT_CALL(mockHal, AddToQueue(test_interface.handle, _, _))
+        .WillOnce(Invoke([](void*, const cFDCAN_TxHeaderTypeDef* header,
+                            const uint8_t*) {
+            EXPECT_EQ(header->Identifier, 0x200);
+            return cHAL_OK;
+        }));
 
     can_service(&test_interface);
 
-    free(msg);
+    free(msg1);
+    free(msg2);
 }
 
 TEST_F(CanBaseTest, RegisterReceivePacket_ConfiguresFilter) {
