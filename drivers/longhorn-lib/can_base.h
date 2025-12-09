@@ -132,17 +132,17 @@ cHAL_StatusTypeDef can_send_immediate(can_interface_t* interface,
                                       can_message_t* msg);
 
 /**
+ * @brief Internal RX hook that can be overridden (e.g. by RTOS wrapper).
+ *        Default implementation calls msg->unpacking_fn directly.
+ */
+void can_rx_hook(can_receive_message_t* msg, uint8_t* rx_data);
+
+/**
  * @brief Periodically send CAN packets
  *
  * @param can
  */
 void can_service(can_interface_t* can);
-
-/**
- * @brief Internal RX hook that can be overridden (e.g. by RTOS wrapper).
- *        Default implementation calls msg->unpacking_fn directly.
- */
-void can_rx_hook(can_receive_message_t* msg, uint8_t* rx_data);
 
 void can_reset_internals(void);
 

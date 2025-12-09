@@ -128,6 +128,8 @@ __attribute__((weak)) void can_register_receive_packet(
     interface->_filter_index++;
 }
 
+static uint8_t data_packet[64];
+
 cHAL_StatusTypeDef can_send_immediate(can_interface_t* interface,
                                       can_message_t* msg) {
     cFDCAN_TxHeaderTypeDef tx_header;
@@ -140,9 +142,6 @@ cHAL_StatusTypeDef can_send_immediate(can_interface_t* interface,
     tx_header.FDFormat = FDCAN_CLASSIC_CAN;
     tx_header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
 
-    // CAN packet
-    uint8_t* data_packet = can.malloc_fn(msg->dlc);
-
     msg->packing_fn(msg->msg, data_packet);
     interface->_messages_sent++;
 
@@ -152,8 +151,6 @@ cHAL_StatusTypeDef can_send_immediate(can_interface_t* interface,
         interface->_error_occurred = true;
         interface->_error_code_send = error;
     }
-
-    can.free_fn(data_packet);
 
     return error;
 }
@@ -247,7 +244,8 @@ void HAL_FDCAN_RxFifo0Callback(void* hfdcan, uint32_t RxFifo0ITs) {
     }
 }
 
-__attribute__((weak)) void can_rx_hook(can_receive_message_t* msg, uint8_t* rx_data) {
+__attribute__((weak)) void can_rx_hook(can_receive_message_t* msg,
+                                       uint8_t* rx_data) {
     msg->unpacking_fn(rx_data, msg->latest_msg);
 }
 

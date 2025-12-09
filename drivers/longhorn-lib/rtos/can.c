@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "FreeRTOS.h"
+#include "longhorn/rtos/logger.h"
 #include "queue.h"
 #include "semphr.h"
 #include "task.h"
@@ -66,6 +67,11 @@ void can_rtos_init(can_config_t* config) {
     if (rx_queue == NULL) {
         rx_queue = xQueueCreate(RX_QUEUE_LENGTH, sizeof(rx_queue_item_t));
     }
+
+    for (int i = 0; i < MAX_INTERFACES; i++) {
+        rtos_interfaces[i] = NULL;
+    }
+
     rtos_interface_count = 0;
 }
 
@@ -95,7 +101,8 @@ void can_rtos_register_receive_packet(can_interface_t* interface,
                                       can_receive_message_t* msg) {
     take_mutex();
 
-    // Critical section to protect against ISR accessing the list while we modify it
+    // Critical section to protect against ISR accessing the list while we
+    // modify it
     taskENTER_CRITICAL();
     can_register_receive_packet(interface, msg);
     taskEXIT_CRITICAL();
@@ -127,7 +134,7 @@ static void transceiver_task(void* params) {
 
         give_mutex();
 
-        vTaskDelay(pdMS_TO_TICKS(1));  // Service every 1ms
+        vTaskDelay(pdMS_TO_TICKS(CAN_FREQ_GCD));  // Service every 1ms
     }
 }
 
