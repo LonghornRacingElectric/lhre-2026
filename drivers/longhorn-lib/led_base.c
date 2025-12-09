@@ -5,7 +5,7 @@
 #include "math.h"
 
 static rainbow_led_t led = {};
-static disable = false;
+static bool disable = false;
 
 static void led_setInt(uint8_t r, uint8_t g, uint8_t b) {
     *(led.ccr1) = r;
