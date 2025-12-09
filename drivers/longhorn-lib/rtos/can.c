@@ -22,34 +22,23 @@ static QueueHandle_t rx_queue = NULL;
 static can_interface_t* rtos_interfaces[MAX_INTERFACES];
 static uint8_t rtos_interface_count = 0;
 
-// Wrapper structure to hold original unpack function and destination
-typedef struct {
-    void* original_dest;
-    CAN_unpack_message_fn original_unpack;
-} rx_wrapper_t;
-
 // Queue item structure
 typedef struct {
     uint8_t data[MAX_CAN_DATA_LEN];
-    rx_wrapper_t* wrapper;
+    can_receive_message_t* msg;
 } rx_queue_item_t;
 
-// Internal callback that runs in ISR context
-static int internal_rx_callback(uint8_t* rx_data, const void* arg) {
-    rx_wrapper_t* wrapper = (rx_wrapper_t*)arg;
+// Hook implementation that runs in ISR context
+void can_rx_hook(can_receive_message_t* msg, uint8_t* rx_data) {
     rx_queue_item_t item;
 
-    // We don't know the exact length here because unpacking_fn signature doesn't
-    // provide it. We assume MAX_CAN_DATA_LEN or rely on the fact that
-    // can_base.c passes a 64-byte buffer.
+    // Copy data
     memcpy(item.data, rx_data, MAX_CAN_DATA_LEN);
-    item.wrapper = wrapper;
+    item.msg = msg;
 
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     xQueueSendFromISR(rx_queue, &item, &xHigherPriorityTaskWoken);
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-
-    return 0;  // Return value not used by can_base.c
 }
 
 void can_rtos_init(can_config_t* config) {
@@ -99,21 +88,7 @@ void can_rtos_register_receive_packet(can_interface_t* interface,
         xSemaphoreTake(can_mutex, portMAX_DELAY);
     }
 
-    // Allocate wrapper using FreeRTOS malloc or can.malloc_fn?
-    // can_base uses can.malloc_fn. Let's use pvPortMalloc for RTOS specific
-    // structures.
-    rx_wrapper_t* wrapper = pvPortMalloc(sizeof(rx_wrapper_t));
-    if (wrapper != NULL) {
-        wrapper->original_dest = msg->latest_msg;
-        wrapper->original_unpack = msg->unpacking_fn;
-
-        // Hook the callback
-        msg->unpacking_fn = (CAN_unpack_message_fn)internal_rx_callback;
-        msg->latest_msg = wrapper;
-    }
-
-    // Critical section to protect against ISR accessing the list while we modify
-    // it
+    // Critical section to protect against ISR accessing the list while we modify it
     taskENTER_CRITICAL();
     can_register_receive_packet(interface, msg);
     taskEXIT_CRITICAL();
@@ -164,9 +139,8 @@ static void receiver_task(void* params) {
     rx_queue_item_t item;
     while (1) {
         if (xQueueReceive(rx_queue, &item, portMAX_DELAY) == pdTRUE) {
-            if (item.wrapper != NULL && item.wrapper->original_unpack != NULL) {
-                item.wrapper->original_unpack(item.data,
-                                              item.wrapper->original_dest);
+            if (item.msg != NULL && item.msg->unpacking_fn != NULL) {
+                item.msg->unpacking_fn(item.data, item.msg->latest_msg);
             }
         }
     }

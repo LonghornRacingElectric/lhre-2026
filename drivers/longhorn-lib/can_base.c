@@ -239,12 +239,16 @@ void HAL_FDCAN_RxFifo0Callback(void* hfdcan, uint32_t RxFifo0ITs) {
             }
 
             // call the unpack function
-            msg->unpacking_fn(rx_data, msg->latest_msg);
+            can_rx_hook(msg, rx_data);
 
             // update the latest rx time
             msg->_latest_rx_ms = can.tick_fn();
         }
     }
+}
+
+__attribute__((weak)) void can_rx_hook(can_receive_message_t* msg, uint8_t* rx_data) {
+    msg->unpacking_fn(rx_data, msg->latest_msg);
 }
 
 void can_reset_internals(void) {
