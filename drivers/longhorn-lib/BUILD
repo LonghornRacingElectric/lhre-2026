@@ -98,9 +98,7 @@ genrule(
     outs = [
         "can.json",
     ],
-    cmd = """$(location generate_can_json) \\
-            $(location config/can_packets.csv) $(location config/can_bitfields.csv) \\
-            $(location can.json)""",
+    cmd = """$(location generate_can_json) $(location config/can_packets.csv) $(location config/can_bitfields.csv)  $(location can.json)""",
     tools = [
         "generate_can_json",
     ],
@@ -115,9 +113,7 @@ genrule(
         "can_ids.h",
         "can_ids.c",
     ],
-    cmd = """$(location generate_can_lib) \\
-                $(location can.json) --c-file $(location can_ids.c) \\
-                --h-file $(location can_ids.h)""",
+    cmd = """$(location generate_can_lib) $(location can.json) --c-file $(location can_ids.c) --h-file $(location can_ids.h)""",
     tools = [
         "generate_can_lib",
     ],
