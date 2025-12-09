@@ -207,56 +207,59 @@ void can_service(can_interface_t* interface) {
  */
 void HAL_FDCAN_RxFifo0Callback(void* hfdcan, uint32_t RxFifo0ITs) {
     if ((RxFifo0ITs & NEW_MESSAGE_FIFO0) == 0) {
+        // callback didn't fire for a new message
         return;
     }
-
-    // get the interface for this handle
-    can_interface_t* interface = NULL;
+    // whenever we see a new packet come in, we need to see whawt handle it was
+    // make sure it exists in our table, and then call the unpack function
     for (int i = 0; i < interface_count; i++) {
         if (interfaces[i]->handle == hfdcan) {
-            interface = interfaces[i];
-            break;
-        }
-    }
+            // we found the interface
+            can_interface_t* interface = interfaces[i];
 
-    if (interface == NULL) return;
+            // see what message it was
+            cFDCAN_RxHeaderTypeDef rx_header;
+            uint8_t rx_data[MAX_CAN_DATA_LEN] = {0};
+            cHAL_StatusTypeDef status = can.get_rx_message_fn(
+                interface->handle, FDCAN_RX_FIFO0, &rx_header, rx_data);
 
-    // Loop until the hardware FIFO is empty to prevent too many interrupts
-    while (HAL_FDCAN_GetRxFifoFillLevel(hfdcan, FDCAN_RX_FIFO0) > 0) {
-        cFDCAN_RxHeaderTypeDef rx_header;
-        uint8_t rx_data[MAX_CAN_DATA_LEN] = {0};
-
-        cHAL_StatusTypeDef status = can.get_rx_message_fn(
-            interface->handle, FDCAN_RX_FIFO0, &rx_header, rx_data);
-
-        if (status != cHAL_OK) {
-            interface->_error_occurred = true;
-            interface->_error_code_receive = status;
-            // If we can't read, break to avoid infinite loop
-            break;
-        }
-
-        interface->_last_id_received = rx_header.Identifier;
-
-        // Hash Table Lookup
-        can_receive_message_t* msg =
-            interface->receive_table[rx_header.Identifier % RECEIVE_TABLE_SIZE];
-
-        if (msg == NULL) {
-            continue;
-        }
-
-        // Linked list collision handling
-        while (msg != NULL) {
-            if (msg->packet_id == rx_header.Identifier) {
-                break;
+            if (status != cHAL_OK) {
+                interface->_error_occurred = true;
+                interface->_error_code_receive = status;
+                continue;
             }
-            msg = msg->_next;
-        }
 
-        if (msg != NULL) {
-            // Found it, push to queue
+            interfaces[i]->_last_id_received = rx_header.Identifier;
+
+            // make sure it exists in our table
+            can_receive_message_t* msg =
+                interface->receive_table[rx_header.Identifier %
+                                         RECEIVE_TABLE_SIZE];
+
+            if (msg == NULL) {
+                // we don't have a message registered for this ID
+                continue;
+            } else {
+                // we have a message registered for this ID OR a clash on our
+                // hash table
+                // we need to check the linked list
+                while (msg != NULL) {
+                    if (msg->packet_id == rx_header.Identifier) {
+                        // we found the message
+                        break;
+                    }
+                    msg = msg->_next;
+                }
+                if (msg == NULL) {
+                    // we don't have a message registered for this ID
+                    continue;
+                }
+            }
+
+            // call the unpack function
             can_rx_hook(msg, rx_data);
+
+            // update the latest rx time
             msg->_latest_rx_ms = can.tick_fn();
         }
     }
