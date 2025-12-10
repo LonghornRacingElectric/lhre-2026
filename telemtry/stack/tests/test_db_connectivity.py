@@ -43,7 +43,7 @@ class TestDatabaseConnectivity(unittest.TestCase):
                 port=self.config.db_port,
                 user=os.getenv("POSTGRES_USER", "postgres"),
                 password=os.getenv("POSTGRES_PASSWORD", "postgres"),
-                database=os.getenv("POSTGRES_DB", "postgres"),
+                database="telemetry",
             )
             
             cursor = conn.cursor()

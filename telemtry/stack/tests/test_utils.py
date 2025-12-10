@@ -125,7 +125,7 @@ class TelemetryConfig:
     db_port: int = 5432
     db_user: str = "postgres"
     db_password: str = "postgres"
-    db_name: str = "postgres"
+    db_name: str = "telemetry"
     grafana_host: str = "localhost"
     grafana_port: int = 3000
     
@@ -133,23 +133,21 @@ class TelemetryConfig:
     def from_env(cls) -> "TelemetryConfig":
         """Create config from environment variables (loaded from .env file)."""
         # Parse Kafka brokers to extract host:port
-        kafka_brokers = os.getenv("KAFKA_BROKERS", "localhost:9092")
+        kafka_brokers = os.getenv("KAFKA_BROKERS", "localhost:29092")
         kafka_parts = kafka_brokers.split(":")
         kafka_host = kafka_parts[0] if kafka_parts else "localhost"
-        kafka_port = int(kafka_parts[1]) if len(kafka_parts) > 1 else 9092
+        kafka_port = int(kafka_parts[1]) if len(kafka_parts) > 1 else 29092
         
         return cls(
-            mqtt_host=os.getenv("MQTT_HOST", "localhost"),
-            mqtt_port=int(os.getenv("MQTT_PORT", "1883")),
+            mqtt_host="localhost",
+            mqtt_port="1883",
             kafka_host=kafka_host,
             kafka_port=kafka_port,
-            db_host=os.getenv("POSTGRES_HOST", "localhost"),
-            db_port=int(os.getenv("POSTGRES_PORT", "5432")),
+            db_host="localhost",
+            db_port="5432",
             db_user=os.getenv("POSTGRES_USER", "postgres"),
             db_password=os.getenv("POSTGRES_PASSWORD", "postgres"),
-            db_name=os.getenv("POSTGRES_DB", "postgres"),
-            grafana_host=os.getenv("GRAFANA_HOST", "localhost"),
-            grafana_port=int(os.getenv("GRAFANA_PORT", "3000")),
+            db_name=os.getenv("POSTGRES_DB", "telemetry"),
         )
 
 
