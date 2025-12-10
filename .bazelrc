@@ -13,6 +13,7 @@ build:ci --bes_results_url=https://longhorn-racing-electric.buildbuddy.io/invoca
 build:ci --bes_backend=grpcs://longhorn-racing-electric.buildbuddy.io
 build:ci --remote_cache=grpcs://longhorn-racing-electric.buildbuddy.io
 build:ci --remote_timeout=10m
+build:ci --remote_executor=grpcs://longhorn-racing-electric.buildbuddy.io
 
 # Zig Compiler configuration
 common --enable_platform_specific_config
