@@ -41,7 +41,7 @@ In CubeMX, ensure that you have configured the FDCAN peripheral correctly:
 - Configure to use 1,000,000 bps for the bitrate for standard CAN.
   - If using CAN FD, we may be doing a different bit rate.
 
-Go to the Middlewares > FREERTOS settings and ensure that under Interrupt Nesting Behavior, LIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY is set to 4 or lower. This ensures that the CAN callbacks can safely call FreeRTOS APIs. Not doing this WILL cause hard faults and crash your system.
+Go to the Middlewares > FREERTOS settings and ensure that under Interrupt Nesting Behavior, `LIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY` is set to 4 or lower. This ensures that the CAN callbacks can safely call FreeRTOS APIs. Not doing this WILL cause hard faults and crash your system.
 
 ## Integration with Bazel
 
