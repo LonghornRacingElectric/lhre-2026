@@ -10,6 +10,9 @@
 /* Function Pointers for HAL functions */
 
 #define RECEIVE_TABLE_SIZE 61
+#define MAX_INTERFACES 2
+#define PHASE_STAGGER_MS 5
+#define MAX_CAN_DATA_LEN 64
 
 /* Add Message to Tx FIFO Q */
 typedef cHAL_StatusTypeDef (*CAN_AddToQ_fn)(
@@ -130,6 +133,12 @@ void can_register_receive_packet(can_interface_t* interface,
 
 cHAL_StatusTypeDef can_send_immediate(can_interface_t* interface,
                                       can_message_t* msg);
+
+/**
+ * @brief Internal RX hook that can be overridden (e.g. by RTOS wrapper).
+ *        Default implementation calls msg->unpacking_fn directly.
+ */
+void can_rx_hook(can_receive_message_t* msg, uint8_t* rx_data);
 
 /**
  * @brief Periodically send CAN packets

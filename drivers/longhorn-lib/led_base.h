@@ -49,4 +49,10 @@ void led_set(float r, float g, float b);
  */
 void led_init(const rainbow_led_t* config);
 
+/**
+ * @brief Disables the LED, use this for using LED for rainbow states
+ *
+ */
+void led_disable();
+
 #endif

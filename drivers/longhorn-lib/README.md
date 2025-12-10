@@ -60,8 +60,8 @@ can_config_t config = {
     .get_rx_message_fn = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
     .tick_fn = HAL_GetTick, // or osKernelGetTickCount for FreeRTOS
     .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
-    .malloc_fn = malloc,
-    .free_fn = free
+    .malloc_fn = malloc, // use pvPortMalloc in FreeRTOS
+    .free_fn = free // use vPortFree in FreeRTOS
 };
 
 can_init(&config);
@@ -238,3 +238,55 @@ void loop() {
     HAL_Delay(10);
 }
 ```
+
+## RTOS Integration
+
+For FreeRTOS environments, a thread-safe wrapper is available in `longhorn/rtos/can.h`. This wrapper ensures thread safety using mutexes and offloads message unpacking from the ISR to a dedicated receiver task.
+
+### Initialization
+
+Use `can_rtos_init` instead of `can_init`. It initializes the underlying CAN library and creates the necessary synchronization primitives (mutexes, queues).
+
+```c
+#include "longhorn/rtos/can.h"
+// ... (includes for FreeRTOS and generated IDs)
+
+// Configuration is the same as the base version
+can_config_t config = { ... };
+
+// Initialize RTOS wrapper
+can_rtos_init(&config);
+```
+
+### Tasks
+
+You must start two tasks for the system to function:
+1.  **Transceiver Task:** Handles periodic message sending.
+2.  **Receiver Task:** Handles unpacking of received messages.
+
+```c
+// Start tasks with desired FreeRTOS priority (e.g., osPriorityNormal)
+can_rtos_start_transceiver_task(osPriorityNormal);
+can_rtos_start_receiver_task(osPriorityAboveNormal);
+```
+
+### Thread-Safe Registration & Usage
+
+Use the `_rtos_` suffixed functions for registering interfaces and messages. These functions are thread-safe and can be called from multiple tasks.
+
+```c
+// Register Interface
+can_rtos_register_interface(&can1_interface);
+
+// Register Send Packet
+can_rtos_register_send_packet(&can1_interface, tx_msg_handle);
+
+// Register Receive Packet
+// The unpacking function will be executed in the context of the Receiver Task
+can_rtos_register_receive_packet(&can1_interface, rx_msg_handle);
+
+// Immediate Send (Thread-Safe)
+can_rtos_send_immediate(&can1_interface, tx_msg_handle);
+```
+
+**Note:** The `can_service` loop is handled automatically by the Transceiver Task, so you do **not** need to call it manually in your main loop.

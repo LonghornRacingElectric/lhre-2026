@@ -1,8 +1,11 @@
 #include "longhorn/led_base.h"
 
+#include <stdbool.h>
+
 #include "math.h"
 
 static rainbow_led_t led = {};
+static bool disable = false;
 
 static void led_setInt(uint8_t r, uint8_t g, uint8_t b) {
     *(led.ccr1) = r;
@@ -17,6 +20,8 @@ void led_set(float r, float g, float b) {
 void led_off() { led_setInt(0, 0, 0); }
 
 void led_rainbow(float deltaTime) {
+    if (disable) return;
+
     // keep track of LED rainbow phase so we can step forward into the rainbow
     static float phase = 0.0f;
     const float RAINBOW_PHASE_RANGE = 3.0f;
@@ -60,3 +65,6 @@ void led_init(const rainbow_led_t* config) {
     setup_channel(led.ccr2, led.channel2);
     setup_channel(led.ccr3, led.channel3);
 }
+
+// by default is enabled, this disables if an error has occurred
+void led_disable() { disable = true; }
