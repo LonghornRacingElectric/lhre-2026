@@ -14,6 +14,8 @@ build:ci --bes_backend=grpcs://longhorn-racing-electric.buildbuddy.io
 build:ci --remote_cache=grpcs://longhorn-racing-electric.buildbuddy.io
 build:ci --remote_timeout=10m
 build:ci --remote_executor=grpcs://longhorn-racing-electric.buildbuddy.io
+build:ci --jobs=50
+build:ci --noslim_profile
 
 # Zig Compiler configuration
 common --enable_platform_specific_config
