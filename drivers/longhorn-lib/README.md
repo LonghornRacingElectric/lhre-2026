@@ -4,22 +4,44 @@ This library provides a flexible and abstract way to handle CAN communication on
 
 ## Table of Contents
 
-- [Introduction](#introduction)
-- [Integration with Bazel](#integration-with-bazel)
-- [Initialization](#initialization)
-- [Defining Messages](#defining-messages)
-- [Sending Messages](#sending-messages)
-  - [Periodic Sending](#periodic-sending)
-  - [Immediate Sending](#immediate-sending)
-- [Receiving Messages](#receiving-messages)
-- [Service Loop](#service-loop)
-- [Example Usage](#example-usage)
+- [Custom CAN Library](#custom-can-library)
+  - [Table of Contents](#table-of-contents)
+  - [Introduction](#introduction)
+  - [Before Continuing (CubeMX Configuration)](#before-continuing-cubemx-configuration)
+  - [Integration with Bazel](#integration-with-bazel)
+  - [Initialization](#initialization)
+    - [Registering an Interface](#registering-an-interface)
+  - [Defining Messages](#defining-messages)
+    - [Creating Message Handles](#creating-message-handles)
+  - [Sending Messages](#sending-messages)
+    - [Periodic Sending](#periodic-sending)
+    - [Immediate Sending](#immediate-sending)
+  - [Receiving Messages](#receiving-messages)
+  - [Service Loop](#service-loop)
+  - [Example Usage](#example-usage)
+    - [Full Example](#full-example)
+  - [RTOS Integration](#rtos-integration)
+    - [Initialization](#initialization-1)
+    - [Tasks](#tasks)
+    - [Thread-Safe Registration \& Usage](#thread-safe-registration--usage)
 
 ## Introduction
 
 The library is built around the concept of `can_interface_t` which represents a physical CAN interface (like FDCAN1, FDCAN2), and `can_message_t` / `can_receive_message_t` which represent the messages you want to send or receive.
 
 It abstracts away the direct HAL calls for adding to queues or setting up filters, allowing you to focus on the data and the timing.
+
+## Before Continuing (CubeMX Configuration)
+
+In CubeMX, ensure that you have configured the FDCAN peripheral correctly:
+
+- Set the mode to "Normal".
+- Enable the necessary interrupts for RX FIFO 0
+- **Make sure that in NVIC settings, BOTH FDCAN interrupts are enabled (FDCAN1_IT0 and FDCAN1_IT1)**.
+- Configure to use 1,000,000 bps for the bitrate for standard CAN.
+  - If using CAN FD, we may be doing a different bit rate.
+
+Go to the Middlewares > FREERTOS settings and ensure that under Interrupt Nesting Behavior, LIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY is set to 4 or lower. This ensures that the CAN callbacks can safely call FreeRTOS APIs. Not doing this WILL cause hard faults and crash your system.
 
 ## Integration with Bazel
 
@@ -28,6 +50,7 @@ The library automatically generates C code for your CAN packets from CSV configu
 To use it, add the appropriate dependency to your `BUILD` file:
 
 **For Bare Metal (No RTOS):**
+
 ```bazel
 deps = [
     "//drivers/longhorn-lib:longhorn_lib_base_stm32g4",
@@ -35,6 +58,7 @@ deps = [
 ```
 
 **For FreeRTOS:**
+
 ```bazel
 deps = [
     "//drivers/longhorn-lib:longhorn_lib_stm32g4",
@@ -89,6 +113,7 @@ can_register_interface(&can1_interface);
 You do NOT need to define structs or packing functions manually. The build system generates `can_ids.h` and `can_ids.c` based on `drivers/longhorn-lib/config/can_packets.csv` and `can_bitfields.csv`.
 
 These generated files provide:
+
 1.  **Macros** for IDs, DLCs, and Frequencies (e.g., `INVERTER_STATUS_ID`, `INVERTER_STATUS_DLC`).
 2.  **Structs** for each message (e.g., `msg_inverter_status_t`).
 3.  **Packing/Unpacking Functions** (e.g., `pack_inverter_status`, `unpack_inverter_status`).
@@ -261,6 +286,7 @@ can_rtos_init(&config);
 ### Tasks
 
 You must start two tasks for the system to function:
+
 1.  **Transceiver Task:** Handles periodic message sending.
 2.  **Receiver Task:** Handles unpacking of received messages.
 

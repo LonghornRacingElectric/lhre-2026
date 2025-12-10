@@ -37,6 +37,7 @@ void can_rx_hook(can_receive_message_t* msg, uint8_t* rx_data) {
 
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     xQueueSendFromISR(rx_queue, &item, &xHigherPriorityTaskWoken);
+    portYIELD_FROM_ISR(&xHigherPriorityTaskWoken);
 }
 
 // Internal helper to take mutex safely even before scheduler starts
