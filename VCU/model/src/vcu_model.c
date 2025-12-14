@@ -18,7 +18,7 @@
 #define APPS_MIN_TRAVEL_FOR_CHECK 0.10f
 #define APPS_MAX_DIFF_ALLOWED     0.10f
 #define APPS_IMPLAUS_TIME_MS      100u
-#define VCU_MODEL_STEP_MS         50u
+#define VCU_MODEL_STEP_MS         10u   // matches actual 10 ms control loop
 #define APPS_IMPLAUS_COUNT        (APPS_IMPLAUS_TIME_MS / VCU_MODEL_STEP_MS)
 
 // Pedal filter
@@ -56,18 +56,25 @@ static float clamp_f(float x, float lo, float hi)
 
 static float apps_adc_to_travel(uint16_t raw, uint16_t min_adc, uint16_t max_adc)
 {
-    raw = clamp_f(raw, min_adc, max_adc);
+    if (raw < min_adc) raw = min_adc;
+    else if (raw > max_adc) raw = max_adc;
+
     float span = (float)(max_adc - min_adc);
-    return (span <= 1.0f) ? 0.0f : ((float)raw - min_adc) / span;
+    if (span <= 1.0f)
+        return 0.0f;
+
+    return ((float)raw - (float)min_adc) / span;
 }
+
+
 
 static float bse_adc_to_psi(uint16_t adc)
 {
-    float lo = BSE_ADC_AT_0_PSI;
-    float hi = BSE_ADC_AT_1000_PSI;
+    const float lo = BSE_ADC_AT_0_PSI;
+    const float hi = BSE_ADC_AT_1000_PSI;
 
-    adc = clamp_f(adc, lo, hi);
-    return ((float)adc - lo) / (hi - lo) * BSE_MAX_PSI;
+    float adc_f = clamp_f((float)adc, lo, hi);  // clean float clamp
+    return (adc_f - lo) / (hi - lo) * BSE_MAX_PSI;
 }
 
 

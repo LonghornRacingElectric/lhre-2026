@@ -10,6 +10,28 @@
 
 extern FDCAN_HandleTypeDef hfdcan1;
 
+// 0x0C0  (VCU → Inverter)  TORQUE COMMAND
+// Byte 0–1 : torque_request   (int16, 0.1 Nm units)
+// Byte 2–3 : rpm_request      (int16, rpm)
+// Byte 4   : direction        (uint8, 0=fwd, 1=rev)
+// Byte 5   : enable           (uint8, 0=disable, 1=enable)
+// Byte 6–7 : torque_limit     (int16, 0.1 Nm)
+
+// 0x0B0  (Inverter → VCU)  SPEED / TORQUE FEEDBACK
+// Byte 0–1 : torque_command   (int16, 0.1 Nm)
+// Byte 2–3 : torque_feedback  (int16, 0.1 Nm)
+// Byte 4–5 : motor_speed      (int16, rpm)
+// Byte 6–7 : bus_voltage      (uint16, 0.1 V)
+
+// NOTES:
+// direction & enable are boolean in meaning, but MUST be uint8 in CAN
+// Classic CAN only
+// CM200 requires periodic torque command (~333 Hz).
+// Scaling:
+//  *        torque_Nm   → int16 = Nm * 10
+//  *        bus_voltage → raw * 0.1
+//  *        torque_fb   → raw * 0.1
+
 // CAN interface
 static can_interface_t can1;
 
