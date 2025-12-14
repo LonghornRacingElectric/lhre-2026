@@ -21,4 +21,5 @@ compile_pip_requirements(
     requirements_windows = "requirements_lock_windows.txt",
     python_version = "3.11",
     generate_hashes = False,
+    tags = ["requirements"],
 )

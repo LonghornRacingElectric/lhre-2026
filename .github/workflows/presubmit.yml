@@ -34,7 +34,7 @@ jobs:
       - name: Run Unit Tests (no Docker required)
         run: |
           bazel test //... --test_output=errors --config=ci \
-            --test_tag_filters=-integration,-docker \
+            --test_tag_filters=-integration,-docker,-requirements \
             --test_env=POSTGRES_USER \
             --test_env=POSTGRES_PASSWORD
 

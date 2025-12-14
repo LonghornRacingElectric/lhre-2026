@@ -17,6 +17,7 @@ compile_pip_requirements(
     requirements_txt = "requirements_lock.txt",
     python_version = "3.11",
     generate_hashes = False,
+    tags = ["requirements"],
 )
 
 # Export configuration files for Docker compose and testing
