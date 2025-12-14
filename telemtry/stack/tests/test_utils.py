@@ -307,13 +307,31 @@ class MQTTTestClient:
     
     def __init__(self, config: Optional[TelemetryConfig] = None):
         from paho.mqtt import client as mqtt_client
+        import threading
         
         self.config = config or TelemetryConfig.from_env()
         self.client = mqtt_client.Client("test_mqtt_client")
         self.received_messages = []
         self._loop_started = False
+        self._connected = False
+        self._connect_event = threading.Event()
         
-        # Set up message callback once during init
+        # Set up connection callback
+        def on_connect(client, userdata, flags, rc):
+            if rc == 0:
+                logger.info("MQTT connected successfully")
+                self._connected = True
+                self._connect_event.set()
+            else:
+                logger.error(f"MQTT connection failed with code: {rc}")
+                self._connect_event.set()
+        
+        # Set up disconnection callback
+        def on_disconnect(client, userdata, rc):
+            logger.info(f"MQTT disconnected with code: {rc}")
+            self._connected = False
+        
+        # Set up message callback
         def on_message(client, userdata, msg):
             logger.debug(f"Received message on {msg.topic}: {msg.payload[:50]}...")
             self.received_messages.append({
@@ -321,17 +339,26 @@ class MQTTTestClient:
                 "payload": msg.payload,
             })
         
+        self.client.on_connect = on_connect
+        self.client.on_disconnect = on_disconnect
         self.client.on_message = on_message
     
-    def connect(self) -> bool:
-        """Connect to MQTT broker."""
+    def connect(self, timeout: float = 10.0) -> bool:
+        """Connect to MQTT broker and wait for connection to be established."""
         try:
             logger.info(f"Connecting to MQTT at {self.config.mqtt_host}:{self.config.mqtt_port}")
+            self._connect_event.clear()
             self.client.connect(self.config.mqtt_host, self.config.mqtt_port)
             # Start the network loop - required for callbacks to work
             self.client.loop_start()
             self._loop_started = True
-            return True
+            
+            # Wait for on_connect callback
+            if not self._connect_event.wait(timeout=timeout):
+                logger.error("MQTT connection timed out")
+                return False
+            
+            return self._connected
         except Exception as e:
             logger.error(f"Failed to connect to MQTT: {e}")
             return False
@@ -342,22 +369,32 @@ class MQTTTestClient:
             self.client.loop_stop()
             self._loop_started = False
         self.client.disconnect()
+        self._connected = False
+    
+    def is_connected(self) -> bool:
+        """Check if client is connected."""
+        return self._connected
     
     def publish(self, topic: str, payload: bytes, qos: int = 0):
         """Publish a message to MQTT topic."""
+        if not self._connected:
+            raise RuntimeError("MQTT client is not connected")
         result = self.client.publish(topic, payload, qos=qos)
-        # Wait for publish to complete
-        result.wait_for_publish()
+        # Wait for publish to complete (with timeout)
+        result.wait_for_publish(timeout=5.0)
         logger.debug(f"Published to {topic}, result: {result.rc}")
     
     def subscribe(self, topic: str, qos: int = 0):
         """Subscribe to an MQTT topic."""
+        if not self._connected:
+            raise RuntimeError("MQTT client is not connected")
         result, mid = self.client.subscribe(topic, qos=qos)
         logger.debug(f"Subscribed to {topic}, result: {result}, mid: {mid}")
         return result
     
     def __enter__(self):
-        self.connect()
+        if not self.connect():
+            raise ConnectionError("Failed to connect to MQTT broker")
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
