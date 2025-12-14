@@ -4,8 +4,7 @@
 #include <stdlib.h>
 
 #include "longhorn/can_hal.h"
-
-#define MAX_INTERFACES 2
+#include "longhorn/led_base.h"
 
 static can_config_t can;
 
@@ -44,6 +43,10 @@ void can_register_interface(can_interface_t* interface) {
 __attribute__((weak)) can_message_t* can_get_message_handle(
     void* msg, uint32_t packet_id, uint16_t freq, uint8_t dlc,
     CAN_pack_message_fn packing_fn) {
+    if (dlc <= 0) {
+        led_disable();
+        return NULL;
+    }
     // Malloc and receive a pointer to a new object that can then be populated
     can_message_t* new_msg = can.malloc_fn(sizeof(can_message_t));
     if (new_msg == NULL) return NULL;
@@ -62,9 +65,27 @@ __attribute__((weak)) can_message_t* can_get_message_handle(
 
 __attribute__((weak)) void can_register_send_packet(can_interface_t* interface,
                                                     can_message_t* msg) {
-    // Last time it was sent is right now
     msg->_is_scheduled = true;
-    msg->_last_tx_time_ms = can.tick_fn();
+
+    if (msg->period_ms > 0) {
+        uint32_t msg_count = 0;
+        can_message_t* cur = interface->_head;
+        while (cur != NULL) {
+            msg_count++;
+            cur = cur->_next;
+        }
+
+        // Calculate staggered start time
+        // We modulo by period_ms so we don't push the start time too far into
+        // the future if we have many messages
+        uint32_t phase_offset = (msg_count * PHASE_STAGGER_MS) % msg->period_ms;
+
+        // Last = Now + offset - Period
+        // Means that we're going to be sending at some phased offset now
+        msg->_last_tx_time_ms = can.tick_fn() + phase_offset - msg->period_ms;
+    } else {
+        msg->_last_tx_time_ms = can.tick_fn();
+    }
 
     if (!interface->_head) {
         // we haven't yet created anything
@@ -128,6 +149,8 @@ __attribute__((weak)) void can_register_receive_packet(
     interface->_filter_index++;
 }
 
+static uint8_t data_packet[MAX_CAN_DATA_LEN];
+
 cHAL_StatusTypeDef can_send_immediate(can_interface_t* interface,
                                       can_message_t* msg) {
     cFDCAN_TxHeaderTypeDef tx_header;
@@ -140,9 +163,6 @@ cHAL_StatusTypeDef can_send_immediate(can_interface_t* interface,
     tx_header.FDFormat = FDCAN_CLASSIC_CAN;
     tx_header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
 
-    // CAN packet
-    uint8_t* data_packet = can.malloc_fn(msg->dlc);
-
     msg->packing_fn(msg->msg, data_packet);
     interface->_messages_sent++;
 
@@ -152,8 +172,6 @@ cHAL_StatusTypeDef can_send_immediate(can_interface_t* interface,
         interface->_error_occurred = true;
         interface->_error_code_send = error;
     }
-
-    can.free_fn(data_packet);
 
     return error;
 }
@@ -201,7 +219,7 @@ void HAL_FDCAN_RxFifo0Callback(void* hfdcan, uint32_t RxFifo0ITs) {
 
             // see what message it was
             cFDCAN_RxHeaderTypeDef rx_header;
-            uint8_t rx_data[64] = {0};
+            uint8_t rx_data[MAX_CAN_DATA_LEN] = {0};
             cHAL_StatusTypeDef status = can.get_rx_message_fn(
                 interface->handle, FDCAN_RX_FIFO0, &rx_header, rx_data);
 
@@ -239,12 +257,17 @@ void HAL_FDCAN_RxFifo0Callback(void* hfdcan, uint32_t RxFifo0ITs) {
             }
 
             // call the unpack function
-            msg->unpacking_fn(rx_data, msg->latest_msg);
+            can_rx_hook(msg, rx_data);
 
             // update the latest rx time
             msg->_latest_rx_ms = can.tick_fn();
         }
     }
+}
+
+__attribute__((weak)) void can_rx_hook(can_receive_message_t* msg,
+                                       uint8_t* rx_data) {
+    msg->unpacking_fn(rx_data, msg->latest_msg);
 }
 
 void can_reset_internals(void) {

@@ -2,6 +2,8 @@ import json
 import argparse
 import re
 import os
+import math
+from functools import reduce
 
 # --- Type Mappings ---
 # Maps JSON conv_type to C type for RAW storage (wire format)
@@ -76,6 +78,25 @@ def get_app_type(byte_info):
     return raw_type
 
 
+def calculate_freq_gcd(json_data):
+    """Extracts all frequencies and calculates the Greatest Common Divisor."""
+    frequencies = []
+    for packet in json_data:
+        freq_ms_value = packet.get("frequency_ms")
+        if freq_ms_value is not None:
+            try:
+                val = int(float(freq_ms_value))
+                if val > 0:
+                    frequencies.append(val)
+            except (ValueError, TypeError):
+                pass
+
+    if not frequencies:
+        return 1  # Default to 1 if no frequencies found to avoid divide by zero issues
+
+    return reduce(math.gcd, frequencies)
+
+
 def generate_header_content(json_data, input_filename, output_header_name):
     """Generates the C header file (.h) content."""
 
@@ -91,6 +112,33 @@ def generate_header_content(json_data, input_filename, output_header_name):
     header_lines.append("")
     header_lines.append("#include <stdint.h>")
     header_lines.append("#include <string.h>")
+    header_lines.append("")
+
+    # --- 1. GCD Calculation ---
+    gcd_freq = calculate_freq_gcd(json_data)
+    header_lines.append(f"// GCD of all packet frequencies")
+    header_lines.append(f"#define CAN_FREQ_GCD {gcd_freq}")
+    header_lines.append("")
+
+    # --- 2. Bitfield Macros ---
+    header_lines.append("// Generic Bitfield Manipulation Macros")
+    header_lines.append("// Extracts 'width' bits starting at 'start_bit' from 'value'")
+    header_lines.append(f"#define CAN_EXTRACT_BITFIELD(value, start_bit, width) \\")
+    header_lines.append(f"    (((value) >> (start_bit)) & ((1ULL << (width)) - 1))")
+    header_lines.append("")
+    header_lines.append(
+        "// Inserts 'field_val' into 'target' at 'start_bit' with 'width'"
+    )
+    header_lines.append(
+        f"#define CAN_INSERT_BITFIELD(target, field_val, start_bit, width) do {{ \\"
+    )
+    header_lines.append(
+        f"    (target) &= ~(((1ULL << (width)) - 1) << (start_bit)); \\"
+    )
+    header_lines.append(
+        f"    (target) |= (((field_val) & ((1ULL << (width)) - 1)) << (start_bit)); \\"
+    )
+    header_lines.append(f"}} while(0)")
     header_lines.append("")
 
     packet_index = 0
@@ -289,6 +337,11 @@ def generate_source_content(json_data, output_header_name):
                     source_lines.append(
                         f"    tx_buf[{start_byte} + 3] = (uint8_t)(({val_to_pack} >> 24) & 0xFF);"
                     )
+                elif length == 8:
+                    for i in range(8):
+                        source_lines.append(
+                            f"    tx_buf[{start_byte} + {i}] = (uint8_t)(({val_to_pack} >> {i*8}) & 0xFF);"
+                        )
 
                 source_lines.append("")
 
@@ -361,6 +414,12 @@ def generate_source_content(json_data, output_header_name):
                     source_lines.append(
                         f"    {dest_var} |= ({raw_type})(rx_buf[{start_byte} + 3] << 24);"
                     )
+                elif length == 8:
+                    source_lines.append(f"    {dest_var} = 0;")
+                    for i in range(8):
+                        source_lines.append(
+                            f"    {dest_var} |= ({raw_type})((uint64_t)rx_buf[{start_byte} + {i}] << {i*8});"
+                        )
 
                 # 2. Apply scaling if necessary
                 if needs_scaling:
