@@ -308,9 +308,12 @@ class MQTTTestClient:
     def __init__(self, config: Optional[TelemetryConfig] = None):
         from paho.mqtt import client as mqtt_client
         import threading
+        import uuid
         
         self.config = config or TelemetryConfig.from_env()
-        self.client = mqtt_client.Client("test_mqtt_client")
+        # Use unique client ID to avoid conflicts with other test clients
+        client_id = f"test_mqtt_client_{uuid.uuid4().hex[:8]}"
+        self.client = mqtt_client.Client(client_id)
         self.received_messages = []
         self._loop_started = False
         self._connected = False
@@ -348,6 +351,7 @@ class MQTTTestClient:
         try:
             logger.info(f"Connecting to MQTT at {self.config.mqtt_host}:{self.config.mqtt_port}")
             self._connect_event.clear()
+            self._connected = False
             self.client.connect(self.config.mqtt_host, self.config.mqtt_port)
             # Start the network loop - required for callbacks to work
             self.client.loop_start()
@@ -358,6 +362,9 @@ class MQTTTestClient:
                 logger.error("MQTT connection timed out")
                 return False
             
+            # Small delay to ensure connection is stable
+            time.sleep(0.1)
+            
             return self._connected
         except Exception as e:
             logger.error(f"Failed to connect to MQTT: {e}")
@@ -365,19 +372,22 @@ class MQTTTestClient:
     
     def disconnect(self):
         """Disconnect from MQTT broker."""
+        self._connected = False
         if self._loop_started:
             self.client.loop_stop()
             self._loop_started = False
-        self.client.disconnect()
-        self._connected = False
+        try:
+            self.client.disconnect()
+        except Exception:
+            pass
     
     def is_connected(self) -> bool:
         """Check if client is connected."""
-        return self._connected
+        return self._connected and self._loop_started
     
-    def publish(self, topic: str, payload: bytes, qos: int = 0):
+    def publish(self, topic: str, payload: bytes, qos: int = 1):
         """Publish a message to MQTT topic."""
-        if not self._connected:
+        if not self.is_connected():
             raise RuntimeError("MQTT client is not connected")
         result = self.client.publish(topic, payload, qos=qos)
         # Wait for publish to complete (with timeout)
@@ -386,7 +396,7 @@ class MQTTTestClient:
     
     def subscribe(self, topic: str, qos: int = 0):
         """Subscribe to an MQTT topic."""
-        if not self._connected:
+        if not self.is_connected():
             raise RuntimeError("MQTT client is not connected")
         result, mid = self.client.subscribe(topic, qos=qos)
         logger.debug(f"Subscribed to {topic}, result: {result}, mid: {mid}")
