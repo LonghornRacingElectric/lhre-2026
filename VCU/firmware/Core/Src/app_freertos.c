@@ -160,9 +160,6 @@ void StartControlTask(void *argument)
         // Optional: small delay to let conversions complete before we read
         osDelay(1);
 
-        // Service CAN scheduler (handles periodic TX/RX)
-        vcu_can_service();
-
         // To-Do: Steering
         HAL_ADC_Start(&hadc1);
         if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
