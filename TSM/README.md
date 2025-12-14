@@ -1,9 +1,6 @@
-# Thermal Sensor Module (TSM) Firmware and Model
+# Low-Voltage Battery Management System (LVBMS) Firmware and Model
+The Low-Voltage Battery Management System (LVBMS) monitors and protects the low-voltage battery pack. It ensures safe operation by tracking voltage, current, and temperature, balancing cells as needed, and cutting power when outside of safe operating conditions.
 
-The Thermal Sensor Module (TSM) measures the ambient temperature near the radiator such that the radiator fan speeds can be properly set and controlled. It works in tandem with sensors measuring the cooling loop flow rate and cooling fluid temperature.
+LVBMS Firmware will live in the `LVBMS/firmware` directory.
 
-TSM Firmware will live in the `TSM/firmware` directory.
-
-This directory can be recursively built by running `bazel build //TSM/...`. Additionally, the generated files will be placed in the `bazel-bin/TSM/` directory.
-
-The firmware target is `//TSM/firmware:tsm_firmware_2026`.
+This directory can be recursively built by running `bazel build //LVBMS/firmware/...`.
