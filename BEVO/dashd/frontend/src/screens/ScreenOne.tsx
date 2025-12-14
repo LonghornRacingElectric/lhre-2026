@@ -75,7 +75,7 @@ const ScreenOne: React.FC = () => {
             <Container fluid style={{ height: '100%' }}>
                 <Row style={{ height: '100%' }}>
                     
-                    {/* 1. Left Column: Temp (Previously Right) */}
+                    {/* 1. Left Column: Temp */}
                     <Col xs={2} className="h-100-flex align-items-center">
                         <div className="dash-card d-flex flex-column align-items-center" style={{ width: '100%', height: '90%', justifyContent: 'space-around' }}>
                             <div>
@@ -172,7 +172,7 @@ const ScreenOne: React.FC = () => {
                         </Row>
                     </Col>
 
-                    {/* 4. Right Column: Charge & Laps (Previously Left) */}
+                    {/* 4. Right Column: Charge & Laps */}
                     <Col xs={2} className="h-100-flex align-items-center">
                         <div className="dash-card d-flex flex-column align-items-center" style={{ width: '100%', height: '90%', justifyContent: 'space-around' }}>
                             <div>
