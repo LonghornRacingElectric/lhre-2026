@@ -9,10 +9,12 @@ extern "C" {
 #endif
 
 void vcu_can_init(void);
-void vcu_can_service(void);
 
 // Send torque request in Nm
 void vcu_can_set_torque(float torque_nm);
+
+// Read inverter feedback
+void vcu_can_read_feedback(void);
 
 // Inverter feedback variables (populated automatically)
 extern float   inverter_torque_fb;   // Nm

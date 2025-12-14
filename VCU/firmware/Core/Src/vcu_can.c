@@ -1,11 +1,10 @@
 #include "vcu_can.h"
-
 #include "FreeRTOS.h"
 #include "fdcan.h"
-
 #include "longhorn/rtos/can.h"
 #include "longhorn/rtos/logger.h"
 #include "longhorn/can/can_ids.h"
+#include "task.h"
 
 #include <string.h>
 
@@ -110,9 +109,18 @@ void vcu_can_init(void)
 void vcu_can_set_torque(float torque_nm)
 {
     inv_tx.torque_request = (int16_t)(torque_nm * 10.0f);
+}
 
-    // RX data is updated in receiver task
-    inverter_torque_fb   = inv_speed.torque_feedback * 0.1f;
-    inverter_rpm         = inv_speed.motor_speed;
-    inverter_bus_voltage = inv_speed.bus_voltage * 0.1f;
+// Separate feedback read function
+void vcu_can_read_feedback(void)
+{
+    msg_inverter_speed_t local;
+
+    taskENTER_CRITICAL();
+    local = inv_speed;          // atomic snapshot
+    taskEXIT_CRITICAL();
+
+    inverter_torque_fb   = local.torque_feedback * 0.1f;
+    inverter_rpm         = local.motor_speed;
+    inverter_bus_voltage = local.bus_voltage * 0.1f;
 }

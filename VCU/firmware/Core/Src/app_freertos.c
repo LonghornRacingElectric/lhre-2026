@@ -178,6 +178,10 @@ void StartControlTask(void *argument)
         // Send torque command to inverter (Nm)
         vcu_can_set_torque(out.torque_cmd);
 
+        // Read torque command
+        vcu_can_read_feedback();
+
+
         // Throttle logging: every 20 loops => ~200 ms at 10 ms loop
         if (++log_div >= 20) {
             log_div = 0;
