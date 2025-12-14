@@ -9,10 +9,10 @@ build:debug --spawn_strategy=local --strip=never
 
 test --test_output=all
 
-build:ci --bes_results_url=https://longhorn-racing-electric.buildbuddy.io/invocation/
-build:ci --bes_backend=grpcs://longhorn-racing-electric.buildbuddy.io
-build:ci --remote_cache=grpcs://longhorn-racing-electric.buildbuddy.io
-build:ci --remote_timeout=10m
+common:ci --bes_results_url=https://longhorn-racing-electric.buildbuddy.io/invocation/
+common:ci --bes_backend=grpcs://longhorn-racing-electric.buildbuddy.io
+common:ci --remote_cache=grpcs://longhorn-racing-electric.buildbuddy.io
+common:ci --remote_timeout=10m
 build:ci --remote_executor=grpcs://longhorn-racing-electric.buildbuddy.io
 build:ci --jobs=50
 build:ci --noslim_profile
