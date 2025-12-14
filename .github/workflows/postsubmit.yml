@@ -25,6 +25,6 @@ jobs:
           # Share repository cache between workflows.
           repository-cache: true
       - name: Build All
-        run: bazel build //... --config=ci
+        run: bazel build //... --remote_header=x-buildbuddy-api-key=${{secrets.BUILD_BUDDY_API_KEY}}
       - name: Test All
-        run: bazel test //... --test_output=all --config=ci
+        run: bazel test //... --config=ci --remote_header=x-buildbuddy-api-key=${{secrets.BUILD_BUDDY_API_KEY}}

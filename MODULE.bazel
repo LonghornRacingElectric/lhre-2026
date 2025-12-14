@@ -36,7 +36,7 @@ register_toolchains(
 git_override(
     module_name = "toolchains_arm_gnu",
     remote = "https://github.com/LonghornRacingElectric/toolchains_arm_gnu.git",
-    commit = "4b8b8e5ab8b4b2fa0758662735f7d96e0b690a43",
+    commit = "613f3423e4370efc1057435217f56b499c24be0c",
 )
 
 arm_toolchain = use_extension("@toolchains_arm_gnu//:extensions.bzl", "arm_toolchain")
