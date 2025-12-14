@@ -71,15 +71,6 @@ def _load_env_file() -> bool:
     # In Bazel runfiles, the structure is: <workspace>/<package>/<file>
     possible_env_paths = [
         # Bazel runfiles paths
-        Path(__file__).parent.parent.parent.parent / "_main" / "telemtry" / ".env",
-        Path(__file__).parent.parent.parent.parent / "telemtry" / ".env",
-        # Relative paths from test file
-        Path(__file__).parent.parent.parent / ".env",  # telemtry/.env
-        Path(__file__).parent.parent.parent.parent / "telemtry" / ".env",
-        # Environment variable paths
-        Path(os.environ.get("BUILD_WORKSPACE_DIRECTORY", "")) / "telemtry" / ".env",
-        Path(os.environ.get("RUNFILES_DIR", "")) / "_main" / "telemtry" / ".env",
-        # Current working directory paths
         Path.cwd() / "telemtry" / ".env",
         Path.cwd() / ".env",
     ]
@@ -140,11 +131,11 @@ class TelemetryConfig:
         
         return cls(
             mqtt_host="localhost",
-            mqtt_port="1883",
+            mqtt_port=1883,
             kafka_host=kafka_host,
             kafka_port=kafka_port,
             db_host="localhost",
-            db_port="5432",
+            db_port=5432,
             db_user=os.getenv("POSTGRES_USER", "postgres"),
             db_password=os.getenv("POSTGRES_PASSWORD", "postgres"),
             db_name=os.getenv("POSTGRES_DB", "telemetry"),

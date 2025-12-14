@@ -64,6 +64,7 @@ pip.parse(
     python_version = "3.11",
     requirements_lock = "//telemtry/analysis:requirements_lock.txt",
     requirements_darwin = "//telemtry/analysis:requirements_lock_darwin.txt",
+    requirements_windows = "//telemtry/analysis:requirements_lock_windows.txt",
 )
 
 pip.parse(
