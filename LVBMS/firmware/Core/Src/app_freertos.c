@@ -28,6 +28,10 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "rtos/led.h"
+#include "rtos/logger.h"
+#include "rtos/usb.h"
+#include "usb_base.h"
+#include "usbd_cdc_if.h"
 #include "tim.h"
 /* USER CODE END Includes */
 
@@ -132,6 +136,10 @@ void StartDefaultTask(void *argument)
 {
   /* init code for USB_Device */
   MX_USB_Device_Init();
+  if (init_logging(CDC_Transmit_FS) == -1){
+    //If USB logging fails, stop LED thread so we notice
+    //osThreadTerminate(ledHandle);
+  }
   /* USER CODE BEGIN StartDefaultTask */
     /* Infinite loop */
 
@@ -145,4 +153,3 @@ void StartDefaultTask(void *argument)
 /* USER CODE BEGIN Application */
 
 /* USER CODE END Application */
-
