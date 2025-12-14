@@ -8,17 +8,18 @@
 /* Glassmorphism Cards */
 .dash-card {
     background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(5px);
+    backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
     padding: 10px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5); /* Enhanced shadow */
     transition: all 0.3s ease;
 }
 
 .dash-card:hover {
     background: rgba(255, 255, 255, 0.08);
     border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 25px rgba(0,0,0,0.6);
 }
 
 /* Gauge Glows */
@@ -48,6 +49,7 @@
 .value-display {
     font-family: 'Consolas', 'Monaco', monospace; /* Tabular numbers */
     letter-spacing: -1px;
+    text-shadow: 0 0 10px rgba(255,255,255,0.2); /* Subtle glow */
 }
 
 .label-small {
@@ -81,7 +83,7 @@
 
 .alert-overlay {
     position: absolute;
-    top: 0;
+    bottom: 0;
     left: 16.66%;
     width: 66.66%;
     color: #000;
@@ -94,8 +96,8 @@
     text-transform: uppercase;
     letter-spacing: 2px;
     box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
-    border-bottom-left-radius: 12px;
-    border-bottom-right-radius: 12px;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
 }
 
 /* Layout Utilities */
