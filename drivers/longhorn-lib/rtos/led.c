@@ -1,10 +1,12 @@
-#include "rtos/led.h"
+#include "longhorn/rtos/led.h"
 
 #include <math.h>
 
 #include "FreeRTOS.h"
 #include "FreeRTOSConfig.h"
-#include "led_base.h"
+#include "longhorn/led_base.h"
+
+static osThreadId_t led_handle;
 
 void RainbowLED(void* argument) {
     const uint32_t periodTicks = pdMS_TO_TICKS(33);
@@ -33,5 +35,8 @@ const osThreadAttr_t led_attributes = {
     .stack_size = configMINIMAL_STACK_SIZE * 2};
 
 osThreadId_t led_start_thread() {
-    return osThreadNew(RainbowLED, NULL, &led_attributes);
+    led_handle = osThreadNew(RainbowLED, NULL, &led_attributes);
+    return led_handle;
 }
+
+void led_stop_thread() { osThreadTerminate(led_handle); }

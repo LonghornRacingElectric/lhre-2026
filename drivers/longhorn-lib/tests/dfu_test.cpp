@@ -2,7 +2,7 @@
 #include <gtest/gtest.h>
 
 extern "C" {
-#include "dfu_base.h"
+#include "longhorn/dfu_base.h"
 }
 
 class MockDfuCallbacks {

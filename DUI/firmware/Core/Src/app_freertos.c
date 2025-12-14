@@ -26,13 +26,14 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "adc.h"
 #include "fdcan.h"
-#include "rtos/dfu.h"
-#include "rtos/led.h"
-#include "rtos/logger.h"
-#include "rtos/usb.h"
+#include "longhorn/rtos/dfu.h"
+#include "longhorn/rtos/led.h"
+#include "longhorn/rtos/logger.h"
+#include "longhorn/rtos/usb.h"
+#include "longhorn/usb_base.h"
 #include "tim.h"
-#include "usb_base.h"
 #include "usbd_cdc_if.h"
 /* USER CODE END Includes */
 
@@ -62,7 +63,10 @@ const osThreadAttr_t defaultTask_attributes = {
     .priority = (osPriority_t)osPriorityNormal,
     .stack_size = 128 + 1024};
 
-/* Private function prototypes -----------------------------------------------*/
+uint32_t AD_RES = 0;
+
+/* Private function prototypes
+   -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 osThreadId_t led_handle;
 
@@ -156,17 +160,19 @@ void fakeCANTask(void* argument) {
 
         if (hal_status) {
             // error occurred
-            log(LOG_ERROR, "Sending FDCAN Data: %d, Bus Status: %d",
-                fakedata[0], hal_status);
+            // log_printf(LOG_ERROR, "Sending FDCAN Data: %d, Bus Status: %d",
+            //     fakedata[0], hal_status);
         } else {
-            log(LOG_INFO, "Sending FDCAN Data: %d, Bus Status: %d", fakedata[0],
-                hal_status);
+            // log_printf(LOG_INFO, "Sending FDCAN Data: %d, Bus Status: %d",
+            // fakedata[0],
+            //     hal_status);
         }
 
         hal_status =
             HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &tx_header, &fakedata);
-        log(hal_status ? LOG_ERROR : LOG_SUCCESS,
-            "Sending FDCAN2 Data: %d, Bus Status: %d", fakedata[0], hal_status);
+        // log_printf(hal_status ? LOG_ERROR : LOG_SUCCESS,
+        //     "Sending FDCAN2 Data: %d, Bus Status: %d", fakedata[0],
+        //     hal_status);
 
         fakedata[0]++;
 
@@ -202,14 +208,18 @@ void StartDefaultTask(void* argument) {
 
     init_dfu(dfu_conf);
     dfu_start_thread();
+    HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
 
     /* Infinite loop */
 
     for (;;) {
-        log(LOG_INFO, "Main thread! Code Running from the DUI",
-            osKernelGetTickCount());
+        // log_printf(LOG_INFO, "Main thread! Code Running from the DUI",
+        //     osKernelGetTickCount());
+        log_printf(LOG_INFO, "The ADC data was %d", AD_RES);
 
         osDelay(pdMS_TO_TICKS(1000));
+
+        HAL_ADC_Start_DMA(&hadc1, &AD_RES, 1);
     }
     /* USER CODE END StartDefaultTask */
 }
