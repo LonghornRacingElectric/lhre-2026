@@ -28,9 +28,11 @@ const VerticalGauge: React.FC<VerticalGaugeProps> = ({
     const barHeight = height * percentage;
     const y = height - barHeight;
 
+    const svgHeight = label ? height + 40 : height;
+
     return (
         <div className={`vertical-gauge-container ${className}`}>
-            <svg width={width} height={height + 40}>
+            <svg width={width} height={svgHeight}>
                 {/* Background Bar */}
                 <rect
                     x="0"

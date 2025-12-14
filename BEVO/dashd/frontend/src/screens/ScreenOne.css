@@ -83,21 +83,23 @@
 
 .alert-overlay {
     position: absolute;
-    bottom: 0;
-    left: 16.66%;
-    width: 66.66%;
+    top: 50px; /* Moved a few px higher */
+    left: 0;
+    width: 100%;
     color: #000;
     text-align: center;
-    padding: 10px;
-    font-size: 1.5rem;
+    padding: 10px 12px; /* Increased vertical padding */
+    font-size: 1.2rem; /* Reduced font size */
     font-weight: 800;
-    z-index: 1000;
+    z-index: 90; /* Below top bar (100) but above content */
     animation: flash-alert 1s infinite;
     text-transform: uppercase;
     letter-spacing: 2px;
-    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
-    border-top-left-radius: 12px;
-    border-top-right-radius: 12px;
+    box-shadow: 0 4px 20px rgba(255, 215, 0, 0.5);
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
 }
 
 /* Layout Utilities */
