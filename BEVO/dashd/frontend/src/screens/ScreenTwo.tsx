@@ -12,18 +12,22 @@ interface ShutdownItem {
 }
 
 const ITEMS: ShutdownItem[] = [
-    { id: 1, name: "BSPD", description: "Brake System Plausibility Device" },
-    { id: 2, name: "BMS", description: "Battery Management System" },
-    { id: 3, name: "IMD", description: "Insulation Monitoring Device" },
-    { id: 4, name: "BOTS", description: "Brake Over-Travel Switch" },
-    { id: 5, name: "L-ESTOP", description: "Left E-Stop Button" },
-    { id: 6, name: "BATTERY HVIL", description: "High Voltage Interlock Loop" },
-    { id: 7, name: "CRASH SENSOR", description: "" },
-    { id: 8, name: "F-ESTOP", description: "Front E-Stop Button" },
-    { id: 9, name: "R-ESTOP", description: "Right E-Stop Button" },
-    { id: 10, name: "TSMS", description: "Tractive System Master Switch" },
-    { id: 11, name: "MSD HVIL", description: "Manual Service Disconnect HVIL" },
-    { id: 12, name: "E-METER HVIL", description: "Energy Meter HVIL" },
+    { id: 1, name: "LV Master Switch", description: "" },
+    { id: 2, name: "Shutdown Fuse", description: "5A" },
+    { id: 3, name: "R-ESTOP", description: "Right E-Stop Button" },
+    { id: 4, name: "BMS", description: "Battery Management System Relay" },
+    { id: 5, name: "IMD", description: "Insulation Monitoring Device Relay" },
+    { id: 6, name: "Battery ACU HVIL", description: "" },
+    { id: 7, name: "L-ESTOP", description: "Left E-Stop Button" },
+    { id: 8, name: "D-ESTOP", description: "Dash E-Stop Button" },
+    { id: 9, name: "Inertial Switch", description: "" },
+    { id: 10, name: "BOTS", description: "Brake Over-Travel Switch" },
+    { id: 11, name: "BSPD", description: "Brake Systems Plausibility Device Relay" },
+    { id: 12, name: "E-Meter HVIL", description: "" },
+    { id: 13, name: "MSD HVIL", description: "Manual Service Disconnect" },
+    { id: 14, name: "Battery HVIL", description: "" },
+    { id: 15, name: "Inverter HVIL", description: "" },
+    { id: 16, name: "TSMS", description: "Tractive Systems Master Switch" },
 ];
 
 const ScreenTwo: React.FC = () => {
@@ -32,7 +36,7 @@ const ScreenTwo: React.FC = () => {
     // -------------------------------------------------------------------------
     // In a real app, this would be an array of booleans from telemetry
     // index 0 -> item 1, etc.
-    const [statuses, setStatuses] = useState<boolean[]>(Array(12).fill(true));
+    const [statuses, setStatuses] = useState<boolean[]>(Array(16).fill(true));
 
     useEffect(() => {
         // Simulation: Randomly trip a sensor every few seconds to show UI state
@@ -41,11 +45,11 @@ const ScreenTwo: React.FC = () => {
                 const newStatuses = [...prev];
                 // 10% chance to flip a random bit to false (bad), 90% chance to reset to true
                 if (Math.random() > 0.8) {
-                    const idx = Math.floor(Math.random() * 12);
+                    const idx = Math.floor(Math.random() * 16);
                     newStatuses[idx] = !newStatuses[idx]; 
                 } else {
                      // Heal randomly
-                     const idx = Math.floor(Math.random() * 12);
+                     const idx = Math.floor(Math.random() * 16);
                      newStatuses[idx] = true;
                 }
                 return newStatuses;
@@ -69,7 +73,7 @@ const ScreenTwo: React.FC = () => {
                             <div className="d-flex flex-column justify-content-center" style={{ flexGrow: 1 }}>
                                 <div className="item-name">{item.name}</div>
                                 {item.description && (
-                                    <div style={{ fontSize: '0.7rem', color: '#aaa', marginTop: '-2px' }}>
+                                    <div className="item-description">
                                         {item.description}
                                     </div>
                                 )}
