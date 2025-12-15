@@ -72,7 +72,7 @@
 }
 
 .vertical-gauge-container .fill-bar {
-    filter: drop-shadow(0 0 5px currentColor);
+    /* filter: drop-shadow(0 0 5px currentColor); removed default glow */
 }
 
 /* Animation for Alerts */

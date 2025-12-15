@@ -12,6 +12,7 @@ interface RadialGaugeProps {
     color?: string; // Hex color or "gradient"
     className?: string;
     showValueText?: boolean; // New prop to control internal value display
+    mode?: 'standard' | 'bidirectional'; // Bidirectional fills from 0
 }
 
 const RadialGauge: React.FC<RadialGaugeProps> = ({
@@ -24,22 +25,19 @@ const RadialGauge: React.FC<RadialGaugeProps> = ({
     numTicks = 10,
     color = "gradient",
     className = "",
-    showValueText = true // Default to true for backward compatibility
+    showValueText = true,
+    mode = 'standard'
 }) => {
-    const { PI, cos, sin } = Math;
+    const { PI, cos, sin, abs } = Math;
     
     // Add padding to the SVG canvas for glow effect
-    const svgPadding = 30; // Increased padding to accommodate 10px glow + some margin
+    const svgPadding = 30; 
     const svgSize = size + 2 * svgPadding;
 
-    // Center of the gauge within the new SVG canvas size
     const cx = svgSize / 2;
     const cy = svgSize / 2;
-    
-    // Radius of the gauge arc, relative to the conceptual 'size' prop
     const r = (size - strokeWidth) / 2;
 
-    // Standard 270 degree gauge:
     const gaugeStart = 3 * PI / 4; 
     const gaugeEnd = 9 * PI / 4; 
     
@@ -48,38 +46,59 @@ const RadialGauge: React.FC<RadialGaugeProps> = ({
     const x2 = cx + r * cos(gaugeEnd);
     const y2 = cy + r * sin(gaugeEnd);
 
-    // SVG Arc
     const d = `M ${x1} ${y1} A ${r} ${r} 0 1 1 ${x2} ${y2}`;
     
     const totalAngle = gaugeEnd - gaugeStart;
     const circumference = useMemo(() => r * totalAngle, [r, totalAngle]);
     
-    // Clamp value
     const clampedValue = Math.min(Math.max(value, min), max);
     const percentage = (clampedValue - min) / (max - min);
     
-    const strokeDashoffset = useMemo(
-        () => circumference - percentage * circumference,
-        [percentage, circumference]
-    );
+    // Bidirectional Logic
+    const zeroPercentage = (0 - min) / (max - min);
+    
+    let strokeDasharray = `${circumference} ${circumference}`;
+    let strokeDashoffset = circumference - percentage * circumference;
+    let strokeColor = color === "gradient" ? "url(#grad)" : color;
+
+    if (mode === 'bidirectional') {
+        const startFillPct = Math.min(zeroPercentage, percentage);
+        const fillLengthPct = abs(percentage - zeroPercentage);
+        
+        const startGap = circumference * startFillPct;
+        const fillLength = circumference * fillLengthPct;
+        const endGap = circumference - startGap - fillLength;
+
+        // Pattern: 0 gap length remaining
+        strokeDasharray = `0 ${startGap} ${fillLength} ${endGap}`;
+        strokeDashoffset = 0; // Offset logic handled by array pattern
+
+        // Dynamic Color
+        if (value < 0) strokeColor = "#00FF66"; // Regen (Green)
+        else strokeColor = "#BF5700"; // Power (Orange)
+    }
 
     const progressRef = useRef<SVGPathElement>(null);
 
     useEffect(() => {
         if (progressRef.current) {
-            progressRef.current.style.transition = "stroke-dashoffset .3s ease-in-out";
+            // Animate dasharray for bidirectional, dashoffset for standard
+            progressRef.current.style.transition = "stroke-dashoffset .3s ease-in-out, stroke-dasharray .3s ease-in-out, stroke .3s ease";
             progressRef.current.style.strokeDashoffset = `${strokeDashoffset}`;
+            progressRef.current.style.strokeDasharray = strokeDasharray;
+            if (mode === 'bidirectional') {
+                 // For bidirectional, we update stroke color dynamically via ref to avoid re-render flicker? 
+                 // Actually passing prop is fine, React handles it.
+            }
         }
-    }, [strokeDashoffset]);
+    }, [strokeDashoffset, strokeDasharray, mode]);
 
     // Ticks
     const ticks = useMemo(() => {
         const tickLength = 10;
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const tickOffset = r - 15;
-
         return Array.from({ length: numTicks + 1}).map((_, i) => {
             const angle = gaugeStart + (totalAngle / numTicks) * i;
+            // ... standard tick calc ...
             const xStart = cx + (r - tickLength) * cos(angle);
             const yStart = cy + (r - tickLength) * sin(angle);
             const xEnd = cx + r * cos(angle);
@@ -100,6 +119,30 @@ const RadialGauge: React.FC<RadialGaugeProps> = ({
         });
     }, [numTicks, gaugeStart, totalAngle, cx, cy, r]);
 
+    // Zero Tick for Bidirectional
+    const zeroTick = useMemo(() => {
+        if (mode !== 'bidirectional') return null;
+        
+        const angle = gaugeStart + totalAngle * zeroPercentage;
+        const tickLength = 20; // Longer tick
+        const xStart = cx + (r - tickLength) * cos(angle);
+        const yStart = cy + (r - tickLength) * sin(angle);
+        const xEnd = cx + (r + 5) * cos(angle); // Extend outward slightly
+        const yEnd = cy + (r + 5) * sin(angle);
+
+        return (
+            <line
+                x1={xStart}
+                y1={yStart}
+                x2={xEnd}
+                y2={yEnd}
+                stroke="#fff"
+                strokeWidth={4}
+                className="gauge-zero-tick"
+            />
+        );
+    }, [mode, gaugeStart, totalAngle, zeroPercentage, cx, cy, r]);
+
     return (
         <div className={`radial-gauge-container ${className}`}>
             <svg width={svgSize} height={svgSize} viewBox={`0 0 ${svgSize} ${svgSize}`}>
@@ -116,19 +159,20 @@ const RadialGauge: React.FC<RadialGaugeProps> = ({
                 <path
                     ref={progressRef}
                     fill="none"
-                    stroke={color === "gradient" ? "url(#grad)" : color}
+                    stroke={strokeColor}
                     strokeWidth={strokeWidth}
-                    strokeDasharray={`${circumference} ${circumference}`}
-                    strokeDashoffset={circumference}
+                    strokeDasharray={strokeDasharray}
+                    strokeDashoffset={strokeDashoffset}
                     d={d}
-                    strokeLinecap="round"
+                    strokeLinecap="butt"
                     className="gauge-progress"
                 />
                 
                 {ticks}
+                {zeroTick}
 
                 {/* Gradient definition if needed */}
-                {color === "gradient" && (
+                {color === "gradient" && mode !== 'bidirectional' && (
                     <defs>
                         <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
                             <stop offset="0%" stopColor="#00ff00" />
@@ -143,7 +187,7 @@ const RadialGauge: React.FC<RadialGaugeProps> = ({
                         {Math.round(value)}
                     </text>
                 )}
-                {label && ( // Only show label if provided
+                {label && ( 
                     <text x={cx} y={cy + 30} className="radial-gauge-label">
                         {label}
                     </text>

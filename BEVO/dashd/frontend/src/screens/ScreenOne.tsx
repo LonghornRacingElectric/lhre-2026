@@ -19,43 +19,102 @@ const ScreenOne: React.FC = () => {
     const [temp, setTemp] = useState(40);
 
     // New Metrics
-    const [odometer, setOdometer] = useState(1234.5);
+    const [odometer, setOdometer] = useState(90.5);
     const [lapDelta, setLapDelta] = useState(0); 
     const [energyDelta, setEnergyDelta] = useState(0); 
     const [lapsRemaining, setLapsRemaining] = useState(20);
     const [alerts, setAlerts] = useState<string[]>([]);
     const [signalStrength, setSignalStrength] = useState(4); // 0-4 bars
     const [telemetryStatus, setTelemetryStatus] = useState(true); // true: broadcasting, false: not
+    
+    // Physics Simulation State
+    const simState = React.useRef({ 
+        phase: 'accel', 
+        speed: 0, 
+        targetSpeed: 60, 
+        accelRate: 0.5, 
+        timer: 0 
+    });
 
     // Simulation Effect
     useEffect(() => {
         const interval = setInterval(() => {
-            setSpeed(prev => (prev + 1) % 120); 
-            setPower(prev => {
-                const next = prev + 5;
-                return next > 100 ? -50 : next; 
-            });
-            setCharge(prev => Math.max(0, prev - 0.05)); 
-            setTemp(prev => Math.min(100, prev + 0.1));
-            setOdometer(prev => prev + 0.01);
+            let { phase, speed, targetSpeed, accelRate, timer } = simState.current;
+            let newPower = 0;
+
+            if (phase === 'accel') {
+                if (speed < targetSpeed) {
+                    speed += accelRate;
+                    // Power high during accel, proportional to rate + drag
+                    newPower = 20 + (accelRate * 50) + (speed/100 * 30);
+                } else {
+                    // Reached target, switch to cruise
+                    simState.current.phase = 'cruise';
+                    simState.current.timer = 20 + Math.random() * 50; // Cruise for 2-7 seconds
+                }
+            } else if (phase === 'cruise') {
+                timer--;
+                // Slight speed fluctuation
+                speed += (Math.random() - 0.5) * 0.1;
+                // Power just overcomes drag
+                newPower = 10 + (speed/100 * 20) + (Math.random() * 2);
+                
+                if (timer <= 0) {
+                    // Decision: Brake or Accel?
+                    if (speed > 50 && Math.random() > 0.3) {
+                        simState.current.phase = 'brake';
+                        simState.current.targetSpeed = Math.random() * 20; // Slow down to 0-20
+                        simState.current.accelRate = 0.5 + Math.random() * 1.0; // Brake intensity
+                    } else {
+                        simState.current.phase = 'accel';
+                        simState.current.targetSpeed = Math.min(100, speed + 20 + Math.random() * 30);
+                        simState.current.accelRate = 0.2 + Math.random() * 0.6;
+                    }
+                }
+            } else if (phase === 'brake') {
+                if (speed > targetSpeed) {
+                    speed -= accelRate;
+                    // Regen power
+                    newPower = -5 - (accelRate * 20); 
+                } else {
+                    // Reached target (low speed), switch to accel
+                    simState.current.phase = 'accel';
+                    simState.current.targetSpeed = 40 + Math.random() * 40; // New target
+                    simState.current.accelRate = 0.3 + Math.random() * 0.5;
+                }
+            }
+
+            // Clamp speed
+            speed = Math.max(0, Math.min(speed, 100));
+            
+            // Update ref
+            simState.current.speed = speed;
+            simState.current.timer = timer;
+
+            setSpeed(speed);
+            setPower(Math.min(Math.max(newPower, -80), 80)); // Clamp -80 to 80
+            
+            setCharge(prev => Math.max(0, prev - (newPower > 0 ? 0.05 : -0.01))); 
+            setTemp(prev => Math.min(100, Math.max(20, prev + (newPower > 50 ? 0.05 : -0.02)))); 
+            
+            setOdometer(prev => prev + (speed / 3600 / 10)); 
+            
             setLapDelta(prev => parseFloat((Math.sin(Date.now() / 1000) * 2).toFixed(2))); 
             setEnergyDelta(prev => parseFloat((Math.cos(Date.now() / 1000) * 5).toFixed(1))); 
 
             // TODO: Hook up to real 5G module signal strength
-            // Simulation: Randomly change signal strength occasionally
             if (Math.random() > 0.95) {
                 setSignalStrength(Math.floor(Math.random() * 5));
             }
 
             // TODO: Hook up to real telemetry system status
-            // Simulation: Randomly change telemetry status occasionally
             if (Math.random() > 0.98) {
                 setTelemetryStatus(prev => !prev);
             }
 
-            if (Math.random() > 0.99) {
+            if (Math.random() > 0.995) { 
                 setAlerts(["High Battery Temp"]);
-            } else if (Math.random() > 0.95) {
+            } else if (Math.random() > 0.98) {
                  setAlerts([]);
             }
 
@@ -240,9 +299,8 @@ const ScreenOne: React.FC = () => {
                                     color={temp > 80 ? "#ff0000" : BRAND_COLOR} 
                                     height={220} /* Increased height */
                                     width={40}
-                                    className={temp > 80 ? "glow-red" : "glow-orange"}
                                 />
-                                <div className="text-center value-display" style={{ fontSize: '2rem', fontWeight: 'bold' }}>{Math.round(temp * 9/5 + 32)}<span style={{ fontSize: '1.2rem', marginLeft: '5px' }}>°F</span></div>
+                                <div className="text-center value-display" style={{ fontSize: '2rem', fontWeight: 'bold' }}>{Math.round(temp * 9/5 + 32)}<span style={{ fontSize: '1rem', marginLeft: '5px', color: '#888' }}>°F</span></div>
                             </div>
                         </div>
                     </Col>
@@ -251,40 +309,69 @@ const ScreenOne: React.FC = () => {
                     <Col xs={8} className="h-100-flex" style={{ paddingTop: '60px', paddingBottom: '80px' }}>
                         <Row className="h-100">
                             {/* Speed Section */}
-                            <Col xs={6} className="d-flex flex-column align-items-center justify-content-center">
+                            <Col xs={12} className="d-flex flex-column align-items-center justify-content-center">
                                 <div style={{ position: 'relative' }}>
                                     <RadialGauge 
                                         value={speed} 
                                         min={0} 
-                                        max={120} 
+                                        max={100} 
                                         label="" 
-                                        size={240} 
+                                        size={340} 
                                         color={BRAND_COLOR}
-                                        numTicks={12}
-                                        strokeWidth={10}
+                                        numTicks={10}
+                                        strokeWidth={18}
                                         className="glow-orange"
                                         showValueText={false} // Hide internal value text
                                     />
                                     {/* Center Text Overlay */}
-                                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
-                                        <div className="value-display" style={{ fontSize: '4rem', fontWeight: 'bold', lineHeight: 1 }}>{Math.round(speed)}</div>
+                                    <div style={{ position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
+                                        <div className="value-display" style={{ fontSize: '5rem', fontWeight: 'bold', lineHeight: 1 }}>{Math.round(speed)}</div>
                                         <div className="label-small" style={{ fontSize: '0.9rem' }}>MPH</div>
+                                    </div>
+
+                                    {/* Horizontal Energy Bar */}
+                                    <div style={{ position: 'absolute', top: '60%', left: '50%', transform: 'translateX(-50%)', width: '180px', textAlign: 'center' }}>
+                                        <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', position: 'relative', overflow: 'hidden' }}>
+                                            {/* Center Marker */}
+                                            <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '2px', background: 'rgba(255,255,255,0.3)', transform: 'translateX(-50%)', zIndex: 2 }} />
+                                            
+                                            {/* Fill */}
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: 0, bottom: 0,
+                                                left: power < 0 ? `${50 - (Math.min(Math.abs(power), 80)/80)*50}%` : '50%',
+                                                width: `${(Math.min(Math.abs(power), 80)/80)*50}%`,
+                                                background: power < 0 ? 'linear-gradient(to right, #00CC00, #00FF66)' : 'linear-gradient(to left, #FF0000, #BF5700)',
+                                                transition: 'all 0.1s linear'
+                                            }} />
+                                        </div>
+                                        <div className="label-small" style={{ fontSize: '0.7rem', marginTop: '4px', color: '#888' }}>
+                                            {/* Math.round(power)} kW */}
+                                        </div>
+                                    </div>
+
+                                    {/* kW Digital Readout */}
+                                    <div style={{ position: 'absolute', top: '75%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
+                                        <div className="value-display" style={{ fontSize: '2.5rem', fontWeight: 'bold', lineHeight: 1, color: '#FFF' }}>
+                                            {Math.round(power)}
+                                        </div>
+                                        <div className="label-small" style={{ fontSize: '0.9rem' }}>kW</div>
                                     </div>
                                 </div>
                                 
                             </Col>
 
-                            {/* Power Section */}
+                            {/* Power Section (Temporarily removed) 
                             <Col xs={6} className="d-flex flex-column align-items-center justify-content-center">
                                 <div style={{ position: 'relative' }}>
                                     <RadialGauge 
                                         value={power} 
-                                        min={-50} 
-                                        max={100} 
+                                        min={-80} 
+                                        max={80} 
                                         label="" 
                                         size={240} 
-                                        color="gradient" 
-                                        numTicks={10}
+                                        mode="bidirectional"
+                                        numTicks={8}
                                         strokeWidth={10}
                                         className="glow-gradient"
                                         showValueText={false} // Hide internal value text
@@ -295,6 +382,7 @@ const ScreenOne: React.FC = () => {
                                     </div>
                                 </div>
                             </Col>
+                            */}
                         </Row>
                     </Col>
 
@@ -309,11 +397,10 @@ const ScreenOne: React.FC = () => {
                                     max={100} 
                                     label=""
                                     color="#FFD700" // Yellow
-                                    height={220} /* Increased height */
+                                    height={220} /* Slightly taller */
                                     width={40}   /* Wider */
-                                    className="glow-yellow"
                                 />
-                                <div className="text-center value-display" style={{ fontSize: '2rem', fontWeight: 'bold' }}>{Math.round(charge)}<span style={{ fontSize: '1.2rem', marginLeft: '5px' }}>%</span></div>
+                                <div className="text-center value-display" style={{ fontSize: '2rem', fontWeight: 'bold' }}>{Math.round(charge)}<span style={{ fontSize: '1rem', marginLeft: '5px', color: '#888' }}>%</span></div>
                             </div>
                         </div>
                     </Col>
