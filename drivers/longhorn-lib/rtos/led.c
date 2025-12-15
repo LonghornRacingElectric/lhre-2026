@@ -32,7 +32,8 @@ void RainbowLED(void* argument) {
 const osThreadAttr_t led_attributes = {
     .name = "LED Rainbow",
     .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = configMINIMAL_STACK_SIZE * 2};
+    .stack_size = configMINIMAL_STACK_SIZE * 4,
+};
 
 osThreadId_t led_start_thread() {
     led_handle = osThreadNew(RainbowLED, NULL, &led_attributes);
