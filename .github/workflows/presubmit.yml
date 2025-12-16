@@ -71,7 +71,7 @@ jobs:
 
       - name: Run Integration Tests
         run: |
-          bazel test //telemetry/... \
+          bazel test //telemtry/... \
             --test_output=errors \
             --config=ci \
             --remote_header=x-buildbuddy-api-key=${{ secrets.BUILD_BUDDY_API_KEY }} \
