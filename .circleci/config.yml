@@ -62,14 +62,13 @@ jobs:
           name: Create .env file for Docker
           command: |
             mkdir -p telemtry 
-            cat > telemtry/.env << EOF
+            cat > telemtry/.env \<< EOF
             POSTGRES_USER=${POSTGRES_USER}
             POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
             EOF
 
       - run:
           name: Start Kafka services
-          # 'working_directory' must be indented under the 'run' key
           working_directory: telemtry/stack/kafka
           command: docker compose up -d --build --wait
 
