@@ -7,14 +7,17 @@ on:
 jobs:
   bazel-build-test:
     runs-on: ubuntu-22.04
+    # Define environment variables from secrets at the job level
+    env:
+      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
     steps:
-      # - name: Install build dependencies
-      #   run: sudo apt-get update && sudo apt-get install libtinfo5
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
+
       - name: Get Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
         with:
@@ -24,7 +27,62 @@ jobs:
           disk-cache: ${{ github.workflow }}
           # Share repository cache between workflows.
           repository-cache: true
+
       - name: Build All
-        run: bazel build //... --remote_header=x-buildbuddy-api-key=${{secrets.BUILD_BUDDY_API_KEY}}
-      - name: Test All
-        run: bazel test //... --config=ci --remote_header=x-buildbuddy-api-key=${{secrets.BUILD_BUDDY_API_KEY}}
+        run: bazel build //... --config=ci --remote_header=x-buildbuddy-api-key=${{secrets.BUILD_BUDDY_API_KEY}}
+
+      - name: Run Unit Tests (no Docker required)
+        run: |
+          bazel test //... \
+            --config=ci \
+            --remote_header=x-buildbuddy-api-key=${{ secrets.BUILD_BUDDY_API_KEY }} \
+            --test_output=errors \
+            --test_tag_filters=-integration,-docker,-requirements \
+            --test_env=POSTGRES_USER \
+            --test_env=POSTGRES_PASSWORD
+
+      # Docker setup for integration tests
+      - name: Create Docker network and volumes
+        run: |
+          docker network create telemetry_network || true
+          docker volume create grafana_storage || true
+          docker volume create telemetry_db || true
+
+      - name: Create .env file for Docker
+        run: |
+          cat > telemtry/.env << EOF
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          EOF
+
+      - name: Start Kafka services
+        working-directory: telemtry/stack/kafka
+        run: docker compose up -d --build --wait
+
+      - name: Start Ingest services
+        working-directory: telemtry/stack/ingest
+        run: docker compose up -d --build --wait
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for services to be ready..."
+          sleep 10
+          docker ps
+
+      - name: Run Integration Tests
+        run: |
+          bazel test //telemtry/... \
+            --test_output=errors \
+            --config=ci \
+            --remote_header=x-buildbuddy-api-key=${{ secrets.BUILD_BUDDY_API_KEY }} \
+            --test_tag_filters=integration \
+            --test_env=POSTGRES_USER \
+            --test_env=POSTGRES_PASSWORD
+
+      - name: Teardown Docker services
+        if: always()
+        run: |
+          cd telemtry/stack/ingest && docker compose down -v --remove-orphans || true
+          cd telemtry/stack/kafka && docker compose down -v --remove-orphans || true
+          docker network rm telemetry_network || true
+          rm -f telemtry/.env || true
