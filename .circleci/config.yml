@@ -1,31 +1,115 @@
-# Use the latest 2.1 version of CircleCI pipeline process engine.
-# See: https://circleci.com/docs/reference/configuration-reference
 version: 2.1
 
-# Define a job to be invoked later in a workflow.
-# See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#jobs-overview & https://circleci.com/docs/reference/configuration-reference/#jobs
 jobs:
-  say-hello:
-    # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
-    # See: https://circleci.com/docs/guides/execution-managed/executor-intro/ & https://circleci.com/docs/reference/configuration-reference/#executor-job
-    docker:
-      # Specify the version you desire here
-      # See: https://circleci.com/developer/images/image/cimg/base
-      - image: cimg/base:current
+  bazel-build-test:
+    machine:
+      image: ubuntu-2204:current
+      docker_layer_caching: true
 
-    # Add steps to the job
-    # See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#steps-overview & https://circleci.com/docs/reference/configuration-reference/#steps
+    environment:
+      BAZELISK_VERSION: "1.19.0"
+
     steps:
-      # Checkout the code as the first step.
       - checkout
-      - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
 
-# Orchestrate jobs using workflows
-# See: https://circleci.com/docs/guides/orchestrate/workflows/ & https://circleci.com/docs/reference/configuration-reference/#workflows
+      - run:
+          name: Initialize Submodules
+          command: git submodule update --init --recursive
+
+      - run:
+          name: Install Bazelisk
+          command: |
+            sudo curl -L "https://github.com/bazelbuild/bazelisk/releases/download/v${BAZELISK_VERSION}/bazelisk-linux-amd64" -o /usr/local/bin/bazel
+            sudo chmod +x /usr/local/bin/bazel
+            bazel version
+
+      - restore_cache:
+          keys:
+            - v1-bazel-cache-{{ checksum "WORKSPACE" }}
+            - v1-bazel-cache-
+
+      - run:
+          name: Build All
+          command: |
+            bazel build //... \
+              --config=ci \
+              --remote_header=x-buildbuddy-api-key=${BUILD_BUDDY_API_KEY}
+
+      - run:
+          name: Run Unit Tests (no Docker required)
+          command: |
+            bazel test //... \
+              --config=ci \
+              --remote_header=x-buildbuddy-api-key=${BUILD_BUDDY_API_KEY} \
+              --test_output=errors \
+              --test_tag_filters=-integration,-docker,-requirements \
+              --test_env=POSTGRES_USER=${POSTGRES_USER} \
+              --test_env=POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+
+      - save_cache:
+          key: v1-bazel-cache-{{ checksum "WORKSPACE" }}
+          paths:
+            - "~/.cache/bazel"
+          when: always
+
+      - run:
+          name: Create Docker network and volumes
+          command: |
+            docker network create telemetry_network || true
+            docker volume create grafana_storage || true
+            docker volume create telemetry_db || true
+
+      - run:
+          name: Create .env file for Docker
+          command: |
+            mkdir -p telemtry 
+            cat > telemtry/.env << EOF
+            POSTGRES_USER=${POSTGRES_USER}
+            POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+            EOF
+
+      - run:
+          name: Start Kafka services
+          # 'working_directory' must be indented under the 'run' key
+          working_directory: telemtry/stack/kafka
+          command: docker compose up -d --build --wait
+
+      - run:
+          name: Start Ingest services
+          working_directory: telemtry/stack/ingest
+          command: docker compose up -d --build --wait
+
+      - run:
+          name: Wait for services to be healthy
+          command: |
+            echo "Waiting for services to be ready..."
+            sleep 10
+            docker ps
+
+      - run:
+          name: Run Integration Tests
+          command: |
+            bazel test //telemtry/... \
+              --test_output=errors \
+              --config=ci \
+              --remote_header=x-buildbuddy-api-key=${BUILD_BUDDY_API_KEY} \
+              --test_tag_filters=integration \
+              --test_env=POSTGRES_USER=${POSTGRES_USER} \
+              --test_env=POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+
+      - run:
+          name: Teardown Docker services
+          when: always
+          command: |
+            cd telemtry/stack/ingest && docker compose down -v --remove-orphans || true
+            cd telemtry/stack/kafka && docker compose down -v --remove-orphans || true
+            docker network rm telemetry_network || true
+            rm -f telemtry/.env || true
+
 workflows:
-  say-hello-workflow: # This is the name of the workflow, feel free to change it to better match your workflow.
-    # Inside the workflow, you define the jobs you want to run.
+  version: 2
+  presubmit:
     jobs:
-      - say-hello
+      - bazel-build-test:
+          context:
+            - telemetry-secrets
