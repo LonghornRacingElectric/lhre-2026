@@ -7,7 +7,7 @@
 
 #include <iostream>
 
-#include "vcu_model/inc/model.h"
+#include "vcu_model/inc/vcu_model.h"
 
 int main() {
     std::cout << "VCU Model running on Host!" << std::endl;

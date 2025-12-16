@@ -17,7 +17,6 @@
   ******************************************************************************
   */
 /* USER CODE END Header */
-/* Define to prevent recursive inclusion -------------------------------------*/
 #ifndef __FDCAN_H__
 #define __FDCAN_H__
 
@@ -25,12 +24,11 @@
 extern "C" {
 #endif
 
-/* Includes ------------------------------------------------------------------*/
-#include "main.h"
 
 /* USER CODE BEGIN Includes */
-
+#include "main.h"
 /* USER CODE END Includes */
+
 
 extern FDCAN_HandleTypeDef hfdcan1;
 
