@@ -65,7 +65,7 @@ py_test(
         requirement("paho-mqtt"),
         requirement("python-dotenv"),
     ],
-    tags = ["integration", "docker"],
+    tags = ["integration", "docker", "local"],
 )
 
 # Kafka connectivity test
@@ -79,7 +79,7 @@ py_test(
         requirement("kafka-python"),
         requirement("python-dotenv"),
     ],
-    tags = ["integration", "docker"],
+    tags = ["integration", "docker", "local"],
 )
 
 # Database connectivity test
@@ -95,7 +95,7 @@ py_test(
         requirement("SQLAlchemy"),
         requirement("python-dotenv"),
     ],
-    tags = ["integration", "docker"],
+    tags = ["integration", "docker", "local"],
 )
 
 # End-to-end data flow test (MQTT -> Ingest -> Kafka -> DB)
@@ -115,7 +115,7 @@ py_test(
         requirement("python-dotenv"),
         requirement("SQLAlchemy"),
     ],
-    tags = ["integration", "docker", "e2e"],
+    tags = ["integration", "docker", "e2e", "local"],
 )
 
 # Protobuf serialization test (tests paho_testing.py patterns)
@@ -154,13 +154,13 @@ sh_test(
         "//telemtry/stack/processors/lap_timer:docker-compose.yml",
         "//telemtry:config_files",
     ],
-    tags = ["integration", "docker", "manual"],
+    tags = ["integration", "docker", "manual", "local"],
 )
 
 # Test suite for all integration tests (requires Docker to be running)
 test_suite(
     name = "integration_tests",
-    tags = ["integration"],
+    tags = ["integration", "local"],
     tests = [
         ":data_flow_test",
         ":db_connectivity_test",
