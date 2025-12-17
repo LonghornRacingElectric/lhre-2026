@@ -195,3 +195,9 @@ Then, in your main loop, add the following:
 // you may want to replace the 0.01f with the amount of time (in seconds) between LED updates
 led_rainbow(0.01f); // updates the LED colors
 ```
+
+### Custom CAN Library
+
+We provide a custom CAN library that abstracts the HAL FDCAN driver, allowing for easy periodic message sending and simplified reception handling.
+
+Detailed documentation and examples can be found in [drivers/longhorn-lib/README.md](longhorn-lib/README.md).
