@@ -115,10 +115,10 @@ void bms_init(void)
     // Initialize Config B with discharge disabled
     IC[0].tx_cfgb.dcc = 0;
 
-    // Enable BMB Lights on all ICs
-    // for (int i = 0; i < TOTAL_IC; i++) {
-    //     IC[i].tx_cfga.gpo = 0x000;  // Clear all GPIO bits to enable (pull high)
-    // }
+    //Enable BMB Lights on all ICs
+    for (int i = 0; i < TOTAL_IC; i++) {
+        IC[i].tx_cfga.gpo = 0x000;  // Clear all GPIO bits to enable (pull high)
+    }
     
     // Wake up chip and write initial configuration
     adBmsWakeupIc(TOTAL_IC);
