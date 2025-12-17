@@ -37,6 +37,12 @@ static can_config_t can_config = {
 
     can_service(&can_interface);
 
+    static msg_contactor_status_t msg2_content;
+    can_message_t* msg2 = can_get_message_handle(
+        &msg2_content, CONTACTOR_STATUS_ID, CONTACTOR_STATUS_FREQ,
+        CONTACTOR_STATUS_DLC, pack_contactor_status);
+    can_register_send_packet(&can_interface, msg2);
+    
     msg_content.lv_boards_current = 1.0f;
 }
 /* USER CODE END 0 */
