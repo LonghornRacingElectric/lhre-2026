@@ -62,6 +62,9 @@ bool get_precharge_contactor_state(void);
  */
 bool get_drive_contactors_state(void);
 
+/** Read shutdown sense GPIOs and publish pos/neg contactor status over CAN. */
+void hvc_update_contactor_status(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -20,6 +20,8 @@
 #include "hvc_contactors.h"
 #include "main.h"
 #include "gpio.h"
+#include "can.h" // for hvc_set_contactor_status
+#include "hvc_state_machine.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -96,4 +98,21 @@ bool get_precharge_contactor_state(void) {
  */
 bool get_drive_contactors_state(void) {
     return drive_state;
+}
+
+/*
+ * Read shutdown/contactor sense lines and publish status over CAN.
+ * NOTE: This assumes the sense lines are active-high (GPIO_PIN_SET == asserted).
+ * Adjust inversion here if your hardware is active-low.
+ */
+void hvc_update_contactor_status(void)
+{
+    /* Use Shutdown_Sense_12 as the single shutdown indicator for both contactors */
+    GPIO_PinState sense_state = HAL_GPIO_ReadPin(Shutdown_Sense_12_GPIO_Port, Shutdown_Sense_12_Pin);
+
+    uint8_t sense = (sense_state == GPIO_PIN_SET) ? 1U : 0U;
+
+    /* Set both pos and neg to the same sensed value */
+    hvc_state_t state = hvc_state_machine_get_state();
+    hvc_set_contactor_status(state, sense, sense);
 }

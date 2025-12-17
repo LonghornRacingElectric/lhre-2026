@@ -18,8 +18,6 @@
 
 #include "longhorn/rtos/logger.h"
 
-
-
 extern SPI_HandleTypeDef hspi4;
 
 // Declare PWM commands locally to avoid multiple definition errors
