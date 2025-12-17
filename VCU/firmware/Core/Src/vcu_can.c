@@ -28,18 +28,25 @@ static can_interface_t can1 = {
     .handle = &hfdcan1,
 };
 
-// TX: torque command (0x0C0)
+// TX: inverter torque command
 static msg_inverter_torque_command_t inv_tx;
 static can_message_t *inv_tx_handle;
 
-// RX: inverter speed feedback (0x0B0)
+// RX: inverter speed feedback
 static msg_inverter_speed_t inv_speed;
 static can_receive_message_t *inv_speed_rx;
+
+// RX: contactor status (0x203)
+static msg_contactor_status_t contactor_status;
+static can_receive_message_t *contactor_status_rx;
 
 // Public feedback values
 float   inverter_torque_fb   = 0.0f;
 int16_t inverter_rpm         = 0;
 float   inverter_bus_voltage = 0.0f;
+
+// Derived HV state
+static volatile bool hv_contactors_closed = false;
 
 // RTOS CAN configuration
 static can_config_t cfg = {
@@ -62,11 +69,11 @@ void vcu_can_init(void)
     // Register physical interface FIRST
     can_rtos_register_interface(&can1);
 
-    // TX handle
+    // TX: inverter torque command
     memset(&inv_tx, 0, sizeof(inv_tx));
-    inv_tx.direction    = 1;      
-    inv_tx.enable       = 1;
-    inv_tx.rpm_request  = 0;      // explicit
+    inv_tx.direction    = 1;
+    inv_tx.enable       = 0;   // gated by contactors
+    inv_tx.rpm_request  = 0;
     inv_tx.torque_limit = TABLE_SPIN_TORQUE_LIMIT_NM;
 
     inv_tx_handle = can_get_message_handle(
@@ -78,7 +85,7 @@ void vcu_can_init(void)
     );
     can_rtos_register_send_packet(&can1, inv_tx_handle);
 
-    // RX handle 
+    // RX: inverter speed
     inv_speed_rx = can_get_receive_message_handle(
         &inv_speed,
         INVERTER_SPEED_ID,
@@ -86,25 +93,29 @@ void vcu_can_init(void)
     );
     can_rtos_register_receive_packet(&can1, inv_speed_rx);
 
-    // Start tasks LAST (once everything is registered)
+    // RX: contactor status
+    contactor_status_rx = can_get_receive_message_handle(
+        &contactor_status,
+        CONTACTOR_STATUS_ID,
+        (CAN_unpack_message_fn)unpack_contactor_status
+    );
+    can_rtos_register_receive_packet(&can1, contactor_status_rx);
+
+    // Start tasks LAST
     can_rtos_start_transceiver_task(configMAX_PRIORITIES - 2);
     can_rtos_start_receiver_task(configMAX_PRIORITIES - 2);
 
     log_printf(LOG_INFO, "[VCU] CAN RTOS initialized\n");
 }
 
-
-
 void vcu_can_set_torque(float torque_nm)
 {
     taskENTER_CRITICAL();
 
-    // No negative torque for table spin
     if (torque_nm < 0.0f) {
         torque_nm = 0.0f;
     }
 
-    // HARD safety clamp
     if (torque_nm > TABLE_SPIN_TORQUE_LIMIT_NM) {
         torque_nm = TABLE_SPIN_TORQUE_LIMIT_NM;
     }
@@ -112,10 +123,12 @@ void vcu_can_set_torque(float torque_nm)
     inv_tx.torque_request = torque_nm;
     inv_tx.torque_limit   = TABLE_SPIN_TORQUE_LIMIT_NM;
 
+    // Enable only if contactors are closed
+    inv_tx.enable = hv_contactors_closed && (inv_tx.torque_request > 0.0f);
+
+
     taskEXIT_CRITICAL();
 }
-
-
 
 void vcu_can_read_feedback(void)
 {
@@ -125,10 +138,20 @@ void vcu_can_read_feedback(void)
     local = inv_speed;
     taskEXIT_CRITICAL();
 
-inverter_torque_fb   = local.torque_feedback * 0.1f; // can_ids.c doesn't scale?
-inverter_bus_voltage = local.bus_voltage     * 0.1f; // can_ids.c doesn't scale?
-inverter_rpm         = local.motor_speed;            
-
-
+    inverter_torque_fb   = local.torque_feedback;   // Nm (already scaled)
+    inverter_bus_voltage = local.bus_voltage;       // V
+    inverter_rpm         = local.motor_speed;       // rpm
 }
 
+void vcu_can_read_contactor_status(void)
+{
+    msg_contactor_status_t local;
+
+    taskENTER_CRITICAL();
+    local = contactor_status;
+    taskEXIT_CRITICAL();
+
+    hv_contactors_closed =
+        local.positive_hv_contactor &&
+        local.negative_hv_contactor;
+}
