@@ -37,17 +37,12 @@ void hvc_can_init(void) {
 
     can_rtos_init(&can_config);
     can_rtos_register_interface(&can1);
-
-    can_register_interface(&can1);
-
     
     // static msg_vcu_current_sense_t msg_content;
     // can_message_t* msg = can_get_message_handle(
     //     &msg_content, VCU_CURRENT_SENSE_ID, VCU_CURRENT_SENSE_FREQ,
     //     VCU_CURRENT_SENSE_DLC, pack_vcu_current_sense);
     // can_register_send_packet(&can1, msg);
-
-    can_service(&can1);
 
     can_message_t* contactor_status_handle = can_get_message_handle(
         &contactor_status_tx, CONTACTOR_STATUS_ID, CONTACTOR_STATUS_FREQ,
