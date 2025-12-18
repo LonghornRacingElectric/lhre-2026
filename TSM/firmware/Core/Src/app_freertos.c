@@ -28,6 +28,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "longhorn/rtos/led.h"
+#include "adc.h"
+#include "longhorn/rtos/logger.h"
+#include "usbd_cdc_if.h"
 #include "tim.h"
 /* USER CODE END Includes */
 
@@ -48,19 +51,18 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
-
+extern ADC_HandleTypeDef hadc1;
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
-  .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 128 * 4
-};
+    .name = "defaultTask",
+    .priority = (osPriority_t)osPriorityNormal,
+    .stack_size = 128 * 4};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-
+void StartADCTask(void *argument);
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
@@ -68,29 +70,30 @@ void StartDefaultTask(void *argument);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /**
-  * @brief  FreeRTOS initialization
-  * @param  None
-  * @retval None
-  */
-void MX_FREERTOS_Init(void) {
+ * @brief  FreeRTOS initialization
+ * @param  None
+ * @retval None
+ */
+void MX_FREERTOS_Init(void)
+{
   /* USER CODE BEGIN Init */
 
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */
-    /* add mutexes, ... */
+  /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
-    /* add semaphores, ... */
+  /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* USER CODE BEGIN RTOS_TIMERS */
-    /* start timers, add new ones, ... */
+  /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
-    /* add queues, ... */
+  /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -98,27 +101,36 @@ void MX_FREERTOS_Init(void) {
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
-    /* add threads, ... */
+  /* add threads, ... */
 
-    rainbow_led_t led = {
-        .ccr1 = &TIM2->CCR1,
-        .ccr2 = &TIM2->CCR2,
-        .ccr3 = &TIM2->CCR3,
-        .channel1 = TIM_CHANNEL_1,
-        .channel2 = TIM_CHANNEL_2,
-        .channel3 = TIM_CHANNEL_3,
-        .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
-        .timer_handle = &htim2,
-    };
+  rainbow_led_t led = {
+      .ccr1 = &TIM2->CCR1,
+      .ccr2 = &TIM2->CCR2,
+      .ccr3 = &TIM2->CCR3,
+      .channel1 = TIM_CHANNEL_1,
+      .channel2 = TIM_CHANNEL_2,
+      .channel3 = TIM_CHANNEL_3,
+      .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
+      .timer_handle = &htim2,
+  };
 
-    led_init(&led);
-    led_start_thread();
+  led_init(&led);
+  led_start_thread();
+
+  osThreadId_t adcTaskHandle;
+
+  const osThreadAttr_t adcTask_attributes = {
+      .name = "ADC_Task",
+      .priority = osPriorityNormal,
+      .stack_size = 512 * 4};
+
+  adcTaskHandle = osThreadNew(StartADCTask, NULL, &adcTask_attributes);
+
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
-    /* add events, ... */
+  /* add events, ... */
   /* USER CODE END RTOS_EVENTS */
-
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -133,16 +145,44 @@ void StartDefaultTask(void *argument)
   /* init code for USB_Device */
   MX_USB_Device_Init();
   /* USER CODE BEGIN StartDefaultTask */
-    /* Infinite loop */
+  if (init_logging(CDC_Transmit_FS) == -1)
+  {
+    // USB failed
+    Error_Handler();
+  }
 
-    for (;;) {
-        osDelay(1000);
-    }
+  /* Infinite loop */
+
+  for (;;)
+  {
+    osDelay(1000);
+  }
   /* USER CODE END StartDefaultTask */
 }
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+void StartADCTask(void *argument)
+{
+  uint32_t adc_val = 0;
 
+  for (;;)
+  {
+    HAL_ADC_Start(&hadc1);
+    if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
+    {
+      adc_val = HAL_ADC_GetValue(&hadc1);
+    }
+    HAL_ADC_Stop(&hadc1);
+
+    float mv = ((float)adc_val / 4095.0f) * 3300.0f;
+
+    // convert to temperature
+    float temp_c = (mv - 500.0f) / 10.0f; // temperature = (mv-500)/100
+
+    log_printf(LOG_INFO, "Temperature: %.0f mV, %.1f Celsius\r\n", mv, temp_c);
+
+    osDelay(pdMS_TO_TICKS(300));
+  }
+}
 /* USER CODE END Application */
-
