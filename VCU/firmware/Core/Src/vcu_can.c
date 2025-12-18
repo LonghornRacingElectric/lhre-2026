@@ -5,11 +5,13 @@
 #include "longhorn/rtos/logger.h"
 #include "longhorn/can/can_ids.h"
 #include "task.h"
+#include "cmsis_os.h"
 
 #include <string.h>
 
 #define TABLE_SPIN_TORQUE_LIMIT_NM 10.0f
 extern FDCAN_HandleTypeDef hfdcan1;
+extern FDCAN_HandleTypeDef hfdcan2;
 
 // 0x0C0  (VCU → Inverter)  TORQUE COMMAND
 // Byte 0–1 : torque_request   (int16, 0.1 Nm units)
@@ -26,6 +28,10 @@ extern FDCAN_HandleTypeDef hfdcan1;
 
 static can_interface_t can1 = {
     .handle = &hfdcan1,
+};
+
+static can_interface_t can2 = {
+    .handle = &hfdcan2,
 };
 
 // TX: inverter torque command
@@ -68,7 +74,7 @@ void vcu_can_init(void)
     can_rtos_init(&cfg);
 
     // Register physical interface FIRST
-    can_rtos_register_interface(&can1);
+    can_rtos_register_interface(&can2);
 
     // TX: inverter torque command
     memset(&inv_tx, 0, sizeof(inv_tx));
@@ -84,7 +90,7 @@ void vcu_can_init(void)
         INVERTER_TORQUE_COMMAND_DLC,
         (CAN_pack_message_fn)pack_inverter_torque_command
     );
-    can_rtos_register_send_packet(&can1, inv_tx_handle);
+    can_rtos_register_send_packet(&can2, inv_tx_handle);
 
     // RX: inverter speed
     inv_speed_rx = can_get_receive_message_handle(
@@ -92,7 +98,7 @@ void vcu_can_init(void)
         INVERTER_SPEED_ID,
         (CAN_unpack_message_fn)unpack_inverter_speed
     );
-    can_rtos_register_receive_packet(&can1, inv_speed_rx);
+    can_rtos_register_receive_packet(&can2, inv_speed_rx);
 
     // RX: contactor status
     contactor_status_rx = can_get_receive_message_handle(
@@ -100,11 +106,11 @@ void vcu_can_init(void)
         CONTACTOR_STATUS_ID,
         (CAN_unpack_message_fn)unpack_contactor_status
     );
-    can_rtos_register_receive_packet(&can1, contactor_status_rx);
+    can_rtos_register_receive_packet(&can2, contactor_status_rx);
 
     // Start tasks LAST
-    can_rtos_start_transceiver_task(configMAX_PRIORITIES - 2);
-    can_rtos_start_receiver_task(configMAX_PRIORITIES - 2);
+    can_rtos_start_transceiver_task(osPriorityNormal);
+    can_rtos_start_receiver_task(osPriorityAboveNormal);
 
     log_printf(LOG_INFO, "[VCU] CAN RTOS initialized\n");
 }
