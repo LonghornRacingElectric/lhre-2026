@@ -296,6 +296,9 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* adcHandle)
   }
 }
 
+
+
+/* USER CODE BEGIN 1 */
 static uint16_t adc_read_raw(ADC_HandleTypeDef *hadc, uint32_t channel, uint32_t sampling_time, uint32_t single_diff)
 {
   ADC_ChannelConfTypeDef sConfig = {0};
@@ -350,7 +353,4 @@ uint16_t hvc_adc_read_current_sense_raw(void)
    */
   return adc_read_raw(&hadc2, ADC_CHANNEL_4, ADC_SAMPLETIME_2CYCLES_5, ADC_SINGLE_ENDED);
 }
-
-/* USER CODE BEGIN 1 */
-
 /* USER CODE END 1 */
