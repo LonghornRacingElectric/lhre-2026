@@ -7,11 +7,16 @@
  */
 /* USER CODE END Header */
 
+/* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "cmsis_os.h"
-#include "main.h"
 #include "task.h"
+#include "main.h"
+#include "cmsis_os.h"
+
 #include "usb_device.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
 
 #include "adc.h"
 #include "tim.h"
@@ -31,7 +36,10 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+/* USER CODE END Includes */
 
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
 // External ADC handles
 extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc2;
@@ -60,14 +68,51 @@ const osThreadAttr_t controlTask_attributes = {
     .priority   = osPriorityAboveNormal,
     .stack_size = 2048,
 };
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+/* USER CODE BEGIN Variables */
+
+/* USER CODE END Variables */
+/* Definitions for defaultTask */
+osThreadId_t defaultTaskHandle;
+const osThreadAttr_t defaultTask_attributes = {
+  .name = "defaultTask",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 128 * 4
+};
+
+/* Private function prototypes -----------------------------------------------*/
+/* USER CODE BEGIN FunctionPrototypes */
 
 // Function prototypes
 void StartSystemTask(void *argument);
 void StartControlTask(void *argument);
 
-// FreeRTOS init
-void MX_FREERTOS_Init(void)
-{
+/* USER CODE END FunctionPrototypes */
+
+void StartDefaultTask(void *argument);
+
+void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
+
+/**
+  * @brief  FreeRTOS initialization
+  * @param  None
+  * @retval None
+  */
+void MX_FREERTOS_Init(void) {
+  /* USER CODE BEGIN Init */
+
     // Create system/init task
     systemTaskHandle = osThreadNew(StartSystemTask, NULL, &systemTask_attributes);
 
@@ -87,8 +132,59 @@ void MX_FREERTOS_Init(void)
 
     // Create main control task
     controlTaskHandle = osThreadNew(StartControlTask, NULL, &controlTask_attributes);
+
+  /* USER CODE END Init */
+
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
+
+  /* USER CODE BEGIN RTOS_EVENTS */
+  /* add events, ... */
+  /* USER CODE END RTOS_EVENTS */
+
 }
 
+/* USER CODE BEGIN Header_StartDefaultTask */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartDefaultTask */
+void StartDefaultTask(void *argument)
+{
+  /* init code for USB_Device */
+  MX_USB_Device_Init();
+  /* USER CODE BEGIN StartDefaultTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartDefaultTask */
+}
+
+/* Private application code --------------------------------------------------*/
+/* USER CODE BEGIN Application */
 // SystemTask: one-time initialization (USB, logging, DFU, ADC DMA, CAN) -----
 void StartSystemTask(void *argument)
 {
@@ -127,6 +223,7 @@ void StartSystemTask(void *argument)
         osDelay(pdMS_TO_TICKS(500));
     }
 }
+
 
 // ControlTask: main 10ms loop (ADC -> model -> CAN -> logging) --------------
 void StartControlTask(void *argument)
@@ -181,7 +278,9 @@ void StartControlTask(void *argument)
         // Read torque command
         vcu_can_read_feedback();
 
-
+        // Read contactor status
+        vcu_can_read_contactor_status();
+        
         // Throttle logging: every 20 loops => ~200 ms at 10 ms loop
         if (++log_div >= 20) {
             log_div = 0;
@@ -221,3 +320,7 @@ void StartControlTask(void *argument)
         osDelay(pdMS_TO_TICKS(10));
     }
 }
+
+
+/* USER CODE END Application */
+

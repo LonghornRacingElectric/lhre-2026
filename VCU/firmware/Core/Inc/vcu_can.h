@@ -16,6 +16,9 @@ void vcu_can_set_torque(float torque_nm);
 // Read inverter feedback
 void vcu_can_read_feedback(void);
 
+// Read contactor status from CAN messages
+void vcu_can_read_contactor_status(void);
+
 // Inverter feedback variables (populated automatically)
 extern float   inverter_torque_fb;   // Nm
 extern int16_t inverter_rpm;         // rpm
