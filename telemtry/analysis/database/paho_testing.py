@@ -240,7 +240,7 @@ class DataTester:
             row = self.create_row(db_desc[table], packet) # Create random data
             if hasattr(data, table):  
                 table_instance = getattr(data, table)
-                if isinstance(table_instance, Message): # Iterate through a specific tbale (not packet table)
+                if isinstance(table_instance, Message): # Iterate through a specific table (not packet table)
                     for key, value in row.items():
                         if hasattr(table_instance, key): # Set values in protobuf message
                             if (isinstance(value, list) or isinstance(value, tuple)):

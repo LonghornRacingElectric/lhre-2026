@@ -10,15 +10,19 @@ RUN go mod download
 
 # Copy proto files and generate Go code
 COPY proto/ ./proto/
-RUN mkdir -p proto/bridge proto/sensor && \
+# Move bridge.proto to subdirectory so generated code matches import path
+RUN mkdir -p proto/bridge && \
+    mv proto/bridge.proto proto/bridge/bridge.proto && \
     protoc --go_out=. --go_opt=paths=source_relative \
     --go-grpc_out=. --go-grpc_opt=paths=source_relative \
-    proto/bridge.proto && \
+    proto/bridge/bridge.proto && \
     protoc --go_out=. --go_opt=paths=source_relative \
     proto/sensor/sensor.proto
 
 # Copy source and build
 COPY cmd/ ./cmd/
+# Ensure dependencies are tidy after code generation and source copy
+RUN go mod tidy
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/bridge ./cmd/bridge
 
 FROM alpine:3.18

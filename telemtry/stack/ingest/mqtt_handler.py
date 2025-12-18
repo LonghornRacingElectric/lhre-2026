@@ -286,14 +286,14 @@ class MQTTHandler:
         session.commit()
 
     def _proto_decode(self, payload: str, car = "Nightwatch") -> dict:
-        logging.debug('Data Received via Protobuf')
+        # logging.debug('Data Received via Protobuf')
         if (car == "Angelique"):
             row = angelique_pb2.AngeliqueSensorData()
         else:
             row = template_pb2.SensorData()
         row.ParseFromString(payload)
         row = MessageToDict(row, preserving_proto_field_name=True, always_print_fields_with_no_presence=True)
-        logging.debug(row)
+        # logging.debug(row)
         return row
 
     def _base64_decode(self, payload: str, high_freq: bool) -> dict:
