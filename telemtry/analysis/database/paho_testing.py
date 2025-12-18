@@ -16,7 +16,6 @@ import secrets
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 from pathlib import Path
-from psycopg.types.json import Jsonb
 from typing import Union, Tuple
 from google.protobuf.message import Message
 
@@ -142,7 +141,7 @@ class DataTester:
                 row[col] = np.random.randint(1, 101, size=140).tolist()
             elif dtype is datetime.datetime:
                 row[col] = datetime.date.today()
-            elif dtype is Jsonb or dtype is dict:
+            elif dtype is dict:
                 # row[col] = Jsonb({'fake_jsonb_data': self.get_random_data(int, 3)})
                 row[col] = {'fake_jsonb_data': self.get_random_data(int, 3)} 
             elif dtype == 'point' or dtype == "POINT" or (isinstance(dtype, str) and dtype.lower() == 'point') or (isinstance(dtype, str) and dtype.lower() == 'POINT'):
