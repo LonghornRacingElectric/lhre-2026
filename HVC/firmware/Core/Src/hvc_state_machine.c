@@ -85,8 +85,8 @@ void update_state_machine(void) {
             float tractive_voltage = get_tractive_voltage();
             float pack_voltage = get_pack_voltage();
             // 500.0f since pack voltage is a bit messed up rn
-            float precharge_threshold = 500.0f * HVC_PRECHARGE_THRESHOLD_PERCENT / 100.0f;
-            //float precharge_threshold = 25.0f; // Temporary fixed threshold for testing
+            // float precharge_threshold = pack_voltage * HVC_PRECHARGE_THRESHOLD_PERCENT / 100.0f;
+            float precharge_threshold = 25.0f; // Temporary fixed threshold for testing
 
             if (tractive_voltage > precharge_threshold) {
                 uint32_t elapsed = current_time - precharge_start_time;
