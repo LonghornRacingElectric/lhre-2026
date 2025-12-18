@@ -21,6 +21,10 @@ extern float   inverter_torque_fb;   // Nm
 extern int16_t inverter_rpm;         // rpm
 extern float   inverter_bus_voltage; // V
 
+// Derived HV state
+extern bool hv_contactors_closed;
+extern int hvc_state;
+
 #ifdef __cplusplus
 }
 #endif

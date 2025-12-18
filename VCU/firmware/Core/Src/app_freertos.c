@@ -194,13 +194,15 @@ void StartControlTask(void *argument)
 
             log_printf(
                 LOG_INFO,
-                "ADC1=%lu  "
+                "ADC1=%u  "
                 "APP1=%u (%d.%03d)  "
                 "APP2=%u (%d.%03d)  "
                 "BSE=%u (%d psi)  "
                 "ped_f=%d.%03d  "
                 "tq=%d.%02d Nm  "
-                "impl=%d  brake_act=%d  brake_lat=%d\r\n",
+                "impl=%d  brake_act=%d  brake_lat=%d  "
+                "CAN Packet Received: %d  "
+                "HVC State: %d\r\n",
                 adc1_val,
                 in.apps1_raw, p1_i / 1000, p1_i % 1000,
                 in.apps2_raw, p2_i / 1000, p2_i % 1000,
@@ -209,7 +211,9 @@ void StartControlTask(void *argument)
                 tq_i / 100,   tq_i % 100,
                 out.apps_implaus  ? 1 : 0,
                 out.brake_active  ? 1 : 0,
-                out.brake_latched ? 1 : 0
+                out.brake_latched ? 1 : 0,
+                hv_contactors_closed ? 1: 0,
+                hvc_state
             );
         }
 

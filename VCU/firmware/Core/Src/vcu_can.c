@@ -46,7 +46,8 @@ int16_t inverter_rpm         = 0;
 float   inverter_bus_voltage = 0.0f;
 
 // Derived HV state
-static volatile bool hv_contactors_closed = false;
+bool hv_contactors_closed = false;
+int hvc_state = 0;
 
 // RTOS CAN configuration
 static can_config_t cfg = {
@@ -150,6 +151,8 @@ void vcu_can_read_contactor_status(void)
     taskENTER_CRITICAL();
     local = contactor_status;
     taskEXIT_CRITICAL();
+
+    hvc_state = (int)local.hvc_state_machine;
 
     hv_contactors_closed =
         local.positive_hv_contactor &&
