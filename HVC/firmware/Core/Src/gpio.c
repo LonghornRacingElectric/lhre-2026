@@ -84,7 +84,7 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = Shutdown_Sense_12_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(Shutdown_Sense_12_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 }
 

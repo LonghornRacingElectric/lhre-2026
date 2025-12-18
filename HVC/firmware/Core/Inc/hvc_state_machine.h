@@ -41,7 +41,7 @@ typedef enum {
 /* Exported constants --------------------------------------------------------*/
 
 #define HVC_PRECHARGE_THRESHOLD_PERCENT     83      /**< Precharge voltage threshold (% of pack) */
-#define HVC_PRECHARGE_TIMEOUT_MS            5000    /**< Precharge timeout (milliseconds) */
+#define HVC_PRECHARGE_VALID_MS            5000    /**< Precharge timeout (milliseconds) */
 #define HVC_FAULT_HYSTERESIS_MS             5000    /**< Fault detection hysteresis time */
 
 /* Exported functions --------------------------------------------------------*/
@@ -77,7 +77,7 @@ const char* get_state_name(hvc_state_t state);
  * @brief Check if tractive system enable (TS_Enable) is active
  * @return true if TS_Enable is active, false otherwise
  */
-bool is_ts_enable_active(void);
+bool is_shutdown_closed(void);
 
 /**
  * @brief Check if any faults are present

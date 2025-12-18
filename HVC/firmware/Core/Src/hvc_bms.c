@@ -166,6 +166,7 @@ void bms_update(void)
     // int i;
     // int j;
     // Print all cell voltages, marking the discharging cell
+    /*
     for (int i = 0; i < TOTAL_IC; i++) {
         log_printf(LOG_INFO, "IC %d Cell Voltages:", i);
         for (int j = 0; j < NUM_CELLS; j++) {
@@ -182,6 +183,7 @@ void bms_update(void)
         osDelay(10);
     }
     log_printf(LOG_INFO, "Pack Voltage: %lu V", getPackVoltage_mv()/1000);
+    */
 }
 
 void StartBmsTask(void *argument)

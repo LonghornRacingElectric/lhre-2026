@@ -22,7 +22,7 @@
 #include "gpio.h"
 #include "can.h" // for hvc_set_contactor_status
 #include "hvc_state_machine.h"
-
+#include "longhorn/rtos/logger.h"
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 
@@ -30,10 +30,8 @@
 // These are placeholders based on visible GPIO output pins
 #define PRECHARGE_CONTACTOR_PIN     GPIO_PIN_0  // Placeholder - update from schematic
 #define PRECHARGE_CONTACTOR_PORT    GPIOB
-#define AIR_PLUS_PIN                GPIO_PIN_1  // Placeholder - update from schematic
+#define AIR_PLUS_PIN                GPIO_PIN_6
 #define AIR_PLUS_PORT               GPIOB
-#define AIR_MINUS_PIN               GPIO_PIN_6  // Using Close_IR_+ as placeholder
-#define AIR_MINUS_PORT              GPIOB
 
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
@@ -69,12 +67,7 @@ void set_precharge_contactor(bool state) {
  * @brief Set drive contactors state (both AIRs)
  */
 void set_drive_contactors(bool state) {
-    GPIO_PinState pin_state = state ? GPIO_PIN_SET : GPIO_PIN_RESET;
-    
-    // Control both AIR+ and AIR- together
-    HAL_GPIO_WritePin(AIR_PLUS_PORT, AIR_PLUS_PIN, pin_state);
-    HAL_GPIO_WritePin(AIR_MINUS_PORT, AIR_MINUS_PIN, pin_state);
-    
+    HAL_GPIO_WritePin(AIR_PLUS_PORT, AIR_PLUS_PIN, (GPIO_PinState)state);
     drive_state = state;
 }
 
@@ -107,12 +100,8 @@ bool get_drive_contactors_state(void) {
  */
 void hvc_update_contactor_status(void)
 {
-    /* Use Shutdown_Sense_12 as the single shutdown indicator for both contactors */
-    GPIO_PinState sense_state = HAL_GPIO_ReadPin(Shutdown_Sense_12_GPIO_Port, Shutdown_Sense_12_Pin);
-
-    uint8_t sense = (sense_state == GPIO_PIN_SET) ? 1U : 0U;
-
-    /* Set both pos and neg to the same sensed value */
-    hvc_state_t state = hvc_state_machine_get_state();
-    hvc_set_contactor_status(state, sense, sense);
+    bool sense_state = get_drive_contactors_state();
+    hvc_state_t state = get_current_state();
+    log_printf(LOG_INFO, "HVC Contactors in update: %d\n", sense_state);
+    hvc_set_contactor_status(state, sense_state, sense_state);
 }

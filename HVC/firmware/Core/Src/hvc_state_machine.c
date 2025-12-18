@@ -17,7 +17,10 @@
 #include "hvc_state_machine.h"
 #include "hvc_contactors.h"
 #include "cmsis_os.h"
-
+#include "gpio.h"
+#include "longhorn/rtos/logger.h"
+#include "main.h"
+#include "hvc_vct_sense.h"
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
@@ -61,10 +64,10 @@ void update_state_machine(void) {
     // State machine logic
     switch (current_state) {
         case HVC_STATE_NOT_ENERGIZED:
-            // Stay open until TS_Enable is active
+            // Stay open until shutdown is closed
             open_all_contactors();
             
-            if (is_ts_enable_active() && !is_charge_enable_active()) {
+            if (is_shutdown_closed() && !is_charge_enable_active()) {
                 // Transition to precharging
                 set_precharge_contactor(true);
                 precharge_start_time = current_time;
@@ -81,12 +84,13 @@ void update_state_machine(void) {
             // Check if precharge complete
             float tractive_voltage = get_tractive_voltage();
             float pack_voltage = get_pack_voltage();
-            float precharge_threshold = pack_voltage * HVC_PRECHARGE_THRESHOLD_PERCENT / 100.0f;
-            
+            // 500.0f since pack voltage is a bit messed up rn
+            float precharge_threshold = 500.0f * HVC_PRECHARGE_THRESHOLD_PERCENT / 100.0f;
+            //float precharge_threshold = 25.0f; // Temporary fixed threshold for testing
+
             if (tractive_voltage > precharge_threshold) {
                 uint32_t elapsed = current_time - precharge_start_time;
-                
-                if (elapsed >= HVC_PRECHARGE_TIMEOUT_MS) {
+                if (elapsed >= HVC_PRECHARGE_VALID_MS) {
                     // Precharge complete - close drive contactors
                     set_drive_contactors(true);
                     set_precharge_contactor(false);
@@ -96,9 +100,9 @@ void update_state_machine(void) {
                 // Reset timer if voltage drops
                 precharge_start_time = current_time;
             }
-            
-            // Check if TS_Enable released
-            if (!is_ts_enable_active()) {
+
+            // Check if shutdown is closed
+            if (!is_shutdown_closed()) {
                 open_all_contactors();
                 current_state = HVC_STATE_NOT_ENERGIZED;
             }
@@ -106,7 +110,7 @@ void update_state_machine(void) {
             
         case HVC_STATE_ENERGIZED:
             // Stay energized while TS_Enable is active
-            if (!is_ts_enable_active()) {
+            if (!is_shutdown_closed()) {
                 open_all_contactors();
                 current_state = HVC_STATE_NOT_ENERGIZED;
             }
@@ -120,8 +124,8 @@ void update_state_machine(void) {
             
             if (tractive_voltage > precharge_threshold) {
                 uint32_t elapsed = current_time - precharge_start_time;
-                
-                if (elapsed >= HVC_PRECHARGE_TIMEOUT_MS) {
+
+                if (elapsed >= HVC_PRECHARGE_VALID_MS) {
                     // Precharge complete - transition to charging
                     set_drive_contactors(true);
                     set_precharge_contactor(false);
@@ -185,9 +189,9 @@ const char* get_state_name(hvc_state_t state) {
 /* Weak implementations of sensor interface functions ------------------------*/
 /* These provide safe defaults until real implementations are added -----------*/
 
-__attribute__((weak)) bool is_ts_enable_active(void) {
-    // Default: return false (safe default - no enable)
-    return false;
+ bool is_shutdown_closed(void) {
+    // Read TS_Enable GPIO Pin, Shutdown 12/End (assumed active high)
+    return (HAL_GPIO_ReadPin(Shutdown_Sense_12_GPIO_Port, Shutdown_Sense_12_Pin) == GPIO_PIN_SET) ? true : false;
 }
 
 __attribute__((weak)) bool is_fault_present(void) {
@@ -200,10 +204,6 @@ __attribute__((weak)) bool is_charge_enable_active(void) {
     return false;
 }
 
-__attribute__((weak)) float get_tractive_voltage(void) {
-    // Default: return 0V (safe default)
-    return 0.0f;
-}
 
 __attribute__((weak)) float get_pack_voltage(void) {
     // Default: return pack voltage (read from BMS) in volts
