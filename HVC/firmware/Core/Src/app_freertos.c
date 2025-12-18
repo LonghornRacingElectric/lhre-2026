@@ -212,8 +212,8 @@ void StartDefaultTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    log_printf(LOG_INFO, "Tractive Voltage: %.2f V, Raw: %d\r\n", get_tractive_voltage(), hvc_adc_read_voltage_sense_raw());
-    log_printf(LOG_INFO, "Is Shutdown Closed: %d\r\n", is_shutdown_closed());
+    //log_printf(LOG_INFO, "Tractive Voltage: %.2f V, Raw: %d\r\n", get_tractive_voltage(), hvc_adc_read_voltage_sense_raw());
+    //log_printf(LOG_INFO, "Is Shutdown Closed: %d\r\n", is_shutdown_closed());
     osDelay(200);
   }
   /* USER CODE END StartDefaultTask */
@@ -247,10 +247,17 @@ void StartStateMachineTask(void *argument)
   {
     // Update state machine
     update_state_machine();
-    hvc_update_contactor_status();
-    log_printf(LOG_INFO, "Tractive Voltage: %.2f V, Raw: %d\n", get_tractive_voltage(), hvc_adc_read_voltage_sense_raw());
-    log_printf(LOG_INFO, "HVC State: %s\n", get_state_name(get_current_state()));
-    log_printf(LOG_INFO, "HVC Contactors in update: %d\n", get_drive_contactors_state());
+    hvc_set_contactor_status(get_current_state(),
+                             get_drive_contactors_state(),
+                             get_drive_contactors_state());
+    log_printf(LOG_INFO, "Tractive Voltage: %.2f V, Raw: %d  "
+                         "HVC State: %s  "
+                         "Is Shutdown Closed: %d  "
+                         "HVC Contactors: %d\r\n", 
+                         get_tractive_voltage(), hvc_adc_read_voltage_sense_raw(),
+                         get_state_name(get_current_state()),
+                         is_shutdown_closed(),
+                         get_drive_contactors_state());
     osDelay(task_period_ms);
   }
 }
