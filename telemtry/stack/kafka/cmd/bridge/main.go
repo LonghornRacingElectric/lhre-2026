@@ -199,8 +199,10 @@ func nightwatchToMap(msg *sensor.SensorData) map[string]interface{} {
 		m["dash_speed"] = msg.Dynamics.DashSpeed
 		m["f_gps_velocity"] = msg.Dynamics.FGpsVelocity
 		m["b_gps_velocity"] = msg.Dynamics.BGpsVelocity
-		m["latitude"] = msg.Dynamics.Gps[0]
-		m["longitude"] = msg.Dynamics.Gps[1]
+		if len(msg.Dynamics.FGps) >= 2 {
+			m["latitude"] = msg.Dynamics.FGps[0]
+			m["longitude"] = msg.Dynamics.FGps[1]
+		}
 	}
 
 	if msg.Controls != nil {
@@ -231,10 +233,10 @@ func nightwatchToMap(msg *sensor.SensorData) map[string]interface{} {
 	}
 
 	if msg.DiagnosticsLow != nil {
-		m["cells_min_v"] = msg.DiagnosticsLow.CellsMinV
-		m["cells_max_v"] = msg.DiagnosticsLow.CellsMaxV
-		if len(msg.DiagnosticsLow.CellsTemp) > 0{
-			avg, min, max := statsFromInt32Slice(msg.DiagnosticsLow.CellsTemp)
+		m["cells_min_v"] = msg.DiagnosticsLow.CellMinV
+		m["cells_max_v"] = msg.DiagnosticsLow.CellMaxV
+		if len(msg.DiagnosticsLow.CellsTemps) > 0 {
+			avg, min, max := statsFromFloat32Slice(msg.DiagnosticsLow.CellsTemps)
 			m["avg_cell_temp_stat"] = avg
 			m["max_cell_temp"] = max
 			m["min_cell_temp"] = min
