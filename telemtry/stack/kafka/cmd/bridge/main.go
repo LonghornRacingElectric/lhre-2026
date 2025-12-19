@@ -135,6 +135,50 @@ func deserializeToJSON(payload []byte, carType string) ([]byte, error) {
 	return json.Marshal(data)
 }
 
+// statsFromInt32Slice returns average, min and max for a slice of int32.
+// If the slice is empty the returned avg will be 0 and min/max will be 0.
+func statsFromInt32Slice(vals []int32) (avg float64, min int32, max int32) {
+	if len(vals) == 0 {
+		return 0, 0, 0
+	}
+	var sum int64
+	min = vals[0]
+	max = vals[0]
+	for _, v := range vals {
+		sum += int64(v)
+		if v < min {
+			min = v
+		}
+		if v > max {
+			max = v
+		}
+	}
+	avg = float64(sum) / float64(len(vals))
+	return avg, min, max
+}
+
+// statsFromFloat32Slice returns average, min and max for a slice of float32.
+// If the slice is empty the returned avg will be 0 and min/max will be 0.
+func statsFromFloat32Slice(vals []float32) (avg float64, min float32, max float32) {
+	if len(vals) == 0 {
+		return 0, 0, 0
+	}
+	var sum float64
+	min = vals[0]
+	max = vals[0]
+	for _, v := range vals {
+		sum += float64(v)
+		if v < min {
+			min = v
+		}
+		if v > max {
+			max = v
+		}
+	}
+	avg = sum / float64(len(vals))
+	return avg, min, max
+}
+
 func nightwatchToMap(msg *sensor.SensorData) map[string]interface{} {
 	m := make(map[string]interface{})
 	m["time"] = msg.Time
@@ -155,6 +199,8 @@ func nightwatchToMap(msg *sensor.SensorData) map[string]interface{} {
 		m["dash_speed"] = msg.Dynamics.DashSpeed
 		m["f_gps_velocity"] = msg.Dynamics.FGpsVelocity
 		m["b_gps_velocity"] = msg.Dynamics.BGpsVelocity
+		m["latitude"] = msg.Dynamics.Gps[0]
+		m["longitude"] = msg.Dynamics.Gps[1]
 	}
 
 	if msg.Controls != nil {
@@ -184,6 +230,17 @@ func nightwatchToMap(msg *sensor.SensorData) map[string]interface{} {
 		m["batt_over_temp"] = msg.Thermal.BattOverTemp
 	}
 
+	if msg.DiagnosticsLow != nil {
+		m["cells_min_v"] = msg.DiagnosticsLow.CellsMinV
+		m["cells_max_v"] = msg.DiagnosticsLow.CellsMaxV
+		if len(msg.DiagnosticsLow.CellsTemp) > 0{
+			avg, min, max := statsFromInt32Slice(msg.DiagnosticsLow.CellsTemp)
+			m["avg_cell_temp_stat"] = avg
+			m["max_cell_temp"] = max
+			m["min_cell_temp"] = min
+		}
+	}
+
 	return m
 }
 
@@ -204,6 +261,8 @@ func angeliqueToMap(msg *sensor.AngeliqueSensorData) map[string]interface{} {
 		m["inverter_c"] = msg.Dynamics.InverterC
 		m["inverter_rpm"] = msg.Dynamics.InverterRpm
 		m["inverter_torque"] = msg.Dynamics.InverterTorque
+		m["latitude"] = msg.Dynamics.Gps[0]
+		m["longitude"] = msg.Dynamics.Gps[1]
 	}
 
 	if msg.Controls != nil {
@@ -228,6 +287,12 @@ func angeliqueToMap(msg *sensor.AngeliqueSensorData) map[string]interface{} {
 	if msg.Diagnostics != nil {
 		m["hv_charge_state"] = msg.Diagnostics.HvChargeState
 		m["lv_charge_state"] = msg.Diagnostics.LvChargeState
+		if len(msg.Diagnostics.CellsV) > 0 {
+			avg, min, max := statsFromFloat32Slice(msg.Diagnostics.CellsV)
+			m["avg_cell_v_stat"] = avg
+			m["max_cell_v"] = max
+			m["min_cell_v"] = min
+		}
 	}
 
 	if msg.Thermal != nil {
@@ -235,6 +300,14 @@ func angeliqueToMap(msg *sensor.AngeliqueSensorData) map[string]interface{} {
 		m["inverter_temp"] = msg.Thermal.InverterTemp
 		m["motor_temp"] = msg.Thermal.MotorTemp
 		m["flow_rate"] = msg.Thermal.FlowRate
+
+		// Compute average, min and max of cell temperatures (repeated int32)
+		if len(msg.Thermal.CellsTemp) > 0 {
+			avg, min, max := statsFromInt32Slice(msg.Thermal.CellsTemp)
+			m["avg_cell_temp_stat"] = avg
+			m["max_cell_temp"] = max
+			m["min_cell_temp"] = min
+		}
 	}
 
 	return m
