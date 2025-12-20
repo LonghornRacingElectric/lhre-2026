@@ -104,15 +104,15 @@ use_repo(dfu, "dfu")
 # )
 
 # # Crate Universe / Crate (Cargo integration)
-# crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
 
-# crate.from_cargo(
-#     name = "crate_index",
-#     manifests = ["//:Cargo.toml"],
-#     cargo_lockfile = "//:Cargo.lock",
-# )
+crate.from_cargo(
+    name = "crate_index",
+    manifests = ["//:Cargo.toml"],
+    cargo_lockfile = "//:Cargo.lock",
+)
 
-# use_repo(crate, "crate_index")
+use_repo(crate, "crate_index")
 
 # OCI Container Base Images for Telemetry Services
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
