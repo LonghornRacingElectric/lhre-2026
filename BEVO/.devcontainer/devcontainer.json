@@ -1,0 +1,21 @@
+
+{
+    "name": "BEVO Dev Environment",
+    "build": {
+        "dockerfile": "../Dockerfile",
+        "context": ".."
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "rust-lang.rust-analyzer",
+                "bazelbuild.vscode-bazel"
+            ]
+        }
+    },
+
+    "workspaceMount": "source=${localWorkspaceFolder}/..,target=/workspaces,type=bind,consistency=cached",
+    "workspaceFolder": "/workspaces/BEVO",
+    
+    "shutdownAction": "none"
+}

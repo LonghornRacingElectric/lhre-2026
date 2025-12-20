@@ -1,66 +1,64 @@
-use clap::Parser;
+use std::io::Write;
+use std::os::unix::net::{UnixListener, UnixStream};
+use std::path::Path;
+use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::Duration;
 
-/// Command-line options
-#[derive(Parser)]
-struct Args {
-    #[arg(short, long, default_value = "real")]
-    mode: String,
+const WAIT: u64 = 10;
+const SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
+
+fn main() -> std::io::Result<()> {
+    // Remove old socket file if it exists
+    if Path::new(SOCKET_PATH).exists() {
+        std::fs::remove_file(SOCKET_PATH)?;
+    }
+
+    let listener = UnixListener::bind(SOCKET_PATH)?;
+    println!("[CAND] Server listening at {}", SOCKET_PATH);
+
+    let clients = Arc::new(Mutex::new(Vec::new()));
+
+    // thread to accept clients
+    let clients_clone = Arc::clone(&clients);
+    thread::spawn(move || accept_clients(listener, clients_clone));
+
+    // thread broadcasts messages
+    broadcast_loop(clients);
 }
 
-fn main() -> anyhow::Result<()> {
-    let args = Args::parse();
-
-    // match args.mode.as_str() {
-    //     "real" => run_real(),
-    //     "fake" => run_fake(),
-    //     _ => anyhow::bail!("Invalid mode: use 'real' or 'fake'"),
-    // }
-
-    run();
-
-    return { Ok(()) };
+// Accepts incoming Unix socket clients and stores them in the shared list
+fn accept_clients(listener: UnixListener, clients: Arc<Mutex<Vec<UnixStream>>>) {
+    for stream in listener.incoming() {
+        match stream {
+            Ok(stream) => {
+                println!("[CAND] New client connected");
+                clients.lock().expect("Mutex lock poisoned").push(stream);
+            }
+            Err(err) => eprintln!("[CAND] Connection error: {}", err),
+        }
+    }
 }
 
-#[cfg(target_os = "linux")]
-fn run() -> anyhow::Result<()> {
-    use socketcan::{CanFrame, CanSocket};
-
-    println!("Running in REAL mode: reading from CAN bus");
-
-    // let socket = CANSocket::open("can0")?;
-
-    // loop {
-    //     match socket.read_frame() {
-    //         Ok(frame) => {
-    //             println!("[REAL] Got CAN frame: {:?}", frame);
-    //             // TODO: Publish to message bus
-    //         }
-    //         Err(e) => eprintln!("[REAL] Read error: {}", e),
-    //     }
-
-    //     std::thread::sleep(Duration::from_millis(10));
-    // }
-
-    return { Ok(()) };
-}
-
-#[cfg(not(target_os = "linux"))]
-fn run() -> anyhow::Result<()> {
-    // use socketcan::CANFrame;
-
-    println!("Running in FAKE mode: generating dummy CAN frames");
-
-    let mut counter = 0;
-
+// Broadcasts messages to all connected clients
+fn broadcast_loop(clients: Arc<Mutex<Vec<UnixStream>>>) -> ! {
+    let mut count = 0;
     loop {
-        let fake_data = [counter as u8, 0xAB, 0xCD, 0xEF, 0x12, 0x34, 0x56, 0x78];
-        // let fake_frame = CANFrame::new(0x123, &fake_data, false, false)?;
+        let message = format!("Broadcast message: {}\n", count);
 
-        // println!("[FAKE] Generated CAN frame: {:?}", fake_frame);
-        // TODO: Publish to message bus
+        {
+            let mut clients_guard = clients.lock().expect("Mutex lock poisoned");
+            clients_guard.retain_mut(|stream| {
+                if stream.write_all(message.as_bytes()).is_err() {
+                    println!("[CAND] Client disconnected");
+                    false
+                } else {
+                    true
+                }
+            });
+        }
 
-        counter = (counter + 1) % 256;
-        std::thread::sleep(Duration::from_millis(500));
+        count += 1;
+        thread::sleep(Duration::from_millis(WAIT));
     }
 }
