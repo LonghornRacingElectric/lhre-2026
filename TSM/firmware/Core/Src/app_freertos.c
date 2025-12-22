@@ -179,8 +179,9 @@ void StartADCTask(void *argument)
 
     // convert to temperature
     float temp_c = (mv - 500.0f) / 10.0f; // temperature = (mv-500)/100
+    float temp_f = (temp_c * 9.0f / 5.0f) + 32.0f;
 
-    log_printf(LOG_INFO, "Temperature: %.0f mV, %.1f Celsius\r\n", mv, temp_c);
+    log_printf(LOG_INFO, "Temperature: %.0f mV, %.1f C, %.1f F\r\n", mv, temp_c, temp_f);
 
     osDelay(pdMS_TO_TICKS(300));
   }
