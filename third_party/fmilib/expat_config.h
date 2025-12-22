@@ -18,7 +18,6 @@
 #define HAVE_SYS_TYPES_H 1
 #define HAVE_UNISTD_H 1
 #define HAVE_MEMMOVE 1
-#define HAVE_ARC4RANDOM_BUF 1
 
 /* Build configuration */
 #define XML_CONTEXT_BYTES 1024

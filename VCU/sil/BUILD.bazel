@@ -1,0 +1,8 @@
+cc_binary(
+    name = "sil",
+    deps = [
+        "@fmilib//:fmilib",
+    ],
+    srcs = ["main.c"],
+    linkstatic = True,
+)

@@ -104,7 +104,8 @@ cc_library(
                       "HAVE_ARC4RANDOM_BUF",
                   ],
                   "@platforms//os:linux": [
-                      "HAVE_GETRANDOM",
+                    #   "HAVE_GETRANDOM",
+                    "XML_POOR_ENTROPY"
                   ],
               }),
     includes = ["ThirdParty/Expat/expat-2.6.4/lib"],
@@ -170,7 +171,7 @@ cc_library(
         "src/Util/src/**/*.h",
         "src/XML/src/**/*.h",
         "src/XML/src-gen/**/*.h",
-    ]),
+    ]) + ["Config.cmake/fmilib.h"],
     copts = [
         "-DFMILIB_BUILDING_LIBRARY",
         "-DFMI_IA_LOG_DEBUG",
@@ -202,6 +203,7 @@ cc_library(
         "src/Util/src",
         "src/XML/src",
         "src/ZIP/src",
+        "Config.cmake"
     ],
     deps = [
         ":c99_snprintf",
