@@ -96,6 +96,10 @@ use_repo(openocd, "openocd")
 dfu = use_extension("//tools/dfu:dfu.bzl", "dfu")
 use_repo(dfu, "dfu")
 
+# FMI Library (for Software In Loop testing + Simulation) for use with FMUs
+fmilib = use_extension("//third_party/fmilib:repositories.bzl", "fmilib_deps")
+use_repo(fmilib, "fmilib")
+
 # Hermetic Rust Toolchain
 # rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
 # rust.toolchain(
