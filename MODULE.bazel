@@ -34,8 +34,6 @@ llvm.toolchain(
 
 use_repo(llvm, "llvm_toolchain")
 
-register_toolchains("@llvm_toolchain//:all")
-
 # Hermetic C/C++ ARM Toolchain
 # Override to use a custom fork for the ARM toolchain, allowing for patches.
 git_override(
