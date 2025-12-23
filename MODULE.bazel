@@ -2,7 +2,7 @@
 
 module(name = "lhre-2026")
 
-# bazel_dep(name = "toolchains_llvm", version = "1.4.0")
+bazel_dep(name = "toolchains_llvm", version = "1.4.0")
 bazel_dep(name = "hermetic_cc_toolchain", version = "3.2.0")
 bazel_dep(name = "toolchains_arm_gnu", version = "1.1.0")
 bazel_dep(name = "rules_cc", version = "0.2.0")
@@ -18,15 +18,6 @@ bazel_dep(name = "rules_oci", version = "2.0.1")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
 
 # Hermetic C/C++ Host Toolchain
-# llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
-# llvm.toolchain(
-#    llvm_version = "19.1.0",
-# )
-
-# use_repo(llvm, "llvm_toolchain")
-
-# register_toolchains("@llvm_toolchain//:all")
-
 toolchains = use_extension("@hermetic_cc_toolchain//toolchain:ext.bzl", "toolchains")
 use_repo(toolchains, "zig_sdk", "zig_sdk-linux-amd64", "zig_sdk-linux-arm64", "zig_sdk-macos-amd64", "zig_sdk-macos-arm64", "zig_sdk-windows-amd64")
 
@@ -34,6 +25,16 @@ register_toolchains(
     "@zig_sdk//libc_aware/toolchain/...",
     "@zig_sdk//toolchain/...",
 )
+
+# C/C++ Toolchain for Rust
+llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+llvm.toolchain(
+   llvm_version = "19.1.0",
+)
+
+use_repo(llvm, "llvm_toolchain")
+
+register_toolchains("@llvm_toolchain//:all")
 
 # Hermetic C/C++ ARM Toolchain
 # Override to use a custom fork for the ARM toolchain, allowing for patches.
