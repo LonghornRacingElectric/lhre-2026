@@ -13,7 +13,7 @@ def _fmilib_repo_impl(ctx):
     os_name = ctx.os.name.lower()
     if "windows" in os_name:
         ctx.symlink(ctx.attr.fmilib_config_windows, "fmilib_config.h")
-    elif "macos" in os_name:
+    elif "mac" in os_name:
         ctx.symlink(ctx.attr.fmilib_config_macos, "fmilib_config.h")
     elif "linux" in os_name:
         ctx.symlink(ctx.attr.fmilib_config_linux, "fmilib_config.h")

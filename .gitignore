@@ -92,3 +92,4 @@ DUI/Drivers/*
 DUI/Middlewares/*
 MODULE.bazel.lock
 /fmi-library-3.0.4
+rust-project.json
