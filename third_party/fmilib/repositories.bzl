@@ -10,11 +10,17 @@ def _fmilib_repo_impl(ctx):
         strip_prefix = ctx.attr.strip_prefix,
     )
 
-    ctx.symlink(ctx.attr.fmilib_config_macos, "fmilib_config_macos.h")
-    ctx.symlink(ctx.attr.fmilib_config_windows, "fmilib_config_windows.h")
-    ctx.symlink(ctx.attr.fmilib_config_linux, "fmilib_config_linux.h")
-    ctx.symlink(ctx.attr.expat_config, "expat_config.h")
+    os_name = ctx.os.name.lower()
+    if "windows" in os_name:
+        ctx.symlink(ctx.attr.fmilib_config_windows, "fmilib_config.h")
+    elif "macos" in os_name:
+        ctx.symlink(ctx.attr.fmilib_config_macos, "fmilib_config.h")
+    elif "linux" in os_name:
+        ctx.symlink(ctx.attr.fmilib_config_linux, "fmilib_config.h")
+    else:
+        fail("Unsupported OS: {}".format(os_name)) 
 
+    ctx.symlink(ctx.attr.expat_config, "expat_config.h")
     ctx.symlink(ctx.attr.build_file, "BUILD.bazel")
 
 # Define the repository rule

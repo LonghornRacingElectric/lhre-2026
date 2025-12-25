@@ -6,19 +6,6 @@ package(default_visibility = ["//visibility:public"])
 # Configuration
 # -------------------------------------------------------------------------
 
-genrule(
-    name = "generate_fmilib_config",
-    srcs = select({
-        "@platforms//os:macos": ["fmilib_config_macos.h"],
-        "@platforms//os:windows": ["fmilib_config_windows.h"], 
-        "@platforms//os:linux": ["fmilib_config_linux.h"],
-    }),
-
-    outs = ["fmilib_config.h"],
-    cmd = "cp $< $@",
-    cmd_bat = "copy /Y $< $@",
-)
-
 cc_library(
     name = "config",
     hdrs = ["fmilib_config.h"],
