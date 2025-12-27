@@ -5,11 +5,13 @@
 #include "fmilib.h"
 
 #ifdef _WIN32
+const char* temp_dir = "C:\\tmp\\temp_fmu_unpack_dir";
 #include <direct.h>
 #define MKDIR(path) _mkdir(path)
 #else
 #include <sys/stat.h>
 #include <sys/types.h>
+const char* temp_dir = "/tmp/temp_fmu_unpack_dir";
 #define MKDIR(path) mkdir(path, 0777)
 #endif
 
@@ -28,9 +30,7 @@ int make_directory(const char* path) {
 }
 
 int main(int argc, char* argv[]) {
-    const char* fmu_path =
-        "/Users/dhairyagupta/Downloads/TestMF5p2RigidVehicle.fmu";
-    const char* temp_dir = "/tmp/temp_fmu_unpack_dir";
+    const char* fmu_path = "<path to FMU>";
 
     if (make_directory(temp_dir) == 0) {
         printf("Directory ready: %s\n", temp_dir);
