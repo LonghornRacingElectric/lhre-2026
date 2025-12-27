@@ -1,13 +1,42 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "fmilib.h"
 
+#ifdef _WIN32
+#include <direct.h>
+#define MKDIR(path) _mkdir(path)
+#else
+#include <sys/stat.h>
+#include <sys/types.h>
+#define MKDIR(path) mkdir(path, 0777)
+#endif
+
+// So we can guarnatee that a directory exists
+// before we attempt to unzip the FMU into it.
+int make_directory(const char* path) {
+    int result = MKDIR(path);
+    if (result == 0) {
+        return 0;
+    } else {
+        if (errno == EEXIST) {
+            return 0;
+        }
+        return -1;
+    }
+}
+
 int main(int argc, char* argv[]) {
-    // --- User Configuration ---
     const char* fmu_path =
         "/Users/dhairyagupta/Downloads/TestMF5p2RigidVehicle.fmu";
     const char* temp_dir = "/tmp/temp_fmu_unpack_dir";
+
+    if (make_directory(temp_dir) == 0) {
+        printf("Directory ready: %s\n", temp_dir);
+    } else {
+        perror("Failed to create directory");
+    }
 
     // Simulation Settings
     fmi2_real_t t_start = 0.0;
