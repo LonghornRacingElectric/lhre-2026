@@ -2,7 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+extern "C" {
 #include "fmilib.h"
+}
 
 #ifdef _WIN32
 const char* temp_dir = "C:\\tmp\\temp_fmu_unpack_dir";
@@ -89,6 +91,7 @@ int main(int argc, char* argv[]) {
     printf("Loading binary...\n");
     jm_status_enu_t jm_status =
         fmi2_import_create_dllfmu(fmu, fmi2_fmu_kind_cs, NULL);
+
     if (jm_status == jm_status_error) {
         printf("Error: Could not create DLL FMU.\n");
         fmi2_import_free(fmu);
@@ -103,7 +106,7 @@ int main(int argc, char* argv[]) {
     // visible) passing NULL for resourcePath lets fmilib resolve it
     // automatically
     jm_status =
-        fmi2_import_instantiate(fmu, instance_name, fmi2_fmu_kind_cs, NULL, 0);
+        fmi2_import_instantiate(fmu, instance_name, fmi2_cosimulation, NULL, 0);
 
     if (jm_status == jm_status_error) {
         printf("Error: Instantiation failed.\n");

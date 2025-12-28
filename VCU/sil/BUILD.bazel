@@ -3,6 +3,6 @@ cc_binary(
     deps = [
         "@fmilib//:fmilib",
     ],
-    srcs = ["main.c"],
+    srcs = ["main.cpp"],
     linkstatic = True,
 )
