@@ -3,7 +3,6 @@
 #include <stdlib.h>
 
 extern "C" {
-#include "fmi2_import_capi.h"
 #include "fmilib.h"
 }
 

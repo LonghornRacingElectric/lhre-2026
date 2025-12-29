@@ -173,6 +173,7 @@ cc_library(
         "src/Import/include/FMI1",
         "src/Import/include/FMI2",
         "src/Import/include/FMI3",
+        "src/Import/src/FMI",
         "src/Import/src/FMI1",
         "src/Import/src/FMI2",
         "src/Import/src/FMI3",
