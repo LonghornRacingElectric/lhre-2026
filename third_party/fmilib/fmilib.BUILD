@@ -169,6 +169,13 @@ cc_library(
     includes = [
         "src/CAPI/include",
         "src/Import/include",
+        "src/Import/include/FMI",
+        "src/Import/include/FMI1",
+        "src/Import/include/FMI2",
+        "src/Import/include/FMI3",
+        "src/Import/src/FMI1",
+        "src/Import/src/FMI2",
+        "src/Import/src/FMI3",
         "src/Util/include",
         "src/XML/include",
         "src/ZIP/include",
