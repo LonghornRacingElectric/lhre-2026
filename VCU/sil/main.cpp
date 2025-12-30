@@ -2,42 +2,59 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <iostream>
+
 extern "C" {
 #include "fmilib.h"
 }
 
 #ifdef _WIN32
-const char* temp_dir = "C:\\tmp\\temp_fmu_unpack_dir";
+const std::string temp_dir = "C:\\tmp\\temp_fmu_unpack_dir";
 #include <direct.h>
 #define MKDIR(path) _mkdir(path)
 #else
 #include <sys/stat.h>
 #include <sys/types.h>
-const char* temp_dir = "/tmp/temp_fmu_unpack_dir";
+const std::string temp_dir = "/tmp/temp_fmu_unpack_dir";
 #define MKDIR(path) mkdir(path, 0777)
 #endif
 
 // So we can guarnatee that a directory exists
-// before we attempt to unzip the FMU into it.
+// before we attempt to unzip the FMU into it.s
 int make_directory(const char* path) {
-    int result = MKDIR(path);
-    if (result == 0) {
-        return 0;
-    } else {
-        if (errno == EEXIST) {
-            return 0;
+    std::string current_path = "";
+    std::string full_path = path;
+
+    for (char& c : full_path) {
+        if (c == '\\') c = '/';
+    }
+
+    size_t pos = 0;
+    while ((pos = full_path.find('/', pos)) != std::string::npos) {
+        std::string subdir = full_path.substr(0, pos);
+        if (!subdir.empty()) {
+            if (MKDIR(subdir.c_str()) != 0 && errno != EEXIST) {
+                return -1;
+            }
         }
+        pos++;
+    }
+
+    if (MKDIR(full_path.c_str()) != 0 && errno != EEXIST) {
         return -1;
     }
+
+    return 0;
 }
 
 int main(int argc, char* argv[]) {
-    const char* fmu_path = "<path to FMU>";
+    const char* fmu_path = "<path_to_fmu>";
 
-    if (make_directory(temp_dir) == 0) {
-        printf("Directory ready: %s\n", temp_dir);
+    if (make_directory(temp_dir.c_str()) == 0) {
+        printf("Directory ready: %s\n", temp_dir.c_str());
     } else {
-        perror("Failed to create directory");
+        printf("Failed to create directory structure.\n");
+        return 1;
     }
 
     // Simulation Settings
@@ -46,7 +63,7 @@ int main(int argc, char* argv[]) {
     fmi2_real_t step_size = 0.1;
     // --------------------------
 
-    printf("Tryna work\n");
+    printf("Starting Simulation...\n");
 
     // 1. Setup Callbacks
     jm_callbacks* callbacks = jm_get_default_callbacks();
@@ -55,9 +72,9 @@ int main(int argc, char* argv[]) {
     fmi_import_context_t* context = fmi_import_allocate_context(callbacks);
 
     // 3. Unzip and Check Version
-    printf("Unzipping FMU to %s...\n", temp_dir);
+    printf("Unzipping FMU to %s...\n", temp_dir.c_str());
     fmi_version_enu_t version =
-        fmi_import_get_fmi_version(context, fmu_path, temp_dir);
+        fmi_import_get_fmi_version(context, fmu_path, temp_dir.c_str());
 
     if (version != fmi_version_2_0_enu) {
         printf("Error: This example supports FMI 2.0 only.\n");
@@ -68,7 +85,7 @@ int main(int argc, char* argv[]) {
 
     // 4. Parse the Model Description (XML)
     // We pass the directory where the FMU was unzipped
-    fmi2_import_t* fmu = fmi2_import_parse_xml(context, temp_dir, 0);
+    fmi2_import_t* fmu = fmi2_import_parse_xml(context, temp_dir.c_str(), 0);
 
     if (!fmu) {
         printf("Error: Could not parse modelDescription.xml\n");

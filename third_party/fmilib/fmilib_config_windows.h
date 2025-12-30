@@ -48,25 +48,25 @@ set by MSVC. */                                                              \
 #endif
 
 /** \brief Platform folder separator */
-#define FMI_FILE_SEP "/"
+#define FMI_FILE_SEP "\\"
 
 /** \brief DLL file name suffix(.so, .dll, ...) */
-#define FMI_DLL_EXT ".dylib"
+#define FMI_DLL_EXT ".dll"
 
 /** \brief Folder name inside FMU in which the DLL is found for this platform \
 for FMI 1 */                                                                  \
 #define FMI1_PLATFORM                                                         \
-    "darwin64"
+    "win64"
 
 /** \brief Folder name inside FMU in which the DLL is found for this platform \
 for FMI 2 */                                                                  \
 #define FMI2_PLATFORM                                                         \
-    "darwin64"
+    "win64"
 
 /** \brief Folder name inside FMU in which the DLL is found for this platform \
 for FMI 3 */                                                                  \
 #define FMI3_PLATFORM                                                         \
-    "aarch64-darwin"
+    "x86_64-windows"
 
 /** \brief Folder name inside FMU where binaries are */
 #define FMI_BINARIES "binaries"

@@ -6,5 +6,10 @@ cc_binary(
         "@fmilib//:fmilib",
     ],
     srcs = ["main.cpp"],
+    copts = ["-std=c++17"],
     linkstatic = True,
+    linkopts = select({
+        "@platforms//os:windows": ["-lshlwapi"],
+        "//conditions:default": [],
+    }),
 )
