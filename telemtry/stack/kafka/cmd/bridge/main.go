@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/IBM/sarama"
 	pb "github.com/LonghornRacingElectric/lhre-2026/telemtry/stack/kafka/proto/bridge"
@@ -70,6 +72,102 @@ func newKafkaProducer() (sarama.SyncProducer, error) {
 
 	broker := getKafkaBroker()
 	return sarama.NewSyncProducer([]string{broker}, config)
+}
+
+// newKafkaAdmin creates a ClusterAdmin for topic management
+func newKafkaAdmin() (sarama.ClusterAdmin, error) {
+    config := sarama.NewConfig()
+    config.Version = sarama.V3_6_0_0 // Use latest stable version
+    config.Admin.Timeout = 10 * time.Second
+    broker := getKafkaBroker()
+    return sarama.NewClusterAdmin([]string{broker}, config)
+}
+
+func strPtr(s string) *string { return &s }
+
+// ensureTopicExists creates the topic if it doesn't already exist
+func ensureTopicExists(admin sarama.ClusterAdmin, topic string) error {
+    // Retry logic for listing topics
+    var topics map[string]sarama.TopicDetail
+    var err error
+    maxRetries := 5
+    
+    for i := 0; i < maxRetries; i++ {
+        topics, err = admin.ListTopics()
+        if err == nil {
+            break
+        }
+        log.Printf("Attempt %d/%d: Failed to list topics: %v", i+1, maxRetries, err)
+        time.Sleep(2 * time.Second)
+    }
+    
+    if err != nil {
+        return fmt.Errorf("failed to list topics after %d retries: %w", maxRetries, err)
+    }
+    
+    if _, ok := topics[topic]; ok {
+        log.Printf("Topic %s already exists", topic)
+        return nil
+    }
+
+    log.Printf("Creating topic %s...", topic)
+    detail := &sarama.TopicDetail{
+        NumPartitions:     1,
+        ReplicationFactor: 1,
+        ConfigEntries: map[string]*string{
+            "retention.ms":   strPtr("604800000"), // 7 days
+            "cleanup.policy": strPtr("delete"),
+        },
+    }
+    
+    err = admin.CreateTopic(topic, detail, false)
+    if err != nil {
+        return fmt.Errorf("failed to create topic %s: %w", topic, err)
+    }
+    
+    log.Printf("Successfully created topic %s", topic)
+    
+    // Verify topic was created
+    time.Sleep(1 * time.Second)
+    topics, err = admin.ListTopics()
+    if err != nil {
+        log.Printf("Warning: Could not verify topic creation: %v", err)
+    } else if _, ok := topics[topic]; ok {
+        log.Printf("Verified: Topic %s exists in Kafka", topic)
+    } else {
+        log.Printf("Warning: Topic %s not found after creation", topic)
+    }
+    
+    return nil
+}
+
+// Init method for kafka grafana datasource 
+func seedTopic(producer sarama.SyncProducer, topic string) {
+	// Send a minimal valid JSON payload that matches the structure Grafana expects
+	seedData := map[string]interface{}{
+		"time":       time.Now().UnixMilli(), // Use milliseconds for better Grafana compatibility
+		"packet_id":  0,
+		"car_type":   "init",
+	}
+	jsonData, err := json.Marshal(seedData)
+	if err != nil {
+		log.Printf("Failed to marshal seed data: %v", err)
+		return
+	}
+
+	log.Printf("Sending seed message to topic %s: %s", topic, string(jsonData))
+
+	msg := &sarama.ProducerMessage{
+		Topic:     topic,
+		Value:     sarama.ByteEncoder(jsonData),
+		Timestamp: time.Now(),
+	}
+	partition, offset, err := producer.SendMessage(msg)
+	if err != nil {
+		log.Printf("Failed to seed topic %s: %v", topic, err)
+	} else {
+		log.Printf("Successfully seeded topic %s (partition: %d, offset: %d)", topic, partition, offset)
+	}
 }
 
 // rawDataWorker publishes raw protobuf bytes to sensor_data topic
@@ -318,11 +416,44 @@ func angeliqueToMap(msg *sensor.AngeliqueSensorData) map[string]interface{} {
 func main() {
 	log.Println("Starting Kafka Bridge Service...")
 
+	// Create admin and ensure grafana_data topic exists so Grafana always sees it
+	admin, err := newKafkaAdmin()
+	if err != nil {
+		log.Fatalf("Failed to create Kafka admin: %v", err)
+	}
+	defer admin.Close()
+
+	if err := ensureTopicExists(admin, "grafana_data"); err != nil {
+		log.Fatalf("Failed to ensure grafana_data topic exists: %v", err)
+	}
+
+	if err := ensureTopicExists(admin, "sensor_data"); err != nil {
+		log.Fatalf("Failed to ensure sensor_data topic exists: %v", err)
+	}
+
+	// List all topics for verification
+	allTopics, err := admin.ListTopics()
+	if err != nil {
+		log.Printf("Warning: Could not list all topics: %v", err)
+	} else {
+		log.Printf("Available Kafka topics (%d):", len(allTopics))
+		for topicName := range allTopics {
+			log.Printf("  - %s", topicName)
+		}
+	}
+
+	// Give Kafka a moment to propagate topic metadata
+	log.Println("Waiting for topic metadata to propagate...")
+	time.Sleep(3 * time.Second)
+
 	producer, err := newKafkaProducer()
 	if err != nil {
 		log.Fatalf("Failed to create Kafka producer: %v", err)
 	}
 	defer producer.Close()
+
+	// Seed grafana_data topic to ensure it exists and viewable in grafana
+	seedTopic(producer, "grafana_data")
 
 	// Start worker goroutines
 	go rawDataWorker(producer)
