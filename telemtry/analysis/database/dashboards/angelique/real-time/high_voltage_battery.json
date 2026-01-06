@@ -1,0 +1,103 @@
+{
+  "title": "High Voltage Battery - Angelique (Real-time)",
+  "uid": "angelique_hv_batt_rt",
+  "time": {
+    "from": "now-5m",
+    "to": "now"
+  },
+  "refresh": "1s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "HV Battery Voltage",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "hamedkarbasi93-kafka-datasource",
+        "uid": "real-time-data"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "field": "hv_pack_v",
+          "timeField": "time",
+          "hide": false
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "HV Power (Voltage & Current)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "hamedkarbasi93-kafka-datasource",
+        "uid": "real-time-data"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "field": "hv_pack_v",
+          "timeField": "time",
+          "alias": "Voltage",
+          "hide": false
+        },
+        {
+          "refId": "B",
+          "field": "hv_c",
+          "timeField": "time",
+          "alias": "Current",
+          "hide": false
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Cell Voltage Stats",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "datasource": {
+        "type": "hamedkarbasi93-kafka-datasource",
+        "uid": "real-time-data"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "field": "avg_cell_v_stat",
+          "timeField": "time",
+          "alias": "Avg",
+          "hide": false
+        },
+        {
+          "refId": "B",
+          "field": "max_cell_v",
+          "timeField": "time",
+          "alias": "Max",
+          "hide": false
+        },
+        {
+          "refId": "C",
+          "field": "min_cell_v",
+          "timeField": "time",
+          "alias": "Min",
+          "hide": false
+        }
+      ]
+    }
+  ]
+}

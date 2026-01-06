@@ -1,0 +1,80 @@
+{
+  "title": "Electronics - Angelique (Real-time)",
+  "uid": "angelique_electronics_rt",
+  "time": {
+    "from": "now-1m",
+    "to": "now"
+  },
+  "refresh": "1s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Traction Control (Velocity & Wheel Speeds)",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "hamedkarbasi93-kafka-datasource",
+        "uid": "real-time-data"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "field": "gps_velocity",
+          "timeField": "time",
+          "alias": "GPS Velocity",
+          "hide": false
+        },
+        {
+          "refId": "B",
+          "field": "flw_speed",
+          "timeField": "time",
+          "alias": "FL Speed",
+          "hide": false
+        },
+        {
+          "refId": "C",
+          "field": "frw_speed",
+          "timeField": "time",
+          "alias": "FR Speed",
+          "hide": false
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "LV Power Draw (Calculated)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "datasource": {
+        "type": "hamedkarbasi93-kafka-datasource",
+        "uid": "real-time-data"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "field": "lv_v",
+          "timeField": "time",
+          "alias": "Voltage",
+          "hide": false
+        },
+        {
+          "refId": "B",
+          "field": "lv_c",
+          "timeField": "time",
+          "alias": "Current",
+          "hide": false
+        }
+      ]
+    }
+  ]
+}

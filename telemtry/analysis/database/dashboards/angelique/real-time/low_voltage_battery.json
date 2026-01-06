@@ -1,0 +1,57 @@
+{
+  "title": "Low Voltage Battery - Angelique (Real-time)",
+  "uid": "angelique_lv_batt_rt",
+  "time": {
+    "from": "now-1m",
+    "to": "now"
+  },
+  "refresh": "1s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Low-Voltage Battery Current",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "hamedkarbasi93-kafka-datasource",
+        "uid": "real-time-data"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "field": "lv_c",
+          "timeField": "time",
+          "hide": false
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Low-Voltage Battery Voltage",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "hamedkarbasi93-kafka-datasource",
+        "uid": "real-time-data"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "field": "lv_v",
+          "timeField": "time",
+          "hide": false
+        }
+      ]
+    }
+  ]
+}
