@@ -1,44 +1,28 @@
 {
   "title": "Controls - Angelique (Real-time)",
   "uid": "angelique_controls_rt",
-  "time": {
-    "from": "now-1m",
-    "to": "now"
-  },
+  "time": { "from": "now-1m", "to": "now" },
   "refresh": "1s",
   "panels": [
     {
       "id": 1,
       "type": "timeseries",
       "title": "APPS Voltage",
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
-      "datasource": {
-        "type": "hamedkarbasi93-kafka-datasource",
-        "uid": "real-time-data"
-      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" },
       "targets": [
-        {
-          "refId": "A",
-          "topicName": "grafana_data",
-          "field": "apps1_v",
-          "timeField": "time",
-          "alias": "APPS 1",
-          "hide": false
-        },
-        {
-          "refId": "B",
-          "topicName": "grafana_data",
-          "field": "apps2_v",
-          "timeField": "time",
-          "alias": "APPS 2",
-          "hide": false
-        }
-      ]
+        { "refId": "A", "topicName": "grafana_data", "partition": "all", "autoOffsetReset": "latest", "timestampMode": "message", "messageFormat": "json" }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["time", "apps1_v", "apps2_v"] } } }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "apps1_v" }, "properties": [{ "id": "displayName", "value": "APPS 1" }] },
+          { "matcher": { "id": "byName", "options": "apps2_v" }, "properties": [{ "id": "displayName", "value": "APPS 2" }] }
+        ]
+      }
     }
   ]
 }

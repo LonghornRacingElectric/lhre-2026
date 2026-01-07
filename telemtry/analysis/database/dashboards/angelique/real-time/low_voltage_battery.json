@@ -1,56 +1,33 @@
 {
   "title": "Low Voltage Battery - Angelique (Real-time)",
   "uid": "angelique_lv_batt_rt",
-  "time": {
-    "from": "now-1m",
-    "to": "now"
-  },
+  "time": { "from": "now-1m", "to": "now" },
   "refresh": "1s",
   "panels": [
     {
       "id": 1,
       "type": "timeseries",
       "title": "Low-Voltage Battery Current",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 0
-      },
-      "datasource": {
-        "type": "hamedkarbasi93-kafka-datasource",
-        "uid": "real-time-data"
-      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" },
       "targets": [
-        {
-          "refId": "A",
-          "field": "lv_c",
-          "timeField": "time",
-          "hide": false
-        }
+        { "refId": "A", "topicName": "grafana_data", "partition": "all", "autoOffsetReset": "latest", "timestampMode": "message", "messageFormat": "json" }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["time", "lv_c"] } } }
       ]
     },
     {
       "id": 2,
       "type": "timeseries",
       "title": "Low-Voltage Battery Voltage",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "datasource": {
-        "type": "hamedkarbasi93-kafka-datasource",
-        "uid": "real-time-data"
-      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" },
       "targets": [
-        {
-          "refId": "A",
-          "field": "lv_v",
-          "timeField": "time",
-          "hide": false
-        }
+        { "refId": "A", "topicName": "grafana_data", "partition": "all", "autoOffsetReset": "latest", "timestampMode": "message", "messageFormat": "json" }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["time", "lv_v"] } } }
       ]
     }
   ]

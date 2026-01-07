@@ -1,140 +1,80 @@
 {
   "title": "Dynamics - Angelique (Real-time)",
   "uid": "angelique_dynamics_rt",
-  "time": {
-    "from": "now-1m",
-    "to": "now"
-  },
+  "time": { "from": "now-1m", "to": "now" },
   "refresh": "1s",
   "panels": [
     {
       "id": 1,
       "type": "timeseries",
       "title": "Wheel Speeds",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 0
-      },
-      "datasource": {
-        "type": "hamedkarbasi93-kafka-datasource",
-        "uid": "real-time-data"
-      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" },
       "targets": [
-        {
-          "refId": "A",
-          "topicName": "grafana_data",
-          "field": "flw_speed",
-          "timeField": "time",
-          "alias": "Front Left",
-          "hide": false
-        },
-        {
-          "refId": "B",
-          "topicName": "grafana_data",
-          "field": "frw_speed",
-          "timeField": "time",
-          "alias": "Front Right",
-          "hide": false
-        },
-        {
-          "refId": "C",
-          "topicName": "grafana_data",
-          "field": "blw_speed",
-          "timeField": "time",
-          "alias": "Back Left",
-          "hide": false
-        },
-        {
-          "refId": "D",
-          "topicName": "grafana_data",
-          "field": "brw_speed",
-          "timeField": "time",
-          "alias": "Back Right",
-          "hide": false
-        }
-      ]
+        { "refId": "A", "topicName": "grafana_data", "partition": "all", "autoOffsetReset": "latest", "timestampMode": "message", "messageFormat": "json" }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["time", "flw_speed", "frw_speed", "blw_speed", "brw_speed"] } } }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "flw_speed" }, "properties": [{ "id": "displayName", "value": "Front Left" }] },
+          { "matcher": { "id": "byName", "options": "frw_speed" }, "properties": [{ "id": "displayName", "value": "Front Right" }] },
+          { "matcher": { "id": "byName", "options": "blw_speed" }, "properties": [{ "id": "displayName", "value": "Back Left" }] },
+          { "matcher": { "id": "byName", "options": "brw_speed" }, "properties": [{ "id": "displayName", "value": "Back Right" }] }
+        ]
+      }
     },
     {
       "id": 2,
       "type": "timeseries",
       "title": "GPS Velocity",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "datasource": {
-        "type": "hamedkarbasi93-kafka-datasource",
-        "uid": "real-time-data"
-      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" },
       "targets": [
-        {
-          "refId": "A",
-          "topicName": "grafana_data",
-          "field": "gps_velocity",
-          "timeField": "time",
-          "hide": false
-        }
+        { "refId": "A", "topicName": "grafana_data", "partition": "all", "autoOffsetReset": "latest", "timestampMode": "message", "messageFormat": "json" }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["time", "gps_velocity"] } } }
       ]
     },
     {
       "id": 3,
       "type": "geomap",
       "title": "Location",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 8
-      },
-      "datasource": {
-        "type": "hamedkarbasi93-kafka-datasource",
-        "uid": "real-time-data"
-      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" },
       "targets": [
-        {
-          "refId": "A",
-          "topicName": "grafana_data",
-          "field": "latitude",
-          "timeField": "time",
-          "alias": "lat",
-          "hide": false
-        },
-        {
-          "refId": "B",
-          "topicName": "grafana_data",
-          "field": "longitude",
-          "timeField": "time",
-          "alias": "lon",
-          "hide": false
-        }
-      ]
+        { "refId": "A", "topicName": "grafana_data", "partition": "all", "autoOffsetReset": "latest", "timestampMode": "message", "messageFormat": "json" }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["time", "latitude", "longitude"] } } }
+      ],
+      "options": {
+        "view": { "id": "coords", "lat": 30.2849, "lon": -97.7341, "zoom": 14 },
+        "layers": [
+          {
+            "type": "markers",
+            "config": {
+              "style": { "size": { "fixed": 5 }, "color": { "fixed": "red" } }
+            },
+            "location": { "mode": "coords", "latitude": "latitude", "longitude": "longitude" }
+          }
+        ]
+      }
     },
     {
       "id": 4,
       "type": "timeseries",
       "title": "GPS Heading",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 8
-      },
-      "datasource": {
-        "type": "hamedkarbasi93-kafka-datasource",
-        "uid": "real-time-data"
-      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" },
       "targets": [
-        {
-          "refId": "A",
-          "topicName": "grafana_data",
-          "field": "gps_heading",
-          "timeField": "time",
-          "hide": false
-        }
+        { "refId": "A", "topicName": "grafana_data", "partition": "all", "autoOffsetReset": "latest", "timestampMode": "message", "messageFormat": "json" }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["time", "gps_heading"] } } }
       ]
     }
   ]

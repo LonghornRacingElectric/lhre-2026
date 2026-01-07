@@ -11,122 +11,80 @@
       "id": 1,
       "type": "timeseries",
       "title": "Ambient Temperature",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 0
-      },
-      "datasource": {
-        "type": "hamedkarbasi93-kafka-datasource",
-        "uid": "real-time-data"
-      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" },
       "targets": [
         {
           "refId": "A",
           "topicName": "grafana_data",
-          "field": "ambient_temp",
-          "timeField": "time",
-          "hide": false
+          "partition": "all",
+          "autoOffsetReset": "latest",
+          "timestampMode": "message",
+          "messageFormat": "json"
         }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["time", "ambient_temp"] } } }
       ]
     },
     {
       "id": 2,
       "type": "timeseries",
       "title": "Motor & Inverter Temperatures",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "datasource": {
-        "type": "hamedkarbasi93-kafka-datasource",
-        "uid": "real-time-data"
-      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" },
       "targets": [
         {
           "refId": "A",
           "topicName": "grafana_data",
-          "field": "motor_temp",
-          "timeField": "time",
-          "alias": "Motor",
-          "hide": false
-        },
-        {
-          "refId": "B",
-          "topicName": "grafana_data",
-          "field": "inverter_temp",
-          "timeField": "time",
-          "alias": "Inverter",
-          "hide": false
+          "partition": "all",
+          "autoOffsetReset": "latest",
+          "timestampMode": "message",
+          "messageFormat": "json"
         }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["time", "motor_temp", "inverter_temp"] } } }
       ]
     },
     {
       "id": 3,
       "type": "timeseries",
       "title": "Cell Temperature Stats",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 8
-      },
-      "datasource": {
-        "type": "hamedkarbasi93-kafka-datasource",
-        "uid": "real-time-data"
-      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" },
       "targets": [
         {
           "refId": "A",
           "topicName": "grafana_data",
-          "field": "avg_cell_temp_stat",
-          "timeField": "time",
-          "alias": "Avg",
-          "hide": false
-        },
-        {
-          "refId": "B",
-          "topicName": "grafana_data",
-          "field": "max_cell_temp",
-          "timeField": "time",
-          "alias": "Max",
-          "hide": false
-        },
-        {
-          "refId": "C",
-          "topicName": "grafana_data",
-          "field": "min_cell_temp",
-          "timeField": "time",
-          "alias": "Min",
-          "hide": false
+          "partition": "all",
+          "autoOffsetReset": "latest",
+          "timestampMode": "message",
+          "messageFormat": "json"
         }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["time", "avg_cell_temp_stat", "max_cell_temp", "min_cell_temp"] } } }
       ]
     },
     {
       "id": 4,
       "type": "timeseries",
       "title": "Flow Rate",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 8
-      },
-      "datasource": {
-        "type": "hamedkarbasi93-kafka-datasource",
-        "uid": "real-time-data"
-      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" },
       "targets": [
         {
           "refId": "A",
           "topicName": "grafana_data",
-          "field": "flow_rate",
-          "timeField": "time",
-          "hide": false
+          "partition": "all",
+          "autoOffsetReset": "latest",
+          "timestampMode": "message",
+          "messageFormat": "json"
         }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["time", "flow_rate"] } } }
       ]
     }
   ]
