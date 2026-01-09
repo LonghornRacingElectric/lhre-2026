@@ -277,7 +277,7 @@ if __name__ == '__main__':
             dt = DataTester(mqtt=mqtt, seed=42)
             dt.send_proto_rows(
                 tables=['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
-                num_rows= 2000,
+                num_rows= 20000,
                 delay= 0.01,
                 target=car_name
             )

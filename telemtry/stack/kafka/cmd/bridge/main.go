@@ -24,8 +24,8 @@ type SensorMessage struct {
 }
 
 var (
-	rawDataChan     = make(chan SensorMessage, 1000)
-	grafanaDataChan = make(chan SensorMessage, 1000)
+	rawDataChan     = make(chan SensorMessage, 10000)
+	grafanaDataChan = make(chan SensorMessage, 10000)
 )
 
 type bridgeServer struct {
@@ -382,6 +382,8 @@ func angeliqueToMap(msg *sensor.AngeliqueSensorData) map[string]interface{} {
 		m["contactor_state"] = msg.Pack.ContactorState
 		m["avg_cell_v"] = msg.Pack.AvgCellV
 		m["avg_cell_temp"] = msg.Pack.AvgCellTemp
+		m["hv_power"] = msg.Pack.HvPackV * float32(msg.Pack.HvC)
+		m["lv_power"] = msg.Pack.LvV * float32(msg.Pack.LvC)
 	}
 
 	if msg.Diagnostics != nil {

@@ -11,7 +11,7 @@ datasources:
       bootstrapServers: "kafka:9092"
       timestampMode: "event"        # event | received
       flattenDepth: 5
-      maxFieldsPerMessage: 1000
+      maxFieldsPerMessage: 11000 # 110 seconds of data at 100 Hz with 50 fields 
 
     secureJsonData:
       sslmode: "disable"
