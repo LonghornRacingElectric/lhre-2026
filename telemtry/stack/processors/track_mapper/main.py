@@ -90,21 +90,26 @@ try:
                     print(f"  Decoded Message: {decoded_message}")
                     print("LAP COMPLETED ", lapCompleted)
                     if not lapCompleted:
-                        gps = decoded_message.get('dynamics', {}).get('gps', [0, 0])
-                        gps = tuple(gps)
-                        print(" Extracted GPS data:", gps)
+                        gps_raw = decoded_message.get('dynamics', {}).get('gps', [0, 0])
+                        # Incoming GPS is [longitude, latitude], swap to [latitude, longitude]
+                        gps = tuple([gps_raw[1], gps_raw[0]])
+                        print(" Extracted GPS data (lon, lat):", gps_raw, "-> (lat, lon):", gps)
                         if allPoints == []:
                             allPoints.append(gps)
-                            producer.send('track-mapper', value = gps)
-                            print(f"Added first point {gps}.")
+                            msg = list(gps)  # [lat, lon] for Kafka
+                            producer.send('track-mapper', value=msg)
+                            producer.flush()  # Ensure message is sent immediately
+                            print(f"✓ Sent first point to Kafka: [lat={msg[0]}, lon={msg[1]}]")
                             
                         else:
                             lastPoint = allPoints[-1]
                             distance = haversine_distance(lastPoint[0], lastPoint[1], gps[0], gps[1])
-                            if distance > 3:
+                            if distance > 2.0:  # Minimum distance threshold in meters
                                 allPoints.append(gps)
-                                producer.send('track-mapper', value = gps)
-                                print(f"Added new point {gps} with distance {distance}m from last point.")
+                                msg = list(gps)  # [lat, lon] for Kafka
+                                producer.send('track-mapper', value=msg)
+                                producer.flush()  # Ensure message is sent immediately
+                                print(f"✓ Sent point [lat={msg[0]}, lon={msg[1]}] to Kafka (distance: {distance:.2f}m)")
                             if is_intersection((lastPoint, gps), gate):
                                 print("Lap completed!")
                                 lapCompleted = True
