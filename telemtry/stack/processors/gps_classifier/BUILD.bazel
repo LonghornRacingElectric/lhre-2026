@@ -1,0 +1,143 @@
+# telemtry/stack/processors/gps_classifier/BUILD.bazel
+# BUILD file for the GPS classifier processor
+# This processor analyzes GPS data to classify driving patterns (turns, acceleration, etc.)
+
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+load("@rules_python//python:pip.bzl", "compile_pip_requirements")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_load")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("@telemtry_reqs//:requirements.bzl", "requirement")
+
+package(default_visibility = ["//telemtry:__subpackages__"])
+
+# Compile pip requirements
+compile_pip_requirements(
+    name = "gps_classifier_requirements",
+    src = "requirements.txt",
+    requirements_txt = "requirements_lock.txt",
+    python_version = "3.11",
+    generate_hashes = False,
+    tags = ["requirements"],
+)
+
+# Export configuration files
+exports_files([
+    "docker-compose.yml",
+    "requirements.txt",
+    "requirements_lock.txt",
+])
+
+# Python library for the GPS classifier
+py_library(
+    name = "gps_classifier_lib",
+    srcs = [
+        "__init__.py",
+        "gps_classifier.py",
+        "main.py",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//telemtry/analysis:analysis_lib",
+        "//telemtry/stack/ingest:ingest_lib",
+        requirement("kafka-python"),
+        requirement("matplotlib"),
+        requirement("numpy"),
+        requirement("paho-mqtt"),
+        requirement("pandas"),
+        requirement("protobuf"),
+        requirement("psycopg2-binary"),
+        requirement("python-dotenv"),
+        requirement("requests"),
+        requirement("SQLAlchemy"),
+    ],
+)
+
+# Python binary for the GPS classifier
+py_binary(
+    name = "gps_classifier_binary",
+    srcs = ["main.py"],
+    main = "main.py",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":gps_classifier_lib",
+    ],
+)
+
+# Package the processor application files
+pkg_tar(
+    name = "gps_classifier_app_tar",
+    srcs = [
+        "__init__.py",
+        "gps_classifier.py",
+        "main.py",
+    ],
+    package_dir = "/app/stack/processors/gps_classifier",
+    strip_prefix = ".",
+)
+
+# Package ingest dependencies
+pkg_tar(
+    name = "ingest_deps_tar",
+    srcs = [
+        "//telemtry/stack/ingest:ingest_lib",
+        "//telemtry/stack/ingest:protobuf_files",
+    ],
+    package_dir = "/app/stack/ingest",
+)
+
+# Package analysis dependencies
+pkg_tar(
+    name = "analysis_deps_tar",
+    srcs = [
+        "//telemtry/analysis:analysis_lib",
+    ],
+    package_dir = "/app/analysis",
+)
+
+# Package configuration files
+pkg_tar(
+    name = "config_tar",
+    srcs = [
+        "//telemtry:config_files",
+    ],
+    package_dir = "/app",
+)
+
+# OCI image for the GPS classifier processor
+oci_image(
+    name = "gps_classifier_image",
+    base = "@python311_linux_amd64",
+    tars = [
+        ":gps_classifier_app_tar",
+        ":config_tar",
+    ],
+    entrypoint = ["python", "/app/stack/processors/gps_classifier/main.py"],
+    env = {
+        "PYTHONPATH": "/app",
+        "PYTHONUNBUFFERED": "1",
+    },
+    visibility = ["//visibility:public"],
+)
+
+# Tarball for local Docker loading (use oci_load instead of oci_tarball)
+oci_load(
+    name = "gps_classifier_tarball",
+    image = ":gps_classifier_image",
+    repo_tags = ["gps_classifier:latest"],
+)
+
+# Push target for container registry
+oci_push(
+    name = "gps_classifier_push",
+    image = ":gps_classifier_image",
+    repository = "ghcr.io/longhornracingelectric/telemetry-gps-classifier",
+)
+
+# Unit tests for GPS classifier (if any exist in tests/ folder)
+# py_test(
+#     name = "gps_classifier_tests",
+#     srcs = glob(["tests/**/*.py"]),
+#     deps = [
+#         ":gps_classifier_lib",
+#     ],
+# )

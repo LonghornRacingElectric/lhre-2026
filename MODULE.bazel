@@ -13,6 +13,10 @@ bazel_dep(name = "bazel_skylib", version = "1.8.1")
 bazel_dep(name = "rules_rust", version = "0.63.0")
 bazel_dep(name = "rules_python", version = "1.5.3")
 
+# Docker/OCI container rules for telemetry services
+bazel_dep(name = "rules_oci", version = "2.0.1")
+bazel_dep(name = "rules_pkg", version = "1.0.1")
+
 # Hermetic C/C++ Host Toolchain
 # llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
 # llvm.toolchain(
@@ -36,7 +40,7 @@ register_toolchains(
 git_override(
     module_name = "toolchains_arm_gnu",
     remote = "https://github.com/LonghornRacingElectric/toolchains_arm_gnu.git",
-    commit = "4b8b8e5ab8b4b2fa0758662735f7d96e0b690a43",
+    commit = "613f3423e4370efc1057435217f56b499c24be0c",
 )
 
 arm_toolchain = use_extension("@toolchains_arm_gnu//:extensions.bzl", "arm_toolchain")
@@ -50,14 +54,32 @@ python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
     python_version = "3.13",
 )
+python.toolchain(
+    python_version = "3.11",
+    is_default = False,
+)
 
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
     hub_name = "dfu_reqs",
-    python_version = "3.13",
+    python_version = "3.11",
     requirements_lock = "//tools/dfu:requirements_lock.txt",
 )
-use_repo(pip, "dfu_reqs")
+
+pip.parse(
+    hub_name = "telemtry_reqs",
+    python_version = "3.11",
+    requirements_lock = "//telemtry/analysis:requirements_lock.txt",
+    requirements_darwin = "//telemtry/analysis:requirements_lock_darwin.txt",
+    requirements_windows = "//telemtry/analysis:requirements_lock_windows.txt",
+)
+
+pip.parse(
+    hub_name = "telemtry_stack_reqs",
+    python_version = "3.11",
+    requirements_lock = "//telemtry/stack/ingest:requirements_lock.txt",
+)
+use_repo(pip, "dfu_reqs", "telemtry_reqs", "telemtry_stack_reqs")
 
 bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
 git_override(
@@ -91,3 +113,64 @@ use_repo(dfu, "dfu")
 # )
 
 # use_repo(crate, "crate_index")
+
+# OCI Container Base Images for Telemetry Services
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+
+# Python 3.11 base image for telemetry containers
+oci.pull(
+    name = "python311",
+    image = "docker.io/library/python",
+    tag = "3.11.4-slim",
+    platforms = ["linux/amd64", "linux/arm64"],
+)
+
+# PostgreSQL base image
+oci.pull(
+    name = "postgres17",
+    image = "docker.io/library/postgres",
+    tag = "17",
+    platforms = ["linux/amd64", "linux/arm64"],
+)
+
+# Eclipse Mosquitto MQTT broker
+oci.pull(
+    name = "mosquitto",
+    image = "docker.io/library/eclipse-mosquitto",
+    tag = "latest",
+    platforms = ["linux/amd64", "linux/arm64"],
+)
+
+# Apache Kafka
+oci.pull(
+    name = "kafka",
+    image = "docker.io/apache/kafka",
+    tag = "4.1.0",
+    platforms = ["linux/amd64"],
+)
+
+# Grafana
+oci.pull(
+    name = "grafana",
+    image = "docker.io/grafana/grafana-oss",
+    tag = "latest",
+    platforms = ["linux/amd64", "linux/arm64"],
+)
+
+use_repo(
+    oci,
+    "python311",
+    "python311_linux_amd64",
+    "python311_linux_arm64",
+    "postgres17",
+    "postgres17_linux_amd64",
+    "postgres17_linux_arm64",
+    "mosquitto",
+    "mosquitto_linux_amd64",
+    "mosquitto_linux_arm64",
+    "kafka",
+    "kafka_linux_amd64",
+    "grafana",
+    "grafana_linux_amd64",
+    "grafana_linux_arm64",
+)

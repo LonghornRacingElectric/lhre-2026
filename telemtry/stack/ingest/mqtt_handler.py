@@ -376,29 +376,20 @@ class MQTTHandler:
 def main():
     '''
     This is the runner script for the subscribe-side MQTT script which uploads data to the database.
-    Whether to use safe, unsafe, or connection pool DBHandler is determined by DB_CONN_TYPE environment variable
-    and defaults to unsafe. To use a connection pool, set it to the desired connection pool size.
-
-    Options:
-        1   Runs MQTT Ingest server with safe DBHandler
-        2   Runs MQTT Ingest server with unsafe DBHandler
-        3+  Runs MQTT Ingest server with unsafe DBHandler using connection pool of size of arg
     '''
-    try:
-        conn_type = int(os.getenv('DB_CONN_TYPE', 2))
-        if not 0 < conn_type < 11:
-            raise ValueError
-    except ValueError:
-        raise ValueError('DB_CONN_TYPE must be an integer 1-10.')
-
+    
     with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session:
         db_sessions = {'Nightwatch': nightwatch_session, 'Angelique': angelique_session}
         with MQTTHandler('ingest', db_sessions=db_sessions, target=MQTTTarget.get()) as mqtt:
             mqtt.subscribe(topic='#')
 
-
 if __name__ == '__main__':
     logging.basicConfig(level=os.getenv('LOGLEVEL', 'DEBUG'))
+    logging.getLogger("kafka").setLevel(logging.WARNING)
+    logging.getLogger("kafka.conn").setLevel(logging.WARNING)
+    logging.getLogger("kafka.consumer").setLevel(logging.WARNING)
+    logging.getLogger("kafka.producer").setLevel(logging.WARNING)
+
     if logging.root.level == logging.DEBUG:
         time.sleep(3)
         logging.debug('-' * 40 + '\n\n\t\tYOU ARE IN DEBUGGING MODE\n\n ' + '-' * 50)

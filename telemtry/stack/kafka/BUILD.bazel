@@ -1,0 +1,19 @@
+# telemtry/stack/kafka/BUILD.bazel
+# BUILD file for Kafka broker configuration
+# Note: Kafka uses a pre-built image, this file exports compose files and configs
+
+package(default_visibility = ["//telemtry:__subpackages__"])
+
+# Export the docker-compose file for Kafka
+exports_files([
+    "docker-compose.yml",
+])
+
+# Filegroup for Kafka configuration
+filegroup(
+    name = "kafka_configs",
+    srcs = [
+        "docker-compose.yml",
+    ],
+    visibility = ["//visibility:public"],
+)
