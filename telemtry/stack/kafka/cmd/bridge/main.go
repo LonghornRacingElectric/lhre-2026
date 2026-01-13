@@ -355,10 +355,15 @@ func angeliqueToMap(msg *sensor.AngeliqueSensorData) map[string]interface{} {
 		m["gps_heading"] = msg.Dynamics.GpsHeading
 		m["flw_speed"] = msg.Dynamics.FlwSpeed
 		m["frw_speed"] = msg.Dynamics.FrwSpeed
+		m["front_speed"] = (msg.Dynamics.FlwSpeed + msg.Dynamics.FrwSpeed) / 2
 		m["blw_speed"] = msg.Dynamics.BlwSpeed
 		m["brw_speed"] = msg.Dynamics.BrwSpeed
+		m["rear_speed"] = (msg.Dynamics.BlwSpeed + msg.Dynamics.BrwSpeed) / 2
 		m["inverter_v"] = msg.Dynamics.InverterV
 		m["inverter_c"] = msg.Dynamics.InverterC
+		m["inverter_electrical_power"] = msg.Dynamics.InverterV * float32(msg.Dynamics.InverterC)
+		m["inverter_mechanical_power"] = float32(msg.Dynamics.InverterRpm) * float32(msg.Dynamics.InverterTorque) / 9.5490
+		m["efficiency"] = (float32(msg.Dynamics.InverterRpm) * float32(msg.Dynamics.InverterTorque) / 9.5490) / (msg.Dynamics.InverterV * float32(msg.Dynamics.InverterC))
 		m["inverter_rpm"] = msg.Dynamics.InverterRpm
 		m["inverter_torque"] = msg.Dynamics.InverterTorque
 		m["latitude"] = msg.Dynamics.Gps[0]

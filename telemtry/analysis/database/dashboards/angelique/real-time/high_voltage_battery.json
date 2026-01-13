@@ -76,7 +76,7 @@
           { "matcher": { "id": "byName", "options": "hv_c" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "lv_v" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "hv_power" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "ambient_temp" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byName", "options": "lv_power" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },          { "matcher": { "id": "byName", "options": "ambient_temp" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "contactor_state" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "avg_cell_v" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "avg_cell_temp" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
@@ -92,7 +92,10 @@
           { "matcher": { "id": "byName", "options": "max_cell_temp" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "min_cell_temp" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "time 2" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "offset" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] }
+          { "matcher": { "id": "byName", "options": "offset" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byName", "options": "inverter_electrical_power" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byName", "options": "inverter_mechanical_power" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byName", "options": "efficiency" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] }
         ]
       },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
@@ -125,7 +128,8 @@
           { "matcher": { "id": "byName", "options": "hv_tractive_v" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }, { "id": "displayName", "value": "HV Tractive Voltage" }] },
           { "matcher": { "id": "byName", "options": "hv_c" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }, { "id": "displayName", "value": "HV Current" }] },
           { "matcher": { "id": "byName", "options": "hv_power" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }, { "id": "displayName", "value": "HV Power" }] },
-          { "matcher": { "id": "byName", "options": "lv_v" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }] },
+          { "matcher": { "id": "byName", "options": "lv_power" }, "properties": [{ "id": "custom.hideFrom", "value": {"legend": true, "tooltip":true, "viz": true} }] },
+          { "matcher": { "id": "byName", "options": "lv_v" }, "properties": [{ "id": "custom.hideFrom", "value": {"legend": true, "tooltip":true, "viz": true} }] },
           { "matcher": { "id": "byName", "options": "time" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "packet_id" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "car_type" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
@@ -165,7 +169,10 @@
           { "matcher": { "id": "byName", "options": "max_cell_temp" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "min_cell_temp" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "time 2" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "offset" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] }
+          { "matcher": { "id": "byName", "options": "offset" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byName", "options": "inverter_electrical_power" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byName", "options": "inverter_mechanical_power" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byName", "options": "efficiency" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] }
         ]
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
@@ -222,6 +229,7 @@
           { "matcher": { "id": "byName", "options": "lv_v" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "lv_c" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "hv_power" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byName", "options": "lv_power" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "contactor_state" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "avg_cell_temp_stat" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "avg_cell_temp" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
@@ -235,10 +243,13 @@
           { "matcher": { "id": "byName", "options": "motor_temp" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "flow_rate" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "time 2" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "offset" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] }
+          { "matcher": { "id": "byName", "options": "offset" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byName", "options": "inverter_electrical_power" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byName", "options": "inverter_mechanical_power" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byName", "options": "efficiency" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] }
         ]
       },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
       "id": 3,
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
       "pluginVersion": "11.3.0",
