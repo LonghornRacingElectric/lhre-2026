@@ -361,13 +361,21 @@ func angeliqueToMap(msg *sensor.AngeliqueSensorData) map[string]interface{} {
 		m["rear_speed"] = (msg.Dynamics.BlwSpeed + msg.Dynamics.BrwSpeed) / 2
 		m["inverter_v"] = msg.Dynamics.InverterV
 		m["inverter_c"] = msg.Dynamics.InverterC
-		m["inverter_electrical_power"] = msg.Dynamics.InverterV * float32(msg.Dynamics.InverterC)
-		m["inverter_mechanical_power"] = float32(msg.Dynamics.InverterRpm) * float32(msg.Dynamics.InverterTorque) / 9.5490
-		m["efficiency"] = (float32(msg.Dynamics.InverterRpm) * float32(msg.Dynamics.InverterTorque) / 9.5490) / (msg.Dynamics.InverterV * float32(msg.Dynamics.InverterC))
+		electricalPower := msg.Dynamics.InverterV * float32(msg.Dynamics.InverterC)
+		mechanicalPower := float32(msg.Dynamics.InverterRpm) * float32(msg.Dynamics.InverterTorque) / 9.5490
+		m["inverter_electrical_power"] = electricalPower
+		m["inverter_mechanical_power"] = mechanicalPower
+		if electricalPower != 0 {
+			m["efficiency"] = mechanicalPower / electricalPower
+		} else {
+			m["efficiency"] = float32(0)
+		}
 		m["inverter_rpm"] = msg.Dynamics.InverterRpm
 		m["inverter_torque"] = msg.Dynamics.InverterTorque
-		m["latitude"] = msg.Dynamics.Gps[0]
-		m["longitude"] = msg.Dynamics.Gps[1]
+		if len(msg.Dynamics.Gps) >= 2 {
+			m["latitude"] = msg.Dynamics.Gps[0]
+			m["longitude"] = msg.Dynamics.Gps[1]
+		}
 	}
 
 	if msg.Controls != nil {
