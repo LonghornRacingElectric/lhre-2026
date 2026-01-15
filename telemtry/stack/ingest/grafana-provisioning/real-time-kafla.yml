@@ -12,6 +12,9 @@ datasources:
       timestampMode: "event"        # event | received
       flattenDepth: 5
       maxFieldsPerMessage: 11000 # 110 seconds of data at 100 Hz with 50 fields 
+      pollTimeoutMs: 500
+      maxWaitMs: 500
+      readTimeoutMs: 1000
 
     secureJsonData:
       sslmode: "disable"
