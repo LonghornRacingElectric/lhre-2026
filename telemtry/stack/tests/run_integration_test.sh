@@ -104,6 +104,7 @@ start_infrastructure() {
     # Start Kafka first
     docker-compose -f "$KAFKA_COMPOSE" up --build -d
     wait_for_service "Kafka" "localhost" "9092" 120
+    wait_for_service "Kafka Bridge" "localhost" "50051" 120
     
     # Start Ingest (includes Mosquitto, PostgreSQL, Grafana)
     docker-compose -f "$INGEST_COMPOSE" up --build -d
@@ -147,6 +148,7 @@ run_tests() {
     # Run connectivity tests first
     python3 -m pytest test_mqtt_connectivity.py -v || return 1
     python3 -m pytest test_kafka_connectivity.py -v || return 1
+    python3 -m pytest test_kafka_bridge_seed.py -v || return 1
     python3 -m pytest test_db_connectivity.py -v || return 1
     
     # Run data flow tests

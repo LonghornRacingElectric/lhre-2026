@@ -20,71 +20,11 @@
   "panels": [
     {
       "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" },
-      "fieldConfig": {
-        "overrides": [
-          { "matcher": { "id": "byName", "options": "time" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "packet_id" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "car_type" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "torque_request" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "gps_velocity" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "gps_heading" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "flw_speed" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "frw_speed" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "blw_speed" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "brw_speed" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "inverter_v" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "inverter_c" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "inverter_rpm" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "inverter_torque" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "apps1_v" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "apps2_v" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "bse1_v" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "bse2_v" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "steer_v" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "hv_pack_v" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "hv_tractive_v" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "hv_c" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "hv_power" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "lv_power" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "lv_v" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "lv_c" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "contactor_state" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "avg_cell_v" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "avg_cell_temp" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "hv_charge_state" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "lv_charge_state" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "avg_cell_v_stat" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "max_cell_v" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "min_cell_v" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "inverter_temp" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "motor_temp" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "flow_rate" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "avg_cell_temp_stat" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "max_cell_temp" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "min_cell_temp" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "time 2" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "offset" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "inverter_electrical_power" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "inverter_mechanical_power" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "efficiency" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "front_speed" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byName", "options": "rear_speed" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-
-          { "matcher": { "id": "byName", "options": "latitude" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": false } }] },
-          { "matcher": { "id": "byName", "options": "longitude" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": false } }] }
-        ]
-      },
+      
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "id": 1,
       "options": {
-        "view": { "id": "coords", "lat": 30.2849, "lon": -97.7341, "zoom": 14 },
-        "layers": [
-          {
-            "type": "markers",
-            "config": { "style": { "size": { "fixed": 5 }, "color": { "fixed": "red" } } },
-            "location": { "mode": "coords", "latitude": "latitude", "longitude": "longitude" }
-          }
-        ]
+        "view": { "id": "coords", "lat": 30.2849, "lon": -97.7341, "zoom": 14 }
       },
       "pluginVersion": "11.3.0",
       "targets": [{ "autoOffsetReset": "latest", "avroSchemaSource": "schemaRegistry", "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" }, "lastN": 100, "messageFormat": "json", "partition": "all", "refId": "A", "timestampMode": "message", "topicName": "grafana_data" }],
