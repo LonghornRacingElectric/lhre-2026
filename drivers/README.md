@@ -65,4 +65,139 @@ Additionally, the USB device library automatically enforces longhorn-lib to be i
 The reasoning behind this is that longhorn-lib provides the necessary USB receiving methods
 for boards to accept DFU.
 
-TODO: [Issue Link](https://github.com/LonghornRacingElectric/lhre-2026/issues/15)
+### DFU
+
+DFU is enabled by adding the following line to your `firmware_project_g4` declaration:
+
+```bazel
+enable_dfu = True,
+```
+
+This will automatically enable USB as well if not already enabled.
+
+#### Using DFU with RTOS
+
+If using RTOS, preferably use the following include:
+
+```c
+#include "rtos/dfu.h"
+```
+
+This will expose the DFU API for use within your RTOS tasks. To use, add the following to either
+MX_FreeRTOS_Init or your default task after starting the scheduler:
+
+```c
+dfu_config dfu = {
+        .delay_fn = osDelay, // RTOS delay function
+        .gpiox = GPIOB, // Replace this with the pin port for your board's boot0 pin
+        .pin = GPIO_PIN_7, // Replace this with the pin number for your board's boot0 pin
+        .pin_set_fn = HAL_GPIO_WritePin, // Function to set the pin high/low
+        .reset_fn = HAL_NVIC_SystemReset, // Function to reset the system
+    };
+
+// Initialize DFU
+init_dfu(dfu);
+dfu_start_thread();
+```
+
+#### Using DFU without RTOS
+
+If not using RTOS, use the following include:
+
+```c
+#include "dfu_base.h"
+```
+
+This will expose the bare-metal DFU API. To use, add the following to your main function
+before the main loop:
+
+```c
+dfu_config dfu = {
+        .delay_fn = HAL_Delay, // HAL delay function
+        .gpiox = GPIOB, // Replace this with the pin port for your board's boot0 pin
+        .pin = GPIO_PIN_7, // Replace this with the pin number for your board's boot0 pin
+        .pin_set_fn = HAL_GPIO_WritePin, // Function to set the pin high/low
+        .reset_fn = HAL_NVIC_SystemReset, // Function to reset the system
+    };
+
+// Initialize DFU
+dfu_init(dfu);
+```
+
+Then, add the following to your main loop:
+
+```c
+// Poll DFU
+check_dfu();
+```
+
+Now, your DFU flashing should work!
+
+### Rainbow LED
+
+To use the raibow LED driver, it depends on if you are using RTOS or not.
+
+#### Using Rainbow LED with RTOS
+
+If using RTOS, include the following:
+
+```c
+#include "rtos/led.h"
+```
+
+Then, in your FreeRTOS initialization function (e.g. `MX_FREERTOS_Init`), add the following:
+
+```c
+rainbow_led_t led = {
+        .ccr2 = &TIM2->CCR1, // CCR1 for PWM Timer
+        .ccr1 = &TIM2->CCR2, // CCR2 for PWM Timer
+        .ccr3 = &TIM2->CCR3, // CCR3 for PWM Timer
+        .channel1 = TIM_CHANNEL_1, // Timer channel used for your colors
+        .channel2 = TIM_CHANNEL_2, // Timer channel used for your colors
+        .channel3 = TIM_CHANNEL_3, // Timer channel used for your colors
+        .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start, // to start PWM when the thread is created, note that this is casted to avoid warnings
+        .timer_handle = &htim2, // handle to the timer being used
+    };
+
+led_init(&led); // initializes the driver and starts PWM
+
+led_start_thread(&led); // starts the LED thread
+```
+
+#### Using Rainbow LED without RTOS
+
+If not using RTOS, include the following:
+
+```c
+#include "led_base.h"
+```
+
+Then, in your main function, add the following before the main loop:
+
+```c
+ rainbow_led_t led = {
+        .ccr2 = &TIM2->CCR1,
+        .ccr1 = &TIM2->CCR2,
+        .ccr3 = &TIM2->CCR3,
+        .channel1 = TIM_CHANNEL_1,
+        .channel2 = TIM_CHANNEL_2,
+        .channel3 = TIM_CHANNEL_3,
+        .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
+        .timer_handle = &htim2,
+    };
+
+init_led(&led); // initializes the driver and starts PWM
+```
+
+Then, in your main loop, add the following:
+
+```c
+// you may want to replace the 0.01f with the amount of time (in seconds) between LED updates
+led_rainbow(0.01f); // updates the LED colors
+```
+
+### Custom CAN Library
+
+We provide a custom CAN library that abstracts the HAL FDCAN driver, allowing for easy periodic message sending and simplified reception handling.
+
+Detailed documentation and examples can be found in [drivers/longhorn-lib/README.md](longhorn-lib/README.md).

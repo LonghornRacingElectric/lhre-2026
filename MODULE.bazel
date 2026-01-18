@@ -2,56 +2,90 @@
 
 module(name = "lhre-2026")
 
-bazel_dep(name = "toolchains_llvm", version = "1.4.0")
+# bazel_dep(name = "toolchains_llvm", version = "1.4.0")
+bazel_dep(name = "hermetic_cc_toolchain", version = "3.2.0")
 bazel_dep(name = "toolchains_arm_gnu", version = "1.1.0")
 bazel_dep(name = "rules_cc", version = "0.2.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "aspect_bazel_lib", version = "2.20.0")
 bazel_dep(name = "googletest", version = "1.17.0")
 bazel_dep(name = "bazel_skylib", version = "1.8.1")
-
 bazel_dep(name = "rules_rust", version = "0.63.0")
 bazel_dep(name = "rules_python", version = "1.5.3")
 
+# Docker/OCI container rules for telemetry services
+bazel_dep(name = "rules_oci", version = "2.0.1")
+bazel_dep(name = "rules_pkg", version = "1.0.1")
 
 # Hermetic C/C++ Host Toolchain
-llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
-llvm.toolchain(
-   llvm_version = "19.1.0",
+# llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+# llvm.toolchain(
+#    llvm_version = "19.1.0",
+# )
+
+# use_repo(llvm, "llvm_toolchain")
+
+# register_toolchains("@llvm_toolchain//:all")
+
+toolchains = use_extension("@hermetic_cc_toolchain//toolchain:ext.bzl", "toolchains")
+use_repo(toolchains, "zig_sdk", "zig_sdk-linux-amd64", "zig_sdk-linux-arm64", "zig_sdk-macos-amd64", "zig_sdk-macos-arm64", "zig_sdk-windows-amd64")
+
+register_toolchains(
+    "@zig_sdk//libc_aware/toolchain/...",
+    "@zig_sdk//toolchain/...",
 )
 
-use_repo(llvm, "llvm_toolchain")
-
-register_toolchains("@llvm_toolchain//:all")
-
 # Hermetic C/C++ ARM Toolchain
-arm_toolchain = use_extension("@toolchains_arm_gnu//:extensions.bzl", "arm_toolchain")
+# Override to use a custom fork for the ARM toolchain, allowing for patches.
+git_override(
+    module_name = "toolchains_arm_gnu",
+    remote = "https://github.com/LonghornRacingElectric/toolchains_arm_gnu.git",
+    commit = "613f3423e4370efc1057435217f56b499c24be0c",
+)
 
+arm_toolchain = use_extension("@toolchains_arm_gnu//:extensions.bzl", "arm_toolchain")
 arm_toolchain.arm_none_eabi(version = "13.2.1")
 use_repo(arm_toolchain, "arm_none_eabi")
-register_toolchains("@arm_none_eabi//toolchain:all")
 
+register_toolchains("@arm_none_eabi//toolchain:all")
 
 # Hermetic Python Toolchain
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
     python_version = "3.13",
 )
+python.toolchain(
+    python_version = "3.11",
+    is_default = False,
+)
 
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
-    hub_name = "pypi",
-    python_version = "3.13",
-    requirements_lock = "//:requirements_lock.txt",
+    hub_name = "dfu_reqs",
+    python_version = "3.11",
+    requirements_lock = "//tools/dfu:requirements_lock.txt",
 )
 
-use_repo(pip, "pypi")
+pip.parse(
+    hub_name = "telemtry_reqs",
+    python_version = "3.11",
+    requirements_lock = "//telemtry/analysis:requirements_lock.txt",
+    requirements_darwin = "//telemtry/analysis:requirements_lock_darwin.txt",
+    requirements_windows = "//telemtry/analysis:requirements_lock_windows.txt",
+)
+
+pip.parse(
+    hub_name = "telemtry_stack_reqs",
+    python_version = "3.11",
+    requirements_lock = "//telemtry/stack/ingest:requirements_lock.txt",
+)
+use_repo(pip, "dfu_reqs", "telemtry_reqs", "telemtry_stack_reqs")
 
 bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
 git_override(
     module_name = "hedron_compile_commands",
-    remote = "https://github.com/hedronvision/bazel-compile-commands-extractor.git",
     commit = "abb61a688167623088f8768cc9264798df6a9d10",
+    remote = "https://github.com/hedronvision/bazel-compile-commands-extractor.git",
 )
 
 # Hermetic OpenOCD
@@ -63,19 +97,80 @@ dfu = use_extension("//tools/dfu:dfu.bzl", "dfu")
 use_repo(dfu, "dfu")
 
 # Hermetic Rust Toolchain
-rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
-rust.toolchain(
-    edition = "2024",
-    versions = [ "1.85.0" ],
+# rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+# rust.toolchain(
+#     edition = "2024",
+#     versions = [ "1.85.0" ],
+# )
+
+# # Crate Universe / Crate (Cargo integration)
+# crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+
+# crate.from_cargo(
+#     name = "crate_index",
+#     manifests = ["//:Cargo.toml"],
+#     cargo_lockfile = "//:Cargo.lock",
+# )
+
+# use_repo(crate, "crate_index")
+
+# OCI Container Base Images for Telemetry Services
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+
+# Python 3.11 base image for telemetry containers
+oci.pull(
+    name = "python311",
+    image = "docker.io/library/python",
+    tag = "3.11.4-slim",
+    platforms = ["linux/amd64", "linux/arm64"],
 )
 
-# Crate Universe / Crate (Cargo integration)
-crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
-
-crate.from_cargo(
-    name = "crate_index",
-    manifests = ["//:Cargo.toml"],
-    cargo_lockfile = "//:Cargo.lock", 
+# PostgreSQL base image
+oci.pull(
+    name = "postgres17",
+    image = "docker.io/library/postgres",
+    tag = "17",
+    platforms = ["linux/amd64", "linux/arm64"],
 )
 
-use_repo(crate, "crate_index")
+# Eclipse Mosquitto MQTT broker
+oci.pull(
+    name = "mosquitto",
+    image = "docker.io/library/eclipse-mosquitto",
+    tag = "latest",
+    platforms = ["linux/amd64", "linux/arm64"],
+)
+
+# Apache Kafka
+oci.pull(
+    name = "kafka",
+    image = "docker.io/apache/kafka",
+    tag = "4.1.0",
+    platforms = ["linux/amd64"],
+)
+
+# Grafana
+oci.pull(
+    name = "grafana",
+    image = "docker.io/grafana/grafana-oss",
+    tag = "latest",
+    platforms = ["linux/amd64", "linux/arm64"],
+)
+
+use_repo(
+    oci,
+    "python311",
+    "python311_linux_amd64",
+    "python311_linux_arm64",
+    "postgres17",
+    "postgres17_linux_amd64",
+    "postgres17_linux_arm64",
+    "mosquitto",
+    "mosquitto_linux_amd64",
+    "mosquitto_linux_arm64",
+    "kafka",
+    "kafka_linux_amd64",
+    "grafana",
+    "grafana_linux_amd64",
+    "grafana_linux_arm64",
+)

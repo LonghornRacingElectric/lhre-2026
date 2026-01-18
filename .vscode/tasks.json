@@ -13,10 +13,10 @@
       "presentation": {
         "reveal": "never",
         "panel": "dedicated"
-      },
-      "runOptions": {
-        "runOn": "folderOpen"
       }
+      // "runOptions": {
+      //   "runOn": "folderOpen"
+      // }
     },
     {
       "label": "Generate compile_commands.json",
@@ -30,10 +30,10 @@
       "presentation": {
         "reveal": "never",
         "panel": "dedicated"
-      },
-      "runOptions": {
-        "runOn": "folderOpen"
       }
+      // "runOptions": {
+      //   "runOn": "folderOpen"
+      // }
     },
     {
       "label": "vcu-firmware-build",
@@ -51,10 +51,10 @@
       "presentation": {
         "reveal": "always",
         "panel": "dedicated"
-      },
-      "runOptions": {
-        "runOn": "folderOpen"
       }
+      // "runOptions": {
+      //   "runOn": "folderOpen"
+      // }
     }
   ]
 }

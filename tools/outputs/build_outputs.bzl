@@ -106,7 +106,7 @@ MCU_FLAGS = [
     "-mthumb",
     "-mfpu=fpv4-sp-d16",
     "-mfloat-abi=hard",
-    "-fdiagnostics-color"
+    "-fdiagnostics-color",
 ]
 
 def firmware_project_g4(
@@ -120,6 +120,7 @@ def firmware_project_g4(
         usb_device_name = None,
         extra_includes = [],
         enable_freertos = False,
+        enable_dfu = False,
         locations = [],
         **kwargs):
     """Creates a firmware project for the STM32G4 family of chips.
@@ -135,6 +136,7 @@ def firmware_project_g4(
         usb_device_name (_type_, optional): name you want the USB driver to have. Defaults to None.
         extra_includes (list, optional): extra include paths to compile with. Defaults to [].
         enable_freertos (bool, optional): Whether or not to use FreeRTOS. Defaults to False.
+        enable_dfu (bool, optional): Whether or not to accept strings to go into DFU. Defaults to False.
         locations (list, optional): A list of location identifiers (e.g., ["FR", "FL"]).
                                     For each location, a separate binary will be generated
                                     with a "BOARD_<location>" define. Defaults to [].
@@ -149,8 +151,6 @@ def firmware_project_g4(
     final_extra_deps = extra_deps[:]
     final_defines = defines[:]
 
-    final_extra_srcs.append("//drivers/longhorn-lib:longhorn_lib_srcs")
-
     if (enable_usb):
         final_extra_srcs.append("//drivers/stm32g4:usb_device_srcs")
         final_extra_deps.append("//drivers/stm32g4:usb_device_headers")
@@ -159,6 +159,10 @@ def firmware_project_g4(
     if (enable_freertos):
         final_extra_srcs.append("//drivers/stm32g4:freertos_srcs")
         final_extra_deps.append("//drivers/stm32g4:freertos_headers")
+
+    # enable DFU if the board has it enabled
+    if (enable_dfu):
+        final_defines.append("ENABLE_DFU")
 
     # --- Target generation logic ---
     release_srcs = []
@@ -180,6 +184,9 @@ def firmware_project_g4(
             project_name = name + "_" + location
             location_defines.append("BOARD_" + location)
 
+        # Longhorn Lib is defined for both bare metal and FreeRTOS targets
+        ll_version = "//drivers/longhorn-lib:longhorn_lib_stm32g4" if enable_freertos else "//drivers/longhorn-lib:longhorn_lib_base_stm32g4"
+
         # Main cc_binary target for the elf file
         cc_binary(
             name = target_name + "_project",
@@ -196,7 +203,7 @@ def firmware_project_g4(
             ] + extra_includes,
             deps = final_extra_deps + [
                 "//drivers/stm32g4:stm32_headers",
-                "//drivers/longhorn-lib:longhorn_lib"
+                ll_version,
             ],
             linkopts = MCU_FLAGS + [
                 "-Wl,-Map=" + target_name + ".map,--cref",  # Use unique map file
@@ -207,6 +214,7 @@ def firmware_project_g4(
                 "-lnosys",
                 "-lc",
                 "-lm",
+                "-u _printf_float",
             ],
             defines = final_defines + location_defines + ["USE_HAL_DRIVER"],
             additional_linker_inputs = [
@@ -247,12 +255,6 @@ def firmware_project_g4(
             tags = ["stm32_firmware"],
         )
 
-        # # Generate .bin and .hex files
-        # firmware_outputs(
-        #   name = target_name + "_out",
-        #   src = target_name,
-        #   project_name = project_name, # Pass the unique project name for file naming
-        # )
         elf_out(
             name = project_name,
             src = target_name,
@@ -310,6 +312,7 @@ def firmware_project_g4(
             ],
             deps = [
                 "@rules_python//python/runfiles",
+                "@dfu_reqs//pyserial",
             ],
             tags = ["local", "flasher"],
         )

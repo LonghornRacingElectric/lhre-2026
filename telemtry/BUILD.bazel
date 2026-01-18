@@ -1,0 +1,176 @@
+# telemtry/BUILD.bazel
+# Main BUILD file for the telemetry system
+# Contains shared resources and aggregate targets for the entire telemetry stack
+#
+# Key targets:
+#   - //telemtry:telemetry_images     - Build all Docker container images
+#   - //telemtry:telemetry_all        - Build everything (Docker + non-Docker)
+#   - //telemtry:telemetry_tests      - Run all telemetry tests
+#   - //telemtry:telemetry_push       - Push all images to registry
+#
+# Usage:
+#   bazel build //telemtry:telemetry_images    # Build all container images
+#   bazel test //telemtry:telemetry_tests      # Run all tests
+#   bazel run //telemtry:ingest_tarball        # Load ingest image to local Docker
+
+load("@rules_python//python:defs.bzl", "py_library")
+load("@rules_oci//oci:defs.bzl", "oci_push")
+
+package(default_visibility = ["//telemtry:__subpackages__"])
+
+# Export the network configuration file for all telemetry services
+exports_files([
+    "net_configs.json",
+    ".env.example",
+])
+
+# Environment configuration files for tests
+# Uses glob() so .env is optional - CI uses env vars from secrets instead
+# Local development uses .env file (copy from .env.example)
+filegroup(
+    name = "env_files",
+    srcs = glob([".env"], allow_empty = True),
+    visibility = ["//visibility:public"],
+)
+
+# Shared Python library containing common utilities used across telemetry
+py_library(
+    name = "telemtry_common",
+    srcs = ["__init__.py"],
+    visibility = ["//visibility:public"],
+)
+
+# Filegroup for all telemetry configuration files
+filegroup(
+    name = "config_files",
+    srcs = [
+        "net_configs.json",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# ============================================================================
+# Docker Image Targets
+# ============================================================================
+
+# Aggregate target for all telemetry Docker images
+filegroup(
+    name = "telemetry_images",
+    srcs = [
+        "//telemtry/stack/ingest:ingest_image",
+        "//telemtry/stack/processors/gps_classifier:gps_classifier_image",
+        "//telemtry/stack/processors/kafka_base:kafka_base_image",
+        "//telemtry/stack/processors/lap_timer:lap_timer_image",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# Aggregate target for all Docker tarballs (for local loading)
+filegroup(
+    name = "telemetry_tarballs",
+    srcs = [
+        "//telemtry/stack/ingest:ingest_tarball",
+        "//telemtry/stack/processors/gps_classifier:gps_classifier_tarball",
+        "//telemtry/stack/processors/kafka_base:kafka_base_tarball",
+        "//telemtry/stack/processors/lap_timer:lap_timer_tarball",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# ============================================================================
+# Comprehensive Build Targets
+# ============================================================================
+
+# Aggregate target for building the entire telemetry system
+# This includes both Docker containers and non-Docker components
+filegroup(
+    name = "telemetry_all",
+    srcs = [
+        ":telemetry_images",
+        ":config_files",
+        "//telemtry/analysis:analysis_lib",
+        "//telemtry/stack:stack_lib",
+        "//telemtry/stack/ingest:db_init_scripts",
+        "//telemtry/stack/kafka:kafka_configs",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# ============================================================================
+# Test Targets
+# ============================================================================
+
+# Unit tests only (no Docker required)
+test_suite(
+    name = "unit_tests",
+    tests = [
+        "//telemtry/analysis/tests:analysis_tests",
+        "//telemtry/stack/tests:protobuf_test",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# Integration tests (requires Docker containers to be running)
+test_suite(
+    name = "integration_tests",
+    tags = ["integration"],
+    tests = [
+        "//telemtry/stack/tests:data_flow_test",
+        "//telemtry/stack/tests:db_connectivity_test",
+        "//telemtry/stack/tests:kafka_connectivity_test",
+        "//telemtry/stack/tests:mqtt_connectivity_test",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# Full integration test with Docker lifecycle management
+test_suite(
+    name = "full_integration_tests",
+    tags = ["integration", "docker", "manual"],
+    tests = [
+        "//telemtry/stack/tests:stack_integration_test",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# All telemetry tests (unit + integration)
+test_suite(
+    name = "telemetry_tests",
+    tests = [
+        ":integration_tests",
+        ":unit_tests",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# ============================================================================
+# Docker Compose File References
+# ============================================================================
+
+# Filegroup containing all docker-compose files for the telemetry stack
+filegroup(
+    name = "compose_files",
+    srcs = [
+        "//telemtry/stack/ingest:docker-compose.yml",
+        "//telemtry/stack/kafka:docker-compose.yml",
+        "//telemtry/stack/processors/gps_classifier:docker-compose.yml",
+        "//telemtry/stack/processors/kafka_base:docker-compose.yml",
+        "//telemtry/stack/processors/lap_timer:docker-compose.yml",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# ============================================================================
+# Python Library Targets
+# ============================================================================
+
+# Complete telemetry Python library (all modules)
+py_library(
+    name = "telemetry_lib",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":telemtry_common",
+        "//telemtry/analysis:analysis_lib",
+        "//telemtry/stack:stack_lib",
+    ],
+)

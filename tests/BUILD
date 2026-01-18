@@ -5,7 +5,33 @@ build_test(
     targets = ["//VCU/firmware:release"],
 )
 
+# build_test(
+#     name = "rust_cand_build_test",
+#     targets = ["//BEVO/cand:real"],
+# )
+
+
 build_test(
-    name = "rust_cand_build_test",
-    targets = ["//BEVO/cand:real"],
+    name = "dui_firmware_build_test",
+    targets = ["//DUI/firmware:release"],
+)
+
+build_test(
+    name = "usm_firmware_build_test",
+    targets = ["//USM/firmware:release"],
+)
+
+build_test(
+    name = "csm_firmware_build_test",
+    targets = ["//CSM/firmware:release"],
+)
+
+build_test(
+    name = "tsm_firmware_build_test",
+    targets = ["//TSM/firmware:release"],
+)
+
+build_test(
+    name = "longhorn_lib_base_build_test",
+    targets = ["//drivers/longhorn-lib:longhorn_lib_base"],
 )

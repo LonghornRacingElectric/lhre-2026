@@ -1,0 +1,19 @@
+load("//tools:outputs/build_outputs.bzl", "firmware_project_g4")
+
+firmware_project_g4(
+    name = "csm_firmware_2026",
+    linker_script = "STM32G474XX_FLASH.ld",
+    startup_script = "startup_stm32g474xx.s",
+    defines = [
+        "STM32G474xx",
+    ],
+    enable_freertos = True,
+    enable_usb = True,
+    usb_device_name = "Corner Sensor Module",
+    locations = [
+    "RR",
+    "RL",
+    "FR",
+    "FL",
+    ],
+)
