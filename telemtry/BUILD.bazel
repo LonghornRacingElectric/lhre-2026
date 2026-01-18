@@ -117,6 +117,7 @@ test_suite(
     tests = [
         "//telemtry/stack/tests:data_flow_test",
         "//telemtry/stack/tests:db_connectivity_test",
+        "//telemtry/stack/tests:kafka_bridge_seed_test",
         "//telemtry/stack/tests:kafka_connectivity_test",
         "//telemtry/stack/tests:mqtt_connectivity_test",
     ],

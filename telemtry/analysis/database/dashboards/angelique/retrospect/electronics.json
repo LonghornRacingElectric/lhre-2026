@@ -24,7 +24,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "aeup6culi7s3ke"
+        "uid": "angelique"
       },
       "fieldConfig": {
         "defaults": {
@@ -106,7 +106,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "aeup6culi7s3ke"
+            "uid": "angelique"
           },
           "editorMode": "code",
           "format": "table",
@@ -138,7 +138,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "aeup6culi7s3ke"
+        "uid": "angelique"
       },
       "fieldConfig": {
         "defaults": {
@@ -198,7 +198,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "aeup6culi7s3ke"
+            "uid": "angelique"
           },
           "editorMode": "code",
           "format": "table",
@@ -230,7 +230,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "aeup6culi7s3ke"
+        "uid": "angelique"
       },
       "fieldConfig": {
         "defaults": {
@@ -358,7 +358,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "aeup6culi7s3ke"
+            "uid": "angelique"
           },
           "editorMode": "code",
           "format": "table",
@@ -402,7 +402,7 @@
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
-          "uid": "aeup6culi7s3ke"
+          "uid": "angelique"
         },
         "definition": "SELECT partition_name FROM partitions ORDER BY start_time;",
         "description": "Select time period to query data from that time period",

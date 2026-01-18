@@ -16,7 +16,6 @@ import secrets
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 from pathlib import Path
-from psycopg.types.json import Jsonb
 from typing import Union, Tuple
 from google.protobuf.message import Message
 import pandas as pd
@@ -203,7 +202,7 @@ class DataTester:
                 row[col] = np.random.randint(1, 101, size=140).tolist()
             elif dtype is datetime.datetime:
                 row[col] = datetime.date.today()
-            elif dtype is Jsonb or dtype is dict:
+            elif dtype is dict:
                 # row[col] = Jsonb({'fake_jsonb_data': self.get_random_data(int, 3)})
                 row[col] = {'fake_jsonb_data': self.get_random_data(int, 3)} 
             elif dtype == 'point' or dtype == "POINT" or (isinstance(dtype, str) and dtype.lower() == 'point') or (isinstance(dtype, str) and dtype.lower() == 'POINT'):
@@ -324,7 +323,7 @@ class DataTester:
             
             if hasattr(data, table):  
                 table_instance = getattr(data, table)
-                if isinstance(table_instance, Message): # Iterate through a specific tbale (not packet table)
+                if isinstance(table_instance, Message): # Iterate through a specific table (not packet table)
                     for key, value in row.items():
                         if hasattr(table_instance, key): # Set values in protobuf message
                             try:

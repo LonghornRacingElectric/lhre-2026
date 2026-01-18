@@ -61,6 +61,9 @@ services:
     image: grafana/grafana-oss
     container_name: grafana
     restart: unless-stopped
+    env_file:
+      - path: ../../.env
+        required: true
     environment:
       GF_DASHBOARDS_MIN_REFRESH_INTERVAL: '250ms'     # Sets min refresh rate of grafana dashboard
       GF_SERVER_ROOT_URL: 'http://localhost:3000'  # Adjust if using a different host or port
@@ -69,6 +72,7 @@ services:
       GF_INSTALL_PLUGINS: 'hamedkarbasi93-kafka-datasource'
     volumes:
       - grafana_storage:/var/lib/grafana
+      - ./grafana-provisioning:/etc/grafana/provisioning/datasources:ro
     networks:
       - telemetry_network
     ports:
