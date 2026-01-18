@@ -13,12 +13,37 @@ py_library(
     visibility = ["//visibility:public"],
 )
 
+# ----------------------------
+# Linux (default)
+# ----------------------------
 compile_pip_requirements(
     name = "telemetry_requirements",
     src = "requirements.txt",
     requirements_txt = "requirements_lock.txt",
-    requirements_darwin = "requirements_lock_darwin.txt",
-    requirements_windows = "requirements_lock_windows.txt",
+    python_version = "3.11",
+    generate_hashes = False,
+    tags = ["requirements"],
+)
+
+# ----------------------------
+# macOS (darwin)
+# ----------------------------
+compile_pip_requirements(
+    name = "telemetry_requirements_darwin",
+    src = "requirements.txt",
+    requirements_txt = "requirements_lock_darwin.txt",
+    python_version = "3.11",
+    generate_hashes = False,
+    tags = ["requirements"],
+)
+
+# ----------------------------
+# Windows
+# ----------------------------
+compile_pip_requirements(
+    name = "telemetry_requirements_windows",
+    src = "requirements.txt",
+    requirements_txt = "requirements_lock_windows.txt",
     python_version = "3.11",
     generate_hashes = False,
     tags = ["requirements"],

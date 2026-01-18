@@ -18,13 +18,272 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 13,
+  "id": 4,
   "links": [],
   "panels": [
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "aeup6culi7s3ke"
+        "uid": "aeen8puztik8wd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT time, flw_speed as FrontLeft, frw_speed as FrontRight, blw_speed as BackLeft, brw_speed as BackRight\r\nFROM dynamics \r\nJOIN packet on packet.packet_id = dynamics.packet_id\r\nWHERE packet.packet_id % 10 = 0\r\nORDER BY dynamics.packet_id DESC \r\nLIMIT 500",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [
+                  {
+                    "name": "flw_speed",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "frw_speed",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "blw_speed",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "brw_speed",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
+          "table": "dynamics"
+        }
+      ],
+      "title": "Wheel Speeds",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "aeen8puztik8wd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \r\n  packet.time,\r\n  dynamics.f_gps_velocity,\r\n  cent_mass_accel[1] AS x_accel,\r\n  cent_mass_accel[2] AS y_accel\r\n\r\nFROM dynamics\r\n\r\nJOIN packet ON packet.packet_id = dynamics.packet_id\r\nWHERE packet.packet_id % 25 = 0\r\nORDER BY packet.packet_id DESC\r\nLIMIT 500",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [
+                  {
+                    "name": "vcu_accel",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
+          "table": "dynamics"
+        }
+      ],
+      "title": "GPS Velocity vs Acceleration vs Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "aeen8puztik8wd"
       },
       "fieldConfig": {
         "defaults": {
@@ -52,10 +311,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 6,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 8
       },
       "id": 4,
       "options": {
@@ -132,14 +391,10 @@
       "pluginVersion": "11.5.2",
       "targets": [
         {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "aeup6culi7s3ke"
-          },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY (dynamics.gps[0])) AS lat,\r\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY (dynamics.gps[1])) AS lon\r\nFROM dynamics\r\nJOIN packet ON packet.packet_id = dynamics.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;\r\n",
+          "rawSql": "SELECT packet.time, f_gps[0] as lat, f_gps[1] as lon \r\n\r\nFROM dynamics \r\nJOIN packet ON packet.packet_id = dynamics.packet_id\r\nWHERE now() - to_timestamp(packet.time / 1000) < interval '30 seconds'\r\nAND packet.packet_id % 10 = 0\r\n\r\nORDER BY packet.packet_id DESC\r\n\r\nLIMIT 250\r\n\r\n\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -166,13 +421,13 @@
           "table": "dynamics"
         }
       ],
-      "title": "Panel Title",
+      "title": "Location",
       "type": "geomap"
     },
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "aeup6culi7s3ke"
+        "uid": "aeen8puztik8wd"
       },
       "fieldConfig": {
         "defaults": {
@@ -213,6 +468,8 @@
             }
           },
           "mappings": [],
+          "max": 360,
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -233,7 +490,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 0
+        "y": 8
       },
       "id": 3,
       "options": {
@@ -254,12 +511,12 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "aeup6culi7s3ke"
+            "uid": "bdzdtpa4z5iioa"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n  AVG(dynamics.gps_heading) AS gps_heading\r\nFROM dynamics\r\nJOIN packet ON packet.packet_id = dynamics.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;\r\n",
+          "rawSql": "SELECT packet.time, dynamics.f_gps_heading\r\nFROM dynamics\r\nJOIN packet ON packet.packet_id = dynamics.packet_id\r\nWHERE packet.packet_id % 10 = 0\r\nORDER BY dynamics.packet_id DESC\r\nLIMIT 500",
           "refId": "A",
           "sql": {
             "columns": [
@@ -287,7 +544,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "aeup6culi7s3ke"
+        "uid": "aeen8puztik8wd"
       },
       "fieldConfig": {
         "defaults": {
@@ -303,7 +560,7 @@
             "barAlignment": 0,
             "barWidthFactor": 0.6,
             "drawStyle": "line",
-            "fillOpacity": 25,
+            "fillOpacity": 0,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -348,15 +605,15 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 8
+        "y": 14
       },
-      "id": 2,
+      "id": 12,
       "options": {
         "legend": {
           "calcs": [],
-          "displayMode": "hidden",
-          "placement": "right",
-          "showLegend": false
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
         },
         "tooltip": {
           "hideZeros": false,
@@ -367,19 +624,20 @@
       "pluginVersion": "11.5.2",
       "targets": [
         {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "aeup6culi7s3ke"
-          },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n  AVG(dynamics.vcu_velocity[1]) AS lat_accel\r\nFROM dynamics\r\nJOIN packet ON packet.packet_id = dynamics.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;",
+          "rawSql": "SELECT \r\n  packet.time,\r\n  dynamics.fl_ride_height\r\n\r\nFROM dynamics\r\n\r\nJOIN packet ON packet.packet_id = dynamics.packet_id\r\nWHERE packet.packet_id % 10 = 0\r\nORDER BY packet.packet_id DESC\r\nLIMIT 600",
           "refId": "A",
           "sql": {
             "columns": [
               {
-                "parameters": [],
+                "parameters": [
+                  {
+                    "name": "fl_ride_height",
+                    "type": "functionParameter"
+                  }
+                ],
                 "type": "function"
               }
             ],
@@ -392,56 +650,25 @@
               }
             ],
             "limit": 50
-          }
+          },
+          "table": "dynamics"
         }
       ],
-      "title": "Lateral Acceleration",
+      "title": "Ride Height vs Time",
       "type": "timeseries"
     },
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "aeup6culi7s3ke"
+        "uid": "aeen8puztik8wd"
       },
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 25,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "smooth",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "mode": "thresholds"
           },
           "mappings": [],
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -459,41 +686,44 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 6,
         "w": 12,
         "x": 12,
-        "y": 8
+        "y": 16
       },
-      "id": 1,
+      "id": 5,
       "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "hidden",
-          "placement": "right",
-          "showLegend": false
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
       },
       "pluginVersion": "11.5.2",
       "targets": [
         {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "aeup6culi7s3ke"
-          },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n  AVG(dynamics.gps_velocity) AS gps_velocity\r\nFROM dynamics\r\nJOIN packet ON packet.packet_id = dynamics.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;\r\n",
+          "rawSql": "SELECT EXTRACT(EPOCH FROM (now() - to_timestamp(time / 1000.0))) AS delay\r\nFROM packet \r\nORDER BY packet_id DESC \r\nLIMIT 1",
           "refId": "A",
           "sql": {
             "columns": [
               {
-                "parameters": [],
+                "parameters": [
+                  {
+                    "name": "\"time\"",
+                    "type": "functionParameter"
+                  }
+                ],
                 "type": "function"
               }
             ],
@@ -506,50 +736,29 @@
               }
             ],
             "limit": 50
-          }
+          },
+          "table": "packet"
         }
       ],
-      "title": "GPS Velocity vs Time",
-      "type": "timeseries"
+      "title": "Delay",
+      "type": "gauge"
     }
   ],
   "preload": false,
-  "refresh": "",
+  "refresh": "auto",
   "schemaVersion": 40,
   "tags": [],
   "templating": {
-    "list": [
-      {
-        "allowCustomValue": false,
-        "current": {
-          "text": "2025-04-28 00:39:17",
-          "value": "2025-04-28 00:39:17"
-        },
-        "datasource": {
-          "type": "grafana-postgresql-datasource",
-          "uid": "aeup6culi7s3ke"
-        },
-        "definition": "SELECT partition_name FROM partitions ORDER BY start_time;",
-        "description": "Select time period to query dashboards to that time period",
-        "includeAll": false,
-        "label": "Zoom to partition",
-        "name": "Zoom",
-        "options": [],
-        "query": "SELECT partition_name FROM partitions ORDER BY start_time;",
-        "refresh": 1,
-        "regex": "",
-        "type": "query"
-      }
-    ]
+    "list": []
   },
   "time": {
-    "from": "2025-04-28T00:58:43.473Z",
-    "to": "2025-04-28T01:02:43.713Z"
+    "from": "now-1m",
+    "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Angelique-Dynamics",
-  "uid": "fe262v8ksvz7kf2",
-  "version": 17,
+  "title": "Dynamics",
+  "uid": "fe262v8ksvz7kf",
+  "version": 59,
   "weekStart": ""
 }

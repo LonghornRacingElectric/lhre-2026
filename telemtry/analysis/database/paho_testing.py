@@ -16,7 +16,6 @@ import secrets
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 from pathlib import Path
-from psycopg.types.json import Jsonb
 from typing import Union, Tuple
 from google.protobuf.message import Message
 
@@ -142,7 +141,7 @@ class DataTester:
                 row[col] = np.random.randint(1, 101, size=140).tolist()
             elif dtype is datetime.datetime:
                 row[col] = datetime.date.today()
-            elif dtype is Jsonb or dtype is dict:
+            elif dtype is dict:
                 # row[col] = Jsonb({'fake_jsonb_data': self.get_random_data(int, 3)})
                 row[col] = {'fake_jsonb_data': self.get_random_data(int, 3)} 
             elif dtype == 'point' or dtype == "POINT" or (isinstance(dtype, str) and dtype.lower() == 'point') or (isinstance(dtype, str) and dtype.lower() == 'POINT'):
@@ -241,7 +240,7 @@ class DataTester:
             row = self.create_row(db_desc[table], packet) # Create random data
             if hasattr(data, table):  
                 table_instance = getattr(data, table)
-                if isinstance(table_instance, Message): # Iterate through a specific tbale (not packet table)
+                if isinstance(table_instance, Message): # Iterate through a specific table (not packet table)
                     for key, value in row.items():
                         if hasattr(table_instance, key): # Set values in protobuf message
                             if (isinstance(value, list) or isinstance(value, tuple)):
@@ -270,15 +269,15 @@ class DataTester:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    car_name = "Nightwatch"
+    car_name = "Angelique"
     with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session:
         db_sessions = {'Nightwatch': nightwatch_session, 'Angelique': angelique_session}
         with MQTTHandler('paho_test', db_sessions=db_sessions, target=MQTTTarget.get()) as mqtt:
             # Protobuf message testing
             dt = DataTester(mqtt=mqtt, seed=42)
             dt.send_proto_rows(
-                tables=['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'],
-                num_rows= 2000,
+                tables=['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
+                num_rows= 20000,
                 delay= 0.01,
                 target=car_name
             )

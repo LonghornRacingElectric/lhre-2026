@@ -277,10 +277,10 @@ class TestDataGenerator:
         
         try:
             if car == "Angelique":
-                from stack.ingest.protobuf.angelique_pb2 import AngeliqueSensorData
+                from telemtry.stack.ingest.protobuf.angelique_pb2 import AngeliqueSensorData
                 data = AngeliqueSensorData()
             else:
-                from stack.ingest.protobuf.template_pb2 import SensorData
+                from telemtry.stack.ingest.protobuf.template_pb2 import SensorData
                 data = SensorData()
             
             data.packet_id = packet_id
@@ -288,13 +288,22 @@ class TestDataGenerator:
             
             # Set dynamics fields if they exist
             if hasattr(data, 'dynamics'):
-                data.dynamics.f_gps_velocity = float(self.rng.random() * 100)
-                data.dynamics.f_gps_heading = float(self.rng.random() * 360)
-                data.dynamics.steer_col_angle = float(self.rng.random() * 2.5)
+                if car != "Angelique":
+                    data.dynamics.f_gps_velocity = float(self.rng.random() * 100)
+                    data.dynamics.f_gps_heading = float(self.rng.random() * 360)
+                    data.dynamics.steer_col_angle = float(self.rng.random() * 2.5)
+                else:
+                    data.dynamics.gps_velocity = float(self.rng.random() * 100)
+                    data.dynamics.gps_heading = float(self.rng.random() * 360)
+                    data.dynamics.torque_request = float(self.rng.random() * 2.5)
             
             # Set controls fields if they exist
             if hasattr(data, 'controls'):
-                data.controls.accel_pedal_t = float(self.rng.random())
+                if car != "Angelique":
+                    data.controls.accel_pedal_t = float(self.rng.random())
+                else:
+                    data.controls.apps1_v = float(self.rng.random())
+
             
             return data.SerializeToString()
         except ImportError as e:
