@@ -14,6 +14,8 @@ import TimingDeltas from "@/components/TimingDeltas";
 import CarVisualization from "@/components/CarVisualization";
 import DriverInputVisualizer from "@/components/DriverInputVisualizer";
 import GGPlot from "@/components/GGPlot";
+import type { CarVisualizationData } from "@/components/CarVisualization";
+import type { DriverInputData } from "@/components/DriverInputVisualizer";
 
 type ReplayEvent = {
   event_id: number;
@@ -56,6 +58,9 @@ export default function ReplayPage() {
   const [speed, setSpeed] = useState(1);
   const [timeCursor, setTimeCursor] = useState<number | null>(null);
 
+  const [dbCarData, setDbCarData] = useState<CarVisualizationData | null>(null);
+  const [dbDriverData, setDbDriverData] = useState<DriverInputData | null>(null);
+
   // Load events list
   useEffect(() => {
     (async () => {
@@ -70,6 +75,8 @@ export default function ReplayPage() {
     if (!selected) {
       setSummary(null);
       setTimeCursor(null);
+      setDbCarData(null);
+      setDbDriverData(null);
       return;
     }
 
@@ -81,6 +88,35 @@ export default function ReplayPage() {
       setPlaying(true);
     })();
   }, [selected]);
+
+  useEffect(() => {
+    if (!selected || timeCursor == null) {
+      setDbCarData(null);
+      setDbDriverData(null);
+      return;
+    }
+
+    const ac = new AbortController();
+    const t = window.setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/replay/state?eventId=${selected.event_id}&atTime=${timeCursor}`,
+          { signal: ac.signal }
+        );
+        if (!res.ok) return;
+        const json = await res.json();
+        setDbCarData(json.car_visualization ?? null);
+        setDbDriverData(json.driver_input_visualizer ?? null);
+      } catch {
+        // ignore abort/network
+      }
+    }, 80);
+
+    return () => {
+      ac.abort();
+      window.clearTimeout(t);
+    };
+  }, [selected, timeCursor]);
 
   const sseUrl = useMemo(() => {
     if (!selected) return "/api/replay-stream";
@@ -272,20 +308,12 @@ export default function ReplayPage() {
             {selected ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 grid-auto-rows-[400px]">
                 <Card className="h-full flex flex-col">
-                  <CardHeader><CardTitle>Timing & Deltas</CardTitle></CardHeader>
-                  <CardContent className="flex-grow"><TimingDeltas /></CardContent>
-                </Card>
-                <Card className="h-full flex flex-col">
                   <CardHeader><CardTitle>3D Simulation</CardTitle></CardHeader>
-                  <CardContent className="flex-grow"><CarVisualization /></CardContent>
-                </Card>
-                <Card className="h-full flex flex-col">
-                  <CardHeader><CardTitle>GG Plot</CardTitle></CardHeader>
-                  <CardContent className="flex-grow"><GGPlot /></CardContent>
+                  <CardContent className="flex-grow"><CarVisualization data={dbCarData} /></CardContent>
                 </Card>
                 <Card className="h-full flex flex-col">
                   <CardHeader><CardTitle>Driver Input Visualizer</CardTitle></CardHeader>
-                  <CardContent className="flex-grow"><DriverInputVisualizer /></CardContent>
+                  <CardContent className="flex-grow"><DriverInputVisualizer data={dbDriverData} /></CardContent>
                 </Card>
               </div>
             ) : null}
