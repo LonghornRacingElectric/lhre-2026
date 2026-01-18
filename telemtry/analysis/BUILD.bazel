@@ -1,0 +1,50 @@
+# telemtry/analysis/BUILD.bazel
+
+load("@rules_python//python:defs.bzl", "py_library")
+load("@rules_python//python:pip.bzl", "compile_pip_requirements")
+
+# This target bundles all python files in the analysis directory
+# into a library that can be used by other targets (like tests).
+py_library(
+    name = "analysis_lib",
+    srcs = glob(["**/*.py"]),
+    # This allows imports relative to the workspace root
+    imports = ["."],
+    visibility = ["//visibility:public"],
+)
+
+# ----------------------------
+# Linux (default)
+# ----------------------------
+compile_pip_requirements(
+    name = "telemetry_requirements",
+    src = "requirements.txt",
+    requirements_txt = "requirements_lock.txt",
+    python_version = "3.11",
+    generate_hashes = False,
+    tags = ["requirements"],
+)
+
+# ----------------------------
+# macOS (darwin)
+# ----------------------------
+compile_pip_requirements(
+    name = "telemetry_requirements_darwin",
+    src = "requirements.txt",
+    requirements_txt = "requirements_lock_darwin.txt",
+    python_version = "3.11",
+    generate_hashes = False,
+    tags = ["requirements"],
+)
+
+# ----------------------------
+# Windows
+# ----------------------------
+compile_pip_requirements(
+    name = "telemetry_requirements_windows",
+    src = "requirements.txt",
+    requirements_txt = "requirements_lock_windows.txt",
+    python_version = "3.11",
+    generate_hashes = False,
+    tags = ["requirements"],
+)

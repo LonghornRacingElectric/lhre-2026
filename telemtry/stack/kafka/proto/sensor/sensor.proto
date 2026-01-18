@@ -1,0 +1,252 @@
+syntax = "proto3";
+
+package sensor;
+
+option go_package = "github.com/LonghornRacingElectric/lhre-2026/telemtry/stack/kafka/proto/sensor;sensor";
+
+message SensorData {
+    int64 time = 1;
+    int64 packet_id = 2;
+    Dynamics dynamics = 3;
+    Controls controls = 4;
+    Pack pack = 5;
+    DiagnosticsHigh diagnostics_high = 6;
+    DiagnosticsLow diagnostics_low = 1001;
+    Thermal thermal = 1002;
+}
+
+message Dynamics {
+    float steer_col_angle = 7;
+    float fl_steer_angle = 8;
+    float fr_steer_angle = 9;
+    repeated float fl_sprung_accel = 10;
+    repeated float fr_sprung_accel = 11;
+    repeated float bl_sprung_accel = 12;
+    repeated float br_sprung_accel = 13;
+    repeated float fl_unsprung_accel = 14;
+    repeated float fr_unsprung_accel = 15;
+    repeated float bl_unsprung_accel = 16;
+    repeated float br_unsprung_accel = 17;
+    repeated float fl_sprung_ang_rate = 18;
+    repeated float fr_sprung_ang_rate = 19;
+    repeated float bl_sprung_ang_rate = 20;
+    repeated float br_sprung_ang_rate = 21;
+    repeated float cent_mass_accel = 22;
+    repeated float cent_mass_ang_rate = 23;
+    float flw_speed = 24;
+    float frw_speed = 25;
+    float blw_speed = 26;
+    float brw_speed = 27;
+    float fl_ride_height = 28;
+    float fr_ride_height = 29;
+    float bl_ride_height = 30;
+    float br_ride_height = 31;
+    float fl_strain_gauge_v = 32;
+    float fr_strain_gauge_v = 33;
+    float bl_strain_gauge_v = 34;
+    float br_strain_gauge_v = 35;
+    float fl_pushrod_stress = 36;
+    float fr_pushrod_stress = 37;
+    float bl_pushrod_stress = 38;
+    float br_pushrod_stress = 39;
+    float fl_spring_displace = 40;
+    float fr_spring_displace = 41;
+    float bl_spring_displace = 42;
+    float br_spring_displace = 43;
+    float dash_speed = 44;
+    repeated float f_gps = 45;
+    repeated float b_gps = 46;
+    float f_gps_velocity = 47;
+    float b_gps_velocity = 48;
+    float f_gps_heading = 49;
+    float b_gps_heading = 50;
+}
+
+message Controls {
+    float apps1_v = 51;
+    float apps2_v = 52;
+    float apps1_t = 53;
+    float apps2_t = 54;
+    float accel_pedal_t = 55;
+    float bpps1_v = 56;
+    float bpps2_v = 57;
+    float bpps1_t = 58;
+    float bpps2_t = 59;
+    float brake_pedal_t = 60;
+    float bse1_v = 61;
+    float bse2_v = 62;
+    float bse3_v = 63;
+    float brake_pressure_f = 64;
+    float brake_pressure_rbll = 65;
+    float brake_pressure_rall = 66;
+    float brake_bias = 67;
+}
+
+message Pack {
+    float hv_pack_v = 68;
+    float hv_tractive_v = 69;
+    float hv_c = 70;
+    float lv_v = 71;
+    float lv_c = 72;
+    int32 contactor_state = 73;
+    float avg_cell_v = 74;
+    float avg_cell_temp = 75;
+}
+
+message DiagnosticsHigh {
+    bool apps1_disconnect = 76;
+    bool apps2_disconnect = 77;
+    bool apps1_out_range = 78;
+    bool apps2_out_range = 79;
+    bool apps_mismatch = 80;
+    bool apps_implause = 81;
+    bool bpps1_disconnect = 82;
+    bool bpps2_disconnect = 83;
+    bool bpps1_out_range = 84;
+    bool bpps2_out_range = 85;
+    bool bpps_mismatch = 86;
+    bool bse1_disconnect = 87;
+    bool bse2_disconnect = 88;
+    bool bse1_out_range = 89;
+    bool bse2_out_range = 90;
+}
+
+message DiagnosticsLow {
+    bool batt_over_c = 1003;
+    int32 cell_over_v = 1004;
+    int32 cell_under_v = 1005;
+    int32 cell_open_wire = 1006;
+    int32 cell_damaged = 1007;
+    int32 thermistor_damaged = 1008;
+    bool bmb_comm_error = 1009;
+    bool imd_gnd_isolation_error = 1010;
+    bool tractive_contactor_error = 1011;
+    bool precharge_fail = 1012;
+    bool cells_v_balanced = 1013;
+    float cell_min_v = 1014;
+    float cell_max_v = 1015;
+    float batt_v = 1016;
+    float batt_c = 1017;
+    float hv_soc = 1018;
+    bool shutdown_leg1 = 1019;
+    bool shutdown_leg2 = 1020;
+    bool shutdown_leg3 = 1021;
+    bool shutdown_leg4 = 1022;
+    bool shutdown_leg5 = 1023;
+    bool shutdown_leg6 = 1024;
+    bool shutdown_leg7 = 1025;
+    bool shutdown_leg8 = 1026;
+    bool shutdown_leg9 = 1027;
+    bool shutdown_leg10 = 1028;
+    bool shutdown_leg11 = 1029;
+    bool shutdown_leg12 = 1030;
+    repeated float cells_temps = 1031;
+    repeated float cells_v = 1032;
+}
+
+message Thermal {
+    float motor_loop_flow_rate = 1033;
+    float motor_loop_motor_temp = 1034;
+    float motor_loop_inverter_temp = 1035;
+    float motor_loop_rad_temp = 1036;
+    float motor_loop_rad_fan_speed = 1037;
+    float ambient_temp = 1038;
+    float batt_loop_batt_temp = 1039;
+    float batt_loop_rad_temp = 1040;
+    float batt_loop_rad_fan_speed = 1041;
+    float motor_temp = 1042;
+    float inverter_temp = 1043;
+    float bus_bar_temp1 = 1044;
+    float bus_bar_temp2 = 1045;
+    float bus_bar_temp3 = 1046;
+    float precharge_r_temp = 1047;
+    float discharge_r_temp = 1048;
+    bool batt_over_temp = 1049;
+}
+
+// Angelique messages
+message AngeliqueSensorData {
+    int64 time = 1;
+    int64 packet_id = 2;
+    AngeliqueDynamics dynamics = 3;
+    AngeliqueControls controls = 4;
+    AngeliquePack pack = 5;
+    AngeliqueDiagnostics diagnostics = 6;
+    AngeliqueThermal thermal = 7;
+}
+
+message AngeliqueDynamics {
+    float torque_request = 8;
+    repeated float vcu_position = 9;
+    repeated float vcu_velocity = 10;
+    repeated float vcu_accel = 11;
+    repeated float gps = 12;
+    float gps_velocity = 13;
+    float gps_heading = 14;
+    repeated float body1_accel = 15;
+    repeated float body2_accel = 16;
+    repeated float body3_accel = 17;
+    repeated float flw_accel = 18;
+    repeated float frw_accel = 19;
+    repeated float blw_accel = 20;
+    repeated float brw_accel = 21;
+    repeated float body1_gyro = 22;
+    repeated float body2_gyro = 23;
+    repeated float body3_gyro = 24;
+    float flw_speed = 25;
+    float frw_speed = 26;
+    float blw_speed = 27;
+    float brw_speed = 28;
+    float inverter_v = 29;
+    float inverter_c = 30;
+    int32 inverter_rpm = 31;
+    float inverter_torque = 32;
+}
+
+message AngeliqueControls {
+    bytes vcu_flags = 33;
+    string vcu_flags_json = 34;
+    float apps1_v = 35;
+    float apps2_v = 36;
+    float bse1_v = 37;
+    float bse2_v = 38;
+    float sus1_v = 39;
+    float sus2_v = 40;
+    float steer_v = 41;
+}
+
+message AngeliquePack {
+    float hv_pack_v = 42;
+    float hv_tractive_v = 43;
+    float hv_c = 44;
+    float lv_v = 45;
+    float lv_c = 46;
+    int32 contactor_state = 47;
+    float avg_cell_v = 48;
+    float avg_cell_temp = 49;
+}
+
+message AngeliqueDiagnostics {
+    bytes current_errors = 50;
+    string current_errors_json = 51;
+    bytes latching_faults = 52;
+    string latching_faults_json = 53;
+    repeated float cells_v = 54;
+    float hv_charge_state = 55;
+    float lv_charge_state = 56;
+}
+
+message AngeliqueThermal {
+    repeated int32 cells_temp = 57;
+    int32 ambient_temp = 58;
+    int32 inverter_temp = 59;
+    int32 motor_temp = 60;
+    int32 water_motor_temp = 61;
+    int32 water_inverter_temp = 62;
+    int32 water_rad_temp = 63;
+    int32 rad_fan_set = 64;
+    int64 rad_fan_rpm = 65;
+    int32 batt_fan_set = 66;
+    int32 batt_fan_rpm = 67;
+    int32 flow_rate = 68;
+}

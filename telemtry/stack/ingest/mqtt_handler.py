@@ -8,6 +8,7 @@ import sys
 import time
 import numpy as np
 import copy
+import grpc
 from paho.mqtt import client as mqtt_client
 from google.protobuf.json_format import MessageToDict
 from pathlib import Path
@@ -16,9 +17,7 @@ sys.path.append(str(Path(__file__).parents[2]))
 
 from analysis.sql_utils.db_session import get_db
 from analysis.sql_utils.query_builder import QueryBuilder
-from stack.ingest.protobuf import template_pb2, angelique_pb2
-
-from kafka import KafkaProducer
+from stack.ingest.protobuf import template_pb2, angelique_pb2, bridge_pb2, bridge_pb2_grpc
 
 # Determine path to net_configs.json based on execution context
 if os.getenv("IN_DOCKER"):
@@ -64,11 +63,11 @@ class MQTTHandler:
             "Nightwatch": QueryBuilder("Nightwatch").get_table_column_specs(),
             "Angelique": QueryBuilder("Angelique").get_table_column_specs()
         }
-                # Kafka logic
-        self.kafka_producer = KafkaProducer(
-            bootstrap_servers='kafka:9092' if os.getenv("IN_DOCKER") else 'localhost:9092',
-            value_serializer=lambda v: json.dumps(v).encode('utf-8') if isinstance(v, dict) else v
-        )
+        
+        # gRPC bridge client instead of Kafka
+        bridge_addr = 'kafka-bridge:50051' if os.getenv("IN_DOCKER") else 'localhost:50051'
+        self.grpc_channel = grpc.insecure_channel(bridge_addr)
+        self.bridge_stub = bridge_pb2_grpc.BridgeServiceStub(self.grpc_channel)
 
     @staticmethod
     def on_connect(client: mqtt_client.Client, userdata, flags: dict, rc: int):
@@ -136,30 +135,39 @@ class MQTTHandler:
             if (topic_split[-1] in {'packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'}):
                 self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car = "Nightwatch")
             else:
-                # Route based on car
-                self.send_kafka_protobuf(payload=msg.payload)
-                # Protobuf serialized string sent
+                # Send via gRPC BEFORE database insertion
+                self._send_to_bridge(payload=msg.payload, car="Nightwatch")
                 self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Nightwatch")
         elif (topic_split := msg.topic.split('/'))[0] == 'angelique':
             if topic_split[-1] in self.table_specs["Angelique"]:
                 self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car="Angelique")
             else:
-                self.send_kafka_protobuf(payload=msg.payload) # Route based on car
+                # Send via gRPC BEFORE database insertion
+                self._send_to_bridge(payload=msg.payload, car="Angelique")
                 self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Angelique")
         else:
             logging.warning(f'No corresponding topic found for {msg.topic}')
     
-    def send_kafka_protobuf(self, payload: str):
+    def _send_to_bridge(self, payload: bytes, car: str):
         '''
-        This function sends the protobuf encoded message to a Kafka topic.
+        Send protobuf payload to the Go bridge service via gRPC asynchronously.
+        This is non-blocking from the caller's perspective but uses a fast IPC.
 
-        :param payload:     str         protobuf encoded payload string
+        :param payload:     bytes       protobuf encoded payload
+        :param car:         str         car type ("Nightwatch" or "Angelique")
         '''
+        request = bridge_pb2.SensorDataRequest(payload=payload, car_type=car)
+        future = self.bridge_stub.SendSensorData.future(request)
+        future.add_done_callback(self._grpc_callback)
 
-        # Send the message to Kafka topic 'sensor_data'
-        self.kafka_producer.send('sensor_data', value=payload)
+    def _grpc_callback(self, future):
+        try:
+            response = future.result()
+            if not response.success:
+                logging.warning(f'Bridge returned failure: {response.message}')
+        except grpc.RpcError as e:
+            logging.error(f'gRPC error sending to bridge: {e.code()} - {e.details()}')
 
-        
     def _flask_handler(self, payload):
         '''
         This function oversees the decoding and handling of Flask messages usually related to configuration or metadata.
@@ -277,16 +285,15 @@ class MQTTHandler:
                     logging.warning(f'\tNo data received for {table}...')
         session.commit()
 
-    @staticmethod
-    def _proto_decode(payload: str, car = "Nightwatch") -> dict:
-        logging.debug('Data Received via Protobuf')
+    def _proto_decode(self, payload: str, car = "Nightwatch") -> dict:
+        # logging.debug('Data Received via Protobuf')
         if (car == "Angelique"):
             row = angelique_pb2.AngeliqueSensorData()
         else:
             row = template_pb2.SensorData()
         row.ParseFromString(payload)
         row = MessageToDict(row, preserving_proto_field_name=True, always_print_fields_with_no_presence=True)
-        logging.debug(row)
+        # logging.debug(row)
         return row
 
     def _base64_decode(self, payload: str, high_freq: bool) -> dict:
@@ -377,29 +384,17 @@ class MQTTHandler:
 def main():
     '''
     This is the runner script for the subscribe-side MQTT script which uploads data to the database.
-    Whether to use safe, unsafe, or connection pool DBHandler is determined by DB_CONN_TYPE environment variable
-    and defaults to unsafe. To use a connection pool, set it to the desired connection pool size.
-
-    Options:
-        1   Runs MQTT Ingest server with safe DBHandler
-        2   Runs MQTT Ingest server with unsafe DBHandler
-        3+  Runs MQTT Ingest server with unsafe DBHandler using connection pool of size of arg
     '''
-    try:
-        conn_type = int(os.getenv('DB_CONN_TYPE', 2))
-        if not 0 < conn_type < 11:
-            raise ValueError
-    except ValueError:
-        raise ValueError('DB_CONN_TYPE must be an integer 1-10.')
-
+    
     with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session:
         db_sessions = {'Nightwatch': nightwatch_session, 'Angelique': angelique_session}
         with MQTTHandler('ingest', db_sessions=db_sessions, target=MQTTTarget.get()) as mqtt:
             mqtt.subscribe(topic='#')
 
-
 if __name__ == '__main__':
     logging.basicConfig(level=os.getenv('LOGLEVEL', 'DEBUG'))
+    logging.getLogger("grpc").setLevel(logging.WARNING)
+
     if logging.root.level == logging.DEBUG:
         time.sleep(3)
         logging.debug('-' * 40 + '\n\n\t\tYOU ARE IN DEBUGGING MODE\n\n ' + '-' * 50)

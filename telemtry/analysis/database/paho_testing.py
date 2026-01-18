@@ -16,7 +16,6 @@ import secrets
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 from pathlib import Path
-from psycopg.types.json import Jsonb
 from typing import Union, Tuple
 from google.protobuf.message import Message
 import pandas as pd
@@ -203,7 +202,7 @@ class DataTester:
                 row[col] = np.random.randint(1, 101, size=140).tolist()
             elif dtype is datetime.datetime:
                 row[col] = datetime.date.today()
-            elif dtype is Jsonb or dtype is dict:
+            elif dtype is dict:
                 # row[col] = Jsonb({'fake_jsonb_data': self.get_random_data(int, 3)})
                 row[col] = {'fake_jsonb_data': self.get_random_data(int, 3)} 
             elif dtype == 'point' or dtype == "POINT" or (isinstance(dtype, str) and dtype.lower() == 'point') or (isinstance(dtype, str) and dtype.lower() == 'POINT'):
@@ -324,7 +323,7 @@ class DataTester:
             
             if hasattr(data, table):  
                 table_instance = getattr(data, table)
-                if isinstance(table_instance, Message): # Iterate through a specific tbale (not packet table)
+                if isinstance(table_instance, Message): # Iterate through a specific table (not packet table)
                     for key, value in row.items():
                         if hasattr(table_instance, key): # Set values in protobuf message
                             try:
@@ -363,12 +362,7 @@ class DataTester:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    car_name = "Angelique"  # Change to "Nightwatch" or "Angelique" as needed
-    
-    # Paths for CSV and mapping files
-    csv_path = Path(__file__).parent / 'csv_processing/csv_data/Log__2024_10_11__05_50_47.csv'
-    mapping_path = Path(__file__).parent / 'csv_processing/angelique_pg_to_csv.json'
-    
+    car_name = "Angelique"
     with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session:
         db_sessions = {'Nightwatch': nightwatch_session, 'Angelique': angelique_session}
         with MQTTHandler('paho_test', db_sessions=db_sessions, target=MQTTTarget.get()) as mqtt:
@@ -376,9 +370,8 @@ if __name__ == '__main__':
             dt = DataTester(mqtt=mqtt, seed=42, csv_path=csv_path, mapping_path=mapping_path)
             dt.send_proto_rows(
                 tables=['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
-                num_rows= 2000,
-                delay= 0.25,
-                use_csv=True,
+                num_rows= 20000,
+                delay= 0.01,
                 target=car_name
             )
 
