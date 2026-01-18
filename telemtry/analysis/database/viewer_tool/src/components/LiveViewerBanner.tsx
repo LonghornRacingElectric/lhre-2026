@@ -12,7 +12,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { signOut, useSession } from 'next-auth/react';
 import { useKafkaJSON } from '@/hooks/useKafkaStream';
-import { toast } from 'react-toastify';
 
 
 const LiveViewerBanner = () => {
@@ -47,21 +46,6 @@ const LiveViewerBanner = () => {
     window.location.href = '/login'; // Force a hard reload to re-evaluate middleware
   };
 
-  const handleResetBuffer = async () => {
-    try {
-      const res = await fetch('/api/reset-buffer', { method: 'POST' });
-      if (res.ok) {
-        toast.success("Server buffer cleared");
-        setTimeout(() => window.location.reload(), 1000);
-      } else {
-        toast.error("Failed to clear buffer");
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("Error clearing buffer");
-    }
-  };
-
   return (
     <div className="bg-gray-800 text-white w-full min-h-14 h-auto md:h-14 flex flex-col md:flex-row items-center justify-between px-4 fixed top-0 left-0 right-0 z-[1000]">
       <div className="flex items-center justify-between w-full md:w-auto">
@@ -78,6 +62,7 @@ const LiveViewerBanner = () => {
               <DropdownMenuItem asChild><Link href="/tune">Texas Tune</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="/dashboards">Grafana</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="/live-viewer">Live Viewer</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/replay">Replay</Link></DropdownMenuItem>
               <DropdownMenuItem onClick={handleSignOut}>Logout</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -87,13 +72,13 @@ const LiveViewerBanner = () => {
           <span className="ml-4 font-bold">Live Viewer</span>
         </div>
       </div>
-      <div className="flex items-center flex-wrap justify-center md:justify-end w-full md:w-auto pb-2 md:pb-0 gap-2">
+      <div className="flex items-center flex-wrap justify-center md:justify-end w-full md:w-auto pb-2 md:pb-0">
         {/* Odometer Display */}
-        <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 text-sm">
+        <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-2 text-sm">
           <span>{typeof status?.odometer === 'number' ? `${status.odometer.toFixed(2)} mi` : '— mi'}</span>
         </div>
         {/* Battery Percentage Display */}
-        <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 text-sm">
+        <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-2 text-sm">
           {(() => {
             const batteryPercentage =
               typeof status?.battery === 'number' ? Math.max(0, Math.min(100, Math.round(status.battery))) : undefined;
@@ -117,7 +102,7 @@ const LiveViewerBanner = () => {
             );
           })()}
         </div>
-        <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 text-sm">
+        <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-2 text-sm">
           <div 
               className={`w-4 h-4 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'} mr-2 pulse-size`}
               title={isConnected ? 'Receiving live data' : 'No recent Kafka data'}
@@ -129,18 +114,11 @@ const LiveViewerBanner = () => {
           <span className="mr-4">{time}</span>
         </div>
         <Button 
-          onClick={handleResetBuffer}
-          className="bg-amber-500 hover:bg-amber-600 text-sm px-2 py-1"
-          title="Clear server-side Kafka message buffer and reload"
-        >
-          Reset Buffer
-        </Button>
-        <Button 
           onClick={() => { localStorage.removeItem('featuresOrder'); window.location.reload(); }} 
           className="bg-red-500 hover:bg-red-600 text-sm px-2 py-1"
           title="Clear layout and other local data"
         >
-          Reset Layout
+          Clear
         </Button>
       </div>
     </div>

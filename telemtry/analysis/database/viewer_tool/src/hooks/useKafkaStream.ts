@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getSSEState, onConnectionChange, restartSSE, subscribeSSE } from "@/lib/kafka/sseBus";
+import { getSSEPath, getSSEState, onConnectionChange, restartSSE, subscribeSSE } from "@/lib/kafka/sseBus";
 
 export type KafkaEvent = {
   topic: string;
@@ -88,7 +88,7 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
     initial,
     onMessage,
     onError,
-    ssePath = "/api/kafka-stream",
+    ssePath = getSSEPath(),
     staleAfterMs = 100,
     merge = false,
   } = opts;
@@ -161,7 +161,7 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
 
     restartRef.current = () => restartSSE();
     return () => { offConn(); unsub(); };
-  }, [topic, ssePath, filter, parse, select, onMessage]);
+  }, [topic, ssePath, filter, parse, select, onMessage, merge]);
 
   // Freshness monitoring: mark kafkaConnected false if stale
   useEffect(() => {
