@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import LiveViewerBanner from "@/components/LiveViewerBanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,10 +10,8 @@ import { restartSSE } from "@/lib/kafka/sseBus";
 import { stopSSE } from "@/lib/kafka/sseBus";
 
 // Reuse the same widgets as Live Viewer
-import TimingDeltas from "@/components/TimingDeltas";
 import CarVisualization from "@/components/CarVisualization";
 import DriverInputVisualizer from "@/components/DriverInputVisualizer";
-import GGPlot from "@/components/GGPlot";
 import type { CarVisualizationData } from "@/components/CarVisualization";
 import type { DriverInputData } from "@/components/DriverInputVisualizer";
 
@@ -39,6 +37,9 @@ type ReplaySummary = {
   packet_end: string | null;
   time_start: number | null;
   time_end: number | null;
+  time_start_raw?: string | null;
+  time_end_raw?: string | null;
+  time_scale_to_ms?: string | null;
   lap_times: Array<{ start_time: string; end_time: string | null; notes: string | null }>;
   flagged_events: Array<{ type: string; start_time: string; end_time: string | null; notes: string | null }>;
 };
@@ -58,6 +59,18 @@ export default function ReplayPage() {
   const [speed, setSpeed] = useState(1);
   const [timeCursor, setTimeCursor] = useState<number | null>(null);
 
+  const [streamCursorMs, setStreamCursorMs] = useState<number | null>(null);
+
+  const [currentTimeMs, setCurrentTimeMs] = useState<number | null>(null);
+  const [nextTimeMs, setNextTimeMs] = useState<number | null>(null);
+  const [isEnd, setIsEnd] = useState(false);
+  const lastFetchedMsRef = useRef<number | null>(null);
+  const timeCursorRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    timeCursorRef.current = timeCursor;
+  }, [timeCursor]);
+
   const [dbCarData, setDbCarData] = useState<CarVisualizationData | null>(null);
   const [dbDriverData, setDbDriverData] = useState<DriverInputData | null>(null);
 
@@ -75,6 +88,11 @@ export default function ReplayPage() {
     if (!selected) {
       setSummary(null);
       setTimeCursor(null);
+      setStreamCursorMs(null);
+      setCurrentTimeMs(null);
+      setNextTimeMs(null);
+      setIsEnd(false);
+      lastFetchedMsRef.current = null;
       setDbCarData(null);
       setDbDriverData(null);
       return;
@@ -85,6 +103,11 @@ export default function ReplayPage() {
       const json = (await res.json()) as ReplaySummary;
       setSummary(json);
       setTimeCursor(json.time_start);
+      setStreamCursorMs(json.time_start);
+      setCurrentTimeMs(null);
+      setNextTimeMs(null);
+      setIsEnd(false);
+      lastFetchedMsRef.current = null;
       setPlaying(true);
     })();
   }, [selected]);
@@ -93,28 +116,56 @@ export default function ReplayPage() {
     if (!selected || timeCursor == null) {
       setDbCarData(null);
       setDbDriverData(null);
+      setCurrentTimeMs(null);
+      setNextTimeMs(null);
+      setIsEnd(false);
+      lastFetchedMsRef.current = null;
+      return;
+    }
+
+    const cursorMs = Math.floor(timeCursor);
+    if (lastFetchedMsRef.current != null && lastFetchedMsRef.current === cursorMs) {
       return;
     }
 
     const ac = new AbortController();
-    const t = window.setTimeout(async () => {
+    (async () => {
       try {
         const res = await fetch(
-          `/api/replay/state?eventId=${selected.event_id}&atTime=${timeCursor}`,
+          `/api/replay/state?eventId=${selected.event_id}&atTimeMs=${cursorMs}`,
           { signal: ac.signal }
         );
         if (!res.ok) return;
         const json = await res.json();
+        const snappedMs = typeof json.time_ms === "number" && Number.isFinite(json.time_ms) ? json.time_ms : null;
+        const nextMs = typeof json.next_time_ms === "number" && Number.isFinite(json.next_time_ms) ? json.next_time_ms : null;
+        const end = Boolean(json.is_end);
+
         setDbCarData(json.car_visualization ?? null);
         setDbDriverData(json.driver_input_visualizer ?? null);
+
+        if (snappedMs != null) {
+          lastFetchedMsRef.current = snappedMs;
+          setCurrentTimeMs(snappedMs);
+          if (snappedMs !== cursorMs) setTimeCursor(snappedMs);
+        } else {
+          lastFetchedMsRef.current = cursorMs;
+          setCurrentTimeMs(cursorMs);
+        }
+
+        setNextTimeMs(nextMs);
+        setIsEnd(end);
+
+        if (end) {
+          setPlaying(false);
+        }
       } catch {
         // ignore abort/network
       }
-    }, 80);
+    })();
 
     return () => {
       ac.abort();
-      window.clearTimeout(t);
     };
   }, [selected, timeCursor]);
 
@@ -122,11 +173,20 @@ export default function ReplayPage() {
     if (!selected) return "/api/replay-stream";
     const params = new URLSearchParams();
     params.set("eventId", String(selected.event_id));
-    if (timeCursor != null) params.set("fromTime", String(timeCursor));
+    if (streamCursorMs != null) params.set("fromTimeMs", String(Math.floor(streamCursorMs)));
     params.set("speed", String(speed));
     if (!playing) params.set("paused", "1");
     return `/api/replay-stream?${params.toString()}`;
-  }, [selected, timeCursor, speed, playing]);
+  }, [selected, streamCursorMs, speed, playing]);
+
+  // If the user seeks, restart the replay stream from that time.
+  // If playback is toggled, restart from the current cursor so pause shows the right snapshot.
+  useEffect(() => {
+    if (!selected) return;
+    const cur = timeCursorRef.current;
+    if (cur == null) return;
+    setStreamCursorMs(cur);
+  }, [selected, playing]);
 
   // Switch the global SSE source to replay stream while on this page
   useEffect(() => {
@@ -147,6 +207,32 @@ export default function ReplayPage() {
 
   const timeStart = summary ? toNum(summary.time_start) : null;
   const timeEnd = summary ? toNum(summary.time_end) : null;
+
+  // Advance cursor when playing based on recorded packet time deltas.
+  useEffect(() => {
+    if (!selected) return;
+    if (!playing) return;
+    if (timeStart == null || timeEnd == null) return;
+    if (currentTimeMs == null) return;
+
+    if (currentTimeMs >= timeEnd) {
+      setPlaying(false);
+      return;
+    }
+    if (isEnd || nextTimeMs == null) {
+      setPlaying(false);
+      return;
+    }
+
+    const dt = Math.max(0, nextTimeMs - currentTimeMs);
+    const waitMs = Math.max(0, Math.floor(dt / Math.max(0.1, speed)));
+
+    const t = window.setTimeout(() => {
+      setTimeCursor(nextTimeMs);
+    }, waitMs);
+
+    return () => window.clearTimeout(t);
+  }, [selected, playing, speed, timeStart, timeEnd, currentTimeMs, nextTimeMs, isEnd]);
 
   const markers = useMemo(() => {
     if (!summary || timeStart == null || timeEnd == null || timeEnd <= timeStart) return [];
@@ -290,7 +376,9 @@ export default function ReplayPage() {
                         value={timeCursor ?? timeStart ?? 0}
                         onChange={(e) => {
                           const v = Number(e.target.value);
-                          setTimeCursor(Number.isFinite(v) ? v : timeStart);
+                          const next = Number.isFinite(v) ? v : timeStart;
+                          setTimeCursor(next);
+                          setStreamCursorMs(next);
                         }}
                         disabled={timeStart == null || timeEnd == null}
                       />

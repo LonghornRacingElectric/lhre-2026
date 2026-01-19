@@ -23,6 +23,9 @@ const DriverInputVisualizer = ({
   // Live connection to Kafka "sensor_data" topic
   const { data: liveData } = useKafkaJSON<DriverInputData>({
     topic: 'driver_input_visualizer',
+    // Extend staleness so we keep last sample between slower updates
+    staleAfterMs: 1000,
+    merge: true,
     // No custom select: we want the whole object; default parser handles JSON
   });
 

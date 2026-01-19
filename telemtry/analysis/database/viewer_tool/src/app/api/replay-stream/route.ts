@@ -22,6 +22,45 @@ function toBigInt(value: string | null): bigint | null {
   }
 }
 
+function median(values: bigint[]): bigint | null {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  return sorted[Math.floor(sorted.length / 2)] ?? null;
+}
+
+// Returns the number of raw time units per millisecond.
+async function inferRawUnitsPerMs(packetStart: bigint, packetEnd: bigint): Promise<bigint> {
+  const sample = await prisma.packet.findMany({
+    where: { packet_id: { gte: packetStart, lte: packetEnd } },
+    orderBy: { packet_id: 'asc' },
+    take: 25,
+    select: { time: true },
+  });
+
+  const times: bigint[] = sample
+    .map((p) => (p.time != null ? BigInt(p.time as any) : null))
+    .filter((t): t is bigint => t != null);
+
+  const deltas: bigint[] = [];
+  for (let i = 1; i < times.length; i++) {
+    const dt = times[i]! - times[i - 1]!;
+    if (dt > BigInt(0)) deltas.push(dt);
+  }
+
+  const med = median(deltas);
+  if (med != null) {
+    if (med >= BigInt(1000000)) return BigInt(1000000); // ns -> ms
+    if (med >= BigInt(1000)) return BigInt(1000); // us -> ms
+    return BigInt(1); // ms
+  }
+
+  // Fallback: magnitude-based.
+  const t0 = times[0] ?? BigInt(0);
+  if (t0 >= BigInt("10000000000000000")) return BigInt(1000000);
+  if (t0 >= BigInt("10000000000000")) return BigInt(1000);
+  return BigInt(1);
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -31,6 +70,7 @@ export async function GET(req: NextRequest) {
   const topicsParam = url.searchParams.get('topics');
   const eventId = url.searchParams.get('eventId');
   const fromTime = toBigInt(url.searchParams.get('fromTime'));
+  const fromTimeMs = toBigInt(url.searchParams.get('fromTimeMs'));
   const speed = Math.max(0.1, Math.min(10, Number(url.searchParams.get('speed') ?? '1')));
   const paused = url.searchParams.get('paused') === '1' || url.searchParams.get('paused') === 'true';
 
@@ -59,12 +99,20 @@ export async function GET(req: NextRequest) {
     return new Response('Event has no packet_start/packet_end', { status: 409 });
   }
 
+  const rawUnitsPerMs = await inferRawUnitsPerMs(packetStart, packetEnd);
+  const fromTimeRaw =
+    fromTime != null
+      ? fromTime
+      : fromTimeMs != null
+        ? fromTimeMs * rawUnitsPerMs
+        : null;
+
   let startId: bigint = packetStart;
-  if (fromTime != null) {
+  if (fromTimeRaw != null) {
     const p = await prisma.packet.findFirst({
       where: {
         packet_id: { gte: packetStart, lte: packetEnd },
-        time: { gte: fromTime },
+        time: { gte: fromTimeRaw },
       },
       orderBy: { packet_id: 'asc' },
       select: { packet_id: true },
@@ -199,7 +247,8 @@ export async function GET(req: NextRequest) {
               const t = row.time != null ? BigInt(row.time as any) : null;
 
               if (lastTime != null && t != null) {
-                const dtMs = Number(t - lastTime);
+                // Convert raw time delta -> milliseconds for real-time-ish playback.
+                const dtMs = Number(t - lastTime) / Number(rawUnitsPerMs);
                 // Clamp delays so the UI stays responsive even if there are gaps
                 const waitMs = Math.max(0, Math.min(1000, Math.floor(dtMs / speed)));
                 if (waitMs > 0) await sleep(waitMs);
