@@ -50,6 +50,7 @@ py_library(
         requirement("requests"),
         requirement("SQLAlchemy"),
     ],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # Python binary for the GPS classifier
@@ -61,6 +62,7 @@ py_binary(
     deps = [
         ":gps_classifier_lib",
     ],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # Package the processor application files

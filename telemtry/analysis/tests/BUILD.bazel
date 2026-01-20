@@ -27,4 +27,5 @@ py_test(
         requirement("kafka-python"),
     ],
     main = "sample_analysis_test.py",
+    target_compatible_with = ["@platforms//os:linux"],
 )
