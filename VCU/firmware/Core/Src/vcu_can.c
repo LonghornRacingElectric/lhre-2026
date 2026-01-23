@@ -131,8 +131,8 @@ void vcu_can_set_torque(float torque_nm)
     inv_tx.torque_limit   = TABLE_SPIN_TORQUE_LIMIT_NM;
 
     // Enable only if contactors are closed
-    inv_tx.enable = hv_contactors_closed && (inv_tx.torque_request > 0.0f);
-
+    //inv_tx.enable = hv_contactors_closed && (inv_tx.torque_request > 0.0f);
+    inv_tx.enable = (inv_tx.torque_request > 0.0f);
 
     taskEXIT_CRITICAL();
 }

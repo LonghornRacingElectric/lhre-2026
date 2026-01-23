@@ -290,6 +290,9 @@ void StartControlTask(void *argument)
             int pf_i  = (int)(out.pedal_filtered * 1000.0f);
             int tq_i  = (int)(out.torque_cmd     * 100.0f);
             int psi_i = (int)(out.bse_psi);
+            
+            int inv_fb_tq = (int)(inverter_torque_fb * 100.0f);
+            int inv_bus_v = (int)(inverter_bus_voltage * 10.0f);
 
             log_printf(
                 LOG_INFO,
@@ -298,10 +301,10 @@ void StartControlTask(void *argument)
                 "APP2=%u (%d.%03d)  "
                 "BSE=%u (%d psi)  "
                 "ped_f=%d.%03d  "
-                "tq=%d.%02d Nm  "
+                "tq_cmd=%d.%02d Nm  "
                 "impl=%d  brake_act=%d  brake_lat=%d  "
-                "CAN Packet Received: %d  "
-                "HVC State: %d\r\n",
+                "HV_Cont=%d  HVC_St=%d  "
+                "INV: fb_tq=%d.%02d Nm  rpm=%d  bus=%d.%d V\r\n",
                 adc1_val,
                 in.apps1_raw, p1_i / 1000, p1_i % 1000,
                 in.apps2_raw, p2_i / 1000, p2_i % 1000,
@@ -312,7 +315,10 @@ void StartControlTask(void *argument)
                 out.brake_active  ? 1 : 0,
                 out.brake_latched ? 1 : 0,
                 hv_contactors_closed ? 1: 0,
-                hvc_state
+                hvc_state,
+                inv_fb_tq / 100, inv_fb_tq % 100,
+                inverter_rpm,
+                inv_bus_v / 10, inv_bus_v % 10
             );
         }
 
