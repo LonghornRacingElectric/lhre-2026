@@ -4,10 +4,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import LiveViewerBanner from "@/components/LiveViewerBanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { setSSEPath } from "@/lib/kafka/sseBus";
-import { restartSSE } from "@/lib/kafka/sseBus";
-import { stopSSE } from "@/lib/kafka/sseBus";
 
 // Reuse the same widgets as Live Viewer
 import CarVisualization from "@/components/CarVisualization";
@@ -44,6 +40,15 @@ type ReplaySummary = {
   flagged_events: Array<{ type: string; start_time: string; end_time: string | null; notes: string | null }>;
 };
 
+type ReplayStatePayload = {
+  cursor_ms: number | null;
+  time_ms: number | null;
+  packet_id: string;
+  is_end: boolean;
+  car_visualization: CarVisualizationData | null;
+  driver_input_visualizer: DriverInputData | null;
+};
+
 function toNum(v: any): number | null {
   if (v == null) return null;
   const n = Number(v);
@@ -56,23 +61,18 @@ export default function ReplayPage() {
   const [summary, setSummary] = useState<ReplaySummary | null>(null);
 
   const [playing, setPlaying] = useState(true);
-  const [speed, setSpeed] = useState(1);
+  const [isEnd, setIsEnd] = useState(false);
   const [timeCursor, setTimeCursor] = useState<number | null>(null);
 
-  const [streamCursorMs, setStreamCursorMs] = useState<number | null>(null);
+  // Anchor point for (re)connecting the SSE stream.
+  // Do NOT update this from incoming stream data.
+  const [streamStartAtMs, setStreamStartAtMs] = useState<number | null>(null);
 
-  const [currentTimeMs, setCurrentTimeMs] = useState<number | null>(null);
-  const [nextTimeMs, setNextTimeMs] = useState<number | null>(null);
-  const [isEnd, setIsEnd] = useState(false);
-  const lastFetchedMsRef = useRef<number | null>(null);
-  const timeCursorRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    timeCursorRef.current = timeCursor;
-  }, [timeCursor]);
 
   const [dbCarData, setDbCarData] = useState<CarVisualizationData | null>(null);
   const [dbDriverData, setDbDriverData] = useState<DriverInputData | null>(null);
+
+  const esRef = useRef<EventSource | null>(null);
 
   // Load events list
   useEffect(() => {
@@ -87,14 +87,11 @@ export default function ReplayPage() {
   useEffect(() => {
     if (!selected) {
       setSummary(null);
-      setTimeCursor(null);
-      setStreamCursorMs(null);
-      setCurrentTimeMs(null);
-      setNextTimeMs(null);
       setIsEnd(false);
-      lastFetchedMsRef.current = null;
       setDbCarData(null);
       setDbDriverData(null);
+      setTimeCursor(null);
+      setStreamStartAtMs(null);
       return;
     }
 
@@ -102,137 +99,112 @@ export default function ReplayPage() {
       const res = await fetch(`/api/replay/summary?eventId=${selected.event_id}`);
       const json = (await res.json()) as ReplaySummary;
       setSummary(json);
-      setTimeCursor(json.time_start);
-      setStreamCursorMs(json.time_start);
-      setCurrentTimeMs(null);
-      setNextTimeMs(null);
       setIsEnd(false);
-      lastFetchedMsRef.current = null;
       setPlaying(true);
+
+      const start = toNum(json.time_start);
+      setTimeCursor(start);
+      setStreamStartAtMs(start);
     })();
   }, [selected]);
-
-  useEffect(() => {
-    if (!selected || timeCursor == null) {
-      setDbCarData(null);
-      setDbDriverData(null);
-      setCurrentTimeMs(null);
-      setNextTimeMs(null);
-      setIsEnd(false);
-      lastFetchedMsRef.current = null;
-      return;
-    }
-
-    const cursorMs = Math.floor(timeCursor);
-    if (lastFetchedMsRef.current != null && lastFetchedMsRef.current === cursorMs) {
-      return;
-    }
-
-    const ac = new AbortController();
-    (async () => {
-      try {
-        const res = await fetch(
-          `/api/replay/state?eventId=${selected.event_id}&atTimeMs=${cursorMs}`,
-          { signal: ac.signal }
-        );
-        if (!res.ok) return;
-        const json = await res.json();
-        const snappedMs = typeof json.time_ms === "number" && Number.isFinite(json.time_ms) ? json.time_ms : null;
-        const nextMs = typeof json.next_time_ms === "number" && Number.isFinite(json.next_time_ms) ? json.next_time_ms : null;
-        const end = Boolean(json.is_end);
-
-        setDbCarData(json.car_visualization ?? null);
-        setDbDriverData(json.driver_input_visualizer ?? null);
-
-        if (snappedMs != null) {
-          lastFetchedMsRef.current = snappedMs;
-          setCurrentTimeMs(snappedMs);
-          if (snappedMs !== cursorMs) setTimeCursor(snappedMs);
-        } else {
-          lastFetchedMsRef.current = cursorMs;
-          setCurrentTimeMs(cursorMs);
-        }
-
-        setNextTimeMs(nextMs);
-        setIsEnd(end);
-
-        if (end) {
-          setPlaying(false);
-        }
-      } catch {
-        // ignore abort/network
-      }
-    })();
-
-    return () => {
-      ac.abort();
-    };
-  }, [selected, timeCursor]);
-
-  const sseUrl = useMemo(() => {
-    if (!selected) return "/api/replay-stream";
-    const params = new URLSearchParams();
-    params.set("eventId", String(selected.event_id));
-    if (streamCursorMs != null) params.set("fromTimeMs", String(Math.floor(streamCursorMs)));
-    params.set("speed", String(speed));
-    if (!playing) params.set("paused", "1");
-    return `/api/replay-stream?${params.toString()}`;
-  }, [selected, streamCursorMs, speed, playing]);
-
-  // If the user seeks, restart the replay stream from that time.
-  // If playback is toggled, restart from the current cursor so pause shows the right snapshot.
-  useEffect(() => {
-    if (!selected) return;
-    const cur = timeCursorRef.current;
-    if (cur == null) return;
-    setStreamCursorMs(cur);
-  }, [selected, playing]);
-
-  // Switch the global SSE source to replay stream while on this page
-  useEffect(() => {
-    if (!selected) {
-      stopSSE();
-      return () => {
-        setSSEPath("/api/kafka-stream");
-        restartSSE();
-      };
-    }
-    setSSEPath(sseUrl);
-    restartSSE();
-    return () => {
-      setSSEPath("/api/kafka-stream");
-      restartSSE();
-    };
-  }, [selected, sseUrl]);
 
   const timeStart = summary ? toNum(summary.time_start) : null;
   const timeEnd = summary ? toNum(summary.time_end) : null;
 
-  // Advance cursor when playing based on recorded packet time deltas.
+  // Stream replay state over SSE.
   useEffect(() => {
-    if (!selected) return;
-    if (!playing) return;
-    if (timeStart == null || timeEnd == null) return;
-    if (currentTimeMs == null) return;
-
-    if (currentTimeMs >= timeEnd) {
-      setPlaying(false);
-      return;
-    }
-    if (isEnd || nextTimeMs == null) {
-      setPlaying(false);
-      return;
+    if (esRef.current) {
+      esRef.current.close();
+      esRef.current = null;
     }
 
-    const dt = Math.max(0, nextTimeMs - currentTimeMs);
-    const waitMs = Math.max(0, Math.floor(dt / Math.max(0.1, speed)));
+    if (!selected?.event_id) return;
+    if (streamStartAtMs == null) return;
+    // Once we've reached the end, do not reconnect (it would snap back to the old anchor).
+    // Seeking sets isEnd=false, which allows reconnecting again.
+    if (isEnd) return;
 
-    const t = window.setTimeout(() => {
-      setTimeCursor(nextTimeMs);
-    }, waitMs);
+    const tickMs = 100;
+    const url = `/api/replay/stream?eventId=${selected.event_id}` +
+      `&startAtTimeMs=${streamStartAtMs}` +
+      `&playing=${playing ? "1" : "0"}` +
+      `&tickMs=${tickMs}`;
 
-    return () => window.clearTimeout(t);
-  }, [selected, playing, speed, timeStart, timeEnd, currentTimeMs, nextTimeMs, isEnd]);
+    const es = new EventSource(url);
+    esRef.current = es;
+
+    let gotFirst = false;
+
+    const onState = (ev: MessageEvent) => {
+      gotFirst = true;
+
+      let payload: ReplayStatePayload | null = null;
+      try {
+        payload = JSON.parse(ev.data);
+      } catch {
+        return;
+      }
+      if (!payload) return;
+
+      setDbCarData(payload.car_visualization ?? null);
+      setDbDriverData(payload.driver_input_visualizer ?? null);
+
+      const end = Boolean(payload.is_end);
+      setIsEnd(end);
+
+      if (end) {
+        setPlaying(false);
+        const nextCursor = payload.cursor_ms ?? payload.time_ms ?? null;
+        setTimeCursor(timeEnd ?? nextCursor);
+        es.close();
+        if (esRef.current === es) esRef.current = null;
+        return;
+      }
+
+      const nextCursor = payload.cursor_ms ?? payload.time_ms ?? null;
+      if (nextCursor != null) setTimeCursor(nextCursor);
+
+      // If paused, treat the SSE request as a one-shot snapshot.
+      if (!playing) {
+        es.close();
+        if (esRef.current === es) esRef.current = null;
+      }
+    };
+
+    const onError = () => {
+      // When paused the server closes quickly; do not keep a reconnect loop alive.
+      if (!playing) {
+        es.close();
+        if (esRef.current === es) esRef.current = null;
+      }
+    };
+
+    es.addEventListener("state", onState as any);
+    es.onerror = onError;
+
+    // Safety: if paused and the server never sends, stop the connection.
+    if (!playing) {
+      const t = window.setTimeout(() => {
+        if (!gotFirst && esRef.current === es) {
+          es.close();
+          esRef.current = null;
+        }
+      }, 1500);
+
+      return () => {
+        window.clearTimeout(t);
+        es.removeEventListener("state", onState as any);
+        es.close();
+        if (esRef.current === es) esRef.current = null;
+      };
+    }
+
+    return () => {
+      es.removeEventListener("state", onState as any);
+      es.close();
+      if (esRef.current === es) esRef.current = null;
+    };
+  }, [selected?.event_id, playing, streamStartAtMs, isEnd, timeEnd]);
 
   const markers = useMemo(() => {
     if (!summary || timeStart == null || timeEnd == null || timeEnd <= timeStart) return [];
@@ -250,6 +222,17 @@ export default function ReplayPage() {
     }
     return out;
   }, [summary, timeStart, timeEnd]);
+
+  const handleTogglePlay = () => {
+    setPlaying((p) => {
+      const next = !p;
+      if (next) {
+        const anchor = timeCursor ?? timeStart;
+        if (anchor != null) setStreamStartAtMs(anchor);
+      }
+      return next;
+    });
+  };
 
   return (
     <>
@@ -330,21 +313,9 @@ export default function ReplayPage() {
                 ) : (
                   <>
                     <div className="flex items-center gap-3 flex-wrap">
-                      <Button onClick={() => setPlaying((p) => !p)}>
+                      <Button onClick={handleTogglePlay} disabled={isEnd}>
                         {playing ? "Pause" : "Play"}
                       </Button>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-600">Speed</span>
-                        <Input
-                          type="number"
-                          step={0.1}
-                          min={0.1}
-                          max={10}
-                          value={speed}
-                          onChange={(e) => setSpeed(Number(e.target.value) || 1)}
-                          className="w-24"
-                        />
-                      </div>
                     </div>
 
                     <div className="flex flex-col gap-2">
@@ -368,7 +339,6 @@ export default function ReplayPage() {
                           })}
                         </div>
                       ) : null}
-
                       <input
                         type="range"
                         min={timeStart ?? 0}
@@ -377,8 +347,10 @@ export default function ReplayPage() {
                         onChange={(e) => {
                           const v = Number(e.target.value);
                           const next = Number.isFinite(v) ? v : timeStart;
-                          setTimeCursor(next);
-                          setStreamCursorMs(next);
+
+                          setTimeCursor(next ?? null);
+                          setIsEnd(false);
+                          if (next != null) setStreamStartAtMs(next);
                         }}
                         disabled={timeStart == null || timeEnd == null}
                       />
