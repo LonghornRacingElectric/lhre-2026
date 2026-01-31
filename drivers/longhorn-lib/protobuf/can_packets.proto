@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+message SensorData {
+    int64 time = 1;
+    int64 packet_id = 2;
+    Dynamics dynamics = 3;
+    Controls controls = 4;
+    Pack pack = 5;
+    DiagnosticsHigh diagnostics_high = 6;
+    DiagnosticsLow diagnostics_low = 1001;
+    Thermal thermal = 1002;
+}
+
+message Dynamics {
+    float bl_pushrod_stress = 1;
+    float bl_ride_height = 2;
+    float bl_spring_displace = 3;
+    repeated float bl_sprung_accel = 4;
+    repeated float bl_sprung_ang_rate = 5;
+    float bl_strain_gauge_v = 6;
+    repeated float bl_unsprung_accel = 7;
+    float blw_speed = 8;
+    float br_pushrod_stress = 9;
+    float br_ride_height = 10;
+    float br_spring_displace = 11;
+    repeated float br_sprung_accel = 12;
+    repeated float br_sprung_ang_rate = 13;
+    float br_strain_gauge_v = 14;
+    repeated float br_unsprung_accel = 15;
+    float brw_speed = 16;
+    float fl_pushrod_stress = 17;
+    float fl_ride_height = 18;
+    float fl_spring_displace = 19;
+    repeated float fl_sprung_accel = 20;
+    repeated float fl_sprung_ang_rate = 21;
+    float fl_steer_angle = 22;
+    float fl_strain_gauge_v = 23;
+    repeated float fl_unsprung_accel = 24;
+    float flw_speed = 25;
+    float fr_pushrod_stress = 26;
+    float fr_ride_height = 27;
+    float fr_spring_displace = 28;
+    repeated float fr_sprung_accel = 29;
+    repeated float fr_sprung_ang_rate = 30;
+    float fr_steer_angle = 31;
+    float fr_strain_gauge_v = 32;
+    repeated float fr_unsprung_accel = 33;
+    float frw_speed = 34;
+    float r_gps = 35;
+    float r_gps_heading = 36;
+    float r_gps_velocity = 37;
+    float steer_col_angle = 38;
+}
+
+message Controls {
+    float brake_bias = 1;
+    float brake_pressure_f = 2;
+    float brake_pressure_rall = 3;
+    float brake_pressure_rbll = 4;
+    float bse1_v = 5;
+    float bse2_v = 6;
+    float bse3_v = 7;
+    uint32 bse_faults = 8;
+    float lights_current_current = 9;
+}
+
+message Pack {
+    float hv_c = 1;
+    float hv_pack_v = 2;
+    float hv_soc = 3;
+    float lv_boards_current = 4;
+    bool negative_hv_contactor = 5;
+    bool positive_hv_contactor = 6;
+}
+
+message DiagnosticsHigh {
+    float shutdown_current = 1;
+    uint32 vcu_fuses_1 = 2;
+    uint32 vcu_fuses_2 = 3;
+    uint32 vcu_shutdown_status = 4;
+}
+
+message DiagnosticsLow {
+    bool bmb_comm_error = 1;
+    bool imd_gnd_isolation_error = 2;
+    bool shutdown_leg1 = 3;
+    bool shutdown_leg2 = 4;
+    bool shutdown_leg3 = 5;
+    bool shutdown_leg4 = 6;
+}
+
+message Thermal {
+    float ambient_temp = 1;
+    float batt_loop_batt_temp = 2;
+    float batt_loop_rad_fan_speed = 3;
+    float batt_loop_rad_temp = 4;
+    float battery_cooling_current = 5;
+    float bus_bar_temp1 = 6;
+    float bus_bar_temp2 = 7;
+    float bus_bar_temp3 = 8;
+    uint32 cell_bottom_temp = 9;
+    uint32 cell_top_temp = 10;
+    repeated float cells_temps = 11;
+    repeated float cells_v = 12;
+    float discharge_r_temp = 13;
+    uint32 hvc_state_machine = 14;
+    float inverter_temp = 15;
+    float motor_cooling_current = 16;
+    float motor_loop_inverter_temp = 17;
+    float motor_loop_motor_temp = 18;
+    float motor_loop_rad_fan_speed = 19;
+    float motor_loop_rad_temp = 20;
+    float motor_temp = 21;
+    float precharge_r_temp = 22;
+}

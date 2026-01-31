@@ -133,6 +133,52 @@ py_binary(
     srcs = ["scripts/generate_can_lib.py"],
 )
 
+py_binary(
+    name = "generate_can_proto",
+    srcs = [
+        "scripts/generate_can_proto.py",
+        "scripts/generate_can_json.py",
+    ],
+)
+
+# Generates can_packets.proto as a normal Bazel build output.
+#
+# Output path:
+# - bazel-bin/drivers/longhorn-lib/can_packets.proto
+#
+# This will automatically re-run if the CSV inputs change.
+genrule(
+    name = "can_proto",
+    srcs = [
+        "config/can_bitfields.csv",
+        "config/can_packets.csv",
+    ],
+    outs = [
+        "can_packets.proto",
+    ],
+    cmd = """$(location generate_can_proto) \\
+            $(location config/can_packets.csv) $(location config/can_bitfields.csv) \\
+            --out $@""",
+    tools = [
+        "generate_can_proto",
+    ],
+)
+
+# Writes drivers/longhorn-lib/protobuf/can_packets.proto into the workspace.
+# Use: bazel run //drivers/longhorn-lib:update_can_proto
+py_binary(
+    name = "update_can_proto",
+    srcs = [
+        "scripts/generate_can_proto.py",
+        "scripts/generate_can_json.py",
+        "scripts/update_can_proto.py",
+    ],
+    data = [
+        "config/can_bitfields.csv",
+        "config/can_packets.csv",
+    ],
+)
+
 filegroup(
     name = "longhorn_lib_base_headers",
     srcs = glob(
