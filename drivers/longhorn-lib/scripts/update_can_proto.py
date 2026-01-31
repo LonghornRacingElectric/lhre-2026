@@ -1,4 +1,5 @@
-#!/usr/bin/env python3import importlib.util
+#!/usr/bin/env python3
+import importlib.util
 import os
 import sys
 
