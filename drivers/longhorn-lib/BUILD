@@ -162,6 +162,7 @@ genrule(
     tools = [
         "generate_can_proto",
     ],
+    visibility = ["//visibility:public"],
 )
 
 # Writes drivers/longhorn-lib/protobuf/can_packets.proto into the workspace.
