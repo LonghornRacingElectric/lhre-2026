@@ -3,14 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useKafkaJSON } from '@/hooks/useKafkaStream';
 import * as d3 from 'd3';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 
 type LatLon = [number, number];
 
 const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: number }) => {
-  const mapRef = useRef<L.Map | null>(null);
-  const mapContainerRef = useRef<HTMLDivElement>(null);
   const [points, setPoints] = useState<LatLon[]>(() => {
     // Load points from localStorage on mount
     if (typeof window !== 'undefined') {
@@ -28,31 +24,6 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const lastPointRef = useRef<LatLon | null>(null);
   const countRef = useRef(0);
-
-  // Initialize Leaflet map
-  useEffect(() => {
-    if (typeof window === 'undefined' || !mapContainerRef.current) return;
-
-    // Default to track location (adjust as needed)
-    const defaultCenter: LatLon = [37.43, -122.17];
-    const defaultZoom = 15;
-
-    if (!mapRef.current) {
-      mapRef.current = L.map(mapContainerRef.current).setView(defaultCenter, defaultZoom);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-        maxZoom: 19,
-      }).addTo(mapRef.current);
-    }
-
-    // Update map bounds when points change
-    if (points.length > 1) {
-      const bounds = L.latLngBounds(points.map(p => [p[0], p[1]] as [number, number]));
-      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
-    } else if (points.length === 1) {
-      mapRef.current.setView(points[0], defaultZoom);
-    }
-  }, [points]);
 
   // Live connection to Kafka "track-mapper" topic
   const { data: kafkaMsg, kafkaConnected } = useKafkaJSON<any>({ 
@@ -187,7 +158,7 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
     const line = d3.line<LatLon>()
       .x((p) => x(p[1]))
       .y((p) => y(p[0]))
-      .curve(d3.curveCatmullRom.alpha(0.5)); // Extra smooth Catmull-Rom curve
+      .curve(d3.curveNatural); // Smooth curves instead of sharp angles
 
     const d = points.length > 0 ? line(points) || '' : '';
 
@@ -215,17 +186,8 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
         </div>
       </div>
 
-      {/* Map and SVG overlay container */}
+      {/* SVG visualization area */}
       <div className="flex-grow overflow-hidden relative">
-        {/* Leaflet map background */}
-        <div 
-          ref={mapContainerRef}
-          className="absolute inset-0 z-0"
-          style={{ width: '100%', height: '100%' }}
-        />
-        
-        {/* D3 SVG overlay */}
-        <div className="absolute inset-0 overflow-hidden z-10">
         {points.length > 0 ? (
           <>
             <svg 
@@ -238,10 +200,10 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
               {/* Track path - wide stroke to resemble actual track */}
               <path 
                 d={pathD} 
-                stroke="#4993c7ff" 
+                stroke="#1f77b4" 
                 strokeWidth={30} 
                 fill="none" 
-                strokeLinecap="round"
+                strokeLinecap="round" 
                 strokeLinejoin="round"
                 opacity={0.99}
               />
@@ -288,7 +250,6 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
             </div>
           </div>
         )}
-        </div>
       </div>
     </div>
   );

@@ -56,7 +56,7 @@ producer = KafkaProducer(
 )
 print("Kafka Producer initialized. Ready to send messages to 'track-mapper' topic.")
 
-
+handler = MQTTHandler()
 allPoints = []
 gate = ((37.4300, -122.1730), (37.4305, -122.1725))  # Example gate coordinates
 lapCompleted = False
@@ -86,7 +86,7 @@ try:
                 if record.topic == 'reload_processors':
                     lapCompleted = False
                 try:
-                    decoded_message = MQTTHandler._proto_decode(payload=record.value, car="Angelique")
+                    decoded_message = handler._proto_decode(payload=record.value, car="Angelique")
                     print(f"  Decoded Message: {decoded_message}")
                     print("LAP COMPLETED ", lapCompleted)
                     if not lapCompleted:
@@ -130,4 +130,3 @@ finally:
     # Ensure the consumer is closed properly
     consumer.close()
     print("Consumer closed.")
-
