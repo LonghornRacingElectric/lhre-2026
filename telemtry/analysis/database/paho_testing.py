@@ -95,6 +95,17 @@ class DataTester:
         row['packet_id'] = packet
 
         for db_col, csv_col in self.mapping.items():
+            # Special-case time: CSV "Time" is in seconds; DB/protobuf expects milliseconds.
+            if db_col == 'time':
+                if isinstance(csv_col, list):
+                    raise ValueError('Mapping for "time" must be a single CSV column name, not a list.')
+                time_s = csv_row[csv_col]
+                try:
+                    row[db_col] = int(round(float(time_s) * 1000.0))
+                except (TypeError, ValueError) as e:
+                    raise ValueError(f'Non-numeric CSV time value {time_s!r} in column {csv_col!r}') from e
+                continue
+
             if isinstance(csv_col, list):
                 row[db_col] = [csv_row[col] for col in csv_col]
             else:
@@ -354,7 +365,7 @@ class DataTester:
         str_to_np = {np_clas.__name__: np_clas for np_clas in getattr(getattr(sys.modules[__name__], 'np'), 'ScalarType')}
         scalar_or_list = lambda val, scalar: val.tolist()[0] if scalar else val.tolist()
         payload_str = ver.to_bytes(1, 'big') + b''.join([scalar_or_list((np.array(
-            dbtest.get_random_data(str_to_np[col_spec['type']], size=(shape := col_spec.get('shape', (1,)))),
+            self.get_random_data(str_to_np[col_spec['type']], size=(shape := col_spec.get('shape', (1,)))),
             dtype=col_spec['type']) / col_spec.get('multiplier', 1)).flatten().reshape(shape), shape == (1,)).tobytes()
             for col, col_spec in config.items()])
         self.mqtt.publish('/h' if high_freq else '/l', payload_str, qos=1)
@@ -376,7 +387,7 @@ if __name__ == '__main__':
             dt.send_proto_rows(
                 tables=['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
                 num_rows= 2000,
-                delay= 0.25,
+                delay= 0.0,
                 use_csv=True,
                 target=car_name
             )

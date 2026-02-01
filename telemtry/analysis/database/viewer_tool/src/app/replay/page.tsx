@@ -13,6 +13,7 @@ import type { DriverInputData } from "@/components/DriverInputVisualizer";
 
 type ReplayEvent = {
   event_id: number;
+  day_id?: number | null;
   status: number | null;
   creation_time: string | number;
   start_time: string | number | null;
@@ -27,8 +28,29 @@ type ReplayEvent = {
   car_name: string | null;
 };
 
+type DriveDay = {
+  day_id: number;
+  date: string;
+  power_limit: number | null;
+  air_temperature: number | null;
+  relative_humidity: number | null;
+  track_temperature: number | null;
+};
+
+type DriveDayGroup = {
+  drive_day: DriveDay;
+  event_count: number;
+};
+
 type ReplaySummary = {
   event_id: number;
+  day_id?: number | null;
+  day_date?: string | null;
+  driver_name?: string | null;
+  area?: string | null;
+  track?: string | null;
+  event_type?: string | null;
+  car_name?: string | null;
   packet_start: string | null;
   packet_end: string | null;
   time_start: number | null;
@@ -56,13 +78,17 @@ function toNum(v: any): number | null {
 }
 
 export default function ReplayPage() {
-  const [events, setEvents] = useState<ReplayEvent[]>([]);
+  const [driveDays, setDriveDays] = useState<DriveDayGroup[]>([]);
+  const [selectedDay, setSelectedDay] = useState<DriveDayGroup | null>(null);
+  const [selectedDayEvents, setSelectedDayEvents] = useState<ReplayEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
   const [selected, setSelected] = useState<ReplayEvent | null>(null);
   const [summary, setSummary] = useState<ReplaySummary | null>(null);
 
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(false);
   const [isEnd, setIsEnd] = useState(false);
   const [timeCursor, setTimeCursor] = useState<number | null>(null);
+  const timeCursorRef = useRef<number | null>(null);
 
   // Anchor point for (re)connecting the SSE stream.
   // Do NOT update this from incoming stream data.
@@ -74,14 +100,56 @@ export default function ReplayPage() {
 
   const esRef = useRef<EventSource | null>(null);
 
-  // Load events list
+  // Load drive days list
   useEffect(() => {
     (async () => {
-      const res = await fetch("/api/replay/events");
+      const res = await fetch("/api/replay/drive-days");
       const json = await res.json();
-      setEvents(json.events || []);
+      const days: DriveDayGroup[] = json.drive_days || [];
+      setDriveDays(days);
+      setSelectedDay((prev) => prev ?? (days.length ? days[0] : null));
     })();
   }, []);
+
+  // When selecting a drive day, clear selected event and playback state
+  useEffect(() => {
+    setSelected(null);
+    setSummary(null);
+    setIsEnd(false);
+    setPlaying(false);
+    setDbCarData(null);
+    setDbDriverData(null);
+    setTimeCursor(null);
+    timeCursorRef.current = null;
+    setStreamStartAtMs(null);
+
+    if (!selectedDay?.drive_day?.day_id) {
+      setSelectedDayEvents([]);
+      setEventsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setEventsLoading(true);
+    setSelectedDayEvents([]);
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/replay/drive-days/${selectedDay.drive_day.day_id}/events`,
+        );
+        const json = await res.json();
+        if (cancelled) return;
+        setSelectedDayEvents(json.events || []);
+      } finally {
+        if (!cancelled) setEventsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDay?.drive_day.day_id]);
 
   // When selecting an event, initialize cursor
   useEffect(() => {
@@ -91,6 +159,7 @@ export default function ReplayPage() {
       setDbCarData(null);
       setDbDriverData(null);
       setTimeCursor(null);
+      timeCursorRef.current = null;
       setStreamStartAtMs(null);
       return;
     }
@@ -100,10 +169,11 @@ export default function ReplayPage() {
       const json = (await res.json()) as ReplaySummary;
       setSummary(json);
       setIsEnd(false);
-      setPlaying(true);
+      setPlaying(false);
 
       const start = toNum(json.time_start);
       setTimeCursor(start);
+      timeCursorRef.current = start;
       setStreamStartAtMs(start);
     })();
   }, [selected]);
@@ -124,7 +194,7 @@ export default function ReplayPage() {
     // Seeking sets isEnd=false, which allows reconnecting again.
     if (isEnd) return;
 
-    const tickMs = 100;
+    const tickMs = 100; // modify this to increase the data precision
     const url = `/api/replay/stream?eventId=${selected.event_id}` +
       `&startAtTimeMs=${streamStartAtMs}` +
       `&playing=${playing ? "1" : "0"}` +
@@ -163,6 +233,7 @@ export default function ReplayPage() {
 
       const nextCursor = payload.cursor_ms ?? payload.time_ms ?? null;
       if (nextCursor != null) setTimeCursor(nextCursor);
+      timeCursorRef.current = nextCursor;
 
       // If paused, treat the SSE request as a one-shot snapshot.
       if (!playing) {
@@ -226,13 +297,42 @@ export default function ReplayPage() {
   const handleTogglePlay = () => {
     setPlaying((p) => {
       const next = !p;
-      if (next) {
-        const anchor = timeCursor ?? timeStart;
-        if (anchor != null) setStreamStartAtMs(anchor);
-      }
+      const anchor = timeCursorRef.current ?? timeCursor ?? timeStart;
+      // On both play and pause, anchor the stream to the current cursor.
+      // This prevents "pause" from snapping back to the original stream start.
+      if (anchor != null) setStreamStartAtMs(anchor);
       return next;
     });
   };
+
+  const seekTo = (ms: number) => {
+    if (!Number.isFinite(ms)) return;
+    setTimeCursor(ms);
+    timeCursorRef.current = ms;
+    setIsEnd(false);
+    setStreamStartAtMs(ms);
+  };
+
+  const handleRestart = () => {
+    if (timeStart == null) return;
+    // Reset playhead to the event start; keep paused so user can hit Play.
+    setPlaying(true);
+    seekTo(timeStart);
+  };
+
+  const selectedDayInfo = selectedDay?.drive_day ?? null;
+
+  const eventDescription = (() => {
+    const car = selected?.car_name ?? summary?.car_name;
+    const driver = selected?.driver_name ?? summary?.driver_name;
+    const track = selected?.track ?? summary?.track;
+    const area = selected?.area ?? summary?.area;
+    const type = selected?.event_type ?? summary?.event_type;
+    const pieces = [car, driver, track].filter((v) => v && v !== "—");
+    const tail = [type, area].filter((v) => v && v !== "—");
+    if (!pieces.length && !tail.length) return "—";
+    return `${pieces.join(" | ")}${tail.length ? ` — ${tail.join(" | ")}` : ""}`;
+  })();
 
   return (
     <>
@@ -241,25 +341,68 @@ export default function ReplayPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-8">
           <Card className="h-[calc(100vh-140px)] overflow-hidden">
             <CardHeader>
-              <CardTitle>Replay Events</CardTitle>
+              <CardTitle>Replay</CardTitle>
             </CardHeader>
-            <CardContent className="h-full overflow-auto space-y-2">
-              {events.map((e) => {
-                const isSel = selected?.event_id === e.event_id;
-                return (
-                  <button
-                    key={e.event_id}
-                    className={`w-full text-left border rounded p-2 ${isSel ? "bg-gray-100" : "bg-white"}`}
-                    onClick={() => setSelected(e)}
-                  >
-                    <div className="font-semibold">Event #{e.event_id}</div>
-                    <div className="text-xs text-gray-600">
-                      {e.car_name ?? "—"} | {e.driver_name ?? "—"} | {e.track ?? "—"}
+            <CardContent className="h-full overflow-auto space-y-4">
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Drive days</div>
+                {driveDays.map((d) => {
+                  const isSel = selectedDay?.drive_day.day_id === d.drive_day.day_id;
+                  return (
+                    <button
+                      key={d.drive_day.day_id}
+                      className={`w-full text-left border rounded p-2 ${isSel ? "bg-gray-100" : "bg-white"}`}
+                      onClick={() => setSelectedDay(isSel ? null : d)}
+                    >
+                      <div className="font-semibold">Day #{d.drive_day.day_id}</div>
+                      <div className="text-xs text-gray-600">
+                        {new Date(d.drive_day.date).toLocaleDateString()} | {d.event_count} events
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {selectedDayInfo ? (
+                <div className="space-y-2 border-t pt-3">
+                  <div className="text-sm font-medium">Drive day</div>
+                  <div className="text-xs text-gray-600 space-y-1">
+                    <div>Date: {new Date(selectedDayInfo.date).toLocaleDateString()}</div>
+                    <div>Power limit: {selectedDayInfo.power_limit ?? "—"}</div>
+                    <div>Air temp: {selectedDayInfo.air_temperature ?? "—"}</div>
+                    <div>Rel humidity: {selectedDayInfo.relative_humidity ?? "—"}</div>
+                    <div>Track temp: {selectedDayInfo.track_temperature ?? "—"}</div>
+                  </div>
+
+                  <div className="pt-2">
+                    <div className="text-sm font-medium">Events</div>
+                    <div className="space-y-2 mt-2">
+                      {eventsLoading ? (
+                        <div className="text-sm text-gray-500">Loading events…</div>
+                      ) : null}
+                      {selectedDayEvents.map((e) => {
+                        const isSel = selected?.event_id === e.event_id;
+                        return (
+                          <button
+                            key={e.event_id}
+                            className={`w-full text-left border rounded p-2 ${isSel ? "bg-gray-100" : "bg-white"}`}
+                            onClick={() => setSelected(isSel ? null : e)}
+                          >
+                            <div className="font-semibold">Event #{e.event_id}</div>
+                            <div className="text-xs text-gray-600">
+                              {e.car_name ?? "—"} | {e.driver_name ?? "—"} | {e.track ?? "—"}
+                            </div>
+                            <div className="text-xs text-gray-500">{e.event_type ?? "—"}</div>
+                          </button>
+                        );
+                      })}
+                      {!eventsLoading && !selectedDayEvents.length ? (
+                        <div className="text-sm text-gray-500">No events for this drive day.</div>
+                      ) : null}
                     </div>
-                    <div className="text-xs text-gray-500">{e.event_type ?? "—"}</div>
-                  </button>
-                );
-              })}
+                  </div>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -270,6 +413,11 @@ export default function ReplayPage() {
                   <CardTitle>Summary</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div>
+                    <div className="text-sm font-medium">Event description</div>
+                    <div className="text-sm text-gray-700 mt-1">{eventDescription}</div>
+                  </div>
+
                   <div>
                     <div className="text-sm font-medium">Lap times</div>
                     {summary.lap_times?.length ? (
@@ -291,7 +439,7 @@ export default function ReplayPage() {
                       <div className="mt-2 space-y-1">
                         {summary.flagged_events.map((f, idx) => (
                           <div key={`${f.type}-${f.start_time}-${idx}`} className="text-sm text-gray-700">
-                            {new Date(Number(f.start_time)).toLocaleTimeString()} — {f.type}{f.notes ? ` (${f.notes})` : ""}
+                            {new Date(Number(f.start_time)).toLocaleTimeString()} — {f.notes}
                           </div>
                         ))}
                       </div>
@@ -313,8 +461,11 @@ export default function ReplayPage() {
                 ) : (
                   <>
                     <div className="flex items-center gap-3 flex-wrap">
-                      <Button onClick={handleTogglePlay} disabled={isEnd}>
-                        {playing ? "Pause" : "Play"}
+                      <Button
+                        onClick={isEnd ? handleRestart : handleTogglePlay}
+                        disabled={timeStart == null}
+                      >
+                        {isEnd ? "Restart" : playing ? "Pause" : "Play"}
                       </Button>
                     </div>
 
@@ -327,14 +478,16 @@ export default function ReplayPage() {
                             const pct = ((m.t - timeStart) / (timeEnd - timeStart)) * 100;
                             if (!Number.isFinite(pct)) return null;
                             return (
-                              <div
+                              <button
                                 key={`${m.kind}-${m.t}-${idx}`}
-                                className="absolute top-0 -translate-x-1/2 text-xs select-none"
+                                type="button"
+                                className="absolute top-0 -translate-x-1/2 text-xs select-none cursor-pointer"
                                 style={{ left: `${Math.max(0, Math.min(100, pct))}%` }}
                                 title={m.label}
+                                onClick={() => seekTo(m.t)}
                               >
                                 {m.kind === "lap" ? "⏱" : "⚑"}
-                              </div>
+                              </button>
                             );
                           })}
                         </div>
@@ -349,6 +502,7 @@ export default function ReplayPage() {
                           const next = Number.isFinite(v) ? v : timeStart;
 
                           setTimeCursor(next ?? null);
+                          timeCursorRef.current = next ?? null;
                           setIsEnd(false);
                           if (next != null) setStreamStartAtMs(next);
                         }}

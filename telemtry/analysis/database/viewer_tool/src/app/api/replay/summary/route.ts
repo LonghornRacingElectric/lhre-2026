@@ -41,7 +41,17 @@ export async function GET(req: NextRequest) {
 
     const ev = await prisma.event.findUnique({
       where: { event_id: eventId },
-      select: { event_id: true, packet_start: true, packet_end: true },
+      select: {
+        event_id: true,
+        packet_start: true,
+        packet_end: true,
+        day_id: true,
+        drive_day: { select: { date: true } },
+        driver: { select: { driver_name: true } },
+        location: { select: { area: true, track: true } },
+        eventType: { select: { event_type: true } },
+        car: { select: { car_name: true } },
+      },
     });
     if (!ev)
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
@@ -127,6 +137,13 @@ export async function GET(req: NextRequest) {
         event_id: ev.event_id,
         packet_start: packetStart.toString(),
         packet_end: packetEnd.toString(),
+        day_id: ev.day_id,
+        day_date: ev.drive_day?.date != null ? ev.drive_day.date.toISOString() : null,
+        driver_name: ev.driver?.driver_name ?? null,
+        area: ev.location?.area ?? null,
+        track: ev.location?.track ?? null,
+        event_type: ev.eventType?.event_type ?? null,
+        car_name: ev.car?.car_name ?? null,
         time_start: bigintToSafeNumber(startMs),
         time_end: bigintToSafeNumber(endMs),
         lap_times,
