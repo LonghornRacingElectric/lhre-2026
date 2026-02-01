@@ -20,12 +20,7 @@ const FixedAspectContainer: React.FC<FixedAspectContainerProps> = ({
         const updateScale = () => {
             if (containerRef.current) {
                 const containerWidth = containerRef.current.clientWidth;
-                const containerHeight = containerRef.current.clientHeight;
-
-                const scaleX = containerWidth / width;
-                const scaleY = containerHeight / height;
-                const newScale = Math.min(scaleX, scaleY);
-
+                const newScale = containerWidth / width;
                 setScale(newScale);
             }
         };
@@ -43,8 +38,11 @@ const FixedAspectContainer: React.FC<FixedAspectContainerProps> = ({
     return (
         <div
             ref={containerRef}
-            className="w-full h-full flex items-center justify-center overflow-hidden"
-            style={{ background: '#000' }}
+            className="w-full flex items-center justify-center overflow-hidden"
+            style={{
+                background: '#000',
+                aspectRatio: `${width} / ${height}`
+            }}
         >
             <div
                 style={{
