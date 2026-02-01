@@ -30,6 +30,8 @@ import { useSortableTile } from "@/hooks/useSortableTile";
 import CarVisualization from "@/components/CarVisualization";
 import DriverInputVisualizer from "@/components/DriverInputVisualizer";
 import GGPlot from "@/components/GGPlot";
+import DashboardScreen from "@/components/DashboardScreen";
+import ShutdownScreen from "@/components/ShutdownScreen";
 
 const DynamicMap = dynamic(() => import("@/components/Map"), {
   ssr: false,
@@ -178,6 +180,18 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
         return <GGPlot />;
       case "driver-input":
         return <DriverInputVisualizer />;
+      case "car-dashboard":
+        return (
+          <div className="w-full h-full">
+            <DashboardScreen />
+          </div>
+        );
+      case "shutdown-screen":
+        return (
+          <div className="w-full h-full">
+            <ShutdownScreen />
+          </div>
+        );
       case "thermal-headroom":
       case "energy-budget":
         return (
@@ -257,6 +271,8 @@ const LiveViewerPage = () => {
     { id: "thermal-headroom", name: "Thermal Headroom Meter" },
     { id: "driver-input", name: "Driver Input Visualizer" },
     { id: "energy-budget", name: "Energy Budget & Predictive SOC" },
+    { id: "car-dashboard", name: "Car Dashboard" },
+    { id: "shutdown-screen", name: "Shutdown Circuit Status" },
   ]);
   const [isDragging, setIsDragging] = useState(false);
   const [isClient, setIsClient] = useState(false);
