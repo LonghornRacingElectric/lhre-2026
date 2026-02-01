@@ -17,6 +17,7 @@ filegroup(
     srcs = [
         "//CSM/firmware:release",
         "//DUI/firmware:release",
+	"//HVC/firmware:release",
         "//LVBMS/firmware:release",
         "//TSM/firmware:release",
         "//USM/firmware:release",

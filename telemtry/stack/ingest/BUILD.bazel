@@ -1,0 +1,153 @@
+# telemtry/stack/ingest/BUILD.bazel
+# BUILD file for the MQTT ingest service
+# This service receives MQTT messages, stores them in PostgreSQL, and forwards to Kafka
+
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+load("@rules_python//python:pip.bzl", "compile_pip_requirements")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_load")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("@telemtry_stack_reqs//:requirements.bzl", "requirement")
+
+package(default_visibility = ["//telemtry:__subpackages__"])
+
+# Compile pip requirements for stack services
+compile_pip_requirements(
+    name = "stack_requirements",
+    src = "requirements.txt",
+    requirements_txt = "requirements_lock.txt",
+    python_version = "3.11",
+    generate_hashes = False,
+    tags = ["requirements"],
+)
+
+# Export configuration files for Docker compose and testing
+exports_files([
+    "docker-compose.yml",
+    "mosquitto.conf",
+    "requirements.txt",
+    "requirements_lock.txt",
+    "init-databases.sh",
+    "nightwatch_db_init.sql",
+    "angelique_db_init.sql",
+])
+
+# Filegroup for SQL initialization scripts
+filegroup(
+    name = "db_init_scripts",
+    srcs = [
+        "angelique_db_init.sql",
+        "init-databases.sh",
+        "nightwatch_db_init.sql",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# Filegroup for protobuf files
+filegroup(
+    name = "protobuf_files",
+    srcs = glob(["protobuf/**"]),
+    visibility = ["//visibility:public"],
+)
+
+# Filegroup for car configuration files
+filegroup(
+    name = "car_configs",
+    srcs = glob(["car_configs/**"]),
+    visibility = ["//visibility:public"],
+)
+
+# Python library for the MQTT handler
+py_library(
+    name = "ingest_lib",
+    srcs = [
+        "__init__.py",
+        "mqtt_handler.py",
+    ],
+    data = [
+        ":car_configs",
+        ":protobuf_files",
+        "//telemtry:config_files",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//telemtry/analysis:analysis_lib",
+        requirement("kafka-python"),
+        requirement("numpy"),
+        requirement("paho-mqtt"),
+        requirement("pandas"),
+        requirement("protobuf"),
+        requirement("psycopg2-binary"),
+        requirement("python-dotenv"),
+        requirement("SQLAlchemy"),
+    ],
+)
+
+# Python binary for the ingest service
+py_binary(
+    name = "ingest_binary",
+    srcs = ["mqtt_handler.py"],
+    main = "mqtt_handler.py",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":ingest_lib",
+    ],
+)
+
+# Package the ingest application files into a tar
+pkg_tar(
+    name = "ingest_app_tar",
+    srcs = [
+        "__init__.py",
+        "mqtt_handler.py",
+    ] + glob(["protobuf/**"]) + glob(["car_configs/**"]),
+    package_dir = "/app/stack/ingest",
+    strip_prefix = ".",
+)
+
+# Package analysis dependencies for the container
+pkg_tar(
+    name = "analysis_deps_tar",
+    srcs = [
+        "//telemtry/analysis:analysis_lib",
+    ],
+    package_dir = "/app/analysis",
+)
+
+# Package configuration files
+pkg_tar(
+    name = "config_tar",
+    srcs = [
+        "//telemtry:config_files",
+    ],
+    package_dir = "/app",
+)
+
+# OCI image for the ingest service
+oci_image(
+    name = "ingest_image",
+    base = "@python311_linux_amd64",
+    tars = [
+        ":ingest_app_tar",
+        ":config_tar",
+    ],
+    entrypoint = ["python", "/app/stack/ingest/mqtt_handler.py"],
+    env = {
+        "PYTHONPATH": "/app",
+        "PYTHONUNBUFFERED": "1",
+    },
+    visibility = ["//visibility:public"],
+)
+
+# Tarball for local Docker loading (use oci_load instead of oci_tarball)
+oci_load(
+    name = "ingest_tarball",
+    image = ":ingest_image",
+    repo_tags = ["telemetry_backend:latest"],
+)
+
+# Push target for container registry
+oci_push(
+    name = "ingest_push",
+    image = ":ingest_image",
+    repository = "ghcr.io/longhornracingelectric/telemetry-ingest",
+)

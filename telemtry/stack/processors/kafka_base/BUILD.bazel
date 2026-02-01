@@ -1,0 +1,121 @@
+# telemtry/stack/processors/kafka_base/BUILD.bazel
+# BUILD file for the Kafka base consumer processor
+# This is the base template for Kafka consumers that process sensor data
+
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+load("@rules_python//python:pip.bzl", "compile_pip_requirements")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_load")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("@telemtry_reqs//:requirements.bzl", "requirement")
+
+package(default_visibility = ["//telemtry:__subpackages__"])
+
+# Compile pip requirements
+compile_pip_requirements(
+    name = "kafka_base_requirements",
+    src = "requirements.txt",
+    requirements_txt = "requirements_lock.txt",
+    python_version = "3.11",
+    generate_hashes = False,
+    tags = ["requirements"],
+)
+
+# Export configuration files
+exports_files([
+    "docker-compose.yml",
+    "requirements.txt",
+    "requirements_lock.txt",
+])
+
+# Python library for the Kafka base consumer
+py_library(
+    name = "kafka_base_lib",
+    srcs = [
+        "main.py",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//telemtry/stack/ingest:ingest_lib",
+        requirement("kafka-python"),
+        requirement("paho-mqtt"),
+    ],
+)
+
+# Python binary for the Kafka base consumer
+py_binary(
+    name = "kafka_base_binary",
+    srcs = ["main.py"],
+    main = "main.py",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":kafka_base_lib",
+    ],
+)
+
+# Package the processor application files
+pkg_tar(
+    name = "kafka_base_app_tar",
+    srcs = [
+        "main.py",
+    ],
+    package_dir = "/app/stack/processors/kafka_base",
+    strip_prefix = ".",
+)
+
+# Package ingest dependencies
+pkg_tar(
+    name = "ingest_deps_tar",
+    srcs = [
+        "//telemtry/stack/ingest:ingest_lib",
+        "//telemtry/stack/ingest:protobuf_files",
+    ],
+    package_dir = "/app/stack/ingest",
+)
+
+# Package analysis dependencies
+pkg_tar(
+    name = "analysis_deps_tar",
+    srcs = [
+        "//telemtry/analysis:analysis_lib",
+    ],
+    package_dir = "/app/analysis",
+)
+
+# Package configuration files
+pkg_tar(
+    name = "config_tar",
+    srcs = [
+        "//telemtry:config_files",
+    ],
+    package_dir = "/app",
+)
+
+# OCI image for the Kafka base consumer
+oci_image(
+    name = "kafka_base_image",
+    base = "@python311_linux_amd64",
+    tars = [
+        ":kafka_base_app_tar",
+        ":config_tar",
+    ],
+    entrypoint = ["python", "/app/stack/processors/kafka_base/main.py"],
+    env = {
+        "PYTHONPATH": "/app",
+        "PYTHONUNBUFFERED": "1",
+    },
+    visibility = ["//visibility:public"],
+)
+
+# Tarball for local Docker loading (use oci_load instead of oci_tarball)
+oci_load(
+    name = "kafka_base_tarball",
+    image = ":kafka_base_image",
+    repo_tags = ["kafka_consumer:latest"],
+)
+
+# Push target for container registry
+oci_push(
+    name = "kafka_base_push",
+    image = ":kafka_base_image",
+    repository = "ghcr.io/longhornracingelectric/telemetry-kafka-base",
+)

@@ -27,7 +27,11 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "longhorn/rtos/led.h"
+#include "longhorn/rtos/logger.h"
+#include "longhorn/rtos/usb.h"
+#include "longhorn/usb_base.h"
 #include "tim.h"
+#include "usbd_cdc_if.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -54,7 +58,7 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
     .name = "defaultTask",
     .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 128 * 32};
+    .stack_size = 128 * 4};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -130,6 +134,11 @@ void StartDefaultTask(void* argument) {
     /* init code for USB_Device */
     MX_USB_Device_Init();
     /* USER CODE BEGIN StartDefaultTask */
+
+    if (init_logging(CDC_Transmit_FS) == -1) {
+        // If USB logging fails, stop LED thread so we notice
+        // osThreadTerminate(ledHandle);
+    }
     /* Infinite loop */
 
     for (;;) {
