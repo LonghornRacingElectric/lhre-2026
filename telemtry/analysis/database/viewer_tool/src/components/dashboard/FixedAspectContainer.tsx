@@ -15,13 +15,28 @@ const FixedAspectContainer: React.FC<FixedAspectContainerProps> = ({
 }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     useEffect(() => {
         const updateScale = () => {
             if (containerRef.current) {
                 const containerWidth = containerRef.current.clientWidth;
-                const newScale = containerWidth / width;
-                setScale(newScale);
+                const containerHeight = containerRef.current.clientHeight;
+
+                // Check if we're in fullscreen mode
+                const fullscreen = document.fullscreenElement !== null;
+                setIsFullscreen(fullscreen);
+
+                if (fullscreen) {
+                    // In fullscreen, fit within both dimensions
+                    const scaleX = containerWidth / width;
+                    const scaleY = containerHeight / height;
+                    setScale(Math.min(scaleX, scaleY));
+                } else {
+                    // In tile mode, scale based on width and let aspect-ratio handle height
+                    const scaleX = containerWidth / width;
+                    setScale(scaleX);
+                }
             }
         };
 
@@ -32,7 +47,13 @@ const FixedAspectContainer: React.FC<FixedAspectContainerProps> = ({
             resizeObserver.observe(containerRef.current);
         }
 
-        return () => resizeObserver.disconnect();
+        // Listen for fullscreen changes
+        document.addEventListener('fullscreenchange', updateScale);
+
+        return () => {
+            resizeObserver.disconnect();
+            document.removeEventListener('fullscreenchange', updateScale);
+        };
     }, [width, height]);
 
     return (
@@ -41,7 +62,11 @@ const FixedAspectContainer: React.FC<FixedAspectContainerProps> = ({
             className="w-full flex items-center justify-center overflow-hidden"
             style={{
                 background: '#000',
-                aspectRatio: `${width} / ${height}`
+                // In fullscreen, fill the space; in tile mode, use aspect ratio
+                ...(isFullscreen
+                    ? { height: '100%' }
+                    : { aspectRatio: `${width} / ${height}` }
+                )
             }}
         >
             <div
