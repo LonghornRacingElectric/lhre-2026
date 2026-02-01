@@ -11,6 +11,10 @@
     {
       "to": "live_banner",
       "pick": ["battery", "odometer"]
+    },
+    {
+      "to": "map",
+      "pick": ["dynamics"]
     }
   ],
   "gg-plot": {

@@ -10,6 +10,12 @@ import CarVisualization from "@/components/CarVisualization";
 import DriverInputVisualizer from "@/components/DriverInputVisualizer";
 import type { CarVisualizationData } from "@/components/CarVisualization";
 import type { DriverInputData } from "@/components/DriverInputVisualizer";
+import dynamic from "next/dynamic";
+import { MapData } from "@/components/Map";
+
+const DynamicMap = dynamic(() => import("@/components/Map"), {
+  ssr: false,
+});
 
 function TimelineLapIcon(props: { className?: string }) {
   return (
@@ -107,6 +113,7 @@ type ReplayStatePayload = {
   packet_id: string;
   is_end: boolean;
   car_visualization: CarVisualizationData | null;
+  map_data: MapData | null;
   driver_input_visualizer: DriverInputData | null;
 };
 
@@ -136,6 +143,7 @@ export default function ReplayPage() {
 
   const [dbCarData, setDbCarData] = useState<CarVisualizationData | null>(null);
   const [dbDriverData, setDbDriverData] = useState<DriverInputData | null>(null);
+  const [dbMapData, setDbMapData] = useState<MapData | null>(null);
 
   const esRef = useRef<EventSource | null>(null);
 
@@ -158,6 +166,7 @@ export default function ReplayPage() {
     setPlaying(false);
     setDbCarData(null);
     setDbDriverData(null);
+    setDbMapData(null);
     setTimeCursor(null);
     timeCursorRef.current = null;
     setStreamStartAtMs(null);
@@ -257,6 +266,7 @@ export default function ReplayPage() {
 
       setDbCarData(payload.car_visualization ?? null);
       setDbDriverData(payload.driver_input_visualizer ?? null);
+      setDbMapData(payload.map_data ?? null);
 
       const end = Boolean(payload.is_end);
       setIsEnd(end);
@@ -683,6 +693,10 @@ export default function ReplayPage() {
                 <Card className="h-full flex flex-col">
                   <CardHeader><CardTitle>Driver Input Visualizer</CardTitle></CardHeader>
                   <CardContent className="flex-grow"><DriverInputVisualizer data={dbDriverData} /></CardContent>
+                </Card>
+                <Card className="h-full flex flex-col">
+                  <CardHeader><CardTitle>Map</CardTitle></CardHeader>
+                  <CardContent className="flex-grow"><DynamicMap resize={false} data={dbMapData} /></CardContent>
                 </Card>
               </div>
             ) : null}

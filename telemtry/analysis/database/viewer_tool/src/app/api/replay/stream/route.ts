@@ -85,6 +85,11 @@ async function buildReplayState(eventId: number, atTimeMs: bigint) {
           brwSpeed: d.brw_speed ?? null,
         },
       },
+      map_data: {
+        dynamics: {
+          gps: d.gps ?? null,
+        },
+      },
       driver_input_visualizer: {
         controls: {
           steerV: c.steer_v ?? null,
