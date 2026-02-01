@@ -11,6 +11,44 @@ import DriverInputVisualizer from "@/components/DriverInputVisualizer";
 import type { CarVisualizationData } from "@/components/CarVisualization";
 import type { DriverInputData } from "@/components/DriverInputVisualizer";
 
+function TimelineLapIcon(props: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={props.className}
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="13" r="8" />
+      <path d="M12 13l3-2" />
+      <path d="M12 5V3" />
+      <path d="M8 3h8" />
+    </svg>
+  );
+}
+
+function TimelineFlagIcon(props: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={props.className}
+      aria-hidden="true"
+    >
+      <path d="M4 22V2" />
+      <path d="M4 4h12l-2 4 2 4H4" />
+    </svg>
+  );
+}
+
 type ReplayEvent = {
   event_id: number;
   day_id?: number | null;
@@ -60,6 +98,7 @@ type ReplaySummary = {
   time_scale_to_ms?: string | null;
   lap_times: Array<{ start_time: string; end_time: string | null; notes: string | null }>;
   flagged_events: Array<{ type: string; start_time: string; end_time: string | null; notes: string | null }>;
+  event_details?: Record<string, string | number | boolean>;
 };
 
 type ReplayStatePayload = {
@@ -334,6 +373,86 @@ export default function ReplayPage() {
     return `${pieces.join(" | ")}${tail.length ? ` — ${tail.join(" | ")}` : ""}`;
   })();
 
+  const eventDetailsRows = useMemo(() => {
+    const details = summary?.event_details;
+    if (!details) return [] as Array<{ k: string; v: string }>;
+
+    const fieldOrder = [
+      "event_id",
+      "day_id",
+      "status",
+      "creation_time",
+      "start_time",
+      "end_time",
+      "packet_start",
+      "packet_end",
+      "car_id",
+      "driver_id",
+      "location_id",
+      "event_type",
+      "event_index",
+      "car_weight",
+      "tow_angle",
+      "camber_front",
+      "camber_rear",
+      "toe_front",
+      "toe_rear",
+      "ride_height_front",
+      "ride_height_rear",
+      "ride_height",
+      "ackerman_adjustment",
+      "shock_dampening",
+      "power_limit",
+      "torque_limit",
+      "frw_pressure",
+      "flw_pressure",
+      "brw_pressure",
+      "blw_pressure",
+      "fr_wear_depth",
+      "fl_wear_depth",
+      "rr_wear_depth",
+      "rl_wear_depth",
+      "fr_durometer",
+      "fl_durometer",
+      "rr_durometer",
+      "rl_durometer",
+      "fr_lsc",
+      "fr_lsr",
+      "fr_hsc",
+      "fr_hsr",
+      "fl_lsc",
+      "fl_lsr",
+      "fl_hsc",
+      "fl_hsr",
+      "rr_lsc",
+      "rr_lsr",
+      "rr_hsc",
+      "rr_hsr",
+      "rl_lsc",
+      "rl_lsr",
+      "rl_hsc",
+      "rl_hsr",
+      "front_wing_on",
+      "rear_wing_on",
+      "front_wing_pitch",
+      "rear_wing_pitch",
+      "regen_on",
+      "undertray_on",
+      "front_roll_spring_rate",
+      "front_heave_spring_rate",
+      "rear_roll_spring_rate",
+      "rear_heave_spring_rate",
+    ] as const;
+
+    const out: Array<{ k: string; v: string }> = [];
+    for (const k of fieldOrder) {
+      const raw = (details as any)[k];
+      if (raw === null || raw === undefined) continue;
+      out.push({ k, v: String(raw) });
+    }
+    return out;
+  }, [summary?.event_details]);
+
   return (
     <>
       <LiveViewerBanner />
@@ -419,6 +538,24 @@ export default function ReplayPage() {
                   </div>
 
                   <div>
+                    <details className="border rounded p-2">
+                      <summary className="text-sm font-medium cursor-pointer">Additional Event Info</summary>
+                      {eventDetailsRows.length ? (
+                        <div className="mt-2 space-y-1">
+                          {eventDetailsRows.map((r) => (
+                            <div key={r.k} className="grid grid-cols-[180px_1fr] gap-3 text-xs">
+                              <div className="font-medium text-gray-700 break-all">{r.k}</div>
+                              <div className="text-gray-600 break-all">{r.v}</div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="mt-2 text-sm text-gray-500">No event fields available.</div>
+                      )}
+                    </details>
+                  </div>
+
+                  <div>
                     <div className="text-sm font-medium">Lap times</div>
                     {summary.lap_times?.length ? (
                       <div className="mt-2 space-y-1">
@@ -477,16 +614,34 @@ export default function ReplayPage() {
                           {markers.map((m, idx) => {
                             const pct = ((m.t - timeStart) / (timeEnd - timeStart)) * 100;
                             if (!Number.isFinite(pct)) return null;
+
+                            const clampedPct = Math.max(0, Math.min(100, pct));
+                            // Range inputs typically have an implicit left/right inset equal to ~thumb radius.
+                            // Compensate so timeline markers align with the slider's thumb position.
+                            const thumbPadPx = 10;
+
+                            // The stream advances in ~100ms ticks, so use a small tolerance window.
+                            const isActive =
+                              timeCursor != null && Math.abs(timeCursor - m.t) <= 75;
+
                             return (
                               <button
                                 key={`${m.kind}-${m.t}-${idx}`}
                                 type="button"
-                                className="absolute top-0 -translate-x-1/2 text-xs select-none cursor-pointer"
-                                style={{ left: `${Math.max(0, Math.min(100, pct))}%` }}
+                                className={`absolute top-0 -translate-x-1/2 text-xs select-none cursor-pointer ${
+                                  isActive ? "text-orange-500" : "text-gray-700"
+                                }`}
+                                style={{
+                                  left: `calc(${thumbPadPx}px + (${clampedPct} / 100) * (100% - ${thumbPadPx * 2}px))`,
+                                }}
                                 title={m.label}
                                 onClick={() => seekTo(m.t)}
                               >
-                                {m.kind === "lap" ? "⏱" : "⚑"}
+                                {m.kind === "lap" ? (
+                                  <TimelineLapIcon className="h-4 w-4" />
+                                ) : (
+                                  <TimelineFlagIcon className="h-4 w-4" />
+                                )}
                               </button>
                             );
                           })}
