@@ -92,8 +92,8 @@ try:
                     if not lapCompleted:
                         gps_raw = decoded_message.get('dynamics', {}).get('gps', [0, 0])
                         # Incoming GPS is [longitude, latitude], swap to [latitude, longitude]
-                        gps = tuple([gps_raw[1], gps_raw[0]])
-                        print(" Extracted GPS data (lon, lat):", gps_raw, "-> (lat, lon):", gps)
+                        gps = tuple([gps_raw[0], gps_raw[1]])
+                        # print(" Extracted GPS data (lon, lat):", gps_raw, "-> (lat, lon):", gps)
                         if allPoints == []:
                             allPoints.append(gps)
                             msg = list(gps)  # [lat, lon] for Kafka
