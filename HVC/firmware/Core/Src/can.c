@@ -12,7 +12,6 @@
 /* USER CODE BEGIN 0 */
 
 static msg_contactor_status_t contactor_status_tx;
-static can_message_t *contactor_status_handle;
 
 // static msg_vcu_current_sense_t vcu_current_tx;
 
@@ -27,10 +26,10 @@ static can_config_t can_config = {
     .stop_fn            = (CAN_Stop_fn)HAL_FDCAN_Stop,
     .add_to_queue_fn    = (CAN_AddToQ_fn)HAL_FDCAN_AddMessageToTxFifoQ,
     .get_rx_message_fn  = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
-    .tick_fn            = osKernelGetTickCount,
+    .tick_fn            = (Tick_fn)osKernelGetTickCount,
     .add_filter_fn      = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
-    .malloc_fn          = pvPortMalloc,
-    .free_fn            = vPortFree,
+    .malloc_fn          = (Malloc_fn)pvPortMalloc,
+    .free_fn            = (Free_fn)vPortFree,
 };
 
 
@@ -45,7 +44,7 @@ void hvc_can_init(void) {
     //     VCU_CURRENT_SENSE_DLC, pack_vcu_current_sense);
     // can_register_send_packet(&can1, msg);
 
-    contactor_status_handle = can_get_message_handle(
+    can_message_t* contactor_status_handle = can_get_message_handle(
         &contactor_status_tx, CONTACTOR_STATUS_ID, CONTACTOR_STATUS_FREQ,
         CONTACTOR_STATUS_DLC, (CAN_pack_message_fn)pack_contactor_status);
 

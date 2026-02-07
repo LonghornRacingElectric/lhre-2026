@@ -27,6 +27,7 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <stdint.h>
 
 /* USER CODE BEGIN Includes */
 
@@ -44,7 +45,8 @@ void MX_ADC1_Init(void);
 void MX_ADC2_Init(void);
 
 /* USER CODE BEGIN Prototypes */
-
+uint16_t hvc_adc_read_voltage_sense_raw(void);
+uint16_t hvc_adc_read_current_sense_raw(void);
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus

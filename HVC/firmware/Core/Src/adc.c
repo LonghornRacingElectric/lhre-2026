@@ -19,6 +19,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "adc.h"
+#include <stdint.h>
 
 /* USER CODE BEGIN 0 */
 
@@ -295,6 +296,61 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* adcHandle)
   }
 }
 
-/* USER CODE BEGIN 1 */
 
+
+/* USER CODE BEGIN 1 */
+static uint16_t adc_read_raw(ADC_HandleTypeDef *hadc, uint32_t channel, uint32_t sampling_time, uint32_t single_diff)
+{
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  sConfig.Channel = channel;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = sampling_time;
+  sConfig.SingleDiff = single_diff;
+  sConfig.OffsetNumber = ADC_OFFSET_NONE;
+  sConfig.Offset = 0;
+
+  if (HAL_ADC_ConfigChannel(hadc, &sConfig) != HAL_OK) {
+    return 0;
+  }
+
+  if (HAL_ADC_Start(hadc) != HAL_OK) {
+    return 0;
+  }
+
+  if (HAL_ADC_PollForConversion(hadc, 10) != HAL_OK) {
+    (void)HAL_ADC_Stop(hadc);
+    return 0;
+  }
+
+  uint16_t raw = (uint16_t)HAL_ADC_GetValue(hadc);
+  (void)HAL_ADC_Stop(hadc);
+  return raw;
+}
+
+uint16_t hvc_adc_read_voltage_sense_raw(void)
+{
+  /* Voltage sense is measured on two single-ended inputs:
+   *   VSENSE+ on PC4 (ADC2_IN5)
+   *   VSENSE- on PC5 (ADC2_IN11)
+   * Return a signed-differential representation packed into uint16_t.
+   */
+  uint16_t pos = adc_read_raw(&hadc2, ADC_CHANNEL_5, ADC_SAMPLETIME_2CYCLES_5, ADC_SINGLE_ENDED);
+  uint16_t neg = adc_read_raw(&hadc2, ADC_CHANNEL_11, ADC_SAMPLETIME_2CYCLES_5, ADC_SINGLE_ENDED);
+
+  int32_t diff = (int32_t)pos - (int32_t)neg;
+
+  /* Clamp into int16_t range and return as uint16_t bit-pattern. */
+  if (diff > 32767) diff = 32767;
+  if (diff < -32768) diff = -32768;
+  return (uint16_t)((int16_t)diff);
+}
+
+uint16_t hvc_adc_read_current_sense_raw(void)
+{
+  /* Current sense channel example; adjust channel to match your schematic.
+   * Leaving as ADC_CHANNEL_4 placeholder.
+   */
+  return adc_read_raw(&hadc2, ADC_CHANNEL_4, ADC_SAMPLETIME_2CYCLES_5, ADC_SINGLE_ENDED);
+}
 /* USER CODE END 1 */
