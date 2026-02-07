@@ -9,7 +9,7 @@
 
 #include <string.h>
 
-#define TABLE_SPIN_TORQUE_LIMIT_NM 10.0f
+#define TABLE_SPIN_TORQUE_LIMIT_NM 15.0f
 extern FDCAN_HandleTypeDef hfdcan1;
 extern FDCAN_HandleTypeDef hfdcan2;
 
