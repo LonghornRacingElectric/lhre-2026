@@ -15,19 +15,27 @@ CAN ID,CAN ID Binary,From,To,Packet Info,Frequency (Hz),Data Length Code (DLC),Q
 0x091,11000001,VCU,Inverter,Inverter Parameter Request,0,8,1,parameter address (uint16),,r/w (bool),,Data to be written,,,unused,,111,0,0.00%
 0x092,11000010,Inverter,VCU,Inverter Parameter Response,0,8,1,parameter address (uint16),,success (bool),,Data that has been read,,,,,111,0,0.00%
 0x0A1,11010001,Upright,VCU,"Wheel Speed, Ride height",100,4,1,"Wheel Speed (int16, 2^-7 rad/s)",,"Ride Height (uint16, 2^-4 mm)",,unused,unused,unused,unused,,79,7900,0.79%
-0x0B1,11010000,HVC,VCU
-0x0C1,11010010,DUI,
-0x0D1,11010011,PDU
-0x0E1,11010100,TSM
-0x0F0,11110000,Rack,VCU,APPS Voltages,333,8,1,"APPS1 Voltage (uint16, 0.0001 V)",,"APPS2 Voltage (uint16, 0.0001 V)",,"APPS1 Travel (uint16, 0.0001 %)",,"APPS2 Travel (uint16, 0.0001 %)",,,111,36963,3.70%
-0x0F1,11110001,Rack,VCU,Accelerator Pedal,333,3,1,"Accelerator Pedal Travel (uint16, 0.0001 %)",,"APPS Faults (bitfield, apps_faults)",unused,unused,unused,unused,unused,,71,23643,2.36%
-0x0F2,11110010,Rack,VCU,BPPS Voltages,333,8,1,"BPPS1 Voltage (uint16, 0.0001 V)",,"BPPS2 Voltage (uint16, 0.0001 V)",,"BPPS1 Travel (uint16, 0.0001 %)",,"BPPS2 Travel (uint16, 0.0001 %)",,,111,36963,3.70%
-0x0F3,11110011,Rack,VCU,Brake Pedal,333,3,1,"Brake Pedal Travel (uint16, 0.0001 %)",,"BPPS Faults (bitfield, bpps_faults)",unused,unused,unused,unused,unused,,71,23643,2.36%
-
-
-0x100,100000000,VCU,Pi,BSE Voltages,333,6,1,"BSE Front Voltage (uint16, 0.0001 V); bse1_v (float)",,"BSE Rear Voltage (uint16, 0.0001 V); bse2_v (float)",,"BSE Line Lock Voltage (uint16, 0.0001 V); bse3_v (float)",,unused,unused,,95,31635,3.16%
-0xA04,#NUM!,Rack,Pi,Brakes,333,8,1,"Brake Pressure Front (uint16, 0.05 psi); brake_pressure_f (float)",,"Brake Pressure Rear Pre Lock (uint16, 0.05 psi); brake_pressure_rbll (float)",,"Brake Pressure Rear Post Lock (uint16, 0.05 psi); brake_pressure_rall (float)",,"Brake Bias (uint8, 0.01 %); brake_bias (float)","BSE Faults (bitfield, bse_faults)",,111,36963,3.70%
-0xA05,#NUM!,Rack,Pi,Rack Steering,333,2,1,"Steering Column Angle (int16, 0.004º); steer_col_angle (float)",,unused,unused,unused,unused,unused,unused,,63,20979,2.10%
+0x0B1,11010000,HVC,VCU,"Contactor Status",100,3,1,"Positive HV Contactor (uint8, bool)","Negative HV Contactor (uint8, bool)","Precharge Contactor (uint8, bool)",unused,unused,unused,unused,unused,,71,7100,0.71%
+0x0B2,#NUM!,HVC,PDU,Battery Pack Status,100,8,1,"Pack Voltage (uint16, 0.01V); hv_pack_v (float)",,"Tractive Current (uint16, 0.01A); hv_c (float)",,"State of Charge (uint16, 0.01%); hv_soc (float)",,"Cell Top Temp (uint8, 1C)","Cell Bottom Temp (uint8, 1C)",,111,11100,1.11%
+0x0B3,#NUM!,HVC,PDU,Battery Temperature Status,10,8,1,"Bus Bar 1 Temp (uint16, 0.1C); bus_bar_temp1 (float)",,"Bus Bar 2 Temp (uint16, 0.1C); bus_bar_temp2 (float)",,"Bus Bar 3 Temp (uint16, 0.1C); bus_bar_temp3 (float)",,"Precharge Resistor Temp (uint16, 0.1C); precharge_r_temp (float)",,,111,1110,0.11%
+0x0B4,#NUM!,HVC,PDU,Indicators + Shutdown Status,10,6,1,"BMS Error (uint8, bool); bmb_comm_error (bool)","IMD Error (uint8, bool); imd_gnd_isolation_error (bool)","Shutdown Leg 1 (uint8, bool); shutdown_leg1 (bool)","Shutdown Leg 2 (uint8, bool); shutdown_leg2 (bool)","Shutdown Leg 3 (uint8, bool); shutdown_leg3 (bool)","Shutdown Leg 4 (uint8, bool); shutdown_leg4 (bool)",unused,unused,,95,950,0.10%
+0x210,#NUM!,HVC,PDU,Cell Voltages,1,8,35,"Voltage[i] (uint16, 0.0001V); cells_v[0] (float)",,"Voltage[i+1] (uint16, 0.0001V); cells_v[1] (float)",,"Voltage[i+2] (uint16, 0.0001V); cells_v[2] (float)",,"Voltage[i+3] (uint16, 0.0001V); cells_v[3] (float)",,"(Packet 1 is 0x210, Packet 35 is 0x232)",111,3885,0.39%
+0x240,#NUM!,HVC,PDU,Cell Temperatures,1,8,23,"Temp[i] (uint16, 0.1C); cells_temps[0] (float)",,"Temp[i+1] (uint16, 0.1C); cells_temps[1] (float)",,"Temp[i+2] (uint16, 0.1C); cells_temps[2] (float)",,"Temp[i+3] (uint16, 0.1C); cells_temps[3] (float)",,"(Packet 1 is 0x240, Packet 23 is 0x256)",111,2553,0.26%
+0x0C1,11010010,DUI,VCU,"DUI R2D Status",100,2,1,"R2D Status (uint8, bool)","DUI Shutdown Faults (bitfield, dui_shutdown_faults)",unused,unused,unused,unused,unused,unused,,55,5500,0.55%
+0x0C2,11010010,VCU,DUI,"DUI R2D Authorization",100,3,1,"R2D Authorized (uint8, bool)","DUI IMD Faults (bitfield, dui_imd_faults)","DUI AMS Faults (bitfield, dui_ams_faults)",unused,unused,unused,unused,unused,,55,5500,0.55%
+0x0D1,11010011,VCU,PDU,"Switch Command",100,2,1,"Switch Command(bitfield, switch_command)",,unused,unused,unused,unused,unused,unused,,55,5500,0.55%
+0x0D2,11010011,PDU,VCU,"Switch Outputs",100,2,1,"Switch Output(bitfield, switch_output)",,unused,unused,unused,unused,unused,unused,,55,5500,0.55%
+0x102,100000010,PDU,Pi,Motor Cooling,100,8,1,"Loop Temp After Motor (int16, 0.01ºC); motor_loop_motor_temp (float)",,"Loop Temp After Inverter (int16, 0.01ºC); motor_loop_inverter_temp (float)",,"Temp After Radiator (int16, 0.01ºC); motor_loop_rad_temp (float)",,"Radiator Fan Speed (uint16, 0.2 RPM); motor_loop_rad_fan_speed (float)",,,111,11100,1.11%
+0x103,100000011,PDU,Pi,Battery Cooling,100,6,1,"Temp After Battery (int16, 0.01ºC); batt_loop_batt_temp (float)",,"Temp After Radiator (int16, 0.01ºC); batt_loop_rad_temp (float)",,"Radiator Fan Speed (uint16, 0.2 RPM); batt_loop_rad_fan_speed (float)",,unused,unused,,95,9500,0.95%
+0x104,100000100,PDU,Pi,Temps,100,8,1,"Inverter (int16, 0.01ºC); inverter_temp (float)",,"Motor (int16, 0.01ºC); motor_temp (float)",,"Ambient (int16, 0.01ºC); ambient_temp (float)",,"Discharge Resistor Temp (int16, 0.01ºC); discharge_r_temp (float)",,,111,11100,1.11%
+0x0E1,11100001,TSM,PDU,Motor Cooling,100,8,1,"Loop Temp After Motor (int16, 0.01ºC); motor_loop_motor_temp (float)",,"Loop Temp After Inverter (int16, 0.01ºC); motor_loop_inverter_temp (float)",,"Temp After Radiator (int16, 0.01ºC); motor_loop_rad_temp (float)",,"Radiator Fan Speed (uint16, 0.2 RPM); motor_loop_rad_fan_speed (float)",,,111,11100,1.11%
+0x0F0,11110000,VCU,PI,APPS Voltages,333,8,1,"APPS1 Voltage (uint16, 0.0001 V)",,"APPS2 Voltage (uint16, 0.0001 V)",,"APPS1 Travel (uint16, 0.0001 %)",,"APPS2 Travel (uint16, 0.0001 %)",,,111,36963,3.70%
+0x0F1,11110001,VCU,PI,Accelerator Pedal,333,3,1,"Accelerator Pedal Travel (uint16, 0.0001 %)",,"APPS Faults (bitfield, apps_faults)",unused,unused,unused,unused,unused,,71,23643,2.36%
+0x0F2,11110010,VCU,PI,BPPS Voltages,333,8,1,"BPPS1 Voltage (uint16, 0.0001 V)",,"BPPS2 Voltage (uint16, 0.0001 V)",,"BPPS1 Travel (uint16, 0.0001 %)",,"BPPS2 Travel (uint16, 0.0001 %)",,,111,36963,3.70%
+0x0F3,11110011,VCU,PI,Brake Pedal,333,3,1,"Brake Pedal Travel (uint16, 0.0001 %)",,"BPPS Faults (bitfield, bpps_faults)",unused,unused,unused,unused,unused,,71,23643,2.36%
+0x0F4,11110100,VCU,Pi,BSE Voltages,333,6,1,"BSE Front Voltage (uint16, 0.0001 V); bse1_v (float)",,"BSE Rear Voltage (uint16, 0.0001 V); bse2_v (float)",,"BSE Line Lock Voltage (uint16, 0.0001 V); bse3_v (float)",,unused,unused,,95,31635,3.16%
+0x0F5,11110101,VCU,Pi,Brakes,333,8,1,"Brake Pressure Front (uint16, 0.05 psi); brake_pressure_f (float)",,"Brake Pressure Rear Pre Lock (uint16, 0.05 psi); brake_pressure_rbll (float)",,"Brake Pressure Rear Post Lock (uint16, 0.05 psi); brake_pressure_rall (float)",,"Brake Bias (uint8, 0.01 %); brake_bias (float)","BSE Faults (bitfield, bse_faults)",,111,36963,3.70%
+0x0F6,11110110,VCU,Pi,Steering Column,333,2,1,"Steering Column Angle (int16, 0.004º); steer_col_angle (float)",,unused,unused,unused,unused,unused,unused,,63,20979,2.10%
 0x400,#NUM!,Upright,Pi,FL Steering,333,2,1,"FL Est Steering Angle (int16, 0.001º); fl_steer_angle (float)",,unused,unused,unused,unused,unused,unused,,63,20979,2.10%
 0x401,#NUM!,Upright,Pi,FR Steering,333,2,1,"FR Est Steering Angle (int16, 0.001º); fr_steer_angle (float)",,unused,unused,unused,unused,unused,unused,,63,20979,2.10%
 0x402,#NUM!,Upright,Pi,Acceleration Vector Unsprung FL,100,6,1,"X (int16, 0.001 m/s^2); fl_unsprung_accel[0] (float)",,"Y (int16, 0.001 m/s^2); fl_unsprung_accel[1] (float)",,"Z (int16, 0.001 m/s^2); fl_unsprung_accel[2] (float)",,unused,unused,,95,9500,0.95%
@@ -53,7 +61,6 @@ CAN ID,CAN ID Binary,From,To,Packet Info,Frequency (Hz),Data Length Code (DLC),Q
 0x200,#NUM!,HVC,Pi,Battery Pack Status,100,8,1,"Pack Voltage (uint16, 0.01V); hv_pack_v (float)",,"Tractive Current (uint16, 0.01A); hv_c (float)",,"State of Charge (uint16, 0.01%); hv_soc (float)",,"Cell Top Temp (uint8, 1C)","Cell Bottom Temp (uint8, 1C)",,111,11100,1.11%
 0x201,#NUM!,HVC,Pi,Battery Temperature Status,10,8,1,"Bus Bar 1 Temp (uint16, 0.1C); bus_bar_temp1 (float)",,"Bus Bar 2 Temp (uint16, 0.1C); bus_bar_temp2 (float)",,"Bus Bar 3 Temp (uint16, 0.1C); bus_bar_temp3 (float)",,"Precharge Resistor Temp (uint16, 0.1C); precharge_r_temp (float)",,,111,1110,0.11%
 0x202,#NUM!,HVC,Pi,Indicators + Shutdown Status,10,6,1,"BMS Error (uint8, bool); bmb_comm_error (bool)","IMD Error (uint8, bool); imd_gnd_isolation_error (bool)","Shutdown Leg 1 (uint8, bool); shutdown_leg1 (bool)","Shutdown Leg 2 (uint8, bool); shutdown_leg2 (bool)","Shutdown Leg 3 (uint8, bool); shutdown_leg3 (bool)","Shutdown Leg 4 (uint8, bool); shutdown_leg4 (bool)",unused,unused,,95,950,0.10%
-0x203,#NUM!,HVC,Pi,Contactor Status,10,3,1,HVC State Machine (uint8),"Positive HV Contactor (uint8, bool)","Negative HV Contactor (uint8, bool)",unused,unused,unused,unused,unused,,71,710,0.07%
 0x210,#NUM!,HVC,Pi,Cell Voltages,1,8,35,"Voltage[i] (uint16, 0.0001V); cells_v[0] (float)",,"Voltage[i+1] (uint16, 0.0001V); cells_v[1] (float)",,"Voltage[i+2] (uint16, 0.0001V); cells_v[2] (float)",,"Voltage[i+3] (uint16, 0.0001V); cells_v[3] (float)",,"(Packet 1 is 0x210, Packet 35 is 0x232)",111,3885,0.39%
 0x240,#NUM!,HVC,Pi,Cell Temperatures,1,8,23,"Temp[i] (uint16, 0.1C); cells_temps[0] (float)",,"Temp[i+1] (uint16, 0.1C); cells_temps[1] (float)",,"Temp[i+2] (uint16, 0.1C); cells_temps[2] (float)",,"Temp[i+3] (uint16, 0.1C); cells_temps[3] (float)",,"(Packet 1 is 0x240, Packet 23 is 0x256)",111,2553,0.26%
 0x105,100000101,VCU,HVC,Allow Balance Command,NA,,,,,,,,,,,,47,0,0.00%
@@ -65,4 +72,3 @@ CAN ID,CAN ID Binary,From,To,Packet Info,Frequency (Hz),Data Length Code (DLC),Q
 0x023,100011,Pi,Undertray,Undertray Enter Bootloader,NA,1,1,Enable,unused,unused,unused,unused,unused,unused,unused,,,,
 0x024,100100,Pi,HVC,HVC Enter Bootloader,NA,1,1,Enable,unused,unused,unused,unused,unused,unused,unused,,,,
 0x025,100101,Pi,Upright,Upright Enter Bootloader,NA,1,1,Enable,unused,unused,unused,unused,unused,unused,unused,,,,
-0x026,100110,Pi,Rack,Rack Enter Bootloader,,,,,,,,,,,,,,,
