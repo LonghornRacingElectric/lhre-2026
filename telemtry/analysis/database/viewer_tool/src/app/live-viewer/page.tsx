@@ -153,23 +153,6 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
             <CarVisualization key={renderKey} />
           </div>
         );
-      case "space-time-trajectory":
-        return (
-          <div className="w-full h-full object-contain" style={{ position: "relative", width: "400px", height: "400px", maxWidth: "100%" }}>
-            <Image
-              key={appState.liveImage || "no-image"}
-              id="live-image"
-              src={
-                appState.liveImage
-                  ? `data:image/png;base64,${appState.liveImage}`
-                  : "/images/events.png"
-              }
-              alt="Live Data"
-              fill
-              style={{ objectFit: "contain" }}
-            />
-          </div>
-        );
       case "live-map":
         return (
           <div className="w-full" style={{ height: isFullscreen ? '100%' : '350px' }}>
@@ -265,7 +248,6 @@ const LiveViewerPage = () => {
     { id: "lap-timer", name: "Timing & Deltas" },
     { id: "flagging-inputs", name: "Flagging Events" },
     { id: "3d-simulation", name: "3D Simulation" },
-    { id: "space-time-trajectory", name: "Space-Time Trajectory" },
     { id: "live-map", name: "Live Map" },
     { id: "gg-plot", name: "GG Plot" },
     { id: "thermal-headroom", name: "Thermal Headroom Meter" },

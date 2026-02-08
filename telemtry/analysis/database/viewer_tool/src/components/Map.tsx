@@ -1,11 +1,22 @@
 "use client";
 
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  Polyline,
+  useMap,
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useState, useEffect, useRef } from "react";
 import { nanoid } from "nanoid";
 import { useKafkaJSON } from "@/hooks/useKafkaStream";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Card } from "@/components/ui/card";
 
 // Fix for default icon issue with webpack
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -45,8 +56,12 @@ const MapResizer = ({ resize }: { resize: any }) => {
   return null;
 };
 
+const TRAIL_MAX_POINTS = 1000;
+
 const Map = ({ resize, data }: { resize?: any, data?: MapData | null; }) => {
   const [position, setPosition] = useState<[number, number]>([51.505, -0.09]);
+  const [trail, setTrail] = useState<Array<[number, number]>>([]);
+  const [showTrail, setShowTrail] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mapId = useRef(nanoid());
 
@@ -72,7 +87,18 @@ const Map = ({ resize, data }: { resize?: any, data?: MapData | null; }) => {
         return;
       }
 
-      setPosition([lat, lng]);
+      const nextPos: [number, number] = [lat, lng];
+      setPosition(nextPos);
+      setTrail((prev) => {
+        const last = prev[prev.length - 1];
+        if (last && last[0] === nextPos[0] && last[1] === nextPos[1]) {
+          return prev;
+        }
+
+        const next = [...prev, nextPos];
+        if (next.length <= TRAIL_MAX_POINTS) return next;
+        return next.slice(next.length - TRAIL_MAX_POINTS);
+      });
       setError(null);
     } else {
       setError("No Current Car Position");
@@ -96,23 +122,53 @@ const Map = ({ resize, data }: { resize?: any, data?: MapData | null; }) => {
   }
 
   return (
-    <MapContainer
-      key={mapId.current}
-      id={mapId.current}
-      center={position}
-      zoom={19}
-      style={{ height: "100%", width: "100%" }}
-    >
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      />
-      <Marker position={position} icon={dotIcon}>
-        <Popup>Your current location.</Popup>
-      </Marker>
-      <MapUpdater position={position} />
-      <MapResizer resize={resize} />
-    </MapContainer>
+    <div className="relative h-full w-full">
+      <MapContainer
+        key={mapId.current}
+        id={mapId.current}
+        center={position}
+        zoom={19}
+        style={{ height: "100%", width: "100%" }}
+      >
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        />
+        {showTrail && trail.length >= 2 ? (
+          <Polyline
+            positions={trail}
+            pathOptions={{ color: "blue", weight: 2, opacity: 0.7 }}
+          />
+        ) : null}
+        <Marker position={position} icon={dotIcon}>
+          <Popup>Your current location.</Popup>
+        </Marker>
+        <MapUpdater position={position} />
+        <MapResizer resize={resize} />
+      </MapContainer>
+
+      <div className="absolute right-2 top-2 z-[1000]">
+        <Card className="gap-2 px-3 py-3">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="showTrail"
+              checked={showTrail}
+              onCheckedChange={(checked) => setShowTrail(checked === true)}
+            />
+            <Label htmlFor="showTrail">Show trail</Label>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setTrail([])}
+            disabled={trail.length === 0}
+          >
+            Reset trail
+          </Button>
+        </Card>
+      </div>
+    </div>
   );
 };
 
