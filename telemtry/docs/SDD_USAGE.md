@@ -16,7 +16,10 @@ The fastest way to update your local environment is to use the sync script:
 ```bash
 bash scripts/sync_schema.sh
 ```
-This script runs the generator for Angelique and updates `angelique_db_init.sql` and `angelique.prisma`.
+This script runs the generator for Angelique and automatically updates:
+- `stack/ingest/angelique_db_init.sql` (Database)
+- `analysis/database/viewer_tool/prisma/angelique.prisma` (Frontend)
+- `analysis/sql_utils/models.py` (ORM)
 
 ---
 
@@ -125,6 +128,12 @@ python3 scripts/generate_schema.py concat-prisma \
     scripts/common.prisma \
     scripts/gen_angelique/sensors.prisma \
     analysis/database/viewer_tool/prisma/angelique.prisma \
+    Angelique
+
+# Patch ORM models (Uses BEGIN/END markers in models.py)
+python3 scripts/generate_schema.py patch-models \
+    analysis/sql_utils/models.py \
+    scripts/gen_angelique/models.py \
     Angelique
 ```
 

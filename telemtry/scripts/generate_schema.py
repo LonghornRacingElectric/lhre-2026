@@ -341,6 +341,24 @@ datasource db {{
         f.write("\n\n")
         f.write(sensor)
 
+def patch_models(models_path, patch_content, car_name):
+    with open(models_path, 'r') as f: content = f.read()
+    
+    start_marker = f"# BEGIN GENERATED {car_name}"
+    end_marker = f"# END GENERATED {car_name}"
+    
+    pattern = re.compile(f"{re.escape(start_marker)}.*?{re.escape(end_marker)}", re.DOTALL)
+    
+    if not pattern.search(content):
+        print(f"Error: Markers not found for {car_name} in {models_path}")
+        sys.exit(1)
+        
+    new_section = f"{start_marker}\n{patch_content}\n{end_marker}"
+    new_content = pattern.sub(new_section, content)
+    
+    with open(models_path, 'w') as f:
+        f.write(new_content)
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: generate_schema.py <command> [args]")
@@ -373,3 +391,8 @@ if __name__ == "__main__":
         print(f"Generated artifacts in {out_dir}")
     elif cmd == "concat-prisma":
         concat_prisma(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
+    elif cmd == "patch-models":
+        # patch-models <models_file> <patch_file> <car_name>
+        with open(sys.argv[3], 'r') as f: patch_content = f.read()
+        patch_models(sys.argv[2], patch_content, sys.argv[4])
+        print(f"Patched {sys.argv[2]} for {sys.argv[4]}")

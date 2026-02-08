@@ -33,12 +33,14 @@ python3 $SCRIPT_DIR/generate_schema.py concat-prisma \
     $PRISMA_DIR/angelique.prisma \
     Angelique
 
-# Note: models.py currently requires manual copy/paste for the specific car sections 
-# to avoid wiping out other cars (like Nightwatch). 
-# The generated models are available at $SCRIPT_DIR/gen_angelique/models.py
+# Update SQLAlchemy Models
+python3 $SCRIPT_DIR/generate_schema.py patch-models \
+    $MODELS_FILE \
+    $SCRIPT_DIR/gen_angelique/models.py \
+    Angelique
 
 echo "Step 4: Cleaning up..."
 rm $SCRIPT_DIR/common.prisma
 rm -rf $SCRIPT_DIR/gen_angelique
 
-echo "Done! SQL and Prisma artifacts updated."
+echo "Done! SQL, Prisma, and ORM artifacts updated."

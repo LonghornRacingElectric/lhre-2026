@@ -325,14 +325,11 @@ class Thermal(BaseTelemetry):
     discharge_r_temp = Column(Float)
     batt_over_temp = Column(Boolean)
     packet = relationship("Packet", back_populates="thermal")
-# Angelique Models
 
 # -----------------------------
-# Angelique schema
+# Angelique Models (Generated)
 # -----------------------------
-
-    
-
+# BEGIN GENERATED Angelique
 class AngeliqueDynamics(BaseAngelique):
     __tablename__ = 'dynamics'
     __table_args__ = {'extend_existing': True}
@@ -429,6 +426,7 @@ class AngeliquePacket(BaseAngelique):
     pack = relationship("AngeliquePack", uselist=False, back_populates="packet")
     diagnostics = relationship("AngeliqueDiagnostics", uselist=False, back_populates="packet")
     thermal = relationship("AngeliqueThermal", uselist=False, back_populates="packet")
+# END GENERATED Angelique
 
 class Partitions(Base):
     __tablename__ = 'partitions'
