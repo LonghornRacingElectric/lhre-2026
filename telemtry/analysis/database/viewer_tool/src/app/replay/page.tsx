@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import LiveViewerBanner from "@/components/LiveViewerBanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -12,6 +11,7 @@ import type { CarVisualizationData } from "@/components/CarVisualization";
 import type { DriverInputData } from "@/components/DriverInputVisualizer";
 import dynamic from "next/dynamic";
 import { MapData } from "@/components/Map";
+import Banner from "@/components/Banner";
 
 const DynamicMap = dynamic(() => import("@/components/Map"), {
   ssr: false,
@@ -465,7 +465,7 @@ export default function ReplayPage() {
 
   return (
     <>
-      <LiveViewerBanner />
+      <Banner />
       <div className="container mx-auto p-8 pt-24 md:pt-20">
         <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-8">
           <Card className="h-[calc(100vh-140px)] overflow-hidden">

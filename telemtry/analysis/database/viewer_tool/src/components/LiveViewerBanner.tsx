@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,8 +17,10 @@ import { useKafkaJSON } from '@/hooks/useKafkaStream';
 
 const LiveViewerBanner = () => {
   const { data: session } = useSession();
+  const router = useRouter();
   const [time, setTime] = useState("");
   const [date, setDate] = useState("");
+  const [eventInProgress, setEventInProgress] = useState<boolean | undefined>(undefined);
 
   // Live connection and status via Kafka "status" topic
   // Expecting messages like: { connected: boolean, battery?: number, odometer?: number }
@@ -39,6 +42,26 @@ const LiveViewerBanner = () => {
     }, 1000);
 
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadEventActive = async () => {
+      try {
+        const res = await fetch('/api/event-active', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data: { eventActive?: boolean } = await res.json();
+        if (!cancelled) setEventInProgress(typeof data.eventActive === 'boolean' ? data.eventActive : undefined);
+      } catch {
+        // ignore
+      }
+    };
+
+    loadEventActive();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleSignOut = async () => {
@@ -73,10 +96,45 @@ const LiveViewerBanner = () => {
         </div>
       </div>
       <div className="flex items-center flex-wrap justify-center md:justify-end w-full md:w-auto pb-2 md:pb-0">
+        {/* Event Status */}
+        <button
+          type="button"
+          onClick={() => {
+            router.push('/driveday');
+          }}
+          className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-2 text-sm cursor-pointer hover:bg-gray-700"
+          aria-disabled={false}
+          title={
+            eventInProgress === true
+              ? 'Event is currently active'
+              : eventInProgress === false
+              ? 'Event inactive — click to go to Driveday'
+              : 'Event status unavailable'
+          }
+        >
+          <span
+            className={`w-2 h-2 rounded-full mr-2 ${
+              eventInProgress === true
+                ? 'bg-green-500'
+                : eventInProgress === false
+                ? 'bg-gray-400'
+                : 'bg-gray-500'
+            }`}
+          />
+          <span>
+            {eventInProgress === true
+              ? 'Event Active'
+              : eventInProgress === false
+              ? 'Event Inactive'
+              : 'Event —'}
+          </span>
+        </button>
+        
         {/* Odometer Display */}
         <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-2 text-sm">
           <span>{typeof status?.odometer === 'number' ? `${status.odometer.toFixed(2)} mi` : '— mi'}</span>
         </div>
+
         {/* Battery Percentage Display */}
         <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-2 text-sm">
           {(() => {
