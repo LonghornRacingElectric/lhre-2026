@@ -10,9 +10,9 @@ PRISMA_DIR="analysis/database/viewer_tool/prisma"
 MODELS_FILE="analysis/sql_utils/models.py"
 
 echo "Step 1: Generating common prisma..."
-python3 $SCRIPT_DIR/generate_schema.py sql-to-prisma \
-    $INGEST_DIR/common_schema.sql \
-    $SCRIPT_DIR/common.prisma
+python3 "$SCRIPT_DIR/generate_schema.py" sql-to-prisma \
+    "$INGEST_DIR/common_schema.sql" \
+    "$SCRIPT_DIR/common.prisma"
 
 echo "Step 2: Generating Angelique artifacts..."
 python3 $SCRIPT_DIR/generate_schema.py proto-to-all \
