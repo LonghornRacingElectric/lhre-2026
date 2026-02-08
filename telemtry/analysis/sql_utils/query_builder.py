@@ -310,4 +310,4 @@ if __name__ == '__main__':
                 .select("Event")
                 .limit(10)
             ).send_query(pd.DataFrame)
-        print(data)
+        logging.debug(data)

@@ -2,6 +2,7 @@ from kafka import KafkaConsumer, KafkaProducer
 import time
 import json
 import random
+import logging
 
 consumer = KafkaConsumer(
     'db_inserts',
@@ -19,7 +20,7 @@ producer = KafkaProducer(
     value_serializer=lambda v: json.dumps(v).encode('utf-8')
 )
 
-print("Polling db_inserts + emitting dummy status ...")
+logging.info("Polling db_inserts + emitting dummy status ...")
 start_time = time.time()
 last_status_sent = 0.0
 odometer_base = 5000.0  # dummy starting odometer (units: miles or km – keep consistent)
@@ -48,32 +49,33 @@ try:
             payload = {"ts": int(now * 1000), **dummy}
             try:
                 producer.send('status', value=payload)
-                print(f"Sent dummy status: {payload}")
+                logging.debug(f"Sent dummy status: {payload}")
             except Exception as e:
-                print(f"(failed to send dummy status: {e})")
+                logging.error(f"(failed to send dummy status: {e})")
             last_status_sent = now
+        continue
         # The poll() method returns a dictionary of partitions and their records.
         # It's non-blocking for the specified timeout.
         batch = consumer.poll(timeout_ms=1000)
 
         # Check if any records were returned
         if not batch:
-            print("No new messages, waiting...")
+            logging.debug("No new messages, waiting...")
             continue
 
         # Iterate over the messages in the batch (logging only)
         for partition, records in batch.items():
             for record in records:
-                print(f"Processing message from topic '{record.topic}', partition {record.partition}: offset {record.offset}")
-                print(f"  Key: {record.key}, Value: {record.value}")
+                logging.debug(f"Processing message from topic '{record.topic}', partition {record.partition}: offset {record.offset}")
+                logging.debug(f"  Key: {record.key}, Value: {record.value}")
                 # (Intentionally no status extraction – status is dummy & independent)
 
         # After successfully processing the entire batch, manually commit the offsets.
         consumer.commit()
-        print("Offsets committed for the batch.")
+        logging.debug("Offsets committed for the batch.")
 
 except Exception as e:
-    print(f"An error occurred: {e}")
+    logging.error(f"An error occurred: {e}")
 
 finally:
     # Ensure the consumer is closed properly
@@ -83,5 +85,5 @@ finally:
         producer.close()
     except Exception:
         pass
-    print("Consumer closed.")
+    logging.info("Consumer closed.")
     

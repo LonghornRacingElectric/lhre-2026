@@ -14,7 +14,6 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from .point_type import PointType
 from sqlalchemy import MetaData
 
 Base = declarative_base()
@@ -200,8 +199,8 @@ class Dynamics(BaseTelemetry):
     bl_spring_displace = Column(Float)
     br_spring_displace = Column(Float)
     dash_speed = Column(Float)
-    f_gps = Column(PointType())
-    b_gps = Column(PointType())
+    f_gps = Column(ARRAY(Float))
+    b_gps = Column(ARRAY(Float))
     f_gps_velocity = Column(Float)
     b_gps_velocity = Column(Float)
     f_gps_heading = Column(Float)
@@ -341,7 +340,7 @@ class AngeliqueDynamics(BaseAngelique):
     vcu_position = Column(ARRAY(Float))
     vcu_velocity = Column(ARRAY(Float))
     vcu_accel = Column(ARRAY(Float))
-    gps = Column(PointType())
+    gps = Column(ARRAY(Float))
     gps_velocity = Column(Float)
     gps_heading = Column(Float)
     body1_accel = Column(ARRAY(Float))
@@ -373,6 +372,7 @@ class AngeliqueControls(BaseAngelique):
     bse2_v = Column(Float)
     sus1_v = Column(Float)
     sus2_v = Column(Float)
+    steer_v = Column(Float)
     packet = relationship("AngeliquePacket", back_populates="controls")
 
 class AngeliqueDiagnostics(BaseAngelique):
