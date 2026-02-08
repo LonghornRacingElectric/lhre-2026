@@ -4,9 +4,13 @@ import prisma from "@/lib/prisma/telemtry";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: NextRequest, ctx: { params: { dayId: string } }) {
+export async function GET(
+  _req: NextRequest,
+  ctx: { params: Promise<{ dayId: string }> },
+) {
   try {
-    const dayId = Number(ctx.params.dayId);
+    const { dayId: dayIdParam } = await ctx.params;
+    const dayId = Number(dayIdParam);
     if (!Number.isFinite(dayId)) {
       return NextResponse.json({ error: "Missing/invalid 'dayId'" }, { status: 400 });
     }
