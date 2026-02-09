@@ -28,7 +28,7 @@ void bms_init(void);
  */
 void bms_update(void);
 
-uint32_t getPackVoltage_mv(void);
+float getPackVoltage_v(void);
 
 void StartBmsTask(void *argument);
 

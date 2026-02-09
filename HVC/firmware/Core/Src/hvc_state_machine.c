@@ -231,7 +231,7 @@ __attribute__((weak)) bool is_charge_enable_active(void) {
 
 __attribute__((weak)) float get_pack_voltage(void) {
     // Default: return pack voltage (read from BMS) in volts
-    extern uint32_t getPackVoltage_mv(void);
-    uint32_t pack_mv = getPackVoltage_mv();
-    return ((float)pack_mv) / 1000.0f;
+    extern float getPackVoltage_v(void);
+    float pack_v = getPackVoltage_v();
+    return pack_v;
 }

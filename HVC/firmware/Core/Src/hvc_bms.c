@@ -34,20 +34,21 @@ static cell_asic IC[TOTAL_IC];
 static uint8_t discharge_active = 0;
 
 // Returns pack voltage in millivolts by summing all cell voltages
-uint32_t getPackVoltage_mv(void)
+float getPackVoltage_v(void)
 {
-    uint32_t pack_mv = 0;
+    float pack_v = 0;
     uint16_t code;
     int i;
 
     for (int i = 0; i < TOTAL_IC; i++) {
         for (int j = 0; j < NUM_CELLS; j++) {
             code = IC[i].cell.c_codes[j];
-            pack_mv += (code * 8) / 30;
+            // pack_mv += (code * 8) / 30;
+            pack_v += (code * 0.000150f) + 1.5f;
         }
     }
 
-    return pack_mv;
+    return pack_v;
 }
 
 // Return BMS status: 1 if discharging active, 0 otherwise
@@ -108,10 +109,10 @@ void bms_init(void)
     SetConfigB_DischargeTimeOutValue(TOTAL_IC, IC, RANG_0_TO_63_MIN, 63);
     
     // Set PWM duty cycle to 100%
-    SetPwmDutyCycle(TOTAL_IC, IC, PWM_100_0_PCT);
+    // SetPwmDutyCycle(TOTAL_IC, IC, PWM_100_0_PCT);
     
     // Initialize Config B with discharge disabled
-    IC[0].tx_cfgb.dcc = 0;
+    // IC[0].tx_cfgb.dcc = 0;
 
     //Enable BMB Lights on all ICs
     for (int i = 0; i < TOTAL_IC; i++) {
@@ -123,9 +124,9 @@ void bms_init(void)
     adBms6830_write_config(TOTAL_IC, IC);
     
     // Write PWM registers to apply duty cycle settings
-    adBmsWakeupIc(TOTAL_IC);
-    adBmsWriteData(TOTAL_IC, IC, WRPWM1, Pwm, A);
-    adBmsWriteData(TOTAL_IC, IC, WRPWM2, Pwm, B);
+    // adBmsWakeupIc(TOTAL_IC);
+    // adBmsWriteData(TOTAL_IC, IC, WRPWM1, Pwm, A);
+    // adBmsWriteData(TOTAL_IC, IC, WRPWM2, Pwm, B);
     Delay_ms(2);
     
     // Read initial configuration
@@ -151,7 +152,7 @@ void bms_update(void)
 {
     char msg[128];
     uint16_t code;
-    uint32_t voltage_mv;
+    float voltage_v;
     
     // Wake and start ADC conversion
     // Use DCP_ON to keep discharge active during measurement
@@ -166,24 +167,24 @@ void bms_update(void)
     // int i;
     // int j;
     // Print all cell voltages, marking the discharging cell
-    /*
     for (int i = 0; i < TOTAL_IC; i++) {
         log_printf(LOG_INFO, "IC %d Cell Voltages:", i);
         for (int j = 0; j < NUM_CELLS; j++) {
             code = IC[i].cell.c_codes[j];
-            voltage_mv = (code * 8) / 30;
+            // voltage_v = (code * 8) / 30;  // What the fuck guys
+            voltage_v = (code * 0.000150f) + 1.5f;
             
             if (discharge_active) {
-                log_printf(LOG_WARNING, "Cell %d: %lu mV [DISCHARGING]", i, voltage_mv);
+                log_printf(LOG_WARNING, "Cell %d: %.6f V [DISCHARGING]", i, voltage_v);
             } else {
-                log_printf(LOG_INFO, "\t IC: %d  -  Cell %d: %lu mV", i,j, voltage_mv);
+                log_printf(LOG_INFO, "\t IC: %d  -  Cell %d: %.6f V  (%#06X)", i,j, voltage_v, code);
             }
         }
 
         osDelay(10);
     }
-    log_printf(LOG_INFO, "Pack Voltage: %lu V", getPackVoltage_mv()/1000);
-    */
+    log_printf(LOG_INFO, "Pack Voltage: %.3f V", getPackVoltage_v());
+
 }
 
 void StartBmsTask(void *argument)
