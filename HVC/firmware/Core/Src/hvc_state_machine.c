@@ -86,7 +86,7 @@ void update_state_machine(void) {
             float pack_voltage = get_pack_voltage();
             // 500.0f since pack voltage is a bit messed up rn
             // float precharge_threshold = pack_voltage * HVC_PRECHARGE_THRESHOLD_PERCENT / 100.0f;
-            float precharge_threshold = 25.0f; // Temporary fixed threshold for testing
+            float precharge_threshold = 400.0f; // Temporary fixed threshold for testing
 
             if (tractive_voltage > precharge_threshold) {
                 uint32_t elapsed = current_time - precharge_start_time;
@@ -190,8 +190,32 @@ const char* get_state_name(hvc_state_t state) {
 /* These provide safe defaults until real implementations are added -----------*/
 
  bool is_shutdown_closed(void) {
+    // Debouncing configuration
+    #define SHUTDOWN_DEBOUNCE_COUNT 3  // Number of consecutive reads required for state change
+    
+    // Static variables to maintain state between calls
+    static bool debounced_state = false;
+    static uint8_t debounce_counter = 0;
+    
     // Read TS_Enable GPIO Pin, Shutdown 12/End (assumed active high)
-    return (HAL_GPIO_ReadPin(Shutdown_Sense_12_GPIO_Port, Shutdown_Sense_12_Pin) == GPIO_PIN_SET) ? true : false;
+    bool current_reading = (HAL_GPIO_ReadPin(Shutdown_Sense_12_GPIO_Port, Shutdown_Sense_12_Pin) == GPIO_PIN_SET);
+    
+    // Debouncing logic: require SHUTDOWN_DEBOUNCE_COUNT consecutive identical reads
+    if (current_reading == debounced_state) {
+        // Reading matches current state - reset counter
+        debounce_counter = 0;
+    } else {
+        // Reading differs from current state - increment counter
+        debounce_counter++;
+        
+        if (debounce_counter >= SHUTDOWN_DEBOUNCE_COUNT) {
+            // Threshold reached - update state
+            debounced_state = current_reading;
+            debounce_counter = 0;
+        }
+    }
+    
+    return debounced_state;
 }
 
 __attribute__((weak)) bool is_fault_present(void) {
@@ -207,7 +231,7 @@ __attribute__((weak)) bool is_charge_enable_active(void) {
 
 __attribute__((weak)) float get_pack_voltage(void) {
     // Default: return pack voltage (read from BMS) in volts
-    extern uint32_t getPackVoltage_mv(void);
-    uint32_t pack_mv = getPackVoltage_mv();
-    return ((float)pack_mv) / 1000.0f;
+    extern float getPackVoltage_v(void);
+    float pack_v = getPackVoltage_v();
+    return pack_v;
 }

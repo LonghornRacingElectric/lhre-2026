@@ -250,6 +250,7 @@ void StartStateMachineTask(void *argument)
     hvc_set_contactor_status(get_current_state(),
                              get_drive_contactors_state(),
                              get_drive_contactors_state());
+    /*
     log_printf(LOG_INFO, "Tractive Voltage: %.2f V, Raw: %d  "
                          "HVC State: %s  "
                          "Is Shutdown Closed: %d  "
@@ -258,6 +259,7 @@ void StartStateMachineTask(void *argument)
                          get_state_name(get_current_state()),
                          is_shutdown_closed(),
                          get_drive_contactors_state());
+                */
     osDelay(task_period_ms);
   }
 }
