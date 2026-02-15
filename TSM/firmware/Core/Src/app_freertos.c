@@ -52,6 +52,8 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
 extern ADC_HandleTypeDef hadc1;
+extern ADC_HandleTypeDef hadc2;
+extern ADC_HandleTypeDef hadc3;
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -164,26 +166,84 @@ void StartDefaultTask(void *argument)
 /* USER CODE BEGIN Application */
 void StartADCTask(void *argument)
 {
-  uint32_t adc_val = 0;
+  uint32_t adc_main = 0;
+  uint32_t adc_pb0 = 0;
+  uint32_t adc_pb1 = 0;
+  uint32_t adc_pb2 = 0;
+
+  TickType_t last_wake = xTaskGetTickCount();
 
   for (;;)
   {
+    /* -------- ADC3 (Existing sensor) -------- */
+    HAL_ADC_Start(&hadc3);
+    HAL_ADC_PollForConversion(&hadc3, 10);
+    adc_main = HAL_ADC_GetValue(&hadc3);
+    HAL_ADC_Stop(&hadc3);
+
+    /* -------- ADC2 PB0 -------- */
+    HAL_ADC_Start(&hadc2);
+    HAL_ADC_PollForConversion(&hadc2, 10);
+    adc_pb0 = HAL_ADC_GetValue(&hadc2);
+    HAL_ADC_Stop(&hadc2);
+
+    /* -------- ADC1 scan (PB1 + PB2) -------- */
     HAL_ADC_Start(&hadc1);
-    if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
-    {
-      adc_val = HAL_ADC_GetValue(&hadc1);
-    }
+
+    HAL_ADC_PollForConversion(&hadc1, 10);
+    adc_pb1 = HAL_ADC_GetValue(&hadc1);
+
+    HAL_ADC_PollForConversion(&hadc1, 10);
+    adc_pb2 = HAL_ADC_GetValue(&hadc1);
+
     HAL_ADC_Stop(&hadc1);
 
-    float mv = ((float)adc_val / 4095.0f) * 3300.0f;
+    /* -------- Convert ALL sensors to temperature -------- */
 
-    // convert to temperature
-    float temp_c = (mv - 500.0f) / 10.0f; // temperature = (mv-500)/100
-    float temp_f = (temp_c * 9.0f / 5.0f) + 32.0f;
+    float mv_main = ((float)adc_main / 4095.0f) * 3300.0f;
+    float mv_pb0 = ((float)adc_pb0 / 4095.0f) * 3300.0f;
+    float mv_pb1 = ((float)adc_pb1 / 4095.0f) * 3300.0f;
+    float mv_pb2 = ((float)adc_pb2 / 4095.0f) * 3300.0f;
 
-    log_printf(LOG_INFO, "Temperature: %.0f mV, %.1f C, %.1f F\r\n", mv, temp_c, temp_f);
+    /* Assuming LM35-style sensor:
+       10 mV per °C
+       500 mV offset
+       temp_C = (mV - 500) / 10
+    */
 
-    osDelay(pdMS_TO_TICKS(300));
+    float temp_main_c = (mv_main - 500.0f) / 10.0f;
+    float temp_pb0_c = (mv_pb0 - 500.0f) / 10.0f;
+    float temp_pb1_c = (mv_pb1 - 500.0f) / 10.0f;
+    float temp_pb2_c = (mv_pb2 - 500.0f) / 10.0f;
+
+    float temp_main_f = (temp_main_c * 9.0f / 5.0f) + 32.0f;
+    float temp_pb0_f = (temp_pb0_c * 9.0f / 5.0f) + 32.0f;
+    float temp_pb1_f = (temp_pb1_c * 9.0f / 5.0f) + 32.0f;
+    float temp_pb2_f = (temp_pb2_c * 9.0f / 5.0f) + 32.0f;
+
+    /* -------- RPM + Flow -------- */
+
+    uint32_t tach_count = tach_pulse_count;
+    uint32_t flow_count = flow_pulse_count;
+
+    tach_pulse_count = 0;
+    flow_pulse_count = 0;
+
+    float rpm = (tach_count / 2.0f) * 60.0f;        // 2 pulses per rev
+    float flow_lpm = (flow_count / 169.0f) * 60.0f; // adjust if needed
+
+    /* Print only main temp if desired */
+    log_printf(LOG_INFO,
+               "T1: %.1fC  T2: %.1fC  T3: %.1fC  T4: %.1fC  RPM: %.0f  Flow: %.2f L/min\r\n",
+               temp_main_c,
+               temp_pb0_c,
+               temp_pb1_c,
+               temp_pb2_c,
+               rpm,
+               flow_lpm);
+
+    vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(1000));
   }
 }
+
 /* USER CODE END Application */
