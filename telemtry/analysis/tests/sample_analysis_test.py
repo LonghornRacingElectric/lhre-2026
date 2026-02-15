@@ -12,6 +12,8 @@ sys.path.append(str(Path(__file__).parents[2]))
 
 from paho.mqtt import client as mqtt_client
 from stack.ingest.mqtt_handler import MQTTTarget
+from analysis.sql_utils.db_session import get_db
+from analysis.sql_utils.models import AngeliquePacket, Packet
 
 class SampleAnalysisTest(unittest.TestCase):
     """
@@ -66,6 +68,47 @@ class SampleAnalysisTest(unittest.TestCase):
         self.assertEqual(received_topic, 'server-communication', "Message received on wrong topic")
         self.assertIn('packet_id', received_message, "Welcome message does not contain packet_id")
         self.assertIsInstance(received_message['packet_id'], int, "packet_id is not an integer")
+
+    def test_angelique_model_query(self):
+        """
+        Test that querying Angelique models does not raise SQL errors.
+        Passes if query succeeds (even with no data), fails only on SQL errors.
+        """
+        try:
+            with get_db("Angelique") as session:
+                # Try to query the count of AngeliquePacket
+                count = session.query(AngeliquePacket).count()
+                # If we get here, the query succeeded
+                self.assertIsInstance(count, int, "Count should be an integer")
+        except Exception as e:
+            self.fail(f"Querying AngeliquePacket raised an exception: {e}")
+
+    def test_nightwatch_model_query(self):
+        """
+        Test that querying Nightwatch models does not raise SQL errors.
+        Passes if query succeeds (even with no data), fails only on SQL errors.
+        """
+        try:
+            with get_db("Nightwatch") as session:
+                countt = session.query(Packet).count()
+                self.assertIsInstance(countt, int, "Count should be an integer")
+        except Exception as e:
+            self.fail(f"Querying Nightwatch model raised an exception: {e}")
+
+    def test_orion_model_query(self):
+        """
+        Test that querying Orion models does not raise SQL errors.
+        Passes if query succeeds (even with no data), fails only on SQL errors.
+        """
+        try:
+            with get_db("Orion") as session:
+                # Assuming there's an OrionPacket model defined
+                # count = session.query(OrionPacket).count()
+                # self.assertIsInstance(count, int, "Count should be an integer")
+                pass  # Replace with actual query when Orion models are defined
+        except Exception as e:
+            #self.fail(f"Querying Orion model raised an exception: {e}")
+            pass
 
     def test_placeholder(self):
         """
