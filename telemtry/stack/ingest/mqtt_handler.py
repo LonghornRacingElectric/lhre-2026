@@ -44,15 +44,16 @@ class MQTTHandler:
     This class handles MQTT payloads: connecting to MQTT broker and publishing or subscribing to topics
     '''
 
-    def __init__(self, name='python_client', target=None, db_sessions=None, on_message=None, cache_enable = False):
+    def __init__(self, name='ingest', target=None, db_sessions=None, on_message=None, cache_enable = False):
         '''
         :param name:    str         determining name of client to self-report to MQTT broker
         :param target:  MQTTTarget  MQTT target server
         '''
         self.target = target
         self.sessions = db_sessions
-        self.client = mqtt_client.Client(name)
+        self.client = mqtt_client.Client(client_id = name)
         self.client.username_pw_set(name)
+        self.client.user_data_set(self)  # Pass self to callbacks
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect
         self.client.on_message = on_message if on_message else self.on_message
@@ -78,6 +79,11 @@ class MQTTHandler:
             logging.error(f'Failed to connect to Mosquitto Broker, return code {rc}\n')
         else:
             logging.info(f'\t\t{client._client_id} connected to Mosquitto Broker')
+            # Subscribe to system topic to detect client connections
+            userdata.client.subscribe('$SYS/broker/clients/connected')
+
+        if (client._client_id == "BEVO" and rc == 0):
+            client.subscribe('server-communication')
 
     @staticmethod
     def on_disconnect(client: mqtt_client.Client, userdata, rc: int):
@@ -121,6 +127,25 @@ class MQTTHandler:
         self.client.publish(*args, **kwargs)
 
     def on_message(self, client: mqtt_client.Client, userdata, msg):
+        if msg.topic == '$SYS/broker/clients/connected':
+            connected_client_id = msg.payload.decode()
+            if connected_client_id == 'BEVO-Angelique':
+                # Query the database for the latest packet_id from Angelique
+                with QueryBuilder("Angelique") as qb:
+                    result = qb.select("Packet").order("packet_id", desc=True).limit(1).send_query(return_type=list)
+                    if result:
+                        next_packet_id = result[0][0] + 1
+                    else:
+                        next_packet_id = 1  # If no packets, start from 1
+                welcome_msg = json.dumps({
+                    "packet_id": next_packet_id,
+                })
+                userdata.client.publish('server-communication', welcome_msg)
+                logging.info(f'\t\tBEVO-Angelique connected. Sent welcome message with next packet_id: {next_packet_id}')
+            elif connected_client_id == 'BEVO-Orion':
+                logging.info(f'\t\tBEVO-Orion connected.')
+                # TODO: someone lowkey need to do this
+            return
         # Handle Start & End Event
         if msg.topic == 'config/flask':
             self._flask_handler(msg.payload.decode())
