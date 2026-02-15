@@ -17,6 +17,7 @@ sys.path.append(str(Path(__file__).parents[2]))
 
 from analysis.sql_utils.db_session import get_db
 from analysis.sql_utils.query_builder import QueryBuilder
+from analysis.sql_utils.models import AngeliquePacket
 from stack.ingest.protobuf import template_pb2, angelique_pb2, bridge_pb2, bridge_pb2_grpc
 
 # Determine path to net_configs.json based on execution context
@@ -79,11 +80,8 @@ class MQTTHandler:
             logging.error(f'Failed to connect to Mosquitto Broker, return code {rc}\n')
         else:
             logging.info(f'\t\t{client._client_id} connected to Mosquitto Broker')
-            # Subscribe to system topic to detect client connections
-            userdata.client.subscribe('$SYS/broker/clients/connected')
-
-        if (client._client_id == "BEVO" and rc == 0):
-            client.subscribe('server-communication')
+            # Subscribe to client connection announcements
+            userdata.client.subscribe('client-connections')
 
     @staticmethod
     def on_disconnect(client: mqtt_client.Client, userdata, rc: int):
@@ -127,22 +125,27 @@ class MQTTHandler:
         self.client.publish(*args, **kwargs)
 
     def on_message(self, client: mqtt_client.Client, userdata, msg):
-        if msg.topic == '$SYS/broker/clients/connected':
+        if msg.topic == 'client-connections':
             connected_client_id = msg.payload.decode()
-            if connected_client_id == 'BEVO-Angelique':
+            if connected_client_id == 'BEVO-Angelique' and msg.payload.decode() == 'BEVO-Angelique':
                 # Query the database for the latest packet_id from Angelique
-                with QueryBuilder("Angelique") as qb:
-                    result = qb.select("Packet").order("packet_id", desc=True).limit(1).send_query(return_type=list)
-                    if result:
-                        next_packet_id = result[0][0] + 1
-                    else:
-                        next_packet_id = 1  # If no packets, start from 1
+                logging.warning(f'\t\tBEVO-Angelique has connected. Querying database for latest packet_id to send welcome message...')
+                try:
+                    with QueryBuilder("Angelique") as qb:
+                        result = qb.session.query(AngeliquePacket.packet_id).order_by(AngeliquePacket.packet_id.desc()).first()
+                        if result:
+                            next_packet_id = result[0] + 1
+                        else:
+                            next_packet_id = 1  # If no packets, start from 1
+                except Exception as e:
+                    logging.error(f'\t\tUnable to fetch latest Angelique packet_id: {e}')
+                    next_packet_id = 1
                 welcome_msg = json.dumps({
                     "packet_id": next_packet_id,
                 })
                 userdata.client.publish('server-communication', welcome_msg)
                 logging.info(f'\t\tBEVO-Angelique connected. Sent welcome message with next packet_id: {next_packet_id}')
-            elif connected_client_id == 'BEVO-Orion':
+            elif connected_client_id == 'BEVO-Orion' and msg.payload.decode() == 'BEVO-Orion':
                 logging.info(f'\t\tBEVO-Orion connected.')
                 # TODO: someone lowkey need to do this
             return
