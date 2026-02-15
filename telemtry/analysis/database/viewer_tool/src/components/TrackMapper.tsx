@@ -7,44 +7,107 @@ import * as d3 from 'd3';
 type LatLon = [number, number];
 type SectorGate = [LatLon, LatLon];
 
+export interface TrackData {
+  name: string;
+  sectors: SectorGate[];
+  points: LatLon[];
+  updatedAt: number;
+}
+
 const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: number }) => {
   const [points, setPoints] = useState<LatLon[]>([]);
   const [isDefiningSectors, setIsDefiningSectors] = useState(false);
   const [sectors, setSectors] = useState<SectorGate[]>([]);
   const [pointCount, setPointCount] = useState(0);
   const [hoverLine, setHoverLine] = useState<{ x: number; y: number; angle: number } | null>(null);
+  
+  // Track Management State
+  const [trackName, setTrackName] = useState<string>('Untitled');
+  const [availableTracks, setAvailableTracks] = useState<string[]>([]);
+  const lastSavedNameRef = useRef<string>(trackName);
+
   const lastPointRef = useRef<LatLon | null>(null);
   const countRef = useRef(0);
 
   useEffect(() => {
-    // Load points from localStorage on mount to avoid hydration mismatch
-    try {
-      const saved = localStorage.getItem('trackMapperPoints');
-      if (saved) {
-        const parsedPoints = JSON.parse(saved) as LatLon[];
-        if (Array.isArray(parsedPoints) && parsedPoints.length > 0) {
-          setPoints(parsedPoints);
-          countRef.current = parsedPoints.length;
-          setPointCount(parsedPoints.length);
-          lastPointRef.current = parsedPoints[parsedPoints.length - 1];
+    // Load available tracks from localStorage on mount
+    if (typeof window !== 'undefined') {
+      const tracks: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('track_data_')) {
+          tracks.push(key.replace('track_data_', ''));
         }
       }
-      // Load sectors from localStorage
-      const savedSectors = localStorage.getItem('trackMapperSectors');
-      if (savedSectors) {
-        const parsedSectors = JSON.parse(savedSectors);
-        if (Array.isArray(parsedSectors)) {
-          // Check if it's the new format (array of arrays of arrays)
-          // New: [[[lat, lon], [lat, lon]], ...]
-          if (parsedSectors.length > 0 && Array.isArray(parsedSectors[0]) && Array.isArray(parsedSectors[0][0])) {
-             setSectors(parsedSectors as SectorGate[]);
-          }
-        }
+      setAvailableTracks(tracks.sort());
+
+      // Try to load the last active track
+      const lastActive = localStorage.getItem('track_mapper_last_active');
+      if (lastActive && tracks.includes(lastActive)) {
+        loadTrackData(lastActive);
       }
-    } catch {
-      // ignore localStorage errors
     }
   }, []);
+
+  const loadTrackData = (name: string) => {
+    try {
+      const saved = localStorage.getItem(`track_data_${name}`);
+      if (saved) {
+        const data = JSON.parse(saved) as TrackData;
+        setTrackName(data.name);
+        setPoints(data.points || []);
+        setSectors(data.sectors || []);
+        
+        // Update refs for continuity
+        countRef.current = data.points?.length || 0;
+        setPointCount(countRef.current);
+        lastPointRef.current = data.points?.[data.points.length - 1] || null;
+        lastSavedNameRef.current = data.name;
+        
+        // Save as last active
+        localStorage.setItem('track_mapper_last_active', data.name);
+      }
+    } catch (e) {
+      console.error("Failed to load track data", e);
+    }
+  };
+
+  const handleTrackChange = (name: string) => {
+    if (name === 'NEW_TRACK_OPTION') {
+      // Reset to new track
+      setTrackName('Untitled');
+      setPoints([]);
+      setSectors([]);
+      countRef.current = 0;
+      setPointCount(0);
+      lastPointRef.current = null;
+      lastSavedNameRef.current = 'Untitled';
+    } else {
+      loadTrackData(name);
+    }
+  };
+
+  const handleDeleteTrack = () => {
+    if (confirm(`Are you sure you want to delete track "${trackName}"?`)) {
+      localStorage.removeItem(`track_data_${trackName}`);
+      setAvailableTracks(prev => prev.filter(t => t !== trackName));
+      handleTrackChange('NEW_TRACK_OPTION');
+    }
+  };
+
+  const handleSaveAs = () => {
+    const newName = prompt("Enter name for copy:", `${trackName} (Copy)`);
+    if (newName && newName.trim() !== "") {
+      if (availableTracks.includes(newName)) {
+        if (!confirm(`Track "${newName}" already exists. Overwrite?`)) {
+          return;
+        }
+      }
+      // Update ref to prevent deletion of current track in the auto-save useEffect
+      lastSavedNameRef.current = newName;
+      setTrackName(newName);
+    }
+  };
 
   const kafkaOptions = useMemo(() => ({
     topic: 'track-mapper',
@@ -120,10 +183,6 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
     // Append new point
     setPoints((prev) => {
       const next = [...prev, p];
-      // Save to localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('trackMapperPoints', JSON.stringify(next));
-      }
       return next;
     });
     lastPointRef.current = p;
@@ -132,6 +191,39 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
     
     console.log(`✓ Point ${countRef.current}: [lat=${p[0].toFixed(6)}, lon=${p[1].toFixed(6)}]`);
   }, [kafkaMsg, normalize]);
+
+  // Auto-save effect: Saves whenever points, sectors, or name changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (points.length > 0 || sectors.length > 0)) {
+      const data: TrackData = {
+        name: trackName,
+        sectors,
+        points,
+        updatedAt: Date.now(),
+      };
+
+      const oldName = lastSavedNameRef.current;
+      if (oldName && oldName !== trackName) {
+        localStorage.removeItem(`track_data_${oldName}`);
+      }
+
+      localStorage.setItem(`track_data_${trackName}`, JSON.stringify(data));
+      localStorage.setItem('track_mapper_last_active', trackName);
+
+      setAvailableTracks(prev => {
+        let next = prev;
+        if (oldName && oldName !== trackName) {
+          next = next.filter(t => t !== oldName);
+        }
+        if (!next.includes(trackName)) {
+          next = [...next, trackName].sort();
+        }
+        return next;
+      });
+      
+      lastSavedNameRef.current = trackName;
+    }
+  }, [points, sectors, trackName]);
 
   // Format last point for display
   const lastPointText = points.length 
@@ -249,10 +341,6 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
       countRef.current = 0;
       lastPointRef.current = null;
       setSectors([]); // Also clear sectors
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('trackMapperPoints');
-        localStorage.removeItem('trackMapperSectors');
-      }
     }
   };
 
@@ -275,9 +363,6 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
 
         const newSectors: SectorGate[] = [[p1, p2]];
         setSectors(newSectors);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('trackMapperSectors', JSON.stringify(newSectors));
-        }
       }
     }
     setIsDefiningSectors((prev) => !prev);
@@ -286,9 +371,6 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
   const handleClearSectors = () => {
     if (confirm('Are you sure you want to clear all defined sectors?')) {
       setSectors([]);
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('trackMapperSectors');
-      }
     }
   };
 
@@ -346,9 +428,6 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
 
       setSectors((prev: SectorGate[]) => {
         const next: SectorGate[] = [...prev, [p1, p2]];
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('trackMapperSectors', JSON.stringify(next));
-        }
         return next;
       });
     }
@@ -364,6 +443,33 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
           <div className="text-xs text-gray-500">({pointCount} points, {sectors.length} sectors)</div>
         </div>
         <div className="flex items-center gap-4">
+          {/* Track Selection UI */}
+          <div className="flex items-center gap-2 border-r pr-4 mr-2">
+            <select 
+              value={availableTracks.includes(trackName) ? trackName : 'NEW_TRACK_OPTION'} 
+              onChange={(e) => handleTrackChange(e.target.value)}
+              className="border rounded px-2 py-1 text-xs bg-white"
+            >
+              <option value="NEW_TRACK_OPTION">-- New / Unsaved --</option>
+              {availableTracks.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <input 
+              type="text" 
+              value={trackName}
+              onChange={(e) => setTrackName(e.target.value)}
+              className="border rounded px-2 py-1 text-xs w-32"
+              placeholder="Track Name"
+            />
+            <button onClick={handleDeleteTrack} className="text-gray-400 hover:text-red-500" title="Delete Track">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+            <button onClick={handleSaveAs} className="text-gray-400 hover:text-blue-500 ml-1" title="Save As Copy">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            </button>
+          </div>
+
           <div className="text-sm text-gray-600">Last: <span className="font-mono">{lastPointText}</span></div>
           {/* Sector controls */}
           <button
@@ -480,7 +586,7 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
 
       {/* Sector Coordinates Footer */}
       {sectors.length > 0 && (
-        <div className="p-3 border-t bg-gray-50 text-xs overflow-y-auto max-h-32">
+        <div className="p-3 border-t bg-gray-50 text-xs overflow-y-auto max-h-60">
             <h3 className="font-bold mb-2 text-gray-700">Sector Gates (Start/End Points)</h3>
             <div className="grid grid-cols-2 gap-2">
                 {sectors.map((s, i) => (
@@ -494,6 +600,17 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
                         </div>
                     </div>
                 ))}
+                {points.length > 0 && (
+                  <div className="flex items-center gap-2 bg-white p-1 rounded border border-blue-300">
+                      <div className="h-4 px-1.5 rounded-full bg-blue-500 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                          Track End
+                      </div>
+                      <div className="flex flex-col font-mono text-gray-600">
+                          <span>Lat: {points[points.length - 1][0].toFixed(6)}</span>
+                          <span>Lon: {points[points.length - 1][1].toFixed(6)}</span>
+                      </div>
+                  </div>
+                )}
             </div>
         </div>
       )}

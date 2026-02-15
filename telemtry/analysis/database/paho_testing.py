@@ -366,7 +366,7 @@ if __name__ == '__main__':
     car_name = "Angelique"  # Change to "Nightwatch" or "Angelique" as needed
     
     # Paths for CSV and mapping files
-    csv_path = Path(__file__).parent / 'csv_processing/csv_data/Log__2024_10_11__05_54_04.csv'
+    csv_path = Path(__file__).parent / 'csv_processing/csv_data/Log__2024_10_11__05_50_47.csv'
     mapping_path = Path(__file__).parent / 'csv_processing/angelique_pg_to_csv.json'
     
     with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session:
@@ -377,7 +377,7 @@ if __name__ == '__main__':
             dt.send_proto_rows(
                 tables=['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
                 num_rows= 2000,
-                delay= 0.05,
+                delay= 0.1,
                 use_csv=True,
                 target=car_name
             )
