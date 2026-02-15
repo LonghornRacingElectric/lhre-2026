@@ -11,6 +11,9 @@ jobs:
     env:
       POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
       POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      ELECTRIC_PWD: ${{ secrets.ELECTRIC_PWD }}
+      GRAFANA_PWD: ${{ secrets.GRAFANA_PWD }}
+      ANALYSIS_PWD: ${{ secrets.ANALYSIS_PWD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,6 +56,9 @@ jobs:
           cat > telemtry/.env << EOF
           POSTGRES_USER=${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          ELECTRIC_PWD=${{ secrets.ELECTRIC_PWD }}
+          GRAFANA_PWD=${{ secrets.GRAFANA_PWD }}
+          ANALYSIS_PWD=${{ secrets.ANALYSIS_PWD }}
           EOF
 
       - name: Start Kafka services
@@ -77,7 +83,10 @@ jobs:
             --remote_header=x-buildbuddy-api-key=${{ secrets.BUILD_BUDDY_API_KEY }} \
             --test_tag_filters=integration \
             --test_env=POSTGRES_USER \
-            --test_env=POSTGRES_PASSWORD
+            --test_env=POSTGRES_PASSWORD \
+            --test_env=ELECTRIC_PWD \
+            --test_env=GRAFANA_PWD \
+            --test_env=ANALYSIS_PWD
 
       - name: Teardown Docker services
         if: always()

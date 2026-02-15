@@ -79,8 +79,8 @@ class TestBevoAndDatabaseIntegration(unittest.TestCase):
                 count = session.query(Packet).count()
                 self.assertIsInstance(count, int, "Count should be an integer")
         except Exception as exc:
-            pass  # Nightwatch DB/models may not be configured, so we skip instead of fail
-        
+            self.fail(f"Querying Nightwatch model raised an exception: {exc}")
+
     def test_orion_model_query(self):
         """Orion DB session should be constructible when the DB is available."""
         try:
