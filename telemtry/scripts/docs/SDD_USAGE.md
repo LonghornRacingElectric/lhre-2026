@@ -23,7 +23,26 @@ This script runs the generator for Angelique and automatically updates:
 
 ---
 
-## 2. Usage in Processors
+## 2. The Role of Generated Dataclasses (`dataclasses.py`)
+
+While Protobuf provides the wire format, the generated `dataclasses.py` provides a **Pythonic, type-safe interface** for internal logic. 
+
+### Why not just use Protobuf objects directly?
+1.  **IDE Support:** Standard Python dataclasses provide superior autocompletion and hover-documentation in VSCode/PyCharm compared to compiled Protobuf objects.
+2.  **Immutability & Logic:** Dataclasses are easier to extend with helper methods or convert into other formats (like JSON) using standard Python libraries.
+3.  **Type Hinting:** They allow for strict type hinting across your processors, making bugs easier to catch before runtime.
+
+### Location
+The dataclasses are generated into car-specific folders:
+`telemtry/scripts/gen_{car}/dataclasses.py`
+
+### Key Components
+- **`{Car}SensorData`**: The root container for a full telemetry packet.
+- **Sensor Modules**: Individual classes (e.g., `AngeliqueDynamics`, `AngeliqueBattery`) containing the actual sensor fields.
+
+---
+
+## 3. Usage in Processors
 
 Processors interact with telemetry data in three stages: **Decoding**, **Logic**, and **Persistence**.
 
@@ -52,15 +71,29 @@ if data.dynamics.vcu_velocity:
 ```
 
 ### Stage 3: Persistence (ORM)
-Use SQLAlchemy models in `analysis/sql_utils/models.py` to save data. The field names are guaranteed to match your decoded dictionary.
+Use SQLAlchemy models in `analysis/sql_utils/models.py` to save data. 
+
+**Important:** SQLAlchemy constructors expect keyword arguments. If you want to use a Dataclass instance for persistence, you must unpack it using `asdict()` or pass attributes manually.
+
+The recommended way to save a packet and its sensors is to use **relationships**:
+
 ```python
+from dataclasses import asdict
 from analysis.sql_utils.db_session import get_db
-from analysis.sql_utils.models import AngeliqueDynamics
+from analysis.sql_utils.models import AngeliquePacket, AngeliqueDynamics
 
 with get_db("Angelique") as session:
-    # Use unpacking to map dict fields to the Model
-    row = AngeliqueDynamics(**data_dict['dynamics'])
-    session.add(row)
+    # Create the root packet
+    packet = AngeliquePacket(packet_id=data_dict['packet_id'], time=data_dict['time'])
+    
+    # Option A: Use the decoded dictionary (Efficient)
+    packet.dynamics = AngeliqueDynamics(**data_dict['dynamics'])
+    
+    # Option B: Use the Dataclass (if you modified data in Stage 2)
+    # data = AngeliqueSensorData(**data_dict)
+    # packet.dynamics = AngeliqueDynamics(**asdict(data.dynamics))
+    
+    session.add(packet)
     session.commit()
 ```
 
@@ -69,9 +102,10 @@ The following code demonstrates a typical processor loop utilizing all generated
 
 ```python
 import angelique_pb2
+from dataclasses import asdict
 from google.protobuf.json_format import MessageToDict
 from scripts.gen_angelique.dataclasses import AngeliqueSensorData
-from analysis.sql_utils.models import AngeliqueDynamics
+from analysis.sql_utils.models import AngeliquePacket, AngeliqueDynamics
 from analysis.sql_utils.db_session import get_db
 
 def on_message(payload_bytes):
@@ -81,19 +115,22 @@ def on_message(payload_bytes):
     data_dict = MessageToDict(msg, preserving_proto_field_name=True)
 
     # 2. LOGIC using Dataclass (Type Stubs)
-    # This provides full IDE autocompletion for sensor fields
     typed_data = AngeliqueSensorData(**data_dict)
     
     if typed_data.dynamics and typed_data.dynamics.vcu_accel:
-        # Perform typed calculations
         accel_mag = sum(a**2 for a in typed_data.dynamics.vcu_accel)**0.5
-        print(f"Current Accel: {accel_mag:.2f} m/s^2")
+        # ... logic ...
 
-    # 3. PERSISTENCE using ORM
-    # The dictionary keys from Stage 1 match the Model columns exactly
+    # 3. PERSISTENCE using ORM Relationships
     with get_db("Angelique") as session:
-        db_row = AngeliqueDynamics(**data_dict['dynamics'])
-        session.add(db_row)
+        # Create packet and attach dynamics
+        packet = AngeliquePacket(packet_id=typed_data.packet_id, time=typed_data.time)
+        
+        if typed_data.dynamics:
+            # Unpack the dataclass into the ORM model
+            packet.dynamics = AngeliqueDynamics(**asdict(typed_data.dynamics))
+            
+        session.add(packet)
         session.commit()
 ```
 
@@ -139,13 +176,7 @@ python3 scripts/generate_schema.py patch-models \
 
 ---
 
-## 5. Bazel Integration
-Bazel is used for CI and hermetic builds. It generates artifacts in `bazel-out/` but does not modify your source tree.
-```bash
-bazel build //telemtry/scripts:gen_angelique_artifacts
-```
-
-## 6. Key Files
+## 5. Key Files
 - `telemtry/scripts/generate_schema.py`: The transformation engine.
 - `telemtry/scripts/sync_schema.sh`: Convenience script for local developers.
 - `telemtry/stack/ingest/common_schema.sql`: Source of truth for static infrastructure.

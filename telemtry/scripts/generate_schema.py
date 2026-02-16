@@ -186,11 +186,12 @@ def generate_artifacts_from_proto(messages, root_msg_name):
                 if f['name'].endswith('_json'):
                     sql_type = 'jsonb'
                 
+                # The custom GPS point was removed, so this is commented out.
                 # Override for GPS convention
-                if f['name'] == 'gps' and f['type'] == 'float' and f['repeated']:
-                    sql_type = 'point'
-                elif f['repeated']:
-                    sql_type += '[]'
+                # if f['name'] == 'gps' and f['type'] == 'float' and f['repeated']:
+                #     sql_type = 'point'
+                # elif f['repeated']:
+                #     sql_type += '[]'
                 
                 sql_lines.append(f"    {f['name']:20} {sql_type},")
             

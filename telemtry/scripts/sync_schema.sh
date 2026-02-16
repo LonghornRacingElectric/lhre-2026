@@ -41,6 +41,7 @@ python3 $SCRIPT_DIR/generate_schema.py patch-models \
 
 echo "Step 4: Cleaning up..."
 rm $SCRIPT_DIR/common.prisma
-rm -rf $SCRIPT_DIR/gen_angelique
+# We keep $SCRIPT_DIR/gen_angelique because it contains the generated 
+# Python dataclasses used by processors for type safety.
 
 echo "Done! SQL, Prisma, and ORM artifacts updated."

@@ -54,5 +54,5 @@ graph TD
         *   Map Postgres types to Prisma types (e.g., `smallint` -> `Int`, `real` -> `Float`).
         *   Generate `common.prisma`.
 3.  **Integration:**
-    *   Update `BUILD.bazel` to orchestrate this generation.
+    *   Update `sync_schema.sh` to orchestrate this generation.
     *   Update `mqtt_handler.py` and Viewer Tool to use generated artifacts.
