@@ -1,4 +1,5 @@
 # Adding Grafana Dashboards
+lhrelectric.org/grafana/ (dm any of the Telemetry members for password access)
 
 ## Realtime Dashboards
 1. Create a regular new dashboard
