@@ -7,21 +7,23 @@ package(default_visibility = ["//visibility:public"])
 cargo_build_script(
     name = "build_script",
     srcs = ["build.rs"],
-    data = ["//drivers/proto:template.proto"], 
+    # MAKE PROTOC AVAILABLE IN THE SANDBOX
+    data = [
+        "//drivers/proto:template.proto",
+        "@protobuf//:protoc", 
+    ],
+    # TELL PROST-BUILD WHERE IT IS
     build_script_env = {
-        # Note: We use $(rootpath) to get the path relative to the runfiles root
-        # This is safer than $(location) for some setups, but $(location) works too.
         "PROTO_FILE": "$(location //drivers/proto:template.proto)",
+        "PROTOC": "$(execpath @protobuf//:protoc)",
     },
-    # CHANGE: @crates -> @crate_index
     deps = ["@crate_index//:prost-build"],
 )
 
-# 2. The Main Binary
+# 2. The Main Binary (No changes needed here)
 rust_binary(
     name = "cand",
     srcs = ["main.rs", "config.rs"],
-    # CHANGE: @crates -> @crate_index
     deps = [
         ":build_script",
         "@crate_index//:anyhow",

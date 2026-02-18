@@ -1,6 +1,3 @@
-use std::env;
-use std::path::PathBuf;
-
 fn main() {
     let proto_file = "../../drivers/proto/template.proto";
     println!("cargo:rerun-if-changed={}", proto_file);
