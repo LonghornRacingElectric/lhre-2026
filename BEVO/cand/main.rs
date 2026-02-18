@@ -11,9 +11,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-pub mod proto {
-    include!(concat!(env!("OUT_DIR"), "/sensor_data.rs"));
-}
+use sensor_data_rust_proto::sensor_data::SensorData;
 
 use proto::sensor_data::{self, SensorData};
 

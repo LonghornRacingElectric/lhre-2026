@@ -1,26 +1,36 @@
 load("@rules_rust//rust:defs.bzl", "rust_binary")
-load("@rules_rust//cargo:defs.bzl", "cargo_build_script") 
+load("@rules_rust//cargo:defs.bzl", "cargo_build_script")
 
+package(default_visibility = ["//visibility:public"])
+
+# 1. The Build Script
 cargo_build_script(
     name = "build_script",
     srcs = ["build.rs"],
-    deps = ["@crates//:prost-build"],
+    data = ["//drivers/proto:template.proto"], 
+    build_script_env = {
+        # Note: We use $(rootpath) to get the path relative to the runfiles root
+        # This is safer than $(location) for some setups, but $(location) works too.
+        "PROTO_FILE": "$(location //drivers/proto:template.proto)",
+    },
+    # CHANGE: @crates -> @crate_index
+    deps = ["@crate_index//:prost-build"],
 )
 
+# 2. The Main Binary
 rust_binary(
     name = "cand",
-    srcs = [
-        "main.rs",
-        "config.rs",
-    ],
+    srcs = ["main.rs", "config.rs"],
+    # CHANGE: @crates -> @crate_index
     deps = [
         ":build_script",
+        "@crate_index//:anyhow",
+        "@crate_index//:prost",
+        "@crate_index//:serde",
+        "@crate_index//:serde_json",
     ] + select({
-        "@platforms//os:linux": [
-            "@crates//:socketcan",
-        ],
+        "@platforms//os:linux": ["@crate_index//:socketcan"],
         "//conditions:default": [],
     }),
-    toolchains = ["@llvm_toolchain//:toolchain_type"],
-    visibility = ["//visibility:public"],
+    data = ["//drivers/proto:can_packets.json"],
 )
