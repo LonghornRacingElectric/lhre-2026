@@ -1,38 +1,15 @@
 load("@rules_rust//rust:defs.bzl", "rust_binary")
-load("@rules_rust//cargo:defs.bzl", "cargo_build_script")
 
-package(default_visibility = ["//visibility:public"])
-
-# 1. The Build Script
-cargo_build_script(
-    name = "build_script",
-    srcs = ["build.rs"],
-    # MAKE PROTOC AVAILABLE IN THE SANDBOX
-    data = [
-        "//drivers/proto:template.proto",
-        "@protobuf//:protoc", 
-    ],
-    # TELL PROST-BUILD WHERE IT IS
-    build_script_env = {
-        "PROTO_FILE": "$(location //drivers/proto:template.proto)",
-        "PROTOC": "$(execpath @protobuf//:protoc)",
-    },
-    deps = ["@crate_index//:prost-build"],
-)
-
-# 2. The Main Binary (No changes needed here)
 rust_binary(
     name = "cand",
     srcs = ["main.rs", "config.rs"],
+    compile_data = ["//drivers/proto:can_packets.json"],
     deps = [
-        ":build_script",
+        "//BEVO:sensor_proto_gen", 
         "@crate_index//:anyhow",
         "@crate_index//:prost",
         "@crate_index//:serde",
         "@crate_index//:serde_json",
-    ] + select({
-        "@platforms//os:linux": ["@crate_index//:socketcan"],
-        "//conditions:default": [],
-    }),
-    data = ["//drivers/proto:can_packets.json"],
+        "@crate_index//:socketcan",
+    ],
 )

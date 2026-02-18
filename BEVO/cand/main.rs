@@ -1,12 +1,10 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use prost::Message;
 use socketcan::{CanFrame, CanSocket, Socket, EmbeddedFrame, Id};
 use std::collections::HashMap;
-use std::fs;
 use std::io::Write;
 use std::net::UdpSocket;
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -21,19 +19,24 @@ use config::{PacketConfig, ProtobufMapping};
 
 const USE_MOCK: bool = true; 
 const MOCK_ADDR: &str = "127.0.0.1:5005";
-
 const SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
 const CAN_INTERFACE: &str = "vcan0";
 
-const CAN_CONFIG_PATH: &str = "drivers/proto/can_packets.json";
+
+const CONFIG_JSON: &str = include_str!("../../drivers/proto/can_packets.json");
 
 fn main() -> Result<()> {
-    let config_content = fs::read_to_string(CAN_CONFIG_PATH)?;
-    let packets: Vec<PacketConfig> = serde_json::from_str(&config_content)?;
-    let packet_map = Arc::new(packets.into_iter().map(|p| (p.packet_id, p)).collect::<HashMap<u32, PacketConfig>>());
+    // Parse the embedded JSON string
+    let packets: Vec<PacketConfig> = serde_json::from_str(CONFIG_JSON)?;
+    let packet_map = Arc::new(
+        packets.into_iter()
+            .map(|p| (p.packet_id, p))
+            .collect::<HashMap<u32, PacketConfig>>()
+    );
 
     let sensor_data = Arc::new(Mutex::new(SensorData::default()));
 
+    // Thread: CAN Consumer (Mock UDP or Real SocketCAN)
     let can_sensor_data = Arc::clone(&sensor_data);
     let can_packet_map = Arc::clone(&packet_map);
     thread::spawn(move || {
@@ -42,6 +45,7 @@ fn main() -> Result<()> {
         }
     });
 
+    // Thread: IPC Server (Unix Domain Socket)
     let ipc_sensor_data = Arc::clone(&sensor_data);
     thread::spawn(move || {
         if let Err(e) = ipc_server_loop(ipc_sensor_data) {
@@ -50,6 +54,8 @@ fn main() -> Result<()> {
     });
 
     println!("[CAND] Started in {} mode", if USE_MOCK { "MOCK" } else { "REAL" });
+    
+    // Keep main thread alive
     loop { thread::park(); }
 }
 
@@ -78,21 +84,29 @@ fn can_reader_loop(data: Arc<Mutex<SensorData>>, map: Arc<HashMap<u32, PacketCon
 }
 
 fn ipc_server_loop(sensor_data: Arc<Mutex<SensorData>>) -> Result<()> {
-    if Path::new(SOCKET_PATH).exists() { fs::remove_file(SOCKET_PATH)?; }
+    // Note: We ignore the error on remove_file because if it doesn't exist, that's fine.
+    let _ = std::fs::remove_file(SOCKET_PATH); 
+    
     let listener = UnixListener::bind(SOCKET_PATH)?;
     let clients = Arc::new(Mutex::new(Vec::<UnixStream>::new()));
 
     let clients_clone = Arc::clone(&clients);
     thread::spawn(move || {
         for stream in listener.incoming() {
-            if let Ok(s) = stream { clients_clone.lock().unwrap().push(s); }
+            if let Ok(s) = stream { 
+                clients_clone.lock().unwrap().push(s); 
+            }
         }
     });
 
     loop {
         let mut buffer = Vec::new();
-        { sensor_data.lock().unwrap().encode(&mut buffer)?; }
+        {
+            let lock = sensor_data.lock().unwrap();
+            lock.encode(&mut buffer)?;
+        }
 
+        // Broadcast to all connected IPC clients
         clients.lock().unwrap().retain_mut(|s| s.write_all(&buffer).is_ok());
         thread::sleep(Duration::from_millis(10));
     }
@@ -101,8 +115,12 @@ fn ipc_server_loop(sensor_data: Arc<Mutex<SensorData>>) -> Result<()> {
 fn process_raw_data(data: &mut SensorData, payload: &[u8], config: &PacketConfig) {
     for signal in &config.bytes {
         if signal.start_byte + signal.length > payload.len() { continue; }
+        
         let val = match signal.conv_type.as_str() {
-            "uint16" => (u16::from_le_bytes([payload[signal.start_byte], payload[signal.start_byte+1]]) as f64) * signal.precision,
+            "uint16" => {
+                let bytes = [payload[signal.start_byte], payload[signal.start_byte+1]];
+                (u16::from_le_bytes(bytes) as f64) * signal.precision
+            },
             "uint8" => (payload[signal.start_byte] as f64) * signal.precision,
             "bitfield" => {
                 if let Some(mappings) = &signal.bitfield_encoding {
@@ -115,7 +133,10 @@ fn process_raw_data(data: &mut SensorData, payload: &[u8], config: &PacketConfig
             }
             _ => continue,
         };
-        if let Some(pb) = &signal.protobuf { update_proto_field(data, &pb.field_name, val as f32, pb); }
+
+        if let Some(pb) = &signal.protobuf { 
+            update_proto_field(data, &pb.field_name, val as f32, pb); 
+        }
     }
 }
 

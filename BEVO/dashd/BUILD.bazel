@@ -4,6 +4,8 @@ rust_binary(
     name = "dashd",
     srcs = ["main.rs"],
     deps = [
+        "//BEVO:sensor_proto_gen",
+        "@crate_index//:anyhow",
+        "@crate_index//:prost",
     ],
-    visibility = ["//visibility:public"],
 )
