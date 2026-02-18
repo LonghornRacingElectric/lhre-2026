@@ -27,8 +27,6 @@ fn main() -> Result<()> {
                         Ok(n) => {
                             match SensorData::decode(&buffer[..n]) {
                                 Ok(data) => {
-
-                                    println!("\n--- [DASHD] Incoming Update ---");
                                     
                                     if let Some(d) = &data.dynamics {
                                         println!(" [DYNAMICS]: {:#?}", d);

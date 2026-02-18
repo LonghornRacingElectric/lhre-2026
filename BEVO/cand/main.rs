@@ -98,7 +98,6 @@ fn process_raw_data(data: &mut SensorData, payload: &[u8], config: &PacketConfig
             _ => continue,
         };
 
-        // Stage 2: Mapping (Call Generated Code)
         if let Some(pb) = &signal.protobuf { 
             generated_mapping::update_proto_field_generated(data, &pb.field_name, val as f32, pb); 
         }

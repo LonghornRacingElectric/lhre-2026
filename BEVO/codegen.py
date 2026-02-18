@@ -26,7 +26,7 @@ def get_proto_mapping(desc_path):
         sys.exit(1)
 
     var_map = {
-        "dynamics": "_d", # Added underscores to prevent unused warnings
+        "dynamics": "_d", 
         "controls": "_c",
         "pack": "_p",
         "diagnostics_low": "_l",
