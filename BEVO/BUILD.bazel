@@ -4,12 +4,29 @@ load("@rules_rust//cargo:defs.bzl", "cargo_build_script")
 package(default_visibility = ["//visibility:public"])
 
 cargo_build_script(
-    name = "sensor_proto_gen",
-    srcs = ["build.rs"], # Move your build.rs here
-    data = ["//drivers/proto:template.proto", "@protobuf//:protoc"],
+    name = "build_script_gen",
+    srcs = ["build.rs"],
+    data = [
+        "//drivers/proto:template.proto",
+        "@protobuf//:protoc",
+    ],
     build_script_env = {
         "PROTO_FILE": "$(location //drivers/proto:template.proto)",
         "PROTOC": "$(execpath @protobuf//:protoc)",
     },
     deps = ["@crate_index//:prost-build"],
+)
+
+rust_library(
+    name = "sensor_proto",
+    srcs = [
+        "lib.rs", 
+        "config.rs",            
+        "generated_mapping.rs",
+    ],
+    deps = [
+        ":build_script_gen",
+        "@crate_index//:prost",
+        "@crate_index//:serde",
+    ],
 )
