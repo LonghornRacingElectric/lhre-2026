@@ -1,14 +1,26 @@
 load("@rules_rust//rust:defs.bzl", "rust_binary")
+load("@rules_rust//cargo:defs.bzl", "cargo_build_script") 
+
+cargo_build_script(
+    name = "build_script",
+    srcs = ["build.rs"],
+    deps = ["@crates//:prost-build"],
+)
 
 rust_binary(
     name = "cand",
-    srcs = ["main.rs"],
+    srcs = [
+        "main.rs",
+        "config.rs",
+    ],
     deps = [
+        ":build_script",
     ] + select({
         "@platforms//os:linux": [
             "@crates//:socketcan",
         ],
         "//conditions:default": [],
     }),
+    toolchains = ["@llvm_toolchain//:toolchain_type"],
     visibility = ["//visibility:public"],
 )

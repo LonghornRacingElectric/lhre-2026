@@ -1,0 +1,18 @@
+[package]
+name = "cand"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+prost = "0.12"
+prost-types = "0.12" # Often needed with prost
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] } # Used for async, though current code is sync threads
+
+[target.'cfg(target_os = "linux")'.dependencies]
+socketcan = { version = "3.0" }
+
+[build-dependencies]
+prost-build = "0.12"
