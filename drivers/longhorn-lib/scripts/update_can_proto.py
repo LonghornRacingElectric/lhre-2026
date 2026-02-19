@@ -39,7 +39,7 @@ def main() -> int:
     bitfield_defs = gen_json.load_bitfield_definitions(bitfield_csv_path)
     packets = gen_json.process_csv(csv_path, bitfield_defs, bitfield_csv_path)
     partitions = gen.parse_can_model_to_partitions(packets)
-    proto_text = gen.generate_proto_text(partitions)
+    proto_text = gen.generate_proto_text(partitions, "Orion")
 
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(proto_text)

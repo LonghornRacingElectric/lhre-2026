@@ -91,7 +91,7 @@ def _partition_for_packet(from_field: str, packet_info: str) -> str:
     info_l = (packet_info or "").strip().lower()
 
     # Dynamics: chassis motion-ish
-    if any(x in from_field_l for x in ["undertray", "upright"]):
+    if any(x in from_field_l for x in ["undertray", "upright", "usm", "csm"]):
         return "Dynamics"
     if "gps" in info_l:
         return "Dynamics"
@@ -320,7 +320,7 @@ def _emit_message(name: str, fields: List[ParsedField]) -> str:
     return "\n".join(lines)
 
 
-def generate_proto_text(partitions: Dict[str, List[ParsedField]]) -> str:
+def generate_proto_text(partitions: Dict[str, List[ParsedField]], car_name:str) -> str:
     # Keep a fixed ordering for deterministic output
     partition_order = ["Dynamics", "Controls", "Pack", "DiagnosticsHigh", "DiagnosticsLow", "Thermal"]
 
@@ -329,7 +329,7 @@ def generate_proto_text(partitions: Dict[str, List[ParsedField]]) -> str:
     lines.append("")
 
     # Top-level message
-    lines.append("message SensorData {")
+    lines.append(f"message {car_name}SensorData {{")
     lines.append("    int64 time = 1;")
     lines.append("    int64 packet_id = 2;")
 
@@ -372,7 +372,7 @@ def main() -> int:
     packets = gen_json.process_csv(args.can_csv, bitfield_defs, args.bitfield_csv)
 
     partitions = parse_can_model_to_partitions(packets)
-    proto_text = generate_proto_text(partitions)
+    proto_text = generate_proto_text(partitions, "Orion")
     with open(args.out, "w", encoding="utf-8") as f:
         f.write(proto_text)
 
