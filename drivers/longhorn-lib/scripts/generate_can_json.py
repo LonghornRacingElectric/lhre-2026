@@ -215,6 +215,7 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
                     frequency_hz = parse_frequency(row.get("Frequency (Hz)", "NA"))
                     frequency_ms = calculate_frequency_ms(frequency_hz)
                     quantity = parse_quantity(row.get("Quantity", "0"))
+                    bus = row.get("Bus", "").strip()
 
                     # --- 3. Parse Data Bytes ---
                     bytes_list = []
@@ -421,6 +422,7 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
                             "frequency_ms": frequency_ms,
                             "frequency": frequency_hz,
                             "quantity": quantity,
+                            "bus": bus,
                             "bytes": bytes_list,
                         }
                         can_packets.append(can_packet_json)
@@ -450,16 +452,19 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
     return can_packets
 
 
-def calculate_bus_utilization(packets):
+def calculate_bus_utilization(packets, bus_name="Overall"):
     """
-    Calculates and prints bus utilization for 1Mb/s (Classic) and 8Mb/s (FD).
+    Calculates and prints bus utilization for 1Mb/s (Classic) and 8Mb/s (FD) for a given bus.
     """
     total_bits_per_sec_1m = 0.0
     total_bits_per_sec_8m = 0.0
 
-    print("\n--- Bus Utilization Analysis ---")
+    print(f"\n--- Bus Utilization Analysis for {bus_name} Bus ---")
 
-    for p in packets:
+    filtered_packets = []
+    filtered_packets = [p for p in packets if p.get("bus") == bus_name]
+   
+    for p in filtered_packets:
         freq = p.get("frequency")
         dlc = p.get("data_length", 0)
         qty = p.get("quantity", 0)  # Some packets have Quantity > 1 implied?
@@ -498,11 +503,11 @@ def calculate_bus_utilization(packets):
     util_1m = (total_bits_per_sec_1m / bandwidth_1m) * 100.0
     util_8m = (total_bits_per_sec_8m / bandwidth_8m) * 100.0
 
-    print(f"Total Traffic (Classic Calc): {total_bits_per_sec_1m:,.0f} bits/sec")
-    print(f"Total Traffic (FD Calc):      {total_bits_per_sec_8m:,.0f} bits/sec")
-    print("-" * 30)
-    print(f"Bus Utilization @ 1 Mb/s:   {util_1m:.2f}%")
-    print(f"Bus Utilization @ 8 Mb/s:   {util_8m:.2f}%")
+    print(f"  Total Traffic (Classic Calc): {total_bits_per_sec_1m:,.0f} bits/sec")
+    print(f"  Total Traffic (FD Calc):      {total_bits_per_sec_8m:,.0f} bits/sec")
+    print("-"*30)
+    print(f"  Bus Utilization @ 1 Mb/s:   {util_1m:.2f}%")
+    print(f"  Bus Utilization @ 8 Mb/s:   {util_8m:.2f}%")
     print("--------------------------------")
 
 
@@ -541,7 +546,8 @@ if __name__ == "__main__":
 
     if processed_packets:
         # --- Calculate and Print Utilization ---
-        calculate_bus_utilization(processed_packets)
+        calculate_bus_utilization(processed_packets, "Critical")
+        calculate_bus_utilization(processed_packets, "Data Acq")
 
         json_output = json.dumps(processed_packets, indent=4)
         try:
