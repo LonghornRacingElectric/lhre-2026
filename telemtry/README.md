@@ -1,4 +1,9 @@
 # Telemetry Webtool
+pm2 start npm --name viewer_tool -- run start -- -p 3001
+
+## Resetting the Database
+- psql -h localhost -U electric -d angelique
+- DELETE FROM dynamics; DELETE FROM controls; DELETE FROM pack; DELETE FROM diagnostics; DELETE FROM thermal; DELETE FROM packet;
 
 ## Normal Operating Procedures
 ### Starting the Docker Containers

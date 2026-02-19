@@ -3,64 +3,85 @@ export const dynamic = "force-dynamic";  // don't cache SSE
 
 import { NextRequest } from "next/server";
 import { bus } from "@/lib/kafka/bus";
-import { ensureSubscribe, ensureSubscribePrefix, startKafkaConsumer } from "@/lib/kafka/kafkaConsumer";
+import { startKafkaConsumer } from "@/lib/kafka/kafkaConsumer";
+import { getBufferedMessages } from "@/lib/kafka/messageBuffer";
 
 export async function GET(req: NextRequest) {
   await startKafkaConsumer();
 
   const url = new URL(req.url);
+  const topicsParam = url.searchParams.get("topics");
   const rawTopic = url.searchParams.get("topic");
-  if(!rawTopic) return new Response("Missing 'topic' query parameter", { status: 400 });
-  const prefixParam = url.searchParams.get("prefix");
-  const isPrefix = rawTopic.endsWith("/*") || (prefixParam?.toLowerCase() === "1" || prefixParam?.toLowerCase() === "true");
-  const base = rawTopic.replace(/\/\*$/, "");
 
-  if (isPrefix) {
-    await ensureSubscribePrefix(base);
-  } else {
-    await ensureSubscribe(base);
+  const topics: string[] = (topicsParam
+    ? topicsParam.split(",")
+    : rawTopic
+      ? [rawTopic]
+      : [])
+    .map(t => t.trim())
+    .filter(Boolean);
+
+  if (!topics.length) {
+    return new Response("Missing 'topics' or 'topic' query parameter", { status: 400 });
   }
 
-  const { readable, writable } = new TransformStream();
-  const writer = writable.getWriter();
+  // Do not subscribe to Kafka here. The consumer subscribes to raw topics from env (KAFKA_TOPICS).
+  // We only attach bus listeners for the exact topics requested.
+
   const enc = new TextEncoder();
+  let closed = false;
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const write = (data: unknown) => controller.enqueue(enc.encode(`data: ${JSON.stringify(data)}
 
-  const write = (data: unknown) => writer.write(enc.encode(`data: ${JSON.stringify(data)}\n\n`));
-  const heartbeat = () => writer.write(enc.encode(`: ping\n\n`));
+`));
+      const heartbeat = () => controller.enqueue(enc.encode(`: ping
 
-  const handler = (msg: any) => {
-    console.log("Received message on SSE route for topic: " + msg?.topic);
-    if (!msg?.topic) return;
-    if (isPrefix) {
-      if (msg.topic === base || msg.topic.startsWith(base + "/")) write(msg);
-    } else {
-      if (msg.topic === base) write(msg);
+`));
+
+      // Send buffered history first
+      for (const t of topics) {
+        const history = getBufferedMessages(t);
+        for (const msg of history) {
+           write(msg);
+        }
+      }
+
+      const handlers: Array<{ topic: string; fn: (msg: any) => void }> = [];
+      for (const t of topics) {
+        const fn = (msg: any) => { 
+          console.log("SSE sending message for topic:", t, "message:", msg);
+          if (msg?.topic === t) write(msg); 
+        };
+        bus.on(`kafka:${t}`, fn);
+        handlers.push({ topic: t, fn });
+      }
+
+      const interval = setInterval(heartbeat, 15000);
+      heartbeat();
+
+      const cleanup = () => {
+        if (closed) return;
+        closed = true;
+        clearInterval(interval);
+        for (const h of handlers) bus.off(`kafka:${h.topic}`, h.fn);
+        try { controller.close(); } catch {}
+      };
+
+      req.signal.addEventListener("abort", cleanup);
+      // Defensive: also close if page hides (optional) – omitted for now
+    },
+    cancel() {
+      closed = true;
     }
-  };
-  if (isPrefix) {
-    bus.on("kafka:*", handler);
-  } else {
-    bus.on(`kafka:${base}`, handler);
-  }
-
-  const interval = setInterval(heartbeat, 15000);
-  heartbeat();
-
-  req.signal.addEventListener("abort", () => {
-    clearInterval(interval);
-    if (isPrefix) {
-      bus.off("kafka:*", handler);
-    } else {
-      bus.off(`kafka:${base}`, handler);
-    }
-    writer.close();
   });
 
-  return new Response(readable, {
+  return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-store, no-transform",
-      Connection: "keep-alive",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no", // Disable buffering for Nginx/proxies
     },
   });
 }

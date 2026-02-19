@@ -20,6 +20,40 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Kafka routing configuration
+
+The viewer consumes raw Kafka topics and routes them to logical UI topics via a JSON config.
+
+- Preferred: point to a JSON file with `KAFKA_ROUTES_FILE`.
+- Backward-compatible: `KAFKA_ROUTES_JSON` also works (JSON string env var).
+- Default: if neither is set, the app will try `./kafka.routes.json` from the project root of `viewer_tool`.
+
+Example env:
+
+```env
+KAFKA_BROKERS=localhost:29092
+KAFKA_CLIENT_ID=viewer-tool
+KAFKA_GROUP_ID=viewer-tool-group
+KAFKA_TOPICS=status
+KAFKA_AUTO_CREATE=1
+KAFKA_ROUTES_FILE=./kafka.routes.json
+```
+
+Example `kafka.routes.json`:
+
+```json
+{
+	"status": [
+		{ "to": "livebanner", "pick": ["battery", "odometer", "dynamics.speed"] }
+	]
+}
+```
+
+Notes:
+- You can use dot-notation in `pick` to select nested fields (e.g. `dynamics.speed`).
+- When picking nested paths, the output preserves structure, e.g. `{ "dynamics": { "speed": 123 } }`.
+- If `rename` is also provided, it applies to the leaf key of each picked path (e.g. renaming `speed` to `v`).
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

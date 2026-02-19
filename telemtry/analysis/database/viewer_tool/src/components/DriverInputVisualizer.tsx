@@ -1,5 +1,6 @@
 'use client';
 
+import { useKafkaJSON } from '@/hooks/useKafkaStream';
 import { useState } from 'react';
 
 // TODO: Replace with actual steering wheel image maybe
@@ -10,16 +11,35 @@ const SteeringWheelIcon = () => (
   </svg>
 );
 
-const DriverInputVisualizer = () => {
-  // --- DUMMY DATA (for display purposes) ---
-  // TODO: Wire up to actual data source
-  const brakeInput = 30; // Percentage (0-100)
-  const throttleInput = 70; // Percentage (0-100)
-  const steeringAngle = 43; // Degrees (-90 to 90)
+export type DriverInputData = {
+  controls?: { steerV?: number | null };
+};
+
+const DriverInputVisualizer = ({
+  data,
+}: {
+  data?: DriverInputData | null;
+} = {}) => {
+  // Live connection to Kafka "sensor_data" topic
+  const { data: liveData } = useKafkaJSON<DriverInputData>({
+    topic: 'driver_input_visualizer',
+    // Extend staleness so we keep last sample between slower updates
+    staleAfterMs: 1000,
+    merge: true,
+    // No custom select: we want the whole object; default parser handles JSON
+  });
+
+  const sensorData = data !== undefined ? data : liveData;
+  
+  // Default values if no data is available
+  const brakeInput = 0//sensorData?.brakeInput ?? 0; // Percentage (0-100)
+  const throttleInput = 0//sensorData?.throttleInput ?? 0; // Percentage (0-100)
+  const steerVoltage = sensorData?.controls?.steerV ?? 0; // Voltage (0 to 2.5)
 
   const getStatus = () => {
     if (brakeInput > 5) return 'Braking';
     if (throttleInput > 5) return 'Accelerating';
+    console.log(sensorData);
     return 'Idle';
   };
 
@@ -29,6 +49,11 @@ const DriverInputVisualizer = () => {
     Accelerating: 'text-green-500',
     Braking: 'text-red-500',
   }[status];
+
+  const MAX_LEFT_DEGREE = -135; // Placeholder for exact value
+  const MAX_RIGHT_DEGREE = 135; // Placeholder for exact value
+
+  const steeringAngle = (steerVoltage - 1.25) * ((MAX_RIGHT_DEGREE - MAX_LEFT_DEGREE) / 2.5); // Map 0-2.5V to MAX_LEFT_DEGREE to MAX_RIGHT_DEGREE
 
   return (
     <div className="bg-white rounded-lg shadow-md p-4 w-full h-full flex flex-col">
@@ -78,15 +103,16 @@ const DriverInputVisualizer = () => {
                 style={{ left: `${((steeringAngle + 135) / 270) * 100}%` }}
               ></div>
             </div>
-            <span className="mt-2 text-sm font-semibold">{steeringAngle}°</span>
+            <span className="mt-2 text-sm font-semibold">{steeringAngle.toFixed(1)}°</span>
             <span className="text-xs text-gray-500">Steering Angle</span>
           </div>
 
-                {/* Status Indicator */}
-                <div className="mt-6 text-center flex flex-col items-center">
-                  <span className="text-xs text-gray-500">Status</span>
-                  <span className={`text-lg font-bold ${statusColor}`}>{status}</span>
-                </div>        </div>
+          {/* Status Indicator */}
+          <div className="mt-6 text-center flex flex-col items-center">
+            <span className="text-xs text-gray-500">Status</span>
+            <span className={`text-lg font-bold ${statusColor}`}>{status}</span>
+          </div>
+        </div>
       </div>
     </div>
   );

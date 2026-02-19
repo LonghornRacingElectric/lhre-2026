@@ -85,7 +85,7 @@ class MQTTHandler:
         Function called when MQTT client disconnects.
         '''
         if rc != 0:
-            print(f'Unexpected MQTT disconnection. Return code: {rc}')
+            logging.error(f'Unexpected MQTT disconnection. Return code: {rc}')
 
     def connect(self, ip=None):
         '''
@@ -343,7 +343,7 @@ class MQTTHandler:
         if 'packet_id' not in payload:
             payload['packet_id'] = next(self.counter)
         if high_freq:
-            payload['gps'] = tuple(val / 60 for val in payload['gps'])
+            payload['gps'] = list(val / 60 for val in payload['gps'])
             payload['vcu_flags_json'] = {
                 'inverter_on': bool(int(payload['vcu_flags'][0])),
                 'r2d_buzzer_on': bool(int(payload['vcu_flags'][1])),

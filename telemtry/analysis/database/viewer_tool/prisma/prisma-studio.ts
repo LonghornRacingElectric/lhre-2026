@@ -24,7 +24,7 @@ if (POSTGRES_USER && POSTGRES_PASSWORD && POSTGRES_DB) {
 }
 
 // Run Prisma Studio
-const cmd = spawn("npx", ["prisma", "studio", "--schema", ".prisma/telemetry-client"], {
+const cmd = spawn("npx", ["prisma", "studio", "--schema", ".prisma/angelique-client"], {
   stdio: "inherit",
   env: process.env,
 });

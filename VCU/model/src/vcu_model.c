@@ -12,7 +12,7 @@
 #define APPS2_MAX_ADC 1586u
 
 // Torque limit (Nm)
-#define TORQUE_MAX_NM 5.0f
+#define TORQUE_MAX_NM 15.0f
 
 // APPS plausibility
 #define APPS_MIN_TRAVEL_FOR_CHECK 0.10f
