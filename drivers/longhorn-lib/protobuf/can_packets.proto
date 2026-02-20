@@ -5,36 +5,41 @@ message OrionSensorData {
     int64 packet_id = 2;
     Dynamics dynamics = 3;
     Controls controls = 4;
-    Thermal thermal = 1002;
+    Pack pack = 5;
+    DiagnosticsHigh diagnostics_high = 6;
+    DiagnosticsLow diagnostics_low = 7;
+    Thermal thermal = 8;
 }
 
 message Dynamics {
     float accelerator_pedal_travel = 1;
-    float back_left_speed = 2;
-    float back_left_suspension_potentiometer = 3;
-    float back_right_suspension_potentiometer = 4;
-    float bl_ride_height = 5;
-    repeated float bl_sprung_accel = 6;
-    float bl_strain_gauge_v = 7;
-    repeated float bl_unsprung_accel = 8;
-    float br_ride_height = 9;
-    repeated float br_sprung_accel = 10;
-    float br_strain_gauge_v = 11;
-    repeated float br_unsprung_accel = 12;
-    float brw_speed = 13;
-    float fl_ride_height = 14;
-    repeated float fl_sprung_accel = 15;
-    float fl_strain_gauge_v = 16;
-    repeated float fl_unsprung_accel = 17;
-    float flw_speed = 18;
-    float fr_ride_height = 19;
-    repeated float fr_sprung_accel = 20;
-    float fr_strain_gauge_v = 21;
-    repeated float fr_unsprung_accel = 22;
-    float front_left_suspension_potentiometer = 23;
-    float front_right_suspension_potentiometer = 24;
-    float frw_speed = 25;
-    float steer_col_angle = 26;
+    float steer_col_angle = 2;
+    repeated float bl_sprung_accel = 3;
+    repeated float bl_unsprung_accel = 4;
+    repeated float br_sprung_accel = 5;
+    repeated float br_unsprung_accel = 6;
+    repeated float fl_sprung_accel = 7;
+    repeated float fl_unsprung_accel = 8;
+    repeated float fr_sprung_accel = 9;
+    repeated float fr_unsprung_accel = 10;
+    float bl_ride_height = 11;
+    float bl_strain_gauge_v = 12;
+    float bl_sus_pot_v = 13;
+    float blw_speed = 14;
+    float br_ride_height = 15;
+    float br_strain_gauge_v = 16;
+    float br_sus_pot_v = 17;
+    float brw_speed = 18;
+    float fl_ride_height = 19;
+    float fl_strain_gauge_v = 20;
+    float fl_sus_pot_v = 21;
+    float flw_speed = 22;
+    float fr_ride_height = 23;
+    float fr_strain_gauge_v = 24;
+    float fr_sus_pot_v = 25;
+    float frw_speed = 26;
+    float ride_height = 27;
+    float wheel_speed = 28;
 }
 
 message Controls {
@@ -42,29 +47,111 @@ message Controls {
     float apps1_voltage = 2;
     float apps2_travel = 3;
     float apps2_voltage = 4;
-    uint32 apps_faults = 5;
-    float bpps1_travel = 6;
-    float bpps1_voltage = 7;
-    float bpps2_travel = 8;
-    float bpps2_voltage = 9;
-    uint32 bpps_faults = 10;
-    float brake_bias = 11;
-    float brake_pedal_travel = 12;
-    float brake_pressure_f = 13;
-    float brake_pressure_rall = 14;
-    float brake_pressure_rbll = 15;
-    float bse1_v = 16;
-    float bse2_v = 17;
-    float bse3_v = 18;
-    uint32 bse_faults = 19;
+    float bpps1_travel = 5;
+    float bpps1_voltage = 6;
+    float bpps2_travel = 7;
+    float bpps2_voltage = 8;
+    float brake_bias = 9;
+    float brake_pedal_travel = 10;
+    float brake_pressure_f = 11;
+    float brake_pressure_rall = 12;
+    float brake_pressure_rbll = 13;
+    float bse1_v = 14;
+    float bse2_v = 15;
+    float bse3_v = 16;
+    float lights_current_current = 17;
+    float torque_limit = 18;
+    float torque_request = 19;
+    int32 rpm_request = 20;
+    uint32 direction = 21;
+    uint32 enable = 22;
+}
+
+message Pack {
+    float lv_boards_current = 1;
+    float commanded_torque = 2;
+    int32 motor_speed = 3;
+    int32 torque_feedback = 4;
+    uint32 bus_voltage = 5;
+    float dc_bus_voltage = 6;
+    float delta_resolver_angle = 7;
+    float hv_c = 8;
+    float hv_pack_v = 9;
+    float hv_soc = 10;
+    float inverter_frequency = 11;
+    float lv_batt_c = 12;
+    float lv_batt_t = 13;
+    float lv_batt_v = 14;
+    float motor_angle = 15;
+    float phase_a_current = 16;
+    int32 dc_bus_current = 17;
+    int32 neutral_output_voltage = 18;
+    int32 phase_b_current = 19;
+    int32 phase_c_current = 20;
+    uint32 time_since_turned_on = 21;
+    int32 vab_vq_voltage = 22;
+    int32 vbc_vd_voltage = 23;
+}
+
+message DiagnosticsHigh {
+    float shutdown_current = 1;
+    uint32 apps_faults = 2;
+    uint32 bpps_faults = 3;
+    uint32 bse_faults = 4;
+    uint32 vcu_fuses_1 = 5;
+    uint32 vcu_fuses_2 = 6;
+    uint32 vcu_shutdown_status = 7;
+    uint32 hvc_state_machine = 8;
+    uint32 negative_hv_contactor = 9;
+    uint32 positive_hv_contactor = 10;
+    uint32 precharge_contactor = 11;
+}
+
+message DiagnosticsLow {
+    float precharge_r_temp = 1;
+    uint32 post_faults = 2;
+    uint32 run_faults = 3;
+    uint32 bmb_comm_error = 4;
+    uint32 dui_ams_faults = 5;
+    uint32 dui_imd_faults = 6;
+    uint32 dui_shutdown_faults = 7;
+    uint32 imd_gnd_isolation_error = 8;
+    uint32 r2_d_authorized = 9;
+    uint32 r2_d_status = 10;
+    uint32 shutdown_leg1 = 11;
+    uint32 shutdown_leg2 = 12;
+    uint32 shutdown_leg3 = 13;
+    uint32 shutdown_leg4 = 14;
+    uint32 switch_command = 15;
+    uint32 switch_output = 16;
 }
 
 message Thermal {
-    float ambient_temp = 1;
-    float batt_loop_batt_temp = 2;
-    float batt_loop_rad_fan_speed = 3;
-    float batt_loop_rad_temp = 4;
-    float discharge_r_temp = 5;
-    float inverter_temp = 6;
-    float motor_temp = 7;
+    float battery_cooling_current = 1;
+    float motor_cooling_current = 2;
+    repeated float cells_v = 3;
+    repeated float cells_temps = 4;
+    float motor_temp = 5;
+    float ambient_temp = 6;
+    float batt_loop_batt_temp = 7;
+    float batt_loop_rad_fan_speed = 8;
+    float batt_loop_rad_temp = 9;
+    float bus_bar_temp1 = 10;
+    float bus_bar_temp2 = 11;
+    float bus_bar_temp3 = 12;
+    float discharge_r_temp = 13;
+    float inverter_temp = 14;
+    float module_a_temp = 15;
+    float motor_loop_inverter_temp = 16;
+    float motor_loop_motor_temp = 17;
+    float motor_loop_rad_fan_speed = 18;
+    float motor_loop_rad_temp = 19;
+    float torque_shudder = 20;
+    int32 gate_driver_temp = 21;
+    int32 module_b_temp = 22;
+    int32 module_c_temp = 23;
+    int32 rtd_4_temp = 24;
+    int32 rtd_5_temp = 25;
+    uint32 cell_bottom_temp = 26;
+    uint32 cell_top_temp = 27;
 }

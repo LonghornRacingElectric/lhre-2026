@@ -17,6 +17,9 @@ class ParsedField:
     proto_type: str
     # Whether this is repeated
     repeated: bool
+    # Estimated per-message weight (frequency * encoded-bytes); used to assign low tags to
+    # high-impact fields so their protobuf field key encodes in fewer bytes.
+    weight: float = 0.0
 
 
 def _to_snake_case(name: str) -> str:
@@ -41,15 +44,6 @@ def _to_snake_case(name: str) -> str:
 
 
 def _infer_proto_type_from_can_model(byte_info: dict) -> str:
-    """Infer proto type from the *same model* used to generate can_ids.{h,c}.
-
-    Aligns with C generator semantics:
-    - float/double stay float
-    - scaled integer values (precision != 1.0) become float
-    - bitfields remain an integer container for now
-    - bool intent is preserved via byte_info["is_boolean"] when available
-    """
-
     if byte_info.get("is_boolean") is True:
         return "bool"
 
@@ -116,6 +110,33 @@ def _partition_for_packet(from_field: str, packet_info: str) -> str:
 
     return "Diagnostics"
 
+def _estimate_proto_encoded_size(byte_info: dict, proto_type: str) -> float:
+    # Quick path for wire-sized protobuf primitives
+    t = (proto_type or "").lower()
+    if t == "float":
+        return 4.0
+    if t == "double":
+        return 8.0
+    if t == "bool":
+        return 1.0
+
+    # Use the CAN conv_type / length as a proxy for varint size
+    conv = (byte_info.get("conv_type") or "").lower()
+    length = int(byte_info.get("length") or 0)
+
+    # Very small integer containers encode very compactly as varint.
+    if conv in {"uint8", "int8", "byte"} or length == 1:
+        return 1.0
+    if conv in {"uint16", "int16"} or length == 2:
+        return 2.0
+    if conv in {"uint32", "int32"} or length == 4:
+        # varint may be 1-5 bytes; assume ~2 bytes for typical sensor ranges
+        return 2.0
+    if conv in {"uint64", "int64"} or length == 8:
+        return 4.0
+
+    # Fallback: assume 2 bytes for a typical varint or 4 for unknown numeric types
+    return 2.0
 
 def _is_to_pi(to_field: str) -> bool:
     to_field = (to_field or "").strip()
@@ -159,6 +180,35 @@ def _partition_for_field(
         return "Dynamics"
 
     if any(k in name for k in [
+        "fault",
+        "faults",
+        "error",
+        "errors",
+        "shutdown",
+        "disconnect",
+        "out_range",
+        "mismatch",
+        "implause",
+        "imd",
+        "bmb",
+        "fuse",
+        "status",
+        "state",
+        "state_machine",
+        "switch",
+        "precharge",
+        "contactor",
+        "contact",
+        "r2_d",
+        "r2d",
+        "post_faults",
+        "run_faults",
+    ]):
+        if frequency_hz is not None and frequency_hz >= 50.0:
+            return "DiagnosticsHigh"
+        return "DiagnosticsLow"
+
+    if any(k in name for k in [
         "apps",
         "bpps",
         "bse",
@@ -193,23 +243,6 @@ def _partition_for_field(
     ]) or any(k in info_l for k in ["temp", "temps", "cooling", "thermal"]):
         return "Thermal"
 
-    # Diagnostics: faults, errors, shutdowns, bitfields, etc.
-    if any(k in name for k in [
-        "fault",
-        "error",
-        "shutdown",
-        "disconnect",
-        "out_range",
-        "mismatch",
-        "implause",
-        "imd",
-        "bmb",
-        "fuse",
-    ]):
-        # Split by frequency: higher rate -> DiagnosticsHigh.
-        if frequency_hz is not None and frequency_hz >= 50.0:
-            return "DiagnosticsHigh"
-        return "DiagnosticsLow"
 
     # Fallback to packet-level partitioning
     packet_partition = _partition_for_packet(from_l, info_l)
@@ -242,14 +275,26 @@ def _field_name_from_byte_info(byte_info: dict) -> Tuple[str, bool]:
         repeated = bool(proto_meta.get("repeated"))
         return (_to_snake_case(field_name), repeated)
 
-    # Fallback to the same style as C generation for derived names
-    name = str(byte_info.get("name") or "field").strip()
-    return (_to_snake_case(name), False)
 
+    raw_name = str(byte_info.get("name") or "field").strip()
+    # Look for the last occurrence of a protobuf-like pattern in the string
+    matches = list(_PROTOBUF_PATTERN.finditer(raw_name))
+    if matches:
+        m = matches[-1]
+        candidate_field = (m.group(1) or "").strip()
+        candidate_index = m.group(2)
+        repeated = bool(candidate_index)
+        if candidate_field:
+            return (_to_snake_case(candidate_field), repeated)
+
+    # Fallback to using the human-readable name (snake_cased)
+    return (_to_snake_case(raw_name), False)
 
 def parse_can_model_to_partitions(packets: list) -> Dict[str, List[ParsedField]]:
     partitions: Dict[str, Dict[str, ParsedField]] = {}
     repeated_bases: Dict[str, Set[str]] = {}
+    # cumulative weights per partition->field
+    weight_map: Dict[str, Dict[str, float]] = {}
 
     for packet in packets:
         packet_info = str(packet.get("packet_name") or "").strip()
@@ -257,11 +302,30 @@ def parse_can_model_to_partitions(packets: list) -> Dict[str, List[ParsedField]]
         to_list = packet.get("to") or []
         frequency_hz = packet.get("frequency")
         try:
-            frequency_hz_f: Optional[float] = float(frequency_hz) if frequency_hz is not None else None
+            frequency_hz_f: Optional[float] = float(frequency_hz) if frequency_hz is not None else 0.0
         except (TypeError, ValueError):
-            frequency_hz_f = None
+            frequency_hz_f = 0.0
+        try:
+            packet_quantity = int(packet.get("quantity") or 1)
+            if packet_quantity <= 0:
+                packet_quantity = 1
+        except (TypeError, ValueError):
+            packet_quantity = 1
 
-        if not any(str(x).strip().lower() == "pi" for x in to_list):
+    
+        pname_l = (packet_info or "").strip().lower()
+        exclude_keywords = {
+            "bootloader",
+            "firmware update",
+            "write memory",
+            "bus enable",
+            "write memory data",
+            # Exclude inverter administrative/parameter packets by name instead of by numeric ID
+            "inverter details",
+            "inverter parameter request",
+            "inverter parameter response",
+        }
+        if any(k in pname_l for k in exclude_keywords):
             continue
 
         # Match prior packet-level logic: join lists to strings
@@ -274,12 +338,19 @@ def parse_can_model_to_partitions(packets: list) -> Dict[str, List[ParsedField]]
             partition = _partition_for_field(from_field, packet_info, proto_name, frequency_hz_f)
             partitions.setdefault(partition, {})
             repeated_bases.setdefault(partition, set())
+            weight_map.setdefault(partition, {})
 
+            # Track repeated base names for later enforcement
             if repeated:
                 repeated_bases[partition].add(proto_name)
 
-            parsed = ParsedField(proto_name=proto_name, proto_type=proto_type, repeated=repeated)
+            # Accumulate estimated encoded bytes * packet frequency * quantity (sequential IDs)
+            est_size = _estimate_proto_encoded_size(byte_info, proto_type)
+            contribution = (frequency_hz_f or 0.0) * est_size * packet_quantity
+            weight_map[partition][proto_name] = weight_map[partition].get(proto_name, 0.0) + contribution
 
+            # Merge type/repeated behavior if name already exists
+            parsed = ParsedField(proto_name=proto_name, proto_type=proto_type, repeated=repeated, weight=0.0)
             existing = partitions[partition].get(proto_name)
             if existing is None:
                 partitions[partition][proto_name] = parsed
@@ -295,16 +366,20 @@ def parse_can_model_to_partitions(packets: list) -> Dict[str, List[ParsedField]]
                     proto_name=proto_name,
                     proto_type=merged_type,
                     repeated=merged_repeated,
+                    weight=0.0,
                 )
 
     out: Dict[str, List[ParsedField]] = {}
     for partition, fields_map in partitions.items():
         fields: List[ParsedField] = []
         for name, fdef in fields_map.items():
-            if name in repeated_bases.get(partition, set()):
-                fdef = ParsedField(proto_name=fdef.proto_name, proto_type=fdef.proto_type, repeated=True)
-            fields.append(fdef)
-        out[partition] = sorted(fields, key=lambda f: f.proto_name)
+            # Ensure repeated flag honored
+            is_repeated = name in repeated_bases.get(partition, set())
+            w = weight_map.get(partition, {}).get(name, 0.0)
+            fields.append(ParsedField(proto_name=fdef.proto_name, proto_type=fdef.proto_type, repeated=is_repeated, weight=w))
+
+        # Sort by weight descending so highest-impact fields get the smallest tag numbers.
+        out[partition] = sorted(fields, key=lambda f: (-f.weight, f.proto_name))
 
     return out
 
@@ -343,9 +418,9 @@ def generate_proto_text(partitions: Dict[str, List[ParsedField]], car_name:str) 
     if partitions.get("DiagnosticsHigh"):
         lines.append("    DiagnosticsHigh diagnostics_high = 6;")
     if partitions.get("DiagnosticsLow"):
-        lines.append("    DiagnosticsLow diagnostics_low = 1001;")
+        lines.append("    DiagnosticsLow diagnostics_low = 7;")
     if partitions.get("Thermal"):
-        lines.append("    Thermal thermal = 1002;")
+        lines.append("    Thermal thermal = 8;")
     lines.append("}")
     lines.append("")
 

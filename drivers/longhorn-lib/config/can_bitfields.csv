@@ -7,3 +7,6 @@ vcu_fuses_1,8,Battery Pump Fuse; batt_pump_fuse,TSSI Green Fuse; tssi_green_fuse
 vcu_fuses_2,3,Brake Light Fuse; brake_light_fuse,Ready to Move Light Fuse; rtd_fuse,Spare Fuse; spare_fuse,nothing,,,,,
 switch_command,2,Temp Command 1; temp_command_1,Temp Command 2; temp_command_2,,,,,,,
 switch_output,2,Temp Output 1; temp_output_1,Temp Output 2; temp_output_2,,,,,,,
+dui_shutdown_faults,2,Temp Shutdown 1; temp_shutdown_1,Temp Shutdown 2; temp_shutdown_2,,,,,,,
+dui_imd_faults,2,Temp IMD 1; temp_imd_1,Temp IMD 2; temp_imd_2,,,,,,,
+dui_ams_faults,2,Temp AMS 1; temp_ams_1,Temp AMS 2; temp_ams_2,,,,,,,
