@@ -334,8 +334,8 @@ class Thermal(BaseTelemetry):
 
 class AngeliqueDynamics(BaseAngelique):
     __tablename__ = 'dynamics'
-    __table_args__ = {'extend_existing': True}
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
     torque_request = Column(Float)
     vcu_position = Column(ARRAY(Float))
     vcu_velocity = Column(ARRAY(Float))
@@ -362,8 +362,8 @@ class AngeliqueDynamics(BaseAngelique):
 
 class AngeliqueControls(BaseAngelique):
     __tablename__ = 'controls'
-    __table_args__ = {'extend_existing': True}
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
     vcu_flags = Column(BYTEA)
     vcu_flags_json = Column(JSONB)
     apps1_v = Column(Float)
@@ -377,7 +377,8 @@ class AngeliqueControls(BaseAngelique):
 
 class AngeliqueDiagnostics(BaseAngelique):
     __tablename__ = 'diagnostics'
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
     current_errors = Column(BYTEA)
     current_errors_json = Column(JSONB)
     latching_faults = Column(BYTEA)
@@ -389,8 +390,8 @@ class AngeliqueDiagnostics(BaseAngelique):
 
 class AngeliqueThermal(BaseAngelique):
     __tablename__ = 'thermal'
-    __table_args__ = {'extend_existing': True}
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
     cells_temp = Column(ARRAY(SmallInteger))
     ambient_temp = Column(SmallInteger)
     inverter_temp = Column(SmallInteger)
@@ -407,8 +408,8 @@ class AngeliqueThermal(BaseAngelique):
 
 class AngeliquePack(BaseAngelique):
     __tablename__ = 'pack'
-    __table_args__ = {'extend_existing': True}
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
     hv_pack_v = Column(Float)
     hv_tractive_v = Column(Float)
     hv_c = Column(Float)
@@ -421,7 +422,7 @@ class AngeliquePack(BaseAngelique):
 
 class AngeliquePacket(BaseAngelique):
     __tablename__ = 'packet'
-    __table_args__ = {'extend_existing': True}
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
     packet_id = Column(BigInteger, primary_key=True)
     time = Column(BigInteger, nullable=False)
     dynamics = relationship("AngeliqueDynamics", uselist=False, back_populates="packet")

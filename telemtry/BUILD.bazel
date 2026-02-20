@@ -115,6 +115,7 @@ test_suite(
     name = "integration_tests",
     tags = ["integration"],
     tests = [
+        "//telemtry/stack/tests:bevo_db_integration_test",
         "//telemtry/stack/tests:data_flow_test",
         "//telemtry/stack/tests:db_connectivity_test",
         "//telemtry/stack/tests:kafka_bridge_seed_test",
@@ -174,4 +175,5 @@ py_library(
         "//telemtry/analysis:analysis_lib",
         "//telemtry/stack:stack_lib",
     ],
+    target_compatible_with = ["@platforms//os:linux"],
 )

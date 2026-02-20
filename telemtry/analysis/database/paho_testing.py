@@ -311,8 +311,6 @@ class DataTester:
         """
         if use_csv:
             row = self.create_row_from_csv(packet, db_desc)
-        else:
-            row = self.create_row(db_desc, packet)
 
         if (target == "Angelique"):
             data = AngeliqueSensorData()
@@ -337,26 +335,16 @@ class DataTester:
                 if isinstance(table_instance, Message): # Iterate through a specific table (not packet table)
                     for key, value in row.items():
                         if hasattr(table_instance, key): # Set values in protobuf message
-                            try:
-                                if (isinstance(value, list) or isinstance(value, tuple)):
-                                    getattr(table_instance, key).extend(value)
-                                elif isinstance(value, dict):
-                                    setattr(table_instance, key, json.dumps(value))
-                                else:
-                                    setattr(table_instance, key, value)
-                            except TypeError as e:
-                                # If type error, try converting to int
-                                if isinstance(value, float):
-                                    setattr(table_instance, key, int(value))
-                                else:
-                                    logging.warning(f"Type error setting {table}.{key} = {value}: {e}")
+                            if (isinstance(value, list) or isinstance(value, tuple)):
+                                getattr(table_instance, key).extend(value)
+                            elif isinstance(value, dict):
+                                setattr(table_instance, key, json.dumps(value))
+                            else:
+                                setattr(table_instance, key, value)
             else:
                 for key, value in row.items(): # Edit packet and time
-                    if hasattr(data, key):
-                        try:
-                            setattr(data, key, int(value))
-                        except (TypeError, ValueError):
-                            logging.warning(f"Could not set {key} = {value}")
+                    if hasattr(data, key):  
+                        setattr(data, key, int(value))
         return data
     
     def send_base64_row(self, ver: int, high_freq=True):
@@ -375,7 +363,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     car_name = "Angelique"  # Change to "Nightwatch" or "Angelique" as needed
     
-    # Paths for CSV and mapping files
+    # Optional Paths for CSV and mapping files
     csv_path = Path(__file__).parent / 'csv_processing/csv_data/Log__2024_10_11__05_50_47.csv'
     mapping_path = Path(__file__).parent / 'csv_processing/angelique_pg_to_csv.json'
     
@@ -383,12 +371,12 @@ if __name__ == '__main__':
         db_sessions = {'Nightwatch': nightwatch_session, 'Angelique': angelique_session}
         with MQTTHandler('paho_test', db_sessions=db_sessions, target=MQTTTarget.get()) as mqtt:
             # Protobuf message testing with CSV data
-            dt = DataTester(mqtt=mqtt, seed=42, csv_path=csv_path, mapping_path=mapping_path)
+            dt = DataTester(mqtt=mqtt, seed=42, csv_path=None, mapping_path=None)
             dt.send_proto_rows(
                 tables=['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
                 num_rows= 2000,
-                delay= 0.0,
-                use_csv=True,
+                delay= 0.1,
+                use_csv=False,
                 target=car_name
             )
 

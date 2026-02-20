@@ -1,15 +1,3 @@
-CREATE ROLE grafana WITH
-	LOGIN
-	 PASSWORD 'frontend'
-	CONNECTION LIMIT 10;
-GRANT pg_read_all_data TO grafana;
-
-CREATE ROLE analysis WITH
-	LOGIN
-	 PASSWORD 'north_dakota'
-	CONNECTION LIMIT 10;
-GRANT pg_read_all_data TO analysis;
-
 CREATE OR REPLACE FUNCTION public.get_event_index (car smallint, day smallint)
 	RETURNS smallint
 	LANGUAGE plpgsql
