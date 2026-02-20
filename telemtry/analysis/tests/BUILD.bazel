@@ -10,4 +10,5 @@ py_test(
     ],
     main = "sample_analysis_test.py",
     tags = ["manual"],
+    target_compatible_with = ["@platforms//os:linux"],
 )

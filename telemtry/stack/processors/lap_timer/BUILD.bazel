@@ -118,6 +118,7 @@ oci_image(
         "PYTHONUNBUFFERED": "1",
     },
     visibility = ["//visibility:public"],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # Tarball for local Docker loading (use oci_load instead of oci_tarball)

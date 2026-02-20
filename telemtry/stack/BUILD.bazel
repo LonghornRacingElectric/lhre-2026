@@ -11,6 +11,7 @@ py_library(
     name = "stack_common",
     srcs = ["__init__.py"],
     visibility = ["//visibility:public"],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # Export shell scripts for development
@@ -41,4 +42,5 @@ py_library(
         "//telemtry/stack/processors/kafka_base:kafka_base_lib",
         "//telemtry/stack/processors/lap_timer:lap_timer_lib",
     ],
+    target_compatible_with = ["@platforms//os:linux"],
 )
