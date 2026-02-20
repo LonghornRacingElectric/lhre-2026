@@ -358,6 +358,9 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
                             # --- Create Byte Definition ---
                             if byte_num > current_byte_index:
                                 current_byte_index = byte_num
+                            # Detect CAN-level boolean declarations (e.g. 'bool'/'boolean') and mark them
+                            is_boolean_flag = type_str in {"bool", "boolean"}
+
                             byte_def = {
                                 "index": field_index_counter,
                                 "start_byte": current_byte_index,
@@ -366,6 +369,8 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
                                 "conv_type": conv_type,
                                 "precision": precision,
                             }
+                            if is_boolean_flag:
+                                byte_def["is_boolean"] = True
                             if protobuf_info:
                                 byte_def["protobuf"] = protobuf_info
                             if bitfield_encoding_details:
@@ -392,6 +397,10 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
                                     )
                                     if byte_num > current_byte_index:
                                         current_byte_index = byte_num
+                                    # Mark boolean-like CAN declarations so downstream generator
+                                    # can emit `bool` instead of an integer container.
+                                    is_boolean_flag = type_str in {"bool", "boolean"}
+
                                     byte_def = {
                                         "index": field_index_counter,
                                         "start_byte": current_byte_index,
@@ -400,6 +409,8 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
                                         "conv_type": normalized_type,
                                         "precision": 1.0,
                                     }
+                                    if is_boolean_flag:
+                                        byte_def["is_boolean"] = True
                                     if protobuf_info:
                                         byte_def["protobuf"] = protobuf_info
                                     bytes_list.append(byte_def)

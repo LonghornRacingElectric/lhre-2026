@@ -44,6 +44,26 @@ def _to_snake_case(name: str) -> str:
 
 
 def _infer_proto_type_from_can_model(byte_info: dict) -> str:
+    # Prefer an explicit protobuf-declared type when present in the JSON model.
+    proto_meta = byte_info.get("protobuf")
+    if isinstance(proto_meta, dict):
+        pb_type = (proto_meta.get("type") or "").lower()
+        if pb_type:
+            if pb_type in {"float", "double"}:
+                return "float"
+            if pb_type in {"bool", "boolean"}:
+                return "bool"
+            if pb_type in {"int8", "int16", "int32", "int"}:
+                return "int32"
+            if pb_type == "int64":
+                return "int64"
+            if pb_type in {"uint8", "uint16", "uint32", "byte", "uint"}:
+                return "uint32"
+            if pb_type == "uint64":
+                return "uint64"
+            # Unknown protobuf type: fall through to heuristic
+
+    # Respect explicit boolean marker emitted by the CSV->JSON parser
     if byte_info.get("is_boolean") is True:
         return "bool"
 
@@ -53,6 +73,10 @@ def _infer_proto_type_from_can_model(byte_info: dict) -> str:
         precision_f = float(precision)
     except (TypeError, ValueError):
         precision_f = 1.0
+
+    # Handle CAN-level boolean-type names (accept both 'bool' and 'boolean')
+    if conv_type in {"bool", "boolean"}:
+        return "bool"
 
     if conv_type in {"float", "double"}:
         return "float"
@@ -264,8 +288,9 @@ def _load_generate_can_json_module():
     return module
 
 
-def _field_name_from_byte_info(byte_info: dict) -> Tuple[str, bool]:
-    """Returns (proto_field_name, repeated)."""
+def _field_name_from_byte_info(byte_info: dict) -> Tuple[Optional[str], bool]:
+    """Returns (proto_field_name or None, repeated).
+    """
     proto_meta = byte_info.get("protobuf")
     if isinstance(proto_meta, dict) and proto_meta.get("field"):
         field_name = str(proto_meta["field"]).strip()
@@ -287,8 +312,8 @@ def _field_name_from_byte_info(byte_info: dict) -> Tuple[str, bool]:
         if candidate_field:
             return (_to_snake_case(candidate_field), repeated)
 
-    # Fallback to using the human-readable name (snake_cased)
-    return (_to_snake_case(raw_name), False)
+    # No explicit protobuf mapping found — signal the caller to skip this byte
+    return (None, False)
 
 def parse_can_model_to_partitions(packets: list) -> Dict[str, List[ParsedField]]:
     partitions: Dict[str, Dict[str, ParsedField]] = {}
@@ -333,6 +358,9 @@ def parse_can_model_to_partitions(packets: list) -> Dict[str, List[ParsedField]]
 
         for byte_info in packet.get("bytes") or []:
             proto_name, repeated = _field_name_from_byte_info(byte_info)
+            # If there is no explicit protobuf field mapped for this CAN byte, skip it.
+            if proto_name is None:
+                continue
             proto_type = _infer_proto_type_from_can_model(byte_info)
 
             partition = _partition_for_field(from_field, packet_info, proto_name, frequency_hz_f)
