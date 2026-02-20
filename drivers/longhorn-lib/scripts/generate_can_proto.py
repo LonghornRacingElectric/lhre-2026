@@ -129,7 +129,7 @@ def _partition_for_packet(from_field: str, packet_info: str) -> str:
         return "Pack"
 
     if "hvc" in from_field_l:
-        # Default HVC to Thermal for now per your request (editable later)
+        # HVC packets are assigned to the Thermal partition by default (configurable later)
         return "Thermal"
 
     return "Diagnostics"
