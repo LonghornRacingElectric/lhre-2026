@@ -174,4 +174,5 @@ py_library(
         "//telemtry/analysis:analysis_lib",
         "//telemtry/stack:stack_lib",
     ],
+    target_compatible_with = ["@platforms//os:linux"],
 )

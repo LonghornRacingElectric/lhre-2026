@@ -50,6 +50,7 @@ py_library(
         requirement("requests"),
         requirement("SQLAlchemy"),
     ],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # Python binary for the GPS classifier
@@ -61,6 +62,7 @@ py_binary(
     deps = [
         ":gps_classifier_lib",
     ],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # Package the processor application files
@@ -117,6 +119,7 @@ oci_image(
         "PYTHONUNBUFFERED": "1",
     },
     visibility = ["//visibility:public"],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # Tarball for local Docker loading (use oci_load instead of oci_tarball)

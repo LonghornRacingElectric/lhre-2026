@@ -4,6 +4,7 @@
 
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("@telemtry_reqs//:requirements.bzl", "requirement")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 package(default_visibility = ["//telemtry:__subpackages__"])
 
@@ -25,6 +26,7 @@ py_library(
         requirement("requests"),
         requirement("SQLAlchemy"),
     ],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # Stack test client - tests container communication
@@ -52,6 +54,7 @@ py_binary(
         requirement("python-dotenv"),
         requirement("kafka-python"),
     ],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # MQTT connectivity test
@@ -66,6 +69,7 @@ py_test(
         requirement("python-dotenv"),
     ],
     tags = ["integration", "docker", "local"],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # Kafka connectivity test
@@ -80,6 +84,7 @@ py_test(
         requirement("python-dotenv"),
     ],
     tags = ["integration", "docker", "local"],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # Kafka bridge seed test
@@ -94,6 +99,7 @@ py_test(
         requirement("python-dotenv"),
     ],
     tags = ["integration", "docker", "local"],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # Database connectivity test
@@ -110,6 +116,7 @@ py_test(
         requirement("python-dotenv"),
     ],
     tags = ["integration", "docker", "local"],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # End-to-end data flow test (MQTT -> Ingest -> Kafka -> DB)
@@ -130,6 +137,7 @@ py_test(
         requirement("SQLAlchemy"),
     ],
     tags = ["integration", "docker", "e2e", "local"],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # Protobuf serialization test (tests paho_testing.py patterns)
@@ -147,6 +155,7 @@ py_test(
         requirement("python-dotenv"),
     ],
     tags = ["unit"],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # Export shell scripts and docker-compose files
@@ -170,6 +179,7 @@ sh_test(
         "//telemtry:config_files",
     ],
     tags = ["integration", "docker", "manual", "local"],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # Test suite for all integration tests (requires Docker to be running)
@@ -183,6 +193,7 @@ test_suite(
         ":kafka_connectivity_test",
         ":mqtt_connectivity_test",
     ],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # Test suite for unit tests (no Docker required)
@@ -192,6 +203,7 @@ test_suite(
     tests = [
         ":protobuf_test",
     ],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # All telemetry stack tests
