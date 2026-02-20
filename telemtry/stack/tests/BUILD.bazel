@@ -119,6 +119,23 @@ py_test(
     target_compatible_with = ["@platforms//os:linux"],
 )
 
+# BEVO handshake + database model query integration test
+py_test(
+    name = "bevo_db_integration_test",
+    srcs = ["test_bevo_db_integration.py"],
+    main = "test_bevo_db_integration.py",
+    data = ["//telemtry:env_files"],
+    deps = [
+        ":test_utils",
+        "//telemtry/analysis:analysis_lib",
+        requirement("paho-mqtt"),
+        requirement("psycopg2-binary"),
+        requirement("python-dotenv"),
+        requirement("SQLAlchemy"),
+    ],
+    tags = ["integration", "docker", "local"],
+)
+
 # End-to-end data flow test (MQTT -> Ingest -> Kafka -> DB)
 py_test(
     name = "data_flow_test",
@@ -187,6 +204,7 @@ test_suite(
     name = "integration_tests",
     tags = ["integration", "local"],
     tests = [
+        ":bevo_db_integration_test",
         ":data_flow_test",
         ":db_connectivity_test",
         ":kafka_bridge_seed_test",
