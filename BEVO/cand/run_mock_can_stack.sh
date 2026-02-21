@@ -5,6 +5,7 @@ RUNFILES_ROOT="${RUNFILES_DIR:-$0.runfiles}"
 CAND_BIN="$RUNFILES_ROOT/_main/BEVO/cand/cand"
 MOCK_BIN="$RUNFILES_ROOT/_main/BEVO/cand/mock_can"
 DASHD_BIN="$RUNFILES_ROOT/_main/BEVO/dashd/dashd"
+IPC_SOCKET_PATH="/tmp/BEVO_cand.sock"
 
 for bin in "$CAND_BIN" "$MOCK_BIN" "$DASHD_BIN"; do
   if [[ ! -x "$bin" ]]; then
@@ -15,8 +16,11 @@ done
 
 cleanup() {
   kill "${MOCK_PID:-}" "${CAND_PID:-}" "${DASHD_PID:-}" >/dev/null 2>&1 || true
+  rm -f "$IPC_SOCKET_PATH"
 }
 trap cleanup EXIT INT TERM
+
+rm -f "$IPC_SOCKET_PATH"
 
 "$DASHD_BIN" &
 DASHD_PID=$!

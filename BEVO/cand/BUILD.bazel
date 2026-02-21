@@ -33,6 +33,7 @@ sh_binary(
     data = [
         ":cand",
         "//BEVO/dashd:dashd",
+        "//BEVO/publishd:publishd",
     ],
 )
 

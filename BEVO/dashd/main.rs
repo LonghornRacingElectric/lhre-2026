@@ -16,43 +16,39 @@ fn main() -> Result<()> {
         match UnixStream::connect(SOCKET_PATH) {
             Ok(mut stream) => {
                 println!("[DASHD] Connected!");
-                let mut buffer = [0u8; 4096];
-
                 loop {
-                    match stream.read(&mut buffer) {
-                        Ok(0) => {
-                            println!("[DASHD] Server disconnected.");
-                            break;
-                        }
-                        Ok(n) => {
-                            match OrionSensorData::decode(&buffer[..n]) {
-                                Ok(data) => {
-                                    if let Some(d) = &data.dynamics {
-                                        println!(" [DYNAMICS]: {:#?}", d);
-                                    }
-                                    if let Some(c) = &data.controls {
-                                        println!(" [CONTROLS]: {:#?}", c);
-                                    }
-                                    if let Some(p) = &data.pack {
-                                        println!(" [PACK]: {:#?}", p);
-                                    }
-                                    if let Some(l) = &data.diagnostics_low {
-                                        println!(" [DIAG_LOW]: {:#?}", l);
-                                    }
-                                    // if let Some(h) = &data.diagnostics_high {
-                                    //     println!(" [DIAG_HIGH]: {:#?}", h);
-                                    // } nothing in high diag rn, will change later #TODO
-                                    if let Some(t) = &data.thermal {
-                                        println!(" [THERMAL]: {:#?}", t);
-                                    }
-                                }
-                                Err(e) => eprintln!("[DASHD] Decode error: {}", e),
+                    let mut length_buffer = [0u8; 4];
+                    if stream.read_exact(&mut length_buffer).is_err() {
+                        println!("[DASHD] Server disconnected.");
+                        break;
+                    }
+
+                    let message_length = u32::from_be_bytes(length_buffer) as usize;
+                    let mut message_buffer = vec![0u8; message_length];
+                    if let Err(e) = stream.read_exact(&mut message_buffer) {
+                        eprintln!("[DASHD] Read error: {}", e);
+                        break;
+                    }
+
+                    match OrionSensorData::decode(&message_buffer[..]) {
+                        Ok(data) => {
+                            if let Some(d) = &data.dynamics {
+                                println!(" [DYNAMICS]: {:#?}", d);
+                            }
+                            if let Some(c) = &data.controls {
+                                println!(" [CONTROLS]: {:#?}", c);
+                            }
+                            if let Some(p) = &data.pack {
+                                println!(" [PACK]: {:#?}", p);
+                            }
+                            if let Some(l) = &data.diagnostics_low {
+                                println!(" [DIAG_LOW]: {:#?}", l);
+                            }
+                            if let Some(t) = &data.thermal {
+                                println!(" [THERMAL]: {:#?}", t);
                             }
                         }
-                        Err(e) => {
-                            eprintln!("[DASHD] Read error: {}", e);
-                            break;
-                        }
+                        Err(e) => eprintln!("[DASHD] Decode error: {}", e),
                     }
                 }
             }
