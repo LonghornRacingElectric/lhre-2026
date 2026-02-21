@@ -111,11 +111,11 @@ bool vehicle_in_drive(void) { return !vehicle_in_park(); }
 bool hvc_imd_fault(void) {
     return indicator_status_mailbox.imd_error ||
            message_timed_out(indicator_status_mailbox_handle,
-                             INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS);
+                             INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS * 4);
 }
 
 bool hvc_bms_fault(void) {
     return indicator_status_mailbox.bms_error ||
            message_timed_out(indicator_status_mailbox_handle,
-                             INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS);
+                             INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS * 4);
 }
