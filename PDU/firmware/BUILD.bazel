@@ -7,6 +7,11 @@ firmware_project_g4(
     defines = [
         "STM32G474xx",
     ],
+    extra_srcs = glob([
+        "pdu/*.c",
+        "pdu/*.h"
+    ]),
+    extra_includes = ["pdu/"],
     enable_freertos = True,
     enable_usb = True,
     usb_device_name = "Power Delivery Unit (PDU)",
