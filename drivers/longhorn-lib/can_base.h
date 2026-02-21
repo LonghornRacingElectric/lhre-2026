@@ -148,6 +148,7 @@ void can_rx_hook(can_receive_message_t* msg, uint8_t* rx_data);
 void can_service(can_interface_t* can);
 
 bool message_timed_out(can_receive_message_t* msg, uint32_t timeout_ms);
+bool message_timed_out_sticky(can_receive_message_t* msg, uint32_t timeout_ms);
 
 void can_reset_internals(void);
 
