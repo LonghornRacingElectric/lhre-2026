@@ -112,6 +112,7 @@ bool hvc_imd_fault(void) {
     return indicator_status_mailbox.imd_error ||
            message_timed_out(indicator_status_mailbox_handle, 1000);
 }
+
 bool hvc_bms_fault(void) {
     return indicator_status_mailbox.bms_error ||
            message_timed_out(indicator_status_mailbox_handle,
