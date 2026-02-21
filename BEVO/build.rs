@@ -7,7 +7,12 @@ fn main() {
     let mut proto_dir = PathBuf::from(&proto_path);
     proto_dir.pop(); 
 
-    prost_build::Config::new()
+    let mut config = prost_build::Config::new();
+    config.type_attribute(
+        ".",
+        "#[derive(serde::Serialize, serde::Deserialize)]",
+    );
+    config
         .compile_protos(&[proto_path], &[proto_dir])
         .unwrap();
 }

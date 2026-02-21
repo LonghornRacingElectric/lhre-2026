@@ -5,11 +5,12 @@ RUNFILES_ROOT="${RUNFILES_DIR:-$0.runfiles}"
 CAND_BIN="$RUNFILES_ROOT/_main/BEVO/cand/cand"
 DASHD_BIN="$RUNFILES_ROOT/_main/BEVO/dashd/dashd"
 PUBLISHD_BIN="$RUNFILES_ROOT/_main/BEVO/publishd/publishd"
+LOGGERD_BIN="$RUNFILES_ROOT/_main/BEVO/loggerd/loggerd"
 
 STARTUP_SEMAPHORE_PATH="/tmp/BEVO_publishd_ready"
 IPC_SOCKET_PATH="/tmp/BEVO_cand.sock"
 
-for bin in "$CAND_BIN" "$DASHD_BIN" "$PUBLISHD_BIN"; do
+for bin in "$CAND_BIN" "$DASHD_BIN" "$PUBLISHD_BIN" "$LOGGERD_BIN"; do
   if [[ ! -x "$bin" ]]; then
     echo "Could not find executable: $bin" >&2
     exit 1
@@ -17,7 +18,7 @@ for bin in "$CAND_BIN" "$DASHD_BIN" "$PUBLISHD_BIN"; do
 done
 
 cleanup() {
-  kill "${CAND_PID:-}" "${DASHD_PID:-}" "${PUBLISHD_PID:-}" >/dev/null 2>&1 || true
+  kill "${CAND_PID:-}" "${DASHD_PID:-}" "${PUBLISHD_PID:-}" "${LOGGERD_PID:-}" >/dev/null 2>&1 || true
   rm -f "$STARTUP_SEMAPHORE_PATH" "$IPC_SOCKET_PATH"
 }
 trap cleanup EXIT INT TERM
@@ -32,6 +33,9 @@ PUBLISHD_PID=$!
 
 "$DASHD_BIN" &
 DASHD_PID=$!
+
+"$LOGGERD_BIN" &
+LOGGERD_PID=$!
 
 CAND_USE_MOCK=0 CAND_CAN_INTERFACE="$CAN_IFACE" "$CAND_BIN" &
 CAND_PID=$!

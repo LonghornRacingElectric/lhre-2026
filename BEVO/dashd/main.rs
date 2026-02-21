@@ -32,6 +32,7 @@ fn main() -> Result<()> {
 
                     match OrionSensorData::decode(&message_buffer[..]) {
                         Ok(data) => {
+                            println!("[ORION_SENSOR_DATA] Received packet_id: {}, time: {}", data.packet_id, data.time);
                             if let Some(d) = &data.dynamics {
                                 println!(" [DYNAMICS]: {:#?}", d);
                             }

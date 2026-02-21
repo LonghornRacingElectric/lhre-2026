@@ -13,6 +13,7 @@ sh_binary(
     data = [
         ":cand",
         "//BEVO/dashd:dashd",
+        "//BEVO/loggerd:loggerd",
         ":mock_can",
     ],
 )
@@ -23,6 +24,7 @@ sh_binary(
     data = [
         ":cand",
         "//BEVO/dashd:dashd",
+        "//BEVO/loggerd:loggerd",
         ":mock_can",
     ],
 )
@@ -33,6 +35,7 @@ sh_binary(
     data = [
         ":cand",
         "//BEVO/dashd:dashd",
+        "//BEVO/loggerd:loggerd",
         "//BEVO/publishd:publishd",
     ],
 )

@@ -38,7 +38,7 @@ impl MqttClient {
         {
             let lock = client.lock();
             if let Ok(locked_client) = lock {
-                locked_client.subscribe(MQTT_TOPIC_SERVER_COMMUNICATION, QoS::AtLeastOnce)?;
+                locked_client.subscribe(MQTT_TOPIC_SERVER_COMMUNICATION, QoS::AtMostOnce)?;
             } else {
                 anyhow::bail!("mqtt client mutex poisoned during subscribe");
             }
@@ -50,7 +50,7 @@ impl MqttClient {
                 let publish_result = publish_client
                     .lock()
                     .expect("mqtt client mutex poisoned")
-                    .publish(MQTT_TOPIC_PUBLISH, QoS::AtLeastOnce, false, payload);
+                    .publish(MQTT_TOPIC_PUBLISH, QoS::AtMostOnce, false, payload);
 
                 if let Err(error) = publish_result {
                     eprintln!("publishd mqtt publish error: {error}");
