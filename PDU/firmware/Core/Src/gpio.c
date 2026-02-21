@@ -57,7 +57,7 @@ void MX_GPIO_Init(void)
                           |SW_FANS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, SW_TSSI_R_Pin|SW_BRAKEL_Pin|EN_TSSI_G_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(SW_BRAKEL_GPIO_Port, SW_BRAKEL_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_RESET);
@@ -71,12 +71,12 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PAPin PAPin PAPin */
-  GPIO_InitStruct.Pin = SW_TSSI_R_Pin|SW_BRAKEL_Pin|EN_TSSI_G_Pin;
+  /*Configure GPIO pin : PtPin */
+  GPIO_InitStruct.Pin = SW_BRAKEL_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(SW_BRAKEL_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PtPin */
   GPIO_InitStruct.Pin = ST_TSSI_G_Pin;
