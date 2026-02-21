@@ -13,9 +13,13 @@ const database = {
 }
 
 if (!global.pool) {
+  const connectionString =
+    process.env.TELEMETRY_DATABASE_URL ??
+    `postgresql://${database.username}:${database.password}@${database.host}:${database.port}/${database.dbName}`;
+
   global.pool = new Pool({
-    connectionString: `postgresql://${database.username}:${database.password}@${database.host}:${database.port}/${database.dbName}`
+    connectionString,
   });
 }
 
-export default global.pool;
+export default global.pool!;

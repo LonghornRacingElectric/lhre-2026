@@ -31,9 +31,9 @@ async function initAppState() {
       currentPage = "/event/new";
     }
 
-    // Fetch the currently active event (status = 2, for example)
+    // Fetch the currently active event (status = 2)
     const activeEvent = await prisma.event.findFirst({
-      where: { status: 2 }, // adjust the status value for "active"
+      where: { status: 2 },
       orderBy: { creation_time: "desc" },
     });
 

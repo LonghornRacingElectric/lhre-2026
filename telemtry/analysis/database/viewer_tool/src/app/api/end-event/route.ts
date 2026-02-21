@@ -5,7 +5,7 @@ export async function POST(req: NextRequest) {
   try {
     const now = Date.now();
 
-    // Find the latest active event (status 1)
+    // Find the latest active event (status 2)
     const activeEvent = await prisma.event.findFirst({
       where: { status: 2 },
       orderBy: { event_id: 'desc' },

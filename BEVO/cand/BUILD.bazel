@@ -1,18 +1,15 @@
-# load("@rules_rust//rust:defs.bzl", "rust_binary")
+load("@rules_rust//rust:defs.bzl", "rust_binary")
 
-# rust_binary(
-#     name = "real",
-#     srcs = ["main.rs"],
-#     deps = [
-#         "@crate_index//:anyhow",
-#         "@crate_index//:clap",
-#     ] + select({
-#         "@platforms//os:linux": [
-#             "@crate_index//:socketcan",
-#         ],
-#         "//conditions:default": [
-#         ],
-#     }),
-
-#     visibility = ["//visibility:public"]
-# )
+rust_binary(
+    name = "cand",
+    srcs = ["main.rs"], 
+    compile_data = ["//drivers/proto:can_packets.json"],
+    deps = [
+        "//BEVO:sensor_proto", 
+        "@crate_index//:anyhow",
+        "@crate_index//:prost",
+        "@crate_index//:serde",
+        "@crate_index//:serde_json",
+        "@crate_index//:socketcan",
+    ],
+)
