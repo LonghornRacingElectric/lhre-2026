@@ -1,25 +1,48 @@
 version: '3.8'
 services:
- kafka:
-   image: apache/kafka:4.1.0
-   platform: linux/amd64
-   container_name: kafka
-   networks:
+  kafka:
+    image: apache/kafka:4.1.0
+    platform: linux/amd64
+    container_name: kafka
+    networks:
       - telemetry_network
-   ports:
-     - "9092:9092"
-     - "29092:29092"
-   environment:
-     KAFKA_BROKER_ID: 1
-     KAFKA_PROCESS_ROLES: "broker,controller"
-     KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,EXTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
-     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
-     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
-     KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-     KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-     KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
-     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-     KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,EXTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  bridge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kafka-bridge
+    networks:
+      - telemetry_network
+    ports:
+      - "50051:50051"
+    environment:
+      IN_DOCKER: 1
+      KAFKA_BROKER: kafka:9092
+      BRIDGE_ADDR: ":50051"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
 
 networks:
   telemetry_network:

@@ -24,6 +24,7 @@ if (POSTGRES_USER && POSTGRES_PASSWORD && POSTGRES_DB) {
 
 const nextConfig: NextConfig = {
   /* config options here */
+  compress: false, // Disable compression to prevent buffering of SSE
 };
 
 export default nextConfig;

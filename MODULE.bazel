@@ -12,6 +12,15 @@ bazel_dep(name = "googletest", version = "1.17.0")
 bazel_dep(name = "bazel_skylib", version = "1.8.1")
 bazel_dep(name = "rules_rust", version = "0.63.0")
 bazel_dep(name = "rules_python", version = "1.5.3")
+bazel_dep(name = "rules_proto", version = "7.0.2")
+bazel_dep(name = "rules_shell", version = "0.6.1")
+
+# Protobuf compiler/runtime for Bazel code generation (protoc).
+bazel_dep(name = "protobuf", version = "29.0", dev_dependency = True)
+
+# Docker/OCI container rules for telemetry services
+bazel_dep(name = "rules_oci", version = "2.0.1")
+bazel_dep(name = "rules_pkg", version = "1.0.1")
 
 # Hermetic C/C++ Host Toolchain
 # llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
@@ -35,8 +44,8 @@ register_toolchains(
 # Override to use a custom fork for the ARM toolchain, allowing for patches.
 git_override(
     module_name = "toolchains_arm_gnu",
+    commit = "613f3423e4370efc1057435217f56b499c24be0c",
     remote = "https://github.com/LonghornRacingElectric/toolchains_arm_gnu.git",
-    commit = "4b8b8e5ab8b4b2fa0758662735f7d96e0b690a43",
 )
 
 arm_toolchain = use_extension("@toolchains_arm_gnu//:extensions.bzl", "arm_toolchain")
@@ -50,14 +59,30 @@ python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
     python_version = "3.13",
 )
+python.toolchain(
+    is_default = False,
+    python_version = "3.11",
+)
 
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
     hub_name = "dfu_reqs",
-    python_version = "3.13",
+    python_version = "3.11",
     requirements_lock = "//tools/dfu:requirements_lock.txt",
 )
-use_repo(pip, "dfu_reqs")
+pip.parse(
+    hub_name = "telemtry_reqs",
+    python_version = "3.11",
+    requirements_darwin = "//telemtry/analysis:requirements_lock_darwin.txt",
+    requirements_lock = "//telemtry/analysis:requirements_lock.txt",
+    requirements_windows = "//telemtry/analysis:requirements_lock_windows.txt",
+)
+pip.parse(
+    hub_name = "telemtry_stack_reqs",
+    python_version = "3.11",
+    requirements_lock = "//telemtry/stack/ingest:requirements_lock.txt",
+)
+use_repo(pip, "dfu_reqs", "telemtry_reqs", "telemtry_stack_reqs")
 
 bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
 git_override(
@@ -75,19 +100,93 @@ dfu = use_extension("//tools/dfu:dfu.bzl", "dfu")
 use_repo(dfu, "dfu")
 
 # Hermetic Rust Toolchain
-# rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
-# rust.toolchain(
-#     edition = "2024",
-#     versions = [ "1.85.0" ],
-# )
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(
+    edition = "2024",
+    versions = ["1.85.0"],
+)
 
-# # Crate Universe / Crate (Cargo integration)
-# crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+# Crate Universe / Crate (Cargo integration)
+crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
 
-# crate.from_cargo(
-#     name = "crate_index",
-#     manifests = ["//:Cargo.toml"],
-#     cargo_lockfile = "//:Cargo.lock",
-# )
+# 1. Import from Cargo.toml (Keep this if you use it elsewhere)
+crate.from_cargo(
+    name = "crate_index",
+    cargo_lockfile = "//:Cargo.lock",
+    manifests = ["//:Cargo.toml"],
+)
 
-# use_repo(crate, "crate_index")
+# 2. Expose the generated repo
+use_repo(crate, "crate_index")
+
+# OCI Container Base Images for Telemetry Services
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+
+# Python 3.11 base image for telemetry containers
+oci.pull(
+    name = "python311",
+    image = "docker.io/library/python",
+    platforms = [
+        "linux/amd64",
+        "linux/arm64",
+    ],
+    tag = "3.11.4-slim",
+)
+
+# PostgreSQL base image
+oci.pull(
+    name = "postgres17",
+    image = "docker.io/library/postgres",
+    platforms = [
+        "linux/amd64",
+        "linux/arm64",
+    ],
+    tag = "17",
+)
+
+# Eclipse Mosquitto MQTT broker
+oci.pull(
+    name = "mosquitto",
+    image = "docker.io/library/eclipse-mosquitto",
+    platforms = [
+        "linux/amd64",
+        "linux/arm64",
+    ],
+    tag = "latest",
+)
+
+# Apache Kafka
+oci.pull(
+    name = "kafka",
+    image = "docker.io/apache/kafka",
+    platforms = ["linux/amd64"],
+    tag = "4.1.0",
+)
+
+# Grafana
+oci.pull(
+    name = "grafana",
+    image = "docker.io/grafana/grafana-oss",
+    platforms = [
+        "linux/amd64",
+        "linux/arm64",
+    ],
+    tag = "latest",
+)
+use_repo(
+    oci,
+    "grafana",
+    "grafana_linux_amd64",
+    "grafana_linux_arm64",
+    "kafka",
+    "kafka_linux_amd64",
+    "mosquitto",
+    "mosquitto_linux_amd64",
+    "mosquitto_linux_arm64",
+    "postgres17",
+    "postgres17_linux_amd64",
+    "postgres17_linux_arm64",
+    "python311",
+    "python311_linux_amd64",
+    "python311_linux_arm64",
+)

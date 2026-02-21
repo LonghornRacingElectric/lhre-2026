@@ -1,15 +1,3 @@
-CREATE ROLE grafana WITH
-	LOGIN
-	 PASSWORD 'frontend'
-	CONNECTION LIMIT 10;
-GRANT pg_read_all_data TO grafana;
-
-CREATE ROLE analysis WITH
-	LOGIN
-	 PASSWORD 'north_dakota'
-	CONNECTION LIMIT 10;
-GRANT pg_read_all_data TO analysis;
-
 CREATE OR REPLACE FUNCTION public.get_event_index (car smallint, day smallint)
 	RETURNS smallint
 	LANGUAGE plpgsql
@@ -229,8 +217,8 @@ CREATE TABLE public.dynamics (
     bl_spring_displace  real, 
     br_spring_displace  real,
     dash_speed          real, 
-    f_gps               point, 
-    b_gps               point,
+    f_gps               real[], 
+    b_gps               real[],
     f_gps_velocity      real,
     b_gps_velocity      real,
     f_gps_heading       real,

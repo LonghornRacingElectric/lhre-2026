@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package bridge;
+
+option go_package = "github.com/LonghornRacingElectric/lhre-2026/telemtry/stack/kafka/proto/bridge;bridge";
+
+service BridgeService {
+  // Send sensor data to be processed by the bridge
+  rpc SendSensorData(SensorDataRequest) returns (SensorDataResponse);
+}
+
+message SensorDataRequest {
+  bytes payload = 1;        // Raw protobuf bytes
+  string car_type = 2;      // "Nightwatch" or "Angelique"
+}
+
+message SensorDataResponse {
+  bool success = 1;
+  string message = 2;
+}

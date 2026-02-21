@@ -230,7 +230,7 @@ class LapTimerProcessor:
             logging.info(f"MESSAGE HAS BEEN RECEIVED AT TOPIC {msg.topic}")
             if msg.topic == 'config/test':
                 data = json.loads(msg.payload.decode())
-                print(data)
+                logging.debug(data)
 
                 gate_changed = self.gate != data['gate']
 

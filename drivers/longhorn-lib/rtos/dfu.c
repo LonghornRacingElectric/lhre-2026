@@ -37,7 +37,7 @@ const osThreadAttr_t dfu_attributes = {
         osPriorityRealtime,  // MAX priority so that IF we ever send an update
                              // command, we WILL go into reset mode IMMEDIATELY,
                              // not wait for other tasks
-    .stack_size = configMINIMAL_STACK_SIZE,
+    .stack_size = configMINIMAL_STACK_SIZE * 2,
 };
 
 osThreadId_t dfu_start_thread() {

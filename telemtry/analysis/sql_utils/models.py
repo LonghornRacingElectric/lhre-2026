@@ -14,7 +14,6 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from .point_type import PointType
 from sqlalchemy import MetaData
 
 Base = declarative_base()
@@ -200,8 +199,8 @@ class Dynamics(BaseTelemetry):
     bl_spring_displace = Column(Float)
     br_spring_displace = Column(Float)
     dash_speed = Column(Float)
-    f_gps = Column(PointType())
-    b_gps = Column(PointType())
+    f_gps = Column(ARRAY(Float))
+    b_gps = Column(ARRAY(Float))
     f_gps_velocity = Column(Float)
     b_gps_velocity = Column(Float)
     f_gps_heading = Column(Float)
@@ -335,13 +334,13 @@ class Thermal(BaseTelemetry):
 
 class AngeliqueDynamics(BaseAngelique):
     __tablename__ = 'dynamics'
-    __table_args__ = {'extend_existing': True}
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
     torque_request = Column(Float)
     vcu_position = Column(ARRAY(Float))
     vcu_velocity = Column(ARRAY(Float))
     vcu_accel = Column(ARRAY(Float))
-    gps = Column(PointType())
+    gps = Column(ARRAY(Float))
     gps_velocity = Column(Float)
     gps_heading = Column(Float)
     body1_accel = Column(ARRAY(Float))
@@ -363,8 +362,8 @@ class AngeliqueDynamics(BaseAngelique):
 
 class AngeliqueControls(BaseAngelique):
     __tablename__ = 'controls'
-    __table_args__ = {'extend_existing': True}
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
     vcu_flags = Column(BYTEA)
     vcu_flags_json = Column(JSONB)
     apps1_v = Column(Float)
@@ -373,11 +372,13 @@ class AngeliqueControls(BaseAngelique):
     bse2_v = Column(Float)
     sus1_v = Column(Float)
     sus2_v = Column(Float)
+    steer_v = Column(Float)
     packet = relationship("AngeliquePacket", back_populates="controls")
 
 class AngeliqueDiagnostics(BaseAngelique):
     __tablename__ = 'diagnostics'
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
     current_errors = Column(BYTEA)
     current_errors_json = Column(JSONB)
     latching_faults = Column(BYTEA)
@@ -389,8 +390,8 @@ class AngeliqueDiagnostics(BaseAngelique):
 
 class AngeliqueThermal(BaseAngelique):
     __tablename__ = 'thermal'
-    __table_args__ = {'extend_existing': True}
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
     cells_temp = Column(ARRAY(SmallInteger))
     ambient_temp = Column(SmallInteger)
     inverter_temp = Column(SmallInteger)
@@ -407,8 +408,8 @@ class AngeliqueThermal(BaseAngelique):
 
 class AngeliquePack(BaseAngelique):
     __tablename__ = 'pack'
-    __table_args__ = {'extend_existing': True}
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
     hv_pack_v = Column(Float)
     hv_tractive_v = Column(Float)
     hv_c = Column(Float)
@@ -421,7 +422,7 @@ class AngeliquePack(BaseAngelique):
 
 class AngeliquePacket(BaseAngelique):
     __tablename__ = 'packet'
-    __table_args__ = {'extend_existing': True}
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
     packet_id = Column(BigInteger, primary_key=True)
     time = Column(BigInteger, nullable=False)
     dynamics = relationship("AngeliqueDynamics", uselist=False, back_populates="packet")

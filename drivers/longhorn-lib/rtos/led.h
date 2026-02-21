@@ -12,4 +12,6 @@
  */
 osThreadId_t led_start_thread();
 
+void led_stop_thread();
+
 #endif  // LONGHORN_LIBRARY_2025_LED_H

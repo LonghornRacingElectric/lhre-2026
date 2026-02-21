@@ -1,0 +1,234 @@
+# telemtry/stack/tests/BUILD.bazel
+# Integration tests for the telemetry stack
+# Tests communication between Docker containers and non-Docker scripts
+
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+load("@telemtry_reqs//:requirements.bzl", "requirement")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+package(default_visibility = ["//telemtry:__subpackages__"])
+
+# Common test utilities library
+py_library(
+    name = "test_utils",
+    srcs = ["test_utils.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//telemtry/analysis:analysis_lib",
+        "//telemtry/stack/ingest:ingest_lib",
+        requirement("kafka-python"),
+        requirement("numpy"),
+        requirement("paho-mqtt"),
+        requirement("pandas"),
+        requirement("protobuf"),
+        requirement("psycopg2-binary"),
+        requirement("python-dotenv"),
+        requirement("requests"),
+        requirement("SQLAlchemy"),
+    ],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+# Stack test client - tests container communication
+py_binary(
+    name = "stack_test_client",
+    srcs = ["test_stack_client.py"],
+    main = "test_stack_client.py",
+    deps = [
+        ":test_utils",
+        requirement("Flask"),
+        requirement("jupyter"),
+        requirement("numpy"),
+        requirement("matplotlib"),
+        requirement("paho-mqtt"),
+        requirement("pandas"),
+        requirement("protobuf"),
+        requirement("SQLAlchemy"),
+        requirement("psycopg2-binary"),
+        requirement("requests"),
+        requirement("seaborn"),
+        requirement("tqdm"),
+        requirement("flask_login"),
+        requirement("gunicorn"),
+        requirement("flask_bcrypt"),
+        requirement("python-dotenv"),
+        requirement("kafka-python"),
+    ],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+# MQTT connectivity test
+py_test(
+    name = "mqtt_connectivity_test",
+    srcs = ["test_mqtt_connectivity.py"],
+    main = "test_mqtt_connectivity.py",
+    data = ["//telemtry:env_files"],
+    deps = [
+        ":test_utils",
+        requirement("paho-mqtt"),
+        requirement("python-dotenv"),
+    ],
+    tags = ["integration", "docker", "local"],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+# Kafka connectivity test
+py_test(
+    name = "kafka_connectivity_test",
+    srcs = ["test_kafka_connectivity.py"],
+    main = "test_kafka_connectivity.py",
+    data = ["//telemtry:env_files"],
+    deps = [
+        ":test_utils",
+        requirement("kafka-python"),
+        requirement("python-dotenv"),
+    ],
+    tags = ["integration", "docker", "local"],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+# Kafka bridge seed test
+py_test(
+    name = "kafka_bridge_seed_test",
+    srcs = ["test_kafka_bridge_seed.py"],
+    main = "test_kafka_bridge_seed.py",
+    data = ["//telemtry:env_files"],
+    deps = [
+        ":test_utils",
+        requirement("kafka-python"),
+        requirement("python-dotenv"),
+    ],
+    tags = ["integration", "docker", "local"],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+# Database connectivity test
+py_test(
+    name = "db_connectivity_test",
+    srcs = ["test_db_connectivity.py"],
+    main = "test_db_connectivity.py",
+    data = ["//telemtry:env_files"],
+    deps = [
+        ":test_utils",
+        "//telemtry/analysis:analysis_lib",
+        requirement("psycopg2-binary"),
+        requirement("SQLAlchemy"),
+        requirement("python-dotenv"),
+    ],
+    tags = ["integration", "docker", "local"],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+# BEVO handshake + database model query integration test
+py_test(
+    name = "bevo_db_integration_test",
+    srcs = ["test_bevo_db_integration.py"],
+    main = "test_bevo_db_integration.py",
+    data = ["//telemtry:env_files"],
+    deps = [
+        ":test_utils",
+        "//telemtry/analysis:analysis_lib",
+        requirement("paho-mqtt"),
+        requirement("psycopg2-binary"),
+        requirement("python-dotenv"),
+        requirement("SQLAlchemy"),
+    ],
+    tags = ["integration", "docker", "local"],
+)
+
+# End-to-end data flow test (MQTT -> Ingest -> Kafka -> DB)
+py_test(
+    name = "data_flow_test",
+    srcs = ["test_data_flow.py"],
+    main = "test_data_flow.py",
+    data = ["//telemtry:env_files"],
+    deps = [
+        ":test_utils",
+        "//telemtry/analysis:analysis_lib",
+        "//telemtry/stack/ingest:ingest_lib",
+        requirement("kafka-python"),
+        requirement("paho-mqtt"),
+        requirement("protobuf"),
+        requirement("psycopg2-binary"),
+        requirement("python-dotenv"),
+        requirement("SQLAlchemy"),
+    ],
+    tags = ["integration", "docker", "e2e", "local"],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+# Protobuf serialization test (tests paho_testing.py patterns)
+py_test(
+    name = "protobuf_test",
+    srcs = ["test_protobuf.py"],
+    main = "test_protobuf.py",
+    data = ["//telemtry:env_files"],
+    deps = [
+        ":test_utils",
+        "//telemtry/analysis:analysis_lib",
+        "//telemtry/stack/ingest:ingest_lib",
+        requirement("numpy"),
+        requirement("protobuf"),
+        requirement("python-dotenv"),
+    ],
+    tags = ["unit"],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+# Export shell scripts and docker-compose files
+exports_files([
+    "run_integration_test.sh",
+    "test_stack_client.py",
+])
+
+# Integration test target - uses shell script to manage Docker lifecycle
+sh_test(
+    name = "stack_integration_test",
+    srcs = ["run_integration_test.sh"],
+    data = [
+        ":stack_test_client",
+        "//telemtry/stack/ingest:docker-compose.yml",
+        "//telemtry/stack/kafka:docker-compose.yml",
+        "//telemtry/stack/kafka:kafka_bridge_context",
+        "//telemtry/stack/processors/gps_classifier:docker-compose.yml",
+        "//telemtry/stack/processors/kafka_base:docker-compose.yml",
+        "//telemtry/stack/processors/lap_timer:docker-compose.yml",
+        "//telemtry:config_files",
+    ],
+    tags = ["integration", "docker", "manual", "local"],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+# Test suite for all integration tests (requires Docker to be running)
+test_suite(
+    name = "integration_tests",
+    tags = ["integration", "local"],
+    tests = [
+        ":bevo_db_integration_test",
+        ":data_flow_test",
+        ":db_connectivity_test",
+        ":kafka_bridge_seed_test",
+        ":kafka_connectivity_test",
+        ":mqtt_connectivity_test",
+    ],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+# Test suite for unit tests (no Docker required)
+test_suite(
+    name = "unit_tests",
+    tags = ["unit"],
+    tests = [
+        ":protobuf_test",
+    ],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+# All telemetry stack tests
+test_suite(
+    name = "all_tests",
+    tests = [
+        ":integration_tests",
+        ":unit_tests",
+    ],
+)

@@ -6,3 +6,4 @@ psycopg2-binary==2.9.9
 protobuf==6.33.0
 python-dotenv==1.1.1
 kafka-python==2.2.15
+grpcio==1.76.0

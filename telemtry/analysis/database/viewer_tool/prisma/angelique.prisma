@@ -170,7 +170,8 @@ model dynamics {
   vcu_position   Float[]
   vcu_velocity   Float[]
   vcu_accel      Float[]
-  gps            Unsupported("point")?
+  // Store as [lat, lng] numeric array (instead of Postgres point)
+  gps            Float[]
   gps_velocity   Float?
   gps_heading    Float?
   body1_accel    Float[]

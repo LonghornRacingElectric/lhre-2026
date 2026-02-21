@@ -1,0 +1,19 @@
+.vertical-gauge-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.vertical-gauge-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    fill: white;
+    text-anchor: middle;
+}
+
+.vertical-gauge-label {
+    font-size: 0.8rem;
+    fill: #aaa;
+    text-anchor: middle;
+}

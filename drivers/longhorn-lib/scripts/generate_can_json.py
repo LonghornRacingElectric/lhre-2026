@@ -41,6 +41,15 @@ type_lengths = {
 }
 type_normalization = {"boolean": "uint8", "bool": "uint8", "byte": "uint8"}
 
+# --- Constants for Utilization Calc ---
+STUFF_BITS = 7
+CLASSIC_METADATA_BITS = 47
+# CAN FD Constants
+# FD Base Overhead: SOF(1)+ID(11)+RRS(1)+IDE(1)+FDF(1)+res(1)+BRS(1)+ESI(1)+DLC(4) = 22
+# End Overhead: ACK(2)+DEL(1)+EOF(7)+IFS(3) = 13
+# Total Fixed FD Overhead (excluding CRC) = 35 bits
+FD_FIXED_OVERHEAD = 35
+
 # --- Helper Functions ---
 
 
@@ -206,6 +215,7 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
                     frequency_hz = parse_frequency(row.get("Frequency (Hz)", "NA"))
                     frequency_ms = calculate_frequency_ms(frequency_hz)
                     quantity = parse_quantity(row.get("Quantity", "0"))
+                    bus = row.get("Bus", "").strip()
 
                     # --- 3. Parse Data Bytes ---
                     bytes_list = []
@@ -348,6 +358,9 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
                             # --- Create Byte Definition ---
                             if byte_num > current_byte_index:
                                 current_byte_index = byte_num
+                            # Detect CAN-level boolean declarations (e.g. 'bool'/'boolean') and mark them
+                            is_boolean_flag = type_str in {"bool", "boolean"}
+
                             byte_def = {
                                 "index": field_index_counter,
                                 "start_byte": current_byte_index,
@@ -356,6 +369,8 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
                                 "conv_type": conv_type,
                                 "precision": precision,
                             }
+                            if is_boolean_flag:
+                                byte_def["is_boolean"] = True
                             if protobuf_info:
                                 byte_def["protobuf"] = protobuf_info
                             if bitfield_encoding_details:
@@ -382,6 +397,10 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
                                     )
                                     if byte_num > current_byte_index:
                                         current_byte_index = byte_num
+                                    # Mark boolean-like CAN declarations so downstream generator
+                                    # can emit `bool` instead of an integer container.
+                                    is_boolean_flag = type_str in {"bool", "boolean"}
+
                                     byte_def = {
                                         "index": field_index_counter,
                                         "start_byte": current_byte_index,
@@ -390,6 +409,8 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
                                         "conv_type": normalized_type,
                                         "precision": 1.0,
                                     }
+                                    if is_boolean_flag:
+                                        byte_def["is_boolean"] = True
                                     if protobuf_info:
                                         byte_def["protobuf"] = protobuf_info
                                     bytes_list.append(byte_def)
@@ -412,6 +433,7 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
                             "frequency_ms": frequency_ms,
                             "frequency": frequency_hz,
                             "quantity": quantity,
+                            "bus": bus,
                             "bytes": bytes_list,
                         }
                         can_packets.append(can_packet_json)
@@ -439,6 +461,65 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
 
     print(f"Total CAN rows processed successfully: {processed_rows}")
     return can_packets
+
+
+def calculate_bus_utilization(packets, bus_name="Overall"):
+    """
+    Calculates and prints bus utilization for 1Mb/s (Classic) and 8Mb/s (FD) for a given bus.
+    """
+    total_bits_per_sec_1m = 0.0
+    total_bits_per_sec_8m = 0.0
+
+    print(f"\n--- Bus Utilization Analysis for {bus_name} Bus ---")
+
+    filtered_packets = []
+    filtered_packets = [p for p in packets if p.get("bus") == bus_name]
+   
+    for p in filtered_packets:
+        freq = p.get("frequency")
+        dlc = p.get("data_length", 0)
+        qty = p.get("quantity", 0)  # Some packets have Quantity > 1 implied?
+        # Usually quantity in CSV means "how many of these".
+        # We will assume 'quantity' is for BOM count,
+        # but frequency is the transmission rate per unit.
+        # We trust 'frequency' is the total rate for this message ID.
+
+        if freq is None:
+            continue
+
+        # --- Classic CAN Calculation (1 Mb/s) ---
+        # Formula: (DLC * 8) + Metadata(47) + Stuff(7)
+        packet_bits_classic = (dlc * 8) + CLASSIC_METADATA_BITS + STUFF_BITS
+        total_bits_per_sec_1m += packet_bits_classic * freq
+
+        # --- CAN FD Calculation (8 Mb/s) ---
+        # Formula: (DLC * 8) + FD_Metadata + Stuff(7)
+        # FD Metadata: Fixed(35) + CRC + CRC_DEL(1)
+        # CRC: 17 bits if DLC <= 16, 21 bits if DLC > 16
+
+        crc_bits = 17 if dlc <= 16 else 21
+        crc_del_bit = 1
+
+        # Total FD Overhead = Fixed(35) + CRC + CRC_DEL(1) + STUFF(7)
+        # Note: We add STUFF(7) as requested, though FD has different stuffing mechanics.
+        fd_overhead_bits = FD_FIXED_OVERHEAD + crc_bits + crc_del_bit + STUFF_BITS
+
+        packet_bits_fd = (dlc * 8) + fd_overhead_bits
+        total_bits_per_sec_8m += packet_bits_fd * freq
+
+    # Bandwidths
+    bandwidth_1m = 1_000_000.0
+    bandwidth_8m = 8_000_000.0
+
+    util_1m = (total_bits_per_sec_1m / bandwidth_1m) * 100.0
+    util_8m = (total_bits_per_sec_8m / bandwidth_8m) * 100.0
+
+    print(f"  Total Traffic (Classic Calc): {total_bits_per_sec_1m:,.0f} bits/sec")
+    print(f"  Total Traffic (FD Calc):      {total_bits_per_sec_8m:,.0f} bits/sec")
+    print("-"*30)
+    print(f"  Bus Utilization @ 1 Mb/s:   {util_1m:.2f}%")
+    print(f"  Bus Utilization @ 8 Mb/s:   {util_8m:.2f}%")
+    print("--------------------------------")
 
 
 # --- Main Execution ---
@@ -475,6 +556,10 @@ if __name__ == "__main__":
     )  # <-- Pass arg
 
     if processed_packets:
+        # --- Calculate and Print Utilization ---
+        calculate_bus_utilization(processed_packets, "Critical")
+        calculate_bus_utilization(processed_packets, "Data Acq")
+
         json_output = json.dumps(processed_packets, indent=4)
         try:
             with open(JSON_FILENAME, "w", encoding="utf-8") as outfile:
