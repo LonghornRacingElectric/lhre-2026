@@ -202,9 +202,16 @@ void StartDefaultTask(void* argument) {
     };
 
     init_dfu(dfu);
+
     dfu_start_thread();
 
-    osThreadNew(FakeTask, NULL, NULL);
+    osThreadAttr_t fakeTask_attributes = {
+        .name = "FakeTask",
+        .priority = (osPriority_t)osPriorityLow,
+        .stack_size = 128 * 8 * 2,
+    };
+
+    osThreadNew(FakeTask, NULL, &fakeTask_attributes);
     // can_init(&can_config);
 
     msg = "DFU initialized\r\n";
