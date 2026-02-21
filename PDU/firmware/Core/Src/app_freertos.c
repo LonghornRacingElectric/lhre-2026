@@ -27,7 +27,10 @@
 /* USER CODE BEGIN Includes */
 #include "tim.h"
 // #include "rtos/led.h"
+#include "longhorn/rtos/dfu.h"
 #include "longhorn/rtos/led.h"
+#include "longhorn/rtos/logger.h"
+#include "usbd_cdc_if.h"
 
 /* USER CODE END Includes */
 
@@ -48,14 +51,22 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
+dfu_config dfu = {
+    .delay_fn = (Delay_fn)osDelay,
+    .gpiox = GPIOB,
+    .pin = GPIO_PIN_7,
+    .pin_set_fn = (PinSet_fn)HAL_GPIO_WritePin,
+    .reset_fn = (SystemReset_fn)HAL_NVIC_SystemReset,
+};
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
-    .name = "defaultTask",
-    .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 128 * 4};
+  .name = "defaultTask",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 1024 * 4
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -68,30 +79,29 @@ void StartDefaultTask(void *argument);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /**
- * @brief  FreeRTOS initialization
- * @param  None
- * @retval None
- */
-void MX_FREERTOS_Init(void)
-{
+  * @brief  FreeRTOS initialization
+  * @param  None
+  * @retval None
+  */
+void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */
-  /* add mutexes, ... */
+    /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
-  /* add semaphores, ... */
+    /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* USER CODE BEGIN RTOS_TIMERS */
-  /* start timers, add new ones, ... */
+    /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
-  /* add queues, ... */
+    /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -99,32 +109,33 @@ void MX_FREERTOS_Init(void)
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
-  rainbow_led_t led = {
-      .ccr2 = &TIM8->CCR1,
-      .ccr1 = &TIM8->CCR2,
-      .ccr3 = &TIM8->CCR3,
-      .channel1 = TIM_CHANNEL_1,
-      .channel2 = TIM_CHANNEL_2,
-      .channel3 = TIM_CHANNEL_3,
-      .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
-      .timer_handle = &htim8,
-  };
+    rainbow_led_t led = {
+        .ccr2 = &TIM8->CCR1,
+        .ccr1 = &TIM8->CCR2,
+        .ccr3 = &TIM8->CCR3,
+        .channel1 = TIM_CHANNEL_1,
+        .channel2 = TIM_CHANNEL_2,
+        .channel3 = TIM_CHANNEL_3,
+        .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
+        .timer_handle = &htim8,
+    };
 
-  led_init(&led);
-  ledHandle = led_start_thread();
+    led_init(&led);
+    ledHandle = led_start_thread();
 
-  //... pdu init
+    //... pdu init
 
-  // struct with all the switches
-  // can thread update the switch struct with duty cycles
-  // vcu can set duty cycles and pdu "approves" baed on conditions
+    // struct with all the switches
+    // can thread update the switch struct with duty cycles
+    // vcu can set duty cycles and pdu "approves" baed on conditions
 
-  /* add threads, ... */
+    /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
-  /* add events, ... */
+    /* add events, ... */
   /* USER CODE END RTOS_EVENTS */
+
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -139,16 +150,24 @@ void StartDefaultTask(void *argument)
   /* init code for USB_Device */
   MX_USB_Device_Init();
   /* USER CODE BEGIN StartDefaultTask */
-  /* Infinite loop */
-  for (;;)
-  {
-    HAL_GPIO_WritePin(GPIOA, EN_TSSI_G_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(GPIOC, EN_SDWN_Pin, GPIO_PIN_SET);
-    osDelay(10000);
-    HAL_GPIO_WritePin(GPIOA, EN_TSSI_G_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOC, EN_SDWN_Pin, GPIO_PIN_RESET);
-    osDelay(10000);
-  }
+
+    // setup USB and Logging
+    if (init_logging(CDC_Transmit_FS) == -1) {
+        osThreadTerminate(ledHandle);
+    }
+
+    init_dfu(dfu);
+    dfu_start_thread();
+
+    /* Infinite loop */
+    for (;;) {
+        HAL_GPIO_WritePin(GPIOA, EN_TSSI_G_Pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOC, EN_SDWN_Pin, GPIO_PIN_SET);
+        osDelay(10000);
+        HAL_GPIO_WritePin(GPIOA, EN_TSSI_G_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOC, EN_SDWN_Pin, GPIO_PIN_RESET);
+        osDelay(10000);
+    }
   /* USER CODE END StartDefaultTask */
 }
 
@@ -156,3 +175,4 @@ void StartDefaultTask(void *argument)
 /* USER CODE BEGIN Application */
 
 /* USER CODE END Application */
+
