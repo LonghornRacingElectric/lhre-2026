@@ -72,8 +72,7 @@ class TestBevoAndDatabaseIntegration(unittest.TestCase):
         except Exception:
             return False
 
-    def test_bevo_angelique_welcome_packet(self):
-        """BEVO-Angelique should receive a welcome packet containing packet_id."""
+    def _await_welcome_packet(self, client_id: str, announce_payload: str, timeout: float = 12.0):
         received_message = None
         received_topic = None
 
@@ -81,7 +80,6 @@ class TestBevoAndDatabaseIntegration(unittest.TestCase):
             del userdata, flags
             if rc == 0:
                 client.subscribe("server-communication")
-                client.publish("client-connections", "BEVO-Angelique")
             else:
                 self.fail(f"Failed to connect to MQTT broker, return code {rc}")
 
@@ -91,20 +89,29 @@ class TestBevoAndDatabaseIntegration(unittest.TestCase):
             received_topic = msg.topic
             received_message = json.loads(msg.payload.decode())
 
-        client = mqtt_client.Client(client_id="BEVO-Angelique")
+        client = mqtt_client.Client(client_id=client_id)
         client.on_connect = on_connect
         client.on_message = on_message
-
         client.connect(self.config.mqtt_host, self.config.mqtt_port, 60)
         client.loop_start()
 
-        timeout = 10
-        start_time = time.time()
-        while received_message is None and (time.time() - start_time) < timeout:
-            time.sleep(0.1)
+        try:
+            start_time = time.time()
+            while received_message is None and (time.time() - start_time) < timeout:
+                client.publish("client-connections", announce_payload)
+                time.sleep(0.5)
+        finally:
+            client.loop_stop()
+            client.disconnect()
 
-        client.loop_stop()
-        client.disconnect()
+        return received_topic, received_message
+
+    def test_bevo_angelique_welcome_packet(self):
+        """BEVO-Angelique should receive a welcome packet containing packet_id."""
+        received_topic, received_message = self._await_welcome_packet(
+            client_id="BEVO-Angelique",
+            announce_payload="BEVO-Angelique",
+        )
 
         self.assertIsNotNone(received_message, "No welcome message received")
         self.assertEqual(received_topic, "server-communication", "Message received on wrong topic")
@@ -113,37 +120,10 @@ class TestBevoAndDatabaseIntegration(unittest.TestCase):
 
     def test_bevo_orion_welcome_packet(self):
         """BEVO-Orion should receive a welcome packet containing packet_id."""
-        received_message = None
-        received_topic = None
-
-        def on_connect(client, userdata, flags, rc):
-            del userdata, flags
-            if rc == 0:
-                client.subscribe("server-communication")
-                client.publish("client-connections", "BEVO-Orion")
-            else:
-                self.fail(f"Failed to connect to MQTT broker, return code {rc}")
-
-        def on_message(client, userdata, msg):
-            del client, userdata
-            nonlocal received_message, received_topic
-            received_topic = msg.topic
-            received_message = json.loads(msg.payload.decode())
-
-        client = mqtt_client.Client(client_id="BEVO-Orion")
-        client.on_connect = on_connect
-        client.on_message = on_message
-
-        client.connect(self.config.mqtt_host, self.config.mqtt_port, 60)
-        client.loop_start()
-
-        timeout = 10
-        start_time = time.time()
-        while received_message is None and (time.time() - start_time) < timeout:
-            time.sleep(0.1)
-
-        client.loop_stop()
-        client.disconnect()
+        received_topic, received_message = self._await_welcome_packet(
+            client_id="BEVO-Orion",
+            announce_payload="BEVO-Orion",
+        )
 
         self.assertIsNotNone(received_message, "No welcome message received")
         self.assertEqual(received_topic, "server-communication", "Message received on wrong topic")
