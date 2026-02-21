@@ -124,6 +124,8 @@ float normalizeLightWithVoltage(float nominalPctAt24V, float curVoltage) {
 void setPWM(TIM_HandleTypeDef* htim, uint32_t channel, float percentage) {
     // Get timer period and calculate CCR based on duty cycle percentage
     uint32_t period = __HAL_TIM_GET_AUTORELOAD(htim);
+
+    // TODO: implement voltage sense so we can use the real measured voltage
     uint32_t ccr_value =
         (uint32_t)(normalizeLightWithVoltage(percentage, 24.0f) * period);
     __HAL_TIM_SET_COMPARE(htim, channel, ccr_value);
