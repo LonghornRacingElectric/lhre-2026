@@ -56,6 +56,8 @@ void pdu_can_init(void) {
     can_rtos_register_interface(&critical_bus);
     can_rtos_register_interface(&data_acq_bus);
 
+    pdu_can_add_receive_handlers();
+
     can_rtos_start_transceiver_task(osPriorityNormal);
     can_rtos_start_receiver_task(osPriorityAboveNormal);
 
@@ -106,5 +108,11 @@ bool vehicle_in_drive(void) { return !vehicle_in_park(); }
  * @return true
  * @return false
  */
-bool hvc_imd_fault(void) { return indicator_status_mailbox.imd_error; }
-bool hvc_bms_fault(void) { return indicator_status_mailbox.bms_error; }
+bool hvc_imd_fault(void) {
+    return indicator_status_mailbox.imd_error ||
+           message_timed_out(indicator_status_mailbox_handle, 1000);
+}
+bool hvc_bms_fault(void) {
+    return indicator_status_mailbox.bms_error ||
+           message_timed_out(indicator_status_mailbox_handle, 1000);
+}
