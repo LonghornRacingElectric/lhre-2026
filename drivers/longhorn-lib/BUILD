@@ -102,6 +102,7 @@ genrule(
     tools = [
         "generate_can_json",
     ],
+    visibility = ["//visibility:public"],
 )
 
 genrule(

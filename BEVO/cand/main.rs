@@ -1,6 +1,6 @@
 use anyhow::Result;
 use prost::Message;
-use socketcan::{CanFrame, CanSocket, Socket, EmbeddedFrame, Id};
+use socketcan::{CanSocket, Socket, EmbeddedFrame, Id};
 use std::collections::HashMap;
 use std::io::Write;
 use std::net::UdpSocket;
@@ -9,18 +9,25 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use sensor_proto::proto::SensorData;
-use sensor_proto::config::{PacketConfig, ProtobufMapping};
+use sensor_proto::proto::OrionSensorData;
+use sensor_proto::config::PacketConfig;
 use sensor_proto::generated_mapping;
 
-const USE_MOCK: bool = true; 
 const MOCK_ADDR: &str = "127.0.0.1:5005";
 const SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
-const CAN_INTERFACE: &str = "vcan0";
+const CAN_INTERFACE: &str = "can0";
 
-const CONFIG_JSON: &str = include_str!("../../drivers/proto/can_packets.json");
+const CONFIG_JSON: &str = include_str!(env!("CAND_CAN_JSON_PATH"));
 
 fn main() -> Result<()> {
+    let use_mock = matches!(
+        std::env::var("CAND_USE_MOCK")
+            .ok()
+            .as_deref()
+            .map(|value| value.to_ascii_lowercase()),
+        Some(value) if value == "1" || value == "true" || value == "yes"
+    );
+    let can_interface = std::env::var("CAND_CAN_INTERFACE").unwrap_or_else(|_| CAN_INTERFACE.to_string());
     let packets: Vec<PacketConfig> = serde_json::from_str(CONFIG_JSON)?;
     
     // This is where CAN IDs are mapped to their JSON configuration
@@ -30,12 +37,13 @@ fn main() -> Result<()> {
             .collect::<HashMap<u32, PacketConfig>>()
     );
 
-    let sensor_data = Arc::new(Mutex::new(SensorData::default()));
+    let sensor_data = Arc::new(Mutex::new(OrionSensorData::default()));
 
     let can_sensor_data = Arc::clone(&sensor_data);
     let can_packet_map = Arc::clone(&packet_map);
+    let can_interface_clone = can_interface.clone();
     thread::spawn(move || {
-        if let Err(e) = can_reader_loop(can_sensor_data, can_packet_map) {
+        if let Err(e) = can_reader_loop(can_sensor_data, can_packet_map, use_mock, can_interface_clone) {
             eprintln!("[CAND-CAN] Error: {:?}", e);
         }
     });
@@ -47,35 +55,41 @@ fn main() -> Result<()> {
         }
     });
 
-    println!("[CAND] Started in {} mode", if USE_MOCK { "MOCK" } else { "REAL" });
+    if use_mock {
+        println!("[CAND] Started in MOCK mode ({})", MOCK_ADDR);
+    } else {
+        println!("[CAND] Started in REAL mode ({})", can_interface);
+    }
     loop { thread::park(); }
 }
 
-fn can_reader_loop(data: Arc<Mutex<SensorData>>, map: Arc<HashMap<u32, PacketConfig>>) -> Result<()> {
-    if USE_MOCK {
+fn can_reader_loop(data: Arc<Mutex<OrionSensorData>>, map: Arc<HashMap<u32, PacketConfig>>, use_mock: bool, can_interface: String) -> Result<()> {
+    if use_mock {
         let socket = UdpSocket::bind(MOCK_ADDR)?;
         let mut buf = [0u8; 12];
         loop {
             socket.recv_from(&mut buf)?;
             let id = u32::from_le_bytes(buf[0..4].try_into().unwrap());
             if let Some(config) = map.get(&id) {
-                process_raw_data(&mut data.lock().unwrap(), &buf[4..12], config);
+                let mut locked = data.lock().unwrap();
+                process_raw_data(&mut locked, &buf[4..12], config);
             }
         }
     } else {
-        let socket = CanSocket::open(CAN_INTERFACE)?;
+        let socket = CanSocket::open(&can_interface)?;
         loop {
             let frame = socket.read_frame()?;
             if let Id::Standard(id) = frame.id() {
                 if let Some(config) = map.get(&(id.as_raw() as u32)) {
-                    process_raw_data(&mut data.lock().unwrap(), frame.data(), config);
+                    let mut locked = data.lock().unwrap();
+                    process_raw_data(&mut locked, frame.data(), config);
                 }
             }
         }
     }
 }
 
-fn process_raw_data(data: &mut SensorData, payload: &[u8], config: &PacketConfig) {
+fn process_raw_data(data: &mut OrionSensorData, payload: &[u8], config: &PacketConfig) {
     for signal in &config.bytes {
         if signal.start_byte + signal.length > payload.len() { continue; }
         
@@ -94,7 +108,12 @@ fn process_raw_data(data: &mut SensorData, payload: &[u8], config: &PacketConfig
                 let bytes = [payload[signal.start_byte], payload[signal.start_byte+1]];
                 (u16::from_le_bytes(bytes) as f64) * signal.precision
             },
+            "int16" => {
+                let bytes = [payload[signal.start_byte], payload[signal.start_byte+1]];
+                (i16::from_le_bytes(bytes) as f64) * signal.precision
+            },
             "uint8" => (payload[signal.start_byte] as f64) * signal.precision,
+            "int8" => (payload[signal.start_byte] as i8 as f64) * signal.precision,
             _ => continue,
         };
 
@@ -104,7 +123,7 @@ fn process_raw_data(data: &mut SensorData, payload: &[u8], config: &PacketConfig
     }
 }
 
-fn ipc_server_loop(sensor_data: Arc<Mutex<SensorData>>) -> Result<()> {
+fn ipc_server_loop(sensor_data: Arc<Mutex<OrionSensorData>>) -> Result<()> {
     let _ = std::fs::remove_file(SOCKET_PATH); 
     let listener = UnixListener::bind(SOCKET_PATH)?;
     let clients = Arc::new(Mutex::new(Vec::<UnixStream>::new()));

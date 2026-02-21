@@ -1,11 +1,11 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use prost::Message;
 use std::io::Read;
 use std::os::unix::net::UnixStream;
 use std::thread;
 use std::time::Duration;
 
-use sensor_proto::proto::SensorData;
+use sensor_proto::proto::OrionSensorData;
 
 const SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
 
@@ -25,9 +25,8 @@ fn main() -> Result<()> {
                             break;
                         }
                         Ok(n) => {
-                            match SensorData::decode(&buffer[..n]) {
+                            match OrionSensorData::decode(&buffer[..n]) {
                                 Ok(data) => {
-                                    
                                     if let Some(d) = &data.dynamics {
                                         println!(" [DYNAMICS]: {:#?}", d);
                                     }
@@ -40,9 +39,9 @@ fn main() -> Result<()> {
                                     if let Some(l) = &data.diagnostics_low {
                                         println!(" [DIAG_LOW]: {:#?}", l);
                                     }
-                                    if let Some(h) = &data.diagnostics_high {
-                                        println!(" [DIAG_HIGH]: {:#?}", h);
-                                    }
+                                    // if let Some(h) = &data.diagnostics_high {
+                                    //     println!(" [DIAG_HIGH]: {:#?}", h);
+                                    // } nothing in high diag rn, will change later #TODO
                                     if let Some(t) = &data.thermal {
                                         println!(" [THERMAL]: {:#?}", t);
                                     }

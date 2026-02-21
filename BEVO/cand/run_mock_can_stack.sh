@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+RUNFILES_ROOT="${RUNFILES_DIR:-$0.runfiles}"
+CAND_BIN="$RUNFILES_ROOT/_main/BEVO/cand/cand"
+MOCK_BIN="$RUNFILES_ROOT/_main/BEVO/cand/mock_can"
+DASHD_BIN="$RUNFILES_ROOT/_main/BEVO/dashd/dashd"
+
+for bin in "$CAND_BIN" "$MOCK_BIN" "$DASHD_BIN"; do
+  if [[ ! -x "$bin" ]]; then
+    echo "Could not find executable: $bin" >&2
+    exit 1
+  fi
+done
+
+cleanup() {
+  kill "${MOCK_PID:-}" "${CAND_PID:-}" "${DASHD_PID:-}" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT INT TERM
+
+"$DASHD_BIN" &
+DASHD_PID=$!
+
+CAND_USE_MOCK=1 "$CAND_BIN" &
+CAND_PID=$!
+
+"$MOCK_BIN" &
+MOCK_PID=$!
+
+wait "$DASHD_PID"

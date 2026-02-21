@@ -17,19 +17,34 @@ def send_packet(packet_id, data_bytes):
 
 print(f"LHR Mock CAN active. Sending to {UDP_IP}:{UDP_PORT}...")
 
+tick = 0
 while True:
-    apps_data = struct.pack("<HHHH", 33000, 15000, 33000, 15000)
-    send_packet(240, apps_data)
+    apps1 = 32000 + (tick % 2000)
+    apps2 = 14000 + ((tick * 3) % 2000)
+    apps1_travel = 30000 + ((tick * 5) % 3000)
+    apps2_travel = 12000 + ((tick * 7) % 3000)
+    apps_data = struct.pack("<HHHH", apps1, apps2, apps1_travel, apps2_travel)
+    send_packet(448, apps_data)
     
-    inv_temps = struct.pack("<hhhh", 450, 46, 44, 35)
-    send_packet(160, inv_temps)
+    inverter = 420 + (tick % 40)
+    motor = 40 + (tick % 10)
+    ambient = 25 + ((tick // 2) % 8)
+    discharge = 30 + ((tick // 3) % 8)
+    inv_temps = struct.pack("<hhhh", inverter, motor, ambient, discharge)
+    send_packet(386, inv_temps)
 
-    pedal_travel = 5000 # uint16
-    faults = 0x01       # bit0 set
+    pedal_travel = 4500 + ((tick * 11) % 2000)
+    faults = 0x01 if (tick // 20) % 2 == 0 else 0x00
     apps_fault_data = struct.pack("<HB", pedal_travel, faults)
-    send_packet(241, apps_fault_data)
+    send_packet(449, apps_fault_data)
 
-    batt_data = struct.pack("<HHHBB", 40000, 5000, 8500, 30, 28)
-    send_packet(512, batt_data)
+    hv_pack_mv = 39500 + ((tick * 13) % 1000)
+    hv_c_cs = 4500 + ((tick * 9) % 1200)
+    hv_soc_cs = 7800 + ((tick * 4) % 600)
+    cell_top = 28 + ((tick // 4) % 6)
+    cell_bottom = 26 + ((tick // 5) % 6)
+    batt_data = struct.pack("<HHHBB", hv_pack_mv, hv_c_cs, hv_soc_cs, cell_top, cell_bottom)
+    send_packet(161, batt_data)
 
+    tick += 1
     time.sleep(0.1) # 10Hz loop
