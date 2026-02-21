@@ -107,6 +107,7 @@ __attribute__((weak)) can_receive_message_t* can_get_receive_message_handle(
     new_msg->latest_msg = msg;
     new_msg->unpacking_fn = unpacking_fn;
     new_msg->packet_id = packet_id;
+    new_msg->_latest_rx_ms = can.tick_fn();
 
     new_msg->_next = NULL;
 
