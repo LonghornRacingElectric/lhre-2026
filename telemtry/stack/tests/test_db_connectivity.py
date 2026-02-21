@@ -101,6 +101,27 @@ class TestDatabaseConnectivity(unittest.TestCase):
             if "does not exist" in str(e):
                 self.skipTest("Angelique database not yet created")
             raise
+
+    def test_orion_database_exists(self):
+        """Test that the Orion database exists (used by telemetry)."""
+        try:
+            import psycopg2
+
+            conn = psycopg2.connect(
+                host=self.config.db_host,
+                port=self.config.db_port,
+                user=os.getenv("POSTGRES_USER", "postgres"),
+                password=os.getenv("POSTGRES_PASSWORD", "postgres"),
+                database="orion",
+            )
+
+            conn.close()
+            self.assertTrue(True, "Orion database exists")
+
+        except psycopg2.OperationalError as e:
+            if "does not exist" in str(e):
+                self.skipTest("Orion database not yet created")
+            raise
     
     def test_sqlalchemy_connection(self):
         """Test SQLAlchemy connection to the database."""

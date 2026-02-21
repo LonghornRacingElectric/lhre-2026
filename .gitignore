@@ -33,6 +33,7 @@ gen/
 log/
 *.log
 *.sql
+!telemtry/stack/ingest/orion_db_init.sql
 *.sqlite
 
 # OS generated files #

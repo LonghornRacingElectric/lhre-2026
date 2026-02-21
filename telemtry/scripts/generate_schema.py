@@ -2,6 +2,10 @@ import re
 import os
 import sys
 
+
+def snake_to_pascal(name):
+    return "".join(part.capitalize() for part in name.split('_'))
+
 # --- Type Mappings ---
 
 PG_TO_PRISMA_TYPES = {
@@ -138,6 +142,15 @@ def parse_proto(proto_content):
         messages[msg_name] = fields
     return messages
 
+
+def find_default_root_message(messages):
+    for msg_name in messages.keys():
+        if msg_name.endswith("SensorData"):
+            return msg_name
+    if messages:
+        return next(iter(messages.keys()))
+    return None
+
 # --- Artifact Generation ---
 
 def generate_prisma_from_sql(tables):
@@ -185,6 +198,8 @@ def generate_artifacts_from_proto(messages, root_msg_name):
                 # Convention for JSON
                 if f['name'].endswith('_json'):
                     sql_type = 'jsonb'
+                elif f['repeated']:
+                    sql_type += '[]'
                 
                 # The custom GPS point was removed, so this is commented out.
                 # Override for GPS convention
@@ -207,12 +222,14 @@ def generate_sqlalchemy_from_proto(messages, root_msg_name, prefix=""):
     
     sa_lines.append(f"class {prefix}Packet(Base{prefix}):")
     sa_lines.append(f"    __tablename__ = 'packet'")
+    sa_lines.append("    __table_args__ = {'schema': 'public', 'extend_existing': True}")
     sa_lines.append(f"    packet_id = Column(BigInteger, primary_key=True)")
     sa_lines.append(f"    time = Column(BigInteger, nullable=False)")
     
     for field in root_fields:
         if field['type'] in messages:
-            sa_lines.append(f"    {field['name']} = relationship(\"{prefix}{field['name'].capitalize()}\", uselist=False, back_populates=\"packet\")")
+            class_name = f"{prefix}{snake_to_pascal(field['name'])}"
+            sa_lines.append(f"    {field['name']} = relationship(\"{class_name}\", uselist=False, back_populates=\"packet\")")
     
     sa_lines.append("")
 
@@ -220,11 +237,12 @@ def generate_sqlalchemy_from_proto(messages, root_msg_name, prefix=""):
         if field['type'] in messages:
             msg_name = field['type']
             table_name = field['name']
-            class_name = f"{prefix}{table_name.capitalize()}"
+            class_name = f"{prefix}{snake_to_pascal(table_name)}"
             
             sa_lines.append(f"class {class_name}(Base{prefix}):")
             sa_lines.append(f"    __tablename__ = '{table_name}'")
-            sa_lines.append(f"    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)")
+            sa_lines.append("    __table_args__ = {'schema': 'public', 'extend_existing': True}")
+            sa_lines.append(f"    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)")
             
             for f in messages[msg_name]:
                 sa_type = PROTO_TO_SA_TYPES.get(f['type'], 'Text')
@@ -252,7 +270,7 @@ def generate_dataclasses_from_proto(messages, root_msg_name, prefix=""):
         if field['type'] in messages:
             msg_name = field['type']
             table_name = field['name']
-            class_name = f"{prefix}{table_name.capitalize()}"
+            class_name = f"{prefix}{snake_to_pascal(table_name)}"
             
             py_lines.append("@dataclass")
             py_lines.append(f"class {class_name}:")
@@ -272,7 +290,7 @@ def generate_dataclasses_from_proto(messages, root_msg_name, prefix=""):
     py_lines.append("    time: int")
     for field in root_fields:
         if field['type'] in messages:
-            class_name = f"{prefix}{field['name'].capitalize()}"
+            class_name = f"{prefix}{snake_to_pascal(field['name'])}"
             py_lines.append(f"    {field['name']}: Optional[{class_name}] = None")
         else:
             # Handle root-level primitives if any (though we assume packet_id/time are handled)
@@ -351,8 +369,8 @@ def patch_models(models_path, patch_content, car_name):
     pattern = re.compile(f"{re.escape(start_marker)}.*?{re.escape(end_marker)}", re.DOTALL)
     
     if not pattern.search(content):
-        print(f"Error: Markers not found for {car_name} in {models_path}")
-        sys.exit(1)
+        content = content.rstrip() + f"\n\n# BEGIN GENERATED {car_name}\n# END GENERATED {car_name}\n"
+        pattern = re.compile(f"{re.escape(start_marker)}.*?{re.escape(end_marker)}", re.DOTALL)
         
     new_section = f"{start_marker}\n{patch_content}\n{end_marker}"
     new_content = pattern.sub(new_section, content)
@@ -378,6 +396,12 @@ if __name__ == "__main__":
         
         with open(proto_file, 'r') as f: proto_content = f.read()
         messages = parse_proto(proto_content)
+        if root_msg.lower() == "auto":
+            resolved_root = find_default_root_message(messages)
+            if not resolved_root:
+                print("Error: Could not infer root message from proto")
+                sys.exit(1)
+            root_msg = resolved_root
         
         sql, tables = generate_artifacts_from_proto(messages, root_msg)
         sa = generate_sqlalchemy_from_proto(messages, root_msg, prefix)
