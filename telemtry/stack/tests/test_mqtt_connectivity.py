@@ -78,10 +78,10 @@ class TestMQTTConnectivity(unittest.TestCase):
         with MQTTTestClient(self.config) as client:
             # Subscribe to telemetry-like topics
             topics = [
-                "data/packet",
-                "data/dynamics",
-                "data/controls",
-                "data/thermal",
+                "nightwatch/packet",
+                "nightwatch/dynamics",
+                "orion/data",
+                "angelique/data",
                 "config/flask",
             ]
             

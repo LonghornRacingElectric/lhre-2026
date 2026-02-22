@@ -48,6 +48,7 @@ services:
       - telemetry_db:/var/lib/postgresql/data
       - ./nightwatch_db_init.sql:/app/nightwatch_db_init.sql
       - ./angelique_db_init.sql:/app/angelique_db_init.sql
+      - ./orion_db_init.sql:/app/orion_db_init.sql
       - ./init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
     networks:
       - telemetry_network

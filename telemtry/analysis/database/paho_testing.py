@@ -26,6 +26,7 @@ from analysis.sql_utils.db_session import get_db, DBTarget
 from analysis.sql_utils.query_builder import QueryBuilder
 from stack.ingest.protobuf.template_pb2 import SensorData
 from stack.ingest.protobuf.angelique_pb2 import AngeliqueSensorData
+from stack.ingest.protobuf.can_packets_pb2 import OrionSensorData
 
 
 
@@ -258,8 +259,10 @@ class DataTester:
                 logging.info(f'Publishing payload #{i:>3} to {table}: {row}')
             if kwargs.get('target') == "Angelique":
                 self.mqtt.publish(f'angelique/{table}', pickle.dumps(row), qos=0)
-            else:
-                self.mqtt.publish(f'data/{table}', pickle.dumps(row), qos=0)
+            elif kwargs.get('target') == "Nightwatch":
+                self.mqtt.publish(f'nightwatch/{table}', pickle.dumps(row), qos=0)
+            elif kwargs.get('target') == "Orion":
+                self.mqtt.publish(f'orion/{table}', pickle.dumps(row), qos=0)
             time.sleep(delay)
         return 0
 
@@ -293,10 +296,18 @@ class DataTester:
     
     def send_proto_rows(self, tables:list,  num_rows:int, delay:float, rm_cols = None, use_csv=False, **kwargs):
         db_desc = self.get_desc(tables=tables, rm_cols=rm_cols, **kwargs)
-        topic = 'angelique/data' if kwargs.get('target') == "Angelique" else 'data'
+        target = kwargs.get('target', 'Nightwatch')
+        if target == "Angelique":
+            topic = 'angelique/data'
+        elif target == "Nightwatch":
+            topic = 'nightwatch/data'
+        elif target == "Orion":
+            topic = 'orion/data'
+        else:
+            topic = 'data'
         for i in tqdm(range(num_rows)):
             data = self.create_proto_message(i + 1, db_desc, use_csv=use_csv, target=kwargs.get('target', 'Nightwatch'))
-            mqtt.publish(topic, data.SerializeToString(), qos=0)
+            self.mqtt.publish(topic, data.SerializeToString(), qos=0)
             time.sleep(delay)
 
     def create_proto_message(self, packet: int, db_desc, use_csv=False, target="Nightwatch"):
@@ -312,8 +323,10 @@ class DataTester:
         if use_csv:
             row = self.create_row_from_csv(packet, db_desc)
 
-        if (target == "Angelique"):
+        if target == "Angelique":
             data = AngeliqueSensorData()
+        elif target == "Orion":
+            data = OrionSensorData()
         else:
             data = SensorData()
         
@@ -361,19 +374,28 @@ class DataTester:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    car_name = "Angelique"  # Change to "Nightwatch" or "Angelique" as needed
+    car_name = "Orion"  # Change to "Nightwatch", "Angelique", or "Orion" as needed
     
     # Optional Paths for CSV and mapping files
     csv_path = Path(__file__).parent / 'csv_processing/csv_data/Log__2024_10_11__05_50_47.csv'
     mapping_path = Path(__file__).parent / 'csv_processing/angelique_pg_to_csv.json'
     
-    with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session:
-        db_sessions = {'Nightwatch': nightwatch_session, 'Angelique': angelique_session}
+    with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session, get_db("Orion") as orion_session:
+        db_sessions = {
+            'Nightwatch': nightwatch_session,
+            'Angelique': angelique_session,
+            'Orion': orion_session,
+        }
         with MQTTHandler('paho_test', db_sessions=db_sessions, target=MQTTTarget.get()) as mqtt:
             # Protobuf message testing with CSV data
             dt = DataTester(mqtt=mqtt, seed=42, csv_path=None, mapping_path=None)
+            proto_tables = {
+                "Nightwatch": ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'],
+                "Angelique": ['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
+                "Orion": ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_low', 'thermal'],
+            }
             dt.send_proto_rows(
-                tables=['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
+                tables=proto_tables[car_name],
                 num_rows= 2000,
                 delay= 0.1,
                 use_csv=False,

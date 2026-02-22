@@ -17,8 +17,8 @@ sys.path.append(str(Path(__file__).parents[2]))
 
 from analysis.sql_utils.db_session import get_db
 from analysis.sql_utils.query_builder import QueryBuilder
-from analysis.sql_utils.models import AngeliquePacket
-from stack.ingest.protobuf import template_pb2, angelique_pb2, bridge_pb2, bridge_pb2_grpc
+from analysis.sql_utils.models import AngeliquePacket, OrionPacket
+from stack.ingest.protobuf import template_pb2, angelique_pb2, can_packets_pb2, bridge_pb2, bridge_pb2_grpc
 
 # Determine path to net_configs.json based on execution context
 if os.getenv("IN_DOCKER"):
@@ -63,7 +63,8 @@ class MQTTHandler:
         self.cache_enable = cache_enable
         self.table_specs = {
             "Nightwatch": QueryBuilder("Nightwatch").get_table_column_specs(),
-            "Angelique": QueryBuilder("Angelique").get_table_column_specs()
+            "Angelique": QueryBuilder("Angelique").get_table_column_specs(),
+            "Orion": QueryBuilder("Orion").get_table_column_specs(),
         }
         
         # gRPC bridge client instead of Kafka
@@ -82,6 +83,10 @@ class MQTTHandler:
             logging.info(f'\t\t{client._client_id} connected to Mosquitto Broker')
             # Subscribe to client connection announcements
             userdata.client.subscribe('client-connections')
+
+    @staticmethod
+    def _model_key(table_name: str) -> str:
+        return ''.join(part.capitalize() for part in table_name.split('_'))
 
     @staticmethod
     def on_disconnect(client: mqtt_client.Client, userdata, rc: int):
@@ -126,8 +131,8 @@ class MQTTHandler:
 
     def on_message(self, client: mqtt_client.Client, userdata, msg):
         if msg.topic == 'client-connections':
-            connected_client_id = msg.payload.decode()
-            if connected_client_id == 'BEVO-Angelique' and msg.payload.decode() == 'BEVO-Angelique':
+            connected_client_id = msg.payload.decode().strip()
+            if connected_client_id in {'BEVO-Angelique', 'BEVO_ANGELIQUE'}:
                 # Query the database for the latest packet_id from Angelique
                 logging.warning(f'\t\tBEVO-Angelique has connected. Querying database for latest packet_id to send welcome message...')
                 try:
@@ -145,9 +150,22 @@ class MQTTHandler:
                 })
                 userdata.client.publish('server-communication', welcome_msg)
                 logging.info(f'\t\tBEVO-Angelique connected. Sent welcome message with next packet_id: {next_packet_id}')
-            elif connected_client_id == 'BEVO-Orion' and msg.payload.decode() == 'BEVO-Orion':
-                logging.info(f'\t\tBEVO-Orion connected.')
-                # TODO: someone lowkey need to do this
+            elif connected_client_id in {'BEVO-Orion', 'BEVO_ORION'}:
+                logging.warning('\t\tBEVO-Orion has connected. Querying database for latest packet_id to send welcome message...')
+                try:
+                    with QueryBuilder("Orion") as qb:
+                        result = qb.session.query(OrionPacket.packet_id).order_by(OrionPacket.packet_id.desc()).first()
+                        if result:
+                            next_packet_id = result[0] + 1
+                        else:
+                            next_packet_id = 1
+                except Exception as e:
+                    logging.error(f'\t\tUnable to fetch latest Orion packet_id: {e}')
+                    next_packet_id = 1
+
+                welcome_msg = json.dumps({"packet_id": next_packet_id})
+                userdata.client.publish('server-communication', welcome_msg)
+                logging.info(f'\t\tBEVO-Orion connected. Sent welcome message with next packet_id: {next_packet_id}')
             return
         # Handle Start & End Event
         if msg.topic == 'config/flask':
@@ -158,12 +176,17 @@ class MQTTHandler:
         # Handle Angelique-style Base64 Encoded Bytes
         elif (freq := msg.topic.rsplit('/')[-1]) in ['h', 'l']:
             self._b64_ingest(msg.payload, freq)
-        # Handle Normal Data Ingest
+        # Handle bare data topic as Orion protobuf stream
         elif (topic_split := msg.topic.split('/'))[0] == 'data':
-            if (topic_split[-1] in {'packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'}):
-                self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car = "Nightwatch")
+            if (topic_split[-1] in {'packet', 'dynamics', 'controls', 'pack', 'diagnostics_low', 'thermal'}):
+                self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car="Orion")
             else:
-                # Send via gRPC BEFORE database insertion
+                self._send_to_bridge(payload=msg.payload, car="Orion")
+                self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Orion")
+        elif (topic_split := msg.topic.split('/'))[0] == 'nightwatch':
+            if (topic_split[-1] in self.table_specs["Nightwatch"]):
+                self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car="Nightwatch")
+            else:
                 self._send_to_bridge(payload=msg.payload, car="Nightwatch")
                 self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Nightwatch")
         elif (topic_split := msg.topic.split('/'))[0] == 'angelique':
@@ -173,6 +196,12 @@ class MQTTHandler:
                 # Send via gRPC BEFORE database insertion
                 self._send_to_bridge(payload=msg.payload, car="Angelique")
                 self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Angelique")
+        elif (topic_split := msg.topic.split('/'))[0] == 'orion':
+            if topic_split[-1] in self.table_specs["Orion"]:
+                self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car="Orion")
+            else:
+                self._send_to_bridge(payload=msg.payload, car="Orion")
+                self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Orion")
         else:
             logging.warning(f'No corresponding topic found for {msg.topic}')
     
@@ -240,7 +269,7 @@ class MQTTHandler:
             data_dict = json.loads(payload.decode().replace("'", '"'))
 
         session = self.sessions[car]
-        model = QueryBuilder(car)._models.get(table.capitalize())
+        model = QueryBuilder(car)._models.get(self._model_key(table))
 
         if model:
             table_desc = self.table_specs[car][model.__tablename__]
@@ -263,7 +292,7 @@ class MQTTHandler:
         table_specs = self.table_specs[car]
 
         for table in table_specs.keys():
-            model = builder._models.get(table.capitalize())
+            model = builder._models.get(self._model_key(table))
             if model:
                 table_desc = table_specs[model.__tablename__]
                 data = {col.name: message_dict[col.name] for col in model.__table__.columns if col.name in message_dict} if table == "packet" else None
@@ -303,7 +332,7 @@ class MQTTHandler:
         table_specs = self.table_specs["Angelique"]
 
         for table in ['packet', 'angelique_dynamics', 'angelique_controls', 'angelique_pack', 'angelique_diagnostics', 'angelique_thermal']:
-            model = builder._models.get(table.capitalize())
+            model = builder._models.get(self._model_key(table))
             if model:
                 table_desc = table_specs[model.__tablename__]
                 data = {col.name: data_dict[col.name] for col in model.__table__.columns if col.name in data_dict}
@@ -317,6 +346,8 @@ class MQTTHandler:
         # logging.debug('Data Received via Protobuf')
         if (car == "Angelique"):
             row = angelique_pb2.AngeliqueSensorData()
+        elif (car == "Orion"):
+            row = can_packets_pb2.OrionSensorData()
         else:
             row = template_pb2.SensorData()
         row.ParseFromString(payload)
@@ -414,8 +445,12 @@ def main():
     This is the runner script for the subscribe-side MQTT script which uploads data to the database.
     '''
     
-    with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session:
-        db_sessions = {'Nightwatch': nightwatch_session, 'Angelique': angelique_session}
+    with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session, get_db("Orion") as orion_session:
+        db_sessions = {
+            'Nightwatch': nightwatch_session,
+            'Angelique': angelique_session,
+            'Orion': orion_session,
+        }
         with MQTTHandler('ingest', db_sessions=db_sessions, target=MQTTTarget.get()) as mqtt:
             mqtt.subscribe(topic='#')
 

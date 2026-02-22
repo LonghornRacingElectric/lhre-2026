@@ -107,6 +107,7 @@ __attribute__((weak)) can_receive_message_t* can_get_receive_message_handle(
     new_msg->latest_msg = msg;
     new_msg->unpacking_fn = unpacking_fn;
     new_msg->packet_id = packet_id;
+    new_msg->_latest_rx_ms = can.tick_fn();
 
     new_msg->_next = NULL;
 
@@ -275,4 +276,25 @@ void can_reset_internals(void) {
     for (int i = 0; i < MAX_INTERFACES; i++) {
         interfaces[i] = NULL;
     }
+}
+
+bool message_timed_out(can_receive_message_t* msg, uint32_t timeout_ms) {
+    if ((can.tick_fn() - msg->_latest_rx_ms) >= timeout_ms) {
+        msg->timed_out = true;
+    } else {
+        msg->timed_out = false;
+    }
+
+    return msg->timed_out;
+}
+
+bool message_timed_out_sticky(can_receive_message_t* msg, uint32_t timeout_ms) {
+    if (msg->timed_out) {
+        return true;
+    }
+
+    if ((can.tick_fn() - msg->_latest_rx_ms) >= timeout_ms) {
+        msg->timed_out = true;
+    }
+    return msg->timed_out;
 }

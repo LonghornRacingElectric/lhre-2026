@@ -429,6 +429,7 @@ def generate_proto_text(partitions: Dict[str, List[ParsedField]], car_name:str) 
 
     lines: List[str] = []
     lines.append('syntax = "proto3";')
+    lines.append("package orion;")
     lines.append("")
 
     # Top-level message

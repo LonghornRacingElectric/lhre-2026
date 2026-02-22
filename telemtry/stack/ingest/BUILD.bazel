@@ -68,6 +68,8 @@ exports_files([
     "init-databases.sh",
     "nightwatch_db_init.sql",
     "angelique_db_init.sql",
+    "orion_db_init.sql",
+    "common_schema.sql",
 ])
 
 # Filegroup for SQL initialization scripts
@@ -77,6 +79,7 @@ filegroup(
         "angelique_db_init.sql",
         "init-databases.sh",
         "nightwatch_db_init.sql",
+        "orion_db_init.sql",
     ],
     visibility = ["//visibility:public"],
 )
