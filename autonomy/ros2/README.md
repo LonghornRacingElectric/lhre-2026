@@ -13,6 +13,7 @@ All scripts auto-detect which ROS 2 distro is installed (via `scripts/_ros_env.s
 | Package | Description |
 |---------|-------------|
 | `lhr_trackgen` | Publishes a synthetic cone track (`/lhr/track/cones`) |
+| `lhr_sensor_sim` | FOV-limited sensor simulation — filters cones by vehicle pose, accumulates detections |
 | `lhr_track_builder` | Subscribes to cones, publishes centerline path (`/lhr/track/centerline`) |
 | `lhr_sim_kinematic` | Kinematic bicycle-model vehicle simulator |
 | `lhr_control` | Pure pursuit path-following controller |
@@ -106,6 +107,7 @@ All scripts live in `scripts/` and should be run from the `autonomy/ros2` direct
 | `run_centerline.sh` | Runs only the centerline builder (`lhr_track_builder`). |
 | `run_sim.sh` | Runs only the kinematic vehicle simulator (`lhr_sim_kinematic`). |
 | `run_control.sh` | Runs only the pure pursuit controller (`lhr_control`). |
+| `run_sensor.sh` | Runs only the sensor simulation (`lhr_sensor_sim`). |
 | `run_metrics.sh` | Runs only the metrics node (`lhr_metrics`). Prints summary on Ctrl+C and appends to `data/metrics.csv`. |
 
 The individual `run_*.sh` scripts are useful for debugging a single node. For normal use, prefer the two-terminal workflow (`run_demo.sh` + `rviz_demo.sh`).
@@ -114,7 +116,10 @@ The individual `run_*.sh` scripts are useful for debugging a single node. For no
 
 | Topic | Type | Description |
 |-------|------|-------------|
-| `/lhr/track/cones` | `visualization_msgs/MarkerArray` | Blue (left) and yellow (right) cone markers |
+| `/lhr/track/cones` | `visualization_msgs/MarkerArray` | Blue (left) and yellow (right) cone markers (ground truth) |
+| `/lhr/sensor/cones_detected` | `visualization_msgs/MarkerArray` | Cones detected by sensor sim (accumulated, FOV-filtered) |
+| `/lhr/sensor/cones_viz` | `visualization_msgs/MarkerArray` | All cones: detected = bright, unseen = dim/transparent |
+| `/lhr/sensor/fov_viz` | `visualization_msgs/MarkerArray` | Sensor FOV frustum visualization |
 | `/lhr/track/centerline` | `nav_msgs/Path` | Ordered centerline path through midpoints |
 | `/lhr/track/centerline_markers` | `visualization_msgs/MarkerArray` | Debug: green spheres + line strip |
 | `/lhr/vehicle/cmd` | `ackermann_msgs/AckermannDriveStamped` | Steering + speed command |
@@ -145,6 +150,17 @@ map → base_link   (broadcast by lhr_sim_kinematic)
 | `width_m` | `3.5` | Track width in meters |
 | `cone_spacing_m` | `2.0` | Distance between cones along the track (autocross only) |
 
+### lhr_sensor_sim (sensor_sim)
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `fov_deg` | `200.0` | Total field of view (degrees) |
+| `max_range_m` | `20.0` | Max detection range (m) |
+| `min_range_m` | `0.5` | Min detection range (m) |
+| `detection_hz` | `10.0` | Publish rate (Hz) |
+| `noise_std_m` | `0.0` | Gaussian position noise std-dev (0 = off) |
+| `false_negative_rate` | `0.0` | Probability of missing a visible cone (0 = off) |
+
 ### lhr_track_builder (track_builder)
 
 | Param | Default | Description |
@@ -153,6 +169,7 @@ map → base_link   (broadcast by lhr_sim_kinematic)
 | `publish_hz` | `5.0` | Publishing rate (Hz) |
 | `max_points` | `200` | Cap on centerline points |
 | `pairing_strategy` | `"index"` | Cone pairing method (only `index` for now) |
+| `cone_topic` | `"/lhr/sensor/cones_detected"` | Topic to subscribe for cone data |
 
 ### lhr_sim_kinematic (sim_node)
 
@@ -164,6 +181,9 @@ map → base_link   (broadcast by lhr_sim_kinematic)
 | `max_speed` | `15.0` | Max speed (m/s) |
 | `frame_id` | `"map"` | Parent TF frame |
 | `child_frame_id` | `"base_link"` | Child TF frame |
+| `init_x` | `0.0` | Initial X position (m) |
+| `init_y` | `0.0` | Initial Y position (m) |
+| `init_yaw` | `0.0` | Initial heading (rad) |
 
 ### lhr_control (pursuit_node)
 

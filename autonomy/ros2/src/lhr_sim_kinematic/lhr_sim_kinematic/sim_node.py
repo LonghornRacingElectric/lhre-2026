@@ -35,6 +35,9 @@ class SimKinematic(Node):
         self.declare_parameter('max_speed', 15.0)
         self.declare_parameter('frame_id', 'map')
         self.declare_parameter('child_frame_id', 'base_link')
+        self.declare_parameter('init_x', 0.0)
+        self.declare_parameter('init_y', 0.0)
+        self.declare_parameter('init_yaw', 0.0)
 
         self._L = self.get_parameter(
             'wheelbase').get_parameter_value().double_value
@@ -50,9 +53,12 @@ class SimKinematic(Node):
             'child_frame_id').get_parameter_value().string_value
 
         # --- State ---
-        self._x = 0.0
-        self._y = 0.0
-        self._yaw = 0.0
+        self._x = self.get_parameter(
+            'init_x').get_parameter_value().double_value
+        self._y = self.get_parameter(
+            'init_y').get_parameter_value().double_value
+        self._yaw = self.get_parameter(
+            'init_yaw').get_parameter_value().double_value
         self._v = 0.0
         self._steer = 0.0
 

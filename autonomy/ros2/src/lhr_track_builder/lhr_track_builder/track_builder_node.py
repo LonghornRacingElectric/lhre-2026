@@ -25,6 +25,7 @@ class TrackBuilder(Node):
         self.declare_parameter('publish_hz', 5.0)
         self.declare_parameter('max_points', 200)
         self.declare_parameter('pairing_strategy', 'index')
+        self.declare_parameter('cone_topic', '/lhr/sensor/cones_detected')
 
         self._frame_id = self.get_parameter(
             'frame_id').get_parameter_value().string_value
@@ -34,6 +35,8 @@ class TrackBuilder(Node):
             'max_points').get_parameter_value().integer_value
         self._pairing_strategy = self.get_parameter(
             'pairing_strategy').get_parameter_value().string_value
+        cone_topic = self.get_parameter(
+            'cone_topic').get_parameter_value().string_value
 
         # --- Stored cone positions (updated on each callback) ---
         self._left_cones: List[Tuple[float, float]] = []
@@ -56,7 +59,7 @@ class TrackBuilder(Node):
 
         # --- Subscriber ---
         self.create_subscription(
-            MarkerArray, '/lhr/track/cones', self._cones_cb, sub_qos)
+            MarkerArray, cone_topic, self._cones_cb, sub_qos)
 
         # --- Publishers ---
         self._path_pub = self.create_publisher(

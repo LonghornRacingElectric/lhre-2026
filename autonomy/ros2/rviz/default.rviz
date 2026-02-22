@@ -6,7 +6,6 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /Marker1/Status1
       Splitter Ratio: 0.5
     Tree Height: 696
   - Class: rviz_common/Selection
@@ -34,7 +33,7 @@ Visualization Manager:
       Cell Size: 1
       Class: rviz_default_plugins/Grid
       Color: 160; 160; 164
-      Enabled: true
+      Enabled: false
       Line Style:
         Line Width: 0.029999999329447746
         Value: Lines
@@ -47,20 +46,19 @@ Visualization Manager:
       Plane: XY
       Plane Cell Count: 10
       Reference Frame: <Fixed Frame>
-      Value: true
+      Value: false
     - Class: rviz_default_plugins/MarkerArray
-      Enabled: true
+      Enabled: false
       Name: Cones
       Namespaces:
-        left_cones: true
-        right_cones: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /lhr/track/cones
-      Value: true
+      Value: false
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
       Name: Centerline(Markers)
@@ -154,6 +152,31 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /lhr/control/lookahead
       Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: ConesVisible
+      Namespaces:
+        left_cones_viz: true
+        right_cones_viz: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /lhr/sensor/cones_viz
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: FOV
+      Namespaces:
+        fov: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /lhr/sensor/fov_viz
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -200,7 +223,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 43.13402557373047
+      Distance: 46.253021240234375
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -215,10 +238,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.740398108959198
+      Pitch: 0.7753984332084656
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 1.4403979778289795
+      Yaw: 1.8958529233932495
     Saved: ~
 Window Geometry:
   Displays:
@@ -236,5 +259,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1908
-  X: 1180
-  Y: 0
+  X: 1148
+  Y: -32

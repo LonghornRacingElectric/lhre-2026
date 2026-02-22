@@ -28,6 +28,15 @@ def generate_launch_description():
     max_accel_arg = DeclareLaunchArgument('max_accel', default_value='2.0')
     max_decel_arg = DeclareLaunchArgument('max_decel', default_value='3.0')
 
+    # Sensor sim
+    fov_arg = DeclareLaunchArgument('fov_deg', default_value='200.0')
+    range_arg = DeclareLaunchArgument('max_range_m', default_value='20.0')
+
+    # Initial pose
+    init_x_arg = DeclareLaunchArgument('init_x', default_value='25.0')
+    init_y_arg = DeclareLaunchArgument('init_y', default_value='0.0')
+    init_yaw_arg = DeclareLaunchArgument('init_yaw', default_value='1.5708')
+
     # ----- Nodes -----
     cones = Node(
         package='lhr_trackgen',
@@ -37,6 +46,17 @@ def generate_launch_description():
             'seed': LaunchConfiguration('seed'),
             'track_style': LaunchConfiguration('track_style'),
             'num_waypoints': LaunchConfiguration('num_waypoints'),
+        }],
+        output='screen',
+    )
+
+    sensor_sim = Node(
+        package='lhr_sensor_sim',
+        executable='sensor_sim',
+        name='sensor_sim',
+        parameters=[{
+            'fov_deg': LaunchConfiguration('fov_deg'),
+            'max_range_m': LaunchConfiguration('max_range_m'),
         }],
         output='screen',
     )
@@ -52,6 +72,11 @@ def generate_launch_description():
         package='lhr_sim_kinematic',
         executable='sim_node',
         name='sim_kinematic',
+        parameters=[{
+            'init_x': LaunchConfiguration('init_x'),
+            'init_y': LaunchConfiguration('init_y'),
+            'init_yaw': LaunchConfiguration('init_yaw'),
+        }],
         output='screen',
     )
 
@@ -89,7 +114,13 @@ def generate_launch_description():
         v_max_arg,
         max_accel_arg,
         max_decel_arg,
+        fov_arg,
+        range_arg,
+        init_x_arg,
+        init_y_arg,
+        init_yaw_arg,
         cones,
+        sensor_sim,
         centerline,
         sim,
         control,
