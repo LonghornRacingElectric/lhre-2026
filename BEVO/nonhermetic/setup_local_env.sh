@@ -40,8 +40,7 @@ fi
 
 echo "Building BEVO local binaries with Cargo"
 (
-  cd "$BEVO_ROOT"
-  PROTO_FILE="$PROTO_FILE" cargo build --release
+  PROTO_FILE="$PROTO_FILE" cargo build --release --manifest-path "$BEVO_ROOT/Cargo.toml"
 )
 
 echo "Done. Local nonhermetic BEVO build is ready."
