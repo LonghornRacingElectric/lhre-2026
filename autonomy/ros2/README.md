@@ -21,14 +21,54 @@ All scripts auto-detect which ROS 2 distro is installed (via `scripts/_ros_env.s
 
 ## Prerequisites
 
-Install ROS 2 and the required packages for your Ubuntu version:
+### 1. WSL2 (Windows only)
+
+If you're on Windows, install WSL2 with Ubuntu first:
+
+```powershell
+# In PowerShell (as admin)
+wsl --install -d Ubuntu-24.04    # or Ubuntu-22.04
+```
+
+Restart, then open the Ubuntu terminal and continue below.
+
+### 2. Install ROS 2
+
+ROS 2 isn't in Ubuntu's default repos — you need to add the ROS apt source first.
+
+```bash
+# Install prerequisites
+sudo apt update && sudo apt install -y software-properties-common curl
+
+# Add the ROS 2 GPG key
+sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+  -o /usr/share/keyrings/ros-archive-keyring.gpg
+
+# Add the ROS 2 apt repository
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] \
+  http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" \
+  | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
+# Update package index
+sudo apt update
+```
+
+### 3. Install ROS 2 packages
 
 ```bash
 # Ubuntu 22.04 (Humble)
-sudo apt install ros-humble-desktop ros-humble-ackermann-msgs ros-humble-tf2-ros
+sudo apt install -y ros-humble-desktop ros-humble-ackermann-msgs ros-humble-tf2-ros
 
 # Ubuntu 24.04 (Jazzy)
-sudo apt install ros-jazzy-desktop ros-jazzy-ackermann-msgs ros-jazzy-tf2-ros
+sudo apt install -y ros-jazzy-desktop ros-jazzy-ackermann-msgs ros-jazzy-tf2-ros
+```
+
+Install whichever matches your Ubuntu version. The build scripts auto-detect the distro.
+
+### 4. Install colcon (build tool)
+
+```bash
+sudo apt install -y python3-colcon-common-extensions
 ```
 
 ## Quick start (two terminals)
