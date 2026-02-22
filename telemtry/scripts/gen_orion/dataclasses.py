@@ -51,6 +51,7 @@ class OrionControls:
 
 @dataclass
 class OrionPack:
+    torque_command: Optional[float] = None
     dc_bus_v: Optional[float] = None
     hv_c: Optional[float] = None
     hv_pack_v: Optional[float] = None
@@ -58,7 +59,6 @@ class OrionPack:
     lv_batt_c: Optional[float] = None
     lv_batt_t: Optional[float] = None
     lv_batt_v: Optional[float] = None
-    torque_command: Optional[float] = None
 
 @dataclass
 class OrionDiagnosticsLow:
