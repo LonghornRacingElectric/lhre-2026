@@ -38,17 +38,21 @@ Launch arguments can be passed through `run_demo.sh`:
 ./scripts/run_demo.sh target_speed:=8.0 lookahead_dist:=6.0 seed:=42
 ```
 
-## Individual node scripts
+## Scripts reference
 
-If you prefer running nodes separately:
+All scripts live in `scripts/` and should be run from the `autonomy/ros2` directory.
 
-```bash
-./scripts/run_cones.sh        # Terminal 1
-./scripts/run_centerline.sh   # Terminal 2
-./scripts/run_sim.sh          # Terminal 3
-./scripts/run_control.sh      # Terminal 4
-rviz2                         # Terminal 5
-```
+| Script | Description |
+|--------|-------------|
+| `build.sh` | Builds all packages with `colcon build --symlink-install`. Run after any code change. |
+| `run_demo.sh` | Launches the full stack (cones + centerline + sim + control) via `ros2 launch`. Accepts launch args, e.g. `./scripts/run_demo.sh target_speed:=8.0`. |
+| `rviz_demo.sh` | Opens RViz with the pre-configured `rviz/default.rviz` config (all displays + fixed frame already set). |
+| `run_cones.sh` | Runs only the cone publisher (`lhr_trackgen`). |
+| `run_centerline.sh` | Runs only the centerline builder (`lhr_track_builder`). |
+| `run_sim.sh` | Runs only the kinematic vehicle simulator (`lhr_sim_kinematic`). |
+| `run_control.sh` | Runs only the pure pursuit controller (`lhr_control`). |
+
+The individual `run_*.sh` scripts are useful for debugging a single node. For normal use, prefer the two-terminal workflow (`run_demo.sh` + `rviz_demo.sh`).
 
 ## Topics
 
