@@ -1,12 +1,12 @@
 #include "vcu_model/inc/vcu_model.h"
 #include <gtest/gtest.h>
 
-
 class VCUModelTest : public ::testing::Test {
 protected:
   vcu_parameters_t params;
   vcu_inputs_t in;
   vcu_outputs_t out;
+  vcu_model_context_t ctx;
 
   void SetUp() override {
     // Basic apps params
@@ -36,8 +36,9 @@ protected:
 
     in = {0};
     out = {0};
+    ctx = {0};
 
-    vcu_model_init(&params);
+    vcu_model_init(&ctx, &params);
   }
 
   // Helper to transition to drive
@@ -45,17 +46,17 @@ protected:
     in.contactors_closed = true;
     in.bse_raw = 600; // Above 50 psi ON threshold
     in.drive_switch = false;
-    vcu_model_step(&in, &out, 10); // Update internal switch state
+    vcu_model_step(&ctx, &in, &out, 10); // Update internal switch state
 
     in.drive_switch = true; // Rising edge
-    vcu_model_step(&in, &out, 10);
+    vcu_model_step(&ctx, &in, &out, 10);
   }
 };
 
 TEST_F(VCUModelTest, InitialStateIsPark) {
   in.apps1_raw = 2500; // 50% pedal
   in.apps2_raw = 1250; // 50% pedal
-  vcu_model_step(&in, &out, 10);
+  vcu_model_step(&ctx, &in, &out, 10);
 
   // In park, torque should be 0 despite pedal
   EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
@@ -68,17 +69,17 @@ TEST_F(VCUModelTest, TransitionToDriveAndNormalOperation) {
   // Currently braking to get into drive, pedal at 0
   in.apps1_raw = 1000;
   in.apps2_raw = 500;
-  vcu_model_step(&in, &out, 10);
+  vcu_model_step(&ctx, &in, &out, 10);
   EXPECT_TRUE(out.buzzer_active); // Since drive just started
   EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
 
   // Release brake, press pedal
   in.bse_raw = 100; // 0 psi
-  vcu_model_step(&in, &out, 10);
+  vcu_model_step(&ctx, &in, &out, 10);
 
   in.apps1_raw = 2500; // 50% pedal
   in.apps2_raw = 1250;
-  vcu_model_step(&in, &out, 10);
+  vcu_model_step(&ctx, &in, &out, 10);
 
   EXPECT_FLOAT_EQ(out.torque_cmd, 50.0f);
   EXPECT_FALSE(out.apps_implaus);
@@ -97,7 +98,7 @@ TEST_F(VCUModelTest, AppsImplausibilityDisablesTorque) {
 
   // Evaluate > 100ms
   for (int i = 0; i < 15; i++) {
-    vcu_model_step(&in, &out, 10);
+    vcu_model_step(&ctx, &in, &out, 10);
   }
 
   EXPECT_TRUE(out.apps_implaus);
@@ -109,17 +110,17 @@ TEST_F(VCUModelTest, BrakeLatchDisablesTorque) {
 
   // Release brake
   in.bse_raw = 100;
-  vcu_model_step(&in, &out, 10);
+  vcu_model_step(&ctx, &in, &out, 10);
 
   // Press pedal to 50%
   in.apps1_raw = 2500;
   in.apps2_raw = 1250;
-  vcu_model_step(&in, &out, 10);
+  vcu_model_step(&ctx, &in, &out, 10);
   EXPECT_FLOAT_EQ(out.torque_cmd, 50.0f);
 
   // Now press brake while pedal is > 25%
   in.bse_raw = 900; // Max psi
-  vcu_model_step(&in, &out, 10);
+  vcu_model_step(&ctx, &in, &out, 10);
 
   EXPECT_TRUE(out.brake_latched);
   EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
@@ -132,17 +133,17 @@ TEST_F(VCUModelTest, TransitionToParkOnContactorLoss) {
   in.bse_raw = 100;
   in.apps1_raw = 2500;
   in.apps2_raw = 1250;
-  vcu_model_step(&in, &out, 10);
+  vcu_model_step(&ctx, &in, &out, 10);
   EXPECT_FLOAT_EQ(out.torque_cmd, 50.0f);
 
   // Contactors open
   in.contactors_closed = false;
-  vcu_model_step(&in, &out, 10);
+  vcu_model_step(&ctx, &in, &out, 10);
 
   // Now we should be in park
   in.bse_raw = 100;
   in.apps1_raw = 2500;
   in.apps2_raw = 1250;
-  vcu_model_step(&in, &out, 10);
+  vcu_model_step(&ctx, &in, &out, 10);
   EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
 }

@@ -114,6 +114,8 @@ static vcu_parameters_t s_params = {
     .brake_enable_threshold = 0.1f,
 };
 
+static vcu_model_context_t ctx = {0};
+
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -261,7 +263,7 @@ void StartControlTask(void *argument) {
   vcu_inputs_t in = {0};
   vcu_outputs_t out = {0};
 
-  vcu_model_init(&s_params);
+  vcu_model_init(&ctx, &s_params);
 
   uint32_t log_div = 0;  // for slower logging
   uint32_t adc1_val = 0; // optional polled ADC1 read
@@ -301,7 +303,7 @@ void StartControlTask(void *argument) {
     in.bse_raw = adc2_dma_buf[0];
 
     // Run control model
-    vcu_model_step(&in, &out, dt_ms);
+    vcu_model_step(&ctx, &in, &out, dt_ms);
 
     // Send torque command to inverter (Nm)
     vcu_can_set_torque(out.torque_cmd);

@@ -9,16 +9,34 @@
 extern "C" {
 #endif
 
+#include "APPS.h"
+#include "BSE.h"
+
 typedef enum {
   PRNDL_PARK,
   PRNDL_DRIVE,
 } prndl_state_t;
 
+typedef struct {
+  bool drive_switch;
+  uint32_t drive_start_time_ms;
+} vcu_model_state_t;
+
+typedef struct {
+  vcu_model_state_t prev_state;
+  prndl_state_t prndl_state;
+  uint32_t time_ms;
+  vcu_parameters_t params;
+  apps_state_t apps_state;
+  bse_state_t bse_state;
+} vcu_model_context_t;
+
 /* Initialize internal model state (call once at startup) */
-void vcu_model_init(vcu_parameters_t *params);
+void vcu_model_init(vcu_model_context_t *ctx, const vcu_parameters_t *params);
 
 /* One control step (call periodically, e.g. every 50 ms) */
-void vcu_model_step(const vcu_inputs_t *in, vcu_outputs_t *out, uint32_t dt_ms);
+void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
+                    vcu_outputs_t *out, uint32_t dt_ms);
 
 #ifdef __cplusplus
 }

@@ -9,6 +9,7 @@ protected:
   vcu_parameters_t params;
   vcu_inputs_t in;
   vcu_outputs_t out;
+  apps_state_t state;
 
   void SetUp() override {
     // Initialize default parameters for testing
@@ -24,6 +25,7 @@ protected:
 
     in = {0};
     out = {0};
+    state = {0};
   }
 };
 
@@ -44,7 +46,7 @@ TEST_F(APPSTest, EvaluateNormalOperation) {
   in.apps1_raw = 2500; // 50% travel
   in.apps2_raw = 1250; // 50% travel
 
-  apps_evaluate(&in, &out, &params, 10);
+  apps_evaluate(&in, &out, &state, &params, 10);
 
   EXPECT_FLOAT_EQ(out.apps1_travel, 0.5f);
   EXPECT_FLOAT_EQ(out.apps2_travel, 0.5f);
@@ -58,7 +60,7 @@ TEST_F(APPSTest, ImplausibilityTriggerAndRestore) {
   // leaked.
   in.apps1_raw = 1000; // 0%
   in.apps2_raw = 500;  // 0%
-  apps_evaluate(&in, &out, &params, 10);
+  apps_evaluate(&in, &out, &state, &params, 10);
   EXPECT_FALSE(out.apps_implaus);
 
   // 2. Trigger implausibility deviation (>10% diff)
@@ -67,23 +69,23 @@ TEST_F(APPSTest, ImplausibilityTriggerAndRestore) {
 
   // Evaluate for less than debounce time (100ms)
   for (int i = 0; i < 9; i++) {
-    apps_evaluate(&in, &out, &params, 10); // 90ms total
+    apps_evaluate(&in, &out, &state, &params, 10); // 90ms total
     EXPECT_FALSE(out.apps_implaus);
   }
 
   // Evaluate again crossing debounce threshold
-  apps_evaluate(&in, &out, &params, 15); // +15ms = 105ms
+  apps_evaluate(&in, &out, &state, &params, 15); // +15ms = 105ms
   EXPECT_TRUE(out.apps_implaus);
 
   // 3. Diff returns to normal, but pedal is not idle
   in.apps1_raw = 2500; // 50%
   in.apps2_raw = 1250; // 50%
-  apps_evaluate(&in, &out, &params, 10);
+  apps_evaluate(&in, &out, &state, &params, 10);
   EXPECT_TRUE(out.apps_implaus); // Should stay latched!
 
   // 4. Pedal goes idle (< 5%) to restore
   in.apps1_raw = 1100; // ~3.3%
   in.apps2_raw = 550;  // ~3.3%
-  apps_evaluate(&in, &out, &params, 10);
+  apps_evaluate(&in, &out, &state, &params, 10);
   EXPECT_FALSE(out.apps_implaus); // Should unlatch
 }

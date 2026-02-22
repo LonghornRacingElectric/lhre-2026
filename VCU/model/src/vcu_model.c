@@ -7,71 +7,67 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// Internal state
-typedef struct {
-  bool drive_switch;
-  uint32_t drive_start_time_ms;
-} vcu_model_state_t;
-
-static vcu_model_state_t s_prev_state = {0};
-static prndl_state_t s_prndl_state = PRNDL_PARK;
-static uint32_t s_time_ms = 0;
-static vcu_parameters_t s_params = {0};
-
 // Public API
 
-void vcu_model_init(vcu_parameters_t *params) {
+void vcu_model_init(vcu_model_context_t *ctx, const vcu_parameters_t *params) {
   // copy params -- we do a copy because we only want this to be updatable
   // at init or when in park, which is dictated by the model's state machine,
   // not by firmware
-  s_params = *params;
-  s_prev_state.drive_start_time_ms = 0;
-  s_prndl_state = PRNDL_PARK;
+  ctx->params = *params;
+  ctx->prev_state.drive_start_time_ms = 0;
+  ctx->prev_state.drive_switch = false;
+  ctx->prndl_state = PRNDL_PARK;
+  ctx->time_ms = 0;
+  ctx->apps_state.apps_implaus = false;
+  ctx->apps_state.apps_implaus_ms = 0;
+  ctx->bse_state.brake_active = false;
+  ctx->bse_state.brake_latched = false;
 }
 
 bool can_timed_out() { return false; }
-bool brake_threshold_reached(const vcu_inputs_t *in) {
-  return bse_is_active(bse_adc_to_psi(in->bse_raw, &s_params), &s_params);
+bool brake_threshold_reached(vcu_model_context_t *ctx, const vcu_inputs_t *in) {
+  return bse_is_active(bse_adc_to_psi(in->bse_raw, &ctx->params),
+                       &ctx->bse_state, &ctx->params);
 }
 
-void update_state_machine(const vcu_inputs_t *in) {
-  switch (s_prndl_state) {
+void update_state_machine(vcu_model_context_t *ctx, const vcu_inputs_t *in) {
+  switch (ctx->prndl_state) {
   case PRNDL_PARK:
     // Transition to DRIVE on (rising edge of switch) + brake + contactors
-    if (rising_edge(s_prev_state.drive_switch, in->drive_switch) &&
-        in->contactors_closed && brake_threshold_reached(in)) {
-      s_prndl_state = PRNDL_DRIVE;
-      s_prev_state.drive_start_time_ms = s_time_ms;
+    if (rising_edge(ctx->prev_state.drive_switch, in->drive_switch) &&
+        in->contactors_closed && brake_threshold_reached(ctx, in)) {
+      ctx->prndl_state = PRNDL_DRIVE;
+      ctx->prev_state.drive_start_time_ms = ctx->time_ms;
     }
     break;
   case PRNDL_DRIVE:
     // Return to PARK if switch opened or contactors drop
     if (!in->drive_switch || !in->contactors_closed) {
-      s_prndl_state = PRNDL_PARK;
+      ctx->prndl_state = PRNDL_PARK;
     }
     break;
   }
 
-  s_prev_state.drive_switch = in->drive_switch;
+  ctx->prev_state.drive_switch = in->drive_switch;
 }
 
-void vcu_model_step(const vcu_inputs_t *in, vcu_outputs_t *out,
-                    uint32_t dt_ms) {
+void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
+                    vcu_outputs_t *out, uint32_t dt_ms) {
   // update time
-  s_time_ms += dt_ms;
+  ctx->time_ms += dt_ms;
 
   // get the state for this step
-  update_state_machine(in);
+  update_state_machine(ctx, in);
 
-  switch (s_prndl_state) {
+  switch (ctx->prndl_state) {
   case PRNDL_PARK:
     out->torque_cmd = 0.0f;
     out->buzzer_active = false;
     break;
   case PRNDL_DRIVE: {
     // Evaluate sensors and check APPS plausibility
-    apps_evaluate(in, out, &s_params, dt_ms);
-    bse_evaluate(in, out, &s_params, dt_ms);
+    apps_evaluate(in, out, &ctx->apps_state, &ctx->params, dt_ms);
+    bse_evaluate(in, out, &ctx->bse_state, &ctx->params, dt_ms);
 
     // TODO: implement a proper filtering algorithm
     // set pedal to the average of the two sensors
@@ -86,12 +82,12 @@ void vcu_model_step(const vcu_inputs_t *in, vcu_outputs_t *out,
       // or the brake is latched
       out->torque_cmd = 0.0f;
     } else {
-      torque_map_evaluate(in, out, &s_params, dt_ms);
+      torque_map_evaluate(in, out, &ctx->params, dt_ms);
     }
 
     // buzzer only on for the first 3 seconds of drive
-    out->buzzer_active = (s_time_ms - s_prev_state.drive_start_time_ms <
-                          s_params.buzzer_duration_ms);
+    out->buzzer_active = (ctx->time_ms - ctx->prev_state.drive_start_time_ms <
+                          ctx->params.buzzer_duration_ms);
     break;
   }
   }

@@ -18,41 +18,38 @@ float bse_adc_to_psi(uint16_t adc, vcu_parameters_t *params) {
 /**
  * @brief Checks if brake is active based on pressure threshold
  */
-bool bse_is_active(float psi, vcu_parameters_t *params) {
-  static bool brake_active = false;
-
+bool bse_is_active(float psi, bse_state_t *state, vcu_parameters_t *params) {
   // lagging hysteresis
-  if (brake_active && psi < params->bse.bse_off_psi) {
-    brake_active = false;
-  } else if (!brake_active && psi >= params->bse.bse_on_psi) {
-    brake_active = true;
+  if (state->brake_active && psi < params->bse.bse_off_psi) {
+    state->brake_active = false;
+  } else if (!state->brake_active && psi >= params->bse.bse_on_psi) {
+    state->brake_active = true;
   }
 
-  return brake_active;
+  return state->brake_active;
 }
 
 static bool bse_is_latched(float psi, bool brake_active, float pedal,
-                           vcu_parameters_t *params) {
-  static bool brake_latched = false;
-
+                           bse_state_t *state, vcu_parameters_t *params) {
   if (brake_active && pedal > params->bse.max_pedal_while_braking) {
-    brake_latched = true;
+    state->brake_latched = true;
   }
 
   // can only be unlatched if we drop below the threshold
-  if (brake_latched && pedal < params->bse.max_pedal_restore_threshold) {
-    brake_latched = false;
+  if (state->brake_latched && pedal < params->bse.max_pedal_restore_threshold) {
+    state->brake_latched = false;
   }
 
-  return brake_latched;
+  return state->brake_latched;
 }
 
 void bse_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
-                  vcu_parameters_t *params, uint32_t dt_ms) {
+                  bse_state_t *state, vcu_parameters_t *params,
+                  uint32_t dt_ms) {
   out->bse_psi = bse_adc_to_psi(in->bse_raw, params);
 
-  out->brake_active = bse_is_active(out->bse_psi, params);
+  out->brake_active = bse_is_active(out->bse_psi, state, params);
 
   out->brake_latched = bse_is_latched(out->bse_psi, out->brake_active,
-                                      out->pedal_filtered, params);
+                                      out->pedal_filtered, state, params);
 }
