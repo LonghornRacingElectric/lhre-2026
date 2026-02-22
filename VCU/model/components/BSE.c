@@ -34,8 +34,8 @@ bool bse_is_active(float psi, bse_state_t *state, vcu_parameters_t *params) {
   return state->brake_active;
 }
 
-static bool bse_is_latched(float psi, bool brake_active, float pedal,
-                           bse_state_t *state, vcu_parameters_t *params) {
+static bool bse_is_latched(bool brake_active, float pedal, bse_state_t *state,
+                           vcu_parameters_t *params) {
   if (brake_active && pedal > params->bse.max_pedal_while_braking) {
     state->brake_latched = true;
   }
@@ -55,6 +55,6 @@ void bse_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
 
   out->brake_active = bse_is_active(out->bse_psi, state, params);
 
-  out->brake_latched = bse_is_latched(out->bse_psi, out->brake_active,
-                                      out->pedal_filtered, state, params);
+  out->brake_latched =
+      bse_is_latched(out->brake_active, out->pedal_filtered, state, params);
 }
