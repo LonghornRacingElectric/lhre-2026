@@ -92,32 +92,3 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
   }
   }
 }
-
-/**
-old */
-
-// static float clamp_f(float x, float lo, float hi) {
-//   return (x < lo) ? lo : (x > hi) ? hi : x;
-// }
-
-// static float apps_adc_to_travel(uint16_t raw, uint16_t min_adc,
-//                                 uint16_t max_adc) {
-//   if (raw < min_adc)
-//     raw = min_adc;
-//   else if (raw > max_adc)
-//     raw = max_adc;
-
-//   float span = (float)(max_adc - min_adc);
-//   if (span <= 1.0f)
-//     return 0.0f;
-
-//   return ((float)raw - (float)min_adc) / span;
-// }
-
-// static float bse_adc_to_psi(uint16_t adc) {
-//   const float lo = BSE_ADC_AT_0_PSI;
-//   const float hi = BSE_ADC_AT_1000_PSI;
-
-//   float adc_f = clamp_f((float)adc, lo, hi); // clean float clamp
-//   return (adc_f - lo) / (hi - lo) * BSE_MAX_PSI;
-// }
