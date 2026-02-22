@@ -4,9 +4,11 @@
 #include "PRNDL.h"
 #include "TorqueMap.h"
 #include "util.h"
+#include <cstring>
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <vcu_outputs.h>
 
 // Public API
 
@@ -35,11 +37,16 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
   // update time
   ctx->time_ms += dt_ms;
 
+  // default output state
+  memset(out, 0, sizeof(vcu_outputs_t));
+
   // Evaluate sensors and check APPS plausibility
   apps_evaluate(in, out, &ctx->apps_state, &ctx->params, dt_ms);
 
+  // check BSE
   bse_evaluate(in, out, &ctx->bse_state, &ctx->params, dt_ms);
 
+  // perform mapping from pedal to output
   torque_map_evaluate(in, out, &ctx->params, dt_ms);
 
   // get the state for this step

@@ -10,6 +10,14 @@ float apps_adc_to_travel(float adc, float min, float max) {
   return inverse_linear_interp(min, max, raw);
 }
 
+bool apps_out_of_range(float travel, float min, float max) {
+  return travel < min || travel > max;
+}
+
+bool apps_under_voltage(float adc, float min, float max) { return adc < min; }
+
+bool apps_over_voltage(float adc, float min, float max) { return adc > max; }
+
 void apps_init(apps_state_t *state) {
   state->apps_implaus = false;
   state->apps_implaus_ms = 0;
@@ -25,10 +33,26 @@ void apps_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
       apps_adc_to_travel(in->apps2_raw, params->apps.apps2_min_adc_v,
                          params->apps.apps2_max_adc_v);
 
+  // Check faults and update outputs
   out->faults.apps_implaus = apps_implausible(
       out->apps1_travel, out->apps2_travel, state, params, dt_ms);
+  out->faults.apps1_over_range =
+      apps_over_voltage(in->apps1_raw, params->apps.apps1_min_adc_v,
+                        params->apps.apps1_max_adc_v);
+  out->faults.apps1_under_range =
+      apps_under_voltage(in->apps1_raw, params->apps.apps1_min_adc_v,
+                         params->apps.apps1_max_adc_v);
+  out->faults.apps2_over_range =
+      apps_over_voltage(in->apps2_raw, params->apps.apps2_min_adc_v,
+                        params->apps.apps2_max_adc_v);
+  out->faults.apps2_under_range =
+      apps_under_voltage(in->apps2_raw, params->apps.apps2_min_adc_v,
+                         params->apps.apps2_max_adc_v);
 
-  out->faults.apps_any_fault = out->faults.apps_implaus;
+  out->faults.apps_any_fault =
+      out->faults.apps_implaus || out->faults.apps1_over_range ||
+      out->faults.apps1_under_range || out->faults.apps2_over_range ||
+      out->faults.apps2_under_range;
 
   // Debugging fields
   out->debug.apps_implaus_ms = state->apps_implaus_ms;

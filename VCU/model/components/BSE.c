@@ -35,19 +35,6 @@ bool bse_is_active(float psi, bse_state_t *state, vcu_parameters_t *params) {
   return state->brake_active;
 }
 
-/**
- * @brief Checks if threshold for enabling PRNLD is reached
- *
- * @param ctx
- * @param in
- * @return true
- * @return false
- */
-bool brake_threshold_reached(bse_state_t *state, const vcu_inputs_t *in,
-                             vcu_parameters_t *params) {
-  return bse_is_active(bse_adc_to_psi(in->bse_raw, params), state, params);
-}
-
 static bool bse_is_latched(bool brake_active, float pedal, bse_state_t *state,
                            vcu_parameters_t *params) {
   if (brake_active && pedal > params->bse.max_pedal_while_braking) {
