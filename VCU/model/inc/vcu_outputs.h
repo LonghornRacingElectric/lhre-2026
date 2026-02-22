@@ -12,7 +12,7 @@ typedef struct {
   /* Normalized pedal travel */
   float apps1_travel;   // travel percentage of apps1
   float apps2_travel;   // travel percentage of apps2
-  float pedal;          // middle of apps1 and apps2
+  float pedal;          // middle of apps1 and apps2 in percent
   float pedal_filtered; // filtered pedal
 
   /* Torque command */

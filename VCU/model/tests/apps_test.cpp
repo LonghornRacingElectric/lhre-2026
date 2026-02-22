@@ -19,13 +19,17 @@ protected:
     params.apps.apps2_max_adc_v = 2000;
 
     params.apps.min_travel_threshold = 0.10f;
+    params.apps.min_travel_deadzone = 0.10f;
+    params.apps.max_travel_deadzone = 0.90f;
     params.apps.max_allowable_diff = 0.10f;
     params.apps.implaus_debounce_time_ms = 100;
     params.apps.max_travel_restore_threshold = 0.05f;
+    params.apps.pedal_ema_alpha = 1.0f; // Instant response by default
 
     in = {0};
     out = {0};
     state = {0};
+    apps_init(&state);
   }
 };
 
@@ -50,7 +54,49 @@ TEST_F(APPSTest, EvaluateNormalOperation) {
 
   EXPECT_FLOAT_EQ(out.apps1_travel, 0.5f);
   EXPECT_FLOAT_EQ(out.apps2_travel, 0.5f);
+
+  // (0.50 - 0.10) / (0.90 - 0.10) => 0.40 / 0.80 = 0.5f
+  EXPECT_FLOAT_EQ(out.pedal, 0.5f);
+  EXPECT_FLOAT_EQ(out.pedal_filtered, 0.5f);
   EXPECT_FALSE(out.faults.apps_implaus);
+}
+
+TEST_F(APPSTest, EvaluateDeadzoneLimits) {
+  // Test lower deadband (10%)
+  in.apps1_raw = 1250; // 8.33% roughly, below 10%
+  in.apps2_raw = 625;
+  apps_evaluate(&in, &out, &state, &params, 10);
+  EXPECT_FLOAT_EQ(out.pedal, 0.0f);
+
+  // Test upper deadband (90%)
+  in.apps1_raw = 3800; // > 90%
+  in.apps2_raw = 1900;
+  apps_evaluate(&in, &out, &state, &params, 10);
+  EXPECT_FLOAT_EQ(out.pedal, 1.0f);
+}
+
+TEST_F(APPSTest, EvaluateEMAFilter) {
+  // Setup alpha = 0.5 so filter tracks slowly
+  params.apps.pedal_ema_alpha = 0.5f;
+
+  in.apps1_raw = 2500; // target is 50%
+  in.apps2_raw = 1250;
+
+  // Evaluation 1 will initialize memory directly to point
+  apps_evaluate(&in, &out, &state, &params, 10);
+  EXPECT_FLOAT_EQ(out.pedal, 0.5f);
+  EXPECT_FLOAT_EQ(out.pedal_filtered, 0.5f);
+
+  in.apps1_raw = 3800; // Target is now 100% due to deadband
+  in.apps2_raw = 1900;
+
+  // Evaluation 2 will use alpha (0.5)
+  apps_evaluate(&in, &out, &state, &params, 10);
+  EXPECT_FLOAT_EQ(out.pedal_filtered, 0.75f);
+
+  // Evaluation 3 will step another half
+  apps_evaluate(&in, &out, &state, &params, 10);
+  EXPECT_FLOAT_EQ(out.pedal_filtered, 0.875f);
 }
 
 TEST_F(APPSTest, ImplausibilityTriggerAndRestore) {

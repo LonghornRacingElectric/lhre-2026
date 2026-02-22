@@ -1,6 +1,7 @@
 #ifndef APPS_H
 #define APPS_H
 
+#include "low_pass.h"
 #include "vcu_inputs.h"
 #include "vcu_outputs.h"
 #include "vcu_parameters.h"
@@ -12,6 +13,7 @@ extern "C" {
 typedef struct {
   bool apps_implaus;
   uint32_t apps_implaus_ms;
+  ema_filter_t pedal_filter;
 } apps_state_t;
 
 void apps_init(apps_state_t *state);

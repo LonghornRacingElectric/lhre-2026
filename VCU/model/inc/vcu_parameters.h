@@ -17,13 +17,19 @@ typedef struct {
     float apps2_min_adc_v;
     float apps2_max_adc_v;
     float min_travel_threshold;         // the amount of travel required to be
-                                        // considered pressed
+                                        // considered pressed for implausibility
     float max_travel_restore_threshold; // the amount of travel required to
                                         // restore APPS from implausible state
     float max_allowable_diff; // maximum difference allowed between both APPS
                               // sensors
+
+    float max_travel_deadzone;         // the amount of travel required to be
+                                       // considered fully pressed (100%)
+    float min_travel_deadzone;         // the amount of travel required to be
+                                       // considered fully released (0%)
     uint16_t implaus_debounce_time_ms; // how long the APPS must be implausible
                                        // before torque must be cut
+    float pedal_ema_alpha; // EMA filter alpha parameter mapping [0.0 - 1.0]
   } apps;
 
   struct {
@@ -31,8 +37,8 @@ typedef struct {
     float bse_off_psi; // pressure at which brake is considered off
     float bse_on_psi;  // pressure at which brake is considered on
 
-    float bse_adc_at_min_psi_v;       // ADC reading at the lowest BSE value
-    float bse_adc_at_max_psi_v;       // ADC reading at the highest BSE value
+    float bse_adc_at_min_psi_v;        // ADC reading at the lowest BSE value
+    float bse_adc_at_max_psi_v;        // ADC reading at the highest BSE value
     float bse_max_psi;                 // maximum pressure reading possible
     float max_pedal_while_braking;     // maximum pedal allowed while braking
     float max_pedal_restore_threshold; // maximum pedal allowed to restore BSE

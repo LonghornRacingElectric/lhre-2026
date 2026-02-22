@@ -15,9 +15,13 @@ protected:
     params.apps.apps2_min_adc_v = 500;
     params.apps.apps2_max_adc_v = 2000;
     params.apps.min_travel_threshold = 0.10f;
+    params.apps.min_travel_deadzone = 0.10f;
+    params.apps.max_travel_deadzone = 0.90f;
     params.apps.max_allowable_diff = 0.10f;
     params.apps.implaus_debounce_time_ms = 100;
     params.apps.max_travel_restore_threshold = 0.05f;
+    params.apps.pedal_ema_alpha =
+        1.0f; // No filtering by default for basic tests
 
     // Basic bse params
     params.bse.bse_adc_at_min_psi_v = 100;
@@ -80,6 +84,10 @@ TEST_F(VCUModelTest, TransitionToDriveAndNormalOperation) {
   in.apps1_raw = 2500; // 50% pedal
   in.apps2_raw = 1250;
   vcu_model_step(&ctx, &in, &out, 10);
+
+  // Due to 10% min deadzone and 90% max deadzone:
+  // pedal value spans 10% to 90% mapping 0 to 1
+  // 50% true pedal corresponds strictly to (0.50 - 0.10) / 0.80 = 0.50
 
   EXPECT_FLOAT_EQ(out.torque_cmd, 50.0f);
   EXPECT_FALSE(out.faults.apps_implaus);

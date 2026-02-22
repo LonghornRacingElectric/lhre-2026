@@ -21,6 +21,7 @@ bool apps_over_voltage(float adc, float min, float max) { return adc > max; }
 void apps_init(apps_state_t *state) {
   state->apps_implaus = false;
   state->apps_implaus_ms = 0;
+  ema_filter_init(&state->pedal_filter);
 }
 
 void apps_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
@@ -58,13 +59,17 @@ void apps_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   out->debug.apps_implaus_ms = state->apps_implaus_ms;
   out->debug.apps_diff = out->apps1_travel - out->apps2_travel;
 
-  // TODO: implement a proper filtering algorithm
-  // set pedal to the average of the two sensors
-  out->pedal = linear_interp(out->apps1_travel, out->apps2_travel, 0.5f);
-
-  // set pedal filtered to the average of the two sensors
-  out->pedal_filtered =
+  // set pedal to the average of the two sensors with deadzone applied
+  float raw_average_pedal =
       linear_interp(out->apps1_travel, out->apps2_travel, 0.5f);
+
+  out->pedal =
+      apply_deadzone(raw_average_pedal, params->apps.min_travel_deadzone,
+                     params->apps.max_travel_deadzone);
+
+  // apply EMA filter to compute filtered pedal
+  out->pedal_filtered = ema_filter_evaluate(&state->pedal_filter, out->pedal,
+                                            params->apps.pedal_ema_alpha);
 }
 
 bool apps_implausible(float travel1, float travel2, apps_state_t *state,

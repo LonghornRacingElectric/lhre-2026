@@ -32,4 +32,14 @@ float inverse_linear_interp(float a, float b, float val) {
   return clamp_f((val - a) / span, 0.0f, 1.0f);
 }
 
+float apply_deadzone(float value, float min_threshold, float max_threshold) {
+  if (value <= min_threshold) {
+    return 0.0f;
+  }
+  if (value >= max_threshold) {
+    return 1.0f;
+  }
+  return inverse_linear_interp(min_threshold, max_threshold, value);
+}
+
 bool rising_edge(bool prev, bool curr) { return curr && !prev; }
