@@ -259,8 +259,10 @@ class DataTester:
                 logging.info(f'Publishing payload #{i:>3} to {table}: {row}')
             if kwargs.get('target') == "Angelique":
                 self.mqtt.publish(f'angelique/{table}', pickle.dumps(row), qos=0)
-            else:
-                self.mqtt.publish(f'data/{table}', pickle.dumps(row), qos=0)
+            elif kwargs.get('target') == "Nightwatch":
+                self.mqtt.publish(f'nightwatch/{table}', pickle.dumps(row), qos=0)
+            elif kwargs.get('target') == "Orion":
+                self.mqtt.publish(f'orion/{table}', pickle.dumps(row), qos=0)
             time.sleep(delay)
         return 0
 
@@ -297,6 +299,8 @@ class DataTester:
         target = kwargs.get('target', 'Nightwatch')
         if target == "Angelique":
             topic = 'angelique/data'
+        elif target == "Nightwatch":
+            topic = 'nightwatch/data'
         elif target == "Orion":
             topic = 'orion/data'
         else:

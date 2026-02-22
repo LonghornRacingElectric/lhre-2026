@@ -279,6 +279,9 @@ class TestDataGenerator:
             if car == "Angelique":
                 from telemtry.stack.ingest.protobuf.angelique_pb2 import AngeliqueSensorData
                 data = AngeliqueSensorData()
+            elif car == "Orion":
+                from telemtry.stack.ingest.protobuf.can_packets_pb2 import OrionSensorData
+                data = OrionSensorData()
             else:
                 from telemtry.stack.ingest.protobuf.template_pb2 import SensorData
                 data = SensorData()
@@ -288,7 +291,10 @@ class TestDataGenerator:
             
             # Set dynamics fields if they exist
             if hasattr(data, 'dynamics'):
-                if car != "Angelique":
+                if car == "Orion":
+                    data.dynamics.steer_col_angle = float(self.rng.random() * 2.5)
+                    data.dynamics.flw_speed = float(self.rng.random() * 100)
+                elif car != "Angelique":
                     data.dynamics.f_gps_velocity = float(self.rng.random() * 100)
                     data.dynamics.f_gps_heading = float(self.rng.random() * 360)
                     data.dynamics.steer_col_angle = float(self.rng.random() * 2.5)
@@ -299,7 +305,9 @@ class TestDataGenerator:
             
             # Set controls fields if they exist
             if hasattr(data, 'controls'):
-                if car != "Angelique":
+                if car == "Orion":
+                    data.controls.apps1_v = float(self.rng.random())
+                elif car != "Angelique":
                     data.controls.accel_pedal_t = float(self.rng.random())
                 else:
                     data.controls.apps1_v = float(self.rng.random())

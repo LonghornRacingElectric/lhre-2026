@@ -176,12 +176,17 @@ class MQTTHandler:
         # Handle Angelique-style Base64 Encoded Bytes
         elif (freq := msg.topic.rsplit('/')[-1]) in ['h', 'l']:
             self._b64_ingest(msg.payload, freq)
-        # Handle Normal Data Ingest
+        # Handle bare data topic as Orion protobuf stream
         elif (topic_split := msg.topic.split('/'))[0] == 'data':
-            if (topic_split[-1] in {'packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'}):
-                self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car = "Nightwatch")
+            if (topic_split[-1] in {'packet', 'dynamics', 'controls', 'pack', 'diagnostics_low', 'thermal'}):
+                self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car="Orion")
             else:
-                # Send via gRPC BEFORE database insertion
+                self._send_to_bridge(payload=msg.payload, car="Orion")
+                self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Orion")
+        elif (topic_split := msg.topic.split('/'))[0] == 'nightwatch':
+            if (topic_split[-1] in self.table_specs["Nightwatch"]):
+                self._data_ingest(msg.payload, topic_split[-1], cache_enable=self.cache_enable, car="Nightwatch")
+            else:
                 self._send_to_bridge(payload=msg.payload, car="Nightwatch")
                 self._proto_ingest(payload=msg.payload, cache_enable=self.cache_enable, car="Nightwatch")
         elif (topic_split := msg.topic.split('/'))[0] == 'angelique':
