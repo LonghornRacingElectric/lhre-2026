@@ -1,8 +1,9 @@
+#include "vcu_model/components/APPS.h"
 #include "vcu_model/inc/vcu_inputs.h"
 #include "vcu_model/inc/vcu_outputs.h"
 #include "vcu_model/inc/vcu_parameters.h"
-#include "vcu_model/util/APPS.h"
 #include <gtest/gtest.h>
+
 
 class APPSTest : public ::testing::Test {
 protected:

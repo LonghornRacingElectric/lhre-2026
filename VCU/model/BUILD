@@ -10,9 +10,9 @@ cc_binary(
 
 cc_library(
     name = "vcu_model_2026",
-    srcs = glob(["src/**/*.c", "util/**/*.c"]),
-    hdrs = glob(["inc/**/*.h", "util/**/*.h"]),
-    includes = ["inc/", "util/"],
+    srcs = glob(["src/**/*.c", "util/**/*.c", "components/**/*.c"]),
+    hdrs = glob(["inc/**/*.h", "util/**/*.h", "components/**/*.h"]),
+    includes = ["inc/", "util/", "components/"],
     include_prefix = "vcu_model",
     visibility = ["//visibility:public"],
 )
@@ -23,9 +23,9 @@ cc_library(
         "@platforms//cpu:arm",
         "@platforms//os:none",
     ],
-    srcs = glob(["src/**/*.c", "util/**/*.c"]),
-    hdrs = glob(["inc/**/*.h", "util/**/*.h"]),
-    includes = ["inc/", "util/"],
+    srcs = glob(["src/**/*.c", "util/**/*.c", "components/**/*.c"]),
+    hdrs = glob(["inc/**/*.h", "util/**/*.h", "components/**/*.h"]),
+    includes = ["inc/", "util/", "components/"],
     copts = MCU_FLAGS,
     include_prefix = "vcu_model",
     visibility = ["//visibility:public"],

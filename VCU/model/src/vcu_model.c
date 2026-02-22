@@ -66,7 +66,6 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
   case PRNDL_DRIVE: {
     // Evaluate sensors and check APPS plausibility
     apps_evaluate(in, out, &ctx->apps_state, &ctx->params, dt_ms);
-    bse_evaluate(in, out, &ctx->bse_state, &ctx->params, dt_ms);
 
     // TODO: implement a proper filtering algorithm
     // set pedal to the average of the two sensors
@@ -75,6 +74,8 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
     // set pedal filtered to the average of the two sensors
     out->pedal_filtered =
         linear_interp(out->apps1_travel, out->apps2_travel, 0.5f);
+
+    bse_evaluate(in, out, &ctx->bse_state, &ctx->params, dt_ms);
 
     if (out->apps_implaus || out->brake_latched) {
       // disallow any torque output if the apps sensor detects an implausibility

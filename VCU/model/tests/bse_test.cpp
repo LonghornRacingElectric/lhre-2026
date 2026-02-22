@@ -1,8 +1,9 @@
+#include "vcu_model/components/BSE.h"
 #include "vcu_model/inc/vcu_inputs.h"
 #include "vcu_model/inc/vcu_outputs.h"
 #include "vcu_model/inc/vcu_parameters.h"
-#include "vcu_model/util/BSE.h"
 #include <gtest/gtest.h>
+
 
 class BSETest : public ::testing::Test {
 protected:

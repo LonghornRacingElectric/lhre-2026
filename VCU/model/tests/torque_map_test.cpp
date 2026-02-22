@@ -1,8 +1,9 @@
+#include "vcu_model/components/TorqueMap.h"
 #include "vcu_model/inc/vcu_inputs.h"
 #include "vcu_model/inc/vcu_outputs.h"
 #include "vcu_model/inc/vcu_parameters.h"
-#include "vcu_model/util/TorqueMap.h"
 #include <gtest/gtest.h>
+
 
 class TorqueMapTest : public ::testing::Test {
 protected:
