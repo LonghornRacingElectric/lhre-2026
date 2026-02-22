@@ -1,5 +1,6 @@
 #include "vcu_model.h"
 #include "APPS.h"
+#include "BSE.h"
 #include "TorqueMap.h"
 #include "util.h"
 #include <math.h>
@@ -8,13 +9,6 @@
 
 // Internal state
 typedef struct {
-  float pedal_filtered;
-  uint8_t implaus_counter;
-  bool apps_implaus;
-
-  bool brake_active;
-  bool brake_latched;
-
   bool drive_switch;
   uint32_t drive_start_time_ms;
 } vcu_model_state_t;
@@ -31,17 +25,14 @@ void vcu_model_init(vcu_parameters_t *params) {
   // at init or when in park, which is dictated by the model's state machine,
   // not by firmware
   s_params = *params;
-  s_prev_state.pedal_filtered = 0.0f;
-  s_prev_state.implaus_counter = 0;
-  s_prev_state.apps_implaus = false;
-  s_prev_state.brake_active = false;
-  s_prev_state.brake_latched = false;
   s_prev_state.drive_start_time_ms = 0;
   s_prndl_state = PRNDL_PARK;
 }
 
-bool can_timed_out() { return true; }
-bool brake_threshold_reached(const vcu_inputs_t *in) { return false; }
+bool can_timed_out() { return false; }
+bool brake_threshold_reached(const vcu_inputs_t *in) {
+  return bse_is_active(bse_adc_to_psi(in->bse_raw, &s_params), &s_params);
+}
 
 void update_state_machine(const vcu_inputs_t *in) {
   switch (s_prndl_state) {
@@ -78,10 +69,21 @@ void vcu_model_step(const vcu_inputs_t *in, vcu_outputs_t *out,
     out->buzzer_active = false;
     break;
   case PRNDL_DRIVE: {
+    // Evaluate sensors and check APPS plausibility
     apps_evaluate(in, out, &s_params, dt_ms);
+    bse_evaluate(in, out, &s_params, dt_ms);
 
-    if (out->apps_implaus) {
+    // TODO: implement a proper filtering algorithm
+    // set pedal to the average of the two sensors
+    out->pedal = linear_interp(out->apps1_travel, out->apps2_travel, 0.5f);
+
+    // set pedal filtered to the average of the two sensors
+    out->pedal_filtered =
+        linear_interp(out->apps1_travel, out->apps2_travel, 0.5f);
+
+    if (out->apps_implaus || out->brake_latched) {
       // disallow any torque output if the apps sensor detects an implausibility
+      // or the brake is latched
       out->torque_cmd = 0.0f;
     } else {
       torque_map_evaluate(in, out, &s_params, dt_ms);

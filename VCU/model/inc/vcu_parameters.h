@@ -27,6 +27,18 @@ typedef struct {
   } apps;
 
   struct {
+    // Software Hystersis for BSE
+    float bse_off_psi; // pressure at which brake is considered off
+    float bse_on_psi;  // pressure at which brake is considered on
+
+    uint16_t bse_adc_at_min_psi;       // ADC reading at the lowest BSE value
+    uint16_t bse_adc_at_max_psi;       // ADC reading at the highest BSE value
+    float bse_max_psi;                 // maximum pressure reading possible
+    float max_pedal_while_braking;     // maximum pedal allowed while braking
+    float max_pedal_restore_threshold; // maximum pedal allowed to restore BSE
+  } bse;
+
+  struct {
     float max_torque_nm; // maximum torque request allowed in Nm
   } torque_map;
 } vcu_parameters_t;

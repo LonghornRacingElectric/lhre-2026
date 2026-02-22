@@ -99,6 +99,17 @@ static vcu_parameters_t s_params = {
         {
             .max_torque_nm = 80.0f,
         },
+
+    .bse =
+        {
+            .bse_off_psi = 30.0f,
+            .bse_on_psi = 50.0f,
+            .bse_adc_at_min_psi = 156u,
+            .bse_adc_at_max_psi = 635u,
+            .bse_max_psi = 1000.0f,
+            .max_pedal_while_braking = 0.25f,
+            .max_pedal_restore_threshold = 0.05f,
+        },
     .buzzer_duration_ms = 1800u,
     .brake_enable_threshold = 0.1f,
 };
