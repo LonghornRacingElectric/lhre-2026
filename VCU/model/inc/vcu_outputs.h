@@ -27,8 +27,8 @@ typedef struct {
   bool buzzer_active; // true if buzzer is active
 
   /* Debug data */
-  uint8_t apps_implaus_ms; // how long the APPS has been implausible
-  float apps_diff;         // difference between apps1 and apps2
+  uint32_t apps_implaus_ms; // how long the APPS has been implausible
+  float apps_diff;          // difference between apps1 and apps2
 
   /* BSE pressure estimate (psi) */
   float bse_psi; // brake pressure in psi
