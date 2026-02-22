@@ -1,18 +1,8 @@
 CompileFlags:
-  # Tell clangd to use clang for parsing, but target ARM
   Compiler: clang
   Add:
-    # Target ARM Cortex-M so clang understands the ARM-specific flags
-    - --target=arm-none-eabi
-    # Suppress warnings about unused command-line arguments (like GCC-specific flags)
+    # Suppress warnings about unused command-line arguments
     - -Wno-unknown-warning-option
-  Remove:
-    # GCC-specific flags that clang doesn't understand
-    - -mthumb-interwork
-    - -frandom-seed=*
-    - -fdiagnostics-color
-    # Remove the GCC compiler path so clangd doesn't try to query it
-    # (clangd will use its own built-in clang driver instead)
 
 Diagnostics:
   UnusedIncludes: None
