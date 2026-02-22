@@ -25,14 +25,17 @@
     {
       "label": "Generate compile_commands.json",
       "command": "bazel",
-      "args": ["run", "@hedron_compile_commands//:refresh_all"],
+      "args": [
+        "run",
+        "//tools/compile_commands:refresh_compile_commands"
+      ],
       "options": {
         "cwd": "${workspaceFolder}"
       },
       "group": "build",
       "problemMatcher": [],
       "presentation": {
-        "reveal": "never",
+        "reveal": "always",
         "panel": "dedicated"
       }
       // "runOptions": {
