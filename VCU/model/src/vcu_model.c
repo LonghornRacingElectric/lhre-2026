@@ -3,8 +3,8 @@
 #include "BSE.h"
 #include "PRNDL.h"
 #include "TorqueMap.h"
+#include "string.h"
 #include "util.h"
-#include <cstring>
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
