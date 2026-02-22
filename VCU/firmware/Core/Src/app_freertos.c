@@ -86,10 +86,10 @@ const osThreadAttr_t controlTask_attributes = {
 static vcu_parameters_t s_params = {
     .apps =
         {
-            .apps1_min_adc = 782u,
-            .apps1_max_adc = 3262u,
-            .apps2_min_adc = 382u,
-            .apps2_max_adc = 1586u,
+            .apps1_min_adc_v = 782u,
+            .apps1_max_adc_v = 3262u,
+            .apps2_min_adc_v = 382u,
+            .apps2_max_adc_v = 1586u,
             .implaus_debounce_time_ms = 100u,
             .max_allowable_diff = 0.10f,
             .min_travel_threshold = 0.10f,
@@ -104,8 +104,8 @@ static vcu_parameters_t s_params = {
         {
             .bse_off_psi = 30.0f,
             .bse_on_psi = 50.0f,
-            .bse_adc_at_min_psi = 156u,
-            .bse_adc_at_max_psi = 635u,
+            .bse_adc_at_min_psi_v = 156u,
+            .bse_adc_at_max_psi_v = 635u,
             .bse_max_psi = 1000.0f,
             .max_pedal_while_braking = 0.25f,
             .max_pedal_restore_threshold = 0.05f,
@@ -303,6 +303,10 @@ void StartControlTask(void *argument) {
     in.apps2_raw = adc3_dma_buf[1];
     in.bse_raw = adc2_dma_buf[0];
 
+    // TODO: update based on CAN packets
+    in.contactors_closed = false;
+    in.drive_switch = false;
+
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
 
@@ -340,10 +344,11 @@ void StartControlTask(void *argument) {
                  "INV: fb_tq=%d.%02d Nm  rpm=%d  bus=%d.%d V\r\n",
                  adc1_val, in.apps1_raw, p1_i / 1000, p1_i % 1000, in.apps2_raw,
                  p2_i / 1000, p2_i % 1000, in.bse_raw, psi_i, pf_i / 1000,
-                 pf_i % 1000, tq_i / 100, tq_i % 100, out.apps_implaus ? 1 : 0,
-                 out.brake_active ? 1 : 0, out.brake_latched ? 1 : 0,
-                 hv_contactors_closed ? 1 : 0, hvc_state, inv_fb_tq / 100,
-                 inv_fb_tq % 100, inverter_rpm, inv_bus_v / 10, inv_bus_v % 10);
+                 pf_i % 1000, tq_i / 100, tq_i % 100,
+                 out.faults.apps_implaus ? 1 : 0, out.brake_active ? 1 : 0,
+                 out.faults.brake_latched ? 1 : 0, hv_contactors_closed ? 1 : 0,
+                 hvc_state, inv_fb_tq / 100, inv_fb_tq % 100, inverter_rpm,
+                 inv_bus_v / 10, inv_bus_v % 10);
     }
 
     // 10 ms control loop (100 Hz)

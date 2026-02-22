@@ -10,18 +10,18 @@ protected:
 
   void SetUp() override {
     // Basic apps params
-    params.apps.apps1_min_adc = 1000;
-    params.apps.apps1_max_adc = 4000;
-    params.apps.apps2_min_adc = 500;
-    params.apps.apps2_max_adc = 2000;
+    params.apps.apps1_min_adc_v = 1000;
+    params.apps.apps1_max_adc_v = 4000;
+    params.apps.apps2_min_adc_v = 500;
+    params.apps.apps2_max_adc_v = 2000;
     params.apps.min_travel_threshold = 0.10f;
     params.apps.max_allowable_diff = 0.10f;
     params.apps.implaus_debounce_time_ms = 100;
     params.apps.max_travel_restore_threshold = 0.05f;
 
     // Basic bse params
-    params.bse.bse_adc_at_min_psi = 100;
-    params.bse.bse_adc_at_max_psi = 900;
+    params.bse.bse_adc_at_min_psi_v = 100;
+    params.bse.bse_adc_at_max_psi_v = 900;
     params.bse.bse_max_psi = 1000.0f;
     params.bse.bse_off_psi = 30.0f;
     params.bse.bse_on_psi = 50.0f;
@@ -36,7 +36,7 @@ protected:
 
     in = {0};
     out = {0};
-    ctx = {0};
+    ctx = {};
 
     vcu_model_init(&ctx, &params);
   }
@@ -82,8 +82,8 @@ TEST_F(VCUModelTest, TransitionToDriveAndNormalOperation) {
   vcu_model_step(&ctx, &in, &out, 10);
 
   EXPECT_FLOAT_EQ(out.torque_cmd, 50.0f);
-  EXPECT_FALSE(out.apps_implaus);
-  EXPECT_FALSE(out.brake_latched);
+  EXPECT_FALSE(out.faults.apps_implaus);
+  EXPECT_FALSE(out.faults.brake_latched);
 }
 
 TEST_F(VCUModelTest, AppsImplausibilityDisablesTorque) {
@@ -101,7 +101,7 @@ TEST_F(VCUModelTest, AppsImplausibilityDisablesTorque) {
     vcu_model_step(&ctx, &in, &out, 10);
   }
 
-  EXPECT_TRUE(out.apps_implaus);
+  EXPECT_TRUE(out.faults.apps_implaus);
   EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
 }
 
@@ -122,7 +122,7 @@ TEST_F(VCUModelTest, BrakeLatchDisablesTorque) {
   in.bse_raw = 900; // Max psi
   vcu_model_step(&ctx, &in, &out, 10);
 
-  EXPECT_TRUE(out.brake_latched);
+  EXPECT_TRUE(out.faults.brake_latched);
   EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
 }
 

@@ -4,7 +4,6 @@
 #include "vcu_model/inc/vcu_parameters.h"
 #include <gtest/gtest.h>
 
-
 class BSETest : public ::testing::Test {
 protected:
   vcu_parameters_t params;
@@ -13,8 +12,8 @@ protected:
   bse_state_t state;
 
   void SetUp() override {
-    params.bse.bse_adc_at_min_psi = 100;
-    params.bse.bse_adc_at_max_psi = 900;
+    params.bse.bse_adc_at_min_psi_v = 100;
+    params.bse.bse_adc_at_max_psi_v = 900;
     params.bse.bse_max_psi = 1000.0f;
 
     params.bse.bse_off_psi = 30.0f;
@@ -76,7 +75,7 @@ TEST_F(BSETest, EvaluateLatches) {
   in.bse_raw = 0;
   bse_evaluate(&in, &out, &state, &params, 10);
   EXPECT_FALSE(out.brake_active);
-  EXPECT_FALSE(out.brake_latched);
+  EXPECT_FALSE(out.faults.brake_latched);
 
   // Now test latched functionality
 
@@ -85,27 +84,27 @@ TEST_F(BSETest, EvaluateLatches) {
   out.pedal_filtered = 0.0f;
   bse_evaluate(&in, &out, &state, &params, 10);
   EXPECT_TRUE(out.brake_active);
-  EXPECT_FALSE(out.brake_latched);
+  EXPECT_FALSE(out.faults.brake_latched);
 
   // 2. Press pedal slightly (<= 0.25)
   out.pedal_filtered = 0.20f;
   bse_evaluate(&in, &out, &state, &params, 10);
-  EXPECT_FALSE(out.brake_latched); // shouldn't latch
+  EXPECT_FALSE(out.faults.brake_latched); // shouldn't latch
 
   // 3. Press pedal hard (> 0.25) while braking -> LATCH
   out.pedal_filtered = 0.30f;
   bse_evaluate(&in, &out, &state, &params, 10);
-  EXPECT_TRUE(out.brake_latched);
+  EXPECT_TRUE(out.faults.brake_latched);
 
   // 4. Release brake completely -> LATCH REMAINS because pedal > 0.05
   in.bse_raw = 0;
   out.pedal_filtered = 0.10f;
   bse_evaluate(&in, &out, &state, &params, 10);
-  EXPECT_FALSE(out.brake_active); // brake off
-  EXPECT_TRUE(out.brake_latched); // latch maintained
+  EXPECT_FALSE(out.brake_active);        // brake off
+  EXPECT_TRUE(out.faults.brake_latched); // latch maintained
 
   // 5. Release pedal completely
   out.pedal_filtered = 0.0f;
   bse_evaluate(&in, &out, &state, &params, 10);
-  EXPECT_FALSE(out.brake_latched); // latch cleared
+  EXPECT_FALSE(out.faults.brake_latched); // latch cleared
 }

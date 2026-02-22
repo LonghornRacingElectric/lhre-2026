@@ -11,20 +11,10 @@ extern "C" {
 
 #include "APPS.h"
 #include "BSE.h"
-
-typedef enum {
-  PRNDL_PARK,
-  PRNDL_DRIVE,
-} prndl_state_t;
+#include "PRNDL.h"
 
 typedef struct {
-  bool drive_switch;
-  uint32_t drive_start_time_ms;
-} vcu_model_state_t;
-
-typedef struct {
-  vcu_model_state_t prev_state;
-  prndl_state_t prndl_state;
+  prndl_machine_t prndl_machine;
   uint32_t time_ms;
   vcu_parameters_t params;
   apps_state_t apps_state;

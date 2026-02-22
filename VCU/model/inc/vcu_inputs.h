@@ -10,9 +10,9 @@ extern "C" {
 
 typedef struct {
   /* Raw ADC readings */
-  uint16_t apps1_raw; /* APPS1 ADC (ADC3 CH9)  */
-  uint16_t apps2_raw; /* APPS2 ADC (ADC3 CH10) */
-  uint16_t bse_raw;   /* BSE  ADC (ADC2 CH3)   */
+  float apps1_raw; /* APPS1 ADC (ADC3 CH9)  */
+  float apps2_raw; /* APPS2 ADC (ADC3 CH10) */
+  float bse_raw;   /* BSE  ADC (ADC2 CH3)   */
 
   bool drive_switch;
   bool contactors_closed;

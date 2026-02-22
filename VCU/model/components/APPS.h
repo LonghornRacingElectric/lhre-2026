@@ -16,7 +16,7 @@ typedef struct {
 
 void apps_init(apps_state_t *state);
 
-float apps_adc_to_travel(uint16_t adc, uint16_t min, uint16_t max);
+float apps_adc_to_travel(float adc, float min, float max);
 
 bool apps_implausible(float travel1, float travel2, apps_state_t *state,
                       vcu_parameters_t *params, uint32_t dt_ms);

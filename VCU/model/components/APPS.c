@@ -5,8 +5,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-float apps_adc_to_travel(uint16_t adc, uint16_t min, uint16_t max) {
-  uint16_t raw = clamp_u16(adc, min, max);
+float apps_adc_to_travel(float adc, float min, float max) {
+  float raw = clamp_f(adc, min, max);
   return inverse_linear_interp(min, max, raw);
 }
 
@@ -18,13 +18,29 @@ void apps_init(apps_state_t *state) {
 void apps_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
                    apps_state_t *state, vcu_parameters_t *params,
                    uint32_t dt_ms) {
-  out->apps1_travel = apps_adc_to_travel(
-      in->apps1_raw, params->apps.apps1_min_adc, params->apps.apps1_max_adc);
-  out->apps2_travel = apps_adc_to_travel(
-      in->apps2_raw, params->apps.apps2_min_adc, params->apps.apps2_max_adc);
+  out->apps1_travel =
+      apps_adc_to_travel(in->apps1_raw, params->apps.apps1_min_adc_v,
+                         params->apps.apps1_max_adc_v);
+  out->apps2_travel =
+      apps_adc_to_travel(in->apps2_raw, params->apps.apps2_min_adc_v,
+                         params->apps.apps2_max_adc_v);
 
-  out->apps_implaus = apps_implausible(out->apps1_travel, out->apps2_travel,
-                                       state, params, dt_ms);
+  out->faults.apps_implaus = apps_implausible(
+      out->apps1_travel, out->apps2_travel, state, params, dt_ms);
+
+  out->faults.apps_any_fault = out->faults.apps_implaus;
+
+  // Debugging fields
+  out->debug.apps_implaus_ms = state->apps_implaus_ms;
+  out->debug.apps_diff = out->apps1_travel - out->apps2_travel;
+
+  // TODO: implement a proper filtering algorithm
+  // set pedal to the average of the two sensors
+  out->pedal = linear_interp(out->apps1_travel, out->apps2_travel, 0.5f);
+
+  // set pedal filtered to the average of the two sensors
+  out->pedal_filtered =
+      linear_interp(out->apps1_travel, out->apps2_travel, 0.5f);
 }
 
 bool apps_implausible(float travel1, float travel2, apps_state_t *state,
