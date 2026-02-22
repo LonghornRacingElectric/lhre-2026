@@ -1,7 +1,12 @@
 # Autonomy – ROS 2 Workspace
 
 Colcon workspace for LHR driverless / autonomy nodes.
-Target: **ROS 2 Humble** on Ubuntu 22.04 (WSL2).
+
+**Supported platforms:**
+- Ubuntu 22.04 (WSL2 or native) + **ROS 2 Humble**
+- Ubuntu 24.04 (WSL2 or native) + **ROS 2 Jazzy**
+
+All scripts auto-detect which ROS 2 distro is installed (via `scripts/_ros_env.sh`).
 
 ## Packages
 
@@ -16,8 +21,14 @@ Target: **ROS 2 Humble** on Ubuntu 22.04 (WSL2).
 
 ## Prerequisites
 
+Install ROS 2 and the required packages for your Ubuntu version:
+
 ```bash
-sudo apt install ros-humble-ackermann-msgs ros-humble-tf2-ros
+# Ubuntu 22.04 (Humble)
+sudo apt install ros-humble-desktop ros-humble-ackermann-msgs ros-humble-tf2-ros
+
+# Ubuntu 24.04 (Jazzy)
+sudo apt install ros-jazzy-desktop ros-jazzy-ackermann-msgs ros-jazzy-tf2-ros
 ```
 
 ## Quick start (two terminals)
