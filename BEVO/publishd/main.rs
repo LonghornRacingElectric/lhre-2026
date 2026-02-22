@@ -14,6 +14,7 @@ const STARTUP_SEMAPHORE_PATH: &str = "/tmp/BEVO_publishd_ready";
 const MQTT_HOST: &str = "192.168.1.109";
 const MQTT_PORT: u16 = 1883;
 const MQTT_CLIENT_ID: &str = "BEVO-ORION";
+const MQTT_ANNOUNCE_CLIENT_ID: &str = "BEVO-Orion";
 const MQTT_TOPIC_PUBLISH: &str = "orion";
 const MQTT_TOPIC_SERVER_COMMUNICATION: &str = "server-communication";
 const MQTT_TOPIC_CLIENT_CONNECTIONS: &str = "client-connections";
@@ -33,6 +34,10 @@ fn should_require_server_packet_id() -> bool {
             .map(|value| value.to_ascii_lowercase()),
         Some(value) if value == "1" || value == "true" || value == "yes"
     )
+}
+
+fn packet_id_announce_payload(client_id: &str) -> String {
+    env_or_default("PUBLISHD_CLIENT_ANNOUNCE_ID", client_id)
 }
 
 struct MqttClient {
@@ -133,6 +138,12 @@ impl MqttClient {
                 return self.packet_id();
             }
 
+            println!(
+                "publishd requesting packet_id on topic '{}' with payload '{}'",
+                MQTT_TOPIC_CLIENT_CONNECTIONS,
+                announce_payload
+            );
+
             let publish_result = self
                 .client
                 .lock()
@@ -150,6 +161,11 @@ impl MqttClient {
             thread::sleep(Duration::from_millis(INITIAL_PACKET_ID_REQUEST_INTERVAL_MS));
         }
 
+        eprintln!(
+            "publishd did not receive server packet_id within {}s; defaulting to {}",
+            INITIAL_PACKET_ID_REQUEST_TIMEOUT_SECS,
+            default
+        );
         default
     }
 }
@@ -198,6 +214,7 @@ fn main() -> Result<()> {
         .and_then(|value| value.parse::<u16>().ok())
         .unwrap_or(MQTT_PORT);
     let mqtt_client_id = env_or_default("PUBLISHD_MQTT_CLIENT_ID", MQTT_CLIENT_ID);
+    let announce_payload = packet_id_announce_payload(MQTT_ANNOUNCE_CLIENT_ID);
 
     let mqtt_client = MqttClient::new(&mqtt_host, mqtt_port, &mqtt_client_id)?;
     println!(
@@ -205,10 +222,18 @@ fn main() -> Result<()> {
         mqtt_host, mqtt_port, mqtt_client_id
     );
 
-    
+    let require_server_packet_id = should_require_server_packet_id();
+    println!(
+        "publishd require_server_packet_id={} (set PUBLISHD_REQUIRE_SERVER_PACKET_ID=1 to enable handshake)",
+        require_server_packet_id
+    );
 
-    let initial_packet_id = if should_require_server_packet_id() {
-        mqtt_client.request_initial_packet_id_or_default(&mqtt_client_id, 1)
+    let initial_packet_id = if require_server_packet_id {
+        println!(
+            "publishd requesting initial packet_id using client-connections payload '{}'",
+            announce_payload
+        );
+        mqtt_client.request_initial_packet_id_or_default(&announce_payload, 1)
     } else {
         1
     };

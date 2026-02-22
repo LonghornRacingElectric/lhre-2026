@@ -33,8 +33,10 @@ fi
 python3 "$BEVO_ROOT/cand/mock_can.py" &
 MOCK_PID=$!
 
-# bring up publishd first so downstream components can connect
-PUBLISHD_REQUIRE_SERVER_PACKET_ID="${PUBLISHD_REQUIRE_SERVER_PACKET_ID:-0}" "$BIN_DIR/publishd" &
+# bring up publishd first so downstream components can connect.
+# For full-mock local testing, default to waiting for server packet_id so
+# publishd exercises the same handshake path as telemetry integration tests.
+PUBLISHD_REQUIRE_SERVER_PACKET_ID="${PUBLISHD_REQUIRE_SERVER_PACKET_ID:-1}" "$BIN_DIR/publishd" &
 PUBLISHD_PID=$!
 
 # launch the remaining daemons
