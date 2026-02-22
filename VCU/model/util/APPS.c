@@ -10,6 +10,11 @@ float apps_adc_to_travel(uint16_t adc, uint16_t min, uint16_t max) {
   return inverse_linear_interp(min, max, raw);
 }
 
+void apps_init(apps_state_t *state) {
+  state->apps_implaus = false;
+  state->apps_implaus_ms = 0;
+}
+
 void apps_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
                    apps_state_t *state, vcu_parameters_t *params,
                    uint32_t dt_ms) {

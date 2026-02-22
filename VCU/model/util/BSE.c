@@ -15,6 +15,11 @@ float bse_adc_to_psi(uint16_t adc, vcu_parameters_t *params) {
   return linear_interp(0.0f, params->bse.bse_max_psi, pct);
 }
 
+void bse_init(bse_state_t *state) {
+  state->brake_active = false;
+  state->brake_latched = false;
+}
+
 /**
  * @brief Checks if brake is active based on pressure threshold
  */

@@ -18,10 +18,9 @@ void vcu_model_init(vcu_model_context_t *ctx, const vcu_parameters_t *params) {
   ctx->prev_state.drive_switch = false;
   ctx->prndl_state = PRNDL_PARK;
   ctx->time_ms = 0;
-  ctx->apps_state.apps_implaus = false;
-  ctx->apps_state.apps_implaus_ms = 0;
-  ctx->bse_state.brake_active = false;
-  ctx->bse_state.brake_latched = false;
+
+  apps_init(&ctx->apps_state);
+  bse_init(&ctx->bse_state);
 }
 
 bool can_timed_out() { return false; }

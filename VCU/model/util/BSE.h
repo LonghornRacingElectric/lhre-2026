@@ -14,6 +14,8 @@ typedef struct {
   bool brake_latched;
 } bse_state_t;
 
+void bse_init(bse_state_t *state);
+
 /**
  * @brief Converts raw ADC value to brake pressure in psi
  */
