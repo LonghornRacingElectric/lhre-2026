@@ -10,7 +10,6 @@ from launch_ros.actions import Node
 def generate_launch_description():
     # ----- Launch arguments -----
     seed_arg = DeclareLaunchArgument('seed', default_value='1')
-    speed_arg = DeclareLaunchArgument('target_speed', default_value='5.0')
     lookahead_arg = DeclareLaunchArgument(
         'lookahead_dist', default_value='4.0')
     metrics_arg = DeclareLaunchArgument(
@@ -21,6 +20,13 @@ def generate_launch_description():
         description='Track generator: autocross | simple')
     num_wp_arg = DeclareLaunchArgument(
         'num_waypoints', default_value='10')
+
+    # Speed planning
+    a_lat_arg = DeclareLaunchArgument('a_lat_max', default_value='6.0')
+    v_min_arg = DeclareLaunchArgument('v_min', default_value='2.0')
+    v_max_arg = DeclareLaunchArgument('v_max', default_value='12.0')
+    max_accel_arg = DeclareLaunchArgument('max_accel', default_value='2.0')
+    max_decel_arg = DeclareLaunchArgument('max_decel', default_value='3.0')
 
     # ----- Nodes -----
     cones = Node(
@@ -54,8 +60,12 @@ def generate_launch_description():
         executable='pursuit_node',
         name='pure_pursuit',
         parameters=[{
-            'target_speed': LaunchConfiguration('target_speed'),
             'lookahead_dist': LaunchConfiguration('lookahead_dist'),
+            'a_lat_max': LaunchConfiguration('a_lat_max'),
+            'v_min': LaunchConfiguration('v_min'),
+            'v_max': LaunchConfiguration('v_max'),
+            'max_accel': LaunchConfiguration('max_accel'),
+            'max_decel': LaunchConfiguration('max_decel'),
         }],
         output='screen',
     )
@@ -70,11 +80,15 @@ def generate_launch_description():
 
     return LaunchDescription([
         seed_arg,
-        speed_arg,
         lookahead_arg,
         metrics_arg,
         track_style_arg,
         num_wp_arg,
+        a_lat_arg,
+        v_min_arg,
+        v_max_arg,
+        max_accel_arg,
+        max_decel_arg,
         cones,
         centerline,
         sim,

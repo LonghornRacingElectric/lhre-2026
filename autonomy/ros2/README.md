@@ -69,6 +69,8 @@ The individual `run_*.sh` scripts are useful for debugging a single node. For no
 | `/lhr/vehicle/cmd` | `ackermann_msgs/AckermannDriveStamped` | Steering + speed command |
 | `/lhr/vehicle/odom` | `nav_msgs/Odometry` | Vehicle pose and twist |
 | `/lhr/control/lookahead` | `visualization_msgs/Marker` | Debug: lookahead target point |
+| `/lhr/debug/curvature` | `std_msgs/Float32` | Debug: estimated path curvature at lookahead |
+| `/lhr/debug/v_cmd` | `std_msgs/Float32` | Debug: commanded speed after accel limiting |
 
 ## TF tree
 
@@ -114,13 +116,24 @@ map → base_link   (broadcast by lhr_sim_kinematic)
 
 ### lhr_control (pursuit_node)
 
+Steering uses pure pursuit. Speed is planned from path curvature:
+`v = clamp(sqrt(a_lat_max / |kappa|), v_min, v_max)` with acceleration limiting.
+
 | Param | Default | Description |
 |-------|---------|-------------|
 | `lookahead_dist` | `4.0` | Lookahead distance (m) |
-| `target_speed` | `5.0` | Constant speed command (m/s) |
 | `max_steer` | `0.45` | Max steering angle (rad) |
 | `wheelbase` | `1.6` | Wheelbase for steering calc (m) |
 | `control_hz` | `20.0` | Control loop rate (Hz) |
+| `a_lat_max` | `6.0` | Max lateral acceleration for speed law (m/s^2) |
+| `v_min` | `2.0` | Minimum commanded speed (m/s) |
+| `v_max` | `12.0` | Maximum commanded speed (m/s) |
+| `kappa_eps` | `1e-3` | Epsilon to avoid division by zero in curvature |
+| `curvature_window` | `5` | Index offset for 3-point curvature estimation |
+| `max_accel` | `2.0` | Max longitudinal acceleration (m/s^2) |
+| `max_decel` | `3.0` | Max longitudinal deceleration (m/s^2) |
+
+Debug topics: `/lhr/debug/curvature` and `/lhr/debug/v_cmd` (both `std_msgs/Float32`).
 
 ### lhr_metrics (metrics_node)
 
@@ -138,7 +151,7 @@ map → base_link   (broadcast by lhr_sim_kinematic)
 The metrics node prints a summary and appends a CSV row on lap completion or Ctrl+C:
 
 ```
-run_id, duration_s, samples, mean_cte, max_cte, off_track_count, lap_completed
+run_id, duration_s, samples, mean_cte, max_cte, off_track_count, mean_speed, max_speed, lap_completed
 ```
 
 CSV data accumulates in `data/metrics.csv` across runs.

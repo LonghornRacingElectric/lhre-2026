@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Metrics v0: cross-track error, off-track count, lap detection, CSV output."""
+"""Metrics v0: CTE, off-track count, lap detection, speed stats, CSV output."""
 
 import csv
 import math
@@ -14,13 +14,13 @@ from nav_msgs.msg import Odometry, Path
 
 
 CSV_HEADER = [
-    'run_id', 'duration_s', 'samples', 'mean_cte',
-    'max_cte', 'off_track_count', 'lap_completed',
+    'run_id', 'duration_s', 'samples', 'mean_cte', 'max_cte',
+    'off_track_count', 'mean_speed', 'max_speed', 'lap_completed',
 ]
 
 
 class MetricsNode(Node):
-    """Compute CTE stats and detect lap completion."""
+    """Compute CTE stats, speed stats, and detect lap completion."""
 
     def __init__(self):
         super().__init__('metrics_node')
@@ -57,10 +57,14 @@ class MetricsNode(Node):
         self._off_track_count = 0
         self._start_time: float = 0.0
 
+        # --- Speed stats ---
+        self._speed_sum = 0.0
+        self._speed_max = 0.0
+
         # --- Lap detection state ---
         self._lap_completed = False
-        self._near_start = False    # currently within start_radius
-        self._left_start = False    # has moved beyond radius + hysteresis
+        self._near_start = False
+        self._left_start = False
         self._lap_start_time: float = 0.0
 
         # --- Subscribers ---
@@ -103,6 +107,14 @@ class MetricsNode(Node):
         if cte > self._off_track_thresh:
             self._off_track_count += 1
 
+        # --- Speed ---
+        vx = msg.twist.twist.linear.x
+        vy = msg.twist.twist.linear.y
+        speed = math.hypot(vx, vy)
+        self._speed_sum += speed
+        if speed > self._speed_max:
+            self._speed_max = speed
+
         # --- Lap detection ---
         if not self._lap_completed and len(self._path) > 1:
             self._update_lap_detection(px, py, now)
@@ -130,12 +142,10 @@ class MetricsNode(Node):
         beyond = dist > (self._start_radius + self._start_hyst)
 
         if not self._left_start:
-            # Phase 1: wait for vehicle to leave the start zone
             if beyond:
                 self._left_start = True
                 self._lap_start_time = now
         else:
-            # Phase 2: wait for vehicle to return
             elapsed = now - self._lap_start_time
             if in_zone and elapsed > self._min_lap_time:
                 self._lap_completed = True
@@ -149,6 +159,7 @@ class MetricsNode(Node):
     def _build_row(self) -> dict:
         duration = time.monotonic() - self._start_time if self._samples else 0.0
         mean_cte = (self._cte_sum / self._samples) if self._samples else 0.0
+        mean_speed = (self._speed_sum / self._samples) if self._samples else 0.0
         return {
             'run_id': self._run_id,
             'duration_s': f'{duration:.2f}',
@@ -156,6 +167,8 @@ class MetricsNode(Node):
             'mean_cte': f'{mean_cte:.4f}',
             'max_cte': f'{self._cte_max:.4f}',
             'off_track_count': str(self._off_track_count),
+            'mean_speed': f'{mean_speed:.2f}',
+            'max_speed': f'{self._speed_max:.2f}',
             'lap_completed': str(self._lap_completed).lower(),
         }
 
