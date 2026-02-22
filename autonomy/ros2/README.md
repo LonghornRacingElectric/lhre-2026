@@ -11,6 +11,7 @@ Target: **ROS 2 Humble** on Ubuntu 22.04 (WSL2).
 | `lhr_track_builder` | Subscribes to cones, publishes centerline path (`/lhr/track/centerline`) |
 | `lhr_sim_kinematic` | Kinematic bicycle-model vehicle simulator |
 | `lhr_control` | Pure pursuit path-following controller |
+| `lhr_metrics` | Cross-track error, off-track count, and lap detection (CSV output) |
 | `lhr_demo` | Launch file that starts the full stack in one command |
 
 ## Prerequisites
@@ -36,6 +37,9 @@ Launch arguments can be passed through `run_demo.sh`:
 
 ```bash
 ./scripts/run_demo.sh target_speed:=8.0 lookahead_dist:=6.0 seed:=42
+
+# Enable metrics collection (writes to data/metrics.csv):
+./scripts/run_demo.sh enable_metrics:=true
 ```
 
 ## Scripts reference
@@ -51,6 +55,7 @@ All scripts live in `scripts/` and should be run from the `autonomy/ros2` direct
 | `run_centerline.sh` | Runs only the centerline builder (`lhr_track_builder`). |
 | `run_sim.sh` | Runs only the kinematic vehicle simulator (`lhr_sim_kinematic`). |
 | `run_control.sh` | Runs only the pure pursuit controller (`lhr_control`). |
+| `run_metrics.sh` | Runs only the metrics node (`lhr_metrics`). Prints summary on Ctrl+C and appends to `data/metrics.csv`. |
 
 The individual `run_*.sh` scripts are useful for debugging a single node. For normal use, prefer the two-terminal workflow (`run_demo.sh` + `rviz_demo.sh`).
 
@@ -110,3 +115,24 @@ map → base_link   (broadcast by lhr_sim_kinematic)
 | `max_steer` | `0.45` | Max steering angle (rad) |
 | `wheelbase` | `1.6` | Wheelbase for steering calc (m) |
 | `control_hz` | `20.0` | Control loop rate (Hz) |
+
+### lhr_metrics (metrics_node)
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `off_track_threshold` | `2.0` | CTE above this (m) counts as off-track |
+| `start_radius` | `2.0` | Distance (m) to centerline[0] to trigger lap zone |
+| `start_hysteresis` | `1.0` | Extra distance (m) vehicle must exceed before lap can complete |
+| `min_lap_time` | `5.0` | Minimum seconds before a lap return is accepted |
+| `output_csv` | `"data/metrics.csv"` | Path for CSV output (relative to cwd) |
+| `run_id` | `""` | Run identifier; auto-generates timestamp if empty |
+
+### Metrics output
+
+The metrics node prints a summary and appends a CSV row on lap completion or Ctrl+C:
+
+```
+run_id, duration_s, samples, mean_cte, max_cte, off_track_count, lap_completed
+```
+
+CSV data accumulates in `data/metrics.csv` across runs.

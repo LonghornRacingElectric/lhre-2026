@@ -2,6 +2,7 @@
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -12,6 +13,9 @@ def generate_launch_description():
     speed_arg = DeclareLaunchArgument('target_speed', default_value='5.0')
     lookahead_arg = DeclareLaunchArgument(
         'lookahead_dist', default_value='4.0')
+    metrics_arg = DeclareLaunchArgument(
+        'enable_metrics', default_value='false',
+        description='Launch metrics node alongside the stack')
 
     # ----- Nodes -----
     cones = Node(
@@ -47,12 +51,22 @@ def generate_launch_description():
         output='screen',
     )
 
+    metrics = Node(
+        package='lhr_metrics',
+        executable='metrics_node',
+        name='metrics_node',
+        output='screen',
+        condition=IfCondition(LaunchConfiguration('enable_metrics')),
+    )
+
     return LaunchDescription([
         seed_arg,
         speed_arg,
         lookahead_arg,
+        metrics_arg,
         cones,
         centerline,
         sim,
         control,
+        metrics,
     ])
