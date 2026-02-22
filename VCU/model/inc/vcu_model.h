@@ -5,6 +5,10 @@
 #include "vcu_outputs.h"
 #include "vcu_parameters.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
   PRNDL_PARK,
   PRNDL_DRIVE,
@@ -15,5 +19,9 @@ void vcu_model_init(vcu_parameters_t *params);
 
 /* One control step (call periodically, e.g. every 50 ms) */
 void vcu_model_step(const vcu_inputs_t *in, vcu_outputs_t *out, uint32_t dt_ms);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* VCU_MODEL_H */
