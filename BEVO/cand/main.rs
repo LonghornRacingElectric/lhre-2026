@@ -6,6 +6,7 @@ use std::io::Write;
 use std::net::UdpSocket;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
+use std::fs;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -21,7 +22,7 @@ const STARTUP_SEMAPHORE_PATH: &str = "/tmp/BEVO_publishd_ready";
 const CAN_INTERFACE: &str = "can0";
 const DEFAULT_PUBLISH_HZ: u64 = 10;
 
-const CONFIG_JSON: &str = include_str!(env!("CAND_CAN_JSON_PATH"));
+const DEFAULT_CAN_JSON_PATH: &str = "drivers/longhorn-lib/can.json";
 
 #[derive(Debug)]
 struct RawCanMessage {
@@ -44,7 +45,8 @@ fn main() -> Result<()> {
         .filter(|value| *value > 0)
         .unwrap_or(DEFAULT_PUBLISH_HZ);
 
-    let packets: Vec<PacketConfig> = serde_json::from_str(CONFIG_JSON)?;
+    let config_json = load_can_config_json()?;
+    let packets: Vec<PacketConfig> = serde_json::from_str(&config_json)?;
     let initial_packet_id = if use_mock {
         1
     } else {
@@ -88,6 +90,12 @@ fn main() -> Result<()> {
         println!("[CAND] Started in REAL mode ({}) @ {} Hz", can_interface, publish_hz);
     }
     loop { thread::park(); }
+}
+
+fn load_can_config_json() -> Result<String> {
+    let configured_path = std::env::var("CAND_CAN_JSON_PATH").unwrap_or_else(|_| DEFAULT_CAN_JSON_PATH.to_string());
+    let config_json = fs::read_to_string(&configured_path)?;
+    Ok(config_json)
 }
 
 fn wait_for_publishd_ready() -> Result<u64> {

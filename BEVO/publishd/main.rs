@@ -18,6 +18,20 @@ const MQTT_TOPIC_PUBLISH: &str = "orion";
 const MQTT_TOPIC_SERVER_COMMUNICATION: &str = "server-communication";
 const MQTT_OUTBOUND_QUEUE_CAPACITY: usize = 2048;
 
+fn env_or_default(name: &str, default: &str) -> String {
+    std::env::var(name).unwrap_or_else(|_| default.to_string())
+}
+
+fn should_require_server_packet_id() -> bool {
+    matches!(
+        std::env::var("PUBLISHD_REQUIRE_SERVER_PACKET_ID")
+            .ok()
+            .as_deref()
+            .map(|value| value.to_ascii_lowercase()),
+        Some(value) if value == "1" || value == "true" || value == "yes"
+    )
+}
+
 struct MqttClient {
     outbound_tx: SyncSender<Vec<u8>>,
     packet_id: Arc<AtomicU64>,
@@ -146,13 +160,24 @@ fn write_startup_semaphore(packet_id: u64) -> Result<()> {
 
 fn main() -> Result<()> {
     let _ = std::fs::remove_file(STARTUP_SEMAPHORE_PATH);
-    let mqtt_client = MqttClient::new(MQTT_HOST, MQTT_PORT, MQTT_CLIENT_ID)?;
+    let mqtt_host = env_or_default("PUBLISHD_MQTT_HOST", MQTT_HOST);
+    let mqtt_port = std::env::var("PUBLISHD_MQTT_PORT")
+        .ok()
+        .and_then(|value| value.parse::<u16>().ok())
+        .unwrap_or(MQTT_PORT);
+    let mqtt_client_id = env_or_default("PUBLISHD_MQTT_CLIENT_ID", MQTT_CLIENT_ID);
+
+    let mqtt_client = MqttClient::new(&mqtt_host, mqtt_port, &mqtt_client_id)?;
     println!(
         "publishd connected to mqtt broker {}:{} with client_id {}",
-        MQTT_HOST, MQTT_PORT, MQTT_CLIENT_ID
+        mqtt_host, mqtt_port, mqtt_client_id
     );
 
-    let initial_packet_id = mqtt_client.wait_for_initial_packet_id();
+    let initial_packet_id = if should_require_server_packet_id() {
+        mqtt_client.wait_for_initial_packet_id()
+    } else {
+        1
+    };
     write_startup_semaphore(initial_packet_id)?;
     println!("publishd startup complete, initial packet_id={}", initial_packet_id);
 

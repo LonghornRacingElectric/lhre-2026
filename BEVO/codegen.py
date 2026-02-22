@@ -8,7 +8,8 @@ from google.protobuf.descriptor_pool import DescriptorPool
 
 def _iter_messages(file_desc):
     for msg in file_desc.message_type:
-        yield msg.name, msg
+        full_name = f"{file_desc.package}.{msg.name}" if file_desc.package else msg.name
+        yield full_name, msg
 
 
 def resolve_sensor_message(file_desc_set, explicit_name=None):
@@ -16,7 +17,7 @@ def resolve_sensor_message(file_desc_set, explicit_name=None):
         for file_desc in file_desc_set.file:
             for full_name, msg_desc in _iter_messages(file_desc):
                 if explicit_name in {full_name, msg_desc.name}:
-                    return msg_desc.name, msg_desc
+                    return full_name, msg_desc
         print(f"Error: Could not find message '{explicit_name}' in descriptor.")
         sys.exit(1)
 
@@ -24,12 +25,12 @@ def resolve_sensor_message(file_desc_set, explicit_name=None):
         for file_desc in file_desc_set.file:
             for full_name, msg_desc in _iter_messages(file_desc):
                 if preferred in {full_name, msg_desc.name}:
-                    return msg_desc.name, msg_desc
+                    return full_name, msg_desc
 
     for file_desc in file_desc_set.file:
         for full_name, msg_desc in _iter_messages(file_desc):
             if msg_desc.name.endswith("SensorData"):
-                return msg_desc.name, msg_desc
+                return full_name, msg_desc
 
     print("Error: Could not find a '*SensorData' message in descriptor.")
     sys.exit(1)
@@ -69,12 +70,14 @@ def get_proto_mapping(desc_path, explicit_message=None):
             for sub_field in field.message_type.fields:
                 field_to_var[sub_field.name] = var_prefix
 
-    return field_to_var, field_bindings, msg_proto.name
+    return field_to_var, field_bindings, message_name
 
 
 def generate_rust(json_path, desc_path, output_path, message_name=None):
     proto_map, bindings, resolved_message = get_proto_mapping(desc_path, message_name)
     binding_lookup = {var_name: field_name for field_name, var_name in bindings}
+    rust_message_path = resolved_message.replace(".", "::")
+    rust_message_name = resolved_message.split(".")[-1]
 
     try:
         with open(json_path, "r") as f:
@@ -85,10 +88,10 @@ def generate_rust(json_path, desc_path, output_path, message_name=None):
 
     code = [
         "// THIS FILE IS AUTO-GENERATED. DO NOT EDIT.",
-        f"use crate::proto::{resolved_message};",
+        f"use crate::proto::{rust_message_path};",
         "use crate::config::ProtobufMapping;",
         "",
-        f"pub fn update_proto_field_generated(data: &mut {resolved_message}, name: &str, val: f32, config: &ProtobufMapping) {{",
+        f"pub fn update_proto_field_generated(data: &mut {rust_message_name}, name: &str, val: f32, config: &ProtobufMapping) {{",
     ]
     for field_name, var_name in bindings:
         code.append(f"    let {var_name} = data.{field_name}.get_or_insert_with(Default::default);")
@@ -152,7 +155,7 @@ def generate_rust(json_path, desc_path, output_path, message_name=None):
         "    }",
         "}",
         "",
-        f"pub fn update_proto_bool_generated(data: &mut {resolved_message}, name: &str, val: bool) {{",
+        f"pub fn update_proto_bool_generated(data: &mut {rust_message_name}, name: &str, val: bool) {{",
     ])
 
     bool_prefixes = sorted({proto_map[field_name] for field_name in bool_signals})
