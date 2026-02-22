@@ -1,4 +1,5 @@
 syntax = "proto3";
+package orion;
 
 message OrionSensorData {
     int64 time = 1;

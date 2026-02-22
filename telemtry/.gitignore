@@ -9,3 +9,5 @@ __pycache__/
 .DS_store
 events.png
 
+!stack/ingest/common_schema.sql
+
