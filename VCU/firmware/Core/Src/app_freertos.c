@@ -259,6 +259,7 @@ void StartControlTask(void *argument) {
   osDelay(pdMS_TO_TICKS(200));
 
   static uint32_t last_tick = 0;
+  last_tick = osKernelGetTickCount();
 
   vcu_inputs_t in = {0};
   vcu_outputs_t out = {0};
