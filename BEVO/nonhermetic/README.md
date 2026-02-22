@@ -14,6 +14,7 @@ This directory provides a non-Bazel runtime for BEVO daemons while keeping the e
 - `setup_local_env.sh` - one-time/local setup: refresh local assets (when monorepo data is present) and build release binaries
 - `sync_assets.sh` - refresh generated runtime assets tracked in source tree
 - `run_mock_stack.sh` - run `cand + dashd + loggerd + mock_can` locally
+- `run_full_mock_stack.sh` - run the *complete* stack with mock CAN data (includes `publishd`)
 - `run_real_stack.sh` - run `publishd + cand + dashd + loggerd` against real CAN interface
 
 ## Prerequisites
@@ -34,7 +35,10 @@ From repo root:
 
 ```bash
 bash BEVO/nonhermetic/setup_local_env.sh
+# run only the CAN-logging stack:
 bash BEVO/nonhermetic/run_mock_stack.sh
+# or run the full mock stack (includes publishd):
+bash BEVO/nonhermetic/run_full_mock_stack.sh
 ```
 
 For real CAN hardware:

@@ -94,3 +94,5 @@ DUI/Middlewares/*
 MODULE.bazel.lock
 
 rust-project.json
+
+Cargo.lock
