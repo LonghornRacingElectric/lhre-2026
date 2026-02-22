@@ -85,6 +85,12 @@ map → base_link   (broadcast by lhr_sim_kinematic)
 | `seed` | `1` | Random seed for track generation |
 | `frame_id` | `"map"` | TF frame |
 | `publish_hz` | `5.0` | Publishing rate (Hz) |
+| `track_style` | `"autocross"` | Generator: `autocross` (Catmull-Rom spline) or `simple` (original oval) |
+| `num_waypoints` | `10` | Number of waypoints around the loop (autocross only) |
+| `radius_m` | `25.0` | Base radius of the track (autocross only) |
+| `jitter_m` | `10.0` | Radial jitter per waypoint (autocross only) |
+| `width_m` | `3.5` | Track width in meters |
+| `cone_spacing_m` | `2.0` | Distance between cones along the track (autocross only) |
 
 ### lhr_track_builder (track_builder)
 

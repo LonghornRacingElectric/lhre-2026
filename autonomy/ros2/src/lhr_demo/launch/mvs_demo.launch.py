@@ -16,13 +16,22 @@ def generate_launch_description():
     metrics_arg = DeclareLaunchArgument(
         'enable_metrics', default_value='false',
         description='Launch metrics node alongside the stack')
+    track_style_arg = DeclareLaunchArgument(
+        'track_style', default_value='autocross',
+        description='Track generator: autocross | simple')
+    num_wp_arg = DeclareLaunchArgument(
+        'num_waypoints', default_value='10')
 
     # ----- Nodes -----
     cones = Node(
         package='lhr_trackgen',
         executable='publish_cones',
         name='publish_cones',
-        parameters=[{'seed': LaunchConfiguration('seed')}],
+        parameters=[{
+            'seed': LaunchConfiguration('seed'),
+            'track_style': LaunchConfiguration('track_style'),
+            'num_waypoints': LaunchConfiguration('num_waypoints'),
+        }],
         output='screen',
     )
 
@@ -64,6 +73,8 @@ def generate_launch_description():
         speed_arg,
         lookahead_arg,
         metrics_arg,
+        track_style_arg,
+        num_wp_arg,
         cones,
         centerline,
         sim,
