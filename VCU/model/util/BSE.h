@@ -5,6 +5,10 @@
 #include "vcu_outputs.h"
 #include "vcu_parameters.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief Converts raw ADC value to brake pressure in psi
  */
@@ -20,5 +24,9 @@ bool bse_is_active(float psi, vcu_parameters_t *params);
  */
 void bse_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
                   vcu_parameters_t *params, uint32_t dt_ms);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // BSE_H

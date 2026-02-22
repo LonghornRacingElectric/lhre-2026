@@ -8,9 +8,11 @@ float bse_adc_to_psi(uint16_t adc, vcu_parameters_t *params) {
   uint16_t adc_clamped = clamp_u16(adc, params->bse.bse_adc_at_min_psi,
                                    params->bse.bse_adc_at_max_psi);
 
-  return linear_interp(0.0f, params->bse.bse_max_psi,
-                       (float)adc_clamped /
-                           (float)params->bse.bse_adc_at_max_psi);
+  float pct =
+      inverse_linear_interp(params->bse.bse_adc_at_min_psi,
+                            params->bse.bse_adc_at_max_psi, adc_clamped);
+
+  return linear_interp(0.0f, params->bse.bse_max_psi, pct);
 }
 
 /**

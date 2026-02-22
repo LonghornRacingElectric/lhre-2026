@@ -5,6 +5,10 @@
 #include "vcu_outputs.h"
 #include "vcu_parameters.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 float apps_adc_to_travel(uint16_t adc, uint16_t min, uint16_t max);
 
 bool apps_implausible(float travel1, float travel2, vcu_parameters_t *params,
@@ -15,5 +19,9 @@ bool apps_implausible(float travel1, float travel2, vcu_parameters_t *params,
  */
 void apps_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
                    vcu_parameters_t *params, uint32_t dt_ms);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // APPS_H
