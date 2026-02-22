@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const IPC_SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
 const STARTUP_SEMAPHORE_PATH: &str = "/tmp/BEVO_publishd_ready";
@@ -16,7 +16,10 @@ const MQTT_PORT: u16 = 1883;
 const MQTT_CLIENT_ID: &str = "BEVO-ORION";
 const MQTT_TOPIC_PUBLISH: &str = "orion";
 const MQTT_TOPIC_SERVER_COMMUNICATION: &str = "server-communication";
+const MQTT_TOPIC_CLIENT_CONNECTIONS: &str = "client-connections";
 const MQTT_OUTBOUND_QUEUE_CAPACITY: usize = 2048;
+const INITIAL_PACKET_ID_REQUEST_TIMEOUT_SECS: u64 = 12;
+const INITIAL_PACKET_ID_REQUEST_INTERVAL_MS: u64 = 500;
 
 fn env_or_default(name: &str, default: &str) -> String {
     std::env::var(name).unwrap_or_else(|_| default.to_string())
@@ -33,6 +36,7 @@ fn should_require_server_packet_id() -> bool {
 }
 
 struct MqttClient {
+    client: Arc<Mutex<Client>>,
     outbound_tx: SyncSender<Vec<u8>>,
     packet_id: Arc<AtomicU64>,
     initialized: Arc<std::sync::atomic::AtomicBool>,
@@ -93,6 +97,7 @@ impl MqttClient {
         });
 
         Ok(Self {
+            client,
             outbound_tx,
             packet_id,
             initialized,
@@ -119,6 +124,33 @@ impl MqttClient {
             thread::sleep(Duration::from_millis(100));
         }
         self.packet_id()
+    }
+
+    fn request_initial_packet_id_or_default(&self, announce_payload: &str, default: u64) -> u64 {
+        let deadline = Instant::now() + Duration::from_secs(INITIAL_PACKET_ID_REQUEST_TIMEOUT_SECS);
+        while Instant::now() < deadline {
+            if self.initialized.load(Ordering::Relaxed) {
+                return self.packet_id();
+            }
+
+            let publish_result = self
+                .client
+                .lock()
+                .expect("mqtt client mutex poisoned")
+                .publish(
+                    MQTT_TOPIC_CLIENT_CONNECTIONS,
+                    QoS::AtMostOnce,
+                    false,
+                    announce_payload.as_bytes().to_vec(),
+                );
+            if let Err(error) = publish_result {
+                eprintln!("publishd mqtt packet_id request publish error: {error}");
+            }
+
+            thread::sleep(Duration::from_millis(INITIAL_PACKET_ID_REQUEST_INTERVAL_MS));
+        }
+
+        default
     }
 }
 
@@ -173,8 +205,10 @@ fn main() -> Result<()> {
         mqtt_host, mqtt_port, mqtt_client_id
     );
 
+    
+
     let initial_packet_id = if should_require_server_packet_id() {
-        mqtt_client.wait_for_initial_packet_id()
+        mqtt_client.request_initial_packet_id_or_default(&mqtt_client_id, 1)
     } else {
         1
     };
