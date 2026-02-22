@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use sensor_proto::proto::OrionSensorData;
+use sensor_proto::proto::orion::OrionSensorData;
 use sensor_proto::config::PacketConfig;
 use sensor_proto::generated_mapping;
 
@@ -22,7 +22,7 @@ const STARTUP_SEMAPHORE_PATH: &str = "/tmp/BEVO_publishd_ready";
 const CAN_INTERFACE: &str = "can0";
 const DEFAULT_PUBLISH_HZ: u64 = 10;
 
-const DEFAULT_CAN_JSON_PATH: &str = "drivers/longhorn-lib/can.json";
+const DEFAULT_CAN_JSON_PATH: &str = "BEVO/nonhermetic/assets/can.json";
 
 #[derive(Debug)]
 struct RawCanMessage {

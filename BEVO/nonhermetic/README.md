@@ -9,7 +9,9 @@ This directory provides a non-Bazel runtime for BEVO daemons while keeping the e
 
 ## Files
 
-- `setup_local_env.sh` - one-time/local setup: generate CAN json and build release binaries
+- `assets/can_packets.proto` - vendored protobuf schema for nonhermetic builds
+- `assets/can.json` - vendored CAN decode mapping used at runtime
+- `setup_local_env.sh` - one-time/local setup: refresh local assets (when monorepo data is present) and build release binaries
 - `sync_assets.sh` - refresh generated runtime assets tracked in source tree
 - `run_mock_stack.sh` - run `cand + dashd + loggerd + mock_can` locally
 - `run_real_stack.sh` - run `publishd + cand + dashd + loggerd` against real CAN interface
@@ -20,6 +22,11 @@ This directory provides a non-Bazel runtime for BEVO daemons while keeping the e
 - `python3`
 - `bazel` (used by `sync_assets.sh` for `protoc`)
 - Optional for `cell.py`: install `BEVO/requirements.txt`
+
+Sparse checkout note:
+
+- Nonhermetic runtime/build defaults use files inside `BEVO/nonhermetic/assets`.
+- If the rest of monorepo is present, `setup_local_env.sh` refreshes `assets/can.json` from source CSVs automatically.
 
 ## Quick start (nonhermetic)
 
@@ -42,7 +49,7 @@ CAND_CAN_INTERFACE=can0 bash BEVO/nonhermetic/run_real_stack.sh
 
 - `CAND_USE_MOCK` (`1`/`0`)
 - `CAND_CAN_INTERFACE` (default `can0`)
-- `CAND_CAN_JSON_PATH` (default `drivers/longhorn-lib/can.json`)
+- `CAND_CAN_JSON_PATH` (default `BEVO/nonhermetic/assets/can.json`)
 - `CAND_PUBLISH_HZ` (default `10`)
 
 ### publishd
@@ -62,6 +69,6 @@ bash BEVO/nonhermetic/sync_assets.sh
 
 This refreshes local generated assets used by nonhermetic builds:
 
-- `drivers/longhorn-lib/can.json`
+- `BEVO/nonhermetic/assets/can.json`
 - `BEVO/sensor_data.desc`
 - `BEVO/generated_mapping.rs`

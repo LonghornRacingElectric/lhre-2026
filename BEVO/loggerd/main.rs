@@ -13,7 +13,7 @@ use std::thread;
 use std::time::SystemTime;
 use std::time::Duration;
 
-use sensor_proto::proto::OrionSensorData;
+use sensor_proto::proto::orion::OrionSensorData;
 
 const SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
 const DEFAULT_LOG_DIR: &str = "BEVO/loggerd/logs";

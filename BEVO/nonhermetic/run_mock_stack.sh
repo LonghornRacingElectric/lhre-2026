@@ -3,9 +3,8 @@ set -euo pipefail
 
 SCRIPT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 BEVO_ROOT="$(cd "$SCRIPT_ROOT/.." && pwd)"
-REPO_ROOT="$(cd "$BEVO_ROOT/.." && pwd)"
 BIN_DIR="$BEVO_ROOT/target/release"
-CAN_JSON_PATH="$REPO_ROOT/drivers/longhorn-lib/can.json"
+CAN_JSON_PATH="$BEVO_ROOT/nonhermetic/assets/can.json"
 
 cleanup() {
   kill "${MOCK_PID:-}" "${CAND_PID:-}" "${DASHD_PID:-}" "${LOGGERD_PID:-}" >/dev/null 2>&1 || true

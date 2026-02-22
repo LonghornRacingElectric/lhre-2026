@@ -4,7 +4,7 @@ use std::path::PathBuf;
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
     let default_proto = PathBuf::from(&manifest_dir)
-        .join("../drivers/longhorn-lib/protobuf/can_packets.proto")
+        .join("nonhermetic/assets/can_packets.proto")
         .to_string_lossy()
         .to_string();
 

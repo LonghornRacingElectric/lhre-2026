@@ -1,0 +1,100 @@
+syntax = "proto3";
+package orion;
+
+message OrionSensorData {
+    int64 time = 1;
+    int64 packet_id = 2;
+    Dynamics dynamics = 3;
+    Controls controls = 4;
+    Pack pack = 5;
+    DiagnosticsLow diagnostics_low = 7;
+    Thermal thermal = 8;
+}
+
+message Dynamics {
+    float steer_col_angle = 1;
+    repeated float bl_sprung_accel = 2;
+    repeated float bl_unsprung_accel = 3;
+    repeated float br_sprung_accel = 4;
+    repeated float br_unsprung_accel = 5;
+    repeated float fl_sprung_accel = 6;
+    repeated float fl_unsprung_accel = 7;
+    repeated float fr_sprung_accel = 8;
+    repeated float fr_unsprung_accel = 9;
+    float bl_ride_height = 10;
+    float bl_strain_gauge_v = 11;
+    float bl_sus_pot_v = 12;
+    float blw_speed = 13;
+    float br_ride_height = 14;
+    float br_strain_gauge_v = 15;
+    float br_sus_pot_v = 16;
+    float brw_speed = 17;
+    float fl_ride_height = 18;
+    float fl_strain_gauge_v = 19;
+    float fl_sus_pot_v = 20;
+    float flw_speed = 21;
+    float fr_ride_height = 22;
+    float fr_strain_gauge_v = 23;
+    float fr_sus_pot_v = 24;
+    float frw_speed = 25;
+}
+
+message Controls {
+    float apps1_travel = 1;
+    float apps1_v = 2;
+    float apps2_travel = 3;
+    float apps2_v = 4;
+    float bpps1_travel = 5;
+    float bpps1_v = 6;
+    float bpps2_travel = 7;
+    float bpps2_v = 8;
+    float brake_bias = 9;
+    float brake_pressure_f = 10;
+    float brake_pressure_rall = 11;
+    float brake_pressure_rbll = 12;
+    float bse1_v = 13;
+    float bse2_v = 14;
+    float bse3_v = 15;
+    float rpm_request = 16;
+    float torque_request = 17;
+}
+
+message Pack {
+    float torque_command = 1;
+    float dc_bus_v = 2;
+    float hv_c = 3;
+    float hv_pack_v = 4;
+    float hv_soc = 5;
+    float lv_batt_c = 6;
+    float lv_batt_t = 7;
+    float lv_batt_v = 8;
+}
+
+message DiagnosticsLow {
+    float precharge_r_temp = 1;
+    bool bmb_comm_error = 2;
+    bool imd_gnd_isolation_error = 3;
+    bool shutdown_leg1 = 4;
+    bool shutdown_leg2 = 5;
+    bool shutdown_leg3 = 6;
+    bool shutdown_leg4 = 7;
+}
+
+message Thermal {
+    repeated float cells_v = 1;
+    repeated float cells_temps = 2;
+    float ambient_temp = 3;
+    float batt_loop_batt_temp = 4;
+    float batt_loop_rad_fan_speed = 5;
+    float batt_loop_rad_temp = 6;
+    float bus_bar_temp1 = 7;
+    float bus_bar_temp2 = 8;
+    float bus_bar_temp3 = 9;
+    float discharge_r_temp = 10;
+    float inverter_temp = 11;
+    float motor_loop_inverter_temp = 12;
+    float motor_loop_motor_temp = 13;
+    float motor_loop_rad_fan_speed = 14;
+    float motor_loop_rad_temp = 15;
+    float motor_temp = 16;
+}
