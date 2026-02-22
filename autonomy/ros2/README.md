@@ -11,6 +11,7 @@ Target: **ROS 2 Humble** on Ubuntu 22.04 (WSL2).
 | `lhr_track_builder` | Subscribes to cones, publishes centerline path (`/lhr/track/centerline`) |
 | `lhr_sim_kinematic` | Kinematic bicycle-model vehicle simulator |
 | `lhr_control` | Pure pursuit path-following controller |
+| `lhr_demo` | Launch file that starts the full stack in one command |
 
 ## Prerequisites
 
@@ -18,37 +19,36 @@ Target: **ROS 2 Humble** on Ubuntu 22.04 (WSL2).
 sudo apt install ros-humble-ackermann-msgs ros-humble-tf2-ros
 ```
 
-## Quick start
+## Quick start (two terminals)
 
 ```bash
-# 1. Build everything
+# Build once
 ./scripts/build.sh
 
-# 2. In terminal 1 – publish cones
-./scripts/run_cones.sh
+# Terminal 1 – start the full stack
+./scripts/run_demo.sh
 
-# 3. In terminal 2 – publish centerline
-./scripts/run_centerline.sh
-
-# 4. In terminal 3 – vehicle simulator
-./scripts/run_sim.sh
-
-# 5. In terminal 4 – pure pursuit controller
-./scripts/run_control.sh
-
-# 6. In terminal 5 – open RViz
-rviz2
+# Terminal 2 – open RViz (pre-configured displays + fixed frame = map)
+./scripts/rviz_demo.sh
 ```
 
-### RViz setup
+Launch arguments can be passed through `run_demo.sh`:
 
-1. Set **Fixed Frame** to `map`.
-2. Add display **MarkerArray** on topic `/lhr/track/cones` (cones).
-3. Add display **Path** on topic `/lhr/track/centerline` (centerline).
-4. (Optional) Add **MarkerArray** on `/lhr/track/centerline_markers` (debug midpoints + line).
-5. Add display **TF** to see the `base_link` frame moving.
-6. Add display **Odometry** on `/lhr/vehicle/odom` (vehicle pose arrow).
-7. (Optional) Add **Marker** on `/lhr/control/lookahead` (purple lookahead sphere).
+```bash
+./scripts/run_demo.sh target_speed:=8.0 lookahead_dist:=6.0 seed:=42
+```
+
+## Individual node scripts
+
+If you prefer running nodes separately:
+
+```bash
+./scripts/run_cones.sh        # Terminal 1
+./scripts/run_centerline.sh   # Terminal 2
+./scripts/run_sim.sh          # Terminal 3
+./scripts/run_control.sh      # Terminal 4
+rviz2                         # Terminal 5
+```
 
 ## Topics
 
