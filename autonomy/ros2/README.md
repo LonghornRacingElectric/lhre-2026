@@ -20,6 +20,25 @@ All scripts auto-detect which ROS 2 distro is installed (via `scripts/_ros_env.s
 | `lhr_metrics` | Cross-track error, off-track count, and lap detection (CSV output) |
 | `lhr_demo` | Launch file that starts the full stack in one command |
 
+## Data flow
+
+```
+trackgen ──→ /lhr/track/cones ──→ sensor_sim ──→ /lhr/sensor/cones_detected ──→ track_builder ──→ centerline
+                (ground truth,        │                (FOV-filtered,                                    │
+                 visible in RViz)      │                 accumulated)                                     ▼
+                                       ├──→ /lhr/sensor/cones_viz    (bright/dim visualization)     pure_pursuit
+                                       └──→ /lhr/sensor/fov_viz      (FOV frustum)                      │
+                                                                                                         ▼
+                                       sim_kinematic ◄── /lhr/vehicle/cmd ◄──────────────────────────────┘
+                                            │
+                                            └──→ /lhr/vehicle/odom
+```
+
+To bypass the sensor sim and use all cones directly (god-mode), override the cone topic:
+```bash
+ros2 run lhr_track_builder track_builder --ros-args -p cone_topic:=/lhr/track/cones
+```
+
 ## Prerequisites
 
 ### 1. WSL2 (Windows only)
@@ -72,7 +91,17 @@ Install whichever matches your Ubuntu version. The build scripts auto-detect the
 sudo apt install -y python3-colcon-common-extensions
 ```
 
-## Quick start (two terminals)
+### 5. Install PlotJuggler (optional — for plotting debug signals)
+
+```bash
+# Ubuntu 22.04 (Humble)
+sudo apt install -y ros-humble-plotjuggler-ros
+
+# Ubuntu 24.04 (Jazzy)
+sudo apt install -y ros-jazzy-plotjuggler-ros
+```
+
+## Quick start
 
 ```bash
 # Build once
@@ -83,7 +112,14 @@ sudo apt install -y python3-colcon-common-extensions
 
 # Terminal 2 – open RViz (pre-configured displays + fixed frame = map)
 ./scripts/rviz_demo.sh
+
+# Terminal 3 (optional) – open PlotJuggler for debug signals
+./scripts/run_plotjuggler.sh
 ```
+
+In PlotJuggler: click **Streaming** → **ROS2 Topic Subscriber** → **Start**, select topics, then drag them onto the plot area. Useful topics: `/lhr/debug/curvature`, `/lhr/debug/v_cmd`, `/lhr/vehicle/cmd`.
+
+> **WSL2 note:** `run_plotjuggler.sh` uses `setsid` to launch in a separate process session, which avoids WSLg focus/input conflicts between Qt apps. If RViz becomes unresponsive (no mouse/keyboard input), close it, run `wsl --shutdown` from PowerShell, reopen WSL, and relaunch.
 
 Launch arguments can be passed through `run_demo.sh`:
 
@@ -109,6 +145,7 @@ All scripts live in `scripts/` and should be run from the `autonomy/ros2` direct
 | `run_control.sh` | Runs only the pure pursuit controller (`lhr_control`). |
 | `run_sensor.sh` | Runs only the sensor simulation (`lhr_sensor_sim`). |
 | `run_metrics.sh` | Runs only the metrics node (`lhr_metrics`). Prints summary on Ctrl+C and appends to `data/metrics.csv`. |
+| `run_plotjuggler.sh` | Opens PlotJuggler for plotting debug signals (curvature, speed, steering). |
 
 The individual `run_*.sh` scripts are useful for debugging a single node. For normal use, prefer the two-terminal workflow (`run_demo.sh` + `rviz_demo.sh`).
 
