@@ -10,7 +10,7 @@
 
 static osThreadAttr_t r2d_thread_attrs = {
     .name = "R2D",
-    .priority = osPriorityHigh,
+    .priority = osPriorityNormal,
     .stack_size = 128 * 8,
 };
 
