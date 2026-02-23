@@ -32,6 +32,11 @@ typedef struct {
   float bse_psi;          // average brake pressure
   float bse_psi_filtered; // filtered brake pressure
 
+  /* Cooling */
+  bool pumps_on;
+  float rad_fans_pct;
+  float bat_fans_pct;
+
   struct {
     bool apps1_under_range;
     bool apps1_over_range;

@@ -11,6 +11,7 @@ extern "C" {
 
 #include "APPS.h"
 #include "BSE.h"
+#include "Cooling.h"
 #include "PRNDL.h"
 
 typedef struct {
@@ -19,6 +20,7 @@ typedef struct {
   vcu_parameters_t params;
   apps_state_t apps_state;
   bse_state_t bse_state;
+  cooling_state_t cooling_state;
 } vcu_model_context_t;
 
 /* Initialize internal model state (call once at startup) */

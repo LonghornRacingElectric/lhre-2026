@@ -1,7 +1,4 @@
 #include "vcu_model.h"
-#include "APPS.h"
-#include "BSE.h"
-#include "PRNDL.h"
 #include "TorqueMap.h"
 #include "string.h"
 #include "util.h"
@@ -22,6 +19,7 @@ void vcu_model_init(vcu_model_context_t *ctx, const vcu_parameters_t *params) {
   prndl_init(&ctx->prndl_machine);
   apps_init(&ctx->apps_state);
   bse_init(&ctx->bse_state);
+  cooling_init(&ctx->cooling_state, &ctx->params);
 }
 
 bool can_timed_out() { return false; }
@@ -51,6 +49,9 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
 
   // get the state for this step
   prndl_evaluate(&ctx->prndl_machine, in, out, ctx->time_ms);
+
+  // evaluate cooling
+  cooling_evaluate(in, out, &ctx->cooling_state, &ctx->params, dt_ms);
 
   // Latch outputs based on current state
   switch (out->prndl_state) {
