@@ -2,7 +2,6 @@
 #include "vcu_can.h"
 
 #include "FreeRTOS.h"
-#include "HVC/firmware/Core/Inc/hvc_states.h"
 #include "cmsis_os.h"
 #include "fdcan.h"
 #include "hvc_states/Core/Inc/hvc_states.h"
