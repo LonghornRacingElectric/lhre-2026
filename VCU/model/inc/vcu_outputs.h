@@ -27,7 +27,10 @@ typedef struct {
   bool buzzer_active; // true if buzzer is active
 
   /* BSE pressure estimate (psi) */
-  float bse_psi; // brake pressure in psi
+  float bse1_psi;         // brake pressure for sensor 1
+  float bse2_psi;         // brake pressure for sensor 2
+  float bse_psi;          // average brake pressure
+  float bse_psi_filtered; // filtered brake pressure
 
   struct {
     bool apps1_under_range;
@@ -36,6 +39,11 @@ typedef struct {
     bool apps2_over_range;
     bool apps_implaus;
     bool apps_any_fault;
+
+    bool bse1_under_range;
+    bool bse1_over_range;
+    bool bse2_under_range;
+    bool bse2_over_range;
 
     bool brake_latched;
     bool brake_any_fault;

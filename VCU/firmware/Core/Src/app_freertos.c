@@ -104,11 +104,16 @@ static vcu_parameters_t s_params = {
         {
             .bse_off_psi = 30.0f,
             .bse_on_psi = 50.0f,
-            .bse_adc_at_min_psi_v = 156u,
-            .bse_adc_at_max_psi_v = 635u,
+            .bse1_adc_at_min_psi_v = 156u,
+            .bse1_adc_at_max_psi_v = 635u,
+            .bse2_adc_at_min_psi_v = 156u,
+            .bse2_adc_at_max_psi_v = 635u,
             .bse_max_psi = 1000.0f,
             .max_pedal_while_braking = 0.25f,
             .max_pedal_restore_threshold = 0.05f,
+            .min_psi_deadzone = 0.0f,
+            .max_psi_deadzone = 1.0f,
+            .bse_ema_alpha = 1.0f,
         },
     .buzzer_duration_ms = 1800u,
     .brake_enable_threshold = 0.1f,
@@ -301,7 +306,8 @@ void StartControlTask(void *argument) {
     // Read pedal sensors from DMA buffers
     in.apps1_raw = adc3_dma_buf[0];
     in.apps2_raw = adc3_dma_buf[1];
-    in.bse_raw = adc2_dma_buf[0];
+    in.bse1_raw = adc2_dma_buf[0];
+    in.bse2_raw = adc2_dma_buf[1];
 
     // TODO: update based on CAN packets
     in.contactors_closed = false;
@@ -336,19 +342,19 @@ void StartControlTask(void *argument) {
                  "ADC1=%u  "
                  "APP1=%u (%d.%03d)  "
                  "APP2=%u (%d.%03d)  "
-                 "BSE=%u (%d psi)  "
+                 "BSE1=%lu BSE2=%lu (avg %d psi)  "
                  "ped_f=%d.%03d  "
                  "tq_cmd=%d.%02d Nm  "
                  "impl=%d  brake_act=%d  brake_lat=%d  "
                  "HV_Cont=%d  HVC_St=%d  "
                  "INV: fb_tq=%d.%02d Nm  rpm=%d  bus=%d.%d V\r\n",
                  adc1_val, in.apps1_raw, p1_i / 1000, p1_i % 1000, in.apps2_raw,
-                 p2_i / 1000, p2_i % 1000, in.bse_raw, psi_i, pf_i / 1000,
-                 pf_i % 1000, tq_i / 100, tq_i % 100,
-                 out.faults.apps_implaus ? 1 : 0, out.brake_active ? 1 : 0,
-                 out.faults.brake_latched ? 1 : 0, hv_contactors_closed ? 1 : 0,
-                 hvc_state, inv_fb_tq / 100, inv_fb_tq % 100, inverter_rpm,
-                 inv_bus_v / 10, inv_bus_v % 10);
+                 p2_i / 1000, p2_i % 1000, (uint32_t)in.bse1_raw,
+                 (uint32_t)in.bse2_raw, psi_i, pf_i / 1000, pf_i % 1000,
+                 tq_i / 100, tq_i % 100, out.faults.apps_implaus ? 1 : 0,
+                 out.brake_active ? 1 : 0, out.faults.brake_latched ? 1 : 0,
+                 hv_contactors_closed ? 1 : 0, hvc_state, inv_fb_tq / 100,
+                 inv_fb_tq % 100, inverter_rpm, inv_bus_v / 10, inv_bus_v % 10);
     }
 
     // 10 ms control loop (100 Hz)

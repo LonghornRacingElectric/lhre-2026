@@ -12,8 +12,13 @@ protected:
   bse_state_t state;
 
   void SetUp() override {
-    params.bse.bse_adc_at_min_psi_v = 100;
-    params.bse.bse_adc_at_max_psi_v = 900;
+    params.bse.bse1_adc_at_min_psi_v = 100;
+    params.bse.bse1_adc_at_max_psi_v = 900;
+    params.bse.bse2_adc_at_min_psi_v = 100;
+    params.bse.bse2_adc_at_max_psi_v = 900;
+    params.bse.min_psi_deadzone = 0.0f;
+    params.bse.max_psi_deadzone = 1.0f;
+    params.bse.bse_ema_alpha = 1.0f;
     params.bse.bse_max_psi = 1000.0f;
 
     params.bse.bse_off_psi = 30.0f;
@@ -29,21 +34,14 @@ protected:
 };
 
 TEST_F(BSETest, ADCToPSI) {
-  // Note: bse_adc_to_psi divides adc / bse_adc_at_max_psi directly based on the
-  // user code: "linear_interp(0.0f, params->bse.bse_max_psi, (float)adc_clamped
-  // / (float)params->bse.bse_adc_at_max_psi);" Oh wait, if bse_adc_at_min_psi
-  // is 100, clamped value at 100/900 is 111.1 psi? Yes, that's what their
-  // calculation does. It clamp at min threshold but assumes 0 psi is at 0 ADC
-  // natively.
-
   // Testing clamped min (ADC <= 100) -> 0 PSI
-  EXPECT_FLOAT_EQ(bse_adc_to_psi(50, &params), 0.0f);
+  EXPECT_FLOAT_EQ(bse_adc_to_psi(50, 100, 900, 1000.0f), 0.0f);
 
   // Testing mid (ADC 500 is exactly in the middle of 100-900) -> 50% = 500 PSI
-  EXPECT_FLOAT_EQ(bse_adc_to_psi(500, &params), 500.0f);
+  EXPECT_FLOAT_EQ(bse_adc_to_psi(500, 100, 900, 1000.0f), 500.0f);
 
   // Testing max (ADC >= 900) -> 1000 PSI
-  EXPECT_FLOAT_EQ(bse_adc_to_psi(1000, &params), 1000.0f);
+  EXPECT_FLOAT_EQ(bse_adc_to_psi(1000, 100, 900, 1000.0f), 1000.0f);
 }
 
 TEST_F(BSETest, ActiveHysteresis) {
@@ -65,14 +63,16 @@ TEST_F(BSETest, ActiveHysteresis) {
 
 TEST_F(BSETest, EvaluateLatches) {
   // Start with pedal low (not pressing gas) and unlatched
-  in.bse_raw = 45; // 5% -> 50 PSI -> ON
+  in.bse1_raw = 45; // 5% -> 50 PSI -> ON
+  in.bse2_raw = 45;
   out.pedal_filtered = 0.0f;
 
   // Evaluate multiple times to set initial state safely
   bse_evaluate(&in, &out, &state, &params, 10);
 
   // Clear brake latched by having pedal low
-  in.bse_raw = 0;
+  in.bse1_raw = 0;
+  in.bse2_raw = 0;
   bse_evaluate(&in, &out, &state, &params, 10);
   EXPECT_FALSE(out.brake_active);
   EXPECT_FALSE(out.faults.brake_latched);
@@ -80,7 +80,8 @@ TEST_F(BSETest, EvaluateLatches) {
   // Now test latched functionality
 
   // 1. Press brake
-  in.bse_raw = 900; // Full 1000 PSI -> Brake Active
+  in.bse1_raw = 900; // Full 1000 PSI -> Brake Active
+  in.bse2_raw = 900;
   out.pedal_filtered = 0.0f;
   bse_evaluate(&in, &out, &state, &params, 10);
   EXPECT_TRUE(out.brake_active);
@@ -97,7 +98,8 @@ TEST_F(BSETest, EvaluateLatches) {
   EXPECT_TRUE(out.faults.brake_latched);
 
   // 4. Release brake completely -> LATCH REMAINS because pedal > 0.05
-  in.bse_raw = 0;
+  in.bse1_raw = 0;
+  in.bse2_raw = 0;
   out.pedal_filtered = 0.10f;
   bse_evaluate(&in, &out, &state, &params, 10);
   EXPECT_FALSE(out.brake_active);        // brake off

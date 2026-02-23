@@ -24,8 +24,13 @@ protected:
         1.0f; // No filtering by default for basic tests
 
     // Basic bse params
-    params.bse.bse_adc_at_min_psi_v = 100;
-    params.bse.bse_adc_at_max_psi_v = 900;
+    params.bse.bse1_adc_at_min_psi_v = 100;
+    params.bse.bse1_adc_at_max_psi_v = 900;
+    params.bse.bse2_adc_at_min_psi_v = 150;
+    params.bse.bse2_adc_at_max_psi_v = 950;
+    params.bse.min_psi_deadzone = 0.0f;
+    params.bse.max_psi_deadzone = 1.0f;
+    params.bse.bse_ema_alpha = 1.0f;
     params.bse.bse_max_psi = 1000.0f;
     params.bse.bse_off_psi = 30.0f;
     params.bse.bse_on_psi = 50.0f;
@@ -48,7 +53,8 @@ protected:
   // Helper to transition to drive
   void TransitionToDrive() {
     in.contactors_closed = true;
-    in.bse_raw = 600; // Above 50 psi ON threshold
+    in.bse1_raw = 600; // Above 50 psi ON threshold
+    in.bse2_raw = 650;
     in.drive_switch = false;
     vcu_model_step(&ctx, &in, &out, 10); // Update internal switch state
 
@@ -78,7 +84,8 @@ TEST_F(VCUModelTest, TransitionToDriveAndNormalOperation) {
   EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
 
   // Release brake, press pedal
-  in.bse_raw = 100; // 0 psi
+  in.bse1_raw = 100; // 0 psi
+  in.bse2_raw = 150;
   vcu_model_step(&ctx, &in, &out, 10);
 
   in.apps1_raw = 2500; // 50% pedal
@@ -98,7 +105,8 @@ TEST_F(VCUModelTest, AppsImplausibilityDisablesTorque) {
   TransitionToDrive();
 
   // Release brake
-  in.bse_raw = 100;
+  in.bse1_raw = 100;
+  in.bse2_raw = 150;
 
   // Press pedal to 50% but disagree
   in.apps1_raw = 2500; // 50%
@@ -117,7 +125,8 @@ TEST_F(VCUModelTest, BrakeLatchDisablesTorque) {
   TransitionToDrive();
 
   // Release brake
-  in.bse_raw = 100;
+  in.bse1_raw = 100;
+  in.bse2_raw = 150;
   vcu_model_step(&ctx, &in, &out, 10);
 
   // Press pedal to 50%
@@ -127,7 +136,8 @@ TEST_F(VCUModelTest, BrakeLatchDisablesTorque) {
   EXPECT_FLOAT_EQ(out.torque_cmd, 50.0f);
 
   // Now press brake while pedal is > 25%
-  in.bse_raw = 900; // Max psi
+  in.bse1_raw = 900; // Max psi
+  in.bse2_raw = 950;
   vcu_model_step(&ctx, &in, &out, 10);
 
   EXPECT_TRUE(out.faults.brake_latched);
@@ -138,7 +148,8 @@ TEST_F(VCUModelTest, TransitionToParkOnContactorLoss) {
   TransitionToDrive();
 
   // Normal operation
-  in.bse_raw = 100;
+  in.bse1_raw = 100;
+  in.bse2_raw = 150;
   in.apps1_raw = 2500;
   in.apps2_raw = 1250;
   vcu_model_step(&ctx, &in, &out, 10);
@@ -149,7 +160,8 @@ TEST_F(VCUModelTest, TransitionToParkOnContactorLoss) {
   vcu_model_step(&ctx, &in, &out, 10);
 
   // Now we should be in park
-  in.bse_raw = 100;
+  in.bse1_raw = 100;
+  in.bse2_raw = 150;
   in.apps1_raw = 2500;
   in.apps2_raw = 1250;
   vcu_model_step(&ctx, &in, &out, 10);

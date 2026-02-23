@@ -37,11 +37,20 @@ typedef struct {
     float bse_off_psi; // pressure at which brake is considered off
     float bse_on_psi;  // pressure at which brake is considered on
 
-    float bse_adc_at_min_psi_v;        // ADC reading at the lowest BSE value
-    float bse_adc_at_max_psi_v;        // ADC reading at the highest BSE value
+    float bse1_adc_at_min_psi_v; // ADC reading at lowest BSE1 value
+    float bse1_adc_at_max_psi_v; // ADC reading at highest BSE1 value
+    float bse2_adc_at_min_psi_v; // ADC reading at lowest BSE2 value
+    float bse2_adc_at_max_psi_v; // ADC reading at highest BSE2 value
+
     float bse_max_psi;                 // maximum pressure reading possible
     float max_pedal_while_braking;     // maximum pedal allowed while braking
     float max_pedal_restore_threshold; // maximum pedal allowed to restore BSE
+
+    float min_psi_deadzone; // starting psi range clamping strictly to 0.0
+    float max_psi_deadzone; // top psi threshold tracking out of bounds
+
+    float
+        bse_ema_alpha; // smoothing factor for internal filters mapping bse EMA
   } bse;
 
   struct {

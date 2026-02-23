@@ -12,7 +12,8 @@ typedef struct {
   /* Raw ADC readings */
   float apps1_raw; /* APPS1 ADC (ADC3 CH9)  */
   float apps2_raw; /* APPS2 ADC (ADC3 CH10) */
-  float bse_raw;   /* BSE  ADC (ADC2 CH3)   */
+  float bse1_raw;  /* BSE1 ADC */
+  float bse2_raw;  /* BSE2 ADC */
 
   bool drive_switch;
   bool contactors_closed;
