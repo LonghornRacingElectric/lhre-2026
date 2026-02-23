@@ -10,7 +10,7 @@ extern "C" {
 
 typedef struct {
   float value;
-  bool is_initialized;
+  bool initialized;
 } ema_filter_t;
 
 void ema_filter_init(ema_filter_t *filter);

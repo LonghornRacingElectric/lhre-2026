@@ -17,7 +17,7 @@ bool bse_under_voltage(float adc, float min, float max) { return adc < min; }
 bool bse_over_voltage(float adc, float min, float max) { return adc > max; }
 
 void bse_init(bse_state_t *state) {
-  state->brake_active = false;
+  state->brake_pressed = false;
   state->brake_latched = false;
   ema_filter_init(&state->bse_filter);
 }
@@ -27,18 +27,18 @@ void bse_init(bse_state_t *state) {
  */
 bool bse_is_active(float psi, bse_state_t *state, vcu_parameters_t *params) {
   // lagging hysteresis
-  if (state->brake_active && psi < params->bse.bse_off_psi) {
-    state->brake_active = false;
-  } else if (!state->brake_active && psi >= params->bse.bse_on_psi) {
-    state->brake_active = true;
+  if (state->brake_pressed && psi < params->bse.bse_off_psi) {
+    state->brake_pressed = false;
+  } else if (!state->brake_pressed && psi >= params->bse.bse_on_psi) {
+    state->brake_pressed = true;
   }
 
-  return state->brake_active;
+  return state->brake_pressed;
 }
 
-static bool bse_is_latched(bool brake_active, float pedal, bse_state_t *state,
+static bool bse_is_latched(bool brake_pressed, float pedal, bse_state_t *state,
                            vcu_parameters_t *params) {
-  if (brake_active && pedal > params->bse.max_pedal_while_braking) {
+  if (brake_pressed && pedal > params->bse.max_pedal_while_braking) {
     state->brake_latched = true;
   }
 
@@ -79,18 +79,16 @@ void bse_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
 
   float raw_average_psi = linear_interp(out->bse1_psi, out->bse2_psi, 0.5f);
 
-  // apply_deadzone maps to 0-1, so scale up to max_psi
-  out->bse_psi = apply_deadzone(raw_average_psi, params->bse.min_psi_deadzone,
-                                params->bse.max_psi_deadzone) *
-                 params->bse.bse_max_psi;
+  out->bse_psi = ema_filter_evaluate(&state->bse_filter, raw_average_psi,
+                                     params->bse.bse_ema_alpha);
 
-  out->bse_psi_filtered = ema_filter_evaluate(&state->bse_filter, out->bse_psi,
-                                              params->bse.bse_ema_alpha);
+  out->brake_pressed = bse_is_active(out->bse_psi, state, params);
 
-  out->brake_active = bse_is_active(out->bse_psi_filtered, state, params);
+  out->brake_light_pct = out->brake_pressed ? params->bse.brake_light_max_pct
+                                            : params->bse.brake_light_min_pct;
 
-  out->faults.brake_latched =
-      bse_is_latched(out->brake_active, out->pedal_filtered, state, params);
+  out->faults.brake_latched = bse_is_latched(
+      out->brake_pressed, out->accel_pedal_travel, state, params);
 
   out->faults.brake_any_fault =
       out->faults.brake_any_fault || out->faults.brake_latched;

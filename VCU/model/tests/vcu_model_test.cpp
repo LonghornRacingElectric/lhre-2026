@@ -31,6 +31,8 @@ protected:
     params.bse.min_psi_deadzone = 0.0f;
     params.bse.max_psi_deadzone = 1.0f;
     params.bse.bse_ema_alpha = 1.0f;
+    params.bse.brake_light_min_pct = 0.05f;
+    params.bse.brake_light_max_pct = 0.30f;
     params.bse.bse_max_psi = 1000.0f;
     params.bse.bse_off_psi = 30.0f;
     params.bse.bse_on_psi = 50.0f;

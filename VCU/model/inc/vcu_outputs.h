@@ -10,16 +10,16 @@ extern "C" {
 
 typedef struct {
   /* Normalized pedal travel */
-  float apps1_travel;   // travel percentage of apps1
-  float apps2_travel;   // travel percentage of apps2
-  float pedal;          // middle of apps1 and apps2 in percent
-  float pedal_filtered; // filtered pedal
+  float apps1_travel;       // travel percentage of apps1
+  float apps2_travel;       // travel percentage of apps2
+  float accel_pedal_travel; // middle of apps1 and apps2 in percent
 
   /* Torque command */
   float torque_cmd; // torque command in Nm
 
   /* Status flags */
-  bool brake_active; // true if brake is active
+  bool brake_pressed;    // true if brake is pressed
+  float brake_light_pct; // percentage of brake light to apply
 
   uint8_t prndl_state; // current state of the PRNDL machine
 
@@ -60,6 +60,8 @@ typedef struct {
   struct {
     uint32_t apps_implaus_ms; // how long the APPS has been implausible
     float apps_diff;          // difference between apps1 and apps2
+    float apps1_travel;
+    float apps2_travel;
   } debug;
 
 } vcu_outputs_t;

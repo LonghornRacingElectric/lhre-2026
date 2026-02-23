@@ -15,7 +15,8 @@ void prndl_evaluate(prndl_machine_t *machine, const vcu_inputs_t *in,
   case PRNDL_PARK:
     // Transition to DRIVE on (rising edge of switch) + brake + contactors
     if (rising_edge(machine->prev_drive_switch, in->drive_switch) &&
-        in->contactors_closed && out->brake_active && out->pedal <= 1e-5) {
+        in->contactors_closed && out->brake_pressed &&
+        out->accel_pedal_travel == 0.0f) {
       machine->state = PRNDL_DRIVE;
       machine->drive_start_time_ms = time_ms;
     }

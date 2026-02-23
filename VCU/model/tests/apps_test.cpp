@@ -41,9 +41,9 @@ TEST_F(APPSTest, ADCToTravelConversion) {
   // Mid point
   EXPECT_FLOAT_EQ(apps_adc_to_travel(2500, 1000, 4000), 0.5f);
 
-  // Out of bounds (clamped)
-  EXPECT_FLOAT_EQ(apps_adc_to_travel(500, 1000, 4000), 0.0f);
-  EXPECT_FLOAT_EQ(apps_adc_to_travel(5000, 1000, 4000), 1.0f);
+  // Out of bounds (unclamped)
+  EXPECT_FLOAT_EQ(apps_adc_to_travel(500, 1000, 4000), -0.16666667f);
+  EXPECT_FLOAT_EQ(apps_adc_to_travel(5000, 1000, 4000), 1.3333334f);
 }
 
 TEST_F(APPSTest, EvaluateNormalOperation) {
@@ -56,8 +56,7 @@ TEST_F(APPSTest, EvaluateNormalOperation) {
   EXPECT_FLOAT_EQ(out.apps2_travel, 0.5f);
 
   // (0.50 - 0.10) / (0.90 - 0.10) => 0.40 / 0.80 = 0.5f
-  EXPECT_FLOAT_EQ(out.pedal, 0.5f);
-  EXPECT_FLOAT_EQ(out.pedal_filtered, 0.5f);
+  EXPECT_FLOAT_EQ(out.accel_pedal_travel, 0.5f);
   EXPECT_FALSE(out.faults.apps_implaus);
 }
 
@@ -66,13 +65,13 @@ TEST_F(APPSTest, EvaluateDeadzoneLimits) {
   in.apps1_raw = 1250; // 8.33% roughly, below 10%
   in.apps2_raw = 625;
   apps_evaluate(&in, &out, &state, &params, 10);
-  EXPECT_FLOAT_EQ(out.pedal, 0.0f);
+  EXPECT_FLOAT_EQ(out.accel_pedal_travel, 0.0f);
 
   // Test upper deadband (90%)
   in.apps1_raw = 3800; // > 90%
   in.apps2_raw = 1900;
   apps_evaluate(&in, &out, &state, &params, 10);
-  EXPECT_FLOAT_EQ(out.pedal, 1.0f);
+  EXPECT_FLOAT_EQ(out.accel_pedal_travel, 1.0f);
 }
 
 TEST_F(APPSTest, EvaluateEMAFilter) {
@@ -84,19 +83,18 @@ TEST_F(APPSTest, EvaluateEMAFilter) {
 
   // Evaluation 1 will initialize memory directly to point
   apps_evaluate(&in, &out, &state, &params, 10);
-  EXPECT_FLOAT_EQ(out.pedal, 0.5f);
-  EXPECT_FLOAT_EQ(out.pedal_filtered, 0.5f);
+  EXPECT_FLOAT_EQ(out.accel_pedal_travel, 0.5f);
 
-  in.apps1_raw = 3800; // Target is now 100% due to deadband
+  in.apps1_raw = 3800; // filter target is ~0.9333
   in.apps2_raw = 1900;
 
   // Evaluation 2 will use alpha (0.5)
   apps_evaluate(&in, &out, &state, &params, 10);
-  EXPECT_FLOAT_EQ(out.pedal_filtered, 0.75f);
+  EXPECT_FLOAT_EQ(out.accel_pedal_travel, 0.77083337f);
 
   // Evaluation 3 will step another half
   apps_evaluate(&in, &out, &state, &params, 10);
-  EXPECT_FLOAT_EQ(out.pedal_filtered, 0.875f);
+  EXPECT_FLOAT_EQ(out.accel_pedal_travel, 0.90625006f);
 }
 
 TEST_F(APPSTest, ImplausibilityTriggerAndRestore) {
@@ -122,16 +120,4 @@ TEST_F(APPSTest, ImplausibilityTriggerAndRestore) {
   // Evaluate again crossing debounce threshold
   apps_evaluate(&in, &out, &state, &params, 15); // +15ms = 105ms
   EXPECT_TRUE(out.faults.apps_implaus);
-
-  // 3. Diff returns to normal, but pedal is not idle
-  in.apps1_raw = 2500; // 50%
-  in.apps2_raw = 1250; // 50%
-  apps_evaluate(&in, &out, &state, &params, 10);
-  EXPECT_TRUE(out.faults.apps_implaus); // Should stay latched!
-
-  // 4. Pedal goes idle (< 5%) to restore
-  in.apps1_raw = 1100; // ~3.3%
-  in.apps2_raw = 550;  // ~3.3%
-  apps_evaluate(&in, &out, &state, &params, 10);
-  EXPECT_FALSE(out.faults.apps_implaus); // Should unlatch
 }

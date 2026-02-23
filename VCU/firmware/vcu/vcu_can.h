@@ -1,8 +1,9 @@
 #ifndef VCU_CAN_H
 #define VCU_CAN_H
 
-#include <stdint.h>
+#include "vcu_outputs.h"
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,10 +20,16 @@ void vcu_can_read_feedback(void);
 // Read contactor status from CAN messages
 void vcu_can_read_contactor_status(void);
 
+void vcu_can_set_model_outputs(vcu_outputs_t *out);
+
+bool is_drive_switch_pressed(void);
+
+bool hvc_tractive_ready(void);
+
 // Inverter feedback variables (populated automatically)
-extern float   inverter_torque_fb;   // Nm
-extern int16_t inverter_rpm;         // rpm
-extern float   inverter_bus_voltage; // V
+extern float inverter_torque_fb;   // Nm
+extern int16_t inverter_rpm;       // rpm
+extern float inverter_bus_voltage; // V
 
 // Derived HV state
 extern bool hv_contactors_closed;

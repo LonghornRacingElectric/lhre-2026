@@ -77,6 +77,9 @@ const osThreadAttr_t controlTask_attributes = {
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
+#define ADC_MAX_VAL (1 << 12) - 1
+#define ADC_APPS_SCALE_V 3.3f
+#define ADC_BSE_SCALE_V 3.2837f
 
 /* USER CODE END PM */
 
@@ -114,6 +117,8 @@ static vcu_parameters_t s_params = {
             .min_psi_deadzone = 0.0f,
             .max_psi_deadzone = 1.0f,
             .bse_ema_alpha = 1.0f,
+            .brake_light_min_pct = 0.05f,
+            .brake_light_max_pct = 0.30f,
         },
     .buzzer_duration_ms = 1800u,
     .brake_enable_threshold = 0.1f,
@@ -304,58 +309,22 @@ void StartControlTask(void *argument) {
     HAL_ADC_Stop(&hadc1);
 
     // Read pedal sensors from DMA buffers
-    in.apps1_raw = adc3_dma_buf[0];
-    in.apps2_raw = adc3_dma_buf[1];
-    in.bse1_raw = adc2_dma_buf[0];
-    in.bse2_raw = adc2_dma_buf[1];
+    in.apps1_raw = ((float)adc3_dma_buf[0] / ADC_MAX_VAL) * ADC_APPS_SCALE_V;
+    in.apps2_raw = ((float)adc3_dma_buf[1] / ADC_MAX_VAL) * ADC_APPS_SCALE_V;
+    in.bse1_raw = ((float)adc2_dma_buf[0] / ADC_MAX_VAL) * ADC_BSE_SCALE_V;
+    in.bse2_raw = in.bse1_raw;
 
-    // TODO: update based on CAN packets
-    in.contactors_closed = false;
-    in.drive_switch = false;
+    in.drive_switch = is_drive_switch_pressed();
+
+    // TODO: make sure that bse2 is read
+    // in.bse2_raw = adc2_dma_buf[1];
+
+    in.contactors_closed = hvc_tractive_ready();
 
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
 
-    // Send torque command to inverter (Nm)
-    vcu_can_set_torque(out.torque_cmd);
-
-    // Read torque command
-    vcu_can_read_feedback();
-
-    // Read contactor status
-    vcu_can_read_contactor_status();
-
-    // Throttle logging: every 20 loops => ~200 ms at 10 ms loop
-    if (++log_div >= 20) {
-      log_div = 0;
-
-      int p1_i = (int)(out.apps1_travel * 1000.0f);
-      int p2_i = (int)(out.apps2_travel * 1000.0f);
-      int pf_i = (int)(out.pedal_filtered * 1000.0f);
-      int tq_i = (int)(out.torque_cmd * 100.0f);
-      int psi_i = (int)(out.bse_psi);
-
-      int inv_fb_tq = (int)(inverter_torque_fb * 100.0f);
-      int inv_bus_v = (int)(inverter_bus_voltage * 10.0f);
-
-      log_printf(LOG_INFO,
-                 "ADC1=%u  "
-                 "APP1=%u (%d.%03d)  "
-                 "APP2=%u (%d.%03d)  "
-                 "BSE1=%lu BSE2=%lu (avg %d psi)  "
-                 "ped_f=%d.%03d  "
-                 "tq_cmd=%d.%02d Nm  "
-                 "impl=%d  brake_act=%d  brake_lat=%d  "
-                 "HV_Cont=%d  HVC_St=%d  "
-                 "INV: fb_tq=%d.%02d Nm  rpm=%d  bus=%d.%d V\r\n",
-                 adc1_val, in.apps1_raw, p1_i / 1000, p1_i % 1000, in.apps2_raw,
-                 p2_i / 1000, p2_i % 1000, (uint32_t)in.bse1_raw,
-                 (uint32_t)in.bse2_raw, psi_i, pf_i / 1000, pf_i % 1000,
-                 tq_i / 100, tq_i % 100, out.faults.apps_implaus ? 1 : 0,
-                 out.brake_active ? 1 : 0, out.faults.brake_latched ? 1 : 0,
-                 hv_contactors_closed ? 1 : 0, hvc_state, inv_fb_tq / 100,
-                 inv_fb_tq % 100, inverter_rpm, inv_bus_v / 10, inv_bus_v % 10);
-    }
+    vcu_can_set_model_outputs(&out);
 
     // 10 ms control loop (100 Hz)
     osDelay(pdMS_TO_TICKS(10));

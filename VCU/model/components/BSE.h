@@ -11,7 +11,7 @@ extern "C" {
 #endif
 
 typedef struct {
-  bool brake_active;
+  bool brake_pressed;
   bool brake_latched;
   ema_filter_t bse_filter;
 } bse_state_t;

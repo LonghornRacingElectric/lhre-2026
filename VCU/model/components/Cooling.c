@@ -9,6 +9,6 @@ void cooling_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
                       uint32_t dt_ms) {
   // For now, turn on pumps and fans always
   out->pumps_on = true;
-  out->rad_fans_pct = 50.0f;
-  out->bat_fans_pct = 50.0f;
+  out->rad_fans_pct = 0.50f;
+  out->bat_fans_pct = 0.50f;
 }

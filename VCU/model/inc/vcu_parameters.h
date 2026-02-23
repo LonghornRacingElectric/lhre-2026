@@ -51,6 +51,9 @@ typedef struct {
 
     float
         bse_ema_alpha; // smoothing factor for internal filters mapping bse EMA
+
+    float brake_light_min_pct; // minimum brake light percentage
+    float brake_light_max_pct; // maximum brake light percentage
   } bse;
 
   struct {

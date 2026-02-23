@@ -19,6 +19,8 @@ protected:
     params.bse.min_psi_deadzone = 0.0f;
     params.bse.max_psi_deadzone = 1.0f;
     params.bse.bse_ema_alpha = 1.0f;
+    params.bse.brake_light_min_pct = 0.05f;
+    params.bse.brake_light_max_pct = 0.30f;
     params.bse.bse_max_psi = 1000.0f;
 
     params.bse.bse_off_psi = 30.0f;
@@ -65,16 +67,17 @@ TEST_F(BSETest, EvaluateLatches) {
   // Start with pedal low (not pressing gas) and unlatched
   in.bse1_raw = 45; // 5% -> 50 PSI -> ON
   in.bse2_raw = 45;
-  out.pedal_filtered = 0.0f;
 
   // Evaluate multiple times to set initial state safely
+  out.accel_pedal_travel = 0.0f;
   bse_evaluate(&in, &out, &state, &params, 10);
 
   // Clear brake latched by having pedal low
   in.bse1_raw = 0;
   in.bse2_raw = 0;
+  out.accel_pedal_travel = 0.0f;
   bse_evaluate(&in, &out, &state, &params, 10);
-  EXPECT_FALSE(out.brake_active);
+  EXPECT_FALSE(out.brake_pressed);
   EXPECT_FALSE(out.faults.brake_latched);
 
   // Now test latched functionality
@@ -82,31 +85,31 @@ TEST_F(BSETest, EvaluateLatches) {
   // 1. Press brake
   in.bse1_raw = 900; // Full 1000 PSI -> Brake Active
   in.bse2_raw = 900;
-  out.pedal_filtered = 0.0f;
+  out.accel_pedal_travel = 0.0f;
   bse_evaluate(&in, &out, &state, &params, 10);
-  EXPECT_TRUE(out.brake_active);
+  EXPECT_TRUE(out.brake_pressed);
   EXPECT_FALSE(out.faults.brake_latched);
 
   // 2. Press pedal slightly (<= 0.25)
-  out.pedal_filtered = 0.20f;
+  out.accel_pedal_travel = 0.20f;
   bse_evaluate(&in, &out, &state, &params, 10);
   EXPECT_FALSE(out.faults.brake_latched); // shouldn't latch
 
   // 3. Press pedal hard (> 0.25) while braking -> LATCH
-  out.pedal_filtered = 0.30f;
+  out.accel_pedal_travel = 0.30f;
   bse_evaluate(&in, &out, &state, &params, 10);
   EXPECT_TRUE(out.faults.brake_latched);
 
   // 4. Release brake completely -> LATCH REMAINS because pedal > 0.05
   in.bse1_raw = 0;
   in.bse2_raw = 0;
-  out.pedal_filtered = 0.10f;
+  out.accel_pedal_travel = 0.30f;
   bse_evaluate(&in, &out, &state, &params, 10);
-  EXPECT_FALSE(out.brake_active);        // brake off
+  EXPECT_FALSE(out.brake_pressed);       // brake off
   EXPECT_TRUE(out.faults.brake_latched); // latch maintained
 
   // 5. Release pedal completely
-  out.pedal_filtered = 0.0f;
+  out.accel_pedal_travel = 0.0f;
   bse_evaluate(&in, &out, &state, &params, 10);
   EXPECT_FALSE(out.faults.brake_latched); // latch cleared
 }
