@@ -179,6 +179,9 @@ def generate_header_content(json_data, input_filename, output_header_name):
             header_lines.append(f"#define {packet_macro_base}_ID {packet_id}")
             header_lines.append(f"#define {packet_macro_base}_DLC {data_length}")
             header_lines.append(f"#define {packet_macro_base}_FREQ {frequency_ms_int}")
+            header_lines.append(
+                f"#define {packet_macro_base}_TIMEOUT_MS {frequency_ms_int * 2}"
+            )
             header_lines.append("")
 
             # --- Struct Definition ---

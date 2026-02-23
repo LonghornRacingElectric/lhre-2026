@@ -252,6 +252,7 @@ CREATE TABLE public.controls (
 -- Generated Pack Table
 CREATE TABLE public.pack (
     packet_id           bigint   NOT NULL,
+    torque_command       real,
     dc_bus_v             real,
     hv_c                 real,
     hv_pack_v            real,
@@ -259,7 +260,6 @@ CREATE TABLE public.pack (
     lv_batt_c            real,
     lv_batt_t            real,
     lv_batt_v            real,
-    torque_command       real,
     CONSTRAINT fk_pack_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
 

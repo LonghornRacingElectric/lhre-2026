@@ -506,6 +506,7 @@ class OrionPack(BaseOrion):
     __tablename__ = 'pack'
     __table_args__ = {'schema': 'public', 'extend_existing': True}
     packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
+    torque_command = Column(Float)
     dc_bus_v = Column(Float)
     hv_c = Column(Float)
     hv_pack_v = Column(Float)
@@ -513,7 +514,6 @@ class OrionPack(BaseOrion):
     lv_batt_c = Column(Float)
     lv_batt_t = Column(Float)
     lv_batt_v = Column(Float)
-    torque_command = Column(Float)
     packet = relationship("OrionPacket", back_populates="pack")
 
 class OrionDiagnosticsLow(BaseOrion):

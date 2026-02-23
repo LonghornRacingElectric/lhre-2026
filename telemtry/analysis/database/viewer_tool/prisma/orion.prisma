@@ -190,6 +190,7 @@ model controls {
 
 model pack {
   packet_id BigInt @id
+  torque_command       Float?
   dc_bus_v             Float?
   hv_c                 Float?
   hv_pack_v            Float?
@@ -197,7 +198,6 @@ model pack {
   lv_batt_c            Float?
   lv_batt_t            Float?
   lv_batt_v            Float?
-  torque_command       Float?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }
