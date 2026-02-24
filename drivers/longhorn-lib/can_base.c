@@ -10,6 +10,8 @@ static can_config_t can;
 
 static can_interface_t *interfaces[MAX_INTERFACES];
 
+#define TX_FIFO_TIMEOUT_MS 1
+
 static uint8_t interface_count = 0;
 
 void can_init(can_config_t *config) {
@@ -162,6 +164,16 @@ static uint8_t data_packet[MAX_CAN_DATA_LEN];
 
 cHAL_StatusTypeDef can_send_immediate(can_interface_t *interface,
                                       can_message_t *msg) {
+
+  uint32_t start = can.tick_fn();
+  while (can.get_tx_fifo_free_level_fn(interface->handle) == 0) {
+    if (can.tick_fn() - start >= TX_FIFO_TIMEOUT_MS) {
+      interface->_error_occurred = true;
+      interface->dropped_packets++;
+      return cHAL_TIMEOUT;
+    }
+  }
+
   cFDCAN_TxHeaderTypeDef tx_header;
   tx_header.DataLength = msg->dlc;
   tx_header.IdType = msg->id_type;
@@ -187,19 +199,10 @@ cHAL_StatusTypeDef can_send_immediate(can_interface_t *interface,
 
 void can_service(can_interface_t *interface) {
   can_message_t *cur = interface->_head;
-  bool sent_one = false;
 
   while (cur) {
     if (cur->_is_scheduled && cur->period_ms > 0 &&
         (can.tick_fn() - cur->_last_tx_time_ms) >= cur->period_ms) {
-
-      // Brief busy-wait between consecutive sends to let the FDCAN HW
-      // update its TX FIFO status register (TXFQS). Back-to-back
-      // AddMessageToTxFifoQ calls race on stale TXFQS.
-      if (sent_one) {
-        for (volatile int i = 0; i < 100; i++) {
-        }
-      }
 
       cHAL_StatusTypeDef error = can_send_immediate(interface, cur);
 
@@ -207,10 +210,10 @@ void can_service(can_interface_t *interface) {
         cur->_last_tx_time_ms = can.tick_fn();
       } else {
         interface->dropped_packets++;
+        // still update so that we don't spam retry this packet in future runs,
+        // just treat as dropped
         cur->_last_tx_time_ms = can.tick_fn();
       }
-
-      sent_one = true;
     }
 
     cur = cur->_next;

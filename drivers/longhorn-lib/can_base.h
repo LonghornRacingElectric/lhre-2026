@@ -48,6 +48,8 @@ typedef cHAL_StatusTypeDef (*CAN_AddFilter_fn)(
 
 typedef void *(*Malloc_fn)(size_t size);
 
+typedef uint32_t (*CAN_GetTxFifoFreeLevel_fn)(void *hfdcan);
+
 typedef void (*Free_fn)(void *ptr);
 
 /* Define configuration for CAN */
@@ -57,6 +59,7 @@ typedef struct can_config_t {
   CAN_ActivateNotifications_fn noti_fn;
   CAN_Stop_fn stop_fn;
   CAN_AddToQ_fn add_to_queue_fn;
+  CAN_GetTxFifoFreeLevel_fn get_tx_fifo_free_level_fn;
   CAN_GetRxMessage_fn get_rx_message_fn;
   Tick_fn tick_fn;
   CAN_AddFilter_fn add_filter_fn;
