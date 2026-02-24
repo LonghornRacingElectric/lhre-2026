@@ -65,12 +65,19 @@ void vcu_can_add_send_handlers(void);
 void vcu_can_init(void) {
   can_rtos_init(&vcu_can_config);
 
-  // Register physical interfaces FIRST
+  // Register physical interfaces (init only, doesn't start the peripheral)
   can_rtos_register_interface(&critical_bus);
   can_rtos_register_interface(&data_acq_bus);
 
-  vcu_can_add_receive_handlers();
+  // Register all send and receive packets BEFORE starting the interfaces.
+  // This ensures filters are configured and the TX linked list is complete
+  // before the peripheral goes live on the bus.
   vcu_can_add_send_handlers();
+  vcu_can_add_receive_handlers();
+
+  // NOW start the interfaces — peripheral goes live with all filters active
+  can_rtos_start_interface(&critical_bus);
+  can_rtos_start_interface(&data_acq_bus);
 
   can_rtos_start_transceiver_task(osPriorityNormal);
   can_rtos_start_receiver_task(osPriorityAboveNormal);
@@ -96,7 +103,13 @@ void vcu_can_add_send_handlers(void) {
 }
 
 void vcu_can_set_model_outputs(vcu_outputs_t *out) {
-  brake_pedal_mailbox.brake_pedal_travel = out->brake_light_pct;
+  static float pct = 0.0f;
+  pct += 0.01f;
+  if (pct > 1.0f) {
+    pct = 0.0f;
+  }
+
+  brake_pedal_mailbox.brake_pedal_travel = pct;
   inverter_torque_command_mailbox.torque_request = out->torque_cmd;
   inverter_torque_command_mailbox.enable = out->torque_cmd > 0 ? 1 : 0;
   inverter_torque_command_mailbox.torque_limit = 200.0f;
