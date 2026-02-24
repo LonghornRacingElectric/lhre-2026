@@ -21,19 +21,6 @@ static can_interface_t data_acq_bus = {
     .handle = &hfdcan2,
 };
 
-static can_config_t vcu_can_config = {
-    .init_fn = (CAN_Init_fn)HAL_FDCAN_Init,
-    .start_fn = (CAN_Start_fn)HAL_FDCAN_Start,
-    .noti_fn = (CAN_ActivateNotifications_fn)HAL_FDCAN_ActivateNotification,
-    .stop_fn = (CAN_Stop_fn)HAL_FDCAN_Stop,
-    .add_to_queue_fn = (CAN_AddToQ_fn)HAL_FDCAN_AddMessageToTxFifoQ,
-    .get_rx_message_fn = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
-    .tick_fn = HAL_GetTick,
-    .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
-    .malloc_fn = pvPortMalloc,
-    .free_fn = vPortFree,
-};
-
 /** ==
  * CAN Packets
  *  ==
@@ -63,6 +50,21 @@ void vcu_can_add_send_handlers(void);
  * handlers. Also starts the CAN transceiver and receiver tasks.
  */
 void vcu_can_init(void) {
+  can_config_t vcu_can_config = {
+      .init_fn = (CAN_Init_fn)HAL_FDCAN_Init,
+      .start_fn = (CAN_Start_fn)HAL_FDCAN_Start,
+      .noti_fn = (CAN_ActivateNotifications_fn)HAL_FDCAN_ActivateNotification,
+      .stop_fn = (CAN_Stop_fn)HAL_FDCAN_Stop,
+      .add_to_queue_fn = (CAN_AddToQ_fn)HAL_FDCAN_AddMessageToTxFifoQ,
+      .get_rx_message_fn = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
+      .tick_fn = HAL_GetTick,
+      .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
+      .malloc_fn = pvPortMalloc,
+      .free_fn = vPortFree,
+      .cccr_reg = &hfdcan1.Instance->CCCR,
+      .init_bit = FDCAN_CCCR_INIT,
+  };
+
   can_rtos_init(&vcu_can_config);
 
   // Register physical interfaces (init only, doesn't start the peripheral)

@@ -62,6 +62,8 @@ typedef struct can_config_t {
   CAN_AddFilter_fn add_filter_fn;
   Malloc_fn malloc_fn;
   Free_fn free_fn;
+  volatile uint32_t *cccr_reg;
+  uint32_t init_bit;
 } can_config_t;
 
 typedef struct can_handle_t {

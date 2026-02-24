@@ -282,6 +282,13 @@ void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t RxFifo0ITs) {
   }
 }
 
+// https://community.st.com/t5/stm32-mcus/how-to-recover-from-bus-off-state-with-fdcan-on-stm32-mcus/ta-p/851596
+void HAL_FDCAN_ErrorStatusCallback(void *hfdcan, uint32_t ErrorStatusITs) {
+  if ((ErrorStatusITs & cFDCAN_IT_BUS_OFF) != 0) { // If Bus-Off error occurred
+    *can.cccr_reg &= ~can.init_bit; // Clear INIT bit to recover from Bus-Off
+  }
+}
+
 __attribute__((weak)) void can_rx_hook(can_receive_message_t *msg,
                                        uint8_t *rx_data) {
   msg->unpacking_fn(rx_data, msg->latest_msg);
