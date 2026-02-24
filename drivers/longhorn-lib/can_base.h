@@ -105,7 +105,6 @@ typedef struct can_interface_t {
   uint8_t _error_code_receive;
   uint8_t _error_code_send;
   uint32_t _messages_sent;
-  struct can_message_t *_next_to_service;
 } can_interface_t;
 
 /**
