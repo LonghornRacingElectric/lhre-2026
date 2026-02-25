@@ -20,7 +20,7 @@ const MOCK_ADDR: &str = "127.0.0.1:5005";
 const SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
 const STARTUP_SEMAPHORE_PATH: &str = "/tmp/BEVO_publishd_ready";
 const CAN_INTERFACE: &str = "can0";
-const DEFAULT_PUBLISH_HZ: u64 = 10;
+const DEFAULT_PUBLISH_HZ: u64 = 100;
 
 const DEFAULT_CAN_JSON_PATH: &str = "BEVO/nonhermetic/assets/can.json";
 

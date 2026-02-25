@@ -1,0 +1,19 @@
+[Unit]
+Description=BEVO Telemetry System
+After=local-fs.target network.target
+Wants=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/lhre/Documents/lhre-2026/BEVO
+ExecStart=/home/lhre/Documents/lhre-2026/BEVO/nonhermetic/start_telemetry.sh
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Environment variables if needed
+Environment=PYTHONPATH=/home/lhre/Documents/lhre-2026
+
+[Install]
+WantedBy=multi-user.target
