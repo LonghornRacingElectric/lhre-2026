@@ -59,12 +59,16 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
     if (any_fault_exists(out)) {
       // disallow any torque output if there is any major fault detected
       out->torque_cmd = 0.0f;
+
+      // don't disable inverter here in case the fault fixes itself
+      // let the state machine dictate inverter state
     }
 
     // buzzer only on for the first 3 seconds of drive
     out->buzzer_active =
         (ctx->time_ms - ctx->prndl_machine.drive_start_time_ms <
          ctx->params.buzzer_duration_ms);
+    out->inverter_enable = true;
     break;
   }
 
@@ -72,6 +76,7 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
   default:
     out->torque_cmd = 0.0f;
     out->buzzer_active = false;
+    out->inverter_enable = false;
     break;
   }
 }
