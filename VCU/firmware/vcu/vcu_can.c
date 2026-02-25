@@ -7,19 +7,15 @@
 #include "hvc_states/Core/Inc/hvc_states.h"
 #include "longhorn/rtos/can.h"
 #include "longhorn/rtos/logger.h"
+#include <stm32g4xx_hal_fdcan.h>
 
 /** ==
  *  CAN Interface and Configuration Setup
  *  ==
  */
 
-static can_interface_t critical_bus = {
-    .handle = &hfdcan1,
-};
-
-static can_interface_t data_acq_bus = {
-    .handle = &hfdcan2,
-};
+can_interface_t critical_bus;
+can_interface_t data_acq_bus;
 
 /** ==
  * CAN Packets
@@ -56,14 +52,21 @@ void vcu_can_init(void) {
       .noti_fn = (CAN_ActivateNotifications_fn)HAL_FDCAN_ActivateNotification,
       .stop_fn = (CAN_Stop_fn)HAL_FDCAN_Stop,
       .add_to_queue_fn = (CAN_AddToQ_fn)HAL_FDCAN_AddMessageToTxFifoQ,
+      .get_tx_fifo_free_level_fn =
+          (CAN_GetTxFifoFreeLevel_fn)HAL_FDCAN_GetTxFifoFreeLevel,
       .get_rx_message_fn = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
       .tick_fn = HAL_GetTick,
       .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
       .malloc_fn = pvPortMalloc,
       .free_fn = vPortFree,
-      .cccr_reg = &hfdcan1.Instance->CCCR,
       .init_bit = FDCAN_CCCR_INIT,
   };
+
+  critical_bus.handle = &hfdcan1;
+  critical_bus.cccr_reg = &hfdcan1.Instance->CCCR;
+
+  data_acq_bus.handle = &hfdcan2;
+  data_acq_bus.cccr_reg = &hfdcan2.Instance->CCCR;
 
   can_rtos_init(&vcu_can_config);
 
@@ -75,7 +78,10 @@ void vcu_can_init(void) {
   // This ensures filters are configured and the TX linked list is complete
   // before the peripheral goes live on the bus.
   vcu_can_add_send_handlers();
+
+  taskENTER_CRITICAL();
   vcu_can_add_receive_handlers();
+  taskEXIT_CRITICAL();
 
   // NOW start the interfaces — peripheral goes live with all filters active
   can_rtos_start_interface(&critical_bus);
