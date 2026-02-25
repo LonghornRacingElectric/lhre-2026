@@ -30,55 +30,55 @@
  * Light Task
  */
 
-osThreadAttr_t lightsTask_attributes = {
-    .name = "lightsTask",
-    .priority = (osPriority_t)osPriorityHigh,
-    .stack_size = 128 * 8};
+osThreadAttr_t lightsTask_attributes = {.name = "lightsTask",
+                                        .priority =
+                                            (osPriority_t)osPriorityHigh,
+                                        .stack_size = 128 * 8};
 
-void lights_update(void);
+void lights_update(void *argument);
 
 void lights_init(void) {
-    // Initialize PWM on LEDs
-    HAL_TIM_PWM_Start(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL);
-    // Start Task for updating LEDs based on CAN messages
-    HAL_TIM_PWM_Start(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL);
+  // Initialize PWM on LEDs
+  HAL_TIM_PWM_Start(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL);
+  // Start Task for updating LEDs based on CAN messages
+  HAL_TIM_PWM_Start(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL);
 
-    // Start LED Task
-    osThreadNew(lights_update, NULL, &lightsTask_attributes);
+  // Start LED Task
+  osThreadNew(lights_update, NULL, &lightsTask_attributes);
 }
 
 void toggleRed() {
-    static bool red_on = false;
-    if (red_on) {
-        // Turn it off
-        setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.0f);
-    } else {
-        // Turn it on
-        setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.5f);
-    }
-    red_on = !red_on;
+  static bool red_on = false;
+  if (red_on) {
+    // Turn it off
+    setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.0f);
+  } else {
+    // Turn it on
+    setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.5f);
+  }
+  red_on = !red_on;
 }
 
-void lights_update(void) {
-    // Update LED states based on CAN messages
-    static uint32_t previous_tick = 0;
-    while (1) {
-        if (hvc_imd_fault() || hvc_bms_fault()) {
-            // Turn on Red LED and Disable Green LED
-            if (osKernelGetTickCount() - previous_tick >= 300) {
-                toggleRed();
-                previous_tick = osKernelGetTickCount();
-            }
+void lights_update(void *argument) {
+  // Update LED states based on CAN messages
+  static uint32_t previous_tick = 0;
+  while (1) {
+    if (hvc_imd_fault() || hvc_bms_fault()) {
+      // Turn on Red LED and Disable Green LED
+      if (osKernelGetTickCount() - previous_tick >= 300) {
+        toggleRed();
+        previous_tick = osKernelGetTickCount();
+      }
 
-            // Turn off Green LED
-            setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.0f);
-        } else {
-            // Turn on Green LED and Disable Red LED
-            setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.0f);
-            setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.5f);
-        }
-        osDelay(100);
+      // Turn off Green LED
+      setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.0f);
+    } else {
+      // Turn on Green LED and Disable Red LED
+      setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.0f);
+      setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.5f);
     }
+    osDelay(100);
+  }
 }
 
 /**
@@ -95,38 +95,38 @@ void lights_update(void) {
  * curVoltage.
  */
 float normalizeLightWithVoltage(float nominalPctAt24V, float curVoltage) {
-    const float nominalVoltage = 24.0f;
-    const float voltageExponent = 2.0f;  // Need to tune
+  const float nominalVoltage = 24.0f;
+  const float voltageExponent = 2.0f; // Need to tune
 
-    // 0, so doesn't matter, output 0
-    if (nominalPctAt24V <= 0.0f) {
-        return 0.0f;
-    }
+  // 0, so doesn't matter, output 0
+  if (nominalPctAt24V <= 0.0f) {
+    return 0.0f;
+  }
 
-    if (curVoltage < 12.0f) {
-        // LV is dead, don't PWM
-        return 0.0f;
-    }
+  if (curVoltage < 12.0f) {
+    // LV is dead, don't PWM
+    return 0.0f;
+  }
 
-    // Scaling the voltage
-    float voltageRatio = nominalVoltage / curVoltage;
-    float scalingFactor = powf(voltageRatio, voltageExponent);
+  // Scaling the voltage
+  float voltageRatio = nominalVoltage / curVoltage;
+  float scalingFactor = powf(voltageRatio, voltageExponent);
 
-    float adjustedPct = nominalPctAt24V * scalingFactor;
+  float adjustedPct = nominalPctAt24V * scalingFactor;
 
-    // clamping output
-    adjustedPct = MIN(adjustedPct, 1.0f);
-    adjustedPct = MAX(adjustedPct, 0.0f);
+  // clamping output
+  adjustedPct = MIN(adjustedPct, 1.0f);
+  adjustedPct = MAX(adjustedPct, 0.0f);
 
-    return adjustedPct;
+  return adjustedPct;
 }
 
-void setPWM(TIM_HandleTypeDef* htim, uint32_t channel, float percentage) {
-    // Get timer period and calculate CCR based on duty cycle percentage
-    uint32_t period = __HAL_TIM_GET_AUTORELOAD(htim);
+void setPWM(TIM_HandleTypeDef *htim, uint32_t channel, float percentage) {
+  // Get timer period and calculate CCR based on duty cycle percentage
+  uint32_t period = __HAL_TIM_GET_AUTORELOAD(htim);
 
-    // TODO: implement voltage sense so we can use the real measured voltage
-    uint32_t ccr_value =
-        (uint32_t)(normalizeLightWithVoltage(percentage, 24.0f) * period);
-    __HAL_TIM_SET_COMPARE(htim, channel, ccr_value);
+  // TODO: implement voltage sense so we can use the real measured voltage
+  uint32_t ccr_value =
+      (uint32_t)(normalizeLightWithVoltage(percentage, 24.0f) * period);
+  __HAL_TIM_SET_COMPARE(htim, channel, ccr_value);
 }

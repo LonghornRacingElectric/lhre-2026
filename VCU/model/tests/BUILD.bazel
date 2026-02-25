@@ -1,0 +1,41 @@
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_test(
+    name = "apps_test",
+    srcs = ["apps_test.cpp"],
+    deps = [
+        "//VCU/model:vcu_model_2026",
+        "@googletest//:gtest_main",
+    ],
+    linkstatic = True,
+)
+
+cc_test(
+    name = "bse_test",
+    srcs = ["bse_test.cpp"],
+    deps = [
+        "//VCU/model:vcu_model_2026",
+        "@googletest//:gtest_main",
+    ],
+    linkstatic = True,
+)
+
+cc_test(
+    name = "torque_map_test",
+    srcs = ["torque_map_test.cpp"],
+    deps = [
+        "//VCU/model:vcu_model_2026",
+        "@googletest//:gtest_main",
+    ],
+    linkstatic = True,
+)
+
+cc_test(
+    name = "vcu_model_test",
+    srcs = ["vcu_model_test.cpp"],
+    deps = [
+        "//VCU/model:vcu_model_2026",
+        "@googletest//:gtest_main",
+    ],
+    linkstatic = True,
+)
