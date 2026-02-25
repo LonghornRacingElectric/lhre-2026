@@ -79,7 +79,7 @@ void lights_update(void *argument) {
     } else {
       // Turn on Green LED and Disable Red LED
       setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.0f);
-      setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.0f);
+      setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.2f);
     }
 
     // Brake Light
