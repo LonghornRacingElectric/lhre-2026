@@ -15,10 +15,6 @@ static can_interface_t critical_bus = {
     .handle = &hfdcan1,
 };
 
-static can_interface_t data_acq_bus = {
-    .handle = &hfdcan2,
-};
-
 static can_config_t dui_can_config = {
     .init_fn = (CAN_Init_fn)HAL_FDCAN_Init,
     .start_fn = (CAN_Start_fn)HAL_FDCAN_Start,
@@ -60,9 +56,9 @@ void dui_can_init(void) {
 
   // Register physical interfaces FIRST
   can_rtos_register_interface(&critical_bus);
-  can_rtos_register_interface(&data_acq_bus);
 
   dui_can_add_receive_handlers();
+  dui_can_add_send_handlers();
 
   can_rtos_start_transceiver_task(osPriorityNormal);
   can_rtos_start_receiver_task(osPriorityAboveNormal);

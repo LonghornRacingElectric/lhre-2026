@@ -39,6 +39,8 @@ bool vehicle_in_drive(void);
  */
 bool hvc_imd_fault(void);
 
+float brake_light_pct(void);
+
 /**
  * @brief Returns whether or not the HVC has a BMS fault from the HVC
  *
