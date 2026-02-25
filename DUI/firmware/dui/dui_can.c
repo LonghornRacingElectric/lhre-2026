@@ -58,7 +58,6 @@ void dui_can_init(void) {
   can_rtos_init(&dui_can_config);
 
   critical_bus.cccr_reg = &hfdcan1.Instance->CCCR;
-  data_acq_bus.cccr_reg = &hfdcan2.Instance->CCCR;
 
   // Register physical interfaces FIRST
   can_rtos_register_interface(&critical_bus);
@@ -69,7 +68,6 @@ void dui_can_init(void) {
   taskEXIT_CRITICAL();
 
   can_rtos_start_interface(&critical_bus);
-  can_rtos_start_interface(&data_acq_bus);
 
   can_rtos_start_transceiver_task(osPriorityNormal);
   can_rtos_start_receiver_task(osPriorityAboveNormal);

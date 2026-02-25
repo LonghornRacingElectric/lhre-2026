@@ -30,6 +30,9 @@ static can_receive_message_t *indicator_status_mailbox_handle = NULL;
 static msg_dui_r2d_authorization_t r2d_authorization_mailbox = {0};
 static can_receive_message_t *r2d_authorization_mailbox_handle = NULL;
 
+static msg_brake_pedal_t brake_pedal_mailbox = {0};
+static can_receive_message_t *brake_pedal_mailbox_handle = NULL;
+
 void pdu_can_add_receive_handlers(void);
 
 /**
