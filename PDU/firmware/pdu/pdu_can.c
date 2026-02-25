@@ -38,30 +38,45 @@ static can_config_t pdu_can_config = {
  */
 
 static msg_indicators_shutdown_status_t indicator_status_mailbox = {0};
-static can_receive_message_t* indicator_status_mailbox_handle = NULL;
+static can_receive_message_t *indicator_status_mailbox_handle = NULL;
 
 static msg_dui_r2d_authorization_t r2d_authorization_mailbox = {0};
-static can_receive_message_t* r2d_authorization_mailbox_handle = NULL;
+static can_receive_message_t *r2d_authorization_mailbox_handle = NULL;
+
+static msg_brakes_t brakes_mailbox = {0};
+static can_message_t *brakes_mailbox_handle = NULL;
 
 void pdu_can_add_receive_handlers(void);
+void pdu_can_add_transmit_handlers(void);
 
 /**
  * @brief Initializes the CAN interface with the RTOS library and registers
  * handlers. Also starts the CAN transceiver and receiver tasks.
  */
 void pdu_can_init(void) {
-    can_rtos_init(&pdu_can_config);
+  can_rtos_init(&pdu_can_config);
 
-    // Register physical interfaces FIRST
-    can_rtos_register_interface(&critical_bus);
-    can_rtos_register_interface(&data_acq_bus);
+  // Register physical interfaces FIRST
+  can_rtos_register_interface(&critical_bus);
+  can_rtos_register_interface(&data_acq_bus);
 
-    pdu_can_add_receive_handlers();
+  pdu_can_add_transmit_handlers();
 
-    can_rtos_start_transceiver_task(osPriorityNormal);
-    can_rtos_start_receiver_task(osPriorityAboveNormal);
+  taskENTER_CRITICAL();
+  pdu_can_add_receive_handlers();
+  taskEXIT_CRITICAL();
 
-    log_printf(LOG_INFO, "[PDU] CAN RTOS initialized\n");
+  can_rtos_start_transceiver_task(osPriorityNormal);
+  can_rtos_start_receiver_task(osPriorityAboveNormal);
+
+  log_printf(LOG_INFO, "[PDU] CAN RTOS initialized\n");
+}
+
+void pdu_can_add_transmit_handlers(void) {
+  brakes_mailbox_handle =
+      can_get_message_handle(&brakes_mailbox, BRAKES_ID, BRAKES_FREQ,
+                             BRAKES_DLC, (CAN_pack_message_fn)pack_brakes);
+  can_rtos_register_send_packet(&critical_bus, brakes_mailbox_handle);
 }
 
 /**
@@ -72,30 +87,30 @@ void pdu_can_init(void) {
  *
  */
 void pdu_can_add_receive_handlers(void) {
-    // Indicators + Shutdown Status
-    indicator_status_mailbox_handle = can_get_receive_message_handle(
-        &indicator_status_mailbox, INDICATORS_SHUTDOWN_STATUS_ID,
-        (CAN_unpack_message_fn)unpack_indicators_shutdown_status);
+  // Indicators + Shutdown Status
+  indicator_status_mailbox_handle = can_get_receive_message_handle(
+      &indicator_status_mailbox, INDICATORS_SHUTDOWN_STATUS_ID,
+      (CAN_unpack_message_fn)unpack_indicators_shutdown_status);
 
-    can_rtos_register_receive_packet(&critical_bus,
-                                     indicator_status_mailbox_handle);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   indicator_status_mailbox_handle);
 
-    log_printf(LOG_INFO, "[PDU] CAN IMD + BMS handlers registered\n");
+  log_printf(LOG_INFO, "[PDU] CAN IMD + BMS handlers registered\n");
 
-    // DUI R2D Authorization
-    r2d_authorization_mailbox_handle = can_get_receive_message_handle(
-        &r2d_authorization_mailbox, DUI_R2D_AUTHORIZATION_ID,
-        (CAN_unpack_message_fn)unpack_dui_r2d_authorization);
+  // DUI R2D Authorization
+  r2d_authorization_mailbox_handle = can_get_receive_message_handle(
+      &r2d_authorization_mailbox, DUI_R2D_AUTHORIZATION_ID,
+      (CAN_unpack_message_fn)unpack_dui_r2d_authorization);
 
-    can_rtos_register_receive_packet(&critical_bus,
-                                     r2d_authorization_mailbox_handle);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   r2d_authorization_mailbox_handle);
 
-    log_printf(LOG_INFO, "[PDU] CAN R2D Authorization handler registered\n");
+  log_printf(LOG_INFO, "[PDU] CAN R2D Authorization handler registered\n");
 }
 
 bool vehicle_in_park(void) {
-    // 0 indicates VCU has NOT authorized R2D, so vehicle is in Park.
-    return r2d_authorization_mailbox.r2d_authorized == 0;
+  // 0 indicates VCU has NOT authorized R2D, so vehicle is in Park.
+  return r2d_authorization_mailbox.r2d_authorized == 0;
 }
 
 bool vehicle_in_drive(void) { return !vehicle_in_park(); }
@@ -109,13 +124,13 @@ bool vehicle_in_drive(void) { return !vehicle_in_park(); }
  * @return false
  */
 bool hvc_imd_fault(void) {
-    return indicator_status_mailbox.imd_error ||
-           message_timed_out(indicator_status_mailbox_handle,
-                             INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS * 4);
+  return indicator_status_mailbox.imd_error ||
+         message_timed_out(indicator_status_mailbox_handle,
+                           INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS * 4);
 }
 
 bool hvc_bms_fault(void) {
-    return indicator_status_mailbox.bms_error ||
-           message_timed_out(indicator_status_mailbox_handle,
-                             INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS * 4);
+  return indicator_status_mailbox.bms_error ||
+         message_timed_out(indicator_status_mailbox_handle,
+                           INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS * 4);
 }
