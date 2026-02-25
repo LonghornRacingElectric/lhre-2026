@@ -11,14 +11,22 @@
  *
  * @param config configuration for all the functions that the lib needs to call
  */
-void can_rtos_init(can_config_t* config);
+void can_rtos_init(can_config_t *config);
 
 /**
  * @brief Thread-safe registration of a CAN interface.
  *
  * @param interface struct of the interface needing to be registered and started
  */
-void can_rtos_register_interface(can_interface_t* interface);
+void can_rtos_register_interface(can_interface_t *interface);
+
+/**
+ * @brief Thread-safe start of a CAN interface. Must be called AFTER all
+ *        send/receive packets are registered.
+ *
+ * @param interface the interface to start
+ */
+void can_rtos_start_interface(can_interface_t *interface);
 
 /**
  * @brief Thread-safe registration of a send packet.
@@ -26,8 +34,8 @@ void can_rtos_register_interface(can_interface_t* interface);
  * @param interface the interface to register the packet on
  * @param msg the message handle
  */
-void can_rtos_register_send_packet(can_interface_t* interface,
-                                   can_message_t* msg);
+void can_rtos_register_send_packet(can_interface_t *interface,
+                                   can_message_t *msg);
 
 /**
  * @brief Thread-safe registration of a receive packet.
@@ -37,8 +45,8 @@ void can_rtos_register_send_packet(can_interface_t* interface,
  * @param interface the interface to register the packet on
  * @param msg the receive message handle
  */
-void can_rtos_register_receive_packet(can_interface_t* interface,
-                                      can_receive_message_t* msg);
+void can_rtos_register_receive_packet(can_interface_t *interface,
+                                      can_receive_message_t *msg);
 
 /**
  * @brief Thread-safe immediate send.
@@ -47,8 +55,8 @@ void can_rtos_register_receive_packet(can_interface_t* interface,
  * @param msg the message to send
  * @return cHAL_StatusTypeDef status
  */
-cHAL_StatusTypeDef can_rtos_send_immediate(can_interface_t* interface,
-                                           can_message_t* msg);
+cHAL_StatusTypeDef can_rtos_send_immediate(can_interface_t *interface,
+                                           can_message_t *msg);
 
 /**
  * @brief Starts the high-priority transceiver task which services periodic
@@ -68,4 +76,4 @@ BaseType_t can_rtos_start_transceiver_task(UBaseType_t priority);
  */
 BaseType_t can_rtos_start_receiver_task(UBaseType_t priority);
 
-#endif  // LONGHORN_LIB_RTOS_CAN_H
+#endif // LONGHORN_LIB_RTOS_CAN_H
