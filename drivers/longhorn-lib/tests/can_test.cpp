@@ -64,6 +64,8 @@ cHAL_StatusTypeDef Mock_AddFilter(void *h, const cFDCAN_FilterTypeDef *f) {
 }
 uint32_t Mock_Tick() { return globalMock->Tick(); }
 
+uint32_t Mock_GetTxFifoFreeLevel(void *h) { return 1; }
+
 // We use real malloc/free for the tests to ensure valid memory logic
 void *Real_Malloc(size_t sz) { return malloc(sz); }
 void Real_Free(void *ptr) { free(ptr); }
@@ -94,6 +96,7 @@ protected:
     config.get_rx_message_fn = Mock_GetRx;
     config.add_filter_fn = Mock_AddFilter;
     config.tick_fn = Mock_Tick;
+    config.get_tx_fifo_free_level_fn = Mock_GetTxFifoFreeLevel;
     config.malloc_fn = Real_Malloc;
     config.free_fn = Real_Free;
 
