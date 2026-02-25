@@ -67,6 +67,9 @@ void pdu_can_init(void) {
 
   pdu_can_add_receive_handlers();
 
+  can_rtos_start_interface(&critical_bus);
+  can_rtos_start_interface(&data_acq_bus);
+
   can_rtos_start_transceiver_task(osPriorityNormal);
   can_rtos_start_receiver_task(osPriorityAboveNormal);
 

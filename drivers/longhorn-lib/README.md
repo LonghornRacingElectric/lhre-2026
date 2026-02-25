@@ -81,11 +81,14 @@ can_config_t config = {
     .noti_fn = (CAN_ActivateNotifications_fn)HAL_FDCAN_ActivateNotification,
     .stop_fn = (CAN_Stop_fn)HAL_FDCAN_Stop,
     .add_to_queue_fn = (CAN_AddToQ_fn)HAL_FDCAN_AddMessageToTxFifoQ,
+    .get_tx_fifo_free_level_fn =
+          (CAN_GetTxFifoFreeLevel_fn)HAL_FDCAN_GetTxFifoFreeLevel,
     .get_rx_message_fn = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
     .tick_fn = HAL_GetTick, // or osKernelGetTickCount for FreeRTOS
     .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
     .malloc_fn = malloc, // use pvPortMalloc in FreeRTOS
-    .free_fn = free // use vPortFree in FreeRTOS
+    .free_fn = free // use vPortFree in FreeRTOS,
+    .init_bit = FDCAN_CCCR_INIT, // for bus recovery
 };
 
 can_init(&config);
@@ -221,11 +224,14 @@ void setup_can() {
         .noti_fn = (CAN_ActivateNotifications_fn)HAL_FDCAN_ActivateNotification,
         .stop_fn = (CAN_Stop_fn)HAL_FDCAN_Stop,
         .add_to_queue_fn = (CAN_AddToQ_fn)HAL_FDCAN_AddMessageToTxFifoQ,
+        .get_tx_fifo_free_level_fn =
+            (CAN_GetTxFifoFreeLevel_fn)HAL_FDCAN_GetTxFifoFreeLevel,
         .get_rx_message_fn = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
-        .tick_fn = HAL_GetTick,
+        .tick_fn = HAL_GetTick, // or osKernelGetTickCount for FreeRTOS
         .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
-        .malloc_fn = malloc,
-        .free_fn = free
+        .malloc_fn = malloc, // use pvPortMalloc in FreeRTOS
+        .free_fn = free // use vPortFree in FreeRTOS,
+        .init_bit = FDCAN_CCCR_INIT, // for bus recovery
     };
     can_init(&config);
 
@@ -251,6 +257,8 @@ void setup_can() {
         unpack_inverter_temps
     );
     can_register_receive_packet(&can1, rx_msg);
+
+    can_start_interface(&can1);
 }
 
 void loop() {
