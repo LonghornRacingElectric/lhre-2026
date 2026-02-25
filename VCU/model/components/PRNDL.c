@@ -26,6 +26,8 @@ void prndl_evaluate(prndl_machine_t *machine, const vcu_inputs_t *in,
     if (!in->drive_switch || !in->contactors_closed) {
       machine->state = PRNDL_PARK;
     }
+
+    out->inverter_enable = true;
     break;
   }
 
