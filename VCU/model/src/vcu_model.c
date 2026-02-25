@@ -68,6 +68,7 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
     out->buzzer_active =
         (ctx->time_ms - ctx->prndl_machine.drive_start_time_ms <
          ctx->params.buzzer_duration_ms);
+    out->inverter_enable = true;
     break;
   }
 
