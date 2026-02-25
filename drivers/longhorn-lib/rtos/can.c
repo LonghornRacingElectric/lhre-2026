@@ -42,7 +42,6 @@ void can_rx_hook(can_receive_message_t *msg, uint8_t *rx_data) {
 
 // Internal helper to take mutex safely even before scheduler starts
 static void take_mutex(void) {
-  return;
   if (can_mutex != NULL) {
     TickType_t wait_time = portMAX_DELAY;
     if (xTaskGetSchedulerState() == taskSCHEDULER_NOT_STARTED) {
@@ -53,7 +52,6 @@ static void take_mutex(void) {
 }
 
 static void give_mutex(void) {
-  return;
   if (can_mutex != NULL) {
     xSemaphoreGive(can_mutex);
   }
