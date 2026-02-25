@@ -49,6 +49,8 @@ float brake_light_pct(void);
  */
 bool hvc_bms_fault(void);
 
+float brake_light_pct(void);
+
 #ifdef __cplusplus
 }
 #endif

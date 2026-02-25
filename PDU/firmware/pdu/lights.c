@@ -69,17 +69,19 @@ void lights_update(void *argument) {
   while (1) {
     if (hvc_imd_fault() || hvc_bms_fault()) {
       // Turn on Red LED and Disable Green LED
+      // Turn off Green LED
+      HAL_TIM_PWM_Stop(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL);
+      HAL_TIM_PWM_Start(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL);
       if (osKernelGetTickCount() - previous_tick >= 300) {
         toggleRed();
         previous_tick = osKernelGetTickCount();
       }
 
-      // Turn off Green LED
-      setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.0f);
     } else {
       // Turn on Green LED and Disable Red LED
-      setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.0f);
-      setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.0f);
+      HAL_TIM_PWM_Start(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL);
+      HAL_TIM_PWM_Stop(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL);
+      setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.08f);
     }
 
     // Brake Light
