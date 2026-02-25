@@ -97,6 +97,15 @@ void pdu_can_add_receive_handlers(void) {
                                    r2d_authorization_mailbox_handle);
 
   log_printf(LOG_INFO, "[PDU] CAN R2D Authorization handler registered\n");
+
+  // Brake Pedal
+  brake_pedal_mailbox_handle =
+      can_get_receive_message_handle(&brake_pedal_mailbox, BRAKE_PEDAL_ID,
+                                     (CAN_unpack_message_fn)unpack_brake_pedal);
+
+  can_rtos_register_receive_packet(&critical_bus, brake_pedal_mailbox_handle);
+
+  log_printf(LOG_INFO, "[PDU] CAN Brake Pedal handler registered\n");
 }
 
 bool vehicle_in_park(void) {
@@ -125,3 +134,5 @@ bool hvc_bms_fault(void) {
          message_timed_out(indicator_status_mailbox_handle,
                            INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS * 4);
 }
+
+float brake_light_pct(void) { return brake_pedal_mailbox.brake_pedal_travel; }

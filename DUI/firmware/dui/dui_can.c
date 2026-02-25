@@ -15,10 +15,6 @@ static can_interface_t critical_bus = {
     .handle = &hfdcan1,
 };
 
-static can_interface_t data_acq_bus = {
-    .handle = &hfdcan2,
-};
-
 /** ==
  * Outgoing CAN Packets
  *  ==
@@ -66,8 +62,8 @@ void dui_can_init(void) {
 
   // Register physical interfaces FIRST
   can_rtos_register_interface(&critical_bus);
-  can_rtos_register_interface(&data_acq_bus);
 
+  dui_can_add_send_handlers();
   taskENTER_CRITICAL();
   dui_can_add_receive_handlers();
   taskEXIT_CRITICAL();
