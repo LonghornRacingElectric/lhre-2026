@@ -25,9 +25,10 @@ void prndl_evaluate(prndl_machine_t *machine, const vcu_inputs_t *in,
     // Return to PARK if switch opened or contactors drop
     if (!in->drive_switch || !in->contactors_closed) {
       machine->state = PRNDL_PARK;
+    } else {
+      out->inverter_enable = true;
     }
-
-    out->inverter_enable = true;
+    
     break;
   }
 
