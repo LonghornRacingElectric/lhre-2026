@@ -43,11 +43,10 @@ static can_receive_message_t *indicator_status_mailbox_handle = NULL;
 static msg_dui_r2d_authorization_t r2d_authorization_mailbox = {0};
 static can_receive_message_t *r2d_authorization_mailbox_handle = NULL;
 
-static msg_brakes_t brakes_mailbox = {0};
-static can_message_t *brakes_mailbox_handle = NULL;
+static msg_brake_pedal_t brake_pedal_mailbox = {0};
+static can_receive_message_t *brake_pedal_mailbox_handle = NULL;
 
 void pdu_can_add_receive_handlers(void);
-void pdu_can_add_transmit_handlers(void);
 
 /**
  * @brief Initializes the CAN interface with the RTOS library and registers
@@ -60,23 +59,12 @@ void pdu_can_init(void) {
   can_rtos_register_interface(&critical_bus);
   can_rtos_register_interface(&data_acq_bus);
 
-  pdu_can_add_transmit_handlers();
-
-  taskENTER_CRITICAL();
   pdu_can_add_receive_handlers();
-  taskEXIT_CRITICAL();
 
   can_rtos_start_transceiver_task(osPriorityNormal);
   can_rtos_start_receiver_task(osPriorityAboveNormal);
 
   log_printf(LOG_INFO, "[PDU] CAN RTOS initialized\n");
-}
-
-void pdu_can_add_transmit_handlers(void) {
-  brakes_mailbox_handle =
-      can_get_message_handle(&brakes_mailbox, BRAKES_ID, BRAKES_FREQ,
-                             BRAKES_DLC, (CAN_pack_message_fn)pack_brakes);
-  can_rtos_register_send_packet(&critical_bus, brakes_mailbox_handle);
 }
 
 /**
@@ -106,6 +94,15 @@ void pdu_can_add_receive_handlers(void) {
                                    r2d_authorization_mailbox_handle);
 
   log_printf(LOG_INFO, "[PDU] CAN R2D Authorization handler registered\n");
+
+  // Brake Pedal
+  brake_pedal_mailbox_handle =
+      can_get_receive_message_handle(&brake_pedal_mailbox, BRAKE_PEDAL_ID,
+                                     (CAN_unpack_message_fn)unpack_brake_pedal);
+
+  can_rtos_register_receive_packet(&critical_bus, brake_pedal_mailbox_handle);
+
+  log_printf(LOG_INFO, "[PDU] CAN Brake Pedal handler registered\n");
 }
 
 bool vehicle_in_park(void) {
@@ -134,3 +131,5 @@ bool hvc_bms_fault(void) {
          message_timed_out(indicator_status_mailbox_handle,
                            INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS * 4);
 }
+
+float brake_light_pct(void) { return brake_pedal_mailbox.brake_pedal_travel; }

@@ -47,8 +47,10 @@ bool hvc_imd_fault(void);
  */
 bool hvc_bms_fault(void);
 
+float brake_light_pct(void);
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // PDU_CAN_H
+#endif // PDU_CAN_H
