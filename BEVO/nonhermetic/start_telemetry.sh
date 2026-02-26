@@ -5,7 +5,7 @@ SCRIPT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 BEVO_ROOT="$(cd "$SCRIPT_ROOT/.." && pwd)"
 REPO_ROOT="$(cd "$BEVO_ROOT/.." && pwd)"
 
-PYTHON_BIN="${BEVO_PYTHON_BIN:-$BEVO_ROOT/.venv/bin/python}"
+PYTHON_BIN="${BEVO_PYTHON_BIN:-$REPO_ROOT/.venv/bin/python}"
 CELL_SCRIPT="${BEVO_CELL_SCRIPT:-$BEVO_ROOT/cell.py}"
 CAN_IFACE="${CAND_CAN_INTERFACE:-can0}"
 CAN_BITRATE="${BEVO_CAN_BITRATE:-1000000}"
