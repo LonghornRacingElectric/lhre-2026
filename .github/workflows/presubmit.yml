@@ -6,7 +6,7 @@ on:
 jobs:
   bazel-build-test:
     name: Bazel Presubmit Checks
-    runs-on: GuptaBox
+    runs-on: self-hosted
     # Define environment variables from secrets at the job level
     env:
       POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
