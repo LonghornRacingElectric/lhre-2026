@@ -5,8 +5,8 @@ on:
     types: [opened, synchronize, reopened]
 jobs:
   bazel-build-test:
-    name: Bazel Presubmit Checks
-    runs-on: ubuntu-22.04
+    name: Bazel Telemetry Checks
+    runs-on: ubuntu-latest
     # Define environment variables from secrets at the job level
     env:
       POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
@@ -30,19 +30,6 @@ jobs:
           disk-cache: ${{ github.workflow }}
           # Share repository cache between workflows.
           repository-cache: true
-
-      - name: Build All
-        run: bazel build //... --config=ci --remote_header=x-buildbuddy-api-key=${{secrets.BUILD_BUDDY_API_KEY}}
-
-      - name: Run Unit Tests (no Docker required)
-        run: |
-          bazel test //... \
-            --config=ci \
-            --remote_header=x-buildbuddy-api-key=${{ secrets.BUILD_BUDDY_API_KEY }} \
-            --test_output=errors \
-            --test_tag_filters=-integration,-docker,-requirements \
-            --test_env=POSTGRES_USER \
-            --test_env=POSTGRES_PASSWORD
 
       # Docker setup for integration tests
       - name: Create Docker network and volumes
@@ -95,3 +82,48 @@ jobs:
           cd telemtry/stack/kafka && docker compose down -v --remove-orphans || true
           docker network rm telemetry_network || true
           rm -f telemtry/.env || true
+
+  check-runner:
+    runs-on: ubuntu-latest
+    outputs:
+      runner-label: ${{ steps.set-runner.outputs.runner-label }}
+    steps:
+      - name: Set runner
+        id: set-runner
+        run: |
+          runners=$(curl -s -H "Accept: application/vnd.github+json" -H "Authorization: token ${{ secrets.REPO_ACCESS_TOKEN }}" "https://api.github.com/repos/${{ github.repository }}/actions/runners")
+          available=$(echo "$runners" | jq '.runners[] | select(.status == "online" and .busy == false and .labels[] .name == "self-hosted")')
+          if [ -n "$available" ]; then
+            echo "runner-label=self-hosted" >> $GITHUB_OUTPUT
+          else
+            echo "runner-label=ubuntu-latest" >> $GITHUB_OUTPUT
+          fi
+
+  bazel-firmware-checks:
+    name: Bazel Firmware Checks
+    needs: check-runner
+    runs-on: ${{ needs.check-runner.outputs.runner-label }}
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get Bazel
+        uses: bazel-contrib/setup-bazel@0.8.1
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      - name: Build All
+        run: bazel build //... --build_tag_filters=stm32_firmware --config=ci --remote_header=x-buildbuddy-api-key=${{secrets.BUILD_BUDDY_API_KEY}}
+
+      - name: Run Unit Tests (no Docker required)
+        run: |
+          bazel test //... \
+            --config=ci \
+            --remote_header=x-buildbuddy-api-key=${{ secrets.BUILD_BUDDY_API_KEY }} \
+            --test_output=errors \
+            --test_tag_filters=-integration,-docker,-requirements
