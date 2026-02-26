@@ -186,7 +186,13 @@
                 "name": "Module A Temp",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 0.1
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "module_a_temp",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 1,
@@ -194,7 +200,13 @@
                 "name": "Module B Temp",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "module_b_temp",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 2,
@@ -202,7 +214,13 @@
                 "name": "Module C Temp",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "module_c_temp",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 3,
@@ -210,7 +228,13 @@
                 "name": "Gate Driver Temp",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "gate_driver_temp",
+                    "repeated": false,
+                    "field_index": null
+                }
             }
         ]
     },
@@ -235,7 +259,13 @@
                 "name": "RTD #4 Temp",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "rtd4_temp",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 1,
@@ -243,7 +273,13 @@
                 "name": "RTD #5 Temp",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "rtd5_temp",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 2,
@@ -251,7 +287,13 @@
                 "name": "Motor Temp",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "motor_temp",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 3,
@@ -259,7 +301,13 @@
                 "name": "Torque Shudder",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 0.1
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "torque_shudder",
+                    "repeated": false,
+                    "field_index": null
+                }
             }
         ]
     },
@@ -284,7 +332,13 @@
                 "name": "Motor Angle",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 0.1
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "motor_angle",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 1,
@@ -292,7 +346,13 @@
                 "name": "Motor Speed",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "motor_speed",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 2,
@@ -300,7 +360,13 @@
                 "name": "Inverter Frequency",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 0.1
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "inverter_freq",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 3,
@@ -308,7 +374,13 @@
                 "name": "Delta Resolver Angle",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 0.1
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "delta_resolver_angle",
+                    "repeated": false,
+                    "field_index": null
+                }
             }
         ]
     },
@@ -333,7 +405,13 @@
                 "name": "Phase A Current",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 0.1
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "phase_a_current",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 1,
@@ -341,7 +419,13 @@
                 "name": "Phase B Current",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "phase_b_current",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 2,
@@ -349,7 +433,13 @@
                 "name": "Phase C Current",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "phase_c_current",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 3,
@@ -357,7 +447,13 @@
                 "name": "DC Bus Current",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "dc_bus_current",
+                    "repeated": false,
+                    "field_index": null
+                }
             }
         ]
     },
@@ -396,7 +492,13 @@
                 "name": "Neutral Output Voltage",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 0.1
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "neutral_output_v",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 2,
@@ -404,7 +506,13 @@
                 "name": "Vab / Vq Voltage",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 0.1
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "vab_vq_v",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 3,
@@ -412,7 +520,13 @@
                 "name": "Vbc / Vd Voltage",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 0.1
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "vbc_vd_v",
+                    "repeated": false,
+                    "field_index": null
+                }
             }
         ]
     },
@@ -437,7 +551,13 @@
                 "name": "VSM",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "vsm",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 1,
@@ -445,7 +565,13 @@
                 "name": "PWM Freq",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "pwm_freq",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 2,
@@ -453,7 +579,13 @@
                 "name": "Inverter",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "inverter",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 3,
@@ -461,7 +593,13 @@
                 "name": "Relay",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "relay",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 4,
@@ -469,7 +607,13 @@
                 "name": "Misc. 1",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "misc1",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 5,
@@ -477,7 +621,13 @@
                 "name": "Misc. 2",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "misc2",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 6,
@@ -485,7 +635,13 @@
                 "name": "Misc. 3",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "misc3",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 7,
@@ -493,7 +649,13 @@
                 "name": "Misc. 4",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "misc4",
+                    "repeated": false,
+                    "field_index": null
+                }
             }
         ]
     },
@@ -518,7 +680,13 @@
                 "name": "POST Faults",
                 "length": 4,
                 "conv_type": "uint32",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "post_faults",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 1,
@@ -526,7 +694,13 @@
                 "name": "Run Faults",
                 "length": 4,
                 "conv_type": "uint32",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "run_faults",
+                    "repeated": false,
+                    "field_index": null
+                }
             }
         ]
     },
@@ -551,7 +725,13 @@
                 "name": "commanded torque",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 0.1
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "commanded_torque",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 1,
@@ -559,7 +739,13 @@
                 "name": "torque feedback",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "torque_feedback",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 2,
@@ -567,7 +753,13 @@
                 "name": "Time since turned ON",
                 "length": 4,
                 "conv_type": "uint32",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "time_since_on",
+                    "repeated": false,
+                    "field_index": null
+                }
             }
         ]
     },
@@ -606,7 +798,13 @@
                 "name": "torque feedback",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "torque_feedback",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 2,
@@ -614,7 +812,13 @@
                 "name": "Motor Speed",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "motor_speed",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 3,
@@ -622,7 +826,13 @@
                 "name": "Bus Voltage",
                 "length": 2,
                 "conv_type": "uint16",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bus_voltage",
+                    "repeated": false,
+                    "field_index": null
+                }
             }
         ]
     },
@@ -676,7 +886,13 @@
                 "length": 1,
                 "conv_type": "uint8",
                 "precision": 1.0,
-                "is_boolean": true
+                "is_boolean": true,
+                "protobuf": {
+                    "type": "bool",
+                    "field": "direction",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 3,
@@ -685,7 +901,13 @@
                 "length": 1,
                 "conv_type": "uint8",
                 "precision": 1.0,
-                "is_boolean": true
+                "is_boolean": true,
+                "protobuf": {
+                    "type": "bool",
+                    "field": "enable",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 4,
@@ -693,7 +915,13 @@
                 "name": "torque limit",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 0.1
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "torque_limit",
+                    "repeated": false,
+                    "field_index": null
+                }
             }
         ]
     },
@@ -718,7 +946,13 @@
                 "name": "parameter address",
                 "length": 2,
                 "conv_type": "uint16",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "param_address",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 1,
@@ -727,7 +961,13 @@
                 "length": 1,
                 "conv_type": "uint8",
                 "precision": 1.0,
-                "is_boolean": true
+                "is_boolean": true,
+                "protobuf": {
+                    "type": "bool",
+                    "field": "read_write",
+                    "repeated": false,
+                    "field_index": null
+                }
             }
         ]
     },
@@ -752,7 +992,13 @@
                 "name": "parameter address",
                 "length": 2,
                 "conv_type": "uint16",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "param_address",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 1,
@@ -761,12 +1007,280 @@
                 "length": 1,
                 "conv_type": "uint8",
                 "precision": 1.0,
-                "is_boolean": true
+                "is_boolean": true,
+                "protobuf": {
+                    "type": "bool",
+                    "field": "success",
+                    "repeated": false,
+                    "field_index": null
+                }
             }
         ]
     },
     {
-        "packet_id": 64,
+        "packet_id": 208,
+        "packet_name": "Cell Voltages",
+        "from": [
+            "HVC"
+        ],
+        "to": [
+            "PDU"
+        ],
+        "data_length": 8,
+        "frequency_ms": 1000,
+        "frequency": 1.0,
+        "quantity": 35,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Voltage[i]",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "cells_v",
+                    "repeated": true,
+                    "field_index": 0
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Voltage[i+1]",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "cells_v",
+                    "repeated": true,
+                    "field_index": 1
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Voltage[i+2]",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "cells_v",
+                    "repeated": true,
+                    "field_index": 2
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Voltage[i+3]",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "cells_v",
+                    "repeated": true,
+                    "field_index": 3
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 256,
+        "packet_name": "Cell Temperatures",
+        "from": [
+            "HVC"
+        ],
+        "to": [
+            "PDU"
+        ],
+        "data_length": 8,
+        "frequency_ms": 1000,
+        "frequency": 1.0,
+        "quantity": 23,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Temp[i]",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "cells_temps",
+                    "repeated": true,
+                    "field_index": 0
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Temp[i+1]",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "cells_temps",
+                    "repeated": true,
+                    "field_index": 1
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Temp[i+2]",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "cells_temps",
+                    "repeated": true,
+                    "field_index": 2
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Temp[i+3]",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "cells_temps",
+                    "repeated": true,
+                    "field_index": 3
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 288,
+        "packet_name": "DUI R2D Status",
+        "from": [
+            "DUI"
+        ],
+        "to": [
+            "VCU"
+        ],
+        "data_length": 2,
+        "frequency_ms": 100,
+        "frequency": 10.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "R2D Status",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "bool",
+                    "field": "r2d_status",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 1,
+                "name": "DUI Shutdown Faults",
+                "length": 1,
+                "conv_type": "bitfield",
+                "precision": 1.0,
+                "bitfield_encoding": [
+                    {
+                        "protobuf_field": "temp_shutdown_1",
+                        "bit_index": 0
+                    },
+                    {
+                        "protobuf_field": "temp_shutdown_2",
+                        "bit_index": 1
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "packet_id": 289,
+        "packet_name": "DUI R2D Authorization",
+        "from": [
+            "VCU"
+        ],
+        "to": [
+            "DUI"
+        ],
+        "data_length": 3,
+        "frequency_ms": 100,
+        "frequency": 10.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "R2D Authorized",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "bool",
+                    "field": "r2d_authorized",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 1,
+                "name": "DUI IMD Faults",
+                "length": 1,
+                "conv_type": "bitfield",
+                "precision": 1.0,
+                "bitfield_encoding": [
+                    {
+                        "protobuf_field": "temp_imd_1",
+                        "bit_index": 0
+                    },
+                    {
+                        "protobuf_field": "temp_imd_2",
+                        "bit_index": 1
+                    }
+                ]
+            },
+            {
+                "index": 2,
+                "start_byte": 2,
+                "name": "DUI AMS Faults",
+                "length": 1,
+                "conv_type": "bitfield",
+                "precision": 1.0,
+                "bitfield_encoding": [
+                    {
+                        "protobuf_field": "temp_ams_1",
+                        "bit_index": 0
+                    },
+                    {
+                        "protobuf_field": "temp_ams_2",
+                        "bit_index": 1
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "packet_id": 304,
         "packet_name": "Wheel Speed, Ride height",
         "from": [
             "USM"
@@ -786,7 +1300,13 @@
                 "name": "Wheel Speed",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 0.0078125
+                "precision": 0.0078125,
+                "protobuf": {
+                    "type": "float",
+                    "field": "wheel_speed",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 1,
@@ -794,12 +1314,18 @@
                 "name": "Ride Height",
                 "length": 2,
                 "conv_type": "uint16",
-                "precision": 0.0625
+                "precision": 0.0625,
+                "protobuf": {
+                    "type": "float",
+                    "field": "ride_height",
+                    "repeated": false,
+                    "field_index": null
+                }
             }
         ]
     },
     {
-        "packet_id": 80,
+        "packet_id": 305,
         "packet_name": "Contactor Status",
         "from": [
             "HVC"
@@ -819,7 +1345,13 @@
                 "name": "HVC State Machine",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "hvc_state_machine",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 1,
@@ -827,7 +1359,13 @@
                 "name": "Positive HV Contactor",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "bool",
+                    "field": "pos_hv_contactor",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 2,
@@ -835,7 +1373,13 @@
                 "name": "Negative HV Contactor",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "bool",
+                    "field": "neg_hv_contactor",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 3,
@@ -843,12 +1387,18 @@
                 "name": "Precharge Contactor",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "bool",
+                    "field": "precharge_contactor",
+                    "repeated": false,
+                    "field_index": null
+                }
             }
         ]
     },
     {
-        "packet_id": 81,
+        "packet_id": 306,
         "packet_name": "Battery Pack Status",
         "from": [
             "HVC"
@@ -910,7 +1460,13 @@
                 "name": "Cell Top Temp",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "cell_top_temp",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 4,
@@ -918,12 +1474,18 @@
                 "name": "Cell Bottom Temp",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "cell_bottom_temp",
+                    "repeated": false,
+                    "field_index": null
+                }
             }
         ]
     },
     {
-        "packet_id": 82,
+        "packet_id": 307,
         "packet_name": "Battery Temperature Status",
         "from": [
             "HVC"
@@ -996,7 +1558,7 @@
         ]
     },
     {
-        "packet_id": 83,
+        "packet_id": 308,
         "packet_name": "Indicators + Shutdown Status",
         "from": [
             "HVC"
@@ -1097,7 +1659,7 @@
         ]
     },
     {
-        "packet_id": 84,
+        "packet_id": 309,
         "packet_name": "Allow Balance Command",
         "from": [
             "VCU"
@@ -1111,256 +1673,6 @@
         "quantity": 0,
         "bus": "Critical",
         "bytes": []
-    },
-    {
-        "packet_id": 96,
-        "packet_name": "Cell Voltages",
-        "from": [
-            "HVC"
-        ],
-        "to": [
-            "PDU"
-        ],
-        "data_length": 8,
-        "frequency_ms": 1000,
-        "frequency": 1.0,
-        "quantity": 35,
-        "bus": "Critical",
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Voltage[i]",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.0001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "cells_v",
-                    "repeated": true,
-                    "field_index": 0
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Voltage[i+1]",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.0001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "cells_v",
-                    "repeated": true,
-                    "field_index": 1
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Voltage[i+2]",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.0001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "cells_v",
-                    "repeated": true,
-                    "field_index": 2
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 6,
-                "name": "Voltage[i+3]",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.0001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "cells_v",
-                    "repeated": true,
-                    "field_index": 3
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 232,
-        "packet_name": "Cell Temperatures",
-        "from": [
-            "HVC"
-        ],
-        "to": [
-            "PDU"
-        ],
-        "data_length": 8,
-        "frequency_ms": 1000,
-        "frequency": 1.0,
-        "quantity": 23,
-        "bus": "Critical",
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Temp[i]",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.1,
-                "protobuf": {
-                    "type": "float",
-                    "field": "cells_temps",
-                    "repeated": true,
-                    "field_index": 0
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Temp[i+1]",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.1,
-                "protobuf": {
-                    "type": "float",
-                    "field": "cells_temps",
-                    "repeated": true,
-                    "field_index": 1
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Temp[i+2]",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.1,
-                "protobuf": {
-                    "type": "float",
-                    "field": "cells_temps",
-                    "repeated": true,
-                    "field_index": 2
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 6,
-                "name": "Temp[i+3]",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.1,
-                "protobuf": {
-                    "type": "float",
-                    "field": "cells_temps",
-                    "repeated": true,
-                    "field_index": 3
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 288,
-        "packet_name": "DUI R2D Status",
-        "from": [
-            "DUI"
-        ],
-        "to": [
-            "VCU"
-        ],
-        "data_length": 2,
-        "frequency_ms": 100,
-        "frequency": 10.0,
-        "quantity": 1,
-        "bus": "Critical",
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "R2D Status",
-                "length": 1,
-                "conv_type": "uint8",
-                "precision": 1.0
-            },
-            {
-                "index": 1,
-                "start_byte": 1,
-                "name": "DUI Shutdown Faults",
-                "length": 1,
-                "conv_type": "bitfield",
-                "precision": 1.0,
-                "bitfield_encoding": [
-                    {
-                        "protobuf_field": "temp_shutdown_1",
-                        "bit_index": 0
-                    },
-                    {
-                        "protobuf_field": "temp_shutdown_2",
-                        "bit_index": 1
-                    }
-                ]
-            }
-        ]
-    },
-    {
-        "packet_id": 289,
-        "packet_name": "DUI R2D Authorization",
-        "from": [
-            "VCU"
-        ],
-        "to": [
-            "DUI"
-        ],
-        "data_length": 3,
-        "frequency_ms": 100,
-        "frequency": 10.0,
-        "quantity": 1,
-        "bus": "Critical",
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "R2D Authorized",
-                "length": 1,
-                "conv_type": "uint8",
-                "precision": 1.0
-            },
-            {
-                "index": 1,
-                "start_byte": 1,
-                "name": "DUI IMD Faults",
-                "length": 1,
-                "conv_type": "bitfield",
-                "precision": 1.0,
-                "bitfield_encoding": [
-                    {
-                        "protobuf_field": "temp_imd_1",
-                        "bit_index": 0
-                    },
-                    {
-                        "protobuf_field": "temp_imd_2",
-                        "bit_index": 1
-                    }
-                ]
-            },
-            {
-                "index": 2,
-                "start_byte": 2,
-                "name": "DUI AMS Faults",
-                "length": 1,
-                "conv_type": "bitfield",
-                "precision": 1.0,
-                "bitfield_encoding": [
-                    {
-                        "protobuf_field": "temp_ams_1",
-                        "bit_index": 0
-                    },
-                    {
-                        "protobuf_field": "temp_ams_2",
-                        "bit_index": 1
-                    }
-                ]
-            }
-        ]
     },
     {
         "packet_id": 320,
@@ -1499,7 +1811,13 @@
                 "name": "LV Boards Current",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 0.04
+                "precision": 0.04,
+                "protobuf": {
+                    "type": "float",
+                    "field": "lv_boards_current",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 1,
@@ -1507,7 +1825,13 @@
                 "name": "Shutdown Current",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 0.04
+                "precision": 0.04,
+                "protobuf": {
+                    "type": "float",
+                    "field": "shutdown_current",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 2,
@@ -1515,7 +1839,13 @@
                 "name": "Battery Cooling Current",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 0.04
+                "precision": 0.04,
+                "protobuf": {
+                    "type": "float",
+                    "field": "batt_cooling_current",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 3,
@@ -1523,7 +1853,13 @@
                 "name": "Motor Cooling Current",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 0.04
+                "precision": 0.04,
+                "protobuf": {
+                    "type": "float",
+                    "field": "motor_cooling_current",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 4,
@@ -1531,7 +1867,13 @@
                 "name": "Lights Current Current",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 0.04
+                "precision": 0.04,
+                "protobuf": {
+                    "type": "float",
+                    "field": "lights_current",
+                    "repeated": false,
+                    "field_index": null
+                }
             }
         ]
     },
@@ -1963,7 +2305,13 @@
                 "name": "Accelerator Pedal Travel",
                 "length": 2,
                 "conv_type": "uint16",
-                "precision": 0.0001
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "accel_pedal_travel",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 1,
@@ -2095,7 +2443,13 @@
                 "name": "Brake Pedal Travel",
                 "length": 2,
                 "conv_type": "uint16",
-                "precision": 0.0001
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "brake_pedal_travel",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 1,
