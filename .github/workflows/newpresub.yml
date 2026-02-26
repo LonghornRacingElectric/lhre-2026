@@ -1,0 +1,7 @@
+name: Test Runner
+on: push
+jobs:
+    test:
+        runs-on: GuptaBox
+        steps:
+            - run: echo "Hello from GuptaBox"
