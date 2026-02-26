@@ -83,29 +83,9 @@ jobs:
           docker network rm telemetry_network || true
           rm -f telemtry/.env || true
 
-  check-runner:
-    runs-on: ubuntu-latest
-    outputs:
-      runner_label: ${{ steps.set-runner.outputs.label }}
-    steps:
-      - name: Check if GuptaBox is online
-        id: set-runner
-        run: |
-          # Use GitHub CLI to check runner status
-          STATUS=$(gh api repos/${{ github.repository }}/actions/runners --jq '.runners[] | select(.name=="GuptaBox") | .status')
-
-          if [ "$STATUS" == "online" ]; then
-            echo "label=self-hosted" >> $GITHUB_OUTPUT
-          else
-            echo "GuptaBox is offline, falling back to GitHub-hosted"
-            echo "label=ubuntu-22.04" >> $GITHUB_OUTPUT
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   bazel-firmware-checks:
     name: Bazel Firmware Checks
-    runs-on: ${{ needs.check-runner.outputs.runner_label }}
+    runs-on: ubuntu-22.04
     permissions:
       actions: read
       contents: read
