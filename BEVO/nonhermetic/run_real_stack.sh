@@ -6,6 +6,7 @@ BEVO_ROOT="$(cd "$SCRIPT_ROOT/.." && pwd)"
 BIN_DIR="$BEVO_ROOT/target/release"
 CAN_JSON_PATH="$BEVO_ROOT/nonhermetic/assets/can.json"
 CAN_IFACE="${CAND_CAN_INTERFACE:-can0}"
+LOGGERD_ENABLED="${LOGGERD_ENABLED:-1}"
 
 cleanup() {
   kill "${CAND_PID:-}" "${DASHD_PID:-}" "${PUBLISHD_PID:-}" "${LOGGERD_PID:-}" >/dev/null 2>&1 || true
@@ -33,8 +34,10 @@ PUBLISHD_PID=$!
 "$BIN_DIR/dashd" &
 DASHD_PID=$!
 
-"$BIN_DIR/loggerd" &
-LOGGERD_PID=$!
+if [[ "$LOGGERD_ENABLED" == "1" ]]; then
+  "$BIN_DIR/loggerd" &
+  LOGGERD_PID=$!
+fi
 
 CAND_USE_MOCK=0 CAND_CAN_INTERFACE="$CAN_IFACE" CAND_CAN_JSON_PATH="$CAN_JSON_PATH" "$BIN_DIR/cand" &
 CAND_PID=$!

@@ -42,7 +42,7 @@ openvpn --config "$OPENVPN_CONFIG" --auth-user-pass "$OPENVPN_CREDS" --daemon
 sleep 5
 
 echo "Starting BEVO real CAN stack..."
-"$SCRIPT_ROOT/run_real_stack.sh" &
+LOGGERD_ENABLED=0 "$SCRIPT_ROOT/run_real_stack.sh" &
 STACK_PID=$!
 
 # Monitor disk space and stop if low
