@@ -200,7 +200,7 @@
                 "name": "Module B Temp",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
                     "field": "module_b_temp",
@@ -214,7 +214,7 @@
                 "name": "Module C Temp",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
                     "field": "module_c_temp",
@@ -228,7 +228,7 @@
                 "name": "Gate Driver Temp",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
                     "field": "gate_driver_temp",
@@ -419,7 +419,7 @@
                 "name": "Phase B Current",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
                     "field": "phase_b_current",
@@ -433,7 +433,7 @@
                 "name": "Phase C Current",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
                     "field": "phase_c_current",
@@ -447,7 +447,7 @@
                 "name": "DC Bus Current",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
                     "field": "dc_bus_current",
