@@ -44,9 +44,18 @@ sleep 5
 echo "Starting BEVO real CAN stack..."
 LOGGERD_ENABLED=0 "$SCRIPT_ROOT/run_real_stack.sh" &
 STACK_PID=$!
+START_TIME=$(date +%s)
 
 # Monitor disk space and stop if low
 while kill -0 $STACK_PID 2>/dev/null; do
+  CURRENT_TIME=$(date +%s)
+  ELAPSED=$((CURRENT_TIME - START_TIME))
+  if (( ELAPSED > 3600 )); then
+    echo "Runtime exceeded 1 hour. Stopping telemetry."
+    kill $STACK_PID
+    sudo systemctl stop bevo_telemetry.service
+    exit 0
+  fi
   FREE_SPACE_MB=$(df / | awk 'NR==2 {print $4 / 1024}')
   if (( $(echo "$FREE_SPACE_MB < 1024" | bc -l) )); then
     echo "Disk space low (${FREE_SPACE_MB} MB free). Stopping telemetry."
