@@ -106,6 +106,9 @@ jobs:
   bazel-firmware-checks:
     name: Bazel Firmware Checks
     runs-on: ${{ needs.check-runner.outputs.runner_label }}
+    permissions:
+      actions: read
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
