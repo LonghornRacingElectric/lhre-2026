@@ -87,7 +87,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       runner-label: ${{ steps.set-runner.outputs.runner-label }}
-
     steps:
       - name: Set runner
         id: set-runner
