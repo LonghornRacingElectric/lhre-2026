@@ -10,6 +10,7 @@ CELL_SCRIPT="${BEVO_CELL_SCRIPT:-$BEVO_ROOT/cell.py}"
 CAN_IFACE="${CAND_CAN_INTERFACE:-can0}"
 CAN_BITRATE="${BEVO_CAN_BITRATE:-1000000}"
 OPENVPN_CONFIG="${BEVO_OPENVPN_CONFIG:-/etc/openvpn/client/client.ovpn}"
+OPENVPN_CREDS="${BEVO_OPENVPN_CREDS:-$BEVO_ROOT/vpn_creds.txt}"
 
 echo "Starting BEVO telemetry system..."
 echo "Repo root: $REPO_ROOT"
@@ -37,7 +38,7 @@ fi
 ip link set "$CAN_IFACE" up type can bitrate "$CAN_BITRATE"
 
 echo "Starting VPN connection..."
-openvpn --config "$OPENVPN_CONFIG" --daemon
+openvpn --config "$OPENVPN_CONFIG" --auth-user-pass "$OPENVPN_CREDS" --daemon
 sleep 5
 
 echo "Starting BEVO real CAN stack..."
