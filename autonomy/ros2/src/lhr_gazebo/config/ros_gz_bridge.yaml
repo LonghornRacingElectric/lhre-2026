@@ -1,0 +1,45 @@
+# ros_gz_bridge topic mapping for the LHR FSAE Gazebo simulation.
+#
+# Bridges Gazebo transport topics to/from ROS 2.
+
+# Odometry: Gazebo → ROS2
+- gz_topic_name: "/model/fsae_vehicle/odometry"
+  ros_topic_name: "/lhr/vehicle/odom"
+  gz_type_name: "gz.msgs.Odometry"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  direction: GZ_TO_ROS
+
+# TF: Gazebo → ROS2
+- gz_topic_name: "/model/fsae_vehicle/tf"
+  ros_topic_name: "/tf"
+  gz_type_name: "gz.msgs.Pose_V"
+  ros_type_name: "tf2_msgs/msg/TFMessage"
+  direction: GZ_TO_ROS
+
+# Velocity commands: ROS2 → Gazebo
+- ros_topic_name: "/model/fsae_vehicle/cmd_vel"
+  gz_topic_name: "/model/fsae_vehicle/cmd_vel"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+
+# Logical camera: Gazebo → ROS2
+- gz_topic_name: "/logical_camera"
+  ros_topic_name: "/gz/logical_camera"
+  gz_type_name: "gz.msgs.LogicalCameraImage"
+  ros_type_name: "ros_gz_interfaces/msg/LogicalCameraImage"
+  direction: GZ_TO_ROS
+
+# Clock: Gazebo → ROS2 (for sim time)
+- gz_topic_name: "/clock"
+  ros_topic_name: "/clock"
+  gz_type_name: "gz.msgs.Clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  direction: GZ_TO_ROS
+
+# IMU: Gazebo → ROS2
+- gz_topic_name: "/imu/data"
+  ros_topic_name: "/lhr/imu/data"
+  gz_type_name: "gz.msgs.IMU"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  direction: GZ_TO_ROS

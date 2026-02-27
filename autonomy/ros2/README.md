@@ -19,6 +19,7 @@ All scripts auto-detect which ROS 2 distro is installed (via `scripts/_ros_env.s
 | `lhr_control` | Pure pursuit path-following controller |
 | `lhr_mission_manager` | FSAE driverless state machine (Off → Ready → Driving → Finished → Emergency) |
 | `lhr_metrics` | Cross-track error, off-track count, and lap detection (CSV output) |
+| `lhr_gazebo` | Gazebo physics simulation — replaces trackgen + sensor_sim + sim_kinematic with Gazebo |
 | `lhr_demo` | Launch file that starts the full stack in one command |
 
 ## Data flow
@@ -97,7 +98,17 @@ Install whichever matches your Ubuntu version. The build scripts auto-detect the
 sudo apt install -y python3-colcon-common-extensions
 ```
 
-### 5. Install PlotJuggler (optional — for plotting debug signals)
+### 5. Install Gazebo (optional — for physics simulation)
+
+```bash
+# Ubuntu 22.04 (Humble) — installs Gazebo Fortress
+sudo apt install -y ros-humble-ros-gz
+
+# Ubuntu 24.04 (Jazzy) — installs Gazebo Harmonic
+sudo apt install -y ros-jazzy-ros-gz
+```
+
+### 6. Install PlotJuggler (optional — for plotting debug signals)
 
 ```bash
 # Ubuntu 22.04 (Humble)
@@ -157,8 +168,56 @@ All scripts live in `scripts/` and should be run from the `autonomy/ros2` direct
 | `run_sensor.sh` | Runs only the sensor simulation (`lhr_sensor_sim`). |
 | `run_metrics.sh` | Runs only the metrics node (`lhr_metrics`). Prints summary on Ctrl+C and appends to `data/metrics.csv`. |
 | `run_plotjuggler.sh` | Opens PlotJuggler for plotting debug signals (curvature, speed, steering). |
+| `generate_gazebo_world.sh` | Generates a Gazebo world SDF from the track generator. Accepts `--seed`, `--num-waypoints`, etc. |
+| `run_gazebo_demo.sh` | Launches the Gazebo-based stack (physics sim + adapters + upper stack). Accepts same args as `run_demo.sh`. |
 
 The individual `run_*.sh` scripts are useful for debugging a single node. For normal use, prefer the two-terminal workflow (`run_demo.sh` + `rviz_demo.sh`).
+
+## Gazebo simulation (alternative backend)
+
+The `lhr_gazebo` package provides an alternative simulation backend using Gazebo physics instead of the kinematic bicycle model. It replaces the bottom three nodes (`lhr_trackgen`, `lhr_sensor_sim`, `lhr_sim_kinematic`) while the upper stack is unchanged.
+
+### Setup
+
+1. Install Gazebo (see prerequisites above)
+2. Build: `./scripts/build.sh`
+3. Generate a world file from the track generator:
+   ```bash
+   ./scripts/generate_gazebo_world.sh --seed 1
+   ```
+
+### Running
+
+```bash
+# Terminal 1 – Gazebo + autonomy stack
+./scripts/run_gazebo_demo.sh
+
+# Terminal 2 – RViz (same as before)
+./scripts/rviz_demo.sh
+```
+
+Launch arguments work the same way:
+```bash
+./scripts/run_gazebo_demo.sh seed:=42 lookahead_dist:=6.0
+./scripts/run_gazebo_demo.sh gui:=false   # headless mode
+```
+
+### Architecture
+
+```
+LIGHTWEIGHT SIM (run_demo.sh)         GAZEBO SIM (run_gazebo_demo.sh)
+─────────────────────────────         ─────────────────────────────────
+lhr_trackgen (procedural cones)   →   Gazebo world file (cones in scene)
+lhr_sensor_sim (FOV filter)       →   Logical camera + adapter node
+lhr_sim_kinematic (bicycle model) →   Gazebo physics + Ackermann plugin
+
+lhr_track_builder                 →   SAME
+lhr_control                       →   SAME
+lhr_mission_manager               →   SAME
+lhr_metrics                       →   SAME
+```
+
+Both paths produce identical ROS 2 topic interfaces — the upper stack doesn't know the difference.
 
 ## Topics
 
