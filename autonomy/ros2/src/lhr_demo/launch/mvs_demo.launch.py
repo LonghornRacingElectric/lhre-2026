@@ -13,7 +13,7 @@ def generate_launch_description():
     lookahead_arg = DeclareLaunchArgument(
         'lookahead_dist', default_value='4.0')
     metrics_arg = DeclareLaunchArgument(
-        'enable_metrics', default_value='false',
+        'enable_metrics', default_value='true',
         description='Launch metrics node alongside the stack')
     track_style_arg = DeclareLaunchArgument(
         'track_style', default_value='autocross',
@@ -36,6 +36,18 @@ def generate_launch_description():
     init_x_arg = DeclareLaunchArgument('init_x', default_value='25.0')
     init_y_arg = DeclareLaunchArgument('init_y', default_value='0.0')
     init_yaw_arg = DeclareLaunchArgument('init_yaw', default_value='1.5708')
+
+    # Mission manager
+    mission_arg = DeclareLaunchArgument(
+        'mission', default_value='autocross',
+        description='Mission: inspection | manual | ebs_test '
+                    '| acceleration | skidpad | autocross')
+    auto_go_arg = DeclareLaunchArgument(
+        'auto_go', default_value='true',
+        description='Auto-transition READY -> DRIVING after hold time')
+    ready_hold_arg = DeclareLaunchArgument(
+        'ready_hold_sec', default_value='5.0',
+        description='Seconds to hold in READY before auto-go')
 
     # ----- Nodes -----
     cones = Node(
@@ -103,6 +115,18 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('enable_metrics')),
     )
 
+    mission_mgr = Node(
+        package='lhr_mission_manager',
+        executable='mission_manager',
+        name='mission_manager',
+        parameters=[{
+            'mission': LaunchConfiguration('mission'),
+            'auto_go': LaunchConfiguration('auto_go'),
+            'ready_hold_sec': LaunchConfiguration('ready_hold_sec'),
+        }],
+        output='screen',
+    )
+
     return LaunchDescription([
         seed_arg,
         lookahead_arg,
@@ -119,10 +143,14 @@ def generate_launch_description():
         init_x_arg,
         init_y_arg,
         init_yaw_arg,
+        mission_arg,
+        auto_go_arg,
+        ready_hold_arg,
         cones,
         sensor_sim,
         centerline,
         sim,
+        mission_mgr,
         control,
         metrics,
     ])

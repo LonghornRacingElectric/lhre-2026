@@ -10,7 +10,7 @@ from rclpy.node import Node
 from ackermann_msgs.msg import AckermannDrive, AckermannDriveStamped
 from geometry_msgs.msg import Point
 from nav_msgs.msg import Odometry, Path
-from std_msgs.msg import ColorRGBA, Float32, Header
+from std_msgs.msg import ColorRGBA, Float32, Header, String
 from visualization_msgs.msg import Marker
 
 
@@ -78,12 +78,15 @@ class PurePursuit(Node):
         self._yaw = 0.0
         self._have_odom = False
         self._v_prev = 0.0  # for accel limiting
+        self._mission_status = ''  # empty = no manager, run freely
 
         # --- Subscribers ---
         self.create_subscription(
             Path, '/lhr/track/centerline', self._path_cb, 10)
         self.create_subscription(
             Odometry, '/lhr/vehicle/odom', self._odom_cb, 10)
+        self.create_subscription(
+            String, '/lhr/mission/status', self._status_cb, 10)
 
         # --- Publishers ---
         self._cmd_pub = self.create_publisher(
@@ -117,10 +120,24 @@ class PurePursuit(Node):
         self._yaw = quat_to_yaw(msg.pose.pose.orientation)
         self._have_odom = True
 
+    def _status_cb(self, msg: String):
+        self._mission_status = msg.data
+
     # ------------------------------------------------------------------
     # Control
     # ------------------------------------------------------------------
     def _control_loop(self):
+        # Gate on mission status — only drive when DRIVING (or no manager)
+        if self._mission_status and self._mission_status != 'DRIVING':
+            cmd = AckermannDriveStamped()
+            cmd.header.stamp = self.get_clock().now().to_msg()
+            cmd.drive = AckermannDrive()
+            cmd.drive.speed = 0.0
+            cmd.drive.steering_angle = 0.0
+            self._cmd_pub.publish(cmd)
+            self._v_prev = 0.0
+            return
+
         if not self._path or not self._have_odom:
             return
 

@@ -11,6 +11,7 @@ import rclpy
 from rclpy.node import Node
 
 from nav_msgs.msg import Odometry, Path
+from std_msgs.msg import Bool
 
 
 CSV_HEADER = [
@@ -66,6 +67,10 @@ class MetricsNode(Node):
         self._near_start = False
         self._left_start = False
         self._lap_start_time: float = 0.0
+
+        # --- Publisher ---
+        self._lap_pub = self.create_publisher(
+            Bool, '/lhr/metrics/lap_complete', 10)
 
         # --- Subscribers ---
         self.create_subscription(
@@ -149,6 +154,7 @@ class MetricsNode(Node):
             elapsed = now - self._lap_start_time
             if in_zone and elapsed > self._min_lap_time:
                 self._lap_completed = True
+                self._lap_pub.publish(Bool(data=True))
                 self.get_logger().info('Lap completed!')
                 self._print_summary()
                 self._write_csv()
