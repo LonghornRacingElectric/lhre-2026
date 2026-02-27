@@ -16,7 +16,7 @@ bazel_dep(name = "rules_proto", version = "7.0.2")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 
 # Protobuf compiler/runtime for Bazel code generation (protoc).
-bazel_dep(name = "protobuf", version = "29.0", dev_dependency = True)
+bazel_dep(name = "protobuf", version = "33.4", dev_dependency = True)
 
 # Docker/OCI container rules for telemetry services
 bazel_dep(name = "rules_oci", version = "2.0.1")
