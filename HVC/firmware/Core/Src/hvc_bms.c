@@ -6,6 +6,7 @@
  */
 
 #include "hvc_bms.h"
+#include "hvc_thermistors.h"
 #include "main.h"
 #include "cmsis_os2.h"
 #include "adBms6830Data.h"
@@ -24,8 +25,8 @@ extern SPI_HandleTypeDef hspi4;
 extern uint8_t WRPWM1[2];
 extern uint8_t WRPWM2[2];
 
-#define TOTAL_IC 10
-#define NUM_CELLS 14
+#define TOTAL_IC 10  // 10 BMBs (2 per module)
+#define NUM_CELLS 13 // Orion BMS
 #define DISCHARGE_CELL 0  // Which cell to discharge (0-4)
 // Mask covering all cells (bits 0..NUM_CELLS-1)
 #define ALL_DISCHARGE_MASK ((1U << NUM_CELLS) - 1)
@@ -116,7 +117,7 @@ void bms_init(void)
 
     //Enable BMB Lights on all ICs
     for (int i = 0; i < TOTAL_IC; i++) {
-        IC[i].tx_cfga.gpo = 0x000;  // Clear all GPIO bits to enable (pull high)
+        IC[i].tx_cfga.gpo = 0x000;  // Clear all GPIO bits to enable LEDs
     }
     
     // Wake up chip and write initial configuration
@@ -148,6 +149,48 @@ void bms_init(void)
     log_printf(LOG_INFO, "Reading baseline voltages...");
 }
 
+void bms_read_thermistors(void)
+{
+    // Wake up IC and start auxiliary ADC conversion for GPIO 2-9 (thermistors)
+    adBmsWakeupIc(TOTAL_IC);
+    adBms6830_Adax(RD_OFF, PUP_DOWN, AUX_ALL);  // Read all auxiliary channels
+    
+    // Wait for conversion to complete
+    Delay_ms(5);
+    
+    // Read auxiliary voltages (GPIO pins)
+    adBms6830_read_aux_voltages(TOTAL_IC, IC);
+    
+    // Print thermistor readings for each BMB
+    for (int i = 0; i < TOTAL_IC; i++) {
+        char therm_line[256];
+        int offset = 0;
+        
+        log_printf(LOG_INFO, "BMB %d Thermistors:", i);
+        
+        // GPIO 2-9 correspond to aux channels 1-8 (GPIO1 is aux[0])
+        for (int j = 1; j < 9; j++) {  // Skip GPIO1 (j=0), read GPIO2-9 (j=1-8)
+            int16_t code = IC[i].aux.a_codes[j];
+            float voltage_v = ((code + 10000) * 0.000150f);  // Convert ADC code to voltage (ADBMS6830 format)
+            
+            // Convert voltage to temperature
+            float temp_c = ntc_voltage_to_temp(voltage_v);
+            
+            if (temp_c != -999.0f) {
+                offset += snprintf(therm_line + offset, sizeof(therm_line) - offset,
+                                  "T%d: %.1f°C  ", j, temp_c);
+            } else {
+                offset += snprintf(therm_line + offset, sizeof(therm_line) - offset,
+                                  "T%d: INVALID  ", j);
+            }
+        }
+        
+        // Print the complete line
+        log_printf(LOG_INFO, "%s\n", therm_line);
+        osDelay(10);
+    }
+}
+
 void bms_update(void)
 {
     char msg[128];
@@ -164,26 +207,37 @@ void bms_update(void)
     
     // Read cell voltages
     adBms6830_read_cell_voltages(TOTAL_IC, IC);
-    // int i;
-    // int j;
-    // Print all cell voltages, marking the discharging cell
+    
+    // Print all cell voltages
     for (int i = 0; i < TOTAL_IC; i++) {
-        log_printf(LOG_INFO, "IC %d Cell Voltages:", i);
+        char cell_line[256];
+        int offset = 0;
+        
+        log_printf(LOG_INFO, "BMB %d Cell Voltages:", i);
+        
+        // Print cells in groups to fit on lines
         for (int j = 0; j < NUM_CELLS; j++) {
             code = IC[i].cell.c_codes[j];
-            // voltage_v = (code * 8) / 30;  // What the fuck guys
             voltage_v = (code * 0.000150f) + 1.5f;
             
-            if (discharge_active) {
-                log_printf(LOG_WARNING, "Cell %d: %.6f V [DISCHARGING]", i, voltage_v);
-            } else {
-                log_printf(LOG_INFO, "\t IC: %d  -  Cell %d: %.6f V  (%#06X)", i,j, voltage_v, code);
-            }
+            // Add to line buffer
+            offset += snprintf(cell_line + offset, sizeof(cell_line) - offset, 
+                              "Cell %d: %.4fV  ", j, voltage_v);
         }
-
+        
+        // Print the complete line
+        if (discharge_active) {
+            log_printf(LOG_WARNING, "%s [DISCHARGING]", cell_line);
+        } else {
+            log_printf(LOG_INFO, "%s\n", cell_line);
+        }
+        
         osDelay(10);
     }
-    log_printf(LOG_INFO, "Pack Voltage: %.3f V", getPackVoltage_v());
+    log_printf(LOG_INFO, "Pack Voltage: %.3f V\n", getPackVoltage_v());
+    
+    // Read thermistor values
+    bms_read_thermistors();
 
 }
 

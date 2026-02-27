@@ -160,10 +160,12 @@ void MX_FREERTOS_Init(void) {
 
 void FakeTask(void* argument) {
     while (1) {
+        /*
         log_printf(LOG_INFO, "Updating Indicator Status");
         hvc_set_indicator_status(0, 0, 0, 0, 0, 0);
         osDelay(100);
         hvc_set_indicator_status(0, 0, 0, 0, 0, 0);
+        */
     }
 }
 
@@ -211,7 +213,7 @@ void StartDefaultTask(void* argument) {
         .stack_size = 128 * 8 * 2,
     };
 
-    osThreadNew(FakeTask, NULL, &fakeTask_attributes);
+    //osThreadNew(FakeTask, NULL, &fakeTask_attributes);
     // can_init(&can_config);
 
     msg = "DFU initialized\r\n";
