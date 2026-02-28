@@ -12,17 +12,19 @@ All scripts auto-detect which ROS 2 distro is installed (via `scripts/_ros_env.s
 
 | Package | Description |
 |---------|-------------|
-| `lhr_trackgen` | Publishes a synthetic cone track (`/lhr/track/cones`) |
+| `lhr_trackgen` | Publishes a synthetic cone track (`/lhr/track/cones`) and cone IDs (left: 0..N-1, right: 10000..10000+N-1) |
 | `lhr_sensor_sim` | FOV-limited sensor simulation — filters cones by vehicle pose, accumulates detections |
-| `lhr_track_builder` | Subscribes to cones, publishes centerline path (`/lhr/track/centerline`) |
-| `lhr_sim_kinematic` | Kinematic bicycle-model vehicle simulator |
-| `lhr_control` | Pure pursuit path-following controller |
+| `lhr_track_builder` | Subscribes to cones, pairs left/right by ID, publishes centerline path (`/lhr/track/centerline`) |
+| `lhr_sim_kinematic` | Kinematic bicycle-model vehicle simulator (lightweight, no Gazebo needed) |
+| `lhr_control` | Pure pursuit path-following controller with curvature-adaptive lookahead and speed planning |
 | `lhr_mission_manager` | FSAE driverless state machine (Off → Ready → Driving → Finished → Emergency) |
 | `lhr_metrics` | Cross-track error, off-track count, and lap detection (CSV output) |
-| `lhr_gazebo` | Gazebo physics simulation — replaces trackgen + sensor_sim + sim_kinematic with Gazebo |
-| `lhr_demo` | Launch file that starts the full stack in one command |
+| `lhr_gazebo` | Gazebo physics simulation — vehicle with direct joint control, ground-truth odometry, RViz integration |
+| `lhr_demo` | Launch file that starts the full kinematic stack in one command |
 
 ## Data flow
+
+### Kinematic sim (run_demo.sh)
 
 ```
 trackgen ──→ /lhr/track/cones ──→ sensor_sim ──→ /lhr/sensor/cones_detected ──→ track_builder ──→ centerline
@@ -40,6 +42,30 @@ trackgen ──→ /lhr/track/cones ──→ sensor_sim ──→ /lhr/sensor/c
                                             │
                                             └──→ metrics_node ──→ /lhr/metrics/lap_complete ──→ mission_manager
 ```
+
+### Gazebo sim (run_gazebo_demo.sh)
+
+```
+                   ┌──────────────────── GAZEBO ────────────────────┐
+                   │  Vehicle (fsae_vehicle) with:                  │
+                   │   • JointPositionController (steering joints)  │
+                   │   • JointController (wheel velocities)         │
+                   │   • OdometryPublisher (ground-truth pose)      │
+                   │   • IMU sensor                                 │
+                   └─────────────┬───────────────────┬──────────────┘
+                                 │                   │
+                    ros_gz_bridge│(6x Float64 + odom)│
+                                 │                   │
+  trackgen ──→ sensor_sim ──→ track_builder ──→ pure_pursuit ──→ joint_cmd_adapter
+                                                     │               │
+                                                     │          6x joint commands
+                                                     │          (2 steering pos +
+                                                     │           4 wheel vel)
+                                                     │
+                                          /lhr/vehicle/odom ◄── Gazebo OdometryPublisher
+```
+
+The Gazebo path reuses the existing cone pipeline (`trackgen` + `sensor_sim`) for cone detection while Gazebo provides physics, odometry, and IMU. The upper stack (track_builder, control, mission_manager, metrics) is identical in both modes.
 
 To bypass the sensor sim and use all cones directly (god-mode), override the cone topic:
 ```bash
@@ -159,7 +185,7 @@ All scripts live in `scripts/` and should be run from the `autonomy/ros2` direct
 | Script | Description |
 |--------|-------------|
 | `build.sh` | Builds all packages with `colcon build --symlink-install`. Run after any code change. |
-| `run_demo.sh` | Launches the full stack (cones + centerline + sim + control + mission manager + metrics) via `ros2 launch`. Accepts launch args, e.g. `./scripts/run_demo.sh seed:=42`. |
+| `run_demo.sh` | Launches the full kinematic stack (cones + centerline + sim + control + mission manager + metrics) via `ros2 launch`. Accepts launch args, e.g. `./scripts/run_demo.sh seed:=42`. |
 | `rviz_demo.sh` | Opens RViz with the pre-configured `rviz/default.rviz` config (all displays + fixed frame already set). |
 | `run_cones.sh` | Runs only the cone publisher (`lhr_trackgen`). |
 | `run_centerline.sh` | Runs only the centerline builder (`lhr_track_builder`). |
@@ -173,9 +199,9 @@ All scripts live in `scripts/` and should be run from the `autonomy/ros2` direct
 
 The individual `run_*.sh` scripts are useful for debugging a single node. For normal use, prefer the two-terminal workflow (`run_demo.sh` + `rviz_demo.sh`).
 
-## Gazebo simulation (alternative backend)
+## Gazebo simulation
 
-The `lhr_gazebo` package provides an alternative simulation backend using Gazebo physics instead of the kinematic bicycle model. It replaces the bottom three nodes (`lhr_trackgen`, `lhr_sensor_sim`, `lhr_sim_kinematic`) while the upper stack is unchanged.
+The `lhr_gazebo` package provides an alternative simulation backend using Gazebo physics. It replaces the kinematic bicycle model (`lhr_sim_kinematic`) with a full physics vehicle in Gazebo while the cone detection pipeline and upper stack remain unchanged.
 
 ### Setup
 
@@ -189,27 +215,61 @@ The `lhr_gazebo` package provides an alternative simulation backend using Gazebo
 ### Running
 
 ```bash
-# Terminal 1 – Gazebo + autonomy stack
+# Single command — launches Gazebo + RViz + full autonomy stack
 ./scripts/run_gazebo_demo.sh
-
-# Terminal 2 – RViz (same as before)
-./scripts/rviz_demo.sh
 ```
+
+RViz launches automatically alongside Gazebo (disable with `rviz:=false`). The RViz config shows centerline, cones, odometry trail, lookahead point, and FOV visualization.
 
 Launch arguments work the same way:
 ```bash
 ./scripts/run_gazebo_demo.sh seed:=42 lookahead_dist:=6.0
-./scripts/run_gazebo_demo.sh gui:=false   # headless mode
+./scripts/run_gazebo_demo.sh gui:=false    # headless Gazebo (no Gazebo GUI)
+./scripts/run_gazebo_demo.sh rviz:=false   # disable RViz
 ```
 
-### Architecture
+### Vehicle model
+
+The FSAE vehicle (`models/fsae_vehicle/model.sdf`) is a simplified box-and-cylinder model:
+
+| Parameter | Value |
+|-----------|-------|
+| Wheelbase | 1.6 m |
+| Track width | 1.2 m |
+| Wheel radius | 0.2 m |
+| Chassis mass | 200 kg |
+| Wheel mass | 8 kg each |
+| Steering limits | ±0.7 rad (~40 deg) |
+| Reference point | Rear axle center at ground level |
+
+### Joint control architecture
+
+The vehicle does **not** use Gazebo's built-in `AckermannSteering` plugin (which is too sluggish due to physics solver latency). Instead, it uses direct joint controllers for near-instant response:
+
+| Joint | Plugin | Control Mode | Topic |
+|-------|--------|-------------|-------|
+| `front_left_steering_joint` | `JointPositionController` | Position (velocity commands, no PID) | `.../cmd_pos` |
+| `front_right_steering_joint` | `JointPositionController` | Position (velocity commands, no PID) | `.../cmd_pos` |
+| `front_left_wheel_joint` | `JointController` | Velocity (direct) | `.../cmd_vel` |
+| `front_right_wheel_joint` | `JointController` | Velocity (direct) | `.../cmd_vel` |
+| `rear_left_wheel_joint` | `JointController` | Velocity (direct) | `.../cmd_vel` |
+| `rear_right_wheel_joint` | `JointController` | Velocity (direct) | `.../cmd_vel` |
+
+The `joint_cmd_adapter` ROS2 node converts `AckermannDriveStamped` commands into 6 individual joint commands:
+- **Steering angles** use proper Ackermann geometry (inner wheel turns more than outer)
+- **Wheel velocities** account for differential turn radii at each wheel
+- All commands are bridged to Gazebo via `ros_gz_bridge` as `Float64` ↔ `gz.msgs.Double`
+
+Odometry comes from Gazebo's `OdometryPublisher` system plugin, which reports the vehicle's world-frame pose directly (not wheel encoder integration).
+
+### Architecture comparison
 
 ```
 LIGHTWEIGHT SIM (run_demo.sh)         GAZEBO SIM (run_gazebo_demo.sh)
 ─────────────────────────────         ─────────────────────────────────
-lhr_trackgen (procedural cones)   →   Gazebo world file (cones in scene)
-lhr_sensor_sim (FOV filter)       →   Logical camera + adapter node
-lhr_sim_kinematic (bicycle model) →   Gazebo physics + Ackermann plugin
+lhr_trackgen (procedural cones)   →   lhr_trackgen (same — reused)
+lhr_sensor_sim (FOV filter)       →   lhr_sensor_sim (same — reused)
+lhr_sim_kinematic (bicycle model) →   Gazebo physics + direct joint control
 
 lhr_track_builder                 →   SAME
 lhr_control                       →   SAME
@@ -218,6 +278,27 @@ lhr_metrics                       →   SAME
 ```
 
 Both paths produce identical ROS 2 topic interfaces — the upper stack doesn't know the difference.
+
+### World generation
+
+The world generator script (`lhr_gazebo/scripts/generate_world.py`) creates a Gazebo world SDF from `lhr_trackgen` output:
+- Procedural cone placement from Catmull-Rom splines (same geometry as kinematic sim)
+- Vehicle spawn position auto-computed on the straightest section of track (avoids loop closure area)
+- ODE physics engine at 1 kHz (0.001 s step), real-time factor 1.0
+- Ground plane: 200 x 200 m
+
+### Gazebo-ROS bridge
+
+The bridge config (`config/ros_gz_bridge.yaml`) maps 10 topics:
+
+| Direction | ROS 2 Topic | Gazebo Topic | Type |
+|-----------|-------------|--------------|------|
+| GZ → ROS | `/lhr/vehicle/odom` | `/model/fsae_vehicle/odometry` | Odometry |
+| GZ → ROS | `/tf` | `/model/fsae_vehicle/tf` | TFMessage |
+| GZ → ROS | `/clock` | `/clock` | Clock |
+| GZ → ROS | `/lhr/imu/data` | `/imu/data` | Imu |
+| ROS → GZ | 2x steering `cmd_pos` | (same) | Float64/Double |
+| ROS → GZ | 4x wheel `cmd_vel` | (same) | Float64/Double |
 
 ## Topics
 
@@ -240,11 +321,12 @@ Both paths produce identical ROS 2 topic interfaces — the upper stack doesn't 
 | `/lhr/debug/curvature` | `std_msgs/Float32` | Debug: estimated path curvature at lookahead |
 | `/lhr/debug/v_cmd` | `std_msgs/Float32` | Debug: commanded speed after accel limiting |
 | `/lhr/debug/mission_state` | `std_msgs/Float32` | Debug: numeric state for PlotJuggler (0=Off, 1=Ready, 2=Driving, 3=Finished, 4=Emergency) |
+| `/lhr/imu/data` | `sensor_msgs/Imu` | IMU data (Gazebo sim only) |
 
 ## TF tree
 
 ```
-map → base_link   (broadcast by lhr_sim_kinematic)
+map → base_link   (broadcast by lhr_sim_kinematic or Gazebo OdometryPublisher)
 ```
 
 ## Parameters
@@ -262,6 +344,8 @@ map → base_link   (broadcast by lhr_sim_kinematic)
 | `jitter_m` | `10.0` | Radial jitter per waypoint (autocross only) |
 | `width_m` | `3.5` | Track width in meters |
 | `cone_spacing_m` | `2.0` | Distance between cones along the track (autocross only) |
+
+Cone IDs: left cones use IDs `0..N-1`, right cones use IDs `10000..10000+N-1`. The track builder relies on this convention for pairing.
 
 ### lhr_sensor_sim (sensor_sim)
 
@@ -281,8 +365,9 @@ map → base_link   (broadcast by lhr_sim_kinematic)
 | `frame_id` | `"map"` | TF frame |
 | `publish_hz` | `5.0` | Publishing rate (Hz) |
 | `max_points` | `200` | Cap on centerline points |
-| `pairing_strategy` | `"index"` | Cone pairing method (only `index` for now) |
 | `cone_topic` | `"/lhr/sensor/cones_detected"` | Topic to subscribe for cone data |
+
+Cone pairing is done by marker ID: for each left cone with ID `i`, the corresponding right cone has ID `i + 10000`. The centerline is the midpoint of each pair, sorted by ascending left cone ID.
 
 ### lhr_sim_kinematic (sim_node)
 
@@ -350,13 +435,21 @@ ros2 topic echo /lhr/mission/status
 
 ### lhr_control (pursuit_node)
 
-Steering uses pure pursuit. Speed is planned from path curvature:
+Steering uses pure pursuit with **curvature-adaptive lookahead**. On straights the lookahead stays long for stability; on tight curves it shortens to reduce corner-cutting. The formula is:
+
+```
+ld = clamp(ld_max - gain * |curvature|, ld_min, ld_max)
+```
+
+Speed is planned from path curvature:
 `v = clamp(sqrt(a_lat_max / |kappa|), v_min, v_max)` with acceleration limiting.
 
 | Param | Default | Description |
 |-------|---------|-------------|
-| `lookahead_dist` | `4.0` | Lookahead distance (m) |
-| `max_steer` | `0.45` | Max steering angle (rad) |
+| `lookahead_dist` | `4.0` | Max lookahead distance on straights (m) |
+| `lookahead_min` | `2.0` | Min lookahead distance on tight curves (m) |
+| `lookahead_curvature_gain` | `3.0` | How aggressively lookahead shortens with curvature |
+| `max_steer` | `0.55` | Max steering angle (rad) |
 | `wheelbase` | `1.6` | Wheelbase for steering calc (m) |
 | `control_hz` | `20.0` | Control loop rate (Hz) |
 | `a_lat_max` | `6.0` | Max lateral acceleration for speed law (m/s^2) |
@@ -367,7 +460,34 @@ Steering uses pure pursuit. Speed is planned from path curvature:
 | `max_accel` | `2.0` | Max longitudinal acceleration (m/s^2) |
 | `max_decel` | `3.0` | Max longitudinal deceleration (m/s^2) |
 
+The Gazebo demo launch overrides some defaults for tuned physics behavior:
+- `lookahead_dist=5.0`, `lookahead_min=2.0`, `lookahead_curvature_gain=3.0`
+- `a_lat_max=3.0`, `v_min=1.0`, `v_max=5.0`
+- `max_accel=1.0`, `max_decel=2.0`
+
 Debug topics: `/lhr/debug/curvature` and `/lhr/debug/v_cmd` (both `std_msgs/Float32`).
+
+### lhr_gazebo
+
+#### joint_cmd_adapter
+
+Converts `AckermannDriveStamped` into 6 individual Gazebo joint commands with proper Ackermann differential steering geometry.
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `WHEELBASE` | `1.6` | Wheelbase (m) |
+| `TRACK_WIDTH` | `1.2` | Kingpin-to-kingpin distance (m) |
+| `WHEEL_RADIUS` | `0.2` | Wheel radius (m) |
+| `MAX_STEER` | `0.69` | Steering clamp, slightly inside ±0.7 joint limit (rad) |
+
+**Ackermann geometry:** When turning left, the left (inner) wheel steers at a sharper angle than the right (outer) wheel. The adapter computes both angles from the bicycle-model center angle using:
+```
+R = wheelbase / tan(|steer_center|)
+inner = atan(wheelbase / (R - track_width/2))
+outer = atan(wheelbase / (R + track_width/2))
+```
+
+**Wheel velocity differential:** Each wheel's angular velocity accounts for its distance from the instantaneous center of rotation. Outer wheels travel farther and spin faster than inner wheels in a turn.
 
 ### lhr_metrics (metrics_node)
 

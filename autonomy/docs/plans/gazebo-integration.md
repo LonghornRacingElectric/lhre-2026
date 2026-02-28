@@ -2,111 +2,109 @@
 
 ## Goal
 
-Replace the bottom three simulation nodes (`lhr_sim_kinematic`, `lhr_sensor_sim`, `lhr_trackgen`) with Gazebo physics simulation, while keeping the entire upper stack unchanged (control, track builder, mission manager, metrics).
+Replace the kinematic vehicle simulator (`lhr_sim_kinematic`) with Gazebo physics simulation, while keeping the entire upper stack unchanged (control, track builder, mission manager, metrics).
 
-## Why Gazebo
+## Current Status: Phase 1 Complete
 
-- Standard ROS2 physics sim with native integration (no bridge glue)
-- Good enough physics (ODE/Bullet/DART) for FSAE speeds
-- Sensor plugins for camera and LiDAR (needed for real perception testing)
-- Lightweight enough for WSL2
-- Isaac ROS packages (for Jetson deployment) consume standard ROS2 topics — they work with Gazebo or Isaac Sim
-- Install: `sudo apt install ros-{humble,jazzy}-ros-gz`
+Phase 1 (drop-in replacement) is functional. The Gazebo sim runs with direct joint control, ground-truth odometry, curvature-adaptive pure pursuit, and RViz integration. Cone collisions are temporarily disabled for tuning.
 
 ## Architecture: What Changes, What Stays
 
 ```
 CURRENT                              WITH GAZEBO
 ───────                              ───────────
-lhr_trackgen (procedural cones)  →   Gazebo world file (cones placed in scene)
-lhr_sensor_sim (FOV filter)      →   Gazebo sensor plugins (camera, LiDAR)
-lhr_sim_kinematic (bicycle model)→   Gazebo physics (tire dynamics, collisions)
+lhr_trackgen (procedural cones)  →   REUSED (same node, provides ground truth)
+lhr_sensor_sim (FOV filter)      →   REUSED (same node, filters by vehicle pose)
+lhr_sim_kinematic (bicycle model)→   Gazebo physics (direct joint control, ODE solver)
 
-lhr_track_builder                →   STAYS (still pairs cones → centerline)
-lhr_control                      →   STAYS (still sends Ackermann commands)
-lhr_mission_manager              →   STAYS (still manages state)
-lhr_metrics                      →   STAYS (still tracks CTE, laps)
+lhr_track_builder                →   STAYS (pairs cones by ID → centerline)
+lhr_control                      →   STAYS (pure pursuit + curvature speed planning)
+lhr_mission_manager              →   STAYS (FSAE state machine)
+lhr_metrics                      →   STAYS (CTE, lap detection, CSV output)
 ```
 
-## Pieces to Build
+## Implemented Components
 
 ### 1. Vehicle Model (SDF)
 
-An FSAE car model with:
-- Ackermann steering geometry (two front wheels that turn, two rear driven)
-- Mass, inertia, wheelbase matching real car (~1.6m wheelbase, ~250kg)
-- Tire/friction properties (where the physics value comes from)
-- Sensor mounts for cameras and/or LiDAR
+File: `lhr_gazebo/models/fsae_vehicle/model.sdf`
 
-Start from simple box/cylinder geometry — visual fidelity doesn't matter, physics fidelity does. Can adapt an open-source FSAE Gazebo model if one fits.
+FSAE car with simplified box/cylinder geometry:
+- Ackermann steering geometry (front two wheels steer, rear two driven)
+- Wheelbase 1.6 m, track width 1.2 m, wheel radius 0.2 m
+- 200 kg chassis + 4x 8 kg wheels = 232 kg total
+- Steering limits ±0.7 rad with 10 rad/s velocity limit
+- Reference point: rear axle center at ground level
 
-### 2. Cone Models + World File
+**Joint control (not AckermannSteering):** The built-in `AckermannSteering` plugin was too sluggish — it converts Twist to wheel torques through the physics solver, causing significant steering latency. After studying the EUFS sim (which teleports the car entirely), we replaced it with:
+- 2x `JointPositionController` (steering, with `use_velocity_commands=true` for near-instant response)
+- 4x `JointController` (wheel velocity, direct mode)
 
-- Small blue cone: 228mm x 228mm x 325mm (single white stripe)
-- Small yellow cone: 228mm x 228mm x 325mm (single black stripe)
-- Small orange cone: 228mm x 228mm x 325mm (single white stripe)
-- Large orange cone: 285mm x 285mm x 505mm (dual white stripe)
+Sensors: logical camera (disabled — bridge not available on Humble), IMU (100 Hz).
 
-Cone placement options:
-- **A) Procedural (recommended):** Script that takes existing `lhr_trackgen` Catmull-Rom output and generates a Gazebo world file (`.sdf`). Reuses proven track generation, can test many layouts.
-- **B) Manual:** Hand-place cones in the world file for specific test tracks.
+### 2. Cone Models + World Generation
 
-Option A is preferred — keeps procedural track generation and parameterized testing.
+Files: `lhr_gazebo/models/cone_{blue,yellow,orange_small,orange_large}/`
+Script: `lhr_gazebo/scripts/generate_world.py`
 
-### 3. Sensor Plugins
+- Cones placed procedurally from `lhr_trackgen` Catmull-Rom output
+- Vehicle spawn auto-computed on straightest track section (avoids loop closure artifacts)
+- ODE physics engine at 1 kHz, real-time factor 1.0
+- Cone collisions temporarily disabled for control tuning
 
-Gazebo built-in sensor plugins attached to the vehicle:
+### 3. Cone Detection (Reused Pipeline)
 
-| Sensor | Gazebo Plugin | ROS2 Topic Output | Purpose |
-|--------|--------------|-------------------|---------|
-| Logical Camera | `gz::sim::sensors::LogicalCamera` | Bounding boxes (ground truth) | Bypass perception initially |
-| Camera | `gz::sim::sensors::Camera` | `sensor_msgs/Image` | Cone detection via vision |
-| LiDAR | `gz::sim::sensors::Lidar` | `sensor_msgs/PointCloud2` | Cone detection via point cloud |
-| IMU | `gz::sim::sensors::Imu` | `sensor_msgs/Imu` | Orientation, acceleration |
+Instead of using Gazebo's logical camera (not available on all platforms), the existing ROS nodes handle cone detection:
+- `lhr_trackgen` publishes ground-truth cones
+- `lhr_sensor_sim` filters by FOV and range relative to the Gazebo vehicle pose
+- Both nodes run with `use_sim_time: True` to sync with Gazebo's clock
 
-**The logical camera is the key enabler for incremental integration.** It gives ground-truth cone positions (with color labels) in the sensor frame — effectively replacing `lhr_sensor_sim` without needing a real perception pipeline yet. Swap in real camera-based detection later.
+### 4. ROS2 ↔ Gazebo Bridge
 
-### 4. ROS2 <-> Gazebo Bridge
+File: `lhr_gazebo/config/ros_gz_bridge.yaml`
 
-The `ros_gz_bridge` package connects Gazebo topics to ROS2 topics:
+10 bridged topics:
+- Odometry, TF, clock, IMU: Gazebo → ROS2
+- 2x steering position + 4x wheel velocity: ROS2 → Gazebo (Float64 ↔ gz.msgs.Double)
 
-```
-Gazebo → ROS2:
-  /model/vehicle/odometry  →  /lhr/vehicle/odom
-  /logical_camera           →  (adapter node) → /lhr/sensor/cones_detected
-  /camera/image             →  /lhr/camera/image_raw  (for future perception)
+### 5. Joint Command Adapter
 
-ROS2 → Gazebo:
-  /lhr/vehicle/cmd          →  /model/vehicle/cmd_vel  (Ackermann commands)
-```
+File: `lhr_gazebo/lhr_gazebo/joint_cmd_adapter.py`
 
-### 5. Ackermann Controller
+Converts `AckermannDriveStamped` → 6 individual joint commands:
+- Proper Ackermann differential geometry (inner/outer wheel angles)
+- Per-wheel velocity accounting for turn radius differentials
+- Replaces the original `ackermann_cmd_adapter.py` (which produced Twist for the now-removed AckermannSteering plugin)
 
-The `gz-sim-ackermann-steering-system` Gazebo plugin translates `AckermannDriveStamped` messages into wheel joint commands. Configure with wheelbase and track width.
+### 6. RViz Integration
+
+RViz launches automatically alongside Gazebo (configurable via `rviz:=true/false`). The pre-configured display shows centerline, cones, odometry, lookahead point, and FOV.
 
 ## Phased Rollout
 
-### Phase 1: Drop-in Replacement (minimum viable)
+### Phase 1: Drop-in Replacement — COMPLETE
 
-- Vehicle SDF model with Ackermann plugin
+- Vehicle SDF model with direct joint control
 - Cone models in Gazebo world generated from trackgen script
-- Logical camera for ground-truth cone detection (no perception needed)
-- `ros_gz_bridge` config for odom + commands
-- Small adapter node: logical camera output → `/lhr/sensor/cones_detected` MarkerArray
-- Gazebo-specific launch file (keep old launch file working too)
+- Existing trackgen + sensor_sim reused for cone detection
+- `ros_gz_bridge` config for odom + joint commands
+- Joint command adapter (Ackermann geometry)
+- Ground-truth odometry from OdometryPublisher
+- Curvature-adaptive lookahead in pursuit controller
+- RViz integration in Gazebo launch
+- Gazebo-specific launch file (kinematic launch still works independently)
 
-**Result:** Same behavior as current stack but with Gazebo physics instead of kinematic bicycle model. Upper stack (control, track builder, mission manager, metrics) is untouched.
-
-### Phase 2: Real Sensors
+### Phase 2: Real Sensors (Future)
 
 - Mount camera and/or LiDAR on the vehicle model
 - Bridge image/pointcloud topics to ROS2
 - Build a perception node (cone detection from camera or LiDAR)
-- Replace logical camera with real perception pipeline
+- Replace trackgen + sensor_sim pipeline with real perception
 
-### Phase 3: Fidelity Tuning
+### Phase 3: Fidelity Tuning (Future)
 
-- Tune tire friction, mass, suspension to match real car
+- Re-enable cone collisions and tune control to avoid them
+- Tune tire friction, mass distribution to match real car
 - Add sensor noise models
 - Test at competition speeds
 - Validate against real car telemetry data
@@ -118,47 +116,43 @@ The `gz-sim-ackermann-steering-system` Gazebo plugin translates `AckermannDriveS
 | 22.04 | Humble | Fortress (gz-sim 6) | `ros-humble-ros-gz` |
 | 24.04 | Jazzy | Harmonic (gz-sim 8) | `ros-jazzy-ros-gz` |
 
-## Effort Estimate (Phase 1)
+Note: `JointPositionController` with `use_velocity_commands` requires gz-sim 7+ (Garden or Harmonic). On Fortress, PID tuning would be needed instead.
 
-| Piece | Effort | Notes |
-|-------|--------|-------|
-| Vehicle SDF + Ackermann plugin | Medium | Most time here — geometry, joints, inertia |
-| Cone models + world generator script | Small | Simple meshes + Python script |
-| `ros_gz_bridge` config | Small | YAML config file |
-| Logical camera → cone topic adapter | Small-Medium | New ROS2 node |
-| Launch file integration | Small | New launch file for Gazebo mode |
-
-## File Structure (anticipated)
+## File Structure (current)
 
 ```
-ros2/src/
-├── lhr_gazebo/                      (new package)
-│   ├── models/
-│   │   ├── fsae_vehicle/            (vehicle SDF + meshes)
-│   │   ├── cone_blue/               (cone SDF)
-│   │   ├── cone_yellow/
-│   │   ├── cone_orange_small/
-│   │   └── cone_orange_large/
-│   ├── worlds/
-│   │   └── autocross.sdf            (generated or hand-made)
-│   ├── launch/
-│   │   └── gazebo_demo.launch.py
-│   ├── config/
-│   │   └── ros_gz_bridge.yaml
-│   ├── scripts/
-│   │   └── generate_world.py        (trackgen → Gazebo world)
-│   └── lhr_gazebo/
-│       ├── __init__.py
-│       └── logical_camera_adapter.py (logical cam → /lhr/sensor/cones_detected)
-├── lhr_control/                     (unchanged)
-├── lhr_track_builder/               (unchanged)
-├── lhr_mission_manager/             (unchanged)
-├── lhr_metrics/                     (unchanged)
-└── lhr_demo/                        (keep existing launch for non-Gazebo runs)
+ros2/src/lhr_gazebo/
+├── config/
+│   ├── ros_gz_bridge.yaml          (10 topic bridges)
+│   └── default.rviz                (RViz display config)
+├── launch/
+│   └── gazebo_demo.launch.py       (Gazebo + RViz + full autonomy stack)
+├── lhr_gazebo/
+│   ├── __init__.py
+│   ├── ackermann_cmd_adapter.py    (legacy — kept for rollback)
+│   ├── joint_cmd_adapter.py        (current — 6x joint commands)
+│   └── logical_camera_adapter.py   (unused — bridge not available)
+├── models/
+│   ├── fsae_vehicle/
+│   │   ├── model.config
+│   │   └── model.sdf               (vehicle with 6 joint controllers + odom)
+│   ├── cone_blue/
+│   ├── cone_yellow/
+│   ├── cone_orange_small/
+│   └── cone_orange_large/
+├── scripts/
+│   └── generate_world.py           (trackgen → Gazebo world SDF)
+├── worlds/
+│   └── autocross_seed1.sdf         (generated world file)
+├── package.xml
+├── setup.py
+└── setup.cfg
 ```
 
-## Compatibility
+## Key Debugging Lessons
 
-- The existing `lhr_sim_kinematic` + `lhr_sensor_sim` + `lhr_trackgen` stack remains functional for quick algorithm testing without Gazebo overhead
-- Gazebo mode is an alternative launch path, not a replacement
-- Both paths produce the same ROS2 topic interface — upper stack nodes don't know the difference
+1. **Wheel-based odometry is unreliable** when the car gets stuck — wheels spin but position doesn't change. Always use world-frame odometry from `OdometryPublisher`.
+2. **AckermannSteering plugin is too sluggish** for reactive control — it converts Twist to joint torques through the physics solver. Direct joint control (JointPositionController + JointController) gives near-instant response.
+3. **Cone pairing by list index breaks** when sensor sim detects left/right cones in different orders. Pair by marker ID instead (left ID `i` ↔ right ID `i + 10000`).
+4. **Vehicle spawn position matters** — spawning near the loop closure (where first/last cones don't meet cleanly) causes immediate collisions. Auto-compute spawn on the straightest track section.
+5. **symlink-install doesn't always update** Python files. When in doubt: `rm -rf build/<pkg> install/<pkg>` then rebuild.
