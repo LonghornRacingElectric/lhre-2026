@@ -36,6 +36,21 @@ void bms_update(void);
  */
 void bms_read_thermistors(void);
 
+/**
+ * @brief Check all cells for safety violations
+ * 
+ * Checks all cell voltages and temperatures against thresholds.
+ * Sets error flags if overvoltage, undervoltage, or overtemperature detected.
+ */
+void bms_check_errors(void);
+
+/**
+ * @brief Get current BMS error flags
+ * 
+ * @return Bitmask of active errors (BMS_ERROR_OVERVOLTAGE, BMS_ERROR_UNDERVOLTAGE, BMS_ERROR_OVERTEMP)
+ */
+uint8_t getBmsErrors(void);
+
 float getPackVoltage_v(void);
 
 void StartBmsTask(void *argument);

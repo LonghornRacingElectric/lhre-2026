@@ -31,8 +31,22 @@ extern uint8_t WRPWM2[2];
 // Mask covering all cells (bits 0..NUM_CELLS-1)
 #define ALL_DISCHARGE_MASK ((1U << NUM_CELLS) - 1)
 
+// BMS Safety Thresholds
+#define CELL_OVERVOLTAGE_THRESHOLD  4.2f   // Volts
+#define CELL_UNDERVOLTAGE_THRESHOLD 2.5f   // Volts
+#define CELL_OVERTEMP_THRESHOLD     60.0f  // Celsius
+
+// BMS Error Flags
+#define BMS_ERROR_NONE              0x00
+#define BMS_ERROR_OVERVOLTAGE       0x01
+#define BMS_ERROR_UNDERVOLTAGE      0x02
+#define BMS_ERROR_OVERTEMP          0x04
+
 static cell_asic IC[TOTAL_IC];
 static uint8_t discharge_active = 0;
+static uint8_t bms_error_flags = BMS_ERROR_NONE;
+static uint8_t bms_error_bmb = 0;      // Which BMB has the error
+static uint8_t bms_error_cell = 0;     // Which cell/thermistor has the error
 
 // Returns pack voltage in millivolts by summing all cell voltages
 float getPackVoltage_v(void)
@@ -56,6 +70,63 @@ float getPackVoltage_v(void)
 uint8_t getbmsStatus(void)
 {
     return discharge_active ? 1 : 0;
+}
+
+// Get BMS error flags
+uint8_t getBmsErrors(void)
+{
+    return bms_error_flags;
+}
+
+// Check for BMS errors (overvoltage, undervoltage, overtemperature)
+void bms_check_errors(void)
+{
+    // Clear previous errors
+    bms_error_flags = BMS_ERROR_NONE;
+    
+    // Check all cell voltages
+    for (int i = 0; i < TOTAL_IC; i++) {
+        for (int j = 0; j < NUM_CELLS; j++) {
+            uint16_t code = IC[i].cell.c_codes[j];
+            float voltage_v = (code * 0.000150f) + 1.5f;
+            
+            // Check overvoltage
+            if (voltage_v > CELL_OVERVOLTAGE_THRESHOLD) {
+                bms_error_flags |= BMS_ERROR_OVERVOLTAGE;
+                bms_error_bmb = i;
+                bms_error_cell = j;
+                log_printf(LOG_ERROR, "BMS ERROR: Overvoltage on BMB %d Cell %d: %.4fV (threshold: %.2fV)",
+                          i, j, voltage_v, CELL_OVERVOLTAGE_THRESHOLD);
+            }
+            
+            // Check undervoltage
+            if (voltage_v < CELL_UNDERVOLTAGE_THRESHOLD) {
+                bms_error_flags |= BMS_ERROR_UNDERVOLTAGE;
+                bms_error_bmb = i;
+                bms_error_cell = j;
+                log_printf(LOG_ERROR, "BMS ERROR: Undervoltage on BMB %d Cell %d: %.4fV (threshold: %.2fV)",
+                          i, j, voltage_v, CELL_UNDERVOLTAGE_THRESHOLD);
+            }
+        }
+    }
+    
+    // Check all thermistor temperatures
+    for (int i = 0; i < TOTAL_IC; i++) {
+        for (int j = 1; j < 9; j++) {  // GPIO 2-9 (aux channels 1-8)
+            int16_t code = IC[i].aux.a_codes[j];
+            float voltage_v = ((code + 10000) * 0.000150f);
+            float temp_c = ntc_voltage_to_temp(voltage_v);
+            
+            // Check overtemperature (only if valid reading)
+            if (temp_c != -999.0f && temp_c > CELL_OVERTEMP_THRESHOLD) {
+                bms_error_flags |= BMS_ERROR_OVERTEMP;
+                bms_error_bmb = i;
+                bms_error_cell = j;
+                log_printf(LOG_ERROR, "BMS ERROR: Overtemperature on BMB %d Thermistor %d: %.1f°C (threshold: %.1f°C)",
+                          i, j, temp_c, CELL_OVERTEMP_THRESHOLD);
+            }
+        }
+    }
 }
 
 void bms_enable_discharge()
@@ -237,8 +308,18 @@ void bms_update(void)
     log_printf(LOG_INFO, "Pack Voltage: %.3f V\n", getPackVoltage_v());
     
     // Read thermistor values
-    bms_read_thermistors();
-
+    bms_read_thermistors();    
+    // Check for BMS errors
+    bms_check_errors();
+    
+    // Report overall BMS status
+    if (bms_error_flags != BMS_ERROR_NONE) {
+        log_printf(LOG_ERROR, "BMS ERROR FLAGS: 0x%02X (OV:%d UV:%d OT:%d)",
+                   bms_error_flags,
+                   (bms_error_flags & BMS_ERROR_OVERVOLTAGE) ? 1 : 0,
+                   (bms_error_flags & BMS_ERROR_UNDERVOLTAGE) ? 1 : 0,
+                   (bms_error_flags & BMS_ERROR_OVERTEMP) ? 1 : 0);
+    }
 }
 
 void StartBmsTask(void *argument)
