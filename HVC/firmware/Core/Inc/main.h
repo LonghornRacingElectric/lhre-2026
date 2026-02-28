@@ -79,9 +79,9 @@ void Error_Handler(void);
 #define Voltage_Sense___GPIO_Port GPIOC
 #define Voltage_Sense__C5_Pin GPIO_PIN_5
 #define Voltage_Sense__C5_GPIO_Port GPIOC
-#define BMS_Error_Pin GPIO_PIN_0
+#define BMS_Error_Pin GPIO_PIN_1
 #define BMS_Error_GPIO_Port GPIOB
-#define IMD_Error_Pin GPIO_PIN_1
+#define IMD_Error_Pin GPIO_PIN_2
 #define IMD_Error_GPIO_Port GPIOB
 #define Shutdown_Sense_1_Pin GPIO_PIN_6
 #define Shutdown_Sense_1_GPIO_Port GPIOC

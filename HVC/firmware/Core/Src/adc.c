@@ -19,7 +19,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "adc.h"
-#include <stdint.h>
 
 /* USER CODE BEGIN 0 */
 
@@ -295,8 +294,6 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* adcHandle)
   /* USER CODE END ADC2_MspDeInit 1 */
   }
 }
-
-
 
 /* USER CODE BEGIN 1 */
 static uint16_t adc_read_raw(ADC_HandleTypeDef *hadc, uint32_t channel, uint32_t sampling_time, uint32_t single_diff)
