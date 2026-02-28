@@ -142,7 +142,7 @@ bool bms_check_overtemp(void) {
 }
 
 bool bms_check_disconnection(void) {
-    return bms_responsive_ics == TOTAL_IC;
+    return bms_responsive_ics < TOTAL_IC;
 }
 
 void bms_enable_discharge()

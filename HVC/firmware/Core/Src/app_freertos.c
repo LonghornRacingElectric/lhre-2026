@@ -253,7 +253,7 @@ void StartStateMachineTask(void* argument) {
 
     for (;;) {
         // Update state machine
-        uint32_t current_fault_vector = get_faults(task_period_ms / 1000.0f);
+        uint32_t current_fault_vector = get_faults();
         latched_fault_vector |= current_fault_vector;
         set_bms_fault_pin(current_fault_vector != 0);
         bool any_faults = (latched_fault_vector != 0) && (osKernelGetTickCount() > 5000);

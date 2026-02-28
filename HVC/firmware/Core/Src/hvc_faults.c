@@ -17,6 +17,7 @@
 #include "main.h"
 #include "longhorn/rtos/logger.h"
 #include "hvc_bms.h"
+#include "cmsis_os2.h"
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 
@@ -36,7 +37,13 @@ void faults_init() {
 }
 
 
-uint32_t get_faults(float delta_time_s) {
+uint32_t get_faults() {
+    static float last_time_s = 0.0f;
+
+    float current_time_s = osKernelGetTickCount() / 1000.0f;
+    float delta_time_s = current_time_s - last_time_s;
+    last_time_s = current_time_s;
+
     uint32_t current_fault_vector = 0;
 
     // BMS Communications Fault

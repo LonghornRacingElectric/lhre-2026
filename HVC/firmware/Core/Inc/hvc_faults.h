@@ -59,7 +59,7 @@ void faults_init();
  * @brief Check for faults
  * @return fault bitfield
  */
-uint32_t get_faults(float delta_time_s);
+uint32_t get_faults();
 
 void set_bms_fault_pin(bool faulted);
 
