@@ -15,7 +15,20 @@ def send_packet(packet_id, data_bytes):
     message = struct.pack(CAN_FORMAT, packet_id, padded_data)
     sock.sendto(message, (UDP_IP, UDP_PORT))
 
+
+def send_cells_v_burst(tick):
+    # Packet 208 in can.json: 35 frames, each frame carries 4 cell voltages (uint16 with precision 0.0001)
+    for frame_idx in range(35):
+        base = 30000 + ((tick * 3 + frame_idx * 7) % 2000)
+        cell0 = base
+        cell1 = base + 1
+        cell2 = base + 2
+        cell3 = base + 3
+        payload = struct.pack("<HHHH", cell0, cell1, cell2, cell3)
+        send_packet(208, payload)
+
 print(f"LHR Mock CAN active. Sending to {UDP_IP}:{UDP_PORT}...")
+print("Repeated-field test active: sending packet 208 in 35-frame bursts")
 
 tick = 0
 while True:
@@ -45,6 +58,8 @@ while True:
     cell_bottom = 26 + ((tick // 5) % 6)
     batt_data = struct.pack("<HHHBB", hv_pack_mv, hv_c_cs, hv_soc_cs, cell_top, cell_bottom)
     send_packet(161, batt_data)
+
+    send_cells_v_burst(tick)
 
     tick += 1
     time.sleep(0.1) # 10Hz loop
