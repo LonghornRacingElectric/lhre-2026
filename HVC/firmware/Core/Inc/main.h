@@ -93,7 +93,7 @@ void Error_Handler(void);
 #define Shutdown_Sense_4_GPIO_Port GPIOC
 #define Shutdown_Sense_12_Pin GPIO_PIN_8
 #define Shutdown_Sense_12_GPIO_Port GPIOA
-#define Close_IR___Pin GPIO_PIN_6
+#define Close_IR___Pin GPIO_PIN_10
 #define Close_IR___GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */

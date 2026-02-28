@@ -262,16 +262,11 @@ void StartStateMachineTask(void* argument) {
         hvc_update_contactor_status();
         // log_printf(LOG_INFO, "Responsive BMS ICs: %d\n", bms_get_num_responsive_ics());
         
-        /*
-        log_printf(LOG_INFO, "Tractive Voltage: %.2f V, Raw: %d  "
-                             "HVC State: %s  "
-                             "Is Shutdown Closed: %d  "
-                             "HVC Contactors: %d\r\n",
-                             get_tractive_voltage(),
-        hvc_adc_read_voltage_sense_raw(), get_state_name(get_current_state()),
-                             is_shutdown_closed(),
-                             get_drive_contactors_state());
-                    */
+        log_printf(LOG_INFO, "Tractive Voltage: %.2f V, Raw: %d, State Machine: %d, Shutdown: %d\n",
+                            get_tractive_voltage(),
+                            hvc_adc_read_voltage_sense_raw(),
+                            get_current_state(),
+                            is_shutdown_closed());
         osDelay(task_period_ms);
     }
 }

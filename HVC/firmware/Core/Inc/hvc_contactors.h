@@ -36,25 +36,7 @@ void contactors_init(void);
  * @param state true to close both AIRs, false to open
  * @note Controls both positive and negative AIRs together
  */
-void set_drive_contactors(bool state);
-
-/**
- * @brief Emergency open all contactors
- * @note Opens all contactors immediately for safety
- */
-void open_all_contactors(void);
-
-/**
- * @brief Get precharge contactor state
- * @return true if closed, false if open
- */
-bool get_precharge_contactor_state(void);
-
-/**
- * @brief Get drive contactors state
- * @return true if closed, false if open
- */
-bool get_drive_contactors_state(void);
+void set_positive_contactor(bool state);
 
 /** Read shutdown sense GPIOs and publish pos/neg contactor status over CAN. */
 void hvc_update_contactor_status(void);

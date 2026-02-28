@@ -29,7 +29,6 @@
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
 
-static bool precharge_state = false;
 static bool drive_state = false;
 
 /* Private function prototypes -----------------------------------------------*/
@@ -41,26 +40,18 @@ static bool drive_state = false;
  */
 void contactors_init(void) {
     // Ensure all contactors start in open state
-    open_all_contactors();
-    
-    precharge_state = false;
+    set_positive_contactor(false);
     drive_state = false;
 }
 
 /**
  * @brief Set positive contactor state (danger!)
  */
-void set_drive_contactors(bool state) {
+void set_positive_contactor(bool state) {
     HAL_GPIO_WritePin(Close_IR___GPIO_Port, Close_IR___Pin, (GPIO_PinState)state);
     drive_state = state;
 }
 
-/**
- * @brief Emergency open all contactors
- */
-void open_all_contactors(void) {
-    set_drive_contactors(false);
-}
 
 /*
  * Read shutdown/contactor sense lines and publish status over CAN.
@@ -72,6 +63,6 @@ void hvc_update_contactor_status(void)
     bool sense_state_plus = HAL_GPIO_ReadPin(IR__Sense_GPIO_Port, IR__Sense_Pin) == GPIO_PIN_RESET;
     bool sense_state_minus = HAL_GPIO_ReadPin(IR__SenseC3_GPIO_Port, IR__SenseC3_Pin) == GPIO_PIN_RESET;
     hvc_state_t state = get_current_state();
-    log_printf(LOG_INFO, "HVC Contactors | State = %d | Sense IR+ = %d | Sense IR- =%d\n", state, sense_state_plus, sense_state_minus);
+    // log_printf(LOG_INFO, "HVC Contactors | State = %d | Sense IR+ = %d | Sense IR- =%d\n", state, sense_state_plus, sense_state_minus);
     hvc_set_contactor_status(state, sense_state_plus, sense_state_minus);
 }
