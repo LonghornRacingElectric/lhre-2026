@@ -45,7 +45,9 @@ void MX_ADC2_Init(void);
 
 /* USER CODE BEGIN Prototypes */
 uint16_t hvc_adc_read_voltage_sense_raw(void);
+float hvc_adc_read_voltage_sense_v(void);
 uint16_t hvc_adc_read_current_sense_raw(void);
+float hvc_adc_read_current_sense_a(void);
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus
