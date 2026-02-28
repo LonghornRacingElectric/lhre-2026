@@ -49,7 +49,7 @@ extern ADC_HandleTypeDef hadc3;
 // APPS1, APPS2 from ADC3 (configured in adc.c)
 extern volatile uint16_t adc3_dma_buf[2];
 // BSE from ADC2
-volatile uint16_t adc2_dma_buf[2];
+extern volatile uint16_t adc2_dma_buf[2];
 
 // Thread handles
 osThreadId_t systemTaskHandle;
@@ -77,9 +77,9 @@ const osThreadAttr_t controlTask_attributes = {
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define ADC_MAX_VAL (1 << 12) - 1
+#define ADC_MAX_VAL   ((1u << 12) - 1u)
 #define ADC_APPS_SCALE_V 3.3f
-#define ADC_BSE_SCALE_V 3.2837f
+#define ADC_BSE_SCALE_V  3.2837f
 
 /* USER CODE END PM */
 
@@ -316,8 +316,8 @@ void StartControlTask(void *argument) {
     // Read pedal sensors from DMA buffers
     in.apps1_raw = ((float)adc3_dma_buf[0] / ADC_MAX_VAL) * ADC_APPS_SCALE_V;
     in.apps2_raw = ((float)adc3_dma_buf[1] / ADC_MAX_VAL) * ADC_APPS_SCALE_V;
-    in.bse1_raw = ((float)adc2_dma_buf[0] / ADC_MAX_VAL) * ADC_BSE_SCALE_V;
-    in.bse2_raw = in.bse1_raw;
+    in.bse1_raw = (((1.3717f * (float) adc2_dma_buf[0]) / ADC_MAX_VAL) * ADC_BSE_SCALE_V);
+    in.bse2_raw = (((1.3717f * (float) adc2_dma_buf[0]) / ADC_MAX_VAL) * ADC_BSE_SCALE_V);
 
     in.drive_switch = is_drive_switch_pressed();
 
@@ -339,8 +339,8 @@ void StartControlTask(void *argument) {
     uint16_t bse1_adc = adc2_dma_buf[0];
     uint16_t bse2_adc = adc2_dma_buf[1];
 
-    float bse1_v = ((float)bse1_adc / ADC_MAX_VAL) * ADC_BSE_SCALE_V;
-    float bse2_v = ((float)bse2_adc / ADC_MAX_VAL) * ADC_BSE_SCALE_V;
+    float bse1_v = (((1.3717f * (float) adc2_dma_buf[0]) / ADC_MAX_VAL) * ADC_BSE_SCALE_V);
+    float bse2_v = (((1.3717f * (float) adc2_dma_buf[1]) / ADC_MAX_VAL) * ADC_BSE_SCALE_V);
 
     log_printf(LOG_INFO,
               "BSE1 adc=%u v=%.3f | BSE2 adc=%u v=%.3f",

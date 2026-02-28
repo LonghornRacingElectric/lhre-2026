@@ -24,6 +24,8 @@
 
 // ADC3 DMA buffer: [0] = ADC3_IN9, [1] = ADC3_IN10
 volatile uint16_t adc3_dma_buf[2];
+// ADC2 DMA buffer: [0] = ADC2_IN3 (PA6), [1] = ADC2_IN4 (PA7)
+volatile uint16_t adc2_dma_buf[2];
 
 /* USER CODE END 0 */
 
@@ -138,7 +140,7 @@ void MX_ADC2_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_3;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_47CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_247CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
