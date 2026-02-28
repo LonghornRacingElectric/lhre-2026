@@ -66,11 +66,20 @@ def generate_launch_description():
     # Control params (same as mvs_demo)
     lookahead_arg = DeclareLaunchArgument(
         'lookahead_dist', default_value='5.0')
+    lookahead_min_arg = DeclareLaunchArgument(
+        'lookahead_min', default_value='2.0')
+    lookahead_curv_gain_arg = DeclareLaunchArgument(
+        'lookahead_curvature_gain', default_value='3.0')
     a_lat_arg = DeclareLaunchArgument('a_lat_max', default_value='3.0')
     v_min_arg = DeclareLaunchArgument('v_min', default_value='1.0')
     v_max_arg = DeclareLaunchArgument('v_max', default_value='5.0')
     max_accel_arg = DeclareLaunchArgument('max_accel', default_value='1.0')
     max_decel_arg = DeclareLaunchArgument('max_decel', default_value='2.0')
+
+    # RViz
+    rviz_arg = DeclareLaunchArgument(
+        'rviz', default_value='true',
+        description='Launch RViz alongside Gazebo')
 
     # Metrics
     metrics_arg = DeclareLaunchArgument(
@@ -185,6 +194,9 @@ def generate_launch_description():
         name='pure_pursuit',
         parameters=[{
             'lookahead_dist': LaunchConfiguration('lookahead_dist'),
+            'lookahead_min': LaunchConfiguration('lookahead_min'),
+            'lookahead_curvature_gain': LaunchConfiguration(
+                'lookahead_curvature_gain'),
             'a_lat_max': LaunchConfiguration('a_lat_max'),
             'v_min': LaunchConfiguration('v_min'),
             'v_max': LaunchConfiguration('v_max'),
@@ -202,6 +214,17 @@ def generate_launch_description():
         parameters=[{'use_sim_time': True}],
         output='screen',
         condition=IfCondition(LaunchConfiguration('enable_metrics')),
+    )
+
+    # ----- RViz -----
+    rviz_node = Node(
+        package='rviz2',
+        executable='rviz2',
+        name='rviz2',
+        arguments=['-d', os.path.join(config_dir, 'default.rviz')],
+        parameters=[{'use_sim_time': True}],
+        output='screen',
+        condition=IfCondition(LaunchConfiguration('rviz')),
     )
 
     mission_mgr = Node(
@@ -226,6 +249,8 @@ def generate_launch_description():
         fov_arg,
         range_arg,
         lookahead_arg,
+        lookahead_min_arg,
+        lookahead_curv_gain_arg,
         a_lat_arg,
         v_min_arg,
         v_max_arg,
@@ -235,6 +260,7 @@ def generate_launch_description():
         mission_arg,
         auto_go_arg,
         ready_hold_arg,
+        rviz_arg,
         # Environment
         gz_model_path,
         ign_model_path,
@@ -253,4 +279,6 @@ def generate_launch_description():
         mission_mgr,
         control,
         metrics,
+        # Visualization
+        rviz_node,
     ])

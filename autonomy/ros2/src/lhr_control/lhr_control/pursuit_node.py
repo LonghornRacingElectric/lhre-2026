@@ -29,6 +29,8 @@ class PurePursuit(Node):
 
         # --- Steering params ---
         self.declare_parameter('lookahead_dist', 4.0)
+        self.declare_parameter('lookahead_min', 2.0)
+        self.declare_parameter('lookahead_curvature_gain', 3.0)
         self.declare_parameter('max_steer', 0.55)
         self.declare_parameter('wheelbase', 1.6)
         self.declare_parameter('control_hz', 20.0)
@@ -45,8 +47,12 @@ class PurePursuit(Node):
         # Legacy param — ignored but kept so launch files don't break
         self.declare_parameter('target_speed', 5.0)
 
-        self._ld = self.get_parameter(
+        self._ld_max = self.get_parameter(
             'lookahead_dist').get_parameter_value().double_value
+        self._ld_min = self.get_parameter(
+            'lookahead_min').get_parameter_value().double_value
+        self._ld_curv_gain = self.get_parameter(
+            'lookahead_curvature_gain').get_parameter_value().double_value
         self._max_steer = self.get_parameter(
             'max_steer').get_parameter_value().double_value
         self._L = self.get_parameter(
@@ -77,6 +83,7 @@ class PurePursuit(Node):
         self._y = 0.0
         self._yaw = 0.0
         self._have_odom = False
+        self._ld = self._ld_max  # current (adaptive) lookahead
         self._v_prev = 0.0  # for accel limiting
         self._mission_status = ''  # empty = no manager, run freely
 
@@ -101,7 +108,7 @@ class PurePursuit(Node):
         # --- Timer ---
         self.create_timer(self._dt, self._control_loop)
         self.get_logger().info(
-            f'PurePursuit ready  (ld={self._ld}, '
+            f'PurePursuit ready  (ld=[{self._ld_min}..{self._ld_max}], '
             f'v=[{self._v_min}..{self._v_max}], '
             f'a_lat_max={self._a_lat_max})')
 
@@ -141,13 +148,22 @@ class PurePursuit(Node):
         if not self._path or not self._have_odom:
             return
 
+        # --- Curvature-adaptive lookahead ---
+        # First, estimate curvature near the car to shorten lookahead
+        # on tight turns (reduces corner cutting).
+        closest_idx = self._find_closest_idx()
+        kappa_near = abs(self._estimate_curvature(closest_idx))
+        # ld = ld_max - gain * |kappa|, clamped to [ld_min, ld_max]
+        self._ld = max(self._ld_min, min(self._ld_max,
+                       self._ld_max - self._ld_curv_gain * kappa_near))
+
         la = self._find_lookahead()
         if la is None:
             return
 
         la_idx, gx, gy = la
 
-        # --- Steering (pure pursuit, unchanged) ---
+        # --- Steering (pure pursuit) ---
         dx = gx - self._x
         dy = gy - self._y
         local_x = math.cos(-self._yaw) * dx - math.sin(-self._yaw) * dy
@@ -188,6 +204,20 @@ class PurePursuit(Node):
         self._vcmd_pub.publish(Float32(data=v_cmd))
 
     # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+    def _find_closest_idx(self) -> int:
+        """Return index of the path point closest to the vehicle."""
+        best_idx = 0
+        best_d2 = float('inf')
+        for i, (px, py) in enumerate(self._path):
+            d2 = (px - self._x) ** 2 + (py - self._y) ** 2
+            if d2 < best_d2:
+                best_d2 = d2
+                best_idx = i
+        return best_idx
+
+    # ------------------------------------------------------------------
     # Lookahead (returns index + point)
     # ------------------------------------------------------------------
     def _find_lookahead(self) -> Optional[Tuple[int, float, float]]:
@@ -199,14 +229,7 @@ class PurePursuit(Node):
         if n == 0:
             return None
 
-        # Find closest point on path
-        best_idx = 0
-        best_dist_sq = float('inf')
-        for i, (px, py) in enumerate(self._path):
-            d2 = (px - self._x) ** 2 + (py - self._y) ** 2
-            if d2 < best_dist_sq:
-                best_dist_sq = d2
-                best_idx = i
+        best_idx = self._find_closest_idx()
 
         # Walk forward to find lookahead
         ld_sq = self._ld * self._ld
