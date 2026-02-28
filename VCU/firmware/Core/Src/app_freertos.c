@@ -117,7 +117,7 @@ static vcu_parameters_t s_params = {
             .min_psi_deadzone = 0.0f,
             .max_psi_deadzone = 1.0f,
             .bse_ema_alpha = 1.0f,
-            .brake_light_min_pct = 0.05f,
+            .brake_light_min_pct = 0.0f,
             .brake_light_max_pct = 0.30f,
         },
     .buzzer_duration_ms = 1800u,
@@ -316,8 +316,8 @@ void StartControlTask(void *argument) {
     // Read pedal sensors from DMA buffers
     in.apps1_raw = ((float)adc3_dma_buf[0] / ADC_MAX_VAL) * ADC_APPS_SCALE_V;
     in.apps2_raw = ((float)adc3_dma_buf[1] / ADC_MAX_VAL) * ADC_APPS_SCALE_V;
-    in.bse1_raw = (((1.3717f * (float) adc2_dma_buf[0]) / ADC_MAX_VAL) * ADC_BSE_SCALE_V);
-    in.bse2_raw = (((1.3717f * (float) adc2_dma_buf[0]) / ADC_MAX_VAL) * ADC_BSE_SCALE_V);
+    in.bse1_raw = ((float) adc2_dma_buf[1]) / ADC_MAX_VAL * ADC_BSE_SCALE_V;
+    in.bse2_raw = ((float) adc2_dma_buf[1]) / ADC_MAX_VAL * ADC_BSE_SCALE_V;
 
     in.drive_switch = is_drive_switch_pressed();
 
@@ -339,8 +339,8 @@ void StartControlTask(void *argument) {
     uint16_t bse1_adc = adc2_dma_buf[0];
     uint16_t bse2_adc = adc2_dma_buf[1];
 
-    float bse1_v = (((1.3717f * (float) adc2_dma_buf[0]) / ADC_MAX_VAL) * ADC_BSE_SCALE_V);
-    float bse2_v = (((1.3717f * (float) adc2_dma_buf[1]) / ADC_MAX_VAL) * ADC_BSE_SCALE_V);
+    float bse1_v = ((float) adc2_dma_buf[0]) / ADC_MAX_VAL * ADC_BSE_SCALE_V;
+    float bse2_v = ((float) adc2_dma_buf[1]) / ADC_MAX_VAL * ADC_BSE_SCALE_V;
 
     log_printf(LOG_INFO,
               "BSE1 adc=%u v=%.3f | BSE2 adc=%u v=%.3f",
