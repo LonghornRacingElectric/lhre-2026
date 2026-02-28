@@ -26,7 +26,8 @@ extern SPI_HandleTypeDef hspi4;
 extern uint8_t WRPWM1[2];
 extern uint8_t WRPWM2[2];
 
-#define TOTAL_IC 10  // 10 BMBs (2 per module)
+// #define TOTAL_IC 10  // 10 BMBs (2 per module)
+#define TOTAL_IC 6
 #define CELLS_PER_IC 13 // Orion BMS
 #define DISCHARGE_CELL 0  // Which cell to discharge (0-4)
 // Mask covering all cells (bits 0..CELLS_PER_IC-1)
@@ -37,11 +38,6 @@ extern uint8_t WRPWM2[2];
 #define CELL_UNDERVOLTAGE_THRESHOLD 2.5f   // Volts
 #define CELL_OVERTEMP_THRESHOLD     60.0f  // Celsius
 
-// BMS Error Flags
-#define BMS_ERROR_NONE              0x00
-#define BMS_ERROR_OVERVOLTAGE       0x01
-#define BMS_ERROR_UNDERVOLTAGE      0x02
-#define BMS_ERROR_OVERTEMP          0x04
 
 static cell_asic IC[TOTAL_IC];
 static uint8_t discharge_active = 0;
@@ -90,8 +86,8 @@ bool bms_check_undervoltage(void)
                 any_fail = true;
                 bms_error_bmb = i;
                 bms_error_cell = j;
-                log_printf(LOG_ERROR, "BMS ERROR: Undervoltage on BMB %d Cell %d: %.4fV (threshold: %.2fV)",
-                          i, j, voltage_v, CELL_UNDERVOLTAGE_THRESHOLD);
+                // log_printf(LOG_ERROR, "BMS ERROR: Undervoltage on BMB %d Cell %d: %.4fV (threshold: %.2fV)",
+                //           i, j, voltage_v, CELL_UNDERVOLTAGE_THRESHOLD);
             }
         }
     }
@@ -136,8 +132,8 @@ bool bms_check_overtemp(void) {
                 any_fail = true;
                 bms_error_bmb = i;
                 bms_error_cell = j;
-                log_printf(LOG_ERROR, "BMS ERROR: Overtemperature on BMB %d Thermistor %d: %.1f°C (threshold: %.1f°C)",
-                          i, j, temp_c, CELL_OVERTEMP_THRESHOLD);
+                // log_printf(LOG_ERROR, "BMS ERROR: Overtemperature on BMB %d Thermistor %d: %.1f°C (threshold: %.1f°C)",
+                //           i, j, temp_c, CELL_OVERTEMP_THRESHOLD);
             }
         }
     }
@@ -191,7 +187,7 @@ void bms_init(void)
     char msg[128];
     
     // CDC_Transmit_FS((uint8_t*)"=== BMS Discharge Test ===\r\n", 29);
-    log_printf(LOG_WARNING, "=== BMS Discharge Test ===");
+    // log_printf(LOG_WARNING, "=== BMS Discharge Test ===");
     
     // Initialize driver structures
     adBms6830_init_config(TOTAL_IC, IC);
@@ -205,37 +201,33 @@ void bms_init(void)
     
     // Initialize Config B with discharge disabled
     // IC[0].tx_cfgb.dcc = 0;
-
-    //Enable BMB Lights on all ICs
-    for (int i = 0; i < TOTAL_IC; i++) {
-        IC[i].tx_cfga.gpo = 0x000;  // Clear all GPIO bits to enable LEDs
-    }
     
     // Wake up chip and write initial configuration
-    adBmsWakeupIc(TOTAL_IC);
-    adBms6830_write_config(TOTAL_IC, IC);
+    // adBmsWakeupIc(TOTAL_IC);
+    // adBms6830_write_config(TOTAL_IC, IC);
+    // Delay_ms(2);
     
     // Write PWM registers to apply duty cycle settings
     // adBmsWakeupIc(TOTAL_IC);
     // adBmsWriteData(TOTAL_IC, IC, WRPWM1, Pwm, A);
     // adBmsWriteData(TOTAL_IC, IC, WRPWM2, Pwm, B);
-    Delay_ms(2);
+    // Delay_ms(2);
     
     // Read initial configuration
-    adBms6830_read_config(TOTAL_IC, IC);
+    // adBms6830_read_config(TOTAL_IC, IC);
     
     // snprintf(msg, sizeof(msg), "Initial CFGA: %02X %02X %02X %02X %02X %02X\r\n", 
     //          IC[0].configa.rx_data[0], IC[0].configa.rx_data[1], 
     //          IC[0].configa.rx_data[2], IC[0].configa.rx_data[3],
     //          IC[0].configa.rx_data[4], IC[0].configa.rx_data[5]);
 
-    log_printf(LOG_INFO, 
-             "Initial CFGA: %02X %02X %02X %02X %02X %02X",
-             IC[0].configa.rx_data[0], IC[0].configa.rx_data[1],
-             IC[0].configa.rx_data[2], IC[0].configa.rx_data[3],
-             IC[0].configa.rx_data[4], IC[0].configa.rx_data[5]);
+    // log_printf(LOG_INFO, 
+    //          "Initial CFGA: %02X %02X %02X %02X %02X %02X",
+    //          IC[0].configa.rx_data[0], IC[0].configa.rx_data[1],
+    //          IC[0].configa.rx_data[2], IC[0].configa.rx_data[3],
+    //          IC[0].configa.rx_data[4], IC[0].configa.rx_data[5]);
              
-    log_printf(LOG_INFO, "Reading baseline voltages...");
+    // log_printf(LOG_INFO, "Reading baseline voltages...");
 }
 
 void bms_read_thermistors(void)
@@ -276,7 +268,7 @@ void bms_read_thermistors(void)
         
         // Print the complete line
         // log_printf(LOG_INFO, "%s\n", therm_line);
-        osDelay(10);
+        // osDelay(10);
     }
 }
 
@@ -285,6 +277,8 @@ void bms_update(void)
     char msg[128];
     uint16_t code;
     float voltage_v;
+
+    // adBms6830_init_config(TOTAL_IC, IC);
     
     // Wake and start ADC conversion
     // Use DCP_ON to keep discharge active during measurement
@@ -321,7 +315,7 @@ void bms_update(void)
         //     log_printf(LOG_INFO, "%s\n", cell_line);
         // }
         
-        osDelay(10);
+        // osDelay(10);
     }
     // log_printf(LOG_INFO, "Pack Voltage: %.3f V\n", getPackVoltage_v());
     
@@ -348,7 +342,7 @@ void StartBmsTask(void *argument)
     
     // Continue monitoring
     for (;;) {
-        osDelay(1000);
+        osDelay(250);
         bms_update();
     }
 }
