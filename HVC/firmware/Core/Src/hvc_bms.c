@@ -14,6 +14,7 @@
 #include "adBms6830ParseCreate.h"
 #include "adBms_Application.h"
 #include "usbd_cdc_if.h"
+#include <math.h>
 #include <string.h>
 #include <stdint.h>
 
@@ -26,10 +27,10 @@ extern uint8_t WRPWM1[2];
 extern uint8_t WRPWM2[2];
 
 #define TOTAL_IC 10  // 10 BMBs (2 per module)
-#define NUM_CELLS 13 // Orion BMS
+#define CELLS_PER_IC 13 // Orion BMS
 #define DISCHARGE_CELL 0  // Which cell to discharge (0-4)
-// Mask covering all cells (bits 0..NUM_CELLS-1)
-#define ALL_DISCHARGE_MASK ((1U << NUM_CELLS) - 1)
+// Mask covering all cells (bits 0..CELLS_PER_IC-1)
+#define ALL_DISCHARGE_MASK ((1U << CELLS_PER_IC) - 1)
 
 // BMS Safety Thresholds
 #define CELL_OVERVOLTAGE_THRESHOLD  4.2f   // Volts
@@ -44,9 +45,9 @@ extern uint8_t WRPWM2[2];
 
 static cell_asic IC[TOTAL_IC];
 static uint8_t discharge_active = 0;
-static uint8_t bms_error_flags = BMS_ERROR_NONE;
 static uint8_t bms_error_bmb = 0;      // Which BMB has the error
 static uint8_t bms_error_cell = 0;     // Which cell/thermistor has the error
+static uint8_t bms_responsive_ics = 0;
 
 // Returns pack voltage in millivolts by summing all cell voltages
 float getPackVoltage_v(void)
@@ -56,7 +57,7 @@ float getPackVoltage_v(void)
     int i;
 
     for (int i = 0; i < TOTAL_IC; i++) {
-        for (int j = 0; j < NUM_CELLS; j++) {
+        for (int j = 0; j < CELLS_PER_IC; j++) {
             code = IC[i].cell.c_codes[j];
             // pack_mv += (code * 8) / 30;
             pack_v += (code * 0.000150f) + 1.5f;
@@ -72,36 +73,17 @@ uint8_t getbmsStatus(void)
     return discharge_active ? 1 : 0;
 }
 
-// Get BMS error flags
-uint8_t getBmsErrors(void)
-{
-    return bms_error_flags;
-}
 
-// Check for BMS errors (overvoltage, undervoltage, overtemperature)
-void bms_check_errors(void)
+bool bms_check_undervoltage(void)
 {
-    // Clear previous errors
-    bms_error_flags = BMS_ERROR_NONE;
-    
-    // Check all cell voltages
+    bool any_fail = false;
+
     for (int i = 0; i < TOTAL_IC; i++) {
-        for (int j = 0; j < NUM_CELLS; j++) {
+        for (int j = 0; j < CELLS_PER_IC; j++) {
             uint16_t code = IC[i].cell.c_codes[j];
             float voltage_v = (code * 0.000150f) + 1.5f;
-            
-            // Check overvoltage
-            if (voltage_v > CELL_OVERVOLTAGE_THRESHOLD) {
-                bms_error_flags |= BMS_ERROR_OVERVOLTAGE;
-                bms_error_bmb = i;
-                bms_error_cell = j;
-                log_printf(LOG_ERROR, "BMS ERROR: Overvoltage on BMB %d Cell %d: %.4fV (threshold: %.2fV)",
-                          i, j, voltage_v, CELL_OVERVOLTAGE_THRESHOLD);
-            }
-            
-            // Check undervoltage
             if (voltage_v < CELL_UNDERVOLTAGE_THRESHOLD) {
-                bms_error_flags |= BMS_ERROR_UNDERVOLTAGE;
+                any_fail = true;
                 bms_error_bmb = i;
                 bms_error_cell = j;
                 log_printf(LOG_ERROR, "BMS ERROR: Undervoltage on BMB %d Cell %d: %.4fV (threshold: %.2fV)",
@@ -109,8 +91,36 @@ void bms_check_errors(void)
             }
         }
     }
+
+    return any_fail;
+}
+
     
-    // Check all thermistor temperatures
+bool bms_check_overvoltage(void)
+{
+    bool any_fail = false;
+
+    for (int i = 0; i < TOTAL_IC; i++) {
+        for (int j = 0; j < CELLS_PER_IC; j++) {
+            uint16_t code = IC[i].cell.c_codes[j];
+            float voltage_v = (code * 0.000150f) + 1.5f;
+            if (voltage_v > CELL_OVERVOLTAGE_THRESHOLD) {
+                any_fail = true;
+                bms_error_bmb = i;
+                bms_error_cell = j;
+                log_printf(LOG_ERROR, "BMS ERROR: Overvoltage on BMB %d Cell %d: %.4fV (threshold: %.2fV)",
+                          i, j, voltage_v, CELL_OVERVOLTAGE_THRESHOLD);
+            }
+        }
+    }
+
+    return any_fail;
+}
+
+
+bool bms_check_overtemp(void) {
+    bool any_fail = false;
+
     for (int i = 0; i < TOTAL_IC; i++) {
         for (int j = 1; j < 9; j++) {  // GPIO 2-9 (aux channels 1-8)
             int16_t code = IC[i].aux.a_codes[j];
@@ -118,8 +128,8 @@ void bms_check_errors(void)
             float temp_c = ntc_voltage_to_temp(voltage_v);
             
             // Check overtemperature (only if valid reading)
-            if (temp_c != -999.0f && temp_c > CELL_OVERTEMP_THRESHOLD) {
-                bms_error_flags |= BMS_ERROR_OVERTEMP;
+            if (isnan(temp_c) || temp_c > CELL_OVERTEMP_THRESHOLD) {
+                any_fail = true;
                 bms_error_bmb = i;
                 bms_error_cell = j;
                 log_printf(LOG_ERROR, "BMS ERROR: Overtemperature on BMB %d Thermistor %d: %.1f°C (threshold: %.1f°C)",
@@ -127,6 +137,12 @@ void bms_check_errors(void)
             }
         }
     }
+
+    return any_fail;
+}
+
+bool bms_check_disconnection(void) {
+    return bms_responsive_ics == TOTAL_IC;
 }
 
 void bms_enable_discharge()
@@ -178,7 +194,7 @@ void bms_init(void)
     
     // Configure discharge timeout: 63 minutes (maximum in 0-63 minute range)
     // This allows long discharge tests
-    SetConfigB_DischargeTimeOutValue(TOTAL_IC, IC, RANG_0_TO_63_MIN, 63);
+    // SetConfigB_DischargeTimeOutValue(TOTAL_IC, IC, RANG_0_TO_63_MIN, 63);
     
     // Set PWM duty cycle to 100%
     // SetPwmDutyCycle(TOTAL_IC, IC, PWM_100_0_PCT);
@@ -209,14 +225,12 @@ void bms_init(void)
     //          IC[0].configa.rx_data[2], IC[0].configa.rx_data[3],
     //          IC[0].configa.rx_data[4], IC[0].configa.rx_data[5]);
 
-      log_printf(LOG_INFO, 
+    log_printf(LOG_INFO, 
              "Initial CFGA: %02X %02X %02X %02X %02X %02X",
              IC[0].configa.rx_data[0], IC[0].configa.rx_data[1],
              IC[0].configa.rx_data[2], IC[0].configa.rx_data[3],
              IC[0].configa.rx_data[4], IC[0].configa.rx_data[5]);
-    // CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-    
-    // CDC_Transmit_FS((uint8_t*)"Reading baseline voltages...\r\n", 31);
+             
     log_printf(LOG_INFO, "Reading baseline voltages...");
 }
 
@@ -247,7 +261,7 @@ void bms_read_thermistors(void)
             // Convert voltage to temperature
             float temp_c = ntc_voltage_to_temp(voltage_v);
             
-            if (temp_c != -999.0f) {
+            if (!isnan(temp_c)) {
                 offset += snprintf(therm_line + offset, sizeof(therm_line) - offset,
                                   "T%d: %.1f°C  ", j, temp_c);
             } else {
@@ -287,7 +301,7 @@ void bms_update(void)
         log_printf(LOG_INFO, "BMB %d Cell Voltages:", i);
         
         // Print cells in groups to fit on lines
-        for (int j = 0; j < NUM_CELLS; j++) {
+        for (int j = 0; j < CELLS_PER_IC; j++) {
             code = IC[i].cell.c_codes[j];
             voltage_v = (code * 0.000150f) + 1.5f;
             
@@ -308,53 +322,26 @@ void bms_update(void)
     log_printf(LOG_INFO, "Pack Voltage: %.3f V\n", getPackVoltage_v());
     
     // Read thermistor values
-    bms_read_thermistors();    
-    // Check for BMS errors
-    bms_check_errors();
-    
-    // Report overall BMS status
-    if (bms_error_flags != BMS_ERROR_NONE) {
-        log_printf(LOG_ERROR, "BMS ERROR FLAGS: 0x%02X (OV:%d UV:%d OT:%d)",
-                   bms_error_flags,
-                   (bms_error_flags & BMS_ERROR_OVERVOLTAGE) ? 1 : 0,
-                   (bms_error_flags & BMS_ERROR_UNDERVOLTAGE) ? 1 : 0,
-                   (bms_error_flags & BMS_ERROR_OVERTEMP) ? 1 : 0);
+    bms_read_thermistors();
+
+
+    // check for connectivity
+    for(int i = 0; i < TOTAL_IC; i++) {
+        bms_responsive_ics += (IC[i].cccrc.cell_pec != 0) && (IC[i].cccrc.aux_pec != 0);
     }
+    // for(int i = 0; i < TOTAL_IC; i++) {
+    //     memset(IC[i].sid.sid, 0, 6);
+    // }
+    // adBms6830_read_device_sid(TOTAL_IC, IC);
 }
 
 void StartBmsTask(void *argument)
 {
-    uint32_t loop_count;
-    
-    osDelay(3500);  // Wait for USB
-    
-      // CDC_Transmit_FS((uint8_t*)"[BMS] Starting discharge test\r\n", 32);
+    osDelay(500);
       
-      bms_init();
-      
-      // Read baseline voltages for 3 seconds
-    for (loop_count = 0; loop_count < 3000; loop_count++) {
-        osDelay(1000);
-        bms_update();
-    }
-    
-    // Enable discharge on specified cell
-    //bms_enable_discharge();
-
-    // Monitor for 500 seconds with discharge active
-    // CDC_Transmit_FS((uint8_t*)"\r\n*** DISCHARGE ACTIVE FOR 500 SECONDS ***\r\n\r\n", 48);
-    // log_printf(LOG_INFO, "*** DISCHARGE ACTIVE FOR 500 SECONDS ***");
-    // for (loop_count = 0; loop_count < 500; loop_count++) {
-    //     osDelay(1000);
-    //     bms_update();
-    // }
-    
-    // Disable discharge
-    //bms_disable_discharge();
+    bms_init();
     
     // Continue monitoring
-    // CDC_Transmit_FS((uint8_t*)"\r\n*** DISCHARGE STOPPED - MONITORING ***\r\n\r\n", 44);
-    log_printf(LOG_INFO, "*** DISCHARGE STOPPED - MONITORING ***");
     for (;;) {
         osDelay(1000);
         bms_update();

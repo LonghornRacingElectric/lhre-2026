@@ -35,18 +35,17 @@
 #include "longhorn/usb_base.h"
 #include "tim.h"
 #include "usbd_cdc_if.h"
-
-/* HVC Application Modules */
 #include "FreeRTOS.h"
 #include "adc.h"
 #include "can.h"
-#include "cmsis_os.h"
 #include "fdcan.h"
+
+/* HVC Application Modules */
 #include "hvc_bms.h"
 #include "hvc_contactors.h"
 #include "hvc_state_machine.h"
 #include "hvc_vct_sense.h"
-#include "tim.h"
+#include "hvc_faults.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -254,16 +253,23 @@ void StartStateMachineTask(void* argument) {
     // Initialize state machine and contactors
     state_machine_init();
     contactors_init();
+    faults_init();
 
     // Task loop - 10Hz update rate (100ms period)
     const uint32_t task_period_ms = 100;
+    uint32_t latched_fault_vector = 0;
 
     for (;;) {
         // Update state machine
-        update_state_machine();
+        uint32_t current_fault_vector = get_faults(task_period_ms / 1000.0f);
+        latched_fault_vector |= current_fault_vector;
+        bool any_faults = (latched_fault_vector != 0) && (osKernelGetTickCount() > 5000);
+
+        update_state_machine(any_faults);
         hvc_set_contactor_status(get_current_state(),
                                  get_drive_contactors_state(),
-                                 get_drive_contactors_state());
+                                 get_drive_contactors_state());         
+        
         /*
         log_printf(LOG_INFO, "Tractive Voltage: %.2f V, Raw: %d  "
                              "HVC State: %s  "

@@ -49,11 +49,11 @@ void state_machine_init(void) {
  * @brief Update state machine
  * @note Based on 2024 implementation with ~80 lines of proven logic
  */
-void update_state_machine(void) {
+void update_state_machine(bool any_faults) {
     uint32_t current_time = osKernelGetTickCount();
     
     // Check for faults - immediately return to NOT_ENERGIZED if fault detected
-    if (is_fault_present()) {
+    if (any_faults) {
         if (current_state != HVC_STATE_NOT_ENERGIZED) {
             open_all_contactors();
             current_state = HVC_STATE_NOT_ENERGIZED;
@@ -84,9 +84,7 @@ void update_state_machine(void) {
             // Check if precharge complete
             float tractive_voltage = get_tractive_voltage();
             float pack_voltage = get_pack_voltage();
-            // 500.0f since pack voltage is a bit messed up rn
-            // float precharge_threshold = pack_voltage * HVC_PRECHARGE_THRESHOLD_PERCENT / 100.0f;
-            float precharge_threshold = 400.0f; // Temporary fixed threshold for testing
+            float precharge_threshold = pack_voltage * HVC_PRECHARGE_THRESHOLD_PERCENT;
 
             if (tractive_voltage > precharge_threshold) {
                 uint32_t elapsed = current_time - precharge_start_time;
@@ -120,7 +118,7 @@ void update_state_machine(void) {
             // Similar to normal precharge, but for charging
             tractive_voltage = get_tractive_voltage();
             pack_voltage = get_pack_voltage();
-            precharge_threshold = pack_voltage * HVC_PRECHARGE_THRESHOLD_PERCENT / 100.0f;
+            precharge_threshold = pack_voltage * HVC_PRECHARGE_THRESHOLD_PERCENT;
             
             if (tractive_voltage > precharge_threshold) {
                 uint32_t elapsed = current_time - precharge_start_time;
@@ -218,10 +216,6 @@ const char* get_state_name(hvc_state_t state) {
     return debounced_state;
 }
 
-__attribute__((weak)) bool is_fault_present(void) {
-    // Default: return false (no fault)
-    return false;
-}
 
 __attribute__((weak)) bool is_charge_enable_active(void) {
     // Default: return false (not charging)

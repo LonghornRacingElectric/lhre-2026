@@ -21,13 +21,13 @@
  * Circuit: 3.3V -> 10kΩ resistor -> GPIO pin -> NTC thermistor -> GND
  * 
  * @param voltage_v Measured voltage at GPIO pin (in volts)
- * @return Temperature in Celsius, or -999.0f on error
+ * @return Temperature in Celsius, or NAN on error
  */
 float ntc_voltage_to_temp(float voltage_v)
 {
     // Validate input voltage
     if (voltage_v <= 0.0f || voltage_v >= VCC) {
-        return -999.0f;  // Invalid voltage reading
+        return NAN;  // Invalid voltage reading
     }
     
     // Calculate thermistor resistance from voltage divider
