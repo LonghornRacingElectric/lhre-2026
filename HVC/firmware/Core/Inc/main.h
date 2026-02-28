@@ -59,10 +59,10 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define SPI4_CS_Pin GPIO_PIN_3
 #define SPI4_CS_GPIO_Port GPIOE
-#define Temp_Sense_3_Pin GPIO_PIN_0
-#define Temp_Sense_3_GPIO_Port GPIOC
-#define Temp_Sense_4_Pin GPIO_PIN_1
-#define Temp_Sense_4_GPIO_Port GPIOC
+#define Voltage_Sense_P_Pin GPIO_PIN_0
+#define Voltage_Sense_P_GPIO_Port GPIOC
+#define Voltage_Sense_M_Pin GPIO_PIN_1
+#define Voltage_Sense_M_GPIO_Port GPIOC
 #define IR__Sense_Pin GPIO_PIN_2
 #define IR__Sense_GPIO_Port GPIOC
 #define IR__SenseC3_Pin GPIO_PIN_3
@@ -71,18 +71,20 @@ void Error_Handler(void);
 #define Temp_Sense_1_GPIO_Port GPIOA
 #define Temp_Sense_2_Pin GPIO_PIN_4
 #define Temp_Sense_2_GPIO_Port GPIOA
-#define Current_Sense___Pin GPIO_PIN_6
-#define Current_Sense___GPIO_Port GPIOA
-#define Current_Sense__A7_Pin GPIO_PIN_7
-#define Current_Sense__A7_GPIO_Port GPIOA
-#define Voltage_Sense___Pin GPIO_PIN_4
-#define Voltage_Sense___GPIO_Port GPIOC
-#define Voltage_Sense__C5_Pin GPIO_PIN_5
-#define Voltage_Sense__C5_GPIO_Port GPIOC
+#define Current_Sense_P_Pin GPIO_PIN_6
+#define Current_Sense_P_GPIO_Port GPIOA
+#define Current_Sense_M_Pin GPIO_PIN_7
+#define Current_Sense_M_GPIO_Port GPIOA
+#define Temp_Sense_3_Pin GPIO_PIN_4
+#define Temp_Sense_3_GPIO_Port GPIOC
+#define Temp_Sense_4_Pin GPIO_PIN_5
+#define Temp_Sense_4_GPIO_Port GPIOC
 #define BMS_Error_Pin GPIO_PIN_1
 #define BMS_Error_GPIO_Port GPIOB
 #define IMD_Error_Pin GPIO_PIN_2
 #define IMD_Error_GPIO_Port GPIOB
+#define Close_IR_Plus_Pin GPIO_PIN_10
+#define Close_IR_Plus_GPIO_Port GPIOB
 #define Shutdown_Sense_1_Pin GPIO_PIN_6
 #define Shutdown_Sense_1_GPIO_Port GPIOC
 #define Shutdown_Sense_2_Pin GPIO_PIN_7
@@ -93,7 +95,7 @@ void Error_Handler(void);
 #define Shutdown_Sense_4_GPIO_Port GPIOC
 #define Shutdown_Sense_12_Pin GPIO_PIN_8
 #define Shutdown_Sense_12_GPIO_Port GPIOA
-#define Close_IR___Pin GPIO_PIN_10
+#define Close_IR___Pin GPIO_PIN_6
 #define Close_IR___GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */

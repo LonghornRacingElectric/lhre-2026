@@ -180,7 +180,7 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* adcHandle)
     PC1     ------> ADC1_IN7
     PA3     ------> ADC1_IN4
     */
-    GPIO_InitStruct.Pin = Temp_Sense_3_Pin|Temp_Sense_4_Pin;
+    GPIO_InitStruct.Pin = Voltage_Sense_P_Pin|Voltage_Sense_M_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
@@ -224,12 +224,12 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* adcHandle)
     PC4     ------> ADC2_IN5
     PC5     ------> ADC2_IN11
     */
-    GPIO_InitStruct.Pin = Temp_Sense_2_Pin|Current_Sense___Pin|Current_Sense__A7_Pin;
+    GPIO_InitStruct.Pin = Temp_Sense_2_Pin|Current_Sense_P_Pin|Current_Sense_M_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = Voltage_Sense___Pin|Voltage_Sense__C5_Pin;
+    GPIO_InitStruct.Pin = Temp_Sense_3_Pin|Temp_Sense_4_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
@@ -259,7 +259,7 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* adcHandle)
     PC1     ------> ADC1_IN7
     PA3     ------> ADC1_IN4
     */
-    HAL_GPIO_DeInit(GPIOC, Temp_Sense_3_Pin|Temp_Sense_4_Pin);
+    HAL_GPIO_DeInit(GPIOC, Voltage_Sense_P_Pin|Voltage_Sense_M_Pin);
 
     HAL_GPIO_DeInit(Temp_Sense_1_GPIO_Port, Temp_Sense_1_Pin);
 
@@ -285,9 +285,9 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* adcHandle)
     PC4     ------> ADC2_IN5
     PC5     ------> ADC2_IN11
     */
-    HAL_GPIO_DeInit(GPIOA, Temp_Sense_2_Pin|Current_Sense___Pin|Current_Sense__A7_Pin);
+    HAL_GPIO_DeInit(GPIOA, Temp_Sense_2_Pin|Current_Sense_P_Pin|Current_Sense_M_Pin);
 
-    HAL_GPIO_DeInit(GPIOC, Voltage_Sense___Pin|Voltage_Sense__C5_Pin);
+    HAL_GPIO_DeInit(GPIOC, Temp_Sense_3_Pin|Temp_Sense_4_Pin);
 
   /* USER CODE BEGIN ADC2_MspDeInit 1 */
 
