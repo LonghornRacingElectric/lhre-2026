@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import ReactMarkdown from 'react-markdown';
 import {
     fetchReleases, getGlobalReleases, getLatestRelease,
-    type Release,
+    FIRMWARE_TARGETS, type Release,
 } from '@/lib/github';
 
 export default function ReleasesPage() {
@@ -65,6 +66,76 @@ export default function ReleasesPage() {
         return 'Stable';
     }
 
+    function renderAssetsGroups(assets?: { name: string; browser_download_url: string }[]) {
+        if (!assets || assets.length === 0) return null;
+
+        const grouped: Record<string, typeof assets> = {};
+        const others: typeof assets = [];
+
+        assets.forEach(asset => {
+            const lowerName = asset.name.toLowerCase();
+            const target = FIRMWARE_TARGETS.find(t => lowerName.includes(t.id.toLowerCase()));
+            if (target) {
+                if (!grouped[target.id]) grouped[target.id] = [];
+                grouped[target.id].push(asset);
+            } else {
+                others.push(asset);
+            }
+        });
+
+        return (
+            <div className="release-assets-grouped">
+                {FIRMWARE_TARGETS.map(target => {
+                    const targetAssets = grouped[target.id];
+                    if (!targetAssets || targetAssets.length === 0) return null;
+
+                    return (
+                        <div key={target.id} className="release-target-assets">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div className={`target-icon small ${target.id.toLowerCase()}`} title={target.fullName}>
+                                    {target.id.substring(0, 3)}
+                                </div>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{target.name}</span>
+                            </div>
+                            <div className="target-asset-links" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+                                <span className="target-asset-label">Downloads:</span>
+                                {targetAssets.map(a => {
+                                    const ext = a.name.split('.').pop()?.toUpperCase() || 'FILE';
+                                    return (
+                                        <a key={a.name} href={a.browser_download_url} className="target-asset-link" target="_blank" rel="noopener noreferrer">
+                                            ⬇ {ext}
+                                        </a>
+                                    );
+                                })}
+                                <button className="target-asset-link ota-btn" onClick={() => { }} title="Over-the-Air Update (Coming Soon)">
+                                    ☁️ OTA
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })}
+                {others.length > 0 && (
+                    <div className="release-target-assets">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div className="target-icon small" style={{ background: 'var(--border-color)', color: 'var(--text-muted)' }} title="Other Assets">
+                                OTH
+                            </div>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Other</span>
+                        </div>
+                        <div className="target-asset-links" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+                            <span className="target-asset-label">Downloads:</span>
+                            {others.map(a => (
+                                <a key={a.name} href={a.browser_download_url} className="target-asset-link" target="_blank" rel="noopener noreferrer">
+                                    ⬇ {a.name}
+                                </a>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
     return (
         <>
             {/* Header */}
@@ -110,10 +181,10 @@ export default function ReleasesPage() {
                                 Released {formatDate(latestStable.published_at)} · {timeAgo(latestStable.published_at)}
                             </div>
                             {latestStable.body && (
-                                <div className="release-body">
-                                    {latestStable.body.split('\n').slice(0, 5).map((line, i) => (
-                                        <span key={i}>{line}<br /></span>
-                                    ))}
+                                <div className="release-body release-markdown">
+                                    <ReactMarkdown>
+                                        {latestStable.body}
+                                    </ReactMarkdown>
                                 </div>
                             )}
                             {latestStable.author && (
@@ -125,14 +196,12 @@ export default function ReleasesPage() {
                                     <span className="author-name">by {latestStable.author.login}</span>
                                 </div>
                             )}
-                            <div className="release-actions">
-                                <a href={latestStable.html_url} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
-                                    ⬇ Download Artifacts
-                                </a>
-                                <a href={latestStable.html_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
-                                    📝 Release Notes
+                            <div className="release-actions" style={{ marginBottom: 16 }}>
+                                <a href={latestStable.html_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: 12 }}>
+                                    📝 View Release on GitHub
                                 </a>
                             </div>
+                            {renderAssetsGroups(latestStable.assets)}
                         </div>
                     </div>
                 </div>
@@ -192,21 +261,13 @@ export default function ReleasesPage() {
                             </div>
                         </div>
                         {r.body && (
-                            <div className="release-item-body">
-                                {r.body.split('\n').slice(0, 6).map((line, j) => (
-                                    <span key={j}>{line}<br /></span>
-                                ))}
+                            <div className="release-item-body release-markdown">
+                                <ReactMarkdown>
+                                    {r.body}
+                                </ReactMarkdown>
                             </div>
                         )}
-                        {r.assets.length > 0 && (
-                            <div className="release-assets">
-                                {r.assets.map(a => (
-                                    <a key={a.name} href={a.browser_download_url} className="release-asset" target="_blank" rel="noopener noreferrer">
-                                        📎 {a.name}
-                                    </a>
-                                ))}
-                            </div>
-                        )}
+                        {r.assets && r.assets.length > 0 && renderAssetsGroups(r.assets)}
                     </div>
                 ))
             )}
