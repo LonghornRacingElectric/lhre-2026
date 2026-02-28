@@ -272,30 +272,54 @@
       </axis>
     </joint>
 
-    <!-- ===== ACKERMANN STEERING PLUGIN ===== -->
+    <!-- ===== STEERING: direct position control (bypasses physics solver) ===== -->
     <plugin
-      filename="gz-sim-ackermann-steering-system"
-      name="gz::sim::systems::AckermannSteering">
-      <left_joint>rear_left_wheel_joint</left_joint>
-      <right_joint>rear_right_wheel_joint</right_joint>
-      <left_steering_joint>front_left_steering_joint</left_steering_joint>
-      <right_steering_joint>front_right_steering_joint</right_steering_joint>
-      <kingpin_width>1.2</kingpin_width>
-      <wheel_base>1.6</wheel_base>
-      <wheel_separation>1.2</wheel_separation>
-      <wheel_radius>0.2</wheel_radius>
-      <steering_limit>0.61</steering_limit>
-      <min_velocity>-5.0</min_velocity>
-      <max_velocity>15.0</max_velocity>
-      <min_acceleration>-5.0</min_acceleration>
-      <max_acceleration>5.0</max_acceleration>
-      <topic>/model/fsae_vehicle/cmd_vel</topic>
-      <!-- Disable wheel-based odom/tf from this plugin (use OdometryPublisher instead) -->
-      <odom_topic>/model/fsae_vehicle/wheel_odom</odom_topic>
-      <tf_topic>/model/fsae_vehicle/wheel_tf</tf_topic>
-      <frame_id>map</frame_id>
-      <child_frame_id>base_link</child_frame_id>
-      <odom_publish_frequency>50</odom_publish_frequency>
+      filename="gz-sim-joint-position-controller-system"
+      name="gz::sim::systems::JointPositionController">
+      <joint_name>front_left_steering_joint</joint_name>
+      <topic>/model/fsae_vehicle/joint/front_left_steering_joint/cmd_pos</topic>
+      <use_velocity_commands>true</use_velocity_commands>
+      <cmd_max>10.0</cmd_max>
+      <cmd_min>-10.0</cmd_min>
+    </plugin>
+
+    <plugin
+      filename="gz-sim-joint-position-controller-system"
+      name="gz::sim::systems::JointPositionController">
+      <joint_name>front_right_steering_joint</joint_name>
+      <topic>/model/fsae_vehicle/joint/front_right_steering_joint/cmd_pos</topic>
+      <use_velocity_commands>true</use_velocity_commands>
+      <cmd_max>10.0</cmd_max>
+      <cmd_min>-10.0</cmd_min>
+    </plugin>
+
+    <!-- ===== DRIVE: direct velocity control ===== -->
+    <plugin
+      filename="gz-sim-joint-controller-system"
+      name="gz::sim::systems::JointController">
+      <joint_name>front_left_wheel_joint</joint_name>
+      <topic>/model/fsae_vehicle/joint/front_left_wheel_joint/cmd_vel</topic>
+    </plugin>
+
+    <plugin
+      filename="gz-sim-joint-controller-system"
+      name="gz::sim::systems::JointController">
+      <joint_name>front_right_wheel_joint</joint_name>
+      <topic>/model/fsae_vehicle/joint/front_right_wheel_joint/cmd_vel</topic>
+    </plugin>
+
+    <plugin
+      filename="gz-sim-joint-controller-system"
+      name="gz::sim::systems::JointController">
+      <joint_name>rear_left_wheel_joint</joint_name>
+      <topic>/model/fsae_vehicle/joint/rear_left_wheel_joint/cmd_vel</topic>
+    </plugin>
+
+    <plugin
+      filename="gz-sim-joint-controller-system"
+      name="gz::sim::systems::JointController">
+      <joint_name>rear_right_wheel_joint</joint_name>
+      <topic>/model/fsae_vehicle/joint/rear_right_wheel_joint/cmd_vel</topic>
     </plugin>
 
     <!-- ===== GROUND-TRUTH ODOMETRY (world-frame pose, not wheel encoders) ===== -->

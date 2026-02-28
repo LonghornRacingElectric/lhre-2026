@@ -136,11 +136,11 @@ def generate_launch_description():
         output='screen',
     )
 
-    # ----- Adapter: AckermannDriveStamped → Twist for Gazebo -----
+    # ----- Adapter: AckermannDriveStamped → individual joint commands -----
     cmd_adapter = Node(
         package='lhr_gazebo',
-        executable='ackermann_cmd_adapter',
-        name='ackermann_cmd_adapter',
+        executable='joint_cmd_adapter',
+        name='joint_cmd_adapter',
         parameters=[{'use_sim_time': True}],
         output='screen',
     )
