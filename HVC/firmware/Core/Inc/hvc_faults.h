@@ -21,6 +21,7 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include <stdint.h>
+#include <stdbool.h>
 
 
 /* Defintions ----------------------------------------------------------------*/
@@ -59,6 +60,8 @@ void faults_init();
  * @return fault bitfield
  */
 uint32_t get_faults(float delta_time_s);
+
+void set_bms_fault_pin(bool faulted);
 
 #ifdef __cplusplus
 }

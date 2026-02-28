@@ -132,3 +132,8 @@ uint32_t get_faults(float delta_time_s) {
 
     return current_fault_vector;
 }
+
+
+void set_bms_fault_pin(bool faulted) {
+    HAL_GPIO_WritePin(BMS_Error_GPIO_Port, BMS_Error_Pin, faulted ? GPIO_PIN_SET : GPIO_PIN_RESET);
+}
