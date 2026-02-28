@@ -256,12 +256,11 @@ void StartStateMachineTask(void* argument) {
         uint32_t current_fault_vector = get_faults();
         latched_fault_vector |= current_fault_vector;
         set_bms_fault_pin(current_fault_vector != 0);
-        bool any_faults = (latched_fault_vector != 0) && (osKernelGetTickCount() > 5000);
+        bool any_faults = (latched_fault_vector != 0) || (osKernelGetTickCount() < 5000);  // decreasing may introduce race condition
 
         update_state_machine(any_faults);
-        hvc_set_contactor_status(get_current_state(),
-                                 get_drive_contactors_state(),
-                                 get_drive_contactors_state());         
+        hvc_update_contactor_status();
+        // log_printf(LOG_INFO, "Responsive BMS ICs: %d\n", bms_get_num_responsive_ics());
         
         /*
         log_printf(LOG_INFO, "Tractive Voltage: %.2f V, Raw: %d  "

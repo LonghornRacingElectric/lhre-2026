@@ -32,12 +32,6 @@ extern "C" {
 void contactors_init(void);
 
 /**
- * @brief Set precharge contactor state
- * @param state true to close precharge contactor, false to open
- */
-void set_precharge_contactor(bool state);
-
-/**
  * @brief Set drive contactors state (AIR+ and AIR-)
  * @param state true to close both AIRs, false to open
  * @note Controls both positive and negative AIRs together

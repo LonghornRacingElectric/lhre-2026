@@ -54,10 +54,8 @@ void update_state_machine(bool any_faults) {
     
     // Check for faults - immediately return to NOT_ENERGIZED if fault detected
     if (any_faults) {
-        if (current_state != HVC_STATE_NOT_ENERGIZED) {
-            open_all_contactors();
-            current_state = HVC_STATE_NOT_ENERGIZED;
-        }
+        open_all_contactors();
+        current_state = HVC_STATE_NOT_ENERGIZED;
         return;
     }
     
@@ -69,12 +67,10 @@ void update_state_machine(bool any_faults) {
             
             if (is_shutdown_closed() && !is_charge_enable_active()) {
                 // Transition to precharging
-                set_precharge_contactor(true);
                 precharge_start_time = current_time;
                 current_state = HVC_STATE_PRECHARGING;
             } else if (is_charge_enable_active()) {
                 // Transition to charging precharge
-                set_precharge_contactor(true);
                 precharge_start_time = current_time;
                 current_state = HVC_STATE_CHARGING_PRECHARGING;
             }
@@ -91,7 +87,6 @@ void update_state_machine(bool any_faults) {
                 if (elapsed >= HVC_PRECHARGE_VALID_MS) {
                     // Precharge complete - close drive contactors
                     set_drive_contactors(true);
-                    set_precharge_contactor(false);
                     current_state = HVC_STATE_ENERGIZED;
                 }
             } else {
@@ -126,7 +121,6 @@ void update_state_machine(bool any_faults) {
                 if (elapsed >= HVC_PRECHARGE_VALID_MS) {
                     // Precharge complete - transition to charging
                     set_drive_contactors(true);
-                    set_precharge_contactor(false);
                     current_state = HVC_STATE_CHARGING;
                 }
             } else {

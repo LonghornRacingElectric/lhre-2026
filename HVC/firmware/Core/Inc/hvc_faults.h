@@ -36,7 +36,7 @@ extern "C" {
 #define FAULT_CONTACTOR_P_WELDED    (1 << 8)
 #define FAULT_CONTACTOR_M_WELDED    (1 << 9)
 
-#define TIMER_BMS_COMMS             2.0f
+#define TIMER_BMS_COMMS             1.0f
 #define TIMER_BMS_OVERVOLTAGE       10.0f
 #define TIMER_BMS_UNDERVOLTAGE      10.0f
 #define TIMER_BMS_OVERTEMP          5.0f

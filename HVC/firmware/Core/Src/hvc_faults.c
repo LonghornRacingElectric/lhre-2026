@@ -86,6 +86,12 @@ uint32_t get_faults() {
         fault_timer_bms_overtemp = 0.0f;
     }
 
+    // log_printf(LOG_INFO, "BMS Comms: %.2fs=%d OV: %.2fs=%d UV: %.2fs=%d OT: %.2fs=%d\n", 
+    //            fault_timer_bms_comms, bms_check_disconnection(), 
+    //            fault_timer_bms_overvoltage, bms_check_overvoltage(),
+    //            fault_timer_bms_undervoltage, bms_check_undervoltage(),
+    //            fault_timer_bms_overtemp, bms_check_overtemp());
+
     
     // TODO unimplemented faults
 

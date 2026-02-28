@@ -26,13 +26,6 @@
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 
-// TODO: Update these pin definitions based on actual HVC schematic
-// These are placeholders based on visible GPIO output pins
-#define PRECHARGE_CONTACTOR_PIN     GPIO_PIN_0  // Placeholder - update from schematic
-#define PRECHARGE_CONTACTOR_PORT    GPIOB
-#define AIR_PLUS_PIN                GPIO_PIN_6
-#define AIR_PLUS_PORT               GPIOB
-
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
 
@@ -55,19 +48,10 @@ void contactors_init(void) {
 }
 
 /**
- * @brief Set precharge contactor state
- */
-void set_precharge_contactor(bool state) {
-    GPIO_PinState pin_state = state ? GPIO_PIN_SET : GPIO_PIN_RESET;
-    HAL_GPIO_WritePin(PRECHARGE_CONTACTOR_PORT, PRECHARGE_CONTACTOR_PIN, pin_state);
-    precharge_state = state;
-}
-
-/**
- * @brief Set drive contactors state (both AIRs)
+ * @brief Set positive contactor state (danger!)
  */
 void set_drive_contactors(bool state) {
-    HAL_GPIO_WritePin(AIR_PLUS_PORT, AIR_PLUS_PIN, (GPIO_PinState)state);
+    HAL_GPIO_WritePin(Close_IR___GPIO_Port, Close_IR___Pin, (GPIO_PinState)state);
     drive_state = state;
 }
 
@@ -75,22 +59,7 @@ void set_drive_contactors(bool state) {
  * @brief Emergency open all contactors
  */
 void open_all_contactors(void) {
-    set_precharge_contactor(false);
     set_drive_contactors(false);
-}
-
-/**
- * @brief Get precharge contactor state
- */
-bool get_precharge_contactor_state(void) {
-    return precharge_state;
-}
-
-/**
- * @brief Get drive contactors state
- */
-bool get_drive_contactors_state(void) {
-    return drive_state;
 }
 
 /*
@@ -100,8 +69,9 @@ bool get_drive_contactors_state(void) {
  */
 void hvc_update_contactor_status(void)
 {
-    bool sense_state = get_drive_contactors_state();
+    bool sense_state_plus = HAL_GPIO_ReadPin(IR__Sense_GPIO_Port, IR__Sense_Pin) == GPIO_PIN_RESET;
+    bool sense_state_minus = HAL_GPIO_ReadPin(IR__SenseC3_GPIO_Port, IR__SenseC3_Pin) == GPIO_PIN_RESET;
     hvc_state_t state = get_current_state();
-    log_printf(LOG_INFO, "HVC Contactors in update: %d\n", sense_state);
-    hvc_set_contactor_status(state, sense_state, sense_state);
+    log_printf(LOG_INFO, "HVC Contactors | State = %d | Sense IR+ = %d | Sense IR- =%d\n", state, sense_state_plus, sense_state_minus);
+    hvc_set_contactor_status(state, sense_state_plus, sense_state_minus);
 }

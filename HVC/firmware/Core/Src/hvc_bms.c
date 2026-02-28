@@ -73,6 +73,10 @@ uint8_t getbmsStatus(void)
     return discharge_active ? 1 : 0;
 }
 
+uint32_t bms_get_num_responsive_ics(void) {
+    return bms_responsive_ics;
+}
+
 
 bool bms_check_undervoltage(void)
 {
@@ -108,8 +112,8 @@ bool bms_check_overvoltage(void)
                 any_fail = true;
                 bms_error_bmb = i;
                 bms_error_cell = j;
-                log_printf(LOG_ERROR, "BMS ERROR: Overvoltage on BMB %d Cell %d: %.4fV (threshold: %.2fV)",
-                          i, j, voltage_v, CELL_OVERVOLTAGE_THRESHOLD);
+                // log_printf(LOG_ERROR, "BMS ERROR: Overvoltage on BMB %d Cell %d: %.4fV (threshold: %.2fV)",
+                //           i, j, voltage_v, CELL_OVERVOLTAGE_THRESHOLD);
             }
         }
     }
@@ -251,7 +255,7 @@ void bms_read_thermistors(void)
         char therm_line[256];
         int offset = 0;
         
-        log_printf(LOG_INFO, "BMB %d Thermistors:", i);
+        // log_printf(LOG_INFO, "BMB %d Thermistors:", i);
         
         // GPIO 2-9 correspond to aux channels 1-8 (GPIO1 is aux[0])
         for (int j = 1; j < 9; j++) {  // Skip GPIO1 (j=0), read GPIO2-9 (j=1-8)
@@ -262,16 +266,16 @@ void bms_read_thermistors(void)
             float temp_c = ntc_voltage_to_temp(voltage_v);
             
             if (!isnan(temp_c)) {
-                offset += snprintf(therm_line + offset, sizeof(therm_line) - offset,
-                                  "T%d: %.1f°C  ", j, temp_c);
+                // offset += snprintf(therm_line + offset, sizeof(therm_line) - offset,
+                //                   "T%d: %.1f°C  ", j, temp_c);
             } else {
-                offset += snprintf(therm_line + offset, sizeof(therm_line) - offset,
-                                  "T%d: INVALID  ", j);
+                // offset += snprintf(therm_line + offset, sizeof(therm_line) - offset,
+                //                   "T%d: INVALID  ", j);
             }
         }
         
         // Print the complete line
-        log_printf(LOG_INFO, "%s\n", therm_line);
+        // log_printf(LOG_INFO, "%s\n", therm_line);
         osDelay(10);
     }
 }
@@ -298,7 +302,7 @@ void bms_update(void)
         char cell_line[256];
         int offset = 0;
         
-        log_printf(LOG_INFO, "BMB %d Cell Voltages:", i);
+        // log_printf(LOG_INFO, "BMB %d Cell Voltages:", i);
         
         // Print cells in groups to fit on lines
         for (int j = 0; j < CELLS_PER_IC; j++) {
@@ -306,28 +310,29 @@ void bms_update(void)
             voltage_v = (code * 0.000150f) + 1.5f;
             
             // Add to line buffer
-            offset += snprintf(cell_line + offset, sizeof(cell_line) - offset, 
-                              "Cell %d: %.4fV  ", j, voltage_v);
+            // offset += snprintf(cell_line + offset, sizeof(cell_line) - offset, 
+            //                   "Cell %d: %.4fV  ", j, voltage_v);
         }
         
         // Print the complete line
-        if (discharge_active) {
-            log_printf(LOG_WARNING, "%s [DISCHARGING]", cell_line);
-        } else {
-            log_printf(LOG_INFO, "%s\n", cell_line);
-        }
+        // if (discharge_active) {
+        //     log_printf(LOG_WARNING, "%s [DISCHARGING]", cell_line);
+        // } else {
+        //     log_printf(LOG_INFO, "%s\n", cell_line);
+        // }
         
         osDelay(10);
     }
-    log_printf(LOG_INFO, "Pack Voltage: %.3f V\n", getPackVoltage_v());
+    // log_printf(LOG_INFO, "Pack Voltage: %.3f V\n", getPackVoltage_v());
     
     // Read thermistor values
     bms_read_thermistors();
 
 
     // check for connectivity
+    bms_responsive_ics = 0;
     for(int i = 0; i < TOTAL_IC; i++) {
-        bms_responsive_ics += (IC[i].cccrc.cell_pec != 0) && (IC[i].cccrc.aux_pec != 0);
+        bms_responsive_ics += (IC[i].cccrc.cell_pec == 0) && (IC[i].cccrc.aux_pec == 0);
     }
     // for(int i = 0; i < TOTAL_IC; i++) {
     //     memset(IC[i].sid.sid, 0, 6);
