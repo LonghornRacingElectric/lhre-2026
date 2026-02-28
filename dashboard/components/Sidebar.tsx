@@ -9,6 +9,7 @@ export default function Sidebar() {
     const navItems = [
         { href: '/', label: 'Dashboard', icon: '📊' },
         { href: '/releases', label: 'Releases', icon: '🏷️' },
+        { href: '/actions', label: 'Actions', icon: '⚡' },
     ];
 
     const targetItems = [
