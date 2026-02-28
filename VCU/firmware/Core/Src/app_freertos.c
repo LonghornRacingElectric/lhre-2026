@@ -331,6 +331,22 @@ void StartControlTask(void *argument) {
 
     vcu_can_set_model_outputs(&out);
 
+  // BSE debug print
+  static uint32_t print_div = 0;
+  if (++print_div >= 50) { // 50 * 10ms = 500ms
+    print_div = 0;
+
+    uint16_t bse1_adc = adc2_dma_buf[0];
+    uint16_t bse2_adc = adc2_dma_buf[1];
+
+    float bse1_v = ((float)bse1_adc / ADC_MAX_VAL) * ADC_BSE_SCALE_V;
+    float bse2_v = ((float)bse2_adc / ADC_MAX_VAL) * ADC_BSE_SCALE_V;
+
+    log_printf(LOG_INFO,
+              "BSE1 adc=%u v=%.3f | BSE2 adc=%u v=%.3f",
+              (unsigned)bse1_adc, (double)bse1_v,
+              (unsigned)bse2_adc, (double)bse2_v);
+  }
     // 10 ms control loop (100 Hz)
     osDelay(pdMS_TO_TICKS(10));
   }
