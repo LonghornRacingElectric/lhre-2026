@@ -66,10 +66,6 @@ static uint8_t residual_len = 0;
 static uint32_t write_cursor = 0;
 static bool update_active = false;
 
-/**
- * @brief Returns the flash bank that contains the given address, taking the
- *        FB_MODE (bank-swap) bit into account.
- */
 static uint32_t GetBank(uint32_t Addr) {
   if (READ_BIT(SYSCFG->MEMRMP, SYSCFG_MEMRMP_FB_MODE) == 0) {
     return (Addr < (FLASH_BASE + FLASH_BANK_SIZE)) ? FLASH_BANK_1
@@ -80,9 +76,6 @@ static uint32_t GetBank(uint32_t Addr) {
   }
 }
 
-/**
- * @brief Returns the physical base address of the bank we are NOT running from.
- */
 static uint32_t get_inactive_bank_base(void) {
   uint32_t running_bank = GetBank((uint32_t)get_inactive_bank_base);
   if (running_bank == FLASH_BANK_1) {
@@ -101,14 +94,7 @@ int get_active_bank(void) {
                                                                 : FLASH_BANK_2;
 }
 
-/**
- * @brief FreeRTOS task that does all flash work off the ISR.
- *
- * Blocks on flash_queue.  Each time write_memory fires from the CAN RX ISR
- * it enqueues an independent copy of the block.  This task dequeues and
- * processes each one, handling the erase (once) and per-block program, then
- * BFB2-swaps and resets after the final block.
- */
+// uses queue off the ISR to write to flash
 static void flash_writer_task(void *arg) {
   (void)arg;
   flash_pending_t block;
@@ -119,9 +105,7 @@ static void flash_writer_task(void *arg) {
     HAL_FLASH_Unlock();
     __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_ALL_ERRORS);
 
-    /* ------------------------------------------------------------------
-     * Step 1 – Erase the inactive bank exactly once per update session.
-     * ------------------------------------------------------------------ */
+    // erase inactive bank once
     if (!flash_bank_erased) {
       uint32_t inactive_base = get_inactive_bank_base();
       uint32_t inactive_bank = GetBank(inactive_base);
@@ -138,18 +122,13 @@ static void flash_writer_task(void *arg) {
       }
     }
 
-    /* ------------------------------------------------------------------
-     * Step 2 – Program the block using aligned doubleword writes.
-     *
-     * 255-byte blocks don't align to the 8-byte doubleword boundary.
-     * We carry residual bytes forward between blocks and only call
-     * HAL_FLASH_Program when we have a full 8-byte doubleword.
-     * ------------------------------------------------------------------ */
+    // start writing, keep a residual so we can write doublewords at 8 byte
+    // boundaries
     uint8_t *src = block.data;
     uint16_t remaining = block.length;
     bool write_ok = true;
 
-    /* 2a. Fill residual from previous block to form a complete doubleword. */
+    // fill residual from previous block to form a complete doubleword
     while (residual_len > 0 && residual_len < 8 && remaining > 0) {
       residual[residual_len++] = *src++;
       remaining--;
@@ -162,6 +141,7 @@ static void flash_writer_task(void *arg) {
                      write_cursor);
           write_ok = false;
         }
+        // new address is + 8 bytes
         write_cursor += 8;
         residual_len = 0;
         if (!write_ok)
@@ -169,7 +149,7 @@ static void flash_writer_task(void *arg) {
       }
     }
 
-    /* 2b. Write complete doublewords directly from the block data. */
+    // write the double words to flash
     while (write_ok && remaining >= 8) {
       uint64_t dword;
       memcpy(&dword, src, 8);
@@ -185,7 +165,7 @@ static void flash_writer_task(void *arg) {
       remaining -= 8;
     }
 
-    /* 2c. Stash any leftover bytes (< 8) for the next block. */
+    // keep the extra bytes for next block
     if (write_ok && remaining > 0) {
       memcpy(residual, src, remaining);
       residual_len = remaining;
@@ -201,11 +181,8 @@ static void flash_writer_task(void *arg) {
     log_printf(LOG_INFO, "[DUI] Flash block %u/%u written\n", blocks_written,
                total_blocks_expected);
 
-    /* ------------------------------------------------------------------
-     * Step 3 – After the final block: flush residual, swap bank, reset.
-     * ------------------------------------------------------------------ */
+    // write the last blocks we had
     if (total_blocks_expected > 0 && blocks_written >= total_blocks_expected) {
-      /* Flush any remaining residual bytes, padded with 0xFF. */
       if (residual_len > 0) {
         memset(residual + residual_len, 0xFF, 8 - residual_len);
         uint64_t dword;
@@ -233,7 +210,8 @@ static void flash_writer_task(void *arg) {
               : OB_BFB2_ENABLE;
 
       if (HAL_FLASHEx_OBProgram(&OBInit) == HAL_OK) {
-        /* Give USB serial time to flush the log before we reset. */
+        // give it a second to flush logs and to also make sure everything looks
+        // good
         osDelay(100);
         HAL_FLASH_OB_Launch();
       }
@@ -244,17 +222,8 @@ static void flash_writer_task(void *arg) {
   }
 }
 
-/**
- * @brief Call this when starting a new firmware update session.
- *
- * Resets internal state and records the total block count so the flash writer
- * task knows when to trigger the BFB2 swap + boot.
- *
- * @param num_blocks  Total number of 255-byte firmware blocks expected.
- */
+// called when we are starting update, so we can initialize the update state
 void dui_fw_update_begin(uint16_t num_blocks) {
-  /* Called on every WRITE command from the host, but we must only
-   * initialise once per firmware-update session. */
   if (update_active) {
     return;
   }
@@ -266,18 +235,7 @@ void dui_fw_update_begin(uint16_t num_blocks) {
   write_cursor = get_inactive_bank_base();
 }
 
-/**
- * @brief Callback supplied to the fw_update library (called from CAN RX ISR).
- *
- * Does NOT touch flash.  Builds a self-contained block descriptor on the stack
- * and enqueues it into flash_queue.  flash_writer_task dequeues and programs.
- * If the queue is full (task fell behind during erase) the block is silently
- * dropped; Python's timeout fires and it retries.
- *
- * @param address  Image-relative byte offset of this block.
- * @param data     Pointer to the verified 255-byte block.
- * @param length   Number of bytes (typically 255).
- */
+// write memory callback so that the lib knows how to write to our codebase
 void write_memory(uint32_t address, uint8_t *data, uint16_t length) {
   if (flash_queue == NULL) {
     return;
@@ -404,8 +362,4 @@ bool hvc_bms_fault(void) {
                            INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS * 4);
 }
 
-void dui_set_r2d(bool enabled) {
-  log_printf(LOG_INFO, "[DUI] Running from Bank %d\n", get_active_bank());
-
-  r2d_status_mailbox.r2d_status = enabled;
-}
+void dui_set_r2d(bool enabled) { r2d_status_mailbox.r2d_status = enabled; }

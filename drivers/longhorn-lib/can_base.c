@@ -285,7 +285,7 @@ void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t RxFifo0ITs) {
 
       if (rx_header.Identifier == FIRMWARE_UPDATE_COMMAND_PACKET_ID) {
         if (!bus_status.enable) {
-          // bus is disabled, let's see if this update is for us:
+          // bus is disabled, check if update for us
           if (bus_status.device == can.device_id && bus_status.fw_update) {
             unpack_firmware_update_command_packet(rx_data, &dfu_command_packet);
 

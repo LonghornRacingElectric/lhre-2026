@@ -5,8 +5,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// --- Enums and Structs ---
-
 typedef enum {
   DEVICE_ID_ALL = 0,
   DEVICE_ID_HVC,
@@ -44,33 +42,19 @@ typedef enum {
   UPDATE_RESPONSE_INVALID_DATA,
 } update_response_t;
 
-// --- Callbacks and Functions ---
-
-// Function pointer to write to memory
+// expected pointer for writing to memory
 typedef void (*write_memory_fn)(uint32_t address, uint8_t *data,
                                 uint16_t length);
 
-/**
- * @brief Initializes the firmware update subsystem.
- * @param write_cb Pointer to the memory write function.
- */
+// initializes the firmware update subsystem
 void fw_update_init(write_memory_fn write_cb);
 
-/**
- * @brief Processes the unpacked Firmware Update Command Packet.
- * @param cmd_pkt Pointer to the unpacked command struct.
- * @return Status of the operation.
- */
+// processes the unpacked firmware update command packet
 update_response_t
 fw_update_process_command(const msg_firmware_update_command_packet_t *cmd_pkt);
 
-/**
- * @brief Parses the raw 0x012 Firmware Update Data Packet, buffers it, and
- * writes to memory if full.
- * @param can_data Pointer to the 8-byte CAN payload.
- * @return Status of the operation. Returns UPDATE_RESPONSE_BUSY if still
- * buffering.
- */
+// processes the data itself, not the command, this will call the memory writing
+// function
 update_response_t fw_update_process_data(const uint8_t *can_data);
 
 #endif // FW_UPDATE_H
