@@ -1,7 +1,8 @@
 CAN ID,CAN ID Binary,From,To,Packet Info,Frequency (Hz),Data Length Code (DLC),Quantity,Data[0],Data[1],Data[2],Data[3],Data[4],Data[5],Data[6],Data[7],Bus,Extra Notes,
-0x010,10000,Pi,*,Write Memory Data -- Firmware Update,NA,(1-8),Max 32,"(uint8, data m0)","(uint8, data m1)","(uint8, data m2)","(uint8, data m3)","(uint8, data m4)","(uint8, data m5)","(uint8, data m6)","(uint8, data m7)",Critical,BUS silence after,
-0x011,10001,Pi,"HVC, VCU, USM, CSM",Bus Enable/Disable,NA,1,20,"(uint8, boolean)",unused,unused,unused,unused,unused,unused,unused,Critical,,
-0x012,10010,Pi,*,'(Meta Data for Write Memory -- Firmware Update, 256B max)',NA,5,Depends,"(uint8, address MSB)","(uint8, address mid)","(uint8, address mid)","(uint8, address LSB)","(uint8, num bytes to receive)",,,Critical,,0.00%
+0x010,10000,Pi,*,Firmware Update Command Packet,NA,8,1,"Command (uint8)","Address (uint32)",,,,"Num Blocks (uint16)",,"CRC (uint8)",Critical,,
+0x011,10001,Pi,"HVC, VCU, USM, CSM",Bus Enable/Disable,NA,8,20,"Enable (uint8, boolean)","FW Update (uint8, boolean)",Device (uint8),unused,unused,unused,unused,unused,Critical,Bus Silence when DISABLED,
+0x012,10010,Pi,*,Firmware Update Data Packet,0,8,5,Index (uint8),"data0 (uint8)","data1 (uint8)","data2 (uint8)","data3 (uint8)","data4 (uint8)",data5 (uint8),data6 (uint8),Critical,,0.00%
+0x013,10011,Pi,*,Device Firmware Update Response Packet,0,1,1,Response (uint8),unused,unused,unused,unused,unused,unused,unused,Critical,Enum response,
 0x0A0,10100000,Inverter,VCU,Inverter Temps,10,8,1,"Module A Temp (int16, 0.1C)",,Module B Temp (int16),,Module C Temp (int16),,Gate Driver Temp (int16),,Critical,,
 0x0A2,10100010,Inverter,VCU,Inverter Temps 2,10,8,1,RTD #4 Temp (int16),,RTD #5 Temp (int16),,Motor Temp (int16),,"Torque Shudder (int16, 0.1Nm)",,Critical,,
 0x0A5,10100101,Inverter,VCU,Inverter Status,100,8,1,"Motor Angle (int16, 0.1degree)",,"Motor Speed (int16, 1.0rpm)",,"Inverter Frequency (int16, 0.1Hz)",,"Delta Resolver Angle (int16, 0.1degree)",,Critical,,
