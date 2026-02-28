@@ -38,9 +38,9 @@ class TrackBuilder(Node):
         cone_topic = self.get_parameter(
             'cone_topic').get_parameter_value().string_value
 
-        # --- Stored cone positions (updated on each callback) ---
-        self._left_cones: List[Tuple[float, float]] = []
-        self._right_cones: List[Tuple[float, float]] = []
+        # --- Stored cone positions keyed by marker ID ---
+        self._left_cones: dict = {}
+        self._right_cones: dict = {}
 
         # --- QoS ---
         # Subscriber must match cone publisher (TRANSIENT_LOCAL)
@@ -77,15 +77,15 @@ class TrackBuilder(Node):
     # Callbacks
     # ------------------------------------------------------------------
     def _cones_cb(self, msg: MarkerArray):
-        """Extract left/right cone positions from the MarkerArray."""
-        left: List[Tuple[float, float]] = []
-        right: List[Tuple[float, float]] = []
+        """Extract left/right cone positions from the MarkerArray, keyed by ID."""
+        left: dict = {}
+        right: dict = {}
         for marker in msg.markers:
             pos = marker.pose.position
             if marker.ns == 'left_cones':
-                left.append((pos.x, pos.y))
+                left[marker.id] = (pos.x, pos.y)
             elif marker.ns == 'right_cones':
-                right.append((pos.x, pos.y))
+                right[marker.id] = (pos.x, pos.y)
         self._left_cones = left
         self._right_cones = right
 
@@ -106,14 +106,21 @@ class TrackBuilder(Node):
     # Centerline computation
     # ------------------------------------------------------------------
     def _compute_midpoints(self) -> List[Tuple[float, float]]:
-        """Pair left/right cones by index and return midpoints."""
-        n = min(len(self._left_cones), len(self._right_cones),
-                self._max_points)
-        return [
-            ((self._left_cones[i][0] + self._right_cones[i][0]) / 2.0,
-             (self._left_cones[i][1] + self._right_cones[i][1]) / 2.0)
-            for i in range(n)
-        ]
+        """Pair left/right cones by matching ID and return midpoints.
+
+        Left cones use IDs 0..N-1, right cones use IDs 10000..10000+N-1.
+        We match left ID ``i`` with right ID ``10000 + i``.
+        """
+        midpoints: List[Tuple[float, float]] = []
+        for lid in sorted(self._left_cones.keys()):
+            rid = lid + 10000
+            if rid in self._right_cones:
+                lx, ly = self._left_cones[lid]
+                rx, ry = self._right_cones[rid]
+                midpoints.append(((lx + rx) / 2.0, (ly + ry) / 2.0))
+            if len(midpoints) >= self._max_points:
+                break
+        return midpoints
 
     # ------------------------------------------------------------------
     # Publishing helpers

@@ -70,7 +70,7 @@
     <include>
       <uri>model://fsae_vehicle</uri>
       <name>fsae_vehicle</name>
-      <pose>25.0000 0.0000 0.0000 0 0 1.5708</pose>
+      <pose>12.7255 16.4240 0.0000 0 0 2.3205</pose>
     </include>
 
     <!-- ===== Cones ===== -->

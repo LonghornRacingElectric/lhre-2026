@@ -29,7 +29,7 @@ class PurePursuit(Node):
 
         # --- Steering params ---
         self.declare_parameter('lookahead_dist', 4.0)
-        self.declare_parameter('max_steer', 0.45)
+        self.declare_parameter('max_steer', 0.55)
         self.declare_parameter('wheelbase', 1.6)
         self.declare_parameter('control_hz', 20.0)
 

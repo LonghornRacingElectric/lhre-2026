@@ -10,6 +10,7 @@ layout is identical for a given seed — same cones, same positions.
 """
 
 import argparse
+import math
 import os
 import sys
 import textwrap
@@ -36,14 +37,57 @@ def _cone_include(model_name: str, instance_name: str,
     </include>""")
 
 
+def _compute_spawn(left_cones, right_cones):
+    """Compute a spawn pose on the straightest section of track, clear of cones."""
+    n = len(left_cones)
+
+    def _mid(i):
+        return ((left_cones[i][0] + right_cones[i][0]) / 2.0,
+                (left_cones[i][1] + right_cones[i][1]) / 2.0)
+
+    # Score each cone pair by how straight the surrounding track is.
+    # Measure angular deviation over a window, skip the first/last few
+    # pairs to avoid the messy loop closure.
+    margin = max(8, n // 10)
+    best_idx = margin
+    best_score = float('inf')
+    window = 5
+
+    for i in range(margin, n - margin):
+        m_prev = _mid(i - window)
+        m_curr = _mid(i)
+        m_next = _mid(i + window)
+        a1 = math.atan2(m_curr[1] - m_prev[1], m_curr[0] - m_prev[0])
+        a2 = math.atan2(m_next[1] - m_curr[1], m_next[0] - m_curr[0])
+        # Angular deviation (smaller = straighter)
+        diff = abs(math.atan2(math.sin(a2 - a1), math.cos(a2 - a1)))
+        if diff < best_score:
+            best_score = diff
+            best_idx = i
+
+    # Spawn at this pair, heading toward the next few pairs
+    mx, my = _mid(best_idx)
+    look = min(best_idx + 5, n - margin)
+    fx, fy = _mid(look)
+    yaw = math.atan2(fy - my, fx - mx)
+    return mx, my, yaw
+
+
 def generate_world_sdf(
     left_cones, right_cones,
-    vehicle_x: float = 25.0,
-    vehicle_y: float = 0.0,
-    vehicle_yaw: float = 1.5708,
+    vehicle_x: float = None,
+    vehicle_y: float = None,
+    vehicle_yaw: float = None,
     model_dir: str = '',
 ) -> str:
     """Build a complete Gazebo world SDF string."""
+
+    # Auto-compute spawn from track geometry if not explicitly set
+    if vehicle_x is None or vehicle_y is None or vehicle_yaw is None:
+        sx, sy, syaw = _compute_spawn(left_cones, right_cones)
+        vehicle_x = vehicle_x if vehicle_x is not None else sx
+        vehicle_y = vehicle_y if vehicle_y is not None else sy
+        vehicle_yaw = vehicle_yaw if vehicle_yaw is not None else syaw
 
     cone_blocks = []
 
@@ -167,12 +211,12 @@ def main():
                         help='Track width in meters (default: 3.5)')
     parser.add_argument('--cone-spacing', type=float, default=2.0,
                         help='Cone spacing in meters (default: 2.0)')
-    parser.add_argument('--vehicle-x', type=float, default=25.0,
-                        help='Vehicle initial X (default: 25.0)')
-    parser.add_argument('--vehicle-y', type=float, default=0.0,
-                        help='Vehicle initial Y (default: 0.0)')
-    parser.add_argument('--vehicle-yaw', type=float, default=1.5708,
-                        help='Vehicle initial yaw in radians (default: pi/2)')
+    parser.add_argument('--vehicle-x', type=float, default=None,
+                        help='Vehicle initial X (default: auto from track)')
+    parser.add_argument('--vehicle-y', type=float, default=None,
+                        help='Vehicle initial Y (default: auto from track)')
+    parser.add_argument('--vehicle-yaw', type=float, default=None,
+                        help='Vehicle initial yaw in radians (default: auto from track)')
     parser.add_argument('--output', type=str, default=None,
                         help='Output SDF file path (default: worlds/autocross_seed<N>.sdf)')
     args = parser.parse_args()

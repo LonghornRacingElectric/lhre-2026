@@ -65,12 +65,12 @@ def generate_launch_description():
 
     # Control params (same as mvs_demo)
     lookahead_arg = DeclareLaunchArgument(
-        'lookahead_dist', default_value='4.0')
-    a_lat_arg = DeclareLaunchArgument('a_lat_max', default_value='6.0')
-    v_min_arg = DeclareLaunchArgument('v_min', default_value='2.0')
-    v_max_arg = DeclareLaunchArgument('v_max', default_value='12.0')
-    max_accel_arg = DeclareLaunchArgument('max_accel', default_value='2.0')
-    max_decel_arg = DeclareLaunchArgument('max_decel', default_value='3.0')
+        'lookahead_dist', default_value='5.0')
+    a_lat_arg = DeclareLaunchArgument('a_lat_max', default_value='3.0')
+    v_min_arg = DeclareLaunchArgument('v_min', default_value='1.0')
+    v_max_arg = DeclareLaunchArgument('v_max', default_value='5.0')
+    max_accel_arg = DeclareLaunchArgument('max_accel', default_value='1.0')
+    max_decel_arg = DeclareLaunchArgument('max_decel', default_value='2.0')
 
     # Metrics
     metrics_arg = DeclareLaunchArgument(
