@@ -57,7 +57,7 @@ void pdu_can_init(void) {
       .malloc_fn = pvPortMalloc,
       .free_fn = vPortFree,
       .init_bit = FDCAN_CCCR_INIT,
-      .device_id = DEVICE_ID_DUI,
+      .device_id = DEVICE_ID_PDU,
       .write_memory_fn = ota_flash_write_memory,
       .fw_update_begin_fn = ota_flash_begin,
   };
