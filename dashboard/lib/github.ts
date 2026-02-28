@@ -14,13 +14,13 @@ export interface FirmwareTarget {
 export const FIRMWARE_TARGETS: FirmwareTarget[] = [
     { id: 'VCU', name: 'VCU', fullName: 'Vehicle Control Unit', description: 'Main vehicle controller managing torque vectoring, state machines, and safety systems.', chip: 'STM32G474', bazelTarget: '//VCU/firmware:release' },
     { id: 'HVC', name: 'HVC', fullName: 'High Voltage Controller', description: 'High-voltage firmware for cell monitoring, state-of-charge calculation, and safety shutdown.', chip: 'STM32G474', bazelTarget: '//HVC/firmware:release' },
-    { id: 'CSM', name: 'CSM', fullName: 'Corner Sensor Module', description: 'Thermal management controller for radiator fans, coolant pumps, and temperature monitoring.', chip: 'STM32G474', bazelTarget: '//CSM/firmware:release' },
+    { id: 'CSM', name: 'CSM', fullName: 'Corner Sensor Module', description: 'Corner sensors.', chip: 'STM32G474', bazelTarget: '//CSM/firmware:release' },
     { id: 'DUI', name: 'DUI', fullName: 'Driver User Interface', description: 'Dashboard display and driver controls interface with CAN bus communication.', chip: 'STM32G474', bazelTarget: '//DUI/firmware:release' },
-    { id: 'LVBMS', name: 'LVBMS', fullName: 'Low Voltage BMS', description: 'Low-voltage battery management for the 12V system, monitoring and balancing.', chip: 'STM32G474', bazelTarget: '//LVBMS/firmware:release' },
-    { id: 'TSM', name: 'TSM', fullName: 'Thermal Sensor Module', description: 'Safety-critical tractive system monitoring and shutdown sequencing.', chip: 'STM32G474', bazelTarget: '//TSM/firmware:release' },
-    { id: 'USM', name: 'USM', fullName: 'Upright Sensor Module', description: 'Redundant safety module ensuring fail-safe vehicle shutdown capabilities.', chip: 'STM32G474', bazelTarget: '//USM/firmware:release' },
+    { id: 'LVBMS', name: 'LVBMS', fullName: 'Low Voltage BMS', description: 'Low-voltage battery management for the 24V system.', chip: 'STM32G474', bazelTarget: '//LVBMS/firmware:release' },
+    { id: 'TSM', name: 'TSM', fullName: 'Thermal Sensor Module', description: 'Thermal sensors.', chip: 'STM32G474', bazelTarget: '//TSM/firmware:release' },
+    { id: 'USM', name: 'USM', fullName: 'Upright Sensor Module', description: 'Upright sensors.', chip: 'STM32G474', bazelTarget: '//USM/firmware:release' },
     { id: 'PDU', name: 'PDU', fullName: 'Power Distribution Unit', description: 'Low-voltage power distribution, fuse monitoring, and PWM control for accessories.', chip: 'STM32G474', bazelTarget: '//PDU/firmware:release' },
-    { id: 'BEVO', name: 'BEVO', fullName: 'BEVO', description: 'Autonomous vehicle controller for the BEVO platform with CAN gateway.', chip: 'STM32G474', bazelTarget: '//BEVO:release' },
+    { id: 'BEVO', name: 'BEVO', fullName: 'BEVO', description: 'Board Emitting Vehicle Outputs - Cellular gateway controller for vehicle.', chip: 'STM32G474', bazelTarget: '//BEVO:release' },
 ];
 
 export interface Release {
