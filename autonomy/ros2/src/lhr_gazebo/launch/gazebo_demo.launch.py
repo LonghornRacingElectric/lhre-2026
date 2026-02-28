@@ -1,14 +1,17 @@
 """Launch the FSAE autonomy stack with Gazebo physics simulation.
 
-Replaces lhr_trackgen, lhr_sensor_sim, and lhr_sim_kinematic with Gazebo.
+Replaces lhr_sim_kinematic with Gazebo for physics and odometry.
+Cone detection reuses the existing lhr_trackgen + lhr_sensor_sim pipeline.
 The upper stack (track_builder, control, mission_manager, metrics) is unchanged.
 
 Usage:
     ros2 launch lhr_gazebo gazebo_demo.launch.py
+    ros2 launch lhr_gazebo gazebo_demo.launch.py gui:=false
     ros2 launch lhr_gazebo gazebo_demo.launch.py world:=/absolute/path/to/world.sdf
 """
 
 import os
+import shutil
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -18,21 +21,18 @@ from launch.actions import (
     ExecuteProcess,
     SetEnvironmentVariable,
 )
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 
 def _find_default_world():
     """Locate the default world SDF in the source tree."""
-    # This launch file lives in <src>/lhr_gazebo/launch/
-    # The worlds dir is at <src>/lhr_gazebo/worlds/
     launch_dir = os.path.dirname(os.path.abspath(__file__))
     worlds_dir = os.path.join(launch_dir, os.pardir, 'worlds')
     default = os.path.join(worlds_dir, 'autocross_seed1.sdf')
     if os.path.isfile(default):
         return os.path.abspath(default)
-    # Fallback: check all world files and pick the first
     if os.path.isdir(worlds_dir):
         for f in sorted(os.listdir(worlds_dir)):
             if f.endswith('.sdf'):
@@ -54,6 +54,14 @@ def generate_launch_description():
     gui_arg = DeclareLaunchArgument(
         'gui', default_value='true',
         description='Launch Gazebo GUI (set false for headless)')
+
+    # Track generation (must match the seed used for world generation)
+    seed_arg = DeclareLaunchArgument('seed', default_value='1')
+    num_wp_arg = DeclareLaunchArgument('num_waypoints', default_value='10')
+
+    # Sensor sim
+    fov_arg = DeclareLaunchArgument('fov_deg', default_value='200.0')
+    range_arg = DeclareLaunchArgument('max_range_m', default_value='20.0')
 
     # Control params (same as mvs_demo)
     lookahead_arg = DeclareLaunchArgument(
@@ -77,15 +85,44 @@ def generate_launch_description():
         'ready_hold_sec', default_value='5.0')
 
     # ----- Environment: tell Gazebo where to find our models -----
+    # Fortress uses IGN_GAZEBO_RESOURCE_PATH; Garden+ uses GZ_SIM_RESOURCE_PATH
     gz_model_path = SetEnvironmentVariable(
-        'GZ_SIM_RESOURCE_PATH',
-        models_dir)
+        'GZ_SIM_RESOURCE_PATH', models_dir)
+    ign_model_path = SetEnvironmentVariable(
+        'IGN_GAZEBO_RESOURCE_PATH', models_dir)
+    # WSL: prefer discrete NVIDIA GPU for both GLX and EGL paths
+    mesa_gpu = SetEnvironmentVariable(
+        'MESA_D3D12_DEFAULT_ADAPTER_NAME', 'NVIDIA')
+
+    _gz_env = {
+        'GZ_SIM_RESOURCE_PATH': models_dir,
+        'IGN_GAZEBO_RESOURCE_PATH': models_dir,
+        # WSL: prefer the discrete NVIDIA GPU over the integrated AMD iGPU
+        'MESA_D3D12_DEFAULT_ADAPTER_NAME': 'NVIDIA',
+    }
 
     # ----- Gazebo server -----
-    gz_sim = ExecuteProcess(
-        cmd=['gz', 'sim', '-r', LaunchConfiguration('world')],
+    # Fortress (ROS Humble default): `ign gazebo`
+    # Garden / Harmonic:             `gz sim`
+    if shutil.which('ign'):
+        _gz_base = ['ign', 'gazebo']
+    else:
+        _gz_base = ['gz', 'sim']
+
+    # With GUI
+    gz_sim_gui = ExecuteProcess(
+        cmd=_gz_base + ['-r', LaunchConfiguration('world')],
         output='screen',
-        additional_env={'GZ_SIM_RESOURCE_PATH': models_dir},
+        additional_env=_gz_env,
+        condition=IfCondition(LaunchConfiguration('gui')),
+    )
+
+    # Headless (server only, no rendering)
+    gz_sim_headless = ExecuteProcess(
+        cmd=_gz_base + ['-r', '-s', LaunchConfiguration('world')],
+        output='screen',
+        additional_env=_gz_env,
+        condition=UnlessCondition(LaunchConfiguration('gui')),
     )
 
     # ----- ros_gz_bridge -----
@@ -99,18 +136,37 @@ def generate_launch_description():
         output='screen',
     )
 
-    # ----- Adapter nodes -----
+    # ----- Adapter: AckermannDriveStamped → Twist for Gazebo -----
     cmd_adapter = Node(
         package='lhr_gazebo',
         executable='ackermann_cmd_adapter',
         name='ackermann_cmd_adapter',
+        parameters=[{'use_sim_time': True}],
         output='screen',
     )
 
-    camera_adapter = Node(
-        package='lhr_gazebo',
-        executable='logical_camera_adapter',
-        name='logical_camera_adapter',
+    # ----- Cone pipeline (reuse existing trackgen + sensor sim) -----
+    cones = Node(
+        package='lhr_trackgen',
+        executable='publish_cones',
+        name='publish_cones',
+        parameters=[{
+            'seed': LaunchConfiguration('seed'),
+            'num_waypoints': LaunchConfiguration('num_waypoints'),
+            'use_sim_time': True,
+        }],
+        output='screen',
+    )
+
+    sensor_sim = Node(
+        package='lhr_sensor_sim',
+        executable='sensor_sim',
+        name='sensor_sim',
+        parameters=[{
+            'fov_deg': LaunchConfiguration('fov_deg'),
+            'max_range_m': LaunchConfiguration('max_range_m'),
+            'use_sim_time': True,
+        }],
         output='screen',
     )
 
@@ -119,6 +175,7 @@ def generate_launch_description():
         package='lhr_track_builder',
         executable='track_builder',
         name='track_builder',
+        parameters=[{'use_sim_time': True}],
         output='screen',
     )
 
@@ -133,6 +190,7 @@ def generate_launch_description():
             'v_max': LaunchConfiguration('v_max'),
             'max_accel': LaunchConfiguration('max_accel'),
             'max_decel': LaunchConfiguration('max_decel'),
+            'use_sim_time': True,
         }],
         output='screen',
     )
@@ -141,6 +199,7 @@ def generate_launch_description():
         package='lhr_metrics',
         executable='metrics_node',
         name='metrics_node',
+        parameters=[{'use_sim_time': True}],
         output='screen',
         condition=IfCondition(LaunchConfiguration('enable_metrics')),
     )
@@ -153,6 +212,7 @@ def generate_launch_description():
             'mission': LaunchConfiguration('mission'),
             'auto_go': LaunchConfiguration('auto_go'),
             'ready_hold_sec': LaunchConfiguration('ready_hold_sec'),
+            'use_sim_time': True,
         }],
         output='screen',
     )
@@ -161,6 +221,10 @@ def generate_launch_description():
         # Arguments
         world_arg,
         gui_arg,
+        seed_arg,
+        num_wp_arg,
+        fov_arg,
+        range_arg,
         lookahead_arg,
         a_lat_arg,
         v_min_arg,
@@ -173,12 +237,17 @@ def generate_launch_description():
         ready_hold_arg,
         # Environment
         gz_model_path,
-        # Gazebo
-        gz_sim,
-        # Bridge + adapters
+        ign_model_path,
+        mesa_gpu,
+        # Gazebo physics (one of these will activate based on gui arg)
+        gz_sim_gui,
+        gz_sim_headless,
+        # Bridge + adapter
         bridge,
         cmd_adapter,
-        camera_adapter,
+        # Cone pipeline (reuses existing ROS nodes)
+        cones,
+        sensor_sim,
         # Upper stack
         centerline,
         mission_mgr,

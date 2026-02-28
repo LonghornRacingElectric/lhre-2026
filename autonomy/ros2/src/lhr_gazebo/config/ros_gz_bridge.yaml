@@ -23,13 +23,6 @@
   gz_type_name: "gz.msgs.Twist"
   direction: ROS_TO_GZ
 
-# Logical camera: Gazebo → ROS2
-- gz_topic_name: "/logical_camera"
-  ros_topic_name: "/gz/logical_camera"
-  gz_type_name: "gz.msgs.LogicalCameraImage"
-  ros_type_name: "ros_gz_interfaces/msg/LogicalCameraImage"
-  direction: GZ_TO_ROS
-
 # Clock: Gazebo → ROS2 (for sim time)
 - gz_topic_name: "/clock"
   ros_topic_name: "/clock"
