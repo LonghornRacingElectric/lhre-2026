@@ -36,15 +36,6 @@ bool hvc_imd_fault(void);
  */
 bool hvc_bms_fault(void);
 
-/**
- * @brief Call before the first firmware block is transferred.  Resets internal
- *        flash state and records how many blocks will be sent so that
- *        write_memory can trigger a BFB2 bank-swap + boot after the last one.
- *
- * @param num_blocks  Total number of 255-byte firmware blocks to expect.
- */
-void dui_fw_update_begin(uint16_t num_blocks);
-
 #ifdef __cplusplus
 }
 #endif

@@ -1,5 +1,6 @@
 #include "can.h"
 
+#include <ota_flash.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -25,6 +26,7 @@ can_interface_t critical_can_bus = {
 };
 
 void hvc_can_init(void) {
+  ota_flash_init();
 
   can_config_t can_config = {
       .init_fn = (CAN_Init_fn)HAL_FDCAN_Init,
@@ -40,6 +42,9 @@ void hvc_can_init(void) {
       .malloc_fn = (Malloc_fn)pvPortMalloc,
       .free_fn = (Free_fn)vPortFree,
       .init_bit = FDCAN_CCCR_INIT,
+      .device_id = DEVICE_ID_HVC,
+      .write_memory_fn = ota_flash_write_memory,
+      .fw_update_begin_fn = ota_flash_begin,
   };
 
   critical_can_bus.cccr_reg = &hfdcan1.Instance->CCCR;

@@ -160,6 +160,9 @@ def firmware_project_g4(
         final_extra_srcs.append("//drivers/stm32g4:freertos_srcs")
         final_extra_deps.append("//drivers/stm32g4:freertos_headers")
 
+    final_extra_srcs.append("//drivers/ota:ota_flash_srcs")
+    final_extra_deps.append("//drivers/ota:ota_flash_headers")
+
     # enable DFU if the board has it enabled
     if (enable_dfu):
         final_defines.append("ENABLE_DFU")

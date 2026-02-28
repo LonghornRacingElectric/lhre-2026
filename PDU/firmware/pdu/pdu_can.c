@@ -5,6 +5,7 @@
 #include "fdcan.h"
 #include "longhorn/rtos/can.h"
 #include "longhorn/rtos/logger.h"
+#include <ota_flash.h>
 
 /** ==
  *  CAN Interface and Configuration Setup
@@ -40,6 +41,8 @@ void pdu_can_add_receive_handlers(void);
  * handlers. Also starts the CAN transceiver and receiver tasks.
  */
 void pdu_can_init(void) {
+  ota_flash_init();
+
   can_config_t pdu_can_config = {
       .init_fn = (CAN_Init_fn)HAL_FDCAN_Init,
       .start_fn = (CAN_Start_fn)HAL_FDCAN_Start,
@@ -54,6 +57,9 @@ void pdu_can_init(void) {
       .malloc_fn = pvPortMalloc,
       .free_fn = vPortFree,
       .init_bit = FDCAN_CCCR_INIT,
+      .device_id = DEVICE_ID_DUI,
+      .write_memory_fn = ota_flash_write_memory,
+      .fw_update_begin_fn = ota_flash_begin,
   };
 
   can_rtos_init(&pdu_can_config);

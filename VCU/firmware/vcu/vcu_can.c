@@ -7,6 +7,7 @@
 #include "hvc_states/Core/Inc/hvc_states.h"
 #include "longhorn/rtos/can.h"
 #include "longhorn/rtos/logger.h"
+#include <ota_flash.h>
 #include <stm32g4xx_hal_fdcan.h>
 
 /** ==
@@ -46,6 +47,8 @@ void vcu_can_add_send_handlers(void);
  * handlers. Also starts the CAN transceiver and receiver tasks.
  */
 void vcu_can_init(void) {
+  ota_flash_init();
+
   can_config_t vcu_can_config = {
       .init_fn = (CAN_Init_fn)HAL_FDCAN_Init,
       .start_fn = (CAN_Start_fn)HAL_FDCAN_Start,
@@ -60,6 +63,9 @@ void vcu_can_init(void) {
       .malloc_fn = pvPortMalloc,
       .free_fn = vPortFree,
       .init_bit = FDCAN_CCCR_INIT,
+      .device_id = DEVICE_ID_VCU,
+      .write_memory_fn = ota_flash_write_memory,
+      .fw_update_begin_fn = ota_flash_begin,
   };
 
   critical_bus.handle = &hfdcan1;
