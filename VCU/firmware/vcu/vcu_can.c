@@ -117,7 +117,9 @@ void vcu_can_set_model_outputs(vcu_outputs_t *out) {
     pct = 0.0f;
   }
 
-  brake_pedal_mailbox.brake_pedal_travel = pct;
+  // TODO: use BPPS instead of BSE for this.
+  brake_pedal_mailbox.brake_pedal_travel = out->bse_psi_filtered;
+  brake_pedal_mailbox.brake_light_percent = out->brake_light_pct;
   inverter_torque_command_mailbox.torque_request = out->torque_cmd;
   inverter_torque_command_mailbox.enable = out->inverter_enable;
   inverter_torque_command_mailbox.torque_limit = 200.0f;
