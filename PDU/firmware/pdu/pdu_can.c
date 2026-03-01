@@ -141,4 +141,4 @@ bool hvc_bms_fault(void) {
                            INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS * 4);
 }
 
-float brake_light_pct(void) { return brake_pedal_mailbox.brake_pedal_travel; }
+float brake_light_pct(void) { return brake_pedal_mailbox.brake_light_percent; }
