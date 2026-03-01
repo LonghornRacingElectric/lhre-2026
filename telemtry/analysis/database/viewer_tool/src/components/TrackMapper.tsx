@@ -19,7 +19,8 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
   const [isDefiningSectors, setIsDefiningSectors] = useState(false);
   const [sectors, setSectors] = useState<SectorGate[]>([]);
   const [pointCount, setPointCount] = useState(0);
-  const [hoverLine, setHoverLine] = useState<{ x: number; y: number; angle: number } | null>(null);
+  const [hoverLine, setHoverLine] = useState<{ x: number; y: number; angle: number; index: number } | null>(null);
+  const [isRecording, setIsRecording] = useState(true);
   
   // Track Management State
   const [trackName, setTrackName] = useState<string>('Untitled');
@@ -58,6 +59,7 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
         setPoints(data.points || []);
         setSectors(data.sectors || []);
         
+        setIsRecording(false);
         // Update refs for continuity
         countRef.current = data.points?.length || 0;
         setPointCount(countRef.current);
@@ -79,6 +81,7 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
       setPoints([]);
       setSectors([]);
       countRef.current = 0;
+      setIsRecording(true);
       setPointCount(0);
       lastPointRef.current = null;
       lastSavedNameRef.current = 'Untitled';
@@ -165,6 +168,8 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
 
   // Append only new points from Kafka stream
   useEffect(() => {
+    if (!isRecording) return;
+
     const p = normalize(kafkaMsg);
     
     if (!p) {
@@ -190,7 +195,7 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
     setPointCount(countRef.current);
     
     console.log(`✓ Point ${countRef.current}: [lat=${p[0].toFixed(6)}, lon=${p[1].toFixed(6)}]`);
-  }, [kafkaMsg, normalize]);
+  }, [kafkaMsg, normalize, isRecording]);
 
   // Auto-save effect: Saves whenever points, sectors, or name changes
   useEffect(() => {
@@ -341,6 +346,13 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
       countRef.current = 0;
       lastPointRef.current = null;
       setSectors([]); // Also clear sectors
+      setIsRecording(true);
+    }
+  };
+
+  const handleFinishMapping = () => {
+    if (confirm('Finish mapping this track? This will stop recording new points.')) {
+      setIsRecording(false);
     }
   };
 
@@ -399,7 +411,7 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
 
     if (bestIdx !== -1) {
         const info = getPointScreenInfo(bestIdx);
-        if (info) setHoverLine(info);
+        if (info) setHoverLine({ ...info, index: bestIdx });
     }
   }, [isDefiningSectors, points, xScale, yScale, getPointScreenInfo]);
 
@@ -412,6 +424,26 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
 
     // Use the hoverLine info if available, or recalculate nearest point
     if (hoverLine) {
+      // Check if sector already exists nearby
+      const currentIndex = hoverLine.index;
+      const isTooClose = sectors.some(gate => {
+        const midLat = (gate[0][0] + gate[1][0]) / 2;
+        const midLon = (gate[0][1] + gate[1][1]) / 2;
+        
+        // Find nearest point index for this gate
+        let bestIdx = 0;
+        let minD = Infinity;
+        for(let i=0; i<points.length; i++) {
+            const d = (points[i][0] - midLat)**2 + (points[i][1] - midLon)**2;
+            if(d < minD) { minD = d; bestIdx = i; }
+        }
+        return Math.abs(bestIdx - currentIndex) < 10;
+      });
+
+      if (isTooClose) {
+        return;
+      }
+
       // Calculate endpoints of the perpendicular line in screen space
       const length = 60; // Same length as visual hover line
       const dx = (length / 2) * Math.cos(hoverLine.angle);
@@ -431,7 +463,7 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
         return next;
       });
     }
-  }, [isDefiningSectors, hoverLine, xScale, yScale]);
+  }, [isDefiningSectors, hoverLine, xScale, yScale, sectors, points]);
 
   return (
     <div className="h-full w-full flex flex-col bg-white">
@@ -439,7 +471,11 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
       <div className="p-3 flex items-center justify-between border-b bg-gray-50">
         <div className="flex items-center gap-3">
           <div className={`w-3 h-3 rounded-full transition-colors ${isReceivingData ? 'bg-green-500' : 'bg-gray-400'}`} />
-          <div className="text-sm font-medium text-gray-700">{isReceivingData ? '🟢 Live' : '⚫ Disconnected'}</div>
+          <div className="text-sm font-medium text-gray-700">
+            {isReceivingData 
+              ? (isRecording ? '🟢 Live (Recording)' : '🟡 Live (View Only)') 
+              : '⚫ Disconnected'}
+          </div>
           <div className="text-xs text-gray-500">({pointCount} points, {sectors.length} sectors)</div>
         </div>
         <div className="flex items-center gap-4">
@@ -472,6 +508,14 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
 
           <div className="text-sm text-gray-600">Last: <span className="font-mono">{lastPointText}</span></div>
           {/* Sector controls */}
+          {isRecording && points.length > 0 && (
+            <button
+              onClick={handleFinishMapping}
+              className="px-3 py-1 text-xs bg-indigo-500 text-white rounded hover:bg-indigo-600 transition"
+            >
+              Finish Mapping
+            </button>
+          )}
           <button
             onClick={handleToggleDefineSectors}
             disabled={points.length === 0}
