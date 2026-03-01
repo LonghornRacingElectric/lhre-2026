@@ -35,6 +35,8 @@ void hvc_can_init(void) {
       .get_tx_fifo_free_level_fn =
           (CAN_GetTxFifoFreeLevel_fn)HAL_FDCAN_GetTxFifoFreeLevel,
       .get_rx_message_fn = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
+      .get_rx_fifo_fill_level_fn =
+          (CAN_GetRxFifoFillLevel_fn)HAL_FDCAN_GetRxFifoFillLevel,
       .tick_fn = (Tick_fn)osKernelGetTickCount,
       .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
       .malloc_fn = (Malloc_fn)pvPortMalloc,

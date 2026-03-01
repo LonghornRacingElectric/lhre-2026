@@ -55,6 +55,8 @@ void vcu_can_init(void) {
       .get_tx_fifo_free_level_fn =
           (CAN_GetTxFifoFreeLevel_fn)HAL_FDCAN_GetTxFifoFreeLevel,
       .get_rx_message_fn = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
+      .get_rx_fifo_fill_level_fn =
+          (CAN_GetRxFifoFillLevel_fn)HAL_FDCAN_GetRxFifoFillLevel,
       .tick_fn = HAL_GetTick,
       .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
       .malloc_fn = pvPortMalloc,
@@ -114,7 +116,7 @@ void vcu_can_set_model_outputs(vcu_outputs_t *out) {
   // TODO: use BPPS instead of BSE for this.
   brake_pedal_mailbox.brake_pedal_travel = out->bse_psi_filtered;
   brake_pedal_mailbox.brake_light_percent = out->brake_light_pct;
-  
+
   inverter_torque_command_mailbox.torque_request = out->torque_cmd;
   inverter_torque_command_mailbox.enable = out->inverter_enable;
   inverter_torque_command_mailbox.torque_limit = 200.0f;
