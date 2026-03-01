@@ -23,8 +23,6 @@ static bool flash_bank_erased = false;
 static uint16_t blocks_written = 0;
 static uint16_t total_blocks_expected = 0;
 
-static uint8_t residual[8];
-static uint8_t residual_len = 0;
 static uint32_t write_cursor = 0;
 static bool update_active = false;
 
@@ -107,37 +105,11 @@ static void flash_writer_task(void *arg) {
       }
     }
 
-    // flush residual if this block is not contiguous with the previous write
-    if (residual_len > 0 && block.address != write_cursor) {
-      memset(residual + residual_len, 0xFF, 8 - residual_len);
-      uint64_t dword;
-      memcpy(&dword, residual, 8);
-      HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, write_cursor, dword);
-      residual_len = 0;
-    }
-
     write_cursor = block.address;
 
     uint8_t *src = block.data;
     uint16_t remaining = block.length;
     bool write_ok = true;
-
-    while (residual_len > 0 && residual_len < 8 && remaining > 0) {
-      residual[residual_len++] = *src++;
-      remaining--;
-      if (residual_len == 8) {
-        uint64_t dword;
-        memcpy(&dword, residual, 8);
-        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, write_cursor,
-                              dword) != HAL_OK) {
-          write_ok = false;
-        }
-        write_cursor += 8;
-        residual_len = 0;
-        if (!write_ok)
-          break;
-      }
-    }
 
     while (write_ok && remaining >= 8) {
       uint64_t dword;
@@ -152,11 +124,6 @@ static void flash_writer_task(void *arg) {
       remaining -= 8;
     }
 
-    if (write_ok && remaining > 0) {
-      memcpy(residual, src, remaining);
-      residual_len = remaining;
-    }
-
     HAL_FLASH_Lock();
 
     if (!write_ok) {
@@ -166,16 +133,6 @@ static void flash_writer_task(void *arg) {
     blocks_written++;
 
     if (total_blocks_expected > 0 && blocks_written >= total_blocks_expected) {
-      if (residual_len > 0) {
-        memset(residual + residual_len, 0xFF, 8 - residual_len);
-        uint64_t dword;
-        memcpy(&dword, residual, 8);
-        HAL_FLASH_Unlock();
-        HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, write_cursor, dword);
-        HAL_FLASH_Lock();
-        residual_len = 0;
-      }
-
       osDelay(100);
       ota_ob_swap_bank();
       update_active = false;
@@ -204,7 +161,6 @@ void ota_flash_begin(uint16_t num_blocks) {
   flash_bank_erased = false;
   blocks_written = 0;
   total_blocks_expected = num_blocks + 1; // num_blocks is 0-indexed
-  residual_len = 0;
   write_cursor = ota_flash_get_inactive_bank_base();
 }
 
@@ -229,7 +185,6 @@ void ota_flash_abort(void) {
   flash_bank_erased = false;
   blocks_written = 0;
   total_blocks_expected = 0;
-  residual_len = 0;
   write_cursor = 0;
 
   // drain any pending blocks from the queue
