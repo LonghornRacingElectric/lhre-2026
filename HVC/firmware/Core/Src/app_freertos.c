@@ -19,9 +19,10 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "cmsis_os.h"
-#include "main.h"
 #include "task.h"
+#include "main.h"
+#include "cmsis_os.h"
+
 #include "usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -83,9 +84,10 @@ const osThreadAttr_t stateMachineTask_attributes = {
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
-    .name = "defaultTask",
-    .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 2048 * 4};
+  .name = "defaultTask",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 2048 * 4
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -93,42 +95,41 @@ void StartStateMachineTask(void* argument);
 void StartBmsTask(void* argument);
 /* USER CODE END FunctionPrototypes */
 
-void StartDefaultTask(void* argument);
+void StartDefaultTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /**
- * @brief  FreeRTOS initialization
- * @param  None
- * @retval None
- */
+  * @brief  FreeRTOS initialization
+  * @param  None
+  * @retval None
+  */
 void MX_FREERTOS_Init(void) {
-    /* USER CODE BEGIN Init */
+  /* USER CODE BEGIN Init */
 
-    /* USER CODE END Init */
+  /* USER CODE END Init */
 
-    /* USER CODE BEGIN RTOS_MUTEX */
+  /* USER CODE BEGIN RTOS_MUTEX */
     /* add mutexes, ... */
-    /* USER CODE END RTOS_MUTEX */
+  /* USER CODE END RTOS_MUTEX */
 
-    /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
     /* add semaphores, ... */
-    /* USER CODE END RTOS_SEMAPHORES */
+  /* USER CODE END RTOS_SEMAPHORES */
 
-    /* USER CODE BEGIN RTOS_TIMERS */
+  /* USER CODE BEGIN RTOS_TIMERS */
     /* start timers, add new ones, ... */
-    /* USER CODE END RTOS_TIMERS */
+  /* USER CODE END RTOS_TIMERS */
 
-    /* USER CODE BEGIN RTOS_QUEUES */
+  /* USER CODE BEGIN RTOS_QUEUES */
     /* add queues, ... */
-    /* USER CODE END RTOS_QUEUES */
+  /* USER CODE END RTOS_QUEUES */
 
-    /* Create the thread(s) */
-    /* creation of defaultTask */
-    defaultTaskHandle =
-        osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  /* Create the thread(s) */
+  /* creation of defaultTask */
+  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
-    /* USER CODE BEGIN RTOS_THREADS */
+  /* USER CODE BEGIN RTOS_THREADS */
     /* add threads, ... */
 
     /* HVC State Machine Task - 10Hz update rate */
@@ -150,21 +151,13 @@ void MX_FREERTOS_Init(void) {
     led_init(&led);
     led_start_thread();
 
-    /* USER CODE END RTOS_THREADS */
+  /* USER CODE END RTOS_THREADS */
 
-    /* USER CODE BEGIN RTOS_EVENTS */
+  /* USER CODE BEGIN RTOS_EVENTS */
     /* add events, ... */
 
-    /* USER CODE END RTOS_EVENTS */
-}
+  /* USER CODE END RTOS_EVENTS */
 
-void FakeTask(void* argument) {
-    while (1) {
-        log_printf(LOG_INFO, "Updating Indicator Status");
-        hvc_set_indicator_status(0, 0, 0, 0, 0, 0);
-        osDelay(100);
-        hvc_set_indicator_status(0, 0, 0, 0, 0, 0);
-    }
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -174,10 +167,11 @@ void FakeTask(void* argument) {
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void* argument) {
-    /* init code for USB_Device */
-    MX_USB_Device_Init();
-    /* USER CODE BEGIN StartDefaultTask */
+void StartDefaultTask(void *argument)
+{
+  /* init code for USB_Device */
+  MX_USB_Device_Init();
+  /* USER CODE BEGIN StartDefaultTask */
 
     // Wait for USB to enumerate
     osDelay(3000);
@@ -231,7 +225,7 @@ void StartDefaultTask(void* argument) {
         // is_shutdown_closed());
         osDelay(200);
     }
-    /* USER CODE END StartDefaultTask */
+  /* USER CODE END StartDefaultTask */
 }
 
 /* Private application code --------------------------------------------------*/
@@ -277,3 +271,4 @@ void StartStateMachineTask(void* argument) {
 }
 
 /* USER CODE END Application */
+

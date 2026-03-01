@@ -76,7 +76,7 @@ void MX_GPIO_Init(void)
   /*Configure GPIO pins : BMS_Error_Pin IMD_Error_Pin Close_IR___Pin PB7 */
   GPIO_InitStruct.Pin = BMS_Error_Pin|IMD_Error_Pin|Close_IR___Pin|GPIO_PIN_7;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
@@ -84,7 +84,7 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = Shutdown_Sense_12_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(Shutdown_Sense_12_GPIO_Port, &GPIO_InitStruct);
 
 }
 
