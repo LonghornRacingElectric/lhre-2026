@@ -16,7 +16,7 @@ Colcon workspace for LHR driverless / autonomy nodes.
 | `lhr_mission_manager` | FSAE driverless state machine (Off → Ready → Driving → Finished → Emergency) |
 | `lhr_metrics` | Cross-track error, off-track count, and lap detection (CSV output) |
 | `lhr_gazebo` | Gazebo Harmonic physics simulation — vehicle with direct joint control, ground-truth odometry, LiDAR sensor, RViz integration |
-| `lhr_perception` | LiDAR-based cone detection — pointcloud clustering, persistent mapping (unclassified cones, no left/right split) |
+| `lhr_perception` | LiDAR-based cone detection — pointcloud clustering, persistent mapping (unclassified cones, no left/right split). Functional on oval track; path quality needs tuning on complex tracks. |
 | `lhr_demo` | Launch file that starts the full kinematic stack in one command |
 
 ## Data flow
@@ -192,7 +192,7 @@ All scripts live in `scripts/` and should be run from the `autonomy/ros2` direct
 | `run_sensor.sh` | Runs only the sensor simulation (`lhr_sensor_sim`). |
 | `run_metrics.sh` | Runs only the metrics node (`lhr_metrics`). Prints summary on Ctrl+C and appends to `data/metrics.csv`. |
 | `run_plotjuggler.sh` | Opens PlotJuggler for plotting debug signals (curvature, speed, steering). |
-| `generate_gazebo_world.sh` | Generates a Gazebo world SDF from the track generator. Accepts `--seed`, `--num-waypoints`, etc. |
+| `generate_gazebo_world.sh` | Generates a Gazebo world SDF from the track generator. Accepts `--seed`, `--style`, `--num-waypoints`, etc. |
 | `run_gazebo_demo.sh` | Launches the Gazebo-based stack (physics sim + adapters + upper stack). Accepts same args as `run_demo.sh`. |
 
 The individual `run_*.sh` scripts are useful for debugging a single node. For normal use, prefer the two-terminal workflow (`run_demo.sh` + `rviz_demo.sh`).
@@ -225,7 +225,13 @@ Launch arguments work the same way:
 ./scripts/run_gazebo_demo.sh gui:=false          # headless Gazebo (no Gazebo GUI)
 ./scripts/run_gazebo_demo.sh rviz:=false         # disable RViz
 ./scripts/run_gazebo_demo.sh perception:=lidar   # LiDAR-based cone detection
+./scripts/run_gazebo_demo.sh track_style:=oval   # oval track (also: autocross, simple)
+./scripts/run_gazebo_demo.sh track_style:=oval perception:=lidar  # LiDAR on oval (best LiDAR experience)
 ```
+
+The `track_style` argument selects the track generator (`oval`, `autocross`, or `simple`). The world SDF is auto-resolved from `track_style` + `seed` (e.g. `oval_seed1.sdf`). Pre-generated worlds are installed by colcon from `worlds/*.sdf`.
+
+**Launch file architecture:** `gazebo_demo.launch.py` uses `OpaqueFunction` instead of `IfCondition`/`UnlessCondition` for perception mode and world selection. All launch args are declared in `generate_launch_description()`, and nodes are built in the `_launch_setup()` callback which runs at launch time with access to resolved argument values.
 
 ### Vehicle model
 
@@ -281,10 +287,12 @@ All paths produce identical ROS 2 topic interfaces — the upper stack doesn't k
 ### World generation
 
 The world generator script (`lhr_gazebo/scripts/generate_world.py`) creates a Gazebo world SDF from `lhr_trackgen` output:
+- Accepts `--style` flag to select the track generator: `autocross` (default), `simple`, or `oval`
 - Procedural cone placement from Catmull-Rom splines (same geometry as kinematic sim)
 - Vehicle spawn position auto-computed on the straightest section of track (avoids loop closure area)
 - ODE physics engine at 1 kHz (0.001 s step), real-time factor 1.0
 - Ground plane: 200 x 200 m
+- Pre-generated worlds (e.g. `worlds/oval_seed1.sdf`) are installed by colcon via `setup.py` `data_files`
 
 ### Gazebo-ROS bridge
 
@@ -340,7 +348,7 @@ map → base_link   (broadcast by lhr_sim_kinematic or Gazebo OdometryPublisher)
 | `seed` | `1` | Random seed for track generation |
 | `frame_id` | `"map"` | TF frame |
 | `publish_hz` | `5.0` | Publishing rate (Hz) |
-| `track_style` | `"autocross"` | Generator: `autocross` (Catmull-Rom spline) or `simple` (original oval) |
+| `track_style` | `"autocross"` | Generator: `autocross` (Catmull-Rom spline), `simple` (original oval), or `oval` (dedicated oval generator) |
 | `num_waypoints` | `10` | Number of waypoints around the loop (autocross only) |
 | `radius_m` | `25.0` | Base radius of the track (autocross only) |
 | `jitter_m` | `10.0` | Radial jitter per waypoint (autocross only) |

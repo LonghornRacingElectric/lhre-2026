@@ -4,9 +4,9 @@
 
 Replace the kinematic vehicle simulator (`lhr_sim_kinematic`) with Gazebo physics simulation, while keeping the entire upper stack unchanged (control, track builder, mission manager, metrics).
 
-## Current Status: Phase 2 In Progress
+## Current Status: Phase 2 Functional (Tuning)
 
-Phase 1 (drop-in replacement) is complete. Phase 2 (LiDAR perception) is implemented and ready for testing on native Linux with Gazebo Harmonic.
+Phase 1 (drop-in replacement) is complete. Phase 2 (LiDAR perception) is functional on the oval track but path quality needs tuning on complex tracks — the boundary pairing approach is correct but centerline quality on tight autocross corners is not yet reliable.
 
 ## Architecture
 
@@ -52,8 +52,13 @@ Script: `lhr_gazebo/scripts/generate_world.py`
 - ODE physics engine at 1 kHz, real-time factor 1.0
 - `gz-sim-sensors-system` with Ogre2 render engine (required for gpu_lidar)
 - Cone collisions temporarily disabled for control tuning
+- `generate_world.py` accepts `--style` flag (`autocross`, `simple`, or `oval`) to select the track generator
+- Multiple track styles: `autocross` (Catmull-Rom spline), `simple` (original oval), `oval` (new dedicated oval generator)
+- Pre-generated worlds (e.g. `worlds/oval_seed1.sdf`, `worlds/autocross_seed1.sdf`) installed by colcon via `setup.py` `data_files`
 
 ### 3. Cone Detection
+
+The launch file (`gazebo_demo.launch.py`) uses `OpaqueFunction` for runtime resolution of perception mode and world selection. All launch args are declared in `generate_launch_description()`, and nodes are built in `_launch_setup()`. The `track_style` launch argument (`oval|autocross|simple`) selects the track style, and the world SDF is auto-resolved from `track_style` + `seed` (e.g. `oval_seed1.sdf`).
 
 Two perception modes selectable via `perception:=sim|lidar` launch argument:
 
@@ -105,7 +110,7 @@ RViz launches automatically alongside Gazebo (configurable via `rviz:=true/false
 - RViz integration in Gazebo launch
 - Gazebo-specific launch file (kinematic launch still works independently)
 
-### Phase 2: LiDAR Perception — IMPLEMENTED, TESTING
+### Phase 2: LiDAR Perception — FUNCTIONAL ON OVAL, TUNING NEEDED ON COMPLEX TRACKS
 
 - GPU LiDAR sensor mounted on vehicle model (360x16 channels, 25 m range, 10 Hz)
 - `gz-sim-sensors-system` with Ogre2 re-added to world generator
@@ -113,6 +118,8 @@ RViz launches automatically alongside Gazebo (configurable via `rviz:=true/false
 - New `lhr_perception` package with `lidar_cone_detector` node
 - Boundary pairing strategy (Delaunay triangulation) added to track builder
 - Perception mode switch in launch file (`perception:=sim|lidar`)
+- Oval track support (`track_style:=oval`) — LiDAR pipeline completes laps reliably on the oval
+- Path construction needs work on complex tracks — centerline quality on tight autocross corners is not yet reliable
 
 ### Phase 3: Fidelity Tuning (Future)
 
@@ -150,9 +157,10 @@ ros2/src/lhr_gazebo/
 │   ├── cone_orange_small/
 │   └── cone_orange_large/
 ├── scripts/
-│   └── generate_world.py           (trackgen → Gazebo world SDF)
+│   └── generate_world.py           (trackgen → Gazebo world SDF, --style flag)
 ├── worlds/
-│   └── autocross_seed1.sdf         (generated world file)
+│   ├── autocross_seed1.sdf         (generated autocross world)
+│   └── oval_seed1.sdf              (generated oval world)
 ├── package.xml
 ├── setup.py
 └── setup.cfg
