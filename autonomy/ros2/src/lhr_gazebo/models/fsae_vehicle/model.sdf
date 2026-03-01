@@ -36,21 +36,6 @@
         </geometry>
       </collision>
 
-      <!-- Logical camera: mounted at front of chassis, facing forward (+X) -->
-      <sensor name="logical_camera" type="logical_camera">
-        <pose>1.1 0 0 0 0 0</pose>
-        <logical_camera>
-          <near>0.5</near>
-          <far>20.0</far>
-          <horizontal_fov>3.4907</horizontal_fov>
-          <aspect_ratio>1.0</aspect_ratio>
-        </logical_camera>
-        <always_on>true</always_on>
-        <update_rate>10</update_rate>
-        <visualize>true</visualize>
-        <topic>/logical_camera</topic>
-      </sensor>
-
       <!-- IMU sensor -->
       <sensor name="imu_sensor" type="imu">
         <always_on>true</always_on>

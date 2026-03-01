@@ -37,8 +37,6 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'logical_camera_adapter = lhr_gazebo.logical_camera_adapter:main',
-            'ackermann_cmd_adapter = lhr_gazebo.ackermann_cmd_adapter:main',
             'joint_cmd_adapter = lhr_gazebo.joint_cmd_adapter:main',
         ],
     },

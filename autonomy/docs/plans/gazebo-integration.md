@@ -40,7 +40,7 @@ FSAE car with simplified box/cylinder geometry:
 - 2x `JointPositionController` (steering, with `use_velocity_commands=true` for near-instant response)
 - 4x `JointController` (wheel velocity, direct mode)
 
-Sensors: logical camera (disabled — bridge not available on Humble), IMU (100 Hz).
+Sensors: IMU (100 Hz).
 
 ### 2. Cone Models + World Generation
 
@@ -74,7 +74,6 @@ File: `lhr_gazebo/lhr_gazebo/joint_cmd_adapter.py`
 Converts `AckermannDriveStamped` → 6 individual joint commands:
 - Proper Ackermann differential geometry (inner/outer wheel angles)
 - Per-wheel velocity accounting for turn radius differentials
-- Replaces the original `ackermann_cmd_adapter.py` (which produced Twist for the now-removed AckermannSteering plugin)
 
 ### 6. RViz Integration
 
@@ -129,13 +128,11 @@ ros2/src/lhr_gazebo/
 │   └── gazebo_demo.launch.py       (Gazebo + RViz + full autonomy stack)
 ├── lhr_gazebo/
 │   ├── __init__.py
-│   ├── ackermann_cmd_adapter.py    (legacy — kept for rollback)
-│   ├── joint_cmd_adapter.py        (current — 6x joint commands)
-│   └── logical_camera_adapter.py   (unused — bridge not available)
+│   └── joint_cmd_adapter.py        (AckermannDriveStamped → 6x joint commands)
 ├── models/
 │   ├── fsae_vehicle/
 │   │   ├── model.config
-│   │   └── model.sdf               (vehicle with 6 joint controllers + odom)
+│   │   └── model.sdf               (vehicle with 6 joint controllers + odom + IMU)
 │   ├── cone_blue/
 │   ├── cone_yellow/
 │   ├── cone_orange_small/
