@@ -89,11 +89,11 @@ const osThreadAttr_t controlTask_attributes = {
 static vcu_parameters_t s_params = {
     .apps =
         {
-            .apps1_min_adc_v = 1815.0f,
-            .apps1_max_adc_v = 1500.0f,
+            .apps1_min_adc_v = (1815.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL, // 1815 is ~0% pedal, 1500 is ~100% pedal
+            .apps1_max_adc_v = (1500.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL,
 
-            .apps2_min_adc_v = 1806.0f,
-            .apps2_max_adc_v = 1499.0f,
+            .apps2_min_adc_v = (1806.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL,
+            .apps2_max_adc_v = (1499.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL,
 
             .implaus_debounce_time_ms = 100u,
             .max_allowable_diff = 0.10f,
@@ -113,10 +113,10 @@ static vcu_parameters_t s_params = {
         {
             .bse_off_psi = 30.0f,
             .bse_on_psi = 50.0f,
-            .bse1_adc_at_min_psi_v = 370u,
-            .bse1_adc_at_max_psi_v = 800u,
-            .bse2_adc_at_min_psi_v = 370u, // set same as bse1 for now since bse2 isn't working
-            .bse2_adc_at_max_psi_v = 800u,
+            .bse1_adc_at_min_psi_v = (370.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL,
+            .bse1_adc_at_max_psi_v = (800.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL,
+            .bse2_adc_at_min_psi_v = (370.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL, // set same as bse1 for now since bse2 isn't working
+            .bse2_adc_at_max_psi_v = (800.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL,
             .bse_max_psi = 1000.0f,
             .max_pedal_while_braking = 0.25f,
             .max_pedal_restore_threshold = 0.05f,
@@ -320,9 +320,9 @@ void StartControlTask(void *argument) {
     HAL_ADC_Stop(&hadc1);
 
     // Read pedal sensors from DMA buffers
-    in.apps1_raw = (float)adc3_dma_buf[0];
-    in.apps2_raw = (float)adc3_dma_buf[1];
-    in.bse1_raw = (float) adc2_dma_buf[0];
+    in.apps1_raw = ((float)adc3_dma_buf[0] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
+    in.apps2_raw = ((float)adc3_dma_buf[1] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
+    in.bse1_raw = ((float)adc2_dma_buf[0] * ADC_BSE_SCALE_V) / ADC_MAX_VAL;
     in.bse2_raw = in.bse1_raw; // TODO: use second BSE sensor when it works
 
     in.drive_switch = is_drive_switch_pressed();
