@@ -1,83 +1,108 @@
+import argparse
 import json
 import os
 import sys
 from google.protobuf import descriptor_pb2
 from google.protobuf.descriptor_pool import DescriptorPool
 
-def get_proto_mapping(desc_path):
+
+def _iter_messages(file_desc):
+    for msg in file_desc.message_type:
+        full_name = f"{file_desc.package}.{msg.name}" if file_desc.package else msg.name
+        yield full_name, msg
+
+
+def resolve_sensor_message(file_desc_set, explicit_name=None):
+    if explicit_name:
+        for file_desc in file_desc_set.file:
+            for full_name, msg_desc in _iter_messages(file_desc):
+                if explicit_name in {full_name, msg_desc.name}:
+                    return full_name, msg_desc
+        print(f"Error: Could not find message '{explicit_name}' in descriptor.")
+        sys.exit(1)
+
+    for preferred in ["OrionSensorData", "SensorData"]:
+        for file_desc in file_desc_set.file:
+            for full_name, msg_desc in _iter_messages(file_desc):
+                if preferred in {full_name, msg_desc.name}:
+                    return full_name, msg_desc
+
+    for file_desc in file_desc_set.file:
+        for full_name, msg_desc in _iter_messages(file_desc):
+            if msg_desc.name.endswith("SensorData"):
+                return full_name, msg_desc
+
+    print("Error: Could not find a '*SensorData' message in descriptor.")
+    sys.exit(1)
+
+
+def get_proto_mapping(desc_path, explicit_message=None):
     if not os.path.exists(desc_path):
         print(f"Error: Descriptor file {desc_path} not found.")
         sys.exit(1)
 
-    with open(desc_path, 'rb') as f:
+    with open(desc_path, "rb") as f:
         fds = descriptor_pb2.FileDescriptorSet()
         fds.ParseFromString(f.read())
-    
+
     pool = DescriptorPool()
     for file_desc in fds.file:
         pool.Add(file_desc)
-    
-    proto_full_name = 'SensorData'
-    
-    try:
-        msg_desc = pool.FindMessageTypeByName(proto_full_name)
-    except KeyError:
-        print(f"Error: Could not find '{proto_full_name}' in the descriptor.")
-        sys.exit(1)
 
-    var_map = {
-        "dynamics": "_d", 
+    message_name, msg_proto = resolve_sensor_message(fds, explicit_message)
+    msg_desc = pool.FindMessageTypeByName(message_name)
+
+    preferred_var_map = {
+        "dynamics": "_d",
         "controls": "_c",
         "pack": "_p",
         "diagnostics_low": "_l",
         "diagnostics_high": "_h",
-        "thermal": "_t"
+        "thermal": "_t",
     }
 
     field_to_var = {}
+    field_bindings = []
     for field in msg_desc.fields:
-        if field.message_type and field.name in var_map:
-            var_prefix = var_map[field.name]
+        if field.message_type:
+            var_prefix = preferred_var_map.get(field.name, f"_{field.name}")
+            field_bindings.append((field.name, var_prefix))
             for sub_field in field.message_type.fields:
                 field_to_var[sub_field.name] = var_prefix
-    
-    return field_to_var
 
-def generate_rust():
-    # Adjusted paths for centralized BEVO root
-    json_path = "../drivers/proto/can_packets.json"
-    desc_path = "sensor_data.desc"
-    output_path = "generated_mapping.rs"
+    return field_to_var, field_bindings, message_name
 
-    proto_map = get_proto_mapping(desc_path)
+
+def generate_rust(json_path, desc_path, output_path, message_name=None):
+    proto_map, bindings, resolved_message = get_proto_mapping(desc_path, message_name)
+    binding_lookup = {var_name: field_name for field_name, var_name in bindings}
+    rust_message_path = resolved_message.replace(".", "::")
+    rust_message_name = resolved_message.split(".")[-1]
 
     try:
-        with open(json_path, 'r') as f:
+        with open(json_path, "r") as f:
             packets = json.load(f)
     except FileNotFoundError:
         print(f"Error: Could not find JSON at {json_path}")
         return
 
-    # Header and variable bindings with underscores
     code = [
         "// THIS FILE IS AUTO-GENERATED. DO NOT EDIT.",
-        "use crate::proto::SensorData;",
+        f"use crate::proto::{rust_message_path};",
         "use crate::config::ProtobufMapping;",
         "",
-        "pub fn update_proto_field_generated(data: &mut SensorData, name: &str, val: f32, config: &ProtobufMapping) {",
-        "    let _d = data.dynamics.get_or_insert_with(Default::default);",
-        "    let _c = data.controls.get_or_insert_with(Default::default);",
-        "    let _p = data.pack.get_or_insert_with(Default::default);",
-        "    let _l = data.diagnostics_low.get_or_insert_with(Default::default);",
-        "    let _h = data.diagnostics_high.get_or_insert_with(Default::default);",
-        "    let _t = data.thermal.get_or_insert_with(Default::default);",
+        f"pub fn update_proto_field_generated(data: &mut {rust_message_name}, name: &str, val: f32, config: &ProtobufMapping) {{",
+    ]
+    for field_name, var_name in bindings:
+        code.append(f"    let {var_name} = data.{field_name}.get_or_insert_with(Default::default);")
+    code.extend([
         "",
         "    if config.repeated {",
         "        if let Some(i) = config.field_index {",
-        "            match name {"
-    ]
+        "            match name {",
+    ])
 
-    scalar_signals = {} 
+    scalar_signals = {}
     rep_signals = set()
     bool_signals = set()
 
@@ -87,7 +112,7 @@ def generate_rust():
             pb = sig.get("protobuf")
             if not pb or not isinstance(pb, dict):
                 continue
-            
+
             fname = pb.get("field_name") or pb.get("field") or pb.get("name")
             if not fname or fname not in proto_map:
                 continue
@@ -95,49 +120,65 @@ def generate_rust():
             if pb.get("repeated", False):
                 rep_signals.add(fname)
             else:
-                # Capture type for scalar fields
-                scalar_signals[fname] = pb.get("type", "float")
+                scalar_signals[fname] = str(pb.get("type", "float")).lower()
 
-            # Handle Bitfields
             if sig.get("conv_type") == "bitfield":
                 mappings = sig.get("bitfield_encoding") or sig.get("mappings") or sig.get("bits") or []
-                for m in mappings:
-                    b_fname = m.get("protobuf_field") or m.get("field") or m.get("name")
-                    if b_fname and b_fname in proto_map:
-                        bool_signals.add(b_fname)
-                        
-    # Generate Repeated Match Arms
-    for f in sorted(rep_signals):
-        code.append(f'                "{f}" => crate::set_vec_index(&mut {proto_map.get(f, "_d")}.{f}, i, val),')
+                for mapping in mappings:
+                    bitfield_name = mapping.get("protobuf_field") or mapping.get("field") or mapping.get("name")
+                    if bitfield_name and bitfield_name in proto_map:
+                        bool_signals.add(bitfield_name)
 
-    code.extend(["                _ => (),", "            }", "        }", "    } else {", "        match name {"])
+    for field_name in sorted(rep_signals):
+        code.append(
+            f'                "{field_name}" => crate::set_vec_index(&mut {proto_map[field_name]}.{field_name}, i, val),'
+        )
 
-    # Generate Scalar Match Arms with Type Casting
-    for f, ftype in sorted(scalar_signals.items()):
-        prefix = proto_map[f]
-        if ftype == "bool":
-            # Float to Bool conversion for Rust safety
-            code.append(f'            "{f}" => {prefix}.{f} = val != 0.0,')
+    code.extend([
+        "                _ => (),",
+        "            }",
+        "        }",
+        "    } else {",
+        "        match name {",
+    ])
+
+    for field_name, field_type in sorted(scalar_signals.items()):
+        prefix = proto_map[field_name]
+        if field_type == "bool":
+            code.append(f'            "{field_name}" => {prefix}.{field_name} = val != 0.0,')
         else:
-            code.append(f'            "{f}" => {prefix}.{f} = val,')
+            code.append(f'            "{field_name}" => {prefix}.{field_name} = val,')
 
-    # Close first function, start bool function
-    code.extend(["            _ => (),", "        }", "    }", "}", "", 
-                 "pub fn update_proto_bool_generated(data: &mut SensorData, name: &str, val: bool) {",
-                 "    let _l = data.diagnostics_low.get_or_insert_with(Default::default);",
-                 "    let _h = data.diagnostics_high.get_or_insert_with(Default::default);",
-                 "    let _t = data.thermal.get_or_insert_with(Default::default);",
-                 "    match name {"])
+    code.extend([
+        "            _ => (),",
+        "        }",
+        "    }",
+        "}",
+        "",
+        f"pub fn update_proto_bool_generated(data: &mut {rust_message_name}, name: &str, val: bool) {{",
+    ])
 
-    # Generate Bitfield Match Arms
-    for f in sorted(bool_signals):
-        code.append(f'        "{f}" => {proto_map.get(f, "_h")}.{f} = val,')
+    bool_prefixes = sorted({proto_map[field_name] for field_name in bool_signals})
+    for prefix in bool_prefixes:
+        field_name = binding_lookup[prefix]
+        code.append(f"    let {prefix} = data.{field_name}.get_or_insert_with(Default::default);")
+
+    code.append("    match name {")
+    for field_name in sorted(bool_signals):
+        code.append(f'        "{field_name}" => {proto_map[field_name]}.{field_name} = val,')
 
     code.extend(["        _ => (),", "    }", "}"])
 
-    with open(output_path, 'w') as f:
+    with open(output_path, "w") as f:
         f.write("\n".join(code))
     print(f"Generated {output_path}")
 
+
 if __name__ == "__main__":
-    generate_rust()
+    parser = argparse.ArgumentParser(description="Generate Rust protobuf field mapping from descriptor + CAN JSON")
+    parser.add_argument("--json", dest="json_path", required=True)
+    parser.add_argument("--desc", dest="desc_path", required=True)
+    parser.add_argument("--out", dest="output_path", required=True)
+    parser.add_argument("--message", dest="message_name", required=False)
+    args = parser.parse_args()
+    generate_rust(args.json_path, args.desc_path, args.output_path, args.message_name)

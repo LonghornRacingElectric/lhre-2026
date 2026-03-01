@@ -1,9 +1,52 @@
 load("@rules_rust//rust:defs.bzl", "rust_binary")
+load("@rules_python//python:defs.bzl", "py_binary")
+
+py_binary(
+    name = "mock_can",
+    srcs = ["mock_can.py"],
+    main = "mock_can.py",
+)
+
+sh_binary(
+    name = "cand_mock_run",
+    srcs = ["run_mock_can_stack.sh"],
+    data = [
+        ":cand",
+        "//BEVO/dashd:dashd",
+        "//BEVO/loggerd:loggerd",
+        ":mock_can",
+    ],
+)
+
+sh_binary(
+    name = "mock_can_run",
+    srcs = ["run_mock_can_stack.sh"],
+    data = [
+        ":cand",
+        "//BEVO/dashd:dashd",
+        "//BEVO/loggerd:loggerd",
+        ":mock_can",
+    ],
+)
+
+sh_binary(
+    name = "can_run",
+    srcs = ["run_can_stack.sh"],
+    data = [
+        ":cand",
+        "//BEVO/dashd:dashd",
+        "//BEVO/loggerd:loggerd",
+        "//BEVO/publishd:publishd",
+    ],
+)
 
 rust_binary(
     name = "cand",
     srcs = ["main.rs"], 
-    compile_data = ["//drivers/proto:can_packets.json"],
+    compile_data = ["//drivers/longhorn-lib:can_json"],
+    rustc_env = {
+        "CAND_CAN_JSON_PATH": "$(execpath //drivers/longhorn-lib:can_json)",
+    },
     deps = [
         "//BEVO:sensor_proto", 
         "@crate_index//:anyhow",
