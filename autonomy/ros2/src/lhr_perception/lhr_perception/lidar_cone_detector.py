@@ -143,7 +143,19 @@ class LidarConeDetector(Node):
         if len(points) == 0:
             return
 
-        # Step 3: Range filter (2D distance from sensor)
+        # Step 3: Vehicle exclusion zone (filter out the car's own body)
+        # In sensor frame, the car body extends roughly:
+        #   x: -2.1 to +0.1  (sensor is near front of 2.2m chassis)
+        #   y: -0.7 to +0.7  (wheels at ±0.6, plus margin)
+        car_mask = ~(
+            (points[:, 0] > -2.3) & (points[:, 0] < 0.3) &
+            (points[:, 1] > -0.8) & (points[:, 1] < 0.8)
+        )
+        points = points[car_mask]
+        if len(points) == 0:
+            return
+
+        # Step 4: Range filter (2D distance from sensor)
         xy = points[:, :2]
         ranges = np.linalg.norm(xy, axis=1)
         range_mask = (ranges > self._min_range) & (ranges < self._max_range)
@@ -152,10 +164,10 @@ class LidarConeDetector(Node):
         if len(xy) == 0:
             return
 
-        # Step 4: Euclidean clustering
+        # Step 5: Euclidean clustering
         clusters = self._cluster(xy)
 
-        # Step 5–8: Validate, transform, dedup, classify
+        # Step 6–9: Validate, transform, dedup, classify
         new_cones = 0
         for cluster_xy in clusters:
             if not self._is_cone(cluster_xy):
