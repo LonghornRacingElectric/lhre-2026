@@ -28,7 +28,6 @@ def send_cells_v_burst(tick):
         send_packet(208, payload)
 
 print(f"LHR Mock CAN active. Sending to {UDP_IP}:{UDP_PORT}...")
-print("Repeated-field test active: sending packet 208 in 35-frame bursts")
 
 tick = 0
 while True:
