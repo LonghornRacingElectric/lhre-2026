@@ -37,6 +37,7 @@
 #include "tim.h"
 #include "usb_device.h"
 #include "usbd_cdc_if.h"
+#include "ota/ota_flash.h"
 
 #include "cmsis_os2.h"
 #include <dui_can.h>
@@ -66,6 +67,7 @@ static dfu_config dfu_conf = {
     .pin = GPIO_PIN_7,
     .pin_set_fn = (PinSet_fn)HAL_GPIO_WritePin,
     .reset_fn = HAL_NVIC_SystemReset,
+    .set_bank1_fn = (SetBank1_fn)ota_set_bank1,
 };
 
 static rainbow_led_t led_conf = {

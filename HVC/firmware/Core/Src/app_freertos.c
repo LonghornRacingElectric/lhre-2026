@@ -35,6 +35,7 @@
 #include "longhorn/usb_base.h"
 #include "tim.h"
 #include "usbd_cdc_if.h"
+#include "ota/ota_flash.h"
 
 /* HVC Application Modules */
 #include "FreeRTOS.h"
@@ -199,6 +200,7 @@ void StartDefaultTask(void* argument) {
         .pin = GPIO_PIN_7,
         .pin_set_fn = (PinSet_fn)HAL_GPIO_WritePin,
         .reset_fn = (SystemReset_fn)HAL_NVIC_SystemReset,
+        .set_bank1_fn = (SetBank1_fn)ota_set_bank1,
     };
 
     init_dfu(dfu);

@@ -17,6 +17,7 @@ void ota_flash_write_memory(uint32_t address, uint8_t *data, uint16_t length);
 uint32_t ota_flash_get_bank(uint32_t addr);
 uint32_t ota_flash_get_inactive_bank_base(void);
 int ota_flash_get_active_bank(void);
+void ota_set_bank1(void);
 
 #ifdef __cplusplus
 }

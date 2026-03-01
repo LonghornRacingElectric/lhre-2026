@@ -57,6 +57,23 @@ int ota_flash_get_active_bank(void) {
                                                                 : FLASH_BANK_2;
 }
 
+void ota_set_bank1(void) {
+  HAL_FLASH_Unlock();
+  HAL_FLASH_OB_Unlock();
+  __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_OPTVERR);
+
+  OBInit.OptionType = OPTIONBYTE_USER;
+  OBInit.USERType = OB_USER_BFB2;
+  HAL_FLASHEx_OBGetConfig(&OBInit);
+
+  OBInit.USERConfig = OB_BFB2_DISABLE;
+
+  HAL_FLASHEx_OBProgram(&OBInit);
+
+  HAL_FLASH_OB_Lock();
+  HAL_FLASH_Lock();
+}
+
 static void ota_ob_swap_bank(void) {
   HAL_FLASH_Unlock();
   HAL_FLASH_OB_Unlock();

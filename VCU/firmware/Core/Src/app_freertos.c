@@ -9,9 +9,9 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "task.h"
-#include "main.h"
 #include "cmsis_os.h"
+#include "main.h"
+#include "task.h"
 
 #include "usb_device.h"
 
@@ -27,6 +27,7 @@
 #include "longhorn/rtos/logger.h"
 #include "longhorn/rtos/usb.h"
 #include "longhorn/usb_base.h"
+#include "ota/ota_flash.h"
 
 #include "vcu_model/inc/vcu_inputs.h"
 #include "vcu_model/inc/vcu_model.h"
@@ -130,10 +131,9 @@ static vcu_model_context_t ctx = {0};
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
-  .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 128 * 4
-};
+    .name = "defaultTask",
+    .priority = (osPriority_t)osPriorityNormal,
+    .stack_size = 128 * 4};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -149,10 +149,10 @@ void StartDefaultTask(void *argument);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /**
-  * @brief  FreeRTOS initialization
-  * @param  None
-  * @retval None
-  */
+ * @brief  FreeRTOS initialization
+ * @param  None
+ * @retval None
+ */
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
@@ -197,7 +197,8 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  defaultTaskHandle =
+      osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -206,7 +207,6 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
   /* USER CODE END RTOS_EVENTS */
-
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -216,8 +216,7 @@ void MX_FREERTOS_Init(void) {
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
-{
+void StartDefaultTask(void *argument) {
   /* init code for USB_Device */
   MX_USB_Device_Init();
   /* USER CODE BEGIN StartDefaultTask */
@@ -247,6 +246,7 @@ void StartSystemTask(void *argument) {
       .pin = GPIO_PIN_7,
       .pin_set_fn = (PinSet_fn)HAL_GPIO_WritePin,
       .reset_fn = (SystemReset_fn)HAL_NVIC_SystemReset,
+      .set_bank1_fn = (SetBank1_fn)ota_set_bank1,
   };
   init_dfu(dfu);
   dfu_start_thread();
@@ -337,4 +337,3 @@ void StartControlTask(void *argument) {
 }
 
 /* USER CODE END Application */
-
