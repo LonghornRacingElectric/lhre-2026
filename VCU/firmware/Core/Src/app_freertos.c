@@ -343,10 +343,11 @@ if (++print_div >= 50) { // 500ms
   float bse2_v = ((float)bse2_adc / ADC_MAX_VAL) * ADC_BSE_SCALE_V;
 
   log_printf(LOG_INFO,
-             "BSE1 adc=%u v=%.3f | BSE2 adc=%u v=%.3f | Brake light=%.1f%%\n",
+             "BSE1 adc=%u v=%.3f | BSE2 adc=%u v=%.3f | Brake light pct =%.1f%%\n | Brake Light Pressed = %s\n",
              (unsigned)bse1_adc, (double)bse1_v,
              (unsigned)bse2_adc, (double)bse2_v,
-             (double)(out.brake_light_pct * 100.0f));
+             (double)(out.brake_light_pct * 100.0f),
+             out.brake_pressed ? "YES" : "NO");
 }
     // 10 ms control loop (100 Hz)
     osDelay(pdMS_TO_TICKS(10));
