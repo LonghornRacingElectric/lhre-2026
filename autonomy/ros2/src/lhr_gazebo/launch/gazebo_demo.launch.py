@@ -190,7 +190,7 @@ def generate_launch_description():
             'ground_z_min': -0.40,
             'ground_z_max': 0.5,
             'cluster_radius': 0.35,
-            'dedup_radius': 0.5,
+            'dedup_radius': 1.0,
         }],
         output='screen',
         condition=is_lidar,

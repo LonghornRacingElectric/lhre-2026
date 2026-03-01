@@ -57,7 +57,7 @@ class LidarConeDetector(Node):
         self.declare_parameter('min_cluster_points', 2)
         self.declare_parameter('max_cluster_extent', 0.5)
         self.declare_parameter('max_cluster_points', 50)
-        self.declare_parameter('dedup_radius', 0.5)
+        self.declare_parameter('dedup_radius', 1.0)
         self.declare_parameter('publish_hz', 10.0)
 
         self._max_range = self.get_parameter('max_range').value
@@ -79,9 +79,9 @@ class LidarConeDetector(Node):
         self._have_odom = False
         self._latest_cloud: PointCloud2 | None = None
 
-        # Accumulated cone positions in map frame.
-        self._left_map: list[tuple[float, float]] = []
-        self._right_map: list[tuple[float, float]] = []
+        # Accumulated cone positions in map frame: (x, y, observation_count).
+        self._left_map: list[list[float]] = []
+        self._right_map: list[list[float]] = []
 
         # --- QoS ---
         latch_qos = QoSProfile(
@@ -182,13 +182,11 @@ class LidarConeDetector(Node):
             # Transform to map frame
             mx, my = self._sensor_to_map(sx, sy)
 
-            # Dedup against accumulated map
+            # Dedup / merge against accumulated map
             target = self._left_map if side == 'left' else self._right_map
-            if self._is_duplicate(mx, my, target):
-                continue
-
-            target.append((mx, my))
-            new_cones += 1
+            merged = self._merge_or_add(mx, my, target)
+            if not merged:
+                new_cones += 1
 
         if new_cones > 0:
             self.get_logger().info(
@@ -250,46 +248,47 @@ class LidarConeDetector(Node):
         return mx, my
 
     # ------------------------------------------------------------------
-    # Deduplication
+    # Deduplication with running average
     # ------------------------------------------------------------------
-    def _is_duplicate(self, mx: float, my: float,
-                      existing: list[tuple[float, float]]) -> bool:
-        """Check if (mx, my) is within dedup_radius of any existing point."""
-        for ex, ey in existing:
+    def _merge_or_add(self, mx: float, my: float,
+                      cone_map: list[list[float]]) -> bool:
+        """Merge into nearest existing cone or add as new.
+
+        Returns True if merged into existing (not a new cone).
+        Each entry is [x, y, observation_count].  On merge, the
+        position is updated with a running average.
+        """
+        for entry in cone_map:
+            ex, ey = entry[0], entry[1]
             if (mx - ex) ** 2 + (my - ey) ** 2 < self._dedup_radius_sq:
+                n = entry[2]
+                entry[0] = (ex * n + mx) / (n + 1)
+                entry[1] = (ey * n + my) / (n + 1)
+                entry[2] = n + 1
                 return True
+
+        cone_map.append([mx, my, 1.0])
         return False
 
     # ------------------------------------------------------------------
     # Publishing
     # ------------------------------------------------------------------
     def _publish_accumulated(self):
-        """Publish accumulated cones sorted by angle for consistent pairing."""
+        """Publish accumulated cones as MarkerArray."""
         if not self._left_map and not self._right_map:
             return
-
-        # Compute track centroid for angle-based sorting
-        all_pts = self._left_map + self._right_map
-        cx = sum(p[0] for p in all_pts) / len(all_pts)
-        cy = sum(p[1] for p in all_pts) / len(all_pts)
-
-        def angle_key(pt):
-            return math.atan2(pt[1] - cy, pt[0] - cx)
-
-        sorted_left = sorted(self._left_map, key=angle_key)
-        sorted_right = sorted(self._right_map, key=angle_key)
 
         now = self.get_clock().now().to_msg()
         msg = MarkerArray()
 
-        for i, (x, y) in enumerate(sorted_left):
+        for i, entry in enumerate(self._left_map):
             msg.markers.append(self._make_marker(
-                i, 'left_cones', x, y, now,
+                i, 'left_cones', entry[0], entry[1], now,
                 ColorRGBA(r=0.0, g=0.2, b=1.0, a=1.0)))
 
-        for i, (x, y) in enumerate(sorted_right):
+        for i, entry in enumerate(self._right_map):
             msg.markers.append(self._make_marker(
-                10000 + i, 'right_cones', x, y, now,
+                10000 + i, 'right_cones', entry[0], entry[1], now,
                 ColorRGBA(r=1.0, g=1.0, b=0.0, a=1.0)))
 
         self._det_pub.publish(msg)
@@ -302,18 +301,18 @@ class LidarConeDetector(Node):
         now = self.get_clock().now().to_msg()
         msg = MarkerArray()
 
-        for i, (x, y) in enumerate(self._left_map):
+        for i, entry in enumerate(self._left_map):
             m = self._make_marker(
-                i, 'debug_left', x, y, now,
+                i, 'debug_left', entry[0], entry[1], now,
                 ColorRGBA(r=0.0, g=0.2, b=1.0, a=0.5))
             m.scale.x = 0.25
             m.scale.y = 0.25
             m.scale.z = 0.25
             msg.markers.append(m)
 
-        for i, (x, y) in enumerate(self._right_map):
+        for i, entry in enumerate(self._right_map):
             m = self._make_marker(
-                10000 + i, 'debug_right', x, y, now,
+                10000 + i, 'debug_right', entry[0], entry[1], now,
                 ColorRGBA(r=1.0, g=1.0, b=0.0, a=0.5))
             m.scale.x = 0.25
             m.scale.y = 0.25
