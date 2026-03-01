@@ -107,10 +107,10 @@ static vcu_parameters_t s_params = {
         {
             .bse_off_psi = 30.0f,
             .bse_on_psi = 50.0f,
-            .bse1_adc_at_min_psi_v = 156u,
-            .bse1_adc_at_max_psi_v = 635u,
-            .bse2_adc_at_min_psi_v = 156u,
-            .bse2_adc_at_max_psi_v = 635u,
+            .bse1_adc_at_min_psi_v = 370u,
+            .bse1_adc_at_max_psi_v = 800u,
+            .bse2_adc_at_min_psi_v = 370u, // set same as bse1 for now since bse2 isn't working
+            .bse2_adc_at_max_psi_v = 800u,
             .bse_max_psi = 1000.0f,
             .max_pedal_while_braking = 0.25f,
             .max_pedal_restore_threshold = 0.05f,
@@ -316,7 +316,7 @@ void StartControlTask(void *argument) {
     // Read pedal sensors from DMA buffers
     in.apps1_raw = ((float)adc3_dma_buf[0] / ADC_MAX_VAL) * ADC_APPS_SCALE_V;
     in.apps2_raw = ((float)adc3_dma_buf[1] / ADC_MAX_VAL) * ADC_APPS_SCALE_V;
-    in.bse1_raw = ((float) adc2_dma_buf[0]) / ADC_MAX_VAL * ADC_BSE_SCALE_V;
+    in.bse1_raw = (float) adc2_dma_buf[0];
     in.bse2_raw = in.bse1_raw; // TODO: use second BSE sensor when it works
 
     in.drive_switch = is_drive_switch_pressed();
@@ -331,24 +331,24 @@ void StartControlTask(void *argument) {
 
     vcu_can_set_model_outputs(&out);
 
-  // BSE debug print
-  static uint32_t print_div = 0;
-if (++print_div >= 50) { // 500ms
-  print_div = 0;
+//   // BSE debug print
+//   static uint32_t print_div = 0;
+// if (++print_div >= 50) { // 500ms
+//   print_div = 0;
 
-  uint16_t bse1_adc = adc2_dma_buf[0];
-  uint16_t bse2_adc = bse1_adc;
+//   uint16_t bse1_adc = adc2_dma_buf[0];
+//   uint16_t bse2_adc = bse1_adc;
 
-  float bse1_v = ((float)bse1_adc / ADC_MAX_VAL) * ADC_BSE_SCALE_V;
-  float bse2_v = ((float)bse2_adc / ADC_MAX_VAL) * ADC_BSE_SCALE_V;
+//   float bse1_v = (float)bse1_adc;
+//   float bse2_v = bse1_v;
 
-  log_printf(LOG_INFO,
-             "BSE1 adc=%u v=%.3f | BSE2 adc=%u v=%.3f | Brake light pct =%.1f%%\n | Brake Light Pressed = %s\n",
-             (unsigned)bse1_adc, (double)bse1_v,
-             (unsigned)bse2_adc, (double)bse2_v,
-             (double)(out.brake_light_pct * 100.0f),
-             out.brake_pressed ? "YES" : "NO");
-}
+//   log_printf(LOG_INFO,
+//              "BSE1 adc=%u v=%.3f | BSE2 adc=%u v=%.3f | Brake light pct =%.1f%%\n | Brake Light Pressed = %s\n",
+//              (unsigned)bse1_adc, (double)bse1_v,
+//              (unsigned)bse2_adc, (double)bse2_v,
+//              (double)(out.brake_light_pct * 100.0f),
+//              out.brake_pressed ? "YES" : "NO");
+// }
     // 10 ms control loop (100 Hz)
     osDelay(pdMS_TO_TICKS(10));
   }
