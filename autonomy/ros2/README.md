@@ -2,11 +2,7 @@
 
 Colcon workspace for LHR driverless / autonomy nodes.
 
-**Supported platforms:**
-- Ubuntu 22.04 (WSL2 or native) + **ROS 2 Humble**
-- Ubuntu 24.04 (WSL2 or native) + **ROS 2 Jazzy**
-
-All scripts auto-detect which ROS 2 distro is installed (via `scripts/_ros_env.sh`).
+**Supported platform:** Ubuntu 24.04 (native or WSL2) + **ROS 2 Jazzy**
 
 ## Packages
 
@@ -19,7 +15,8 @@ All scripts auto-detect which ROS 2 distro is installed (via `scripts/_ros_env.s
 | `lhr_control` | Pure pursuit path-following controller with curvature-adaptive lookahead and speed planning |
 | `lhr_mission_manager` | FSAE driverless state machine (Off → Ready → Driving → Finished → Emergency) |
 | `lhr_metrics` | Cross-track error, off-track count, and lap detection (CSV output) |
-| `lhr_gazebo` | Gazebo physics simulation — vehicle with direct joint control, ground-truth odometry, RViz integration |
+| `lhr_gazebo` | Gazebo Harmonic physics simulation — vehicle with direct joint control, ground-truth odometry, LiDAR sensor, RViz integration |
+| `lhr_perception` | LiDAR-based cone detection — pointcloud clustering, left/right classification, persistent mapping |
 | `lhr_demo` | Launch file that starts the full kinematic stack in one command |
 
 ## Data flow
@@ -45,13 +42,14 @@ trackgen ──→ /lhr/track/cones ──→ sensor_sim ──→ /lhr/sensor/c
 
 ### Gazebo sim (run_gazebo_demo.sh)
 
+**Sim perception (default, `perception:=sim`):**
 ```
                    ┌──────────────────── GAZEBO ────────────────────┐
                    │  Vehicle (fsae_vehicle) with:                  │
                    │   • JointPositionController (steering joints)  │
                    │   • JointController (wheel velocities)         │
                    │   • OdometryPublisher (ground-truth pose)      │
-                   │   • IMU sensor                                 │
+                   │   • IMU sensor, GPU LiDAR sensor               │
                    └─────────────┬───────────────────┬──────────────┘
                                  │                   │
                     ros_gz_bridge│(6x Float64 + odom)│
@@ -65,7 +63,21 @@ trackgen ──→ /lhr/track/cones ──→ sensor_sim ──→ /lhr/sensor/c
                                           /lhr/vehicle/odom ◄── Gazebo OdometryPublisher
 ```
 
-The Gazebo path reuses the existing cone pipeline (`trackgen` + `sensor_sim`) for cone detection while Gazebo provides physics, odometry, and IMU. The upper stack (track_builder, control, mission_manager, metrics) is identical in both modes.
+**LiDAR perception (`perception:=lidar`):**
+```
+                   ┌──────────────────── GAZEBO ────────────────────┐
+                   │  Vehicle with GPU LiDAR sensor                 │
+                   └──────┬──────────────────┬──────────────────────┘
+                          │                  │
+             ros_gz_bridge│(PointCloud2+odom)│
+                          │                  │
+  lidar_cone_detector ──→ track_builder ──→ pure_pursuit ──→ joint_cmd_adapter
+  (pointcloud clustering,  (nearest-neighbor
+   left/right classify,     pairing)
+   persistent mapping)
+```
+
+The upper stack (track_builder, control, mission_manager, metrics) is identical in both modes. The `perception` launch argument selects between the sim pipeline and LiDAR-based detection.
 
 To bypass the sensor sim and use all cones directly (god-mode), override the cone topic:
 ```bash
@@ -80,7 +92,7 @@ If you're on Windows, install WSL2 with Ubuntu first:
 
 ```powershell
 # In PowerShell (as admin)
-wsl --install -d Ubuntu-24.04    # or Ubuntu-22.04
+wsl --install -d Ubuntu-24.04
 ```
 
 Restart, then open the Ubuntu terminal and continue below.
@@ -109,14 +121,8 @@ sudo apt update
 ### 3. Install ROS 2 packages
 
 ```bash
-# Ubuntu 22.04 (Humble)
-sudo apt install -y ros-humble-desktop ros-humble-ackermann-msgs ros-humble-tf2-ros
-
-# Ubuntu 24.04 (Jazzy)
 sudo apt install -y ros-jazzy-desktop ros-jazzy-ackermann-msgs ros-jazzy-tf2-ros
 ```
-
-Install whichever matches your Ubuntu version. The build scripts auto-detect the distro.
 
 ### 4. Install colcon (build tool)
 
@@ -124,23 +130,15 @@ Install whichever matches your Ubuntu version. The build scripts auto-detect the
 sudo apt install -y python3-colcon-common-extensions
 ```
 
-### 5. Install Gazebo (optional — for physics simulation)
+### 5. Install Gazebo Harmonic (optional — for physics simulation)
 
 ```bash
-# Ubuntu 22.04 (Humble) — installs Gazebo Fortress
-sudo apt install -y ros-humble-ros-gz
-
-# Ubuntu 24.04 (Jazzy) — installs Gazebo Harmonic
 sudo apt install -y ros-jazzy-ros-gz
 ```
 
 ### 6. Install PlotJuggler (optional — for plotting debug signals)
 
 ```bash
-# Ubuntu 22.04 (Humble)
-sudo apt install -y ros-humble-plotjuggler-ros
-
-# Ubuntu 24.04 (Jazzy)
 sudo apt install -y ros-jazzy-plotjuggler-ros
 ```
 
@@ -224,8 +222,9 @@ RViz launches automatically alongside Gazebo (disable with `rviz:=false`). The R
 Launch arguments work the same way:
 ```bash
 ./scripts/run_gazebo_demo.sh seed:=42 lookahead_dist:=6.0
-./scripts/run_gazebo_demo.sh gui:=false    # headless Gazebo (no Gazebo GUI)
-./scripts/run_gazebo_demo.sh rviz:=false   # disable RViz
+./scripts/run_gazebo_demo.sh gui:=false          # headless Gazebo (no Gazebo GUI)
+./scripts/run_gazebo_demo.sh rviz:=false         # disable RViz
+./scripts/run_gazebo_demo.sh perception:=lidar   # LiDAR-based cone detection
 ```
 
 ### Vehicle model
@@ -265,19 +264,19 @@ Odometry comes from Gazebo's `OdometryPublisher` system plugin, which reports th
 ### Architecture comparison
 
 ```
-LIGHTWEIGHT SIM (run_demo.sh)         GAZEBO SIM (run_gazebo_demo.sh)
-─────────────────────────────         ─────────────────────────────────
-lhr_trackgen (procedural cones)   →   lhr_trackgen (same — reused)
-lhr_sensor_sim (FOV filter)       →   lhr_sensor_sim (same — reused)
-lhr_sim_kinematic (bicycle model) →   Gazebo physics + direct joint control
+LIGHTWEIGHT SIM              GAZEBO (perception:=sim)         GAZEBO (perception:=lidar)
+───────────────              ────────────────────────         ─────────────────────────
+lhr_trackgen (cones)     →   lhr_trackgen (reused)        →   Gazebo GPU LiDAR sensor
+lhr_sensor_sim (FOV)     →   lhr_sensor_sim (reused)      →   lhr_perception (pointcloud)
+lhr_sim_kinematic        →   Gazebo physics               →   Gazebo physics
 
-lhr_track_builder                 →   SAME
-lhr_control                       →   SAME
-lhr_mission_manager               →   SAME
-lhr_metrics                       →   SAME
+lhr_track_builder        →   SAME (index pairing)         →   SAME (nearest pairing)
+lhr_control              →   SAME                         →   SAME
+lhr_mission_manager      →   SAME                         →   SAME
+lhr_metrics              →   SAME                         →   SAME
 ```
 
-Both paths produce identical ROS 2 topic interfaces — the upper stack doesn't know the difference.
+All paths produce identical ROS 2 topic interfaces — the upper stack doesn't know the difference.
 
 ### World generation
 
@@ -289,7 +288,7 @@ The world generator script (`lhr_gazebo/scripts/generate_world.py`) creates a Ga
 
 ### Gazebo-ROS bridge
 
-The bridge config (`config/ros_gz_bridge.yaml`) maps 10 topics:
+The bridge config (`config/ros_gz_bridge.yaml`) maps 11 topics:
 
 | Direction | ROS 2 Topic | Gazebo Topic | Type |
 |-----------|-------------|--------------|------|
@@ -297,6 +296,7 @@ The bridge config (`config/ros_gz_bridge.yaml`) maps 10 topics:
 | GZ → ROS | `/tf` | `/model/fsae_vehicle/tf` | TFMessage |
 | GZ → ROS | `/clock` | `/clock` | Clock |
 | GZ → ROS | `/lhr/imu/data` | `/imu/data` | Imu |
+| GZ → ROS | `/lhr/lidar/points` | `/lidar/points` | PointCloud2 |
 | ROS → GZ | 2x steering `cmd_pos` | (same) | Float64/Double |
 | ROS → GZ | 4x wheel `cmd_vel` | (same) | Float64/Double |
 
@@ -322,6 +322,8 @@ The bridge config (`config/ros_gz_bridge.yaml`) maps 10 topics:
 | `/lhr/debug/v_cmd` | `std_msgs/Float32` | Debug: commanded speed after accel limiting |
 | `/lhr/debug/mission_state` | `std_msgs/Float32` | Debug: numeric state for PlotJuggler (0=Off, 1=Ready, 2=Driving, 3=Finished, 4=Emergency) |
 | `/lhr/imu/data` | `sensor_msgs/Imu` | IMU data (Gazebo sim only) |
+| `/lhr/lidar/points` | `sensor_msgs/PointCloud2` | LiDAR pointcloud (Gazebo sim only) |
+| `/lhr/perception/debug` | `visualization_msgs/MarkerArray` | LiDAR perception debug visualization |
 
 ## TF tree
 
@@ -365,9 +367,12 @@ Cone IDs: left cones use IDs `0..N-1`, right cones use IDs `10000..10000+N-1`. T
 | `frame_id` | `"map"` | TF frame |
 | `publish_hz` | `5.0` | Publishing rate (Hz) |
 | `max_points` | `200` | Cap on centerline points |
+| `pairing_strategy` | `"index"` | Pairing strategy: `index` (ID-based, for sim) or `nearest` (nearest-neighbor, for LiDAR) |
 | `cone_topic` | `"/lhr/sensor/cones_detected"` | Topic to subscribe for cone data |
 
-Cone pairing is done by marker ID: for each left cone with ID `i`, the corresponding right cone has ID `i + 10000`. The centerline is the midpoint of each pair, sorted by ascending left cone ID.
+Cone pairing strategies:
+- **index** (default): Pairs left cone ID `i` with right cone ID `i + 10000`. Works with sim perception where cone IDs follow the trackgen convention.
+- **nearest**: Pairs each left cone with its nearest unpaired right cone. Required for LiDAR perception where detection order is arbitrary.
 
 ### lhr_sim_kinematic (sim_node)
 
@@ -488,6 +493,25 @@ outer = atan(wheelbase / (R + track_width/2))
 ```
 
 **Wheel velocity differential:** Each wheel's angular velocity accounts for its distance from the instantaneous center of rotation. Outer wheels travel farther and spin faster than inner wheels in a turn.
+
+### lhr_perception (lidar_cone_detector)
+
+Processes LiDAR pointcloud to detect cones. Pipeline: ground removal → range filter → Euclidean clustering → cone validation → sensor-to-map transform → spatial dedup → left/right classification.
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `max_range` | `20.0` | Max detection range (m) |
+| `min_range` | `0.8` | Min detection range — avoids vehicle self-hits (m) |
+| `ground_z_min` | `-0.40` | Ground removal lower threshold in sensor frame (m) |
+| `ground_z_max` | `0.5` | Ground removal upper threshold in sensor frame (m) |
+| `cluster_radius` | `0.35` | Euclidean clustering radius (m) |
+| `min_cluster_points` | `2` | Minimum points for a valid cluster |
+| `max_cluster_extent` | `0.5` | Maximum cluster bounding box extent (m) |
+| `max_cluster_points` | `50` | Maximum points in a valid cone cluster |
+| `dedup_radius` | `0.5` | Spatial dedup radius — new detections within this distance of existing ones are ignored (m) |
+| `publish_hz` | `10.0` | Output publish rate (Hz) |
+
+Left/right classification uses lateral position in sensor frame (positive y = left/blue, negative y = right/yellow). Accumulated detections are sorted by angle from the track centroid for consistent pairing with the track builder's nearest-neighbor strategy.
 
 ### lhr_metrics (metrics_node)
 
