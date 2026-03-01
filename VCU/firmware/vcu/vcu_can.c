@@ -46,6 +46,7 @@ void vcu_init_inverter(void);
  * @brief Initializes the CAN interface with the RTOS library and registers
  * handlers. Also starts the CAN transceiver and receiver tasks.
  */
+ 
 void vcu_can_init(void) {
   can_config_t vcu_can_config = {
       .init_fn = (CAN_Init_fn)HAL_FDCAN_Init,
@@ -56,9 +57,11 @@ void vcu_can_init(void) {
       .get_tx_fifo_free_level_fn =
           (CAN_GetTxFifoFreeLevel_fn)HAL_FDCAN_GetTxFifoFreeLevel,
       .get_rx_message_fn = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
+      .get_rx_fifo_fill_level_fn =
+          (CAN_GetRxFifoFillLevel_fn)HAL_FDCAN_GetRxFifoFillLevel,
       .tick_fn = HAL_GetTick,
       .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
-      .malloc_fn = pvPortMalloc,
+      .malloc_fn = pvPortMalloc,  
       .free_fn = vPortFree,
       .init_bit = FDCAN_CCCR_INIT,
   };
@@ -128,7 +131,7 @@ void vcu_can_set_model_outputs(vcu_outputs_t *out) {
   // TODO: use BPPS instead of BSE for this.
   brake_pedal_mailbox.brake_pedal_travel = out->bse_psi_filtered;
   brake_pedal_mailbox.brake_light_percent = out->brake_light_pct;
-  
+
   inverter_torque_command_mailbox.torque_request = out->torque_cmd;
   inverter_torque_command_mailbox.enable = out->inverter_enable;
   inverter_torque_command_mailbox.torque_limit = 200.0f;
