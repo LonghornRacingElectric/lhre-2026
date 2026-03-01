@@ -46,6 +46,8 @@ model dynamics {
 
 model controls {
   packet_id BigInt @id
+  motor_speed          Float?
+  torque_feedback      Float?
   apps1_travel         Float?
   apps1_v              Float?
   apps2_travel         Float?
@@ -64,30 +66,31 @@ model controls {
   bse3_v               Float?
   lights_current       Float?
   rpm_request          Float?
+  torque_command       Float?
   torque_limit         Float?
   torque_request       Float?
+  commanded_torque     Float?
+  motor_angle          Float?
   direction            Boolean?
   enable               Boolean?
+  torque_shudder       Float?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }
 
 model pack {
   packet_id BigInt @id
-  motor_speed          Float?
-  torque_feedback      Float?
   bus_voltage          Float?
   lv_boards_current    Float?
-  torque_command       Float?
-  commanded_torque     Float?
+  cells_v              Float[]?
   dc_bus_v             Float?
   delta_resolver_angle Float?
   inverter_freq        Float?
-  motor_angle          Float?
   neutral_output_v     Float?
   time_since_on        Float?
   vab_vq_v             Float?
   vbc_vd_v             Float?
+  cells_temps          Float[]?
   dc_bus_current       Float?
   hv_c                 Float?
   hv_pack_v            Float?
@@ -134,8 +137,6 @@ model thermal {
   packet_id BigInt @id
   batt_cooling_current Float?
   motor_cooling_current Float?
-  cells_v              Float[]?
-  cells_temps          Float[]?
   motor_temp           Float?
   ambient_temp         Float?
   batt_loop_batt_temp  Float?
@@ -158,7 +159,6 @@ model thermal {
   motor_loop_rad_temp  Float?
   rtd4_temp            Float?
   rtd5_temp            Float?
-  torque_shudder       Float?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }

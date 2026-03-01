@@ -487,6 +487,8 @@ class OrionControls(BaseOrion):
     __tablename__ = 'controls'
     __table_args__ = {'schema': 'public', 'extend_existing': True}
     packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
+    motor_speed = Column(Float)
+    torque_feedback = Column(Float)
     apps1_travel = Column(Float)
     apps1_v = Column(Float)
     apps2_travel = Column(Float)
@@ -505,30 +507,31 @@ class OrionControls(BaseOrion):
     bse3_v = Column(Float)
     lights_current = Column(Float)
     rpm_request = Column(Float)
+    torque_command = Column(Float)
     torque_limit = Column(Float)
     torque_request = Column(Float)
+    commanded_torque = Column(Float)
+    motor_angle = Column(Float)
     direction = Column(Boolean)
     enable = Column(Boolean)
+    torque_shudder = Column(Float)
     packet = relationship("OrionPacket", back_populates="controls")
 
 class OrionPack(BaseOrion):
     __tablename__ = 'pack'
     __table_args__ = {'schema': 'public', 'extend_existing': True}
     packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
-    motor_speed = Column(Float)
-    torque_feedback = Column(Float)
     bus_voltage = Column(Float)
     lv_boards_current = Column(Float)
-    torque_command = Column(Float)
-    commanded_torque = Column(Float)
+    cells_v = Column(ARRAY(Float))
     dc_bus_v = Column(Float)
     delta_resolver_angle = Column(Float)
     inverter_freq = Column(Float)
-    motor_angle = Column(Float)
     neutral_output_v = Column(Float)
     time_since_on = Column(Float)
     vab_vq_v = Column(Float)
     vbc_vd_v = Column(Float)
+    cells_temps = Column(ARRAY(Float))
     dc_bus_current = Column(Float)
     hv_c = Column(Float)
     hv_pack_v = Column(Float)
@@ -575,8 +578,6 @@ class OrionThermal(BaseOrion):
     packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
     batt_cooling_current = Column(Float)
     motor_cooling_current = Column(Float)
-    cells_v = Column(ARRAY(Float))
-    cells_temps = Column(ARRAY(Float))
     motor_temp = Column(Float)
     ambient_temp = Column(Float)
     batt_loop_batt_temp = Column(Float)
@@ -599,7 +600,6 @@ class OrionThermal(BaseOrion):
     motor_loop_rad_temp = Column(Float)
     rtd4_temp = Column(Float)
     rtd5_temp = Column(Float)
-    torque_shudder = Column(Float)
     packet = relationship("OrionPacket", back_populates="thermal")
 
 # END GENERATED Orion

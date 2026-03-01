@@ -34,6 +34,8 @@ class OrionDynamics:
 
 @dataclass
 class OrionControls:
+    motor_speed: Optional[float] = None
+    torque_feedback: Optional[float] = None
     apps1_travel: Optional[float] = None
     apps1_v: Optional[float] = None
     apps2_travel: Optional[float] = None
@@ -52,27 +54,28 @@ class OrionControls:
     bse3_v: Optional[float] = None
     lights_current: Optional[float] = None
     rpm_request: Optional[float] = None
+    torque_command: Optional[float] = None
     torque_limit: Optional[float] = None
     torque_request: Optional[float] = None
+    commanded_torque: Optional[float] = None
+    motor_angle: Optional[float] = None
     direction: Optional[bool] = None
     enable: Optional[bool] = None
+    torque_shudder: Optional[float] = None
 
 @dataclass
 class OrionPack:
-    motor_speed: Optional[float] = None
-    torque_feedback: Optional[float] = None
     bus_voltage: Optional[float] = None
     lv_boards_current: Optional[float] = None
-    torque_command: Optional[float] = None
-    commanded_torque: Optional[float] = None
+    cells_v: List[float] = field(default_factory=list)
     dc_bus_v: Optional[float] = None
     delta_resolver_angle: Optional[float] = None
     inverter_freq: Optional[float] = None
-    motor_angle: Optional[float] = None
     neutral_output_v: Optional[float] = None
     time_since_on: Optional[float] = None
     vab_vq_v: Optional[float] = None
     vbc_vd_v: Optional[float] = None
+    cells_temps: List[float] = field(default_factory=list)
     dc_bus_current: Optional[float] = None
     hv_c: Optional[float] = None
     hv_pack_v: Optional[float] = None
@@ -110,8 +113,6 @@ class OrionDiagnosticsLow:
 class OrionThermal:
     batt_cooling_current: Optional[float] = None
     motor_cooling_current: Optional[float] = None
-    cells_v: List[float] = field(default_factory=list)
-    cells_temps: List[float] = field(default_factory=list)
     motor_temp: Optional[float] = None
     ambient_temp: Optional[float] = None
     batt_loop_batt_temp: Optional[float] = None
@@ -134,7 +135,6 @@ class OrionThermal:
     motor_loop_rad_temp: Optional[float] = None
     rtd4_temp: Optional[float] = None
     rtd5_temp: Optional[float] = None
-    torque_shudder: Optional[float] = None
 
 @dataclass
 class OrionSensorData:

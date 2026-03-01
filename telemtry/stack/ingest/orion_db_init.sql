@@ -232,6 +232,8 @@ CREATE TABLE public.dynamics (
 -- Generated Controls Table
 CREATE TABLE public.controls (
     packet_id           bigint   NOT NULL,
+    motor_speed          real,
+    torque_feedback      real,
     apps1_travel         real,
     apps1_v              real,
     apps2_travel         real,
@@ -250,30 +252,31 @@ CREATE TABLE public.controls (
     bse3_v               real,
     lights_current       real,
     rpm_request          real,
+    torque_command       real,
     torque_limit         real,
     torque_request       real,
+    commanded_torque     real,
+    motor_angle          real,
     direction            boolean,
     enable               boolean,
+    torque_shudder       real,
     CONSTRAINT fk_controls_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
 
 -- Generated Pack Table
 CREATE TABLE public.pack (
     packet_id           bigint   NOT NULL,
-    motor_speed          real,
-    torque_feedback      real,
     bus_voltage          real,
     lv_boards_current    real,
-    torque_command       real,
-    commanded_torque     real,
+    cells_v              real[],
     dc_bus_v             real,
     delta_resolver_angle real,
     inverter_freq        real,
-    motor_angle          real,
     neutral_output_v     real,
     time_since_on        real,
     vab_vq_v             real,
     vbc_vd_v             real,
+    cells_temps          real[],
     dc_bus_current       real,
     hv_c                 real,
     hv_pack_v            real,
@@ -320,8 +323,6 @@ CREATE TABLE public.thermal (
     packet_id           bigint   NOT NULL,
     batt_cooling_current real,
     motor_cooling_current real,
-    cells_v              real[],
-    cells_temps          real[],
     motor_temp           real,
     ambient_temp         real,
     batt_loop_batt_temp  real,
@@ -344,6 +345,5 @@ CREATE TABLE public.thermal (
     motor_loop_rad_temp  real,
     rtd4_temp            real,
     rtd5_temp            real,
-    torque_shudder       real,
     CONSTRAINT fk_thermal_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
