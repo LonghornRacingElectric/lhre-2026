@@ -89,10 +89,10 @@ const osThreadAttr_t controlTask_attributes = {
 static vcu_parameters_t s_params = {
     .apps =
         {
-            .apps1_min_adc_v = 782u,
-            .apps1_max_adc_v = 3262u,
-            .apps2_min_adc_v = 382u,
-            .apps2_max_adc_v = 1586u,
+            .apps1_min_adc_v = 1555u,
+            .apps1_max_adc_v = 1880u,
+            .apps2_min_adc_v = 1554u,
+            .apps2_max_adc_v = 1871u,
             .implaus_debounce_time_ms = 100u,
             .max_allowable_diff = 0.10f,
             .min_travel_threshold = 0.10f,
@@ -318,6 +318,13 @@ void StartControlTask(void *argument) {
     in.apps2_raw = ((float)adc3_dma_buf[1] / ADC_MAX_VAL) * ADC_APPS_SCALE_V;
     in.bse1_raw = ((float)adc2_dma_buf[0] / ADC_MAX_VAL) * ADC_BSE_SCALE_V;
     in.bse2_raw = in.bse1_raw;
+
+    // print APPS for debugging
+    log_printf(LOG_INFO,
+             "APPS1 adc=%u| APPS2 adc=%u",
+             (unsigned)adc3_dma_buf[0], 
+             (unsigned)adc3_dma_buf[1]);
+
 
     in.drive_switch = is_drive_switch_pressed();
 
