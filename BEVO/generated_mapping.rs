@@ -1,52 +1,57 @@
 // THIS FILE IS AUTO-GENERATED. DO NOT EDIT.
-use crate::proto::SensorData;
+use crate::proto::orion::OrionSensorData;
 use crate::config::ProtobufMapping;
 
-pub fn update_proto_field_generated(data: &mut SensorData, name: &str, val: f32, config: &ProtobufMapping) {
+pub fn update_proto_field_generated(data: &mut OrionSensorData, name: &str, val: f32, config: &ProtobufMapping) {
     let _d = data.dynamics.get_or_insert_with(Default::default);
     let _c = data.controls.get_or_insert_with(Default::default);
     let _p = data.pack.get_or_insert_with(Default::default);
-    let _l = data.diagnostics_low.get_or_insert_with(Default::default);
     let _h = data.diagnostics_high.get_or_insert_with(Default::default);
+    let _l = data.diagnostics_low.get_or_insert_with(Default::default);
     let _t = data.thermal.get_or_insert_with(Default::default);
 
     if config.repeated {
         if let Some(i) = config.field_index {
             match name {
                 "bl_sprung_accel" => crate::set_vec_index(&mut _d.bl_sprung_accel, i, val),
-                "bl_sprung_ang_rate" => crate::set_vec_index(&mut _d.bl_sprung_ang_rate, i, val),
                 "bl_unsprung_accel" => crate::set_vec_index(&mut _d.bl_unsprung_accel, i, val),
                 "br_sprung_accel" => crate::set_vec_index(&mut _d.br_sprung_accel, i, val),
-                "br_sprung_ang_rate" => crate::set_vec_index(&mut _d.br_sprung_ang_rate, i, val),
                 "br_unsprung_accel" => crate::set_vec_index(&mut _d.br_unsprung_accel, i, val),
-                "cells_temps" => crate::set_vec_index(&mut _l.cells_temps, i, val),
-                "cells_v" => crate::set_vec_index(&mut _l.cells_v, i, val),
+                "cells_temps" => crate::set_vec_index(&mut _t.cells_temps, i, val),
+                "cells_v" => crate::set_vec_index(&mut _t.cells_v, i, val),
                 "fl_sprung_accel" => crate::set_vec_index(&mut _d.fl_sprung_accel, i, val),
-                "fl_sprung_ang_rate" => crate::set_vec_index(&mut _d.fl_sprung_ang_rate, i, val),
                 "fl_unsprung_accel" => crate::set_vec_index(&mut _d.fl_unsprung_accel, i, val),
                 "fr_sprung_accel" => crate::set_vec_index(&mut _d.fr_sprung_accel, i, val),
-                "fr_sprung_ang_rate" => crate::set_vec_index(&mut _d.fr_sprung_ang_rate, i, val),
                 "fr_unsprung_accel" => crate::set_vec_index(&mut _d.fr_unsprung_accel, i, val),
                 _ => (),
             }
         }
     } else {
         match name {
+            "accel_pedal_travel" => _d.accel_pedal_travel = val,
             "ambient_temp" => _t.ambient_temp = val,
+            "apps1_travel" => _c.apps1_travel = val,
+            "apps1_v" => _c.apps1_v = val,
+            "apps2_travel" => _c.apps2_travel = val,
+            "apps2_v" => _c.apps2_v = val,
+            "batt_cooling_current" => _t.batt_cooling_current = val,
             "batt_loop_batt_temp" => _t.batt_loop_batt_temp = val,
             "batt_loop_rad_fan_speed" => _t.batt_loop_rad_fan_speed = val,
             "batt_loop_rad_temp" => _t.batt_loop_rad_temp = val,
-            "bl_pushrod_stress" => _d.bl_pushrod_stress = val,
             "bl_ride_height" => _d.bl_ride_height = val,
-            "bl_spring_displace" => _d.bl_spring_displace = val,
             "bl_strain_gauge_v" => _d.bl_strain_gauge_v = val,
+            "bl_sus_pot_v" => _d.bl_sus_pot_v = val,
             "blw_speed" => _d.blw_speed = val,
             "bmb_comm_error" => _l.bmb_comm_error = val != 0.0,
-            "br_pushrod_stress" => _d.br_pushrod_stress = val,
+            "bpps1_travel" => _c.bpps1_travel = val,
+            "bpps1_v" => _c.bpps1_v = val,
+            "bpps2_travel" => _c.bpps2_travel = val,
+            "bpps2_v" => _c.bpps2_v = val,
             "br_ride_height" => _d.br_ride_height = val,
-            "br_spring_displace" => _d.br_spring_displace = val,
             "br_strain_gauge_v" => _d.br_strain_gauge_v = val,
+            "br_sus_pot_v" => _d.br_sus_pot_v = val,
             "brake_bias" => _c.brake_bias = val,
+            "brake_pedal_travel" => _c.brake_pedal_travel = val,
             "brake_pressure_f" => _c.brake_pressure_f = val,
             "brake_pressure_rall" => _c.brake_pressure_rall = val,
             "brake_pressure_rbll" => _c.brake_pressure_rbll = val,
@@ -57,44 +62,85 @@ pub fn update_proto_field_generated(data: &mut SensorData, name: &str, val: f32,
             "bus_bar_temp1" => _t.bus_bar_temp1 = val,
             "bus_bar_temp2" => _t.bus_bar_temp2 = val,
             "bus_bar_temp3" => _t.bus_bar_temp3 = val,
+            "bus_voltage" => _p.bus_voltage = val,
+            "cell_bottom_temp" => _t.cell_bottom_temp = val,
+            "cell_top_temp" => _t.cell_top_temp = val,
+            "commanded_torque" => _p.commanded_torque = val,
+            "dc_bus_current" => _p.dc_bus_current = val,
+            "dc_bus_v" => _p.dc_bus_v = val,
+            "delta_resolver_angle" => _p.delta_resolver_angle = val,
+            "direction" => _c.direction = val != 0.0,
             "discharge_r_temp" => _t.discharge_r_temp = val,
-            "fl_pushrod_stress" => _d.fl_pushrod_stress = val,
+            "enable" => _c.enable = val != 0.0,
             "fl_ride_height" => _d.fl_ride_height = val,
-            "fl_spring_displace" => _d.fl_spring_displace = val,
-            "fl_steer_angle" => _d.fl_steer_angle = val,
             "fl_strain_gauge_v" => _d.fl_strain_gauge_v = val,
+            "fl_sus_pot_v" => _d.fl_sus_pot_v = val,
             "flw_speed" => _d.flw_speed = val,
-            "fr_pushrod_stress" => _d.fr_pushrod_stress = val,
             "fr_ride_height" => _d.fr_ride_height = val,
-            "fr_spring_displace" => _d.fr_spring_displace = val,
-            "fr_steer_angle" => _d.fr_steer_angle = val,
             "fr_strain_gauge_v" => _d.fr_strain_gauge_v = val,
+            "fr_sus_pot_v" => _d.fr_sus_pot_v = val,
             "frw_speed" => _d.frw_speed = val,
+            "gate_driver_temp" => _t.gate_driver_temp = val,
             "hv_c" => _p.hv_c = val,
             "hv_pack_v" => _p.hv_pack_v = val,
-            "hv_soc" => _l.hv_soc = val,
+            "hv_soc" => _p.hv_soc = val,
+            "hvc_state_machine" => _h.hvc_state_machine = val,
             "imd_gnd_isolation_error" => _l.imd_gnd_isolation_error = val != 0.0,
+            "inverter_freq" => _p.inverter_freq = val,
             "inverter_temp" => _t.inverter_temp = val,
+            "lights_current" => _c.lights_current = val,
+            "lv_batt_c" => _p.lv_batt_c = val,
+            "lv_batt_t" => _p.lv_batt_t = val,
+            "lv_batt_v" => _p.lv_batt_v = val,
+            "lv_boards_current" => _p.lv_boards_current = val,
+            "module_a_temp" => _t.module_a_temp = val,
+            "module_b_temp" => _t.module_b_temp = val,
+            "module_c_temp" => _t.module_c_temp = val,
+            "motor_angle" => _p.motor_angle = val,
+            "motor_cooling_current" => _t.motor_cooling_current = val,
             "motor_loop_inverter_temp" => _t.motor_loop_inverter_temp = val,
             "motor_loop_motor_temp" => _t.motor_loop_motor_temp = val,
             "motor_loop_rad_fan_speed" => _t.motor_loop_rad_fan_speed = val,
             "motor_loop_rad_temp" => _t.motor_loop_rad_temp = val,
+            "motor_speed" => _p.motor_speed = val,
             "motor_temp" => _t.motor_temp = val,
-            "precharge_r_temp" => _t.precharge_r_temp = val,
+            "neg_hv_contactor" => _h.neg_hv_contactor = val != 0.0,
+            "neutral_output_v" => _p.neutral_output_v = val,
+            "phase_a_current" => _p.phase_a_current = val,
+            "phase_b_current" => _p.phase_b_current = val,
+            "phase_c_current" => _p.phase_c_current = val,
+            "pos_hv_contactor" => _h.pos_hv_contactor = val != 0.0,
+            "post_faults" => _h.post_faults = val,
+            "precharge_contactor" => _h.precharge_contactor = val != 0.0,
+            "precharge_r_temp" => _l.precharge_r_temp = val,
+            "r2d_authorized" => _l.r2d_authorized = val != 0.0,
+            "r2d_status" => _l.r2d_status = val != 0.0,
+            "ride_height" => _d.ride_height = val,
+            "rpm_request" => _c.rpm_request = val,
+            "rtd4_temp" => _t.rtd4_temp = val,
+            "rtd5_temp" => _t.rtd5_temp = val,
+            "run_faults" => _h.run_faults = val,
+            "shutdown_current" => _h.shutdown_current = val,
             "shutdown_leg1" => _l.shutdown_leg1 = val != 0.0,
             "shutdown_leg2" => _l.shutdown_leg2 = val != 0.0,
             "shutdown_leg3" => _l.shutdown_leg3 = val != 0.0,
             "shutdown_leg4" => _l.shutdown_leg4 = val != 0.0,
             "steer_col_angle" => _d.steer_col_angle = val,
+            "time_since_on" => _p.time_since_on = val,
+            "torque_command" => _p.torque_command = val,
+            "torque_feedback" => _p.torque_feedback = val,
+            "torque_limit" => _c.torque_limit = val,
+            "torque_request" => _c.torque_request = val,
+            "torque_shudder" => _t.torque_shudder = val,
+            "vab_vq_v" => _p.vab_vq_v = val,
+            "vbc_vd_v" => _p.vbc_vd_v = val,
+            "wheel_speed" => _d.wheel_speed = val,
             _ => (),
         }
     }
 }
 
-pub fn update_proto_bool_generated(data: &mut SensorData, name: &str, val: bool) {
-    let _l = data.diagnostics_low.get_or_insert_with(Default::default);
-    let _h = data.diagnostics_high.get_or_insert_with(Default::default);
-    let _t = data.thermal.get_or_insert_with(Default::default);
+pub fn update_proto_bool_generated(data: &mut OrionSensorData, name: &str, val: bool) {
     match name {
         _ => (),
     }

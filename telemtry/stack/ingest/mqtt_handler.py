@@ -167,6 +167,9 @@ class MQTTHandler:
                 userdata.client.publish('server-communication', welcome_msg)
                 logging.info(f'\t\tBEVO-Orion connected. Sent welcome message with next packet_id: {next_packet_id}')
             return
+        if msg.topic == 'server-communication':
+            logging.debug('Ignoring server-communication control message on ingest subscriber')
+            return
         # Handle Start & End Event
         if msg.topic == 'config/flask':
             self._flask_handler(msg.payload.decode())

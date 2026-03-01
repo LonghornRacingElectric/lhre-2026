@@ -27,8 +27,9 @@ uint32_t clamp_u32(uint32_t x, uint32_t lo, uint32_t hi) {
 float linear_interp(float a, float b, float pct) { return a + pct * (b - a); }
 float inverse_linear_interp(float a, float b, float val) {
   float span = b - a;
-  if (span <= 1e-6)
+  if (span > -1e-6f && span < 1e-6f) {
     return 0.0f;
+  }
   return (val - a) / span;
 }
 

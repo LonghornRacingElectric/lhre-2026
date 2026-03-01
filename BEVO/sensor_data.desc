@@ -1,159 +1,151 @@
 
-ò*
-drivers/proto/template.proto"√
-
-SensorData
+„%
+$nonhermetic/assets/can_packets.protoorion"Í
+OrionSensorData
 time (Rtime
-	packet_id (RpacketId%
-dynamics (2	.DynamicsRdynamics%
-controls (2	.ControlsRcontrols
-pack (2.PackRpack;
-diagnostics_high (2.DiagnosticsHighRdiagnosticsHigh9
-diagnostics_lowÈ (2.DiagnosticsLowRdiagnosticsLow#
-thermalÍ (2.ThermalRthermal"‘
-Dynamics&
-steer_col_angle (RsteerColAngle$
-fl_steer_angle (RflSteerAngle$
-fr_steer_angle	 (RfrSteerAngle&
-fl_sprung_accel
- (RflSprungAccel&
-fr_sprung_accel (RfrSprungAccel&
-bl_sprung_accel (RblSprungAccel&
-br_sprung_accel (RbrSprungAccel*
-fl_unsprung_accel (RflUnsprungAccel*
-fr_unsprung_accel (RfrUnsprungAccel*
-bl_unsprung_accel (RblUnsprungAccel*
-br_unsprung_accel (RbrUnsprungAccel+
-fl_sprung_ang_rate (RflSprungAngRate+
-fr_sprung_ang_rate (RfrSprungAngRate+
-bl_sprung_ang_rate (RblSprungAngRate+
-br_sprung_ang_rate (RbrSprungAngRate&
-cent_mass_accel (RcentMassAccel+
-cent_mass_ang_rate (RcentMassAngRate
-	flw_speed (RflwSpeed
-	frw_speed (RfrwSpeed
-	blw_speed (RblwSpeed
-	brw_speed (RbrwSpeed$
-fl_ride_height (RflRideHeight$
-fr_ride_height (RfrRideHeight$
-bl_ride_height (RblRideHeight$
-br_ride_height (RbrRideHeight)
-fl_strain_gauge_v  (RflStrainGaugeV)
-fr_strain_gauge_v! (RfrStrainGaugeV)
-bl_strain_gauge_v" (RblStrainGaugeV)
-br_strain_gauge_v# (RbrStrainGaugeV*
-fl_pushrod_stress$ (RflPushrodStress*
-fr_pushrod_stress% (RfrPushrodStress*
-bl_pushrod_stress& (RblPushrodStress*
-br_pushrod_stress' (RbrPushrodStress,
-fl_spring_displace( (RflSpringDisplace,
-fr_spring_displace) (RfrSpringDisplace,
-bl_spring_displace* (RblSpringDisplace,
-br_spring_displace+ (RbrSpringDisplace
+	packet_id (RpacketId+
+dynamics (2.orion.DynamicsRdynamics+
+controls (2.orion.ControlsRcontrols
+pack (2.orion.PackRpackA
+diagnostics_high (2.orion.DiagnosticsHighRdiagnosticsHigh>
+diagnostics_low (2.orion.DiagnosticsLowRdiagnosticsLow(
+thermal (2.orion.ThermalRthermal"Æ
+Dynamics,
+accel_pedal_travel (RaccelPedalTravel&
+steer_col_angle (RsteerColAngle&
+bl_sprung_accel (RblSprungAccel*
+bl_unsprung_accel (RblUnsprungAccel&
+br_sprung_accel (RbrSprungAccel*
+br_unsprung_accel (RbrUnsprungAccel&
+fl_sprung_accel (RflSprungAccel*
+fl_unsprung_accel (RflUnsprungAccel&
+fr_sprung_accel	 (RfrSprungAccel*
+fr_unsprung_accel
+ (RfrUnsprungAccel$
+bl_ride_height (RblRideHeight)
+bl_strain_gauge_v (RblStrainGaugeV
+bl_sus_pot_v (R	blSusPotV
+	blw_speed (RblwSpeed$
+br_ride_height (RbrRideHeight)
+br_strain_gauge_v (RbrStrainGaugeV
+br_sus_pot_v (R	brSusPotV
+	brw_speed (RbrwSpeed$
+fl_ride_height (RflRideHeight)
+fl_strain_gauge_v (RflStrainGaugeV
+fl_sus_pot_v (R	flSusPotV
+	flw_speed (RflwSpeed$
+fr_ride_height (RfrRideHeight)
+fr_strain_gauge_v (RfrStrainGaugeV
+fr_sus_pot_v (R	frSusPotV
+	frw_speed (RfrwSpeed
+ride_height (R
+rideHeight
+wheel_speed (R
+wheelSpeed"º
+Controls
+motor_speed (R
+motorSpeed'
+torque_feedback (RtorqueFeedback!
+apps1_travel (Rapps1Travel
+apps1_v (Rapps1V!
+apps2_travel (Rapps2Travel
+apps2_v (Rapps2V!
+bpps1_travel (Rbpps1Travel
+bpps1_v (Rbpps1V!
+bpps2_travel	 (Rbpps2Travel
+bpps2_v
+ (Rbpps2V
 
-dash_speed, (R	dashSpeed
-f_gps- (RfGps
-b_gps. (RbGps$
-f_gps_velocity/ (RfGpsVelocity$
-b_gps_velocity0 (RbGpsVelocity"
-f_gps_heading1 (RfGpsHeading"
-b_gps_heading2 (RbGpsHeading"à
-Controls
-apps1_v3 (Rapps1V
-apps2_v4 (Rapps2V
-apps1_t5 (Rapps1T
-apps2_t6 (Rapps2T"
-accel_pedal_t7 (RaccelPedalT
-bpps1_v8 (Rbpps1V
-bpps2_v9 (Rbpps2V
-bpps1_t: (Rbpps1T
-bpps2_t; (Rbpps2T"
-brake_pedal_t< (RbrakePedalT
-bse1_v= (Rbse1V
-bse2_v> (Rbse2V
-bse3_v? (Rbse3V(
-brake_pressure_f@ (RbrakePressureF.
-brake_pressure_rbllA (RbrakePressureRbll.
-brake_pressure_rallB (RbrakePressureRall
-
-brake_biasC (R	brakeBias"Í
-Pack
-	hv_pack_vD (RhvPackV"
-hv_tractive_vE (RhvTractiveV
-hv_cF (RhvC
-lv_vG (RlvV
-lv_cH (RlvC'
-contactor_stateI (RcontactorState
-
-avg_cell_vJ (RavgCellV"
-avg_cell_tempK (RavgCellTemp"Í
+brake_bias (R	brakeBias&
+brake_light_pct (RbrakeLightPct(
+brake_pressure_f (RbrakePressureF.
+brake_pressure_rall (RbrakePressureRall.
+brake_pressure_rbll (RbrakePressureRbll
+bse1_v (Rbse1V
+bse2_v (Rbse2V
+bse3_v (Rbse3V%
+lights_current (RlightsCurrent
+rpm_request (R
+rpmRequest%
+torque_command (RtorqueCommand!
+torque_limit (RtorqueLimit%
+torque_request (RtorqueRequest)
+commanded_torque (RcommandedTorque
+motor_angle (R
+motorAngle
+	direction (R	direction
+enable (Renable%
+torque_shudder (RtorqueShudder"∏
+Pack
+bus_voltage (R
+busVoltage*
+lv_boards_current (RlvBoardsCurrent
+cells_v (RcellsV
+dc_bus_v (RdcBusV0
+delta_resolver_angle (RdeltaResolverAngle#
+inverter_freq (RinverterFreq(
+neutral_output_v (RneutralOutputV"
+time_since_on (RtimeSinceOn
+vab_vq_v	 (RvabVqV
+vbc_vd_v
+ (RvbcVdV
+cells_temps (R
+cellsTemps$
+dc_bus_current (RdcBusCurrent
+hv_c (RhvC
+	hv_pack_v (RhvPackV
+hv_soc (RhvSoc
+	lv_batt_c (RlvBattC
+	lv_batt_t (RlvBattT
+	lv_batt_v (RlvBattV&
+phase_a_current (RphaseACurrent&
+phase_b_current (RphaseBCurrent&
+phase_c_current (RphaseCCurrent"≠
 DiagnosticsHigh)
-apps1_disconnectL (Rapps1Disconnect)
-apps2_disconnectM (Rapps2Disconnect&
-apps1_out_rangeN (Rapps1OutRange&
-apps2_out_rangeO (Rapps2OutRange#
-apps_mismatchP (RappsMismatch#
-apps_implauseQ (RappsImplause)
-bpps1_disconnectR (Rbpps1Disconnect)
-bpps2_disconnectS (Rbpps2Disconnect&
-bpps1_out_rangeT (Rbpps1OutRange&
-bpps2_out_rangeU (Rbpps2OutRange#
-bpps_mismatchV (RbppsMismatch'
-bse1_disconnectW (Rbse1Disconnect'
-bse2_disconnectX (Rbse2Disconnect$
-bse1_out_rangeY (Rbse1OutRange$
-bse2_out_rangeZ (Rbse2OutRange"Ì
-DiagnosticsLow
-batt_over_cÎ (R	battOverC
-cell_over_vÏ (R	cellOverV!
-cell_under_vÌ (R
-cellUnderV%
-cell_open_wireÓ (RcellOpenWire"
-cell_damagedÔ (RcellDamaged.
-thermistor_damaged (RthermistorDamaged%
-bmb_comm_errorÒ (RbmbCommError6
-imd_gnd_isolation_errorÚ (RimdGndIsolationError9
-tractive_contactor_errorÛ (RtractiveContactorError&
-precharge_failÙ (RprechargeFail)
-cells_v_balancedı (RcellsVBalanced
+shutdown_current (RshutdownCurrent*
+hvc_state_machine (RhvcStateMachine
+post_faults (R
+postFaults
 
-cell_min_vˆ (RcellMinV
+run_faults (R	runFaults(
+neg_hv_contactor (RnegHvContactor(
+pos_hv_contactor (RposHvContactor/
+precharge_contactor (RprechargeContactor"Ò
+DiagnosticsLow(
+precharge_r_temp (RprechargeRTemp$
+bmb_comm_error (RbmbCommError5
+imd_gnd_isolation_error (RimdGndIsolationError%
+r2d_authorized (Rr2dAuthorized
 
-cell_max_v˜ (RcellMaxV
-batt_v¯ (RbattV
-batt_c˘ (RbattC
-hv_soc˙ (RhvSoc$
-shutdown_leg1˚ (RshutdownLeg1$
-shutdown_leg2¸ (RshutdownLeg2$
-shutdown_leg3˝ (RshutdownLeg3$
-shutdown_leg4˛ (RshutdownLeg4$
-shutdown_leg5ˇ (RshutdownLeg5$
-shutdown_leg6Ä (RshutdownLeg6$
-shutdown_leg7Å (RshutdownLeg7$
-shutdown_leg8Ç (RshutdownLeg8$
-shutdown_leg9É (RshutdownLeg9&
-shutdown_leg10Ñ (RshutdownLeg10&
-shutdown_leg11Ö (RshutdownLeg11&
-shutdown_leg12Ü (RshutdownLeg12 
-cells_tempsá (R
-cellsTemps
-cells_và (RcellsV"˝
+r2d_status (R	r2dStatus#
+shutdown_leg1 (RshutdownLeg1#
+shutdown_leg2 (RshutdownLeg2#
+shutdown_leg3 (RshutdownLeg3#
+shutdown_leg4	 (RshutdownLeg4"Ô
 Thermal0
-motor_loop_flow_rateâ (RmotorLoopFlowRate2
-motor_loop_motor_tempä (RmotorLoopMotorTemp8
-motor_loop_inverter_tempã (RmotorLoopInverterTemp.
-motor_loop_rad_tempå (RmotorLoopRadTemp7
-motor_loop_rad_fan_speedç (RmotorLoopRadFanSpeed"
-ambient_tempé (RambientTemp.
-batt_loop_batt_tempè (RbattLoopBattTemp,
-batt_loop_rad_tempê (RbattLoopRadTemp5
-batt_loop_rad_fan_speedë (RbattLoopRadFanSpeed
+batt_cooling_current (RbattCoolingCurrent2
+motor_cooling_current (RmotorCoolingCurrent
 
-motor_tempí (R	motorTemp$
-inverter_tempì (RinverterTemp#
-bus_bar_temp1î (RbusBarTemp1#
-bus_bar_temp2ï (RbusBarTemp2#
-bus_bar_temp3ñ (RbusBarTemp3)
-precharge_r_tempó (RprechargeRTemp)
-discharge_r_tempò (RdischargeRTemp%
-batt_over_tempô (RbattOverTempbproto3
+motor_temp (R	motorTemp!
+ambient_temp (RambientTemp-
+batt_loop_batt_temp (RbattLoopBattTemp4
+batt_loop_rad_fan_speed (RbattLoopRadFanSpeed+
+batt_loop_rad_temp (RbattLoopRadTemp"
+bus_bar_temp1 (RbusBarTemp1"
+bus_bar_temp2	 (RbusBarTemp2"
+bus_bar_temp3
+ (RbusBarTemp3(
+cell_bottom_temp (RcellBottomTemp"
+cell_top_temp (RcellTopTemp(
+discharge_r_temp (RdischargeRTemp(
+gate_driver_temp (RgateDriverTemp#
+inverter_temp (RinverterTemp"
+module_a_temp (RmoduleATemp"
+module_b_temp (RmoduleBTemp"
+module_c_temp (RmoduleCTemp7
+motor_loop_inverter_temp (RmotorLoopInverterTemp1
+motor_loop_motor_temp (RmotorLoopMotorTemp6
+motor_loop_rad_fan_speed (RmotorLoopRadFanSpeed-
+motor_loop_rad_temp (RmotorLoopRadTemp
+	rtd4_temp (Rrtd4Temp
+	rtd5_temp (Rrtd5Tempbproto3

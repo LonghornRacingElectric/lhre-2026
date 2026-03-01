@@ -11,6 +11,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 socketcan = "3.0"
+rumqttc = { version = "0.24", default-features = false }
 
 [dev-dependencies]
 prost-build = "0.12"
