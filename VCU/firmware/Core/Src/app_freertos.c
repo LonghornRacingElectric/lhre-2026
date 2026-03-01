@@ -325,57 +325,22 @@ void StartControlTask(void *argument) {
     in.bse1_raw = (float) adc2_dma_buf[0];
     in.bse2_raw = in.bse1_raw; // TODO: use second BSE sensor when it works
 
-    // print APPS for debugging
-    static uint32_t print_div = 0;
-    if (++print_div >= 10) { // every ~100ms (10*10ms)
-      print_div = 0;
-
-    log_printf(LOG_INFO,
-    "APPS adc:%u %u | trav:%.3f %.3f | pedal:%.3f | tq:%.1f | impl:%d diff:%.3f\n",
-    (unsigned)adc3_dma_buf[0], (unsigned)adc3_dma_buf[1],
-    (double)out.apps1_travel, (double)out.apps2_travel,
-    (double)out.accel_pedal_travel,
-    (double)out.torque_cmd,
-    (int)out.faults.apps_implaus,
-    (double)out.debug.apps_diff
-  );
-}
-
-
     in.drive_switch = is_drive_switch_pressed();
 
-    // TODO: make sure that bse2 is read
-    // in.bse2_raw = adc2_dma_buf[1];
-
     in.contactors_closed = hvc_tractive_ready();
+
+
 
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
 
     vcu_can_set_model_outputs(&out);
 
-//   // BSE debug print
-//   static uint32_t print_div = 0;
-// if (++print_div >= 50) { // 500ms
-//   print_div = 0;
-
-//   uint16_t bse1_adc = adc2_dma_buf[0];
-//   uint16_t bse2_adc = bse1_adc;
-
-//   float bse1_v = (float)bse1_adc;
-//   float bse2_v = bse1_v;
-
-//   log_printf(LOG_INFO,
-//              "BSE1 adc=%u v=%.3f | BSE2 adc=%u v=%.3f | Brake light pct =%.1f%%\n | Brake Light Pressed = %s\n",
-//              (unsigned)bse1_adc, (double)bse1_v,
-//              (unsigned)bse2_adc, (double)bse2_v,
-//              (double)(out.brake_light_pct * 100.0f),
-//              out.brake_pressed ? "YES" : "NO");
-// }
     // 10 ms control loop (100 Hz)
     osDelay(pdMS_TO_TICKS(10));
   }
 }
+
 
 /* USER CODE END Application */
 

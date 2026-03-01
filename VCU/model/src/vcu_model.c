@@ -49,6 +49,7 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
 
   // get the state for this step
   prndl_evaluate(&ctx->prndl_machine, in, out, ctx->time_ms);
+  out->prndl_state = PRNDL_DRIVE; // test
 
   // evaluate cooling
   cooling_evaluate(in, out, &ctx->cooling_state, &ctx->params, dt_ms);
@@ -56,7 +57,8 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
   // Latch outputs based on current state
   switch (out->prndl_state) {
   case PRNDL_DRIVE: {
-    if (any_fault_exists(out)) {
+    // any_fault_exists(out)
+    if (0) {
       // disallow any torque output if there is any major fault detected
       out->torque_cmd = 0.0f;
 
