@@ -129,7 +129,13 @@ class TrackBuilder(Node):
         return midpoints
 
     def _pair_nearest(self) -> List[Tuple[float, float]]:
-        """Pair each left cone with the nearest unpaired right cone."""
+        """Pair each left cone with the nearest unpaired right cone.
+
+        After pairing, midpoints are chained into path-sequential order
+        using a greedy nearest-neighbor walk. This is necessary because
+        LiDAR detection order is arbitrary — without reordering, the
+        centerline path would zigzag.
+        """
         if not self._left_cones or not self._right_cones:
             return []
 
@@ -158,7 +164,30 @@ class TrackBuilder(Node):
             if len(midpoints) >= self._max_points:
                 break
 
+        # Chain midpoints into path order via nearest-neighbor walk
+        if len(midpoints) > 2:
+            midpoints = self._chain_path(midpoints)
+
         return midpoints
+
+    @staticmethod
+    def _chain_path(
+        points: List[Tuple[float, float]],
+    ) -> List[Tuple[float, float]]:
+        """Order points into a path using greedy nearest-neighbor chaining."""
+        ordered = [points[0]]
+        remaining = set(range(1, len(points)))
+
+        while remaining:
+            lx, ly = ordered[-1]
+            best_j = min(
+                remaining,
+                key=lambda j: (points[j][0] - lx) ** 2
+                              + (points[j][1] - ly) ** 2)
+            ordered.append(points[best_j])
+            remaining.remove(best_j)
+
+        return ordered
 
     # ------------------------------------------------------------------
     # Publishing helpers
