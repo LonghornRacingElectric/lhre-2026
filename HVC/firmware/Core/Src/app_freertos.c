@@ -205,7 +205,6 @@ void StartDefaultTask(void *argument)
         .stack_size = 128 * 8 * 2,
     };
 
-    osThreadNew(FakeTask, NULL, &fakeTask_attributes);
     // can_init(&can_config);
 
     msg = "DFU initialized\r\n";
