@@ -106,11 +106,17 @@ class TrackBuilder(Node):
     # Centerline computation
     # ------------------------------------------------------------------
     def _compute_midpoints(self) -> List[Tuple[float, float]]:
-        """Pair left/right cones by matching ID and return midpoints.
+        """Pair left/right cones and return midpoints.
 
-        Left cones use IDs 0..N-1, right cones use IDs 10000..10000+N-1.
-        We match left ID ``i`` with right ID ``10000 + i``.
+        Strategy 'index': match left ID ``i`` with right ID ``10000 + i``.
+        Strategy 'nearest': pair each left cone with its nearest right cone.
         """
+        if self._pairing_strategy == 'nearest':
+            return self._pair_nearest()
+        return self._pair_by_index()
+
+    def _pair_by_index(self) -> List[Tuple[float, float]]:
+        """Pair left/right cones by matching ID offset (trackgen convention)."""
         midpoints: List[Tuple[float, float]] = []
         for lid in sorted(self._left_cones.keys()):
             rid = lid + 10000
@@ -120,6 +126,38 @@ class TrackBuilder(Node):
                 midpoints.append(((lx + rx) / 2.0, (ly + ry) / 2.0))
             if len(midpoints) >= self._max_points:
                 break
+        return midpoints
+
+    def _pair_nearest(self) -> List[Tuple[float, float]]:
+        """Pair each left cone with the nearest unpaired right cone."""
+        if not self._left_cones or not self._right_cones:
+            return []
+
+        right_items = list(self._right_cones.items())
+        used_right: set = set()
+        midpoints: List[Tuple[float, float]] = []
+
+        for lid in sorted(self._left_cones.keys()):
+            lx, ly = self._left_cones[lid]
+            best_dist = float('inf')
+            best_idx = -1
+
+            for j, (rid, (rx, ry)) in enumerate(right_items):
+                if j in used_right:
+                    continue
+                d = (lx - rx) ** 2 + (ly - ry) ** 2
+                if d < best_dist:
+                    best_dist = d
+                    best_idx = j
+
+            if best_idx >= 0:
+                used_right.add(best_idx)
+                rx, ry = right_items[best_idx][1]
+                midpoints.append(((lx + rx) / 2.0, (ly + ry) / 2.0))
+
+            if len(midpoints) >= self._max_points:
+                break
+
         return midpoints
 
     # ------------------------------------------------------------------

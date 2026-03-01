@@ -124,6 +124,10 @@ def generate_world_sdf(
                 name="gz::sim::systems::SceneBroadcaster"/>
         <plugin filename="gz-sim-imu-system"
                 name="gz::sim::systems::Imu"/>
+        <plugin filename="gz-sim-sensors-system"
+                name="gz::sim::systems::Sensors">
+          <render_engine>ogre2</render_engine>
+        </plugin>
 
         <!-- ===== Scene ===== -->
         <scene>

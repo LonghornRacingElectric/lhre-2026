@@ -67,3 +67,10 @@
   gz_type_name: "gz.msgs.IMU"
   ros_type_name: "sensor_msgs/msg/Imu"
   direction: GZ_TO_ROS
+
+# LiDAR PointCloud: Gazebo → ROS2
+- gz_topic_name: "/lidar/points"
+  ros_topic_name: "/lhr/lidar/points"
+  gz_type_name: "gz.msgs.PointCloudPacked"
+  ros_type_name: "sensor_msgs/msg/PointCloud2"
+  direction: GZ_TO_ROS

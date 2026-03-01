@@ -4,20 +4,20 @@
 
 Replace the kinematic vehicle simulator (`lhr_sim_kinematic`) with Gazebo physics simulation, while keeping the entire upper stack unchanged (control, track builder, mission manager, metrics).
 
-## Current Status: Phase 1 Complete
+## Current Status: Phase 2 In Progress
 
-Phase 1 (drop-in replacement) is functional. The Gazebo sim runs with direct joint control, ground-truth odometry, curvature-adaptive pure pursuit, and RViz integration. Cone collisions are temporarily disabled for tuning.
+Phase 1 (drop-in replacement) is complete. Phase 2 (LiDAR perception) is implemented and ready for testing on native Linux with Gazebo Harmonic.
 
-## Architecture: What Changes, What Stays
+## Architecture
 
 ```
-CURRENT                              WITH GAZEBO
-───────                              ───────────
-lhr_trackgen (procedural cones)  →   REUSED (same node, provides ground truth)
-lhr_sensor_sim (FOV filter)      →   REUSED (same node, filters by vehicle pose)
-lhr_sim_kinematic (bicycle model)→   Gazebo physics (direct joint control, ODE solver)
+PHASE 1 (perception:=sim)            PHASE 2 (perception:=lidar)
+─────────────────────────            ──────────────────────────
+lhr_trackgen (ground-truth cones)    Gazebo gpu_lidar sensor
+lhr_sensor_sim (FOV filter)          lhr_perception (pointcloud → cones)
+Gazebo physics (joint control)       Gazebo physics (joint control)
 
-lhr_track_builder                →   STAYS (pairs cones by ID → centerline)
+lhr_track_builder                →   STAYS (index or nearest-neighbor pairing)
 lhr_control                      →   STAYS (pure pursuit + curvature speed planning)
 lhr_mission_manager              →   STAYS (FSAE state machine)
 lhr_metrics                      →   STAYS (CTE, lap detection, CSV output)
@@ -40,7 +40,7 @@ FSAE car with simplified box/cylinder geometry:
 - 2x `JointPositionController` (steering, with `use_velocity_commands=true` for near-instant response)
 - 4x `JointController` (wheel velocity, direct mode)
 
-Sensors: IMU (100 Hz).
+Sensors: IMU (100 Hz), GPU LiDAR (10 Hz, 360x16 channels, 25 m range).
 
 ### 2. Cone Models + World Generation
 
@@ -50,21 +50,33 @@ Script: `lhr_gazebo/scripts/generate_world.py`
 - Cones placed procedurally from `lhr_trackgen` Catmull-Rom output
 - Vehicle spawn auto-computed on straightest track section (avoids loop closure artifacts)
 - ODE physics engine at 1 kHz, real-time factor 1.0
+- `gz-sim-sensors-system` with Ogre2 render engine (required for gpu_lidar)
 - Cone collisions temporarily disabled for control tuning
 
-### 3. Cone Detection (Reused Pipeline)
+### 3. Cone Detection
 
-Instead of using Gazebo's logical camera (not available on all platforms), the existing ROS nodes handle cone detection:
+Two perception modes selectable via `perception:=sim|lidar` launch argument:
+
+**Sim mode (default):** Existing ROS nodes handle cone detection:
 - `lhr_trackgen` publishes ground-truth cones
 - `lhr_sensor_sim` filters by FOV and range relative to the Gazebo vehicle pose
-- Both nodes run with `use_sim_time: True` to sync with Gazebo's clock
+- Track builder uses index-based pairing (left ID `i` ↔ right ID `10000 + i`)
+
+**LiDAR mode:** Real sensor-based detection:
+- `gpu_lidar` sensor on vehicle publishes PointCloud2 via `ros_gz_bridge`
+- `lhr_perception/lidar_cone_detector` processes the pointcloud:
+  - Ground removal (height threshold) → range filter → Euclidean clustering (cKDTree)
+  - Cone validation by size → sensor-to-map transform → spatial dedup
+  - Left/right classification by lateral position in sensor frame
+  - Accumulated persistent map, sorted by angle for consistent pairing
+- Track builder uses nearest-neighbor pairing (robust to detection ordering)
 
 ### 4. ROS2 ↔ Gazebo Bridge
 
 File: `lhr_gazebo/config/ros_gz_bridge.yaml`
 
-10 bridged topics:
-- Odometry, TF, clock, IMU: Gazebo → ROS2
+11 bridged topics:
+- Odometry, TF, clock, IMU, LiDAR pointcloud: Gazebo → ROS2
 - 2x steering position + 4x wheel velocity: ROS2 → Gazebo (Float64 ↔ gz.msgs.Double)
 
 ### 5. Joint Command Adapter
@@ -93,12 +105,14 @@ RViz launches automatically alongside Gazebo (configurable via `rviz:=true/false
 - RViz integration in Gazebo launch
 - Gazebo-specific launch file (kinematic launch still works independently)
 
-### Phase 2: Real Sensors (Future)
+### Phase 2: LiDAR Perception — IMPLEMENTED, TESTING
 
-- Mount camera and/or LiDAR on the vehicle model
-- Bridge image/pointcloud topics to ROS2
-- Build a perception node (cone detection from camera or LiDAR)
-- Replace trackgen + sensor_sim pipeline with real perception
+- GPU LiDAR sensor mounted on vehicle model (360x16 channels, 25 m range, 10 Hz)
+- `gz-sim-sensors-system` with Ogre2 re-added to world generator
+- PointCloud2 bridge from Gazebo to ROS2
+- New `lhr_perception` package with `lidar_cone_detector` node
+- Nearest-neighbor pairing strategy added to track builder
+- Perception mode switch in launch file (`perception:=sim|lidar`)
 
 ### Phase 3: Fidelity Tuning (Future)
 
@@ -107,32 +121,30 @@ RViz launches automatically alongside Gazebo (configurable via `rviz:=true/false
 - Add sensor noise models
 - Test at competition speeds
 - Validate against real car telemetry data
+- Add camera sensor and color-based cone classification
 
 ## Gazebo Version Matrix
 
 | Ubuntu | ROS2 Distro | Gazebo Version | Install Package |
 |--------|-------------|----------------|-----------------|
-| 22.04 | Humble | Fortress (gz-sim 6) | `ros-humble-ros-gz` |
 | 24.04 | Jazzy | Harmonic (gz-sim 8) | `ros-jazzy-ros-gz` |
 
-Note: `JointPositionController` with `use_velocity_commands` requires gz-sim 7+ (Garden or Harmonic). On Fortress, PID tuning would be needed instead.
-
-## File Structure (current)
+## File Structure
 
 ```
 ros2/src/lhr_gazebo/
 ├── config/
-│   ├── ros_gz_bridge.yaml          (10 topic bridges)
+│   ├── ros_gz_bridge.yaml          (11 topic bridges)
 │   └── default.rviz                (RViz display config)
 ├── launch/
-│   └── gazebo_demo.launch.py       (Gazebo + RViz + full autonomy stack)
+│   └── gazebo_demo.launch.py       (Gazebo + perception + full autonomy stack)
 ├── lhr_gazebo/
 │   ├── __init__.py
 │   └── joint_cmd_adapter.py        (AckermannDriveStamped → 6x joint commands)
 ├── models/
 │   ├── fsae_vehicle/
 │   │   ├── model.config
-│   │   └── model.sdf               (vehicle with 6 joint controllers + odom + IMU)
+│   │   └── model.sdf               (vehicle with joint controllers + odom + IMU + LiDAR)
 │   ├── cone_blue/
 │   ├── cone_yellow/
 │   ├── cone_orange_small/
@@ -144,12 +156,20 @@ ros2/src/lhr_gazebo/
 ├── package.xml
 ├── setup.py
 └── setup.cfg
+
+ros2/src/lhr_perception/
+├── lhr_perception/
+│   ├── __init__.py
+│   └── lidar_cone_detector.py      (PointCloud2 → MarkerArray cone detection)
+├── package.xml
+├── setup.py
+└── setup.cfg
 ```
 
 ## Key Debugging Lessons
 
 1. **Wheel-based odometry is unreliable** when the car gets stuck — wheels spin but position doesn't change. Always use world-frame odometry from `OdometryPublisher`.
 2. **AckermannSteering plugin is too sluggish** for reactive control — it converts Twist to joint torques through the physics solver. Direct joint control (JointPositionController + JointController) gives near-instant response.
-3. **Cone pairing by list index breaks** when sensor sim detects left/right cones in different orders. Pair by marker ID instead (left ID `i` ↔ right ID `i + 10000`).
+3. **Cone pairing by list index breaks** when sensor sim detects left/right cones in different orders. Pair by marker ID instead (left ID `i` ↔ right ID `i + 10000`), or use nearest-neighbor pairing for LiDAR perception.
 4. **Vehicle spawn position matters** — spawning near the loop closure (where first/last cones don't meet cleanly) causes immediate collisions. Auto-compute spawn on the straightest track section.
 5. **symlink-install doesn't always update** Python files. When in doubt: `rm -rf build/<pkg> install/<pkg>` then rebuild.

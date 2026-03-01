@@ -1,17 +1,16 @@
-"""Launch the FSAE autonomy stack with Gazebo physics simulation.
+"""Launch the FSAE autonomy stack with Gazebo Harmonic physics simulation.
 
 Replaces lhr_sim_kinematic with Gazebo for physics and odometry.
-Cone detection reuses the existing lhr_trackgen + lhr_sensor_sim pipeline.
+Perception is selectable: 'sim' (trackgen + sensor_sim) or 'lidar' (LiDAR).
 The upper stack (track_builder, control, mission_manager, metrics) is unchanged.
 
 Usage:
     ros2 launch lhr_gazebo gazebo_demo.launch.py
     ros2 launch lhr_gazebo gazebo_demo.launch.py gui:=false
-    ros2 launch lhr_gazebo gazebo_demo.launch.py world:=/absolute/path/to/world.sdf
+    ros2 launch lhr_gazebo gazebo_demo.launch.py perception:=lidar
 """
 
 import os
-import shutil
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -22,7 +21,10 @@ from launch.actions import (
     SetEnvironmentVariable,
 )
 from launch.conditions import IfCondition, UnlessCondition
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import (
+    LaunchConfiguration,
+    PythonExpression,
+)
 from launch_ros.actions import Node
 
 
@@ -54,6 +56,10 @@ def generate_launch_description():
     gui_arg = DeclareLaunchArgument(
         'gui', default_value='true',
         description='Launch Gazebo GUI (set false for headless)')
+    perception_arg = DeclareLaunchArgument(
+        'perception', default_value='sim',
+        description='Perception mode: "sim" (trackgen+sensor_sim) '
+                    'or "lidar" (LiDAR pointcloud)')
 
     # Track generation (must match the seed used for world generation)
     seed_arg = DeclareLaunchArgument('seed', default_value='1')
@@ -63,7 +69,7 @@ def generate_launch_description():
     fov_arg = DeclareLaunchArgument('fov_deg', default_value='200.0')
     range_arg = DeclareLaunchArgument('max_range_m', default_value='20.0')
 
-    # Control params (same as mvs_demo)
+    # Control params
     lookahead_arg = DeclareLaunchArgument(
         'lookahead_dist', default_value='5.0')
     lookahead_min_arg = DeclareLaunchArgument(
@@ -93,34 +99,25 @@ def generate_launch_description():
     ready_hold_arg = DeclareLaunchArgument(
         'ready_hold_sec', default_value='5.0')
 
+    # ----- Conditions for perception mode -----
+    perception_cfg = LaunchConfiguration('perception')
+    is_sim = IfCondition(PythonExpression([
+        "'", perception_cfg, "' == 'sim'"]))
+    is_lidar = IfCondition(PythonExpression([
+        "'", perception_cfg, "' == 'lidar'"]))
+
     # ----- Environment: tell Gazebo where to find our models -----
-    # Fortress uses IGN_GAZEBO_RESOURCE_PATH; Garden+ uses GZ_SIM_RESOURCE_PATH
     gz_model_path = SetEnvironmentVariable(
         'GZ_SIM_RESOURCE_PATH', models_dir)
-    ign_model_path = SetEnvironmentVariable(
-        'IGN_GAZEBO_RESOURCE_PATH', models_dir)
-    # WSL: prefer discrete NVIDIA GPU for both GLX and EGL paths
-    mesa_gpu = SetEnvironmentVariable(
-        'MESA_D3D12_DEFAULT_ADAPTER_NAME', 'NVIDIA')
 
     _gz_env = {
         'GZ_SIM_RESOURCE_PATH': models_dir,
-        'IGN_GAZEBO_RESOURCE_PATH': models_dir,
-        # WSL: prefer the discrete NVIDIA GPU over the integrated AMD iGPU
-        'MESA_D3D12_DEFAULT_ADAPTER_NAME': 'NVIDIA',
     }
 
-    # ----- Gazebo server -----
-    # Fortress (ROS Humble default): `ign gazebo`
-    # Garden / Harmonic:             `gz sim`
-    if shutil.which('ign'):
-        _gz_base = ['ign', 'gazebo']
-    else:
-        _gz_base = ['gz', 'sim']
-
+    # ----- Gazebo server (Harmonic: `gz sim`) -----
     # With GUI
     gz_sim_gui = ExecuteProcess(
-        cmd=_gz_base + ['-r', LaunchConfiguration('world')],
+        cmd=['gz', 'sim', '-r', LaunchConfiguration('world')],
         output='screen',
         additional_env=_gz_env,
         condition=IfCondition(LaunchConfiguration('gui')),
@@ -128,7 +125,7 @@ def generate_launch_description():
 
     # Headless (server only, no rendering)
     gz_sim_headless = ExecuteProcess(
-        cmd=_gz_base + ['-r', '-s', LaunchConfiguration('world')],
+        cmd=['gz', 'sim', '-r', '-s', LaunchConfiguration('world')],
         output='screen',
         additional_env=_gz_env,
         condition=UnlessCondition(LaunchConfiguration('gui')),
@@ -154,7 +151,7 @@ def generate_launch_description():
         output='screen',
     )
 
-    # ----- Cone pipeline (reuse existing trackgen + sensor sim) -----
+    # ----- Sim perception (trackgen + sensor_sim, perception:=sim) -----
     cones = Node(
         package='lhr_trackgen',
         executable='publish_cones',
@@ -165,6 +162,7 @@ def generate_launch_description():
             'use_sim_time': True,
         }],
         output='screen',
+        condition=is_sim,
     )
 
     sensor_sim = Node(
@@ -177,15 +175,51 @@ def generate_launch_description():
             'use_sim_time': True,
         }],
         output='screen',
+        condition=is_sim,
     )
 
-    # ----- Upper stack (unchanged from mvs_demo) -----
-    centerline = Node(
+    # ----- LiDAR perception (perception:=lidar) -----
+    lidar_perception = Node(
+        package='lhr_perception',
+        executable='lidar_cone_detector',
+        name='lidar_cone_detector',
+        parameters=[{
+            'use_sim_time': True,
+            'max_range': 20.0,
+            'min_range': 0.8,
+            'ground_z_min': -0.40,
+            'ground_z_max': 0.5,
+            'cluster_radius': 0.35,
+            'dedup_radius': 0.5,
+        }],
+        output='screen',
+        condition=is_lidar,
+    )
+
+    # ----- Upper stack -----
+    # Track builder: use nearest pairing for LiDAR, index for sim
+    centerline_sim = Node(
         package='lhr_track_builder',
         executable='track_builder',
         name='track_builder',
-        parameters=[{'use_sim_time': True}],
+        parameters=[{
+            'use_sim_time': True,
+            'pairing_strategy': 'index',
+        }],
         output='screen',
+        condition=is_sim,
+    )
+
+    centerline_lidar = Node(
+        package='lhr_track_builder',
+        executable='track_builder',
+        name='track_builder',
+        parameters=[{
+            'use_sim_time': True,
+            'pairing_strategy': 'nearest',
+        }],
+        output='screen',
+        condition=is_lidar,
     )
 
     control = Node(
@@ -244,6 +278,7 @@ def generate_launch_description():
         # Arguments
         world_arg,
         gui_arg,
+        perception_arg,
         seed_arg,
         num_wp_arg,
         fov_arg,
@@ -263,19 +298,19 @@ def generate_launch_description():
         rviz_arg,
         # Environment
         gz_model_path,
-        ign_model_path,
-        mesa_gpu,
         # Gazebo physics (one of these will activate based on gui arg)
         gz_sim_gui,
         gz_sim_headless,
         # Bridge + adapter
         bridge,
         cmd_adapter,
-        # Cone pipeline (reuses existing ROS nodes)
+        # Perception (one mode activates based on perception arg)
         cones,
         sensor_sim,
+        lidar_perception,
         # Upper stack
-        centerline,
+        centerline_sim,
+        centerline_lidar,
         mission_mgr,
         control,
         metrics,
