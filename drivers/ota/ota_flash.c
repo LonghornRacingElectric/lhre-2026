@@ -105,7 +105,7 @@ static void flash_writer_task(void *arg) {
       }
     }
 
-    write_cursor = block.address;
+    write_cursor = ota_flash_get_inactive_bank_base() + block.address;
 
     uint8_t *src = block.data;
     uint16_t remaining = block.length;
