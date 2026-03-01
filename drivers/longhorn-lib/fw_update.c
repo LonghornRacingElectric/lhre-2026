@@ -3,13 +3,16 @@
 
 #define FW_BLOCK_SIZE 256
 #define BYTES_PER_PACKET 7
+#define PACKETS_PER_BLOCK                                                      \
+  ((FW_BLOCK_SIZE + BYTES_PER_PACKET - 1) / BYTES_PER_PACKET)
 
 // internal state
 static uint8_t rx_buffer[FW_BLOCK_SIZE];
 static uint32_t current_address = 0;
 static uint16_t total_blocks = 0;
 static uint8_t expected_crc = 0;
-static uint16_t received_bytes = 0;
+static uint64_t received_mask = 0;
+static uint8_t packets_received = 0;
 static bool is_receiving = false;
 
 static write_memory_fn mem_write_cb = NULL;
@@ -35,7 +38,8 @@ void fw_update_init(write_memory_fn write_cb, abort_update_fn abort_fn) {
   mem_write_cb = write_cb;
   abort_cb = abort_fn;
   is_receiving = false;
-  received_bytes = 0;
+  received_mask = 0;
+  packets_received = 0;
   memset(rx_buffer, 0, FW_BLOCK_SIZE);
 }
 
@@ -50,14 +54,16 @@ fw_update_process_command(const msg_firmware_update_command_packet_t *cmd_pkt) {
     expected_crc = cmd_pkt->crc;
 
     memset(rx_buffer, 0, FW_BLOCK_SIZE);
-    received_bytes = 0;
+    received_mask = 0;
+    packets_received = 0;
     is_receiving = true;
 
     // ACK command
     return UPDATE_RESPONSE_ACK;
   } else if (cmd_pkt->command == UPDATE_COMMAND_ABORT) {
     is_receiving = false;
-    received_bytes = 0;
+    received_mask = 0;
+    packets_received = 0;
     if (abort_cb) {
       abort_cb();
     }
@@ -82,6 +88,12 @@ update_response_t fw_update_process_data(const uint8_t *can_data) {
     return UPDATE_RESPONSE_INVALID_PAYLOAD;
   }
 
+  // reject duplicate packets (retransmissions)
+  uint64_t index_bit = 1ULL << index;
+  if (received_mask & index_bit) {
+    return UPDATE_RESPONSE_BUSY;
+  }
+
   // 7 bytes for now
   uint8_t bytes_to_copy = BYTES_PER_PACKET;
   if (buffer_offset + bytes_to_copy > FW_BLOCK_SIZE) {
@@ -89,9 +101,10 @@ update_response_t fw_update_process_data(const uint8_t *can_data) {
   }
 
   memcpy(&rx_buffer[buffer_offset], &can_data[1], bytes_to_copy);
-  received_bytes += bytes_to_copy;
+  received_mask |= index_bit;
+  packets_received++;
 
-  if (received_bytes >= FW_BLOCK_SIZE) {
+  if (packets_received >= PACKETS_PER_BLOCK) {
     uint8_t calculated_crc = calculate_crc8(rx_buffer, FW_BLOCK_SIZE);
     if (calculated_crc != expected_crc) {
       is_receiving = false;
@@ -103,7 +116,8 @@ update_response_t fw_update_process_data(const uint8_t *can_data) {
     }
 
     is_receiving = false;
-    received_bytes = 0;
+    received_mask = 0;
+    packets_received = 0;
 
     return UPDATE_RESPONSE_ACK;
   }
