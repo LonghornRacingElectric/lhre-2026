@@ -9,7 +9,7 @@ CAN_ID_BUS_STATE = 0x011
 CAN_ID_DATA = 0x012
 CAN_ID_RESP = 0x013
 
-FW_BLOCK_SIZE = 255
+FW_BLOCK_SIZE = 256
 BYTES_PER_PACKET = 7
 
 # --- Enums (Matching C Header) ---
@@ -67,7 +67,7 @@ def set_bus_state(channel, enable: bool, fw_update: bool, device_id: int):
     time.sleep(0.2) # Give nodes time to fall silent
 
 def send_firmware_block(channel, address: int, num_blocks: int, block_data: bytes) -> bool:
-    """Sends a single 255-byte block: Command -> Data Packets -> Wait for final ACK."""
+    """Sends a single 256-byte block: Command -> Data Packets -> Wait for final ACK."""
     
     # 1. Calculate CRC for this block
     expected_crc = calculate_crc8(block_data)
@@ -121,6 +121,7 @@ def flash_firmware(channel, file_path: str, start_address: int, target_device_id
         firmware = f.read()
 
     total_blocks = (len(firmware) + FW_BLOCK_SIZE - 1) // FW_BLOCK_SIZE
+    num_blocks_0indexed = total_blocks - 1  # protocol uses 0-indexed block count
     print(f"Starting firmware update. Size: {len(firmware)} bytes ({total_blocks} blocks).")
 
     current_address = start_address
@@ -132,7 +133,7 @@ def flash_firmware(channel, file_path: str, start_address: int, target_device_id
         if len(block_data) < FW_BLOCK_SIZE:
             block_data = block_data.ljust(FW_BLOCK_SIZE, b'\xFF')
 
-        success = send_firmware_block(channel, current_address, total_blocks, block_data)
+        success = send_firmware_block(channel, current_address, num_blocks_0indexed, block_data)
         if not success:
             print(f"Update failed at block {block_num + 1}/{total_blocks}")
             abort_frame = Frame(id_=CAN_ID_CMD, data=struct.pack('<B I H B', UPDATE_COMMAND_ABORT, 0, 0, 0), flags=canlib.MessageFlag.STD)

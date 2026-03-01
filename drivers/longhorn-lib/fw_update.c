@@ -1,7 +1,7 @@
 #include "fw_update.h"
 #include <string.h>
 
-#define FW_BLOCK_SIZE 255
+#define FW_BLOCK_SIZE 256
 #define BYTES_PER_PACKET 7
 
 // internal state

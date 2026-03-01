@@ -6,7 +6,7 @@
 #include "queue.h"
 #include <string.h>
 
-#define FLASH_PENDING_BUF_SIZE 255
+#define FLASH_PENDING_BUF_SIZE 256
 #define FLASH_QUEUE_DEPTH 10
 
 typedef struct {
@@ -107,6 +107,17 @@ static void flash_writer_task(void *arg) {
       }
     }
 
+    // flush residual if this block is not contiguous with the previous write
+    if (residual_len > 0 && block.address != write_cursor) {
+      memset(residual + residual_len, 0xFF, 8 - residual_len);
+      uint64_t dword;
+      memcpy(&dword, residual, 8);
+      HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, write_cursor, dword);
+      residual_len = 0;
+    }
+
+    write_cursor = block.address;
+
     uint8_t *src = block.data;
     uint16_t remaining = block.length;
     bool write_ok = true;
@@ -192,7 +203,7 @@ void ota_flash_begin(uint16_t num_blocks) {
   update_active = true;
   flash_bank_erased = false;
   blocks_written = 0;
-  total_blocks_expected = num_blocks;
+  total_blocks_expected = num_blocks + 1; // num_blocks is 0-indexed
   residual_len = 0;
   write_cursor = ota_flash_get_inactive_bank_base();
 }
