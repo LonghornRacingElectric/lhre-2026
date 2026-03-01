@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Track builder node: subscribes to cones, publishes centerline Path."""
 
+import math
 from typing import List, Tuple
 
 import rclpy
@@ -9,7 +10,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
 
 from builtin_interfaces.msg import Time
 from geometry_msgs.msg import PoseStamped, Point
-from nav_msgs.msg import Path
+from nav_msgs.msg import Odometry, Path
 from std_msgs.msg import ColorRGBA, Header
 from visualization_msgs.msg import Marker, MarkerArray
 
@@ -42,6 +43,12 @@ class TrackBuilder(Node):
         self._left_cones: dict = {}
         self._right_cones: dict = {}
 
+        # --- Vehicle pose (used by nearest strategy for path ordering) ---
+        self._veh_x = 0.0
+        self._veh_y = 0.0
+        self._veh_yaw = 0.0
+        self._have_odom = False
+
         # --- QoS ---
         # Subscriber must match cone publisher (TRANSIENT_LOCAL)
         sub_qos = QoSProfile(
@@ -57,9 +64,12 @@ class TrackBuilder(Node):
             durability=DurabilityPolicy.VOLATILE,
         )
 
-        # --- Subscriber ---
+        # --- Subscribers ---
         self.create_subscription(
             MarkerArray, cone_topic, self._cones_cb, sub_qos)
+        if self._pairing_strategy == 'nearest':
+            self.create_subscription(
+                Odometry, '/lhr/vehicle/odom', self._odom_cb, 10)
 
         # --- Publishers ---
         self._path_pub = self.create_publisher(
@@ -88,6 +98,15 @@ class TrackBuilder(Node):
                 right[marker.id] = (pos.x, pos.y)
         self._left_cones = left
         self._right_cones = right
+
+    def _odom_cb(self, msg: Odometry):
+        self._veh_x = msg.pose.pose.position.x
+        self._veh_y = msg.pose.pose.position.y
+        q = msg.pose.pose.orientation
+        self._veh_yaw = math.atan2(
+            2.0 * (q.w * q.z + q.x * q.y),
+            1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+        self._have_odom = True
 
     def _on_timer(self):
         """Compute centerline and publish Path + debug markers."""
@@ -132,9 +151,9 @@ class TrackBuilder(Node):
         """Pair each left cone with the nearest unpaired right cone.
 
         After pairing, midpoints are chained into path-sequential order
-        using a greedy nearest-neighbor walk. This is necessary because
-        LiDAR detection order is arbitrary — without reordering, the
-        centerline path would zigzag.
+        using a greedy nearest-neighbor walk starting from the point
+        nearest to the vehicle, oriented in the vehicle's heading
+        direction.
         """
         if not self._left_cones or not self._right_cones:
             return []
@@ -164,19 +183,53 @@ class TrackBuilder(Node):
             if len(midpoints) >= self._max_points:
                 break
 
-        # Chain midpoints into path order via nearest-neighbor walk
-        if len(midpoints) > 2:
-            midpoints = self._chain_path(midpoints)
+        # Chain midpoints into path order starting from the vehicle
+        if len(midpoints) > 2 and self._have_odom:
+            midpoints = self._chain_path_from_vehicle(midpoints)
+        elif len(midpoints) > 2:
+            midpoints = self._chain_path(midpoints, 0)
 
         return midpoints
+
+    def _chain_path_from_vehicle(
+        self, points: List[Tuple[float, float]],
+    ) -> List[Tuple[float, float]]:
+        """Chain midpoints starting from the nearest to the vehicle,
+        oriented in the vehicle's heading direction."""
+
+        # Find the midpoint closest to the vehicle
+        vx, vy = self._veh_x, self._veh_y
+        start_idx = min(
+            range(len(points)),
+            key=lambda i: (points[i][0] - vx) ** 2
+                          + (points[i][1] - vy) ** 2)
+
+        ordered = self._chain_path(points, start_idx)
+
+        # Check if the chain goes in the vehicle's heading direction.
+        # Compare the vector from ordered[0]→ordered[1] against the
+        # vehicle's yaw.  If they disagree, reverse the chain.
+        if len(ordered) >= 2:
+            dx = ordered[1][0] - ordered[0][0]
+            dy = ordered[1][1] - ordered[0][1]
+            path_angle = math.atan2(dy, dx)
+            angle_diff = math.atan2(
+                math.sin(path_angle - self._veh_yaw),
+                math.cos(path_angle - self._veh_yaw))
+            if abs(angle_diff) > math.pi / 2:
+                ordered.reverse()
+
+        return ordered
 
     @staticmethod
     def _chain_path(
         points: List[Tuple[float, float]],
+        start: int,
     ) -> List[Tuple[float, float]]:
         """Order points into a path using greedy nearest-neighbor chaining."""
-        ordered = [points[0]]
-        remaining = set(range(1, len(points)))
+        ordered = [points[start]]
+        remaining = set(range(len(points)))
+        remaining.discard(start)
 
         while remaining:
             lx, ly = ordered[-1]
