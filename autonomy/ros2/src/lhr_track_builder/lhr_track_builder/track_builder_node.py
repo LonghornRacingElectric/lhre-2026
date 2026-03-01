@@ -4,6 +4,9 @@
 import math
 from typing import List, Tuple
 
+import numpy as np
+from scipy.spatial import Delaunay
+
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
@@ -27,6 +30,8 @@ class TrackBuilder(Node):
         self.declare_parameter('max_points', 200)
         self.declare_parameter('pairing_strategy', 'index')
         self.declare_parameter('cone_topic', '/lhr/sensor/cones_detected')
+        self.declare_parameter('track_width', 3.5)
+        self.declare_parameter('track_width_tolerance', 1.0)
 
         self._frame_id = self.get_parameter(
             'frame_id').get_parameter_value().string_value
@@ -38,12 +43,17 @@ class TrackBuilder(Node):
             'pairing_strategy').get_parameter_value().string_value
         cone_topic = self.get_parameter(
             'cone_topic').get_parameter_value().string_value
+        self._track_width = self.get_parameter(
+            'track_width').get_parameter_value().double_value
+        self._track_width_tol = self.get_parameter(
+            'track_width_tolerance').get_parameter_value().double_value
 
         # --- Stored cone positions keyed by marker ID ---
         self._left_cones: dict = {}
         self._right_cones: dict = {}
+        self._all_cones: dict = {}
 
-        # --- Vehicle pose (used by nearest strategy for path ordering) ---
+        # --- Vehicle pose (used by nearest/boundary strategy) ---
         self._veh_x = 0.0
         self._veh_y = 0.0
         self._veh_yaw = 0.0
@@ -67,7 +77,7 @@ class TrackBuilder(Node):
         # --- Subscribers ---
         self.create_subscription(
             MarkerArray, cone_topic, self._cones_cb, sub_qos)
-        if self._pairing_strategy == 'nearest':
+        if self._pairing_strategy in ('nearest', 'boundary'):
             self.create_subscription(
                 Odometry, '/lhr/vehicle/odom', self._odom_cb, 10)
 
@@ -87,17 +97,21 @@ class TrackBuilder(Node):
     # Callbacks
     # ------------------------------------------------------------------
     def _cones_cb(self, msg: MarkerArray):
-        """Extract left/right cone positions from the MarkerArray, keyed by ID."""
+        """Extract cone positions from the MarkerArray, keyed by ID."""
         left: dict = {}
         right: dict = {}
+        all_cones: dict = {}
         for marker in msg.markers:
             pos = marker.pose.position
             if marker.ns == 'left_cones':
                 left[marker.id] = (pos.x, pos.y)
             elif marker.ns == 'right_cones':
                 right[marker.id] = (pos.x, pos.y)
+            elif marker.ns == 'cones':
+                all_cones[marker.id] = (pos.x, pos.y)
         self._left_cones = left
         self._right_cones = right
+        self._all_cones = all_cones
 
     def _odom_cb(self, msg: Odometry):
         self._veh_x = msg.pose.pose.position.x
@@ -110,8 +124,12 @@ class TrackBuilder(Node):
 
     def _on_timer(self):
         """Compute centerline and publish Path + debug markers."""
-        if not self._left_cones or not self._right_cones:
-            return  # wait for cones
+        if self._pairing_strategy == 'boundary':
+            if len(self._all_cones) < 4:
+                return
+        else:
+            if not self._left_cones or not self._right_cones:
+                return
 
         midpoints = self._compute_midpoints()
         if not midpoints:
@@ -125,11 +143,14 @@ class TrackBuilder(Node):
     # Centerline computation
     # ------------------------------------------------------------------
     def _compute_midpoints(self) -> List[Tuple[float, float]]:
-        """Pair left/right cones and return midpoints.
+        """Pair cones and return midpoints.
 
         Strategy 'index': match left ID ``i`` with right ID ``10000 + i``.
         Strategy 'nearest': pair each left cone with its nearest right cone.
+        Strategy 'boundary': Delaunay triangulation, filter by track width.
         """
+        if self._pairing_strategy == 'boundary':
+            return self._pair_boundary()
         if self._pairing_strategy == 'nearest':
             return self._pair_nearest()
         return self._pair_by_index()
@@ -191,6 +212,57 @@ class TrackBuilder(Node):
 
         return midpoints
 
+    def _pair_boundary(self) -> List[Tuple[float, float]]:
+        """Pair cones across track boundaries using Delaunay triangulation.
+
+        Finds natural geometric neighbors via Delaunay, then filters
+        edges to those approximately track-width apart.  Each surviving
+        edge is a cross-track pair whose midpoint lies on the centerline.
+        """
+        if len(self._all_cones) < 4:
+            return []
+
+        pts = np.array(list(self._all_cones.values()))
+
+        try:
+            tri = Delaunay(pts)
+        except Exception:
+            return []
+
+        # Extract unique edges from triangles
+        edges: set = set()
+        for simplex in tri.simplices:
+            for i in range(3):
+                a, b = int(simplex[i]), int(simplex[(i + 1) % 3])
+                edges.add((min(a, b), max(a, b)))
+
+        # Filter edges by track-width band
+        lo = self._track_width - self._track_width_tol
+        hi = self._track_width + self._track_width_tol
+        midpoints: List[Tuple[float, float]] = []
+        for a, b in edges:
+            dx = pts[a][0] - pts[b][0]
+            dy = pts[a][1] - pts[b][1]
+            d = math.sqrt(dx * dx + dy * dy)
+            if lo <= d <= hi:
+                mx = (pts[a][0] + pts[b][0]) / 2.0
+                my = (pts[a][1] + pts[b][1]) / 2.0
+                midpoints.append((mx, my))
+
+        if len(midpoints) > self._max_points:
+            midpoints = midpoints[:self._max_points]
+
+        # Chain into sequential path order from vehicle
+        if len(midpoints) > 2 and self._have_odom:
+            midpoints = self._chain_path_from_vehicle(midpoints)
+        elif len(midpoints) > 2:
+            midpoints = self._chain_path(midpoints, 0)
+
+        return midpoints
+
+    # ------------------------------------------------------------------
+    # Path chaining helpers
+    # ------------------------------------------------------------------
     def _chain_path_from_vehicle(
         self, points: List[Tuple[float, float]],
     ) -> List[Tuple[float, float]]:

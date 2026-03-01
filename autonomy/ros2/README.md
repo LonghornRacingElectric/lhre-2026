@@ -16,7 +16,7 @@ Colcon workspace for LHR driverless / autonomy nodes.
 | `lhr_mission_manager` | FSAE driverless state machine (Off → Ready → Driving → Finished → Emergency) |
 | `lhr_metrics` | Cross-track error, off-track count, and lap detection (CSV output) |
 | `lhr_gazebo` | Gazebo Harmonic physics simulation — vehicle with direct joint control, ground-truth odometry, LiDAR sensor, RViz integration |
-| `lhr_perception` | LiDAR-based cone detection — pointcloud clustering, left/right classification, persistent mapping |
+| `lhr_perception` | LiDAR-based cone detection — pointcloud clustering, persistent mapping (unclassified cones, no left/right split) |
 | `lhr_demo` | Launch file that starts the full kinematic stack in one command |
 
 ## Data flow
@@ -72,8 +72,8 @@ trackgen ──→ /lhr/track/cones ──→ sensor_sim ──→ /lhr/sensor/c
              ros_gz_bridge│(PointCloud2+odom)│
                           │                  │
   lidar_cone_detector ──→ track_builder ──→ pure_pursuit ──→ joint_cmd_adapter
-  (pointcloud clustering,  (nearest-neighbor
-   left/right classify,     pairing)
+  (pointcloud clustering,  (boundary pairing via
+   unclassified cones,      Delaunay triangulation)
    persistent mapping)
 ```
 
@@ -270,7 +270,7 @@ lhr_trackgen (cones)     →   lhr_trackgen (reused)        →   Gazebo GPU LiD
 lhr_sensor_sim (FOV)     →   lhr_sensor_sim (reused)      →   lhr_perception (pointcloud)
 lhr_sim_kinematic        →   Gazebo physics               →   Gazebo physics
 
-lhr_track_builder        →   SAME (index pairing)         →   SAME (nearest pairing)
+lhr_track_builder        →   SAME (index pairing)         →   SAME (boundary pairing)
 lhr_control              →   SAME                         →   SAME
 lhr_mission_manager      →   SAME                         →   SAME
 lhr_metrics              →   SAME                         →   SAME
@@ -367,12 +367,15 @@ Cone IDs: left cones use IDs `0..N-1`, right cones use IDs `10000..10000+N-1`. T
 | `frame_id` | `"map"` | TF frame |
 | `publish_hz` | `5.0` | Publishing rate (Hz) |
 | `max_points` | `200` | Cap on centerline points |
-| `pairing_strategy` | `"index"` | Pairing strategy: `index` (ID-based, for sim) or `nearest` (nearest-neighbor, for LiDAR) |
+| `pairing_strategy` | `"index"` | Pairing strategy: `index` (ID-based, for sim), `nearest` (nearest-neighbor), or `boundary` (Delaunay triangulation, for LiDAR) |
+| `track_width` | `3.5` | Expected track width for boundary pairing (m) |
+| `track_width_tolerance` | `1.0` | Tolerance around track width for boundary pairing (m) |
 | `cone_topic` | `"/lhr/sensor/cones_detected"` | Topic to subscribe for cone data |
 
 Cone pairing strategies:
 - **index** (default): Pairs left cone ID `i` with right cone ID `i + 10000`. Works with sim perception where cone IDs follow the trackgen convention.
-- **nearest**: Pairs each left cone with its nearest unpaired right cone. Required for LiDAR perception where detection order is arbitrary.
+- **nearest**: Pairs each left cone with its nearest unpaired right cone.
+- **boundary**: Uses Delaunay triangulation to pair cones that are approximately `track_width` (3.5 m +/- `track_width_tolerance`) apart. Used for LiDAR perception where cones are unclassified (no left/right split).
 
 ### lhr_sim_kinematic (sim_node)
 
@@ -496,7 +499,7 @@ outer = atan(wheelbase / (R + track_width/2))
 
 ### lhr_perception (lidar_cone_detector)
 
-Processes LiDAR pointcloud to detect cones. Pipeline: ground removal → range filter → Euclidean clustering → cone validation → sensor-to-map transform → spatial dedup → left/right classification.
+Processes LiDAR pointcloud to detect cones. Pipeline: ground removal → range filter → Euclidean clustering → cone validation → sensor-to-map transform → spatial dedup.
 
 | Param | Default | Description |
 |-------|---------|-------------|
@@ -511,7 +514,7 @@ Processes LiDAR pointcloud to detect cones. Pipeline: ground removal → range f
 | `dedup_radius` | `0.5` | Spatial dedup radius — new detections within this distance of existing ones are ignored (m) |
 | `publish_hz` | `10.0` | Output publish rate (Hz) |
 
-Left/right classification uses lateral position in sensor frame (positive y = left/blue, negative y = right/yellow). Accumulated detections are sorted by angle from the track centroid for consistent pairing with the track builder's nearest-neighbor strategy.
+All detected cones are published under a single "cones" namespace with IDs 0..N-1 (orange color). There is no left/right classification — the track builder's boundary pairing strategy (Delaunay triangulation) handles cone pairing by finding pairs that are approximately track-width apart.
 
 ### lhr_metrics (metrics_node)
 

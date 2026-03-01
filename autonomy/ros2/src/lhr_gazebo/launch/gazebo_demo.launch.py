@@ -216,7 +216,9 @@ def generate_launch_description():
         name='track_builder',
         parameters=[{
             'use_sim_time': True,
-            'pairing_strategy': 'nearest',
+            'pairing_strategy': 'boundary',
+            'track_width': 3.5,
+            'track_width_tolerance': 1.0,
         }],
         output='screen',
         condition=is_lidar,

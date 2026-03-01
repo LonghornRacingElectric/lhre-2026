@@ -17,7 +17,7 @@ lhr_trackgen (ground-truth cones)    Gazebo gpu_lidar sensor
 lhr_sensor_sim (FOV filter)          lhr_perception (pointcloud → cones)
 Gazebo physics (joint control)       Gazebo physics (joint control)
 
-lhr_track_builder                →   STAYS (index or nearest-neighbor pairing)
+lhr_track_builder                →   STAYS (index or boundary pairing)
 lhr_control                      →   STAYS (pure pursuit + curvature speed planning)
 lhr_mission_manager              →   STAYS (FSAE state machine)
 lhr_metrics                      →   STAYS (CTE, lap detection, CSV output)
@@ -67,9 +67,9 @@ Two perception modes selectable via `perception:=sim|lidar` launch argument:
 - `lhr_perception/lidar_cone_detector` processes the pointcloud:
   - Ground removal (height threshold) → range filter → Euclidean clustering (cKDTree)
   - Cone validation by size → sensor-to-map transform → spatial dedup
-  - Left/right classification by lateral position in sensor frame
+  - All cones published under a single "cones" namespace with IDs 0..N-1 (no left/right classification)
   - Accumulated persistent map, sorted by angle for consistent pairing
-- Track builder uses nearest-neighbor pairing (robust to detection ordering)
+- Track builder uses boundary pairing via Delaunay triangulation (pairs cones that are approximately track-width apart)
 
 ### 4. ROS2 ↔ Gazebo Bridge
 
@@ -111,7 +111,7 @@ RViz launches automatically alongside Gazebo (configurable via `rviz:=true/false
 - `gz-sim-sensors-system` with Ogre2 re-added to world generator
 - PointCloud2 bridge from Gazebo to ROS2
 - New `lhr_perception` package with `lidar_cone_detector` node
-- Nearest-neighbor pairing strategy added to track builder
+- Boundary pairing strategy (Delaunay triangulation) added to track builder
 - Perception mode switch in launch file (`perception:=sim|lidar`)
 
 ### Phase 3: Fidelity Tuning (Future)
@@ -170,6 +170,6 @@ ros2/src/lhr_perception/
 
 1. **Wheel-based odometry is unreliable** when the car gets stuck — wheels spin but position doesn't change. Always use world-frame odometry from `OdometryPublisher`.
 2. **AckermannSteering plugin is too sluggish** for reactive control — it converts Twist to joint torques through the physics solver. Direct joint control (JointPositionController + JointController) gives near-instant response.
-3. **Cone pairing by list index breaks** when sensor sim detects left/right cones in different orders. Pair by marker ID instead (left ID `i` ↔ right ID `i + 10000`), or use nearest-neighbor pairing for LiDAR perception.
+3. **Cone pairing by list index breaks** when sensor sim detects left/right cones in different orders. Pair by marker ID instead (left ID `i` ↔ right ID `i + 10000`), or use boundary pairing (Delaunay triangulation) for LiDAR perception.
 4. **Vehicle spawn position matters** — spawning near the loop closure (where first/last cones don't meet cleanly) causes immediate collisions. Auto-compute spawn on the straightest track section.
 5. **symlink-install doesn't always update** Python files. When in doubt: `rm -rf build/<pkg> install/<pkg>` then rebuild.
