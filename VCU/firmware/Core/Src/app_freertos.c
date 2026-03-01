@@ -316,8 +316,8 @@ void StartControlTask(void *argument) {
     // Read pedal sensors from DMA buffers
     in.apps1_raw = ((float)adc3_dma_buf[0] / ADC_MAX_VAL) * ADC_APPS_SCALE_V;
     in.apps2_raw = ((float)adc3_dma_buf[1] / ADC_MAX_VAL) * ADC_APPS_SCALE_V;
-    in.bse1_raw = ((float)adc2_dma_buf[0] / ADC_MAX_VAL) * ADC_BSE_SCALE_V;
-    in.bse2_raw = in.bse1_raw;
+    in.bse1_raw = (float) adc2_dma_buf[0];
+    in.bse2_raw = in.bse1_raw; // TODO: use second BSE sensor when it works
 
     // print APPS for debugging
     log_printf(LOG_INFO,
