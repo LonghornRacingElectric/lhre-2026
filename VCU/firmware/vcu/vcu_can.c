@@ -40,6 +40,7 @@ static can_message_t *brake_pedal_mailbox_handle = NULL;
 
 void vcu_can_add_receive_handlers(void);
 void vcu_can_add_send_handlers(void);
+void vcu_init_inverter(void);
 
 /**
  * @brief Initializes the CAN interface with the RTOS library and registers
@@ -90,6 +91,8 @@ void vcu_can_init(void) {
   can_rtos_start_transceiver_task(osPriorityNormal);
   can_rtos_start_receiver_task(osPriorityAboveNormal);
 
+  vcu_init_inverter();
+
   log_printf(LOG_INFO, "[VCU] CAN RTOS initialized\n");
 }
 
@@ -110,6 +113,17 @@ void vcu_can_add_send_handlers(void) {
   log_printf(LOG_INFO, "[VCU] CAN send handler for brake pedal registered\n");
 }
 
+void vcu_init_inverter() {
+  // send can packet with all 0s
+  inverter_torque_command_mailbox.torque_request = 0.0f;
+  inverter_torque_command_mailbox.enable = 0;
+  inverter_torque_command_mailbox.direction = 1;
+  inverter_torque_command_mailbox.torque_limit = 0.0f;
+
+  // start actual driving after 100ms
+  vTaskDelay(pdMS_TO_TICKS(100));
+}
+
 void vcu_can_set_model_outputs(vcu_outputs_t *out) {
   // TODO: use BPPS instead of BSE for this.
   brake_pedal_mailbox.brake_pedal_travel = out->bse_psi_filtered;
@@ -118,6 +132,7 @@ void vcu_can_set_model_outputs(vcu_outputs_t *out) {
   inverter_torque_command_mailbox.torque_request = out->torque_cmd;
   inverter_torque_command_mailbox.enable = out->inverter_enable;
   inverter_torque_command_mailbox.torque_limit = 200.0f;
+  inverter_torque_command_mailbox.direction = 1;
 }
 
 bool is_drive_switch_pressed(void) {
