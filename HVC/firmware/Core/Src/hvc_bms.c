@@ -237,7 +237,7 @@ void bms_read_thermistors(void)
     adBms6830_Adax(RD_OFF, PUP_DOWN, AUX_ALL);  // Read all auxiliary channels
     
     // Wait for conversion to complete
-    Delay_ms(5);
+    osDelay(5);
     
     // Read auxiliary voltages (GPIO pins)
     adBms6830_read_aux_voltages(TOTAL_IC, IC);
