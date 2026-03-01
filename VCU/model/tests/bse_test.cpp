@@ -113,3 +113,85 @@ TEST_F(BSETest, EvaluateLatches) {
   bse_evaluate(&in, &out, &state, &params, 10);
   EXPECT_FALSE(out.faults.brake_latched); // latch cleared
 }
+
+TEST_F(BSETest, CustomParametersEnableBrakeAndLight) {
+  params.bse.bse_off_psi = 30.0f;
+  params.bse.bse_on_psi = 50.0f;
+  params.bse.bse1_adc_at_min_psi_v = 156u;
+  params.bse.bse1_adc_at_max_psi_v = 635u;
+  params.bse.bse2_adc_at_min_psi_v = 156u;
+  params.bse.bse2_adc_at_max_psi_v = 635u;
+  params.bse.bse_max_psi = 1000.0f;
+  params.bse.max_pedal_while_braking = 0.25f;
+  params.bse.max_pedal_restore_threshold = 0.05f;
+  params.bse.min_psi_deadzone = 0.0f;
+  params.bse.max_psi_deadzone = 1.0f;
+  params.bse.bse_ema_alpha = 1.0f;
+  params.bse.brake_light_min_pct = 0.0f;
+  params.bse.brake_light_max_pct = 0.30f;
+
+  // Set ADC such that PSI evaluates > 50.0f to trigger brake_pressed
+  // (204 - 156) / (635 - 156) * 1000 = 100.2 PSI
+  in.bse1_raw = 204;
+  in.bse2_raw = 204;
+  out.accel_pedal_travel = 0.0f;
+
+  // Evaluate the BSE model
+  bse_evaluate(&in, &out, &state, &params, 10);
+
+  // Check brake pressed turns on and brake light pct turns high
+  EXPECT_TRUE(out.brake_pressed);
+  EXPECT_FLOAT_EQ(out.brake_light_pct, 0.30f);
+
+  // Release the brake (ADC 160 -> ~8.35 PSI, which is < 30.0f)
+  in.bse1_raw = 160;
+  in.bse2_raw = 160;
+
+  // Evaluate the BSE model again
+  bse_evaluate(&in, &out, &state, &params, 10);
+
+  // Check brake pressed turns off and brake light pct turns low
+  EXPECT_FALSE(out.brake_pressed);
+  EXPECT_FLOAT_EQ(out.brake_light_pct, 0.0f);
+}
+
+TEST_F(BSETest, VoltageParametersEnableBrakeAndLight) {
+  params.bse.bse_off_psi = 30.0f;
+  params.bse.bse_on_psi = 50.0f;
+
+  // Configure parameters using the new voltage limits
+  params.bse.bse1_adc_at_min_psi_v = 0.297f;
+  params.bse.bse1_adc_at_max_psi_v = 0.541f;
+  params.bse.bse2_adc_at_min_psi_v = 0.297f;
+  params.bse.bse2_adc_at_max_psi_v = 0.541f;
+
+  params.bse.bse_max_psi = 1000.0f;
+  params.bse.max_pedal_while_braking = 0.25f;
+  params.bse.max_pedal_restore_threshold = 0.05f;
+  params.bse.min_psi_deadzone = 0.0f;
+  params.bse.max_psi_deadzone = 1.0f;
+  params.bse.bse_ema_alpha = 1.0f;
+  params.bse.brake_light_min_pct = 0.0f;
+  params.bse.brake_light_max_pct = 0.30f;
+
+  // Unpressed state: inputs set to 0.297v
+  in.bse1_raw = 0.297f;
+  in.bse2_raw = 0.297f;
+  out.accel_pedal_travel = 0.0f;
+
+  bse_evaluate(&in, &out, &state, &params, 10);
+
+  // Check brake is not pressed and light is low
+  EXPECT_FALSE(out.brake_pressed);
+  EXPECT_FLOAT_EQ(out.brake_light_pct, 0.0f);
+
+  // Pressed state: inputs set to 0.541v
+  in.bse1_raw = 0.541f;
+  in.bse2_raw = 0.541f;
+
+  bse_evaluate(&in, &out, &state, &params, 10);
+
+  // Check brake is pressed and light is high
+  EXPECT_TRUE(out.brake_pressed);
+  EXPECT_FLOAT_EQ(out.brake_light_pct, 0.30f);
+}
