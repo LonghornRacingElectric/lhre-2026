@@ -176,17 +176,22 @@ class LidarConeDetector(Node):
             centroid = cluster_xy.mean(axis=0)
             sx, sy = float(centroid[0]), float(centroid[1])
 
-            # Classify by lateral position in sensor frame
-            side = 'left' if sy > 0 else 'right'
-
             # Transform to map frame
             mx, my = self._sensor_to_map(sx, sy)
 
-            # Dedup / merge against accumulated map
+            # Dedup: check BOTH maps first.  On curves the same cone
+            # can appear on either side of the sensor, so we must merge
+            # into whichever map already owns it.
+            if self._try_merge(mx, my, self._left_map):
+                continue
+            if self._try_merge(mx, my, self._right_map):
+                continue
+
+            # New cone — classify by lateral position in sensor frame
+            side = 'left' if sy > 0 else 'right'
             target = self._left_map if side == 'left' else self._right_map
-            merged = self._merge_or_add(mx, my, target)
-            if not merged:
-                new_cones += 1
+            target.append([mx, my, 1.0])
+            new_cones += 1
 
         if new_cones > 0:
             self.get_logger().info(
@@ -250,13 +255,12 @@ class LidarConeDetector(Node):
     # ------------------------------------------------------------------
     # Deduplication with running average
     # ------------------------------------------------------------------
-    def _merge_or_add(self, mx: float, my: float,
-                      cone_map: list[list[float]]) -> bool:
-        """Merge into nearest existing cone or add as new.
+    def _try_merge(self, mx: float, my: float,
+                   cone_map: list[list[float]]) -> bool:
+        """Try to merge into the nearest existing cone in *cone_map*.
 
-        Returns True if merged into existing (not a new cone).
-        Each entry is [x, y, observation_count].  On merge, the
-        position is updated with a running average.
+        Returns True if merged (position updated via running average).
+        Returns False if no existing cone is within dedup radius.
         """
         for entry in cone_map:
             ex, ey = entry[0], entry[1]
@@ -266,8 +270,6 @@ class LidarConeDetector(Node):
                 entry[1] = (ey * n + my) / (n + 1)
                 entry[2] = n + 1
                 return True
-
-        cone_map.append([mx, my, 1.0])
         return False
 
     # ------------------------------------------------------------------
