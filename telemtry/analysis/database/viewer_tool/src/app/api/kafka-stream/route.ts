@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";  // don't cache SSE
 import { NextRequest } from "next/server";
 import { bus } from "@/lib/kafka/bus";
 import { startKafkaConsumer } from "@/lib/kafka/kafkaConsumer";
+import { getBufferedMessages } from "@/lib/kafka/messageBuffer";
 
 export async function GET(req: NextRequest) {
   await startKafkaConsumer();
@@ -31,8 +32,20 @@ export async function GET(req: NextRequest) {
   let closed = false;
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      const write = (data: unknown) => controller.enqueue(enc.encode(`data: ${JSON.stringify(data)}\n\n`));
-      const heartbeat = () => controller.enqueue(enc.encode(`: ping\n\n`));
+      const write = (data: unknown) => controller.enqueue(enc.encode(`data: ${JSON.stringify(data)}
+
+`));
+      const heartbeat = () => controller.enqueue(enc.encode(`: ping
+
+`));
+
+      // Send buffered history first
+      for (const t of topics) {
+        const history = getBufferedMessages(t);
+        for (const msg of history) {
+           write(msg);
+        }
+      }
 
       const handlers: Array<{ topic: string; fn: (msg: any) => void }> = [];
       for (const t of topics) {

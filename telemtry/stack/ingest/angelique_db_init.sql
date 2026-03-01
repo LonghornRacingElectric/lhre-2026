@@ -179,7 +179,7 @@ CREATE TABLE public.dynamics (
     vcu_position        real[],
     vcu_velocity        real[],
     vcu_accel           real[],
-    gps                 point,
+    gps                 real[],
     gps_velocity        real,
     gps_heading         real,
     body1_accel         real[],

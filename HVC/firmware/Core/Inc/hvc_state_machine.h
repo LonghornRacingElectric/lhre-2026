@@ -22,27 +22,16 @@ extern "C" {
 #endif
 
 /* Includes ------------------------------------------------------------------*/
+#include "hvc_states.h"
 #include <stdbool.h>
 #include <stdint.h>
 
-/* Exported types ------------------------------------------------------------*/
-
-/**
- * @brief HVC State Machine States
- */
-typedef enum {
-    HVC_STATE_NOT_ENERGIZED = 0,        /**< System powered down, contactors open */
-    HVC_STATE_PRECHARGING,              /**< Precharge in progress */
-    HVC_STATE_ENERGIZED,                /**< System powered, ready to drive */
-    HVC_STATE_CHARGING_PRECHARGING,     /**< Charging mode precharge */
-    HVC_STATE_CHARGING                  /**< Charging mode active */
-} hvc_state_t;
-
 /* Exported constants --------------------------------------------------------*/
 
-#define HVC_PRECHARGE_THRESHOLD_PERCENT     83      /**< Precharge voltage threshold (% of pack) */
-#define HVC_PRECHARGE_VALID_MS            5000    /**< Precharge timeout (milliseconds) */
-#define HVC_FAULT_HYSTERESIS_MS             5000    /**< Fault detection hysteresis time */
+#define HVC_PRECHARGE_THRESHOLD_PERCENT                                        \
+  83 /**< Precharge voltage threshold (% of pack) */
+#define HVC_PRECHARGE_VALID_MS 5000  /**< Precharge timeout (milliseconds) */
+#define HVC_FAULT_HYSTERESIS_MS 5000 /**< Fault detection hysteresis time */
 
 /* Exported functions --------------------------------------------------------*/
 
@@ -69,7 +58,7 @@ hvc_state_t get_current_state(void);
  * @param state State to convert to string
  * @return String representation of state
  */
-const char* get_state_name(hvc_state_t state);
+const char *get_state_name(hvc_state_t state);
 
 /* Sensor/Flag Interface Functions (to be implemented by other modules) ------*/
 

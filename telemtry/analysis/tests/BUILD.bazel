@@ -1,30 +1,14 @@
 # telemtry/analysis/tests/BUILD.bazel
 
 load("@rules_python//python:defs.bzl", "py_test")
-load("@telemtry_reqs//:requirements.bzl", "requirement")
 
 py_test(
     name = "analysis_tests",
     srcs = ["sample_analysis_test.py"],
     deps = [
         "//telemtry/analysis:analysis_lib",
-        requirement("Flask"),
-        requirement("jupyter"),
-        requirement("numpy"),
-        requirement("matplotlib"),
-        requirement("paho-mqtt"),
-        requirement("pandas"),
-        requirement("protobuf"),
-        requirement("SQLAlchemy"),
-        requirement("psycopg2-binary"),
-        requirement("requests"),
-        requirement("seaborn"),
-        requirement("tqdm"),
-        requirement("flask_login"),
-        requirement("gunicorn"),
-        requirement("flask_bcrypt"),
-        requirement("python-dotenv"),
-        requirement("kafka-python"),
     ],
     main = "sample_analysis_test.py",
+    tags = ["manual"],
+    target_compatible_with = ["@platforms//os:linux"],
 )

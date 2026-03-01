@@ -1,0 +1,15 @@
+apiVersion: 1
+
+datasources:
+  - name: Orion (Postgres)
+    uid: orion
+    type: postgres
+    access: proxy
+    isDefault: false
+    url: db:5432
+    user: electric
+    secureJsonData:
+      password: ${POSTGRES_PASSWORD}
+    jsonData:
+      database: 'orion'
+      sslmode: disable

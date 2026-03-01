@@ -6,22 +6,19 @@ const GGPlot = () => {
   const [points, setPoints] = useState<{ x: number; y: number }[]>([]);
 
   // Live connection to Kafka "gg_plot_data" topic
-  const { data: newPoint, connected: kafkaConnected } = useKafkaJSON<{
+  const { connected: kafkaConnected } = useKafkaJSON<{
     data: { x: number; y: number };
   }>({
     topic: 'gg-plot',
+    onMessage: (evt, parsed) => {
+      if (parsed?.data) {
+        setPoints((prevPoints) => [
+          ...prevPoints,
+          { x: parsed.data.x, y: parsed.data.y },
+        ]);
+      }
+    },
   });
-
-  // Update points with new data using useEffect
-  useEffect(() => {
-    if (newPoint) {
-      console.log('Received new point:', newPoint);
-      setPoints((prevPoints) => [
-        ...prevPoints,
-        { x: newPoint.data.x, y: newPoint.data.y },
-      ]);
-    }
-  }, [newPoint]);
 
   const width = 500;
   const height = 500;

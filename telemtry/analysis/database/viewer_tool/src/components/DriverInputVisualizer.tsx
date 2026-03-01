@@ -11,14 +11,25 @@ const SteeringWheelIcon = () => (
   </svg>
 );
 
-const DriverInputVisualizer = () => {
+export type DriverInputData = {
+  controls?: { steerV?: number | null };
+};
+
+const DriverInputVisualizer = ({
+  data,
+}: {
+  data?: DriverInputData | null;
+} = {}) => {
   // Live connection to Kafka "sensor_data" topic
-  const { data: sensorData } = useKafkaJSON<{
-    controls: { steerV: number };
-  }>({
+  const { data: liveData } = useKafkaJSON<DriverInputData>({
     topic: 'driver_input_visualizer',
+    // Extend staleness so we keep last sample between slower updates
+    staleAfterMs: 1000,
+    merge: true,
     // No custom select: we want the whole object; default parser handles JSON
   });
+
+  const sensorData = data !== undefined ? data : liveData;
   
   // Default values if no data is available
   const brakeInput = 0//sensorData?.brakeInput ?? 0; // Percentage (0-100)

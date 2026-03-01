@@ -1,0 +1,111 @@
+.modern-dash-container {
+    background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+    font-family: 'Segoe UI', 'Roboto', sans-serif;
+    color: #fff;
+    overflow: hidden;
+}
+
+/* Glassmorphism Cards */
+.dash-card {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5); /* Enhanced shadow */
+    transition: all 0.3s ease;
+}
+
+.dash-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 25px rgba(0,0,0,0.6);
+}
+
+/* Gauge Glows */
+.gauge-glow .gauge-progress {
+    filter: drop-shadow(0 0 8px currentColor);
+}
+
+/* Specific glows based on color logic in TSX */
+.glow-orange .gauge-progress {
+    filter: drop-shadow(0 0 10px #BF5700);
+}
+
+.glow-yellow .gauge-progress {
+    filter: drop-shadow(0 0 10px #FFD700);
+}
+
+.glow-gradient .gauge-progress {
+    /* Gradient glow is tricky, approximating with yellow/orange mix */
+    filter: drop-shadow(0 0 10px rgba(255, 200, 0, 0.6));
+}
+
+.glow-blue .gauge-progress {
+    filter: drop-shadow(0 0 10px cyan);
+}
+
+/* Typography */
+.value-display {
+    font-family: 'Consolas', 'Monaco', monospace; /* Tabular numbers */
+    letter-spacing: -1px;
+    text-shadow: 0 0 10px rgba(255,255,255,0.2); /* Subtle glow */
+}
+
+.label-small {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #888;
+    margin-bottom: 2px;
+}
+
+.unit-label {
+    font-size: 1rem;
+    color: #aaa;
+    margin-left: 4px;
+}
+
+/* Vertical Gauges */
+.vertical-gauge-container rect {
+    transition: height 0.3s ease, y 0.3s ease;
+}
+
+.vertical-gauge-container .fill-bar {
+    /* filter: drop-shadow(0 0 5px currentColor); removed default glow */
+}
+
+/* Animation for Alerts */
+@keyframes flash-alert {
+    0%, 100% { background-color: rgba(255, 215, 0, 0.95); }
+    50% { background-color: rgba(255, 215, 0, 0.5); }
+}
+
+.alert-overlay {
+    position: absolute;
+    top: 50px; /* Moved a few px higher */
+    left: 0;
+    width: 100%;
+    color: #000;
+    text-align: center;
+    padding: 10px 12px; /* Increased vertical padding */
+    font-size: 1.2rem; /* Reduced font size */
+    font-weight: 800;
+    z-index: 90; /* Below top bar (100) but above content */
+    animation: flash-alert 1s infinite;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    box-shadow: 0 4px 20px rgba(255, 215, 0, 0.5);
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+/* Layout Utilities */
+.h-100-flex {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}

@@ -46,6 +46,7 @@ const Banner = () => {
             <DropdownMenuItem asChild><Link href="/tune">Texas Tune</Link></DropdownMenuItem>
             <DropdownMenuItem asChild><Link href="/dashboards">Grafana</Link></DropdownMenuItem>
             <DropdownMenuItem asChild><Link href="/live-viewer">Live Viewer</Link></DropdownMenuItem>
+            <DropdownMenuItem asChild><Link href="/replay">Replay</Link></DropdownMenuItem>
             <DropdownMenuItem onClick={handleSignOut}>Logout</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -13,38 +13,16 @@ py_library(
     visibility = ["//visibility:public"],
 )
 
-# ----------------------------
-# Linux (default)
-# ----------------------------
+# Platform-aware pip requirements compilation
+# Uses platform-specific lock files automatically based on the host OS
+# requirements_txt serves as the default (Linux) fallback
 compile_pip_requirements(
     name = "telemetry_requirements",
     src = "requirements.txt",
+    generate_hashes = False,
+    python_version = "3.11",
+    requirements_darwin = "requirements_lock_darwin.txt",
     requirements_txt = "requirements_lock.txt",
-    python_version = "3.11",
-    generate_hashes = False,
-    tags = ["requirements"],
-)
-
-# ----------------------------
-# macOS (darwin)
-# ----------------------------
-compile_pip_requirements(
-    name = "telemetry_requirements_darwin",
-    src = "requirements.txt",
-    requirements_txt = "requirements_lock_darwin.txt",
-    python_version = "3.11",
-    generate_hashes = False,
-    tags = ["requirements"],
-)
-
-# ----------------------------
-# Windows
-# ----------------------------
-compile_pip_requirements(
-    name = "telemetry_requirements_windows",
-    src = "requirements.txt",
-    requirements_txt = "requirements_lock_windows.txt",
-    python_version = "3.11",
-    generate_hashes = False,
+    requirements_windows = "requirements_lock_windows.txt",
     tags = ["requirements"],
 )

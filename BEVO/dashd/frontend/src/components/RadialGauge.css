@@ -1,0 +1,22 @@
+.radial-gauge-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.radial-gauge-value {
+    font-size: 3rem;
+    font-weight: bold;
+    fill: white;
+    text-anchor: middle;
+    alignment-baseline: middle;
+}
+
+.radial-gauge-label {
+    font-size: 1rem;
+    fill: #aaa;
+    text-anchor: middle;
+    alignment-baseline: middle;
+}

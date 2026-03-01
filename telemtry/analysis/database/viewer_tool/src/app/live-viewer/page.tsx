@@ -18,7 +18,6 @@ import {
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
 import screenfull from "screenfull";
-import { toast } from "react-toastify";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,17 +29,13 @@ import { useSortableTile } from "@/hooks/useSortableTile";
 import CarVisualization from "@/components/CarVisualization";
 import DriverInputVisualizer from "@/components/DriverInputVisualizer";
 import GGPlot from "@/components/GGPlot";
+import DashboardScreen from "@/components/DashboardScreen";
+import ShutdownScreen from "@/components/ShutdownScreen";
+import EventFlagger from "@/components/EventFlagger";
 
 const DynamicMap = dynamic(() => import("@/components/Map"), {
   ssr: false,
 });
-
-enum EventFlags {
-  HIT_CONE = "hit cone",
-  OFF_TRACK = "off track",
-  MARK_INCOMPLETE = "incomplete",
-  OTHER_FLAG = "other",
-}
 
 const Tile = ({ feature, appState, note, setNote, isDragging }) => {
   const { attributes, listeners, setNodeRef, style } = useSortableTile(
@@ -75,24 +70,6 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
     }
   };
 
-  const addFlag = async (eventFlag: EventFlags, note?: string) => {
-    if (eventFlag === EventFlags.OTHER_FLAG && (!note || note.trim() === ""))
-      return;
-
-    const response = await fetch("/api/event-flag", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        eventFlag: eventFlag === EventFlags.OTHER_FLAG ? note : eventFlag,
-      }),
-    });
-
-    if (response.ok) {
-      if (eventFlag === EventFlags.OTHER_FLAG) setNote("");
-      toast("Flag added successfully", { type: "success" });
-    } else toast("Failed to add flag", { type: "error" });
-  };
-
   const renderFeature = (feature) => {
     if (isDragging && feature.id === "live-map") {
       return (
@@ -107,65 +84,15 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
         return <TimingDeltas />;
       case "flagging-inputs":
         return (
-          <div className="flex flex-col space-y-2">
-            <Button
-              variant="outline"
-              className="bg-yellow-400 text-black hover:bg-yellow-500"
-              onClick={() => addFlag(EventFlags.HIT_CONE)}
-            >
-              Hit Cone
-            </Button>
-            <Button
-              variant="outline"
-              className="bg-red-500 text-white hover:bg-red-600"
-              onClick={() => addFlag(EventFlags.OFF_TRACK)}
-            >
-              Off-track
-            </Button>
-            <Button
-              variant="outline"
-              className="bg-orange-500 text-white hover:bg-orange-600"
-              onClick={() => addFlag(EventFlags.MARK_INCOMPLETE)}
-            >
-              Mark Incomplete
-            </Button>
-            <div className="flex space-x-2 pt-2">
-              <Input
-                type="text"
-                placeholder="Enter a note..."
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
-              <Button
-                onClick={() => addFlag(EventFlags.OTHER_FLAG, note)}
-                disabled={!note || note.trim() === ""}
-              >
-                Custom Flag
-              </Button>
-            </div>
-          </div>
+          <EventFlagger
+            note={note}
+            setNote={setNote}
+          />
         );
       case "3d-simulation":
         return (
           <div className="w-full h-full object-contain">
             <CarVisualization key={renderKey} />
-          </div>
-        );
-      case "space-time-trajectory":
-        return (
-          <div className="w-full h-full object-contain" style={{ position: "relative", width: "400px", height: "400px", maxWidth: "100%" }}>
-            <Image
-              key={appState.liveImage || "no-image"}
-              id="live-image"
-              src={
-                appState.liveImage
-                  ? `data:image/png;base64,${appState.liveImage}`
-                  : "/images/events.png"
-              }
-              alt="Live Data"
-              fill
-              style={{ objectFit: "contain" }}
-            />
           </div>
         );
       case "live-map":
@@ -178,6 +105,18 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
         return <GGPlot />;
       case "driver-input":
         return <DriverInputVisualizer />;
+      case "car-dashboard":
+        return (
+          <div className="w-full h-full">
+            <DashboardScreen />
+          </div>
+        );
+      case "shutdown-screen":
+        return (
+          <div className="w-full h-full">
+            <ShutdownScreen />
+          </div>
+        );
       case "thermal-headroom":
       case "energy-budget":
         return (
@@ -251,12 +190,13 @@ const LiveViewerPage = () => {
     { id: "lap-timer", name: "Timing & Deltas" },
     { id: "flagging-inputs", name: "Flagging Events" },
     { id: "3d-simulation", name: "3D Simulation" },
-    { id: "space-time-trajectory", name: "Space-Time Trajectory" },
     { id: "live-map", name: "Live Map" },
     { id: "gg-plot", name: "GG Plot" },
     { id: "thermal-headroom", name: "Thermal Headroom Meter" },
     { id: "driver-input", name: "Driver Input Visualizer" },
     { id: "energy-budget", name: "Energy Budget & Predictive SOC" },
+    { id: "car-dashboard", name: "Car Dashboard" },
+    { id: "shutdown-screen", name: "Shutdown Circuit Status" },
   ]);
   const [isDragging, setIsDragging] = useState(false);
   const [isClient, setIsClient] = useState(false);

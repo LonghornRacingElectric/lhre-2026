@@ -1,5 +1,6 @@
 import { getKafka } from "./kafka";
 import { bus, KafkaEvent } from "./bus";
+import { bufferMessage } from "./messageBuffer";
 import fs from "fs";
 import path from "path";
 
@@ -100,7 +101,7 @@ async function getAdmin(): Promise<Admin> {
 
 async function ensureTopicExists(topic: string): Promise<void> {
   // Skip creation for regex or empty
-  if (!topic || /[.*+?^${}()|\[\]\\]/.test(topic)) return; // heuristic: treat anything with regex chars as pattern
+  if (!topic || /[.*+?^${}()|[\\]/.test(topic)) return; // heuristic: treat anything with regex chars as pattern
   try {
     const admin = await getAdmin();
     const existing = await admin.listTopics();
@@ -186,6 +187,7 @@ export async function startKafkaConsumer(): Promise<void> {
 
         // console.log("Received message on topic:", topic);
         bus.emit(`kafka:${topic}` as const, evt); // raw event
+        bufferMessage(topic, evt);
         bus.emit("kafka:*", evt);
 
         // Routing layer: transform and emit logical component topics
@@ -230,6 +232,7 @@ export async function startKafkaConsumer(): Promise<void> {
               timestamp: message.timestamp,
             };
             bus.emit(`kafka:${rule.to}` as const, routed);
+            bufferMessage(rule.to, routed);
             console.log(`Routed message from topic ${topic} to ${rule.to} with following data: `, routed);
 
           }
@@ -281,7 +284,7 @@ export async function ensureSubscribe(topic: string | RegExp): Promise<void> {
 }
 
 export function ensureSubscribePrefix(base: string): Promise<void> {
-  const regex = new RegExp(`^${escapeRegex(base)}(?:\\/.*)?$`);
+  const regex = new RegExp(`^${escapeRegex(base)}(?:\/.*)?$`);
   return ensureSubscribe(regex);
 }
 

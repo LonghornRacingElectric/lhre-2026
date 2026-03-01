@@ -40,13 +40,21 @@ type CarData = {
   };
 };
 
-export default function CarVisualization() {
-  const { data: carData } = useKafkaJSON<CarData>({
+export type CarVisualizationData = CarData;
+
+export default function CarVisualization({
+  data,
+}: {
+  data?: CarVisualizationData | null;
+} = {}) {
+  const { data: liveData } = useKafkaJSON<CarData>({
     topic: 'car_visualization',
     // Extend staleness so we keep last sample between slower updates
     staleAfterMs: 1000,
     merge: true,
   });
+
+  const carData = data !== undefined ? data : liveData;
 
   // Normalize speeds (guard against undefined / string / NaN) and apply a visual scaling factor.
   const speedScale = -1; // tweak for visual rotation rate

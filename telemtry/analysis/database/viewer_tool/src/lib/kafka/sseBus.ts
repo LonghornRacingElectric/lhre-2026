@@ -92,6 +92,19 @@ export function subscribeSSE(topic: string, handler: Handler, opts?: { ssePath?:
   };
 }
 
+export function getSSEPath() {
+  return ssePath;
+}
+
+export function setSSEPath(next: string) {
+  if (!next || next === ssePath) return;
+  ssePath = next;
+  // Force reconnection with the new URL (topics preserved)
+  try { es?.close(); } catch {}
+  es = null;
+  openIfNeeded();
+}
+
 export function onConnectionChange(cb: (connected: boolean) => void) {
   connListeners.add(cb);
   return () => connListeners.delete(cb);
@@ -106,4 +119,11 @@ export function restartSSE() {
   try { es.close(); } catch {}
   es = null;
   openIfNeeded();
+}
+
+export function stopSSE() {
+  try { es?.close(); } catch {}
+  es = null;
+  currentUrl = "";
+  notifyConnection(false);
 }

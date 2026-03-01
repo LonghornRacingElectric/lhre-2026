@@ -14,7 +14,6 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from .point_type import PointType
 from sqlalchemy import MetaData
 
 Base = declarative_base()
@@ -22,6 +21,7 @@ Base = declarative_base()
 # Separate bases to reflect two distinct DB schemas
 BaseTelemetry = declarative_base(metadata=MetaData())  # Nightwatch / telemetry DB
 BaseAngelique = declarative_base(metadata=MetaData())   # Angelique DB
+BaseOrion = declarative_base(metadata=MetaData())       # Orion DB
 
 # -----------------------------
 # Shared Base models (as before)
@@ -200,8 +200,8 @@ class Dynamics(BaseTelemetry):
     bl_spring_displace = Column(Float)
     br_spring_displace = Column(Float)
     dash_speed = Column(Float)
-    f_gps = Column(PointType())
-    b_gps = Column(PointType())
+    f_gps = Column(ARRAY(Float))
+    b_gps = Column(ARRAY(Float))
     f_gps_velocity = Column(Float)
     b_gps_velocity = Column(Float)
     f_gps_heading = Column(Float)
@@ -325,23 +325,20 @@ class Thermal(BaseTelemetry):
     discharge_r_temp = Column(Float)
     batt_over_temp = Column(Boolean)
     packet = relationship("Packet", back_populates="thermal")
-# Angelique Models
 
 # -----------------------------
-# Angelique schema
+# Angelique Models (Generated)
 # -----------------------------
-
-    
-
+# BEGIN GENERATED Angelique
 class AngeliqueDynamics(BaseAngelique):
     __tablename__ = 'dynamics'
-    __table_args__ = {'extend_existing': True}
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
     torque_request = Column(Float)
     vcu_position = Column(ARRAY(Float))
     vcu_velocity = Column(ARRAY(Float))
     vcu_accel = Column(ARRAY(Float))
-    gps = Column(PointType())
+    gps = Column(ARRAY(Float))
     gps_velocity = Column(Float)
     gps_heading = Column(Float)
     body1_accel = Column(ARRAY(Float))
@@ -363,8 +360,8 @@ class AngeliqueDynamics(BaseAngelique):
 
 class AngeliqueControls(BaseAngelique):
     __tablename__ = 'controls'
-    __table_args__ = {'extend_existing': True}
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
     vcu_flags = Column(BYTEA)
     vcu_flags_json = Column(JSONB)
     apps1_v = Column(Float)
@@ -378,7 +375,8 @@ class AngeliqueControls(BaseAngelique):
 
 class AngeliqueDiagnostics(BaseAngelique):
     __tablename__ = 'diagnostics'
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
     current_errors = Column(BYTEA)
     current_errors_json = Column(JSONB)
     latching_faults = Column(BYTEA)
@@ -390,8 +388,8 @@ class AngeliqueDiagnostics(BaseAngelique):
 
 class AngeliqueThermal(BaseAngelique):
     __tablename__ = 'thermal'
-    __table_args__ = {'extend_existing': True}
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
     cells_temp = Column(ARRAY(SmallInteger))
     ambient_temp = Column(SmallInteger)
     inverter_temp = Column(SmallInteger)
@@ -408,8 +406,8 @@ class AngeliqueThermal(BaseAngelique):
 
 class AngeliquePack(BaseAngelique):
     __tablename__ = 'pack'
-    __table_args__ = {'extend_existing': True}
-    packet_id = Column(BigInteger, ForeignKey('packet.packet_id'), primary_key=True)
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
     hv_pack_v = Column(Float)
     hv_tractive_v = Column(Float)
     hv_c = Column(Float)
@@ -422,7 +420,7 @@ class AngeliquePack(BaseAngelique):
 
 class AngeliquePacket(BaseAngelique):
     __tablename__ = 'packet'
-    __table_args__ = {'extend_existing': True}
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
     packet_id = Column(BigInteger, primary_key=True)
     time = Column(BigInteger, nullable=False)
     dynamics = relationship("AngeliqueDynamics", uselist=False, back_populates="packet")
@@ -430,9 +428,178 @@ class AngeliquePacket(BaseAngelique):
     pack = relationship("AngeliquePack", uselist=False, back_populates="packet")
     diagnostics = relationship("AngeliqueDiagnostics", uselist=False, back_populates="packet")
     thermal = relationship("AngeliqueThermal", uselist=False, back_populates="packet")
+# END GENERATED Angelique
 
 class Partitions(Base):
     __tablename__ = 'partitions'
     partition_name = Column(Text, primary_key=True)
     start_time = Column(BigInteger, primary_key=True)
     end_time = Column(BigInteger, nullable=False)
+
+# BEGIN GENERATED Orion
+class OrionPacket(BaseOrion):
+    __tablename__ = 'packet'
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, primary_key=True)
+    time = Column(BigInteger, nullable=False)
+    dynamics = relationship("OrionDynamics", uselist=False, back_populates="packet")
+    controls = relationship("OrionControls", uselist=False, back_populates="packet")
+    pack = relationship("OrionPack", uselist=False, back_populates="packet")
+    diagnostics_high = relationship("OrionDiagnosticsHigh", uselist=False, back_populates="packet")
+    diagnostics_low = relationship("OrionDiagnosticsLow", uselist=False, back_populates="packet")
+    thermal = relationship("OrionThermal", uselist=False, back_populates="packet")
+
+class OrionDynamics(BaseOrion):
+    __tablename__ = 'dynamics'
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
+    accel_pedal_travel = Column(Float)
+    steer_col_angle = Column(Float)
+    bl_sprung_accel = Column(ARRAY(Float))
+    bl_unsprung_accel = Column(ARRAY(Float))
+    br_sprung_accel = Column(ARRAY(Float))
+    br_unsprung_accel = Column(ARRAY(Float))
+    fl_sprung_accel = Column(ARRAY(Float))
+    fl_unsprung_accel = Column(ARRAY(Float))
+    fr_sprung_accel = Column(ARRAY(Float))
+    fr_unsprung_accel = Column(ARRAY(Float))
+    bl_ride_height = Column(Float)
+    bl_strain_gauge_v = Column(Float)
+    bl_sus_pot_v = Column(Float)
+    blw_speed = Column(Float)
+    br_ride_height = Column(Float)
+    br_strain_gauge_v = Column(Float)
+    br_sus_pot_v = Column(Float)
+    brw_speed = Column(Float)
+    fl_ride_height = Column(Float)
+    fl_strain_gauge_v = Column(Float)
+    fl_sus_pot_v = Column(Float)
+    flw_speed = Column(Float)
+    fr_ride_height = Column(Float)
+    fr_strain_gauge_v = Column(Float)
+    fr_sus_pot_v = Column(Float)
+    frw_speed = Column(Float)
+    ride_height = Column(Float)
+    wheel_speed = Column(Float)
+    packet = relationship("OrionPacket", back_populates="dynamics")
+
+class OrionControls(BaseOrion):
+    __tablename__ = 'controls'
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
+    motor_speed = Column(Float)
+    torque_feedback = Column(Float)
+    apps1_travel = Column(Float)
+    apps1_v = Column(Float)
+    apps2_travel = Column(Float)
+    apps2_v = Column(Float)
+    bpps1_travel = Column(Float)
+    bpps1_v = Column(Float)
+    bpps2_travel = Column(Float)
+    bpps2_v = Column(Float)
+    brake_bias = Column(Float)
+    brake_light_pct = Column(Float)
+    brake_pressure_f = Column(Float)
+    brake_pressure_rall = Column(Float)
+    brake_pressure_rbll = Column(Float)
+    bse1_v = Column(Float)
+    bse2_v = Column(Float)
+    bse3_v = Column(Float)
+    lights_current = Column(Float)
+    rpm_request = Column(Float)
+    torque_command = Column(Float)
+    torque_limit = Column(Float)
+    torque_request = Column(Float)
+    commanded_torque = Column(Float)
+    motor_angle = Column(Float)
+    direction = Column(Boolean)
+    enable = Column(Boolean)
+    torque_shudder = Column(Float)
+    packet = relationship("OrionPacket", back_populates="controls")
+
+class OrionPack(BaseOrion):
+    __tablename__ = 'pack'
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
+    bus_voltage = Column(Float)
+    lv_boards_current = Column(Float)
+    cells_v = Column(ARRAY(Float))
+    dc_bus_v = Column(Float)
+    delta_resolver_angle = Column(Float)
+    inverter_freq = Column(Float)
+    neutral_output_v = Column(Float)
+    time_since_on = Column(Float)
+    vab_vq_v = Column(Float)
+    vbc_vd_v = Column(Float)
+    cells_temps = Column(ARRAY(Float))
+    dc_bus_current = Column(Float)
+    hv_c = Column(Float)
+    hv_pack_v = Column(Float)
+    hv_soc = Column(Float)
+    lv_batt_c = Column(Float)
+    lv_batt_t = Column(Float)
+    lv_batt_v = Column(Float)
+    phase_a_current = Column(Float)
+    phase_b_current = Column(Float)
+    phase_c_current = Column(Float)
+    packet = relationship("OrionPacket", back_populates="pack")
+
+class OrionDiagnosticsHigh(BaseOrion):
+    __tablename__ = 'diagnostics_high'
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
+    shutdown_current = Column(Float)
+    hvc_state_machine = Column(Float)
+    post_faults = Column(Float)
+    run_faults = Column(Float)
+    neg_hv_contactor = Column(Boolean)
+    pos_hv_contactor = Column(Boolean)
+    precharge_contactor = Column(Boolean)
+    packet = relationship("OrionPacket", back_populates="diagnostics_high")
+
+class OrionDiagnosticsLow(BaseOrion):
+    __tablename__ = 'diagnostics_low'
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
+    precharge_r_temp = Column(Float)
+    bmb_comm_error = Column(Boolean)
+    imd_gnd_isolation_error = Column(Boolean)
+    r2d_authorized = Column(Boolean)
+    r2d_status = Column(Boolean)
+    shutdown_leg1 = Column(Boolean)
+    shutdown_leg2 = Column(Boolean)
+    shutdown_leg3 = Column(Boolean)
+    shutdown_leg4 = Column(Boolean)
+    packet = relationship("OrionPacket", back_populates="diagnostics_low")
+
+class OrionThermal(BaseOrion):
+    __tablename__ = 'thermal'
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
+    batt_cooling_current = Column(Float)
+    motor_cooling_current = Column(Float)
+    motor_temp = Column(Float)
+    ambient_temp = Column(Float)
+    batt_loop_batt_temp = Column(Float)
+    batt_loop_rad_fan_speed = Column(Float)
+    batt_loop_rad_temp = Column(Float)
+    bus_bar_temp1 = Column(Float)
+    bus_bar_temp2 = Column(Float)
+    bus_bar_temp3 = Column(Float)
+    cell_bottom_temp = Column(Float)
+    cell_top_temp = Column(Float)
+    discharge_r_temp = Column(Float)
+    gate_driver_temp = Column(Float)
+    inverter_temp = Column(Float)
+    module_a_temp = Column(Float)
+    module_b_temp = Column(Float)
+    module_c_temp = Column(Float)
+    motor_loop_inverter_temp = Column(Float)
+    motor_loop_motor_temp = Column(Float)
+    motor_loop_rad_fan_speed = Column(Float)
+    motor_loop_rad_temp = Column(Float)
+    rtd4_temp = Column(Float)
+    rtd5_temp = Column(Float)
+    packet = relationship("OrionPacket", back_populates="thermal")
+
+# END GENERATED Orion
