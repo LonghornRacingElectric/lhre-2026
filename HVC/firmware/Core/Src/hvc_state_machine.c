@@ -85,6 +85,8 @@ void update_state_machine(bool any_faults) {
 
             if (tractive_voltage > precharge_threshold) {
                 uint32_t elapsed = current_time - precharge_start_time;
+                // log_printf(LOG_INFO, "shutdown closed: %d, elapsed: %lu ms, tractive voltage: %.2f V, pack voltage: %.2f V, threshold: %.2f V\n",
+                //             is_shutdown_closed(), elapsed, tractive_voltage, pack_voltage, precharge_threshold);
                 if (elapsed >= HVC_PRECHARGE_VALID_MS) {
                     // Precharge complete - close drive contactors
                     set_positive_contactor(true);
@@ -104,6 +106,7 @@ void update_state_machine(bool any_faults) {
             
         case HVC_STATE_ENERGIZED:
             // Stay energized while TS_Enable is active
+            // log_printf(LOG_INFO, "energized - shutdown closed: %d\n", is_shutdown_closed());
             if (!is_shutdown_closed()) {
                 set_positive_contactor(false);
                 current_state = HVC_STATE_NOT_ENERGIZED;

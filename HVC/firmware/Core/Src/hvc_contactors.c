@@ -48,7 +48,7 @@ void contactors_init(void) {
  * @brief Set positive contactor state (danger!)
  */
 void set_positive_contactor(bool state) {
-    HAL_GPIO_WritePin(Close_IR___GPIO_Port, Close_IR___Pin, (GPIO_PinState)state);
+    HAL_GPIO_WritePin(Close_IR_Plus_GPIO_Port, Close_IR_Plus_Pin, (GPIO_PinState)state);
     drive_state = state;
 }
 

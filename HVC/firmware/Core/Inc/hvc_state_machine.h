@@ -28,9 +28,8 @@ extern "C" {
 
 /* Exported constants --------------------------------------------------------*/
 
-#define HVC_PRECHARGE_THRESHOLD_PERCENT 0.90f /**< Precharge voltage (%) */
-#define HVC_PRECHARGE_VALID_MS 5000  /**< Precharge timeout (milliseconds) */
-#define HVC_FAULT_HYSTERESIS_MS 5000 /**< Fault detection hysteresis time */
+#define HVC_PRECHARGE_THRESHOLD_PERCENT 0.90f
+#define HVC_PRECHARGE_VALID_MS 5000
 
 /* Exported functions --------------------------------------------------------*/
 
