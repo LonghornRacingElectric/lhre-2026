@@ -27,7 +27,7 @@ extern uint8_t WRPWM1[2];
 extern uint8_t WRPWM2[2];
 
 // #define TOTAL_IC 10  // 10 BMBs (2 per module)
-#define TOTAL_IC 6
+#define TOTAL_IC 10
 #define CELLS_PER_IC 13 // Orion BMS
 #define DISCHARGE_CELL 0  // Which cell to discharge (0-4)
 // Mask covering all cells (bits 0..CELLS_PER_IC-1)
