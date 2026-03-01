@@ -8,16 +8,19 @@ Usage:
     ros2 launch lhr_gazebo gazebo_demo.launch.py
     ros2 launch lhr_gazebo gazebo_demo.launch.py gui:=false
     ros2 launch lhr_gazebo gazebo_demo.launch.py perception:=lidar
+    ros2 launch lhr_gazebo gazebo_demo.launch.py track_style:=oval
+    ros2 launch lhr_gazebo gazebo_demo.launch.py track_style:=oval perception:=lidar
 """
 
 import os
 
 from ament_index_python.packages import get_package_share_directory
 
-from launch import LaunchDescription
+from launch import LaunchContext, LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     ExecuteProcess,
+    OpaqueFunction,
     SetEnvironmentVariable,
 )
 from launch.conditions import IfCondition, UnlessCondition
@@ -28,110 +31,81 @@ from launch.substitutions import (
 from launch_ros.actions import Node
 
 
-def _find_default_world():
-    """Locate the default world SDF in the source tree."""
+def _find_world(context: LaunchContext):
+    """Resolve the world SDF path from track_style and seed.
+
+    Search order:
+      1. Explicit ``world`` argument (if the user overrode it)
+      2. ``<worlds_dir>/<track_style>_seed<seed>.sdf`` in the source tree
+      3. Same pattern in the installed share directory
+      4. Fall back to any SDF in the source worlds directory
+    """
+    world_arg = context.launch_configurations.get('world', '')
+    track_style = context.launch_configurations.get('track_style', 'autocross')
+    seed = context.launch_configurations.get('seed', '1')
+
+    # If the user explicitly passed a valid world path, use it
+    if world_arg and os.path.isfile(world_arg):
+        return world_arg
+
+    expected = f'{track_style}_seed{seed}.sdf'
+
+    # Source tree (launch/ is one level below the package root)
     launch_dir = os.path.dirname(os.path.abspath(__file__))
-    worlds_dir = os.path.join(launch_dir, os.pardir, 'worlds')
-    default = os.path.join(worlds_dir, 'autocross_seed1.sdf')
-    if os.path.isfile(default):
-        return os.path.abspath(default)
-    if os.path.isdir(worlds_dir):
-        for f in sorted(os.listdir(worlds_dir)):
+    src_worlds = os.path.join(launch_dir, os.pardir, 'worlds')
+    src_path = os.path.join(src_worlds, expected)
+    if os.path.isfile(src_path):
+        return os.path.abspath(src_path)
+
+    # Installed share directory
+    try:
+        pkg_share = get_package_share_directory('lhr_gazebo')
+        share_path = os.path.join(pkg_share, 'worlds', expected)
+        if os.path.isfile(share_path):
+            return share_path
+    except Exception:
+        pass
+
+    # Fallback: first SDF found in source worlds directory
+    if os.path.isdir(src_worlds):
+        for f in sorted(os.listdir(src_worlds)):
             if f.endswith('.sdf'):
-                return os.path.abspath(os.path.join(worlds_dir, f))
+                return os.path.abspath(os.path.join(src_worlds, f))
+
     return ''
 
 
-def generate_launch_description():
+def _launch_setup(context: LaunchContext):
+    """Build all launch actions — called via OpaqueFunction so we can
+    resolve the world path from track_style + seed at launch time."""
+
+    world_path = _find_world(context)
+    if not world_path:
+        raise RuntimeError(
+            'No world SDF found. Generate one with: '
+            'python3 scripts/generate_world.py --style <style> --seed <seed>')
+
     pkg_share = get_package_share_directory('lhr_gazebo')
     models_dir = os.path.join(pkg_share, 'models')
     config_dir = os.path.join(pkg_share, 'config')
 
-    default_world = _find_default_world()
-
-    # ----- Launch arguments -----
-    world_arg = DeclareLaunchArgument(
-        'world', default_value=default_world,
-        description='Absolute path to world SDF file')
-    gui_arg = DeclareLaunchArgument(
-        'gui', default_value='true',
-        description='Launch Gazebo GUI (set false for headless)')
-    perception_arg = DeclareLaunchArgument(
-        'perception', default_value='sim',
-        description='Perception mode: "sim" (trackgen+sensor_sim) '
-                    'or "lidar" (LiDAR pointcloud)')
-
-    # Track generation (must match the seed/style used for world generation)
-    track_style_arg = DeclareLaunchArgument(
-        'track_style', default_value='autocross',
-        description='Track style: "autocross", "oval", or "simple"')
-    seed_arg = DeclareLaunchArgument('seed', default_value='1')
-    num_wp_arg = DeclareLaunchArgument('num_waypoints', default_value='10')
-
-    # Sensor sim
-    fov_arg = DeclareLaunchArgument('fov_deg', default_value='200.0')
-    range_arg = DeclareLaunchArgument('max_range_m', default_value='20.0')
-
-    # Control params
-    lookahead_arg = DeclareLaunchArgument(
-        'lookahead_dist', default_value='5.0')
-    lookahead_min_arg = DeclareLaunchArgument(
-        'lookahead_min', default_value='2.0')
-    lookahead_curv_gain_arg = DeclareLaunchArgument(
-        'lookahead_curvature_gain', default_value='3.0')
-    a_lat_arg = DeclareLaunchArgument('a_lat_max', default_value='3.0')
-    v_min_arg = DeclareLaunchArgument('v_min', default_value='1.0')
-    v_max_arg = DeclareLaunchArgument('v_max', default_value='5.0')
-    max_accel_arg = DeclareLaunchArgument('max_accel', default_value='1.0')
-    max_decel_arg = DeclareLaunchArgument('max_decel', default_value='2.0')
-
-    # RViz
-    rviz_arg = DeclareLaunchArgument(
-        'rviz', default_value='true',
-        description='Launch RViz alongside Gazebo')
-
-    # Metrics
-    metrics_arg = DeclareLaunchArgument(
-        'enable_metrics', default_value='true')
-
-    # Mission manager
-    mission_arg = DeclareLaunchArgument(
-        'mission', default_value='autocross')
-    auto_go_arg = DeclareLaunchArgument(
-        'auto_go', default_value='true')
-    ready_hold_arg = DeclareLaunchArgument(
-        'ready_hold_sec', default_value='5.0')
-
-    # ----- Conditions for perception mode -----
-    perception_cfg = LaunchConfiguration('perception')
-    is_sim = IfCondition(PythonExpression([
-        "'", perception_cfg, "' == 'sim'"]))
-    is_lidar = IfCondition(PythonExpression([
-        "'", perception_cfg, "' == 'lidar'"]))
-
-    # ----- Environment: tell Gazebo where to find our models -----
-    gz_model_path = SetEnvironmentVariable(
-        'GZ_SIM_RESOURCE_PATH', models_dir)
+    perception = context.launch_configurations.get('perception', 'sim')
 
     _gz_env = {
         'GZ_SIM_RESOURCE_PATH': models_dir,
     }
 
-    # ----- Gazebo server (Harmonic: `gz sim`) -----
-    # With GUI
-    gz_sim_gui = ExecuteProcess(
-        cmd=['gz', 'sim', '-r', LaunchConfiguration('world')],
-        output='screen',
-        additional_env=_gz_env,
-        condition=IfCondition(LaunchConfiguration('gui')),
-    )
+    # ----- Gazebo server -----
+    gui = context.launch_configurations.get('gui', 'true').lower()
+    if gui == 'true':
+        gz_cmd = ['gz', 'sim', '-r', world_path]
+    else:
+        gz_cmd = ['gz', 'sim', '-r', '-s', world_path]
 
-    # Headless (server only, no rendering)
-    gz_sim_headless = ExecuteProcess(
-        cmd=['gz', 'sim', '-r', '-s', LaunchConfiguration('world')],
+    gz_sim = ExecuteProcess(
+        cmd=gz_cmd,
         output='screen',
         additional_env=_gz_env,
-        condition=UnlessCondition(LaunchConfiguration('gui')),
     )
 
     # ----- ros_gz_bridge -----
@@ -145,7 +119,7 @@ def generate_launch_description():
         output='screen',
     )
 
-    # ----- Adapter: AckermannDriveStamped → individual joint commands -----
+    # ----- Joint command adapter -----
     cmd_adapter = Node(
         package='lhr_gazebo',
         executable='joint_cmd_adapter',
@@ -154,80 +128,77 @@ def generate_launch_description():
         output='screen',
     )
 
-    # ----- Sim perception (trackgen + sensor_sim, perception:=sim) -----
-    cones = Node(
-        package='lhr_trackgen',
-        executable='publish_cones',
-        name='publish_cones',
-        parameters=[{
-            'seed': LaunchConfiguration('seed'),
-            'track_style': LaunchConfiguration('track_style'),
-            'num_waypoints': LaunchConfiguration('num_waypoints'),
-            'use_sim_time': True,
-        }],
-        output='screen',
-        condition=is_sim,
-    )
+    # ----- Perception nodes -----
+    perception_nodes = []
 
-    sensor_sim = Node(
-        package='lhr_sensor_sim',
-        executable='sensor_sim',
-        name='sensor_sim',
-        parameters=[{
-            'fov_deg': LaunchConfiguration('fov_deg'),
-            'max_range_m': LaunchConfiguration('max_range_m'),
-            'use_sim_time': True,
-        }],
-        output='screen',
-        condition=is_sim,
-    )
+    if perception == 'sim':
+        perception_nodes.append(Node(
+            package='lhr_trackgen',
+            executable='publish_cones',
+            name='publish_cones',
+            parameters=[{
+                'seed': LaunchConfiguration('seed'),
+                'track_style': LaunchConfiguration('track_style'),
+                'num_waypoints': LaunchConfiguration('num_waypoints'),
+                'use_sim_time': True,
+            }],
+            output='screen',
+        ))
+        perception_nodes.append(Node(
+            package='lhr_sensor_sim',
+            executable='sensor_sim',
+            name='sensor_sim',
+            parameters=[{
+                'fov_deg': LaunchConfiguration('fov_deg'),
+                'max_range_m': LaunchConfiguration('max_range_m'),
+                'use_sim_time': True,
+            }],
+            output='screen',
+        ))
+    elif perception == 'lidar':
+        perception_nodes.append(Node(
+            package='lhr_perception',
+            executable='lidar_cone_detector',
+            name='lidar_cone_detector',
+            parameters=[{
+                'use_sim_time': True,
+                'max_range': 20.0,
+                'min_range': 0.8,
+                'ground_z_min': -0.40,
+                'ground_z_max': 0.5,
+                'cluster_radius': 0.35,
+                'dedup_radius': 1.0,
+            }],
+            output='screen',
+        ))
 
-    # ----- LiDAR perception (perception:=lidar) -----
-    lidar_perception = Node(
-        package='lhr_perception',
-        executable='lidar_cone_detector',
-        name='lidar_cone_detector',
-        parameters=[{
-            'use_sim_time': True,
-            'max_range': 20.0,
-            'min_range': 0.8,
-            'ground_z_min': -0.40,
-            'ground_z_max': 0.5,
-            'cluster_radius': 0.35,
-            'dedup_radius': 1.0,
-        }],
-        output='screen',
-        condition=is_lidar,
-    )
+    # ----- Track builder -----
+    if perception == 'lidar':
+        centerline = Node(
+            package='lhr_track_builder',
+            executable='track_builder',
+            name='track_builder',
+            parameters=[{
+                'use_sim_time': True,
+                'pairing_strategy': 'boundary',
+                'track_width': 3.5,
+                'track_width_tolerance': 1.0,
+            }],
+            output='screen',
+        )
+    else:
+        centerline = Node(
+            package='lhr_track_builder',
+            executable='track_builder',
+            name='track_builder',
+            parameters=[{
+                'use_sim_time': True,
+                'pairing_strategy': 'index',
+            }],
+            output='screen',
+        )
 
-    # ----- Upper stack -----
-    # Track builder: use nearest pairing for LiDAR, index for sim
-    centerline_sim = Node(
-        package='lhr_track_builder',
-        executable='track_builder',
-        name='track_builder',
-        parameters=[{
-            'use_sim_time': True,
-            'pairing_strategy': 'index',
-        }],
-        output='screen',
-        condition=is_sim,
-    )
-
-    centerline_lidar = Node(
-        package='lhr_track_builder',
-        executable='track_builder',
-        name='track_builder',
-        parameters=[{
-            'use_sim_time': True,
-            'pairing_strategy': 'boundary',
-            'track_width': 3.5,
-            'track_width_tolerance': 1.0,
-        }],
-        output='screen',
-        condition=is_lidar,
-    )
-
+    # ----- Control -----
     control = Node(
         package='lhr_control',
         executable='pursuit_node',
@@ -247,26 +218,31 @@ def generate_launch_description():
         output='screen',
     )
 
-    metrics = Node(
-        package='lhr_metrics',
-        executable='metrics_node',
-        name='metrics_node',
-        parameters=[{'use_sim_time': True}],
-        output='screen',
-        condition=IfCondition(LaunchConfiguration('enable_metrics')),
-    )
+    # ----- Metrics -----
+    metrics_nodes = []
+    if context.launch_configurations.get(
+            'enable_metrics', 'true').lower() == 'true':
+        metrics_nodes.append(Node(
+            package='lhr_metrics',
+            executable='metrics_node',
+            name='metrics_node',
+            parameters=[{'use_sim_time': True}],
+            output='screen',
+        ))
 
     # ----- RViz -----
-    rviz_node = Node(
-        package='rviz2',
-        executable='rviz2',
-        name='rviz2',
-        arguments=['-d', os.path.join(config_dir, 'default.rviz')],
-        parameters=[{'use_sim_time': True}],
-        output='screen',
-        condition=IfCondition(LaunchConfiguration('rviz')),
-    )
+    rviz_nodes = []
+    if context.launch_configurations.get('rviz', 'true').lower() == 'true':
+        rviz_nodes.append(Node(
+            package='rviz2',
+            executable='rviz2',
+            name='rviz2',
+            arguments=['-d', os.path.join(config_dir, 'default.rviz')],
+            parameters=[{'use_sim_time': True}],
+            output='screen',
+        ))
 
+    # ----- Mission manager -----
     mission_mgr = Node(
         package='lhr_mission_manager',
         executable='mission_manager',
@@ -280,47 +256,56 @@ def generate_launch_description():
         output='screen',
     )
 
-    return LaunchDescription([
-        # Arguments
-        world_arg,
-        gui_arg,
-        perception_arg,
-        track_style_arg,
-        seed_arg,
-        num_wp_arg,
-        fov_arg,
-        range_arg,
-        lookahead_arg,
-        lookahead_min_arg,
-        lookahead_curv_gain_arg,
-        a_lat_arg,
-        v_min_arg,
-        v_max_arg,
-        max_accel_arg,
-        max_decel_arg,
-        metrics_arg,
-        mission_arg,
-        auto_go_arg,
-        ready_hold_arg,
-        rviz_arg,
-        # Environment
-        gz_model_path,
-        # Gazebo physics (one of these will activate based on gui arg)
-        gz_sim_gui,
-        gz_sim_headless,
-        # Bridge + adapter
+    return [
+        SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', models_dir),
+        gz_sim,
         bridge,
         cmd_adapter,
-        # Perception (one mode activates based on perception arg)
-        cones,
-        sensor_sim,
-        lidar_perception,
-        # Upper stack
-        centerline_sim,
-        centerline_lidar,
+        *perception_nodes,
+        centerline,
         mission_mgr,
         control,
-        metrics,
-        # Visualization
-        rviz_node,
+        *metrics_nodes,
+        *rviz_nodes,
+    ]
+
+
+def generate_launch_description():
+    return LaunchDescription([
+        # ----- Launch arguments -----
+        DeclareLaunchArgument(
+            'world', default_value='',
+            description='Override: absolute path to world SDF file'),
+        DeclareLaunchArgument(
+            'gui', default_value='true',
+            description='Launch Gazebo GUI (set false for headless)'),
+        DeclareLaunchArgument(
+            'perception', default_value='sim',
+            description='Perception mode: "sim" or "lidar"'),
+        DeclareLaunchArgument(
+            'track_style', default_value='autocross',
+            description='Track style: "autocross", "oval", or "simple"'),
+        DeclareLaunchArgument('seed', default_value='1'),
+        DeclareLaunchArgument('num_waypoints', default_value='10'),
+        # Sensor sim
+        DeclareLaunchArgument('fov_deg', default_value='200.0'),
+        DeclareLaunchArgument('max_range_m', default_value='20.0'),
+        # Control
+        DeclareLaunchArgument('lookahead_dist', default_value='5.0'),
+        DeclareLaunchArgument('lookahead_min', default_value='2.0'),
+        DeclareLaunchArgument('lookahead_curvature_gain', default_value='3.0'),
+        DeclareLaunchArgument('a_lat_max', default_value='3.0'),
+        DeclareLaunchArgument('v_min', default_value='1.0'),
+        DeclareLaunchArgument('v_max', default_value='5.0'),
+        DeclareLaunchArgument('max_accel', default_value='1.0'),
+        DeclareLaunchArgument('max_decel', default_value='2.0'),
+        # RViz / metrics
+        DeclareLaunchArgument('rviz', default_value='true'),
+        DeclareLaunchArgument('enable_metrics', default_value='true'),
+        # Mission
+        DeclareLaunchArgument('mission', default_value='autocross'),
+        DeclareLaunchArgument('auto_go', default_value='true'),
+        DeclareLaunchArgument('ready_hold_sec', default_value='5.0'),
+        # ----- Build all nodes via OpaqueFunction -----
+        OpaqueFunction(function=_launch_setup),
     ])

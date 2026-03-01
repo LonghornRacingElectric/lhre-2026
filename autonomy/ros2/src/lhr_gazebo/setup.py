@@ -27,6 +27,8 @@ setup(
             glob('models/cone_orange_small/*')),
         (os.path.join('share', package_name, 'models', 'cone_orange_large'),
             glob('models/cone_orange_large/*')),
+        (os.path.join('share', package_name, 'worlds'),
+            glob('worlds/*.sdf')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
