@@ -27,7 +27,7 @@ void can_init(can_config_t *config) {
   // set our can library to use the correct functions
   can = *config;
 
-  fw_update_init(can.write_memory_fn);
+  fw_update_init(can.write_memory_fn, can.abort_update_fn);
 
   dfu_response_msg = can_get_message_handle(
       &dfu_response, DEVICE_FIRMWARE_UPDATE_RESPONSE_PACKET_ID,

@@ -13,6 +13,7 @@ static uint16_t received_bytes = 0;
 static bool is_receiving = false;
 
 static write_memory_fn mem_write_cb = NULL;
+static abort_update_fn abort_cb = NULL;
 
 // standard crc8 implementation (googled, not my own)
 static uint8_t calculate_crc8(const uint8_t *data, uint16_t length) {
@@ -30,8 +31,9 @@ static uint8_t calculate_crc8(const uint8_t *data, uint16_t length) {
   return crc;
 }
 
-void fw_update_init(write_memory_fn write_cb) {
+void fw_update_init(write_memory_fn write_cb, abort_update_fn abort_fn) {
   mem_write_cb = write_cb;
+  abort_cb = abort_fn;
   is_receiving = false;
   received_bytes = 0;
   memset(rx_buffer, 0, FW_BLOCK_SIZE);
@@ -56,6 +58,9 @@ fw_update_process_command(const msg_firmware_update_command_packet_t *cmd_pkt) {
   } else if (cmd_pkt->command == UPDATE_COMMAND_ABORT) {
     is_receiving = false;
     received_bytes = 0;
+    if (abort_cb) {
+      abort_cb();
+    }
     return UPDATE_RESPONSE_ACK;
   }
 

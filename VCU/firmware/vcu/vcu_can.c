@@ -66,6 +66,7 @@ void vcu_can_init(void) {
       .device_id = DEVICE_ID_VCU,
       .write_memory_fn = ota_flash_write_memory,
       .fw_update_begin_fn = ota_flash_begin,
+      .abort_update_fn = ota_flash_abort,
   };
 
   critical_bus.handle = &hfdcan1;

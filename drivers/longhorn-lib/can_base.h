@@ -77,6 +77,7 @@ typedef struct can_config_t {
   can_device_t device_id;
   write_memory_fn write_memory_fn;
   fw_update_begin_fn fw_update_begin_fn;
+  abort_update_fn abort_update_fn;
 } can_config_t;
 
 typedef struct can_handle_t {

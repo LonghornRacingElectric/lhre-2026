@@ -167,6 +167,7 @@ static void flash_writer_task(void *arg) {
 
       osDelay(100);
       ota_ob_swap_bank();
+      update_active = false;
     }
   }
 }
@@ -210,4 +211,18 @@ void ota_flash_write_memory(uint32_t address, uint8_t *data, uint16_t length) {
   BaseType_t higher_prio_woken = pdFALSE;
   xQueueSendFromISR(flash_queue, &block, &higher_prio_woken);
   portYIELD_FROM_ISR(higher_prio_woken);
+}
+
+void ota_flash_abort(void) {
+  update_active = false;
+  flash_bank_erased = false;
+  blocks_written = 0;
+  total_blocks_expected = 0;
+  residual_len = 0;
+  write_cursor = 0;
+
+  // drain any pending blocks from the queue
+  if (flash_queue != NULL) {
+    xQueueReset(flash_queue);
+  }
 }

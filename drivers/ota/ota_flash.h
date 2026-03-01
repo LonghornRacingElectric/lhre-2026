@@ -11,6 +11,7 @@ extern "C" {
 void ota_flash_init(void);
 
 void ota_flash_begin(uint16_t num_blocks);
+void ota_flash_abort(void);
 
 void ota_flash_write_memory(uint32_t address, uint8_t *data, uint16_t length);
 uint32_t ota_flash_get_bank(uint32_t addr);

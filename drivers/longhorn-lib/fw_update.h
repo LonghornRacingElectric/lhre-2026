@@ -10,8 +10,11 @@
 typedef void (*write_memory_fn)(uint32_t address, uint8_t *data,
                                 uint16_t length);
 
+// called when the update is aborted to reset driver state
+typedef void (*abort_update_fn)(void);
+
 // initializes the firmware update subsystem
-void fw_update_init(write_memory_fn write_cb);
+void fw_update_init(write_memory_fn write_cb, abort_update_fn abort_fn);
 
 // processes the unpacked firmware update command packet
 update_response_t

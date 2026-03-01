@@ -45,6 +45,7 @@ void hvc_can_init(void) {
       .device_id = DEVICE_ID_HVC,
       .write_memory_fn = ota_flash_write_memory,
       .fw_update_begin_fn = ota_flash_begin,
+      .abort_update_fn = ota_flash_abort,
   };
 
   critical_can_bus.cccr_reg = &hfdcan1.Instance->CCCR;
