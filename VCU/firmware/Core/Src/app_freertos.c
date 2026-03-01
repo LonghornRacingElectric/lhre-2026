@@ -316,8 +316,8 @@ void StartControlTask(void *argument) {
     // Read pedal sensors from DMA buffers
     in.apps1_raw = ((float)adc3_dma_buf[0] / ADC_MAX_VAL) * ADC_APPS_SCALE_V;
     in.apps2_raw = ((float)adc3_dma_buf[1] / ADC_MAX_VAL) * ADC_APPS_SCALE_V;
-    in.bse1_raw = ((float) adc2_dma_buf[1]) / ADC_MAX_VAL * ADC_BSE_SCALE_V;
-    in.bse2_raw = ((float) adc2_dma_buf[1]) / ADC_MAX_VAL * ADC_BSE_SCALE_V;
+    in.bse1_raw = ((float) adc2_dma_buf[0]) / ADC_MAX_VAL * ADC_BSE_SCALE_V;
+    in.bse2_raw = in.bse1_raw; // TODO: use second BSE sensor when it works
 
     in.drive_switch = is_drive_switch_pressed();
 
@@ -333,20 +333,21 @@ void StartControlTask(void *argument) {
 
   // BSE debug print
   static uint32_t print_div = 0;
-  if (++print_div >= 50) { // 50 * 10ms = 500ms
-    print_div = 0;
+if (++print_div >= 50) { // 500ms
+  print_div = 0;
 
-    uint16_t bse1_adc = adc2_dma_buf[0];
-    uint16_t bse2_adc = adc2_dma_buf[1];
+  uint16_t bse1_adc = adc2_dma_buf[0];
+  uint16_t bse2_adc = bse1_adc;
 
-    float bse1_v = ((float) adc2_dma_buf[0]) / ADC_MAX_VAL * ADC_BSE_SCALE_V;
-    float bse2_v = ((float) adc2_dma_buf[1]) / ADC_MAX_VAL * ADC_BSE_SCALE_V;
+  float bse1_v = ((float)bse1_adc / ADC_MAX_VAL) * ADC_BSE_SCALE_V;
+  float bse2_v = ((float)bse2_adc / ADC_MAX_VAL) * ADC_BSE_SCALE_V;
 
-    log_printf(LOG_INFO,
-              "BSE1 adc=%u v=%.3f | BSE2 adc=%u v=%.3f",
-              (unsigned)bse1_adc, (double)bse1_v,
-              (unsigned)bse2_adc, (double)bse2_v);
-  }
+  log_printf(LOG_INFO,
+             "BSE1 adc=%u v=%.3f | BSE2 adc=%u v=%.3f | Brake light=%.1f%%\n",
+             (unsigned)bse1_adc, (double)bse1_v,
+             (unsigned)bse2_adc, (double)bse2_v,
+             (double)(out.brake_light_pct * 100.0f));
+}
     // 10 ms control loop (100 Hz)
     osDelay(pdMS_TO_TICKS(10));
   }
