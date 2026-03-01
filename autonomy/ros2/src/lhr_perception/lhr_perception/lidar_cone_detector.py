@@ -2,15 +2,18 @@
 """LiDAR-based cone detector for FSAE driverless.
 
 Subscribes to a PointCloud2 topic from Gazebo's gpu_lidar sensor,
-clusters the pointcloud to find cone-sized objects, classifies them
-as left (blue) or right (yellow) by lateral position, and publishes
-a MarkerArray matching the same contract as lhr_sensor_sim.
+clusters the pointcloud to find cone-sized objects, and publishes
+an unclassified MarkerArray of all detected cones.
 
 Output contract (consumed by lhr_track_builder):
   - Topic: /lhr/sensor/cones_detected (MarkerArray)
   - QoS: RELIABLE + TRANSIENT_LOCAL, depth 1
-  - Namespaces: "left_cones" (ids 0..N-1), "right_cones" (ids 10000..10000+N-1)
+  - Namespace: "cones" (ids 0..N-1)
   - Markers: SPHERE type, scale 0.35, frame_id "map"
+
+Left/right classification is NOT performed here — the LiDAR has no
+colour information.  The track_builder's 'boundary' pairing strategy
+handles centerline construction from unclassified cones.
 """
 
 import math
@@ -79,9 +82,8 @@ class LidarConeDetector(Node):
         self._have_odom = False
         self._latest_cloud: PointCloud2 | None = None
 
-        # Accumulated cone positions in map frame: (x, y, observation_count).
-        self._left_map: list[list[float]] = []
-        self._right_map: list[list[float]] = []
+        # Accumulated cone positions in map frame: [x, y, observation_count].
+        self._cone_map: list[list[float]] = []
 
         # --- QoS ---
         latch_qos = QoSProfile(
@@ -167,7 +169,7 @@ class LidarConeDetector(Node):
         # Step 5: Euclidean clustering
         clusters = self._cluster(xy)
 
-        # Step 6–9: Validate, transform, dedup, classify
+        # Step 6–8: Validate, transform, dedup
         new_cones = 0
         for cluster_xy in clusters:
             if not self._is_cone(cluster_xy):
@@ -179,24 +181,17 @@ class LidarConeDetector(Node):
             # Transform to map frame
             mx, my = self._sensor_to_map(sx, sy)
 
-            # Dedup: check BOTH maps first.  On curves the same cone
-            # can appear on either side of the sensor, so we must merge
-            # into whichever map already owns it.
-            if self._try_merge(mx, my, self._left_map):
-                continue
-            if self._try_merge(mx, my, self._right_map):
+            # Dedup / merge against accumulated map
+            if self._try_merge(mx, my, self._cone_map):
                 continue
 
-            # New cone — classify by lateral position in sensor frame
-            side = 'left' if sy > 0 else 'right'
-            target = self._left_map if side == 'left' else self._right_map
-            target.append([mx, my, 1.0])
+            # New cone
+            self._cone_map.append([mx, my, 1.0])
             new_cones += 1
 
         if new_cones > 0:
             self.get_logger().info(
-                f'+{new_cones} cones  (total: {len(self._left_map)}L '
-                f'{len(self._right_map)}R)')
+                f'+{new_cones} cones  (total: {len(self._cone_map)})')
 
         self._publish_accumulated()
         self._publish_debug()
@@ -277,45 +272,31 @@ class LidarConeDetector(Node):
     # ------------------------------------------------------------------
     def _publish_accumulated(self):
         """Publish accumulated cones as MarkerArray."""
-        if not self._left_map and not self._right_map:
+        if not self._cone_map:
             return
 
         now = self.get_clock().now().to_msg()
         msg = MarkerArray()
 
-        for i, entry in enumerate(self._left_map):
+        for i, entry in enumerate(self._cone_map):
             msg.markers.append(self._make_marker(
-                i, 'left_cones', entry[0], entry[1], now,
-                ColorRGBA(r=0.0, g=0.2, b=1.0, a=1.0)))
-
-        for i, entry in enumerate(self._right_map):
-            msg.markers.append(self._make_marker(
-                10000 + i, 'right_cones', entry[0], entry[1], now,
-                ColorRGBA(r=1.0, g=1.0, b=0.0, a=1.0)))
+                i, 'cones', entry[0], entry[1], now,
+                ColorRGBA(r=1.0, g=0.5, b=0.0, a=1.0)))
 
         self._det_pub.publish(msg)
 
     def _publish_debug(self):
         """Publish debug visualization of accumulated cones."""
-        if not self._left_map and not self._right_map:
+        if not self._cone_map:
             return
 
         now = self.get_clock().now().to_msg()
         msg = MarkerArray()
 
-        for i, entry in enumerate(self._left_map):
+        for i, entry in enumerate(self._cone_map):
             m = self._make_marker(
-                i, 'debug_left', entry[0], entry[1], now,
-                ColorRGBA(r=0.0, g=0.2, b=1.0, a=0.5))
-            m.scale.x = 0.25
-            m.scale.y = 0.25
-            m.scale.z = 0.25
-            msg.markers.append(m)
-
-        for i, entry in enumerate(self._right_map):
-            m = self._make_marker(
-                10000 + i, 'debug_right', entry[0], entry[1], now,
-                ColorRGBA(r=1.0, g=1.0, b=0.0, a=0.5))
+                i, 'debug_cones', entry[0], entry[1], now,
+                ColorRGBA(r=1.0, g=0.5, b=0.0, a=0.5))
             m.scale.x = 0.25
             m.scale.y = 0.25
             m.scale.z = 0.25
