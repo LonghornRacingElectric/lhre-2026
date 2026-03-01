@@ -89,14 +89,20 @@ const osThreadAttr_t controlTask_attributes = {
 static vcu_parameters_t s_params = {
     .apps =
         {
-            .apps1_min_adc_v = 1555u,
-            .apps1_max_adc_v = 1880u,
-            .apps2_min_adc_v = 1554u,
-            .apps2_max_adc_v = 1871u,
+            .apps1_min_adc_v = 1815.0f,
+            .apps1_max_adc_v = 1500.0f,
+
+            .apps2_min_adc_v = 1806.0f,
+            .apps2_max_adc_v = 1499.0f,
+
             .implaus_debounce_time_ms = 100u,
             .max_allowable_diff = 0.10f,
             .min_travel_threshold = 0.10f,
             .max_travel_restore_threshold = 0.05f,
+
+            .min_travel_deadzone = 0.08f,
+            .max_travel_deadzone = 0.97f,
+            .pedal_ema_alpha = 0.35f,
         },
     .torque_map =
         {
@@ -314,20 +320,27 @@ void StartControlTask(void *argument) {
     HAL_ADC_Stop(&hadc1);
 
     // Read pedal sensors from DMA buffers
-    in.apps1_raw = ((float)adc3_dma_buf[0] / ADC_MAX_VAL) * ADC_APPS_SCALE_V;
-    in.apps2_raw = ((float)adc3_dma_buf[1] / ADC_MAX_VAL) * ADC_APPS_SCALE_V;
+    in.apps1_raw = (float)adc3_dma_buf[0];
+    in.apps2_raw = (float)adc3_dma_buf[1];
     in.bse1_raw = (float) adc2_dma_buf[0];
     in.bse2_raw = in.bse1_raw; // TODO: use second BSE sensor when it works
-<<<<<<< HEAD
 
     // print APPS for debugging
-    log_printf(LOG_INFO,
-             "APPS1 adc=%u| APPS2 adc=%u",
-             (unsigned)adc3_dma_buf[0], 
-             (unsigned)adc3_dma_buf[1]);
+    static uint32_t print_div = 0;
+    if (++print_div >= 10) { // every ~100ms (10*10ms)
+      print_div = 0;
 
-=======
->>>>>>> origin/main
+    log_printf(LOG_INFO,
+    "APPS adc:%u %u | trav:%.3f %.3f | pedal:%.3f | tq:%.1f | impl:%d diff:%.3f\n",
+    (unsigned)adc3_dma_buf[0], (unsigned)adc3_dma_buf[1],
+    (double)out.apps1_travel, (double)out.apps2_travel,
+    (double)out.accel_pedal_travel,
+    (double)out.torque_cmd,
+    (int)out.faults.apps_implaus,
+    (double)out.debug.apps_diff
+  );
+}
+
 
     in.drive_switch = is_drive_switch_pressed();
 
