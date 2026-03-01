@@ -2431,7 +2431,7 @@
         "to": [
             "PI"
         ],
-        "data_length": 3,
+        "data_length": 5,
         "frequency_ms": 3,
         "frequency": 333.0,
         "quantity": 1,
@@ -2443,13 +2443,7 @@
                 "name": "Brake Pedal Travel",
                 "length": 2,
                 "conv_type": "uint16",
-                "precision": 0.0001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "brake_pedal_travel",
-                    "repeated": false,
-                    "field_index": null
-                }
+                "precision": 0.0001
             },
             {
                 "index": 1,
@@ -2480,6 +2474,20 @@
                         "bit_index": 4
                     }
                 ]
+            },
+            {
+                "index": 2,
+                "start_byte": 3,
+                "name": "Brake Light Percent",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "brake_light_pct",
+                    "repeated": false,
+                    "field_index": null
+                }
             }
         ]
     },

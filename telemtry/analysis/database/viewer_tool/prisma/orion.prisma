@@ -182,7 +182,7 @@ model controls {
   bpps2_travel         Float?
   bpps2_v              Float?
   brake_bias           Float?
-  brake_pedal_travel   Float?
+  brake_light_pct      Float?
   brake_pressure_f     Float?
   brake_pressure_rall  Float?
   brake_pressure_rbll  Float?

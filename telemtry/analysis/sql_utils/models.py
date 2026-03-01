@@ -498,7 +498,7 @@ class OrionControls(BaseOrion):
     bpps2_travel = Column(Float)
     bpps2_v = Column(Float)
     brake_bias = Column(Float)
-    brake_pedal_travel = Column(Float)
+    brake_light_pct = Column(Float)
     brake_pressure_f = Column(Float)
     brake_pressure_rall = Column(Float)
     brake_pressure_rbll = Column(Float)

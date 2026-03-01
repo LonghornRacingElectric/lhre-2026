@@ -243,7 +243,7 @@ CREATE TABLE public.controls (
     bpps2_travel         real,
     bpps2_v              real,
     brake_bias           real,
-    brake_pedal_travel   real,
+    brake_light_pct      real,
     brake_pressure_f     real,
     brake_pressure_rall  real,
     brake_pressure_rbll  real,

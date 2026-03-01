@@ -55,7 +55,7 @@ message Controls {
     float bpps2_travel = 9;
     float bpps2_v = 10;
     float brake_bias = 11;
-    float brake_pedal_travel = 12;
+    float brake_light_pct = 12;
     float brake_pressure_f = 13;
     float brake_pressure_rall = 14;
     float brake_pressure_rbll = 15;

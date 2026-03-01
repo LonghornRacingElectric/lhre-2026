@@ -45,7 +45,7 @@ class OrionControls:
     bpps2_travel: Optional[float] = None
     bpps2_v: Optional[float] = None
     brake_bias: Optional[float] = None
-    brake_pedal_travel: Optional[float] = None
+    brake_light_pct: Optional[float] = None
     brake_pressure_f: Optional[float] = None
     brake_pressure_rall: Optional[float] = None
     brake_pressure_rbll: Optional[float] = None
