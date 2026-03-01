@@ -185,28 +185,31 @@ fn handle_server_message(
         return;
     };
 
-    if message.get("type").and_then(Value::as_str)
+    if message.get("type").and_then(Value::as_str).is_some()
     {
         println!("publishd received server message: {}", message);
     }
 
     if message.get("packet_id").is_none() {
         // Assume request for OTA
-         if let Some(ota_obj) = message.get("OTA_request").and_then(Value::as_object) {
-            if let Some(link) = ota_obj.get("OTA_link").and_then(Value::as_str) && let Some(device_id) = ota_obj.get("OTA_device_id").and_then(Value::as_u64){
-                let mut ota_link_lock = OTA_LINK.lock().unwrap();
-                *ota_link_lock = Some(link.to_string());
-                println!("publishd received OTA link: {}", link);
-                let mut ota_device_id_lock = OTA_DEVICE_ID.lock().unwrap();
-                *ota_device_id_lock = Some(device_id as u32);
-                println!("publishd received OTA device ID: {}", device_id);
+        if let Some(ota_obj) = message.get("OTA_request").and_then(Value::as_object) {
+            if let Some(link) = ota_obj.get("OTA_link").and_then(Value::as_str) {
+                if let Some(device_id) = ota_obj.get("OTA_device_id").and_then(Value::as_u64) {
+                    let mut ota_link_lock = OTA_LINK.lock().unwrap();
+                    *ota_link_lock = Some(link.to_string());
+                    println!("publishd received OTA link: {}", link);
+                    let mut ota_device_id_lock = OTA_DEVICE_ID.lock().unwrap();
+                    *ota_device_id_lock = Some(device_id as u32);
+                    println!("publishd received OTA device ID: {}", device_id);
 
-                // set semaphore to tell can daemon to transition to sending packets rather than sniffing CAN bus
+                    // set semaphore to tell can daemon to transition to sending packets rather than sniffing CAN bus
+                } else {
+                    eprintln!("publishd received malformed OTA request: {}", message);
+                }
             } else {
                 eprintln!("publishd received malformed OTA request: {}", message);
             }
         }
-
     }
 
     if let Some(server_packet_id) = message.get("packet_id").and_then(Value::as_u64) {
