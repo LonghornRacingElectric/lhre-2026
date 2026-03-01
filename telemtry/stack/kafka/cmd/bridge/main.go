@@ -221,6 +221,12 @@ func deserializeToJSON(payload []byte, carType string) ([]byte, error) {
 			return nil, err
 		}
 		data = angeliqueToMap(msg)
+	} else if carType == "Orion" {
+		msg := &sensor.OrionSensorData{}
+		if err := proto.Unmarshal(payload, msg); err != nil {
+			return nil, err
+		}
+		data = orionToMap(msg)
 	} else {
 		msg := &sensor.SensorData{}
 		if err := proto.Unmarshal(payload, msg); err != nil {
@@ -423,6 +429,87 @@ func angeliqueToMap(msg *sensor.AngeliqueSensorData) map[string]interface{} {
 			m["max_cell_temp"] = max
 			m["min_cell_temp"] = min
 		}
+	}
+
+	return m
+}
+
+func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
+	m := make(map[string]interface{})
+	m["time"] = msg.Time
+	m["packet_id"] = msg.PacketId
+
+	if msg.Dynamics != nil {
+		m["accel_pedal_travel"] = msg.Dynamics.AccelPedalTravel
+		m["steer_col_angle"] = msg.Dynamics.SteerColAngle
+		m["blw_speed"] = msg.Dynamics.BlwSpeed
+		m["brw_speed"] = msg.Dynamics.BrwSpeed
+		m["flw_speed"] = msg.Dynamics.FlwSpeed
+		m["frw_speed"] = msg.Dynamics.FrwSpeed
+		m["ride_height"] = msg.Dynamics.RideHeight
+		m["wheel_speed"] = msg.Dynamics.WheelSpeed
+		m["bl_ride_height"] = msg.Dynamics.BlRideHeight
+		m["br_ride_height"] = msg.Dynamics.BrRideHeight
+		m["fl_ride_height"] = msg.Dynamics.FlRideHeight
+		m["fr_ride_height"] = msg.Dynamics.FrRideHeight
+	}
+
+	if msg.Controls != nil {
+		m["motor_speed"] = msg.Controls.MotorSpeed
+		m["torque_feedback"] = msg.Controls.TorqueFeedback
+		m["apps1_v"] = msg.Controls.Apps1V
+		m["apps2_v"] = msg.Controls.Apps2V
+		m["bpps1_v"] = msg.Controls.Bpps1V
+		m["bpps2_v"] = msg.Controls.Bpps2V
+		m["brake_bias"] = msg.Controls.BrakeBias
+		m["brake_pressure_f"] = msg.Controls.BrakePressureF
+		m["torque_request"] = msg.Controls.TorqueRequest
+		m["torque_command"] = msg.Controls.TorqueCommand
+	}
+
+	if msg.Pack != nil {
+		m["hv_pack_v"] = msg.Pack.HvPackV
+		m["hv_c"] = msg.Pack.HvC
+		m["hv_soc"] = msg.Pack.HvSoc
+		m["lv_batt_v"] = msg.Pack.LvBattV
+		m["lv_batt_c"] = msg.Pack.LvBattC
+		m["lv_batt_t"] = msg.Pack.LvBattT
+		m["bus_voltage"] = msg.Pack.BusVoltage
+
+		if len(msg.Pack.CellsV) > 0 {
+			avg, min, max := statsFromFloat32Slice(msg.Pack.CellsV)
+			m["avg_cell_v_stat"] = avg
+			m["max_cell_v"] = max
+			m["min_cell_v"] = min
+		}
+		if len(msg.Pack.CellsTemps) > 0 {
+			avg, min, max := statsFromFloat32Slice(msg.Pack.CellsTemps)
+			m["avg_cell_temp_stat"] = avg
+			m["max_cell_temp"] = max
+			m["min_cell_temp"] = min
+		}
+	}
+
+	if msg.DiagnosticsHigh != nil {
+		m["shutdown_current"] = msg.DiagnosticsHigh.ShutdownCurrent
+		m["hvc_state_machine"] = msg.DiagnosticsHigh.HvcStateMachine
+		m["post_faults"] = msg.DiagnosticsHigh.PostFaults
+		m["run_faults"] = msg.DiagnosticsHigh.RunFaults
+		m["neg_hv_contactor"] = msg.DiagnosticsHigh.NegHvContactor
+		m["pos_hv_contactor"] = msg.DiagnosticsHigh.PosHvContactor
+		m["precharge_contactor"] = msg.DiagnosticsHigh.PrechargeContactor
+	}
+
+	if msg.DiagnosticsLow != nil {
+		m["r2d_status"] = msg.DiagnosticsLow.R2DStatus
+		m["bmb_comm_error"] = msg.DiagnosticsLow.BmbCommError
+		m["imd_gnd_isolation_error"] = msg.DiagnosticsLow.ImdGndIsolationError
+	}
+
+	if msg.Thermal != nil {
+		m["motor_temp"] = msg.Thermal.MotorTemp
+		m["inverter_temp"] = msg.Thermal.InverterTemp
+		m["ambient_temp"] = msg.Thermal.AmbientTemp
 	}
 
 	return m
