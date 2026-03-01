@@ -66,6 +66,60 @@ def generate_simple_track(seed: int = 0,
 
 
 # ---------------------------------------------------------------------------
+# Oval generator
+# ---------------------------------------------------------------------------
+
+def generate_oval_track(
+    seed: int = 0,
+    radius_m: float = 25.0,
+    width_m: float = 3.5,
+    cone_spacing_m: float = 2.0,
+    aspect: float = 0.6,
+    **_kw,
+) -> Tuple[ConeList, ConeList]:
+    """Generate a smooth oval (elliptical) track.
+
+    The oval has semi-major axis *radius_m* and semi-minor axis
+    *radius_m * aspect*.  Cones are placed at *cone_spacing_m*
+    intervals along the centerline.
+    """
+    a = radius_m          # semi-major axis (x)
+    b = radius_m * aspect  # semi-minor axis (y)
+    half_w = width_m / 2.0
+
+    # Approximate ellipse perimeter (Ramanujan)
+    h = ((a - b) / (a + b)) ** 2
+    perimeter = math.pi * (a + b) * (1 + 3 * h / (10 + math.sqrt(4 - 3 * h)))
+
+    n = max(20, int(perimeter / cone_spacing_m))
+
+    left: ConeList = []
+    right: ConeList = []
+
+    for i in range(n):
+        t = 2.0 * math.pi * i / n
+
+        # Centerline
+        cx = a * math.cos(t)
+        cy = b * math.sin(t)
+
+        # Tangent (derivative of ellipse parametric form)
+        tx = -a * math.sin(t)
+        ty = b * math.cos(t)
+        tn = math.hypot(tx, ty) or 1.0
+        tx /= tn
+        ty /= tn
+
+        # Outward normal (left of tangent direction = counterclockwise)
+        nx, ny = -ty, tx
+
+        left.append((cx + half_w * nx, cy + half_w * ny))
+        right.append((cx - half_w * nx, cy - half_w * ny))
+
+    return left, right
+
+
+# ---------------------------------------------------------------------------
 # Autocross generator (waypoint + Catmull-Rom)
 # ---------------------------------------------------------------------------
 
@@ -236,6 +290,7 @@ def generate_autocross_track(
 GENERATORS = {
     'simple': generate_simple_track,
     'autocross': generate_autocross_track,
+    'oval': generate_oval_track,
 }
 
 

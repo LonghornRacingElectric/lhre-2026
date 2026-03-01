@@ -61,7 +61,10 @@ def generate_launch_description():
         description='Perception mode: "sim" (trackgen+sensor_sim) '
                     'or "lidar" (LiDAR pointcloud)')
 
-    # Track generation (must match the seed used for world generation)
+    # Track generation (must match the seed/style used for world generation)
+    track_style_arg = DeclareLaunchArgument(
+        'track_style', default_value='autocross',
+        description='Track style: "autocross", "oval", or "simple"')
     seed_arg = DeclareLaunchArgument('seed', default_value='1')
     num_wp_arg = DeclareLaunchArgument('num_waypoints', default_value='10')
 
@@ -158,6 +161,7 @@ def generate_launch_description():
         name='publish_cones',
         parameters=[{
             'seed': LaunchConfiguration('seed'),
+            'track_style': LaunchConfiguration('track_style'),
             'num_waypoints': LaunchConfiguration('num_waypoints'),
             'use_sim_time': True,
         }],
@@ -281,6 +285,7 @@ def generate_launch_description():
         world_arg,
         gui_arg,
         perception_arg,
+        track_style_arg,
         seed_arg,
         num_wp_arg,
         fov_arg,

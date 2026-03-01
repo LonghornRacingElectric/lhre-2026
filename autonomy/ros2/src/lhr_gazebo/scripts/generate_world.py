@@ -23,7 +23,7 @@ _trackgen_pkg = os.path.join(
 if os.path.isdir(_trackgen_pkg):
     sys.path.insert(0, _trackgen_pkg)
 
-from lhr_trackgen.publish_cones import generate_autocross_track  # noqa: E402
+from lhr_trackgen.publish_cones import GENERATORS  # noqa: E402
 
 
 def _cone_include(model_name: str, instance_name: str,
@@ -221,11 +221,15 @@ def main():
                         help='Vehicle initial Y (default: auto from track)')
     parser.add_argument('--vehicle-yaw', type=float, default=None,
                         help='Vehicle initial yaw in radians (default: auto from track)')
+    parser.add_argument('--style', type=str, default='autocross',
+                        choices=list(GENERATORS.keys()),
+                        help='Track style (default: autocross)')
     parser.add_argument('--output', type=str, default=None,
-                        help='Output SDF file path (default: worlds/autocross_seed<N>.sdf)')
+                        help='Output SDF file path (default: worlds/<style>_seed<N>.sdf)')
     args = parser.parse_args()
 
-    left, right = generate_autocross_track(
+    gen = GENERATORS[args.style]
+    left, right = gen(
         seed=args.seed,
         num_waypoints=args.num_waypoints,
         radius_m=args.radius,
@@ -247,7 +251,7 @@ def main():
         # Default output path relative to this script's parent (lhr_gazebo/)
         worlds_dir = os.path.join(_this_dir, os.pardir, 'worlds')
         os.makedirs(worlds_dir, exist_ok=True)
-        out_path = os.path.join(worlds_dir, f'autocross_seed{args.seed}.sdf')
+        out_path = os.path.join(worlds_dir, f'{args.style}_seed{args.seed}.sdf')
     else:
         out_path = args.output
         os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
