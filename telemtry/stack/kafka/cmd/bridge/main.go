@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -193,7 +194,7 @@ func grafanaDataWorker(producer sarama.SyncProducer) {
 	for msg := range grafanaDataChan {
 		jsonData, err := deserializeToJSON(msg.Payload, msg.CarType)
 		if err != nil {
-			log.Printf("Error deserializing protobuf: %v", err)
+			log.Printf("Error deserializing protobuf for car %s: %v", msg.CarType, err)
 			continue
 		}
 
@@ -214,20 +215,35 @@ func grafanaDataWorker(producer sarama.SyncProducer) {
 
 func deserializeToJSON(payload []byte, carType string) ([]byte, error) {
 	var data map[string]interface{}
+	normalizedCarType := strings.ToLower(strings.TrimSpace(carType))
 
-	if carType == "Angelique" {
+	switch normalizedCarType {
+	case "angelique":
 		msg := &sensor.AngeliqueSensorData{}
 		if err := proto.Unmarshal(payload, msg); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to unmarshal Angelique payload: %w", err)
 		}
 		data = angeliqueToMap(msg)
-	} else if carType == "Orion" {
+	case "orion":
 		msg := &sensor.OrionSensorData{}
 		if err := proto.Unmarshal(payload, msg); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to unmarshal Orion payload (size %d): %w", len(payload), err)
+		}
+		// Debug: Log if sub-blocks are present
+		if msg.Controls == nil {
+			log.Println("Debug: Orion Controls sub-block is MISSING in protobuf")
+		} else {
+			log.Printf("Debug: Orion Controls sub-block PRESENT. Apps1V: %v", msg.Controls.Apps1V)
 		}
 		data = orionToMap(msg)
-	} else {
+	case "nightwatch":
+		msg := &sensor.SensorData{}
+		if err := proto.Unmarshal(payload, msg); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal Nightwatch payload: %w", err)
+		}
+		data = nightwatchToMap(msg)
+	default:
+		log.Printf("Warning: Unknown car type '%s', falling back to Nightwatch unmarshaling", carType)
 		msg := &sensor.SensorData{}
 		if err := proto.Unmarshal(payload, msg); err != nil {
 			return nil, err
@@ -452,6 +468,8 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["br_ride_height"] = msg.Dynamics.BrRideHeight
 		m["fl_ride_height"] = msg.Dynamics.FlRideHeight
 		m["fr_ride_height"] = msg.Dynamics.FrRideHeight
+	} else {
+		log.Println("Debug: Orion Dynamics block is nil")
 	}
 
 	if msg.Controls != nil {
@@ -465,6 +483,8 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["brake_pressure_f"] = msg.Controls.BrakePressureF
 		m["torque_request"] = msg.Controls.TorqueRequest
 		m["torque_command"] = msg.Controls.TorqueCommand
+	} else {
+		log.Println("Debug: Orion Controls block is nil")
 	}
 
 	if msg.Pack != nil {
@@ -488,6 +508,8 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 			m["max_cell_temp"] = max
 			m["min_cell_temp"] = min
 		}
+	} else {
+		log.Println("Debug: Orion Pack block is nil")
 	}
 
 	if msg.DiagnosticsHigh != nil {
@@ -504,12 +526,16 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["r2d_status"] = msg.DiagnosticsLow.R2DStatus
 		m["bmb_comm_error"] = msg.DiagnosticsLow.BmbCommError
 		m["imd_gnd_isolation_error"] = msg.DiagnosticsLow.ImdGndIsolationError
+	} else {
+		log.Println("Debug: Orion DiagnosticsLow block is nil")
 	}
 
 	if msg.Thermal != nil {
 		m["motor_temp"] = msg.Thermal.MotorTemp
 		m["inverter_temp"] = msg.Thermal.InverterTemp
 		m["ambient_temp"] = msg.Thermal.AmbientTemp
+	} else {
+		log.Println("Debug: Orion Thermal block is nil")
 	}
 
 	return m
