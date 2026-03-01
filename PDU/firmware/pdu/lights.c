@@ -19,6 +19,9 @@
 #define PWM_TSSI_G_INSTANCE htim2
 #define PWM_TSSI_G_CHANNEL TIM_CHANNEL_3
 
+#define PWM_BRAKE_LIGHT_INSTANCE htim5
+#define PWM_BRAKE_LIGHT_CHANNEL TIM_CHANNEL_2
+
 /**
  * Helper Defines
  */
@@ -42,6 +45,7 @@ void lights_init(void) {
   HAL_TIM_PWM_Start(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL);
   // Start Task for updating LEDs based on CAN messages
   HAL_TIM_PWM_Start(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL);
+  HAL_TIM_PWM_Start(&PWM_BRAKE_LIGHT_INSTANCE, PWM_BRAKE_LIGHT_CHANNEL);
 
   // Start LED Task
   osThreadNew(lights_update, NULL, &lightsTask_attributes);
@@ -54,7 +58,7 @@ void toggleRed() {
     setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.0f);
   } else {
     // Turn it on
-    setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.5f);
+    setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.05f);
   }
   red_on = !red_on;
 }
@@ -65,18 +69,25 @@ void lights_update(void *argument) {
   while (1) {
     if (hvc_imd_fault() || hvc_bms_fault()) {
       // Turn on Red LED and Disable Green LED
+      // Turn off Green LED
+      HAL_TIM_PWM_Stop(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL);
+      HAL_TIM_PWM_Start(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL);
       if (osKernelGetTickCount() - previous_tick >= 300) {
         toggleRed();
         previous_tick = osKernelGetTickCount();
       }
 
-      // Turn off Green LED
-      setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.0f);
     } else {
       // Turn on Green LED and Disable Red LED
-      setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.0f);
-      setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.5f);
+      HAL_TIM_PWM_Start(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL);
+      HAL_TIM_PWM_Stop(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL);
+      setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.08f);
     }
+
+    // Brake Light
+    setPWM(&PWM_BRAKE_LIGHT_INSTANCE, PWM_BRAKE_LIGHT_CHANNEL,
+           brake_light_pct());
+
     osDelay(100);
   }
 }

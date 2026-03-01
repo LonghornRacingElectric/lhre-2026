@@ -15,23 +15,6 @@ static can_interface_t critical_bus = {
     .handle = &hfdcan1,
 };
 
-static can_interface_t data_acq_bus = {
-    .handle = &hfdcan2,
-};
-
-static can_config_t dui_can_config = {
-    .init_fn = (CAN_Init_fn)HAL_FDCAN_Init,
-    .start_fn = (CAN_Start_fn)HAL_FDCAN_Start,
-    .noti_fn = (CAN_ActivateNotifications_fn)HAL_FDCAN_ActivateNotification,
-    .stop_fn = (CAN_Stop_fn)HAL_FDCAN_Stop,
-    .add_to_queue_fn = (CAN_AddToQ_fn)HAL_FDCAN_AddMessageToTxFifoQ,
-    .get_rx_message_fn = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
-    .tick_fn = HAL_GetTick,
-    .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
-    .malloc_fn = pvPortMalloc,
-    .free_fn = vPortFree,
-};
-
 /** ==
  * Outgoing CAN Packets
  *  ==
@@ -56,13 +39,35 @@ void dui_can_add_send_handlers(void);
  * handlers. Also starts the CAN transceiver and receiver tasks.
  */
 void dui_can_init(void) {
+  can_config_t dui_can_config = {
+      .init_fn = (CAN_Init_fn)HAL_FDCAN_Init,
+      .start_fn = (CAN_Start_fn)HAL_FDCAN_Start,
+      .noti_fn = (CAN_ActivateNotifications_fn)HAL_FDCAN_ActivateNotification,
+      .stop_fn = (CAN_Stop_fn)HAL_FDCAN_Stop,
+      .add_to_queue_fn = (CAN_AddToQ_fn)HAL_FDCAN_AddMessageToTxFifoQ,
+      .get_tx_fifo_free_level_fn =
+          (CAN_GetTxFifoFreeLevel_fn)HAL_FDCAN_GetTxFifoFreeLevel,
+      .get_rx_message_fn = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
+      .tick_fn = HAL_GetTick,
+      .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
+      .malloc_fn = pvPortMalloc,
+      .free_fn = vPortFree,
+      .init_bit = FDCAN_CCCR_INIT,
+  };
+
   can_rtos_init(&dui_can_config);
+
+  critical_bus.cccr_reg = &hfdcan1.Instance->CCCR;
 
   // Register physical interfaces FIRST
   can_rtos_register_interface(&critical_bus);
-  can_rtos_register_interface(&data_acq_bus);
 
+  dui_can_add_send_handlers();
+  taskENTER_CRITICAL();
   dui_can_add_receive_handlers();
+  taskEXIT_CRITICAL();
+
+  can_rtos_start_interface(&critical_bus);
 
   can_rtos_start_transceiver_task(osPriorityNormal);
   can_rtos_start_receiver_task(osPriorityAboveNormal);

@@ -71,8 +71,8 @@ void Error_Handler(void);
 #define SW_FANS_GPIO_Port GPIOC
 #define PWM_TSSI_R_Pin GPIO_PIN_0
 #define PWM_TSSI_R_GPIO_Port GPIOA
-#define SW_BRAKEL_Pin GPIO_PIN_1
-#define SW_BRAKEL_GPIO_Port GPIOA
+#define PWM_BRAKEL_Pin GPIO_PIN_1
+#define PWM_BRAKEL_GPIO_Port GPIOA
 #define PWM_TSSI_G_Pin GPIO_PIN_2
 #define PWM_TSSI_G_GPIO_Port GPIOA
 #define SNS_TSSI_G_Pin GPIO_PIN_0

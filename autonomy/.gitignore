@@ -1,0 +1,11 @@
+.claude/
+
+ros2/build/
+ros2/install/
+ros2/log/
+
+**/__pycache__/
+**/*.pyc
+
+.vscode/
+.DS_Store

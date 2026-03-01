@@ -9,9 +9,9 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "cmsis_os.h"
-#include "main.h"
 #include "task.h"
+#include "main.h"
+#include "cmsis_os.h"
 
 #include "usb_device.h"
 
@@ -49,7 +49,7 @@ extern ADC_HandleTypeDef hadc3;
 // APPS1, APPS2 from ADC3 (configured in adc.c)
 extern volatile uint16_t adc3_dma_buf[2];
 // BSE from ADC2
-volatile uint16_t adc2_dma_buf[2];
+extern volatile uint16_t adc2_dma_buf[2];
 
 // Thread handles
 osThreadId_t systemTaskHandle;
@@ -77,9 +77,9 @@ const osThreadAttr_t controlTask_attributes = {
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define ADC_MAX_VAL (1 << 12) - 1
+#define ADC_MAX_VAL   ((1u << 12) - 1u)
 #define ADC_APPS_SCALE_V 3.3f
-#define ADC_BSE_SCALE_V 3.2837f
+#define ADC_BSE_SCALE_V  3.2837f
 
 /* USER CODE END PM */
 
@@ -89,14 +89,20 @@ const osThreadAttr_t controlTask_attributes = {
 static vcu_parameters_t s_params = {
     .apps =
         {
-            .apps1_min_adc_v = 782u,
-            .apps1_max_adc_v = 3262u,
-            .apps2_min_adc_v = 382u,
-            .apps2_max_adc_v = 1586u,
+            .apps1_min_adc_v = (1815.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL, // 1815 is ~0% pedal, 1500 is ~100% pedal
+            .apps1_max_adc_v = (1500.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL,
+
+            .apps2_min_adc_v = (1806.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL,
+            .apps2_max_adc_v = (1499.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL,
+
             .implaus_debounce_time_ms = 100u,
             .max_allowable_diff = 0.10f,
             .min_travel_threshold = 0.10f,
             .max_travel_restore_threshold = 0.05f,
+
+            .min_travel_deadzone = 0.08f,
+            .max_travel_deadzone = 0.97f,
+            .pedal_ema_alpha = 0.35f,
         },
     .torque_map =
         {
@@ -107,17 +113,17 @@ static vcu_parameters_t s_params = {
         {
             .bse_off_psi = 30.0f,
             .bse_on_psi = 50.0f,
-            .bse1_adc_at_min_psi_v = 156u,
-            .bse1_adc_at_max_psi_v = 635u,
-            .bse2_adc_at_min_psi_v = 156u,
-            .bse2_adc_at_max_psi_v = 635u,
+            .bse1_adc_at_min_psi_v = (370.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL,
+            .bse1_adc_at_max_psi_v = (800.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL,
+            .bse2_adc_at_min_psi_v = (370.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL, // set same as bse1 for now since bse2 isn't working
+            .bse2_adc_at_max_psi_v = (800.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL,
             .bse_max_psi = 1000.0f,
             .max_pedal_while_braking = 0.25f,
             .max_pedal_restore_threshold = 0.05f,
             .min_psi_deadzone = 0.0f,
             .max_psi_deadzone = 1.0f,
             .bse_ema_alpha = 1.0f,
-            .brake_light_min_pct = 0.05f,
+            .brake_light_min_pct = 0.0f,
             .brake_light_max_pct = 0.30f,
         },
     .buzzer_duration_ms = 1800u,
@@ -130,9 +136,10 @@ static vcu_model_context_t ctx = {0};
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
-    .name = "defaultTask",
-    .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 128 * 4};
+  .name = "defaultTask",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 128 * 4
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -148,10 +155,10 @@ void StartDefaultTask(void *argument);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /**
- * @brief  FreeRTOS initialization
- * @param  None
- * @retval None
- */
+  * @brief  FreeRTOS initialization
+  * @param  None
+  * @retval None
+  */
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
@@ -195,6 +202,8 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
+  /* creation of defaultTask */
+  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -203,6 +212,7 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
   /* USER CODE END RTOS_EVENTS */
+
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -212,7 +222,8 @@ void MX_FREERTOS_Init(void) {
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument) {
+void StartDefaultTask(void *argument)
+{
   /* init code for USB_Device */
   MX_USB_Device_Init();
   /* USER CODE BEGIN StartDefaultTask */
@@ -309,17 +320,16 @@ void StartControlTask(void *argument) {
     HAL_ADC_Stop(&hadc1);
 
     // Read pedal sensors from DMA buffers
-    in.apps1_raw = ((float)adc3_dma_buf[0] / ADC_MAX_VAL) * ADC_APPS_SCALE_V;
-    in.apps2_raw = ((float)adc3_dma_buf[1] / ADC_MAX_VAL) * ADC_APPS_SCALE_V;
-    in.bse1_raw = ((float)adc2_dma_buf[0] / ADC_MAX_VAL) * ADC_BSE_SCALE_V;
-    in.bse2_raw = in.bse1_raw;
+    in.apps1_raw = ((float)adc3_dma_buf[0] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
+    in.apps2_raw = ((float)adc3_dma_buf[1] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
+    in.bse1_raw = ((float)adc2_dma_buf[0] * ADC_BSE_SCALE_V) / ADC_MAX_VAL;
+    in.bse2_raw = in.bse1_raw; // TODO: use second BSE sensor when it works
 
     in.drive_switch = is_drive_switch_pressed();
 
-    // TODO: make sure that bse2 is read
-    // in.bse2_raw = adc2_dma_buf[1];
-
     in.contactors_closed = hvc_tractive_ready();
+
+
 
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
@@ -331,4 +341,6 @@ void StartControlTask(void *argument) {
   }
 }
 
+
 /* USER CODE END Application */
+

@@ -16,6 +16,7 @@ typedef struct {
 
   /* Torque command */
   float torque_cmd; // torque command in Nm
+  bool inverter_enable;
 
   /* Status flags */
   bool brake_pressed;    // true if brake is pressed
