@@ -34,13 +34,11 @@ void can_register_interface(can_interface_t *interface) {
 
 void can_start_interface(can_interface_t *interface) {
   // Enable RX notifications
-  can.noti_fn(interface->handle, NEW_MESSAGE_FIFO0, 0);
+  can.noti_fn(interface->handle, NEW_MESSAGE_FIFO0 | cFDCAN_IT_BUS_OFF, 0);
 
   // Start the CAN peripheral (must be called AFTER all filters/packets are
   // registered)
   can.start_fn(interface->handle);
-
-  can.noti_fn(interface->handle, FDCAN_IT_BUS_OFF, 0);
 
   // note that the interface started
   interface->_started = true;
