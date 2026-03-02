@@ -1,0 +1,28 @@
+load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_python//python:py_library.bzl", "py_library")
+
+pybind_extension(
+    name = "vcu_model_sim",
+    srcs = ["sim_bridge.cpp"],
+    deps = [
+        "//VCU/model:vcu_model_2026",
+    ],
+)
+
+py_library(
+    name = "sim",
+    imports = ["."],
+    deps = [
+        ":vcu_model_sim",
+    ],
+)
+
+py_binary(
+    name = "sim_binary",
+    srcs = ["sim.py"],
+    main = "sim.py",
+    deps = [
+        ":sim",
+    ],
+)
