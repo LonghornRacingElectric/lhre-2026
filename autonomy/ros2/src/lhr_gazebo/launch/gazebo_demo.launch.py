@@ -167,7 +167,7 @@ def _launch_setup(context: LaunchContext):
                 'ground_z_min': -0.40,
                 'ground_z_max': 0.5,
                 'cluster_radius': 0.35,
-                'dedup_radius': 1.0,
+                'dedup_radius': 1.5,
             }],
             output='screen',
         ))
