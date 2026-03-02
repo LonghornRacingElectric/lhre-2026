@@ -16,7 +16,6 @@ import secrets
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 from pathlib import Path
-from psycopg.types.json import Jsonb
 from typing import Union, Tuple
 from google.protobuf.message import Message
 import pandas as pd
@@ -215,7 +214,7 @@ class DataTester:
                 row[col] = np.random.randint(1, 101, size=140).tolist()
             elif dtype is datetime.datetime:
                 row[col] = datetime.date.today()
-            elif dtype is Jsonb or dtype is dict:
+            elif dtype is dict:
                 # row[col] = Jsonb({'fake_jsonb_data': self.get_random_data(int, 3)})
                 row[col] = {'fake_jsonb_data': self.get_random_data(int, 3)} 
             elif dtype == 'point' or dtype == "POINT" or (isinstance(dtype, str) and dtype.lower() == 'point') or (isinstance(dtype, str) and dtype.lower() == 'POINT'):
@@ -321,9 +320,6 @@ class DataTester:
         :param target: target database
         :return: protobuf message
         """
-        if use_csv:
-            row = self.create_row_from_csv(packet, db_desc)
-
         if target == "Angelique":
             data = AngeliqueSensorData()
         elif target == "Orion":
@@ -331,22 +327,17 @@ class DataTester:
         else:
             data = SensorData()
         
-        # Get data from CSV once if needed
-        csv_row = None
-        if use_csv and self.csv_data is not None and self.mapping is not None:
-            # We need to pass table_desc but we'll use a merged version for all tables
-            # or just handle type conversion more carefully
-            csv_row = self.create_row_from_csv(packet, table_desc=None)
-        
         for table in db_desc:
-            if use_csv and csv_row is not None:
-                row = csv_row  # Use the CSV data for all tables
+            if use_csv and self.csv_data is not None and self.mapping is not None:
+                # Use CSV data for this table
+                row = self.create_row_from_csv(packet, db_desc[table])
             else:
-                row = self.create_row(db_desc[table], packet)  # Create random data
+                # Create random data for this table
+                row = self.create_row(db_desc[table], packet)
             
             if hasattr(data, table):  
                 table_instance = getattr(data, table)
-                if isinstance(table_instance, Message): # Iterate through a specific tbale (not packet table)
+                if isinstance(table_instance, Message): # Iterate through a specific table (not packet table)
                     for key, value in row.items():
                         if hasattr(table_instance, key): # Set values in protobuf message
                             try:
@@ -385,11 +376,23 @@ class DataTester:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    car_name = "Orion"  # Change to "Nightwatch", "Angelique", or "Orion" as needed
+    car_name = "Angelique"  # Change to "Nightwatch", "Angelique", or "Orion" as needed
     
     # Optional Paths for CSV and mapping files
     csv_path = Path(__file__).parent / 'csv_processing/csv_data/Log__2024_10_11__05_50_47.csv'
     mapping_path = Path(__file__).parent / 'csv_processing/angelique_pg_to_csv.json'
+    
+    # Check if CSV and mapping files exist
+    use_csv_data = csv_path.exists() and mapping_path.exists()
+    if use_csv_data:
+        print(f"✓ CSV file found: {csv_path}")
+        print(f"✓ Mapping file found: {mapping_path}")
+        print("Using CSV data for testing")
+    else:
+        print(f"✗ CSV or mapping file not found (CSV exists: {csv_path.exists()}, Mapping exists: {mapping_path.exists()})")
+        print("Using random data instead")
+        csv_path = None
+        mapping_path = None
     
     with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session, get_db("Orion") as orion_session:
         db_sessions = {
@@ -399,7 +402,7 @@ if __name__ == '__main__':
         }
         with MQTTHandler('paho_test', db_sessions=db_sessions, target=MQTTTarget.get()) as mqtt:
             # Protobuf message testing with CSV data
-            dt = DataTester(mqtt=mqtt, seed=42, csv_path=None, mapping_path=None)
+            dt = DataTester(mqtt=mqtt, seed=42, csv_path=csv_path, mapping_path=mapping_path)
             proto_tables = {
                 "Nightwatch": ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'],
                 "Angelique": ['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
@@ -407,9 +410,9 @@ if __name__ == '__main__':
             }
             dt.send_proto_rows(
                 tables=proto_tables[car_name],
-                num_rows= 2000,
-                delay= 0.1,
-                use_csv=False,
+                num_rows=2000,
+                delay=0.1,
+                use_csv=use_csv_data,
                 target=car_name
             )
 

@@ -83,7 +83,7 @@ print("Kafka Producer initialized. Ready to send messages to 'track-mapper' topi
 handler = MQTTHandler()
 allPoints = []
 last_timestamp = time.time()
-gate = ((37.4300, -122.1730), (37.4305, -122.1725))  # Example gate coordinates
+gate = None  # Will be set when first point is added
 lapCompleted = False
 
 
@@ -133,6 +133,17 @@ try:
                             allPoints.append(current_point)
                             producer.send('track-mapper', value=list(current_point) + [timestamp_ms])
                             producer.flush()
+                            print(f"✓ Sent point to Kafka: lat={current_point[0]:.6f}, lon={current_point[1]:.6f}, timestamp={timestamp_ms}")
+                            
+                            # Create gate perpendicular to first point
+                            # Use a simple perpendicular offset (small lat/lon delta)
+                            lat_offset = 0.0001  # ~11 meters
+                            lon_offset = 0.0001  # ~11 meters
+                            # gate = (
+                            #     (current_point[0] + lat_offset, current_point[1] - lon_offset),
+                            #     (current_point[0] - lat_offset, current_point[1] + lon_offset)
+                            # )
+                            print(f"✓ Lap gate created at first point: {gate}")
                         else:
                             last_point = allPoints[-1]
 
@@ -145,15 +156,17 @@ try:
                                 speed = 0
                             
                             if speed > MAX_SPEED_MPS:
-                                printf(f"Outlier detected! Speed: {speed: .2f} m/s. Ignoring point.")
+                                print(f"Outlier detected! Speed: {speed:.2f} m/s. Ignoring point.")
                                 continue
                             
                             if dist > 2.0:
                                 allPoints.append(current_point)
                                 producer.send('track-mapper', value=list(current_point) + [timestamp_ms])
+                                # producer.flush()
+                                print(f"✓ Sent point to Kafka: lat={current_point[0]:.6f}, lon={current_point[1]:.6f}, timestamp={timestamp_ms}")
                                 last_timestamp = current_time
 
-                                if is_intersection((last_point, current_point), gate):
+                                if gate and is_intersection((last_point, current_point), gate):
                                     print("Lap completed!")
                                     lapCompleted = True
                 except Exception as decode_error:
