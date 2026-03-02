@@ -46,7 +46,6 @@ void vcu_init_inverter(void);
  * @brief Initializes the CAN interface with the RTOS library and registers
  * handlers. Also starts the CAN transceiver and receiver tasks.
  */
- 
 void vcu_can_init(void) {
   can_config_t vcu_can_config = {
       .init_fn = (CAN_Init_fn)HAL_FDCAN_Init,

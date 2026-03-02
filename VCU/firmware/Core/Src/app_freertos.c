@@ -336,25 +336,25 @@ void StartControlTask(void *argument) {
 
     vcu_can_set_model_outputs(&out);
 
-    static uint32_t dbg_div = 0;
-if (++dbg_div >= 10) {
-  dbg_div = 0;
+//     static uint32_t dbg_div = 0;
+// if (++dbg_div >= 10) {
+//   dbg_div = 0;
 
-  log_printf(LOG_INFO,
-    "PED:%.3f TQ:%.1f | PRNDL:%u INV:%u | "
-    "DRV_IN:%u TR:%u | "
-    "APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
-    (double)out.accel_pedal_travel,
-    (double)out.torque_cmd,
-    (unsigned)out.prndl_state,
-    (unsigned)out.inverter_enable,
-    (unsigned)in.drive_switch,
-    (unsigned)in.contactors_closed,
-    (unsigned)out.faults.apps_any_fault,
-    (unsigned)out.brake_pressed,
-    (unsigned)out.faults.any_fault
-  );
-}
+//   log_printf(LOG_INFO,
+//     "PED:%.3f TQ:%.1f | PRNDL:%u INV:%u | "
+//     "DRV_IN:%u TR:%u | "
+//     "APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
+//     (double)out.accel_pedal_travel,
+//     (double)out.torque_cmd,
+//     (unsigned)out.prndl_state,
+//     (unsigned)out.inverter_enable,
+//     (unsigned)in.drive_switch,
+//     (unsigned)in.contactors_closed,
+//     (unsigned)out.faults.apps_any_fault,
+//     (unsigned)out.brake_pressed,
+//     (unsigned)out.faults.any_fault
+//   );
+// }
 
     // 10 ms control loop (100 Hz)
     osDelay(pdMS_TO_TICKS(10));
