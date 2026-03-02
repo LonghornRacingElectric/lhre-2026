@@ -8,7 +8,7 @@ Replace the kinematic vehicle simulator (`lhr_sim_kinematic`) with a full Gazebo
 
 **Phase 1 (Gazebo physics):** Complete.
 **Phase 2 (LiDAR perception):** Functional on the oval track. Unreliable on autocross tracks.
-**Phase 3 (Camera fusion + tuning):** Not started.
+**Phase 3 (Camera fusion + tuning):** Not started. See [camera-fusion.md](camera-fusion.md) for detailed plan.
 
 ## What Works Today
 
