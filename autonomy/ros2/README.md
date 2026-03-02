@@ -519,7 +519,7 @@ Processes LiDAR pointcloud to detect cones. Pipeline: ground removal → range f
 | `min_cluster_points` | `2` | Minimum points for a valid cluster |
 | `max_cluster_extent` | `0.5` | Maximum cluster bounding box extent (m) |
 | `max_cluster_points` | `50` | Maximum points in a valid cone cluster |
-| `dedup_radius` | `0.5` | Spatial dedup radius — new detections within this distance of existing ones are ignored (m) |
+| `dedup_radius` | `1.5` | Spatial dedup radius — new detections within this distance of existing ones are ignored (m) |
 | `publish_hz` | `10.0` | Output publish rate (Hz) |
 
 All detected cones are published under a single "cones" namespace with IDs 0..N-1 (orange color). There is no left/right classification — the track builder's boundary pairing strategy (Delaunay triangulation) handles cone pairing by finding pairs that are approximately track-width apart.
