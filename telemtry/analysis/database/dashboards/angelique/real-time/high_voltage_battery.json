@@ -82,6 +82,22 @@
         "overrides": [
           {
             "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
               "id": "byName",
               "options": "hv_pack_v"
             },
@@ -93,6 +109,14 @@
               {
                 "id": "displayName",
                 "value": "HV Pack Voltage"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -116,22 +140,6 @@
             "matcher": {
               "id": "byName",
               "options": "packet_id"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": true,
-                  "tooltip": true,
-                  "viz": true
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/^(?!(hv_pack_v)$).*$/"
             },
             "properties": [
               {
@@ -246,6 +254,22 @@
         "overrides": [
           {
             "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
               "id": "byName",
               "options": "hv_tractive_v"
             },
@@ -257,6 +281,14 @@
               {
                 "id": "displayName",
                 "value": "HV Tractive Voltage"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -280,22 +312,6 @@
             "matcher": {
               "id": "byName",
               "options": "packet_id"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": true,
-                  "tooltip": true,
-                  "viz": true
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/^(?!(hv_tractive_v)$).*$/"
             },
             "properties": [
               {
@@ -410,6 +426,22 @@
         "overrides": [
           {
             "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
               "id": "byName",
               "options": "hv_c"
             },
@@ -421,6 +453,14 @@
               {
                 "id": "displayName",
                 "value": "HV Current"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -444,22 +484,6 @@
             "matcher": {
               "id": "byName",
               "options": "packet_id"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": true,
-                  "tooltip": true,
-                  "viz": true
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/^(?!(hv_c)$).*$/"
             },
             "properties": [
               {
@@ -574,6 +598,22 @@
         "overrides": [
           {
             "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
               "id": "byName",
               "options": "hv_power"
             },
@@ -585,6 +625,14 @@
               {
                 "id": "displayName",
                 "value": "HV Power"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -608,22 +656,6 @@
             "matcher": {
               "id": "byName",
               "options": "packet_id"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": true,
-                  "tooltip": true,
-                  "viz": true
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/^(?!(hv_power)$).*$/"
             },
             "properties": [
               {
@@ -738,6 +770,22 @@
         "overrides": [
           {
             "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
               "id": "byName",
               "options": "avg_cell_v"
             },
@@ -749,6 +797,14 @@
               {
                 "id": "displayName",
                 "value": "Avg Cell V"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -765,6 +821,14 @@
               {
                 "id": "displayName",
                 "value": "Max Cell V"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -781,6 +845,14 @@
               {
                 "id": "displayName",
                 "value": "Min Cell V"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -804,22 +876,6 @@
             "matcher": {
               "id": "byName",
               "options": "packet_id"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": true,
-                  "tooltip": true,
-                  "viz": true
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/^(?!(avg_cell_v|max_cell_v|min_cell_v)$).*$/"
             },
             "properties": [
               {
@@ -934,6 +990,22 @@
         "overrides": [
           {
             "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
               "id": "byName",
               "options": "inverter_electrical_power"
             },
@@ -945,6 +1017,14 @@
               {
                 "id": "displayName",
                 "value": "Electrical Power"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -961,6 +1041,14 @@
               {
                 "id": "displayName",
                 "value": "Mechanical Power"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -984,22 +1072,6 @@
             "matcher": {
               "id": "byName",
               "options": "packet_id"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": true,
-                  "tooltip": true,
-                  "viz": true
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/^(?!(inverter_electrical_power|inverter_mechanical_power)$).*$/"
             },
             "properties": [
               {
@@ -1114,6 +1186,22 @@
         "overrides": [
           {
             "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
               "id": "byName",
               "options": "efficiency"
             },
@@ -1125,6 +1213,14 @@
               {
                 "id": "displayName",
                 "value": "Efficiency"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -1148,22 +1244,6 @@
             "matcher": {
               "id": "byName",
               "options": "packet_id"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": true,
-                  "tooltip": true,
-                  "viz": true
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/^(?!(efficiency)$).*$/"
             },
             "properties": [
               {

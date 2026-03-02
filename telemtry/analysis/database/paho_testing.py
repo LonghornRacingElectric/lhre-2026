@@ -374,7 +374,7 @@ class DataTester:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    car_name = "Orion"  # Change to "Nightwatch", "Angelique", or "Orion" as needed
+    car_name = "Angelique"  # Change to "Nightwatch", "Angelique", or "Orion" as needed
     
     # Optional Paths for CSV and mapping files
     csv_path = Path(__file__).parent / 'csv_processing/csv_data/Log__2024_10_11__05_50_47.csv'

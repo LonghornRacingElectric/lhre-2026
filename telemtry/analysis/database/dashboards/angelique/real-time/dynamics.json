@@ -122,6 +122,22 @@
         "overrides": [
           {
             "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
               "id": "byName",
               "options": "gps_heading"
             },
@@ -133,6 +149,14 @@
               {
                 "id": "displayName",
                 "value": "GPS Heading"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -156,22 +180,6 @@
             "matcher": {
               "id": "byName",
               "options": "packet_id"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": true,
-                  "tooltip": true,
-                  "viz": true
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/^(?!(gps_heading)$).*$/"
             },
             "properties": [
               {
@@ -286,6 +294,22 @@
         "overrides": [
           {
             "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
               "id": "byName",
               "options": "gps_velocity"
             },
@@ -297,6 +321,14 @@
               {
                 "id": "displayName",
                 "value": "GPS Velocity"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -320,22 +352,6 @@
             "matcher": {
               "id": "byName",
               "options": "packet_id"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": true,
-                  "tooltip": true,
-                  "viz": true
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/^(?!(gps_velocity)$).*$/"
             },
             "properties": [
               {
@@ -450,6 +466,22 @@
         "overrides": [
           {
             "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
               "id": "byName",
               "options": "flw_speed"
             },
@@ -461,6 +493,14 @@
               {
                 "id": "displayName",
                 "value": "Front Left Wheel Speed"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -477,6 +517,14 @@
               {
                 "id": "displayName",
                 "value": "Front Right Wheel Speed"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -493,6 +541,14 @@
               {
                 "id": "displayName",
                 "value": "Back Left Wheel Speed"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -509,6 +565,14 @@
               {
                 "id": "displayName",
                 "value": "Back Right Wheel Speed"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -532,22 +596,6 @@
             "matcher": {
               "id": "byName",
               "options": "packet_id"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": true,
-                  "tooltip": true,
-                  "viz": true
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/^(?!(flw_speed|frw_speed|blw_speed|brw_speed)$).*$/"
             },
             "properties": [
               {

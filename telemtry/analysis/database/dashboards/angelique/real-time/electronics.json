@@ -82,6 +82,22 @@
         "overrides": [
           {
             "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
               "id": "byName",
               "options": "lv_power"
             },
@@ -93,6 +109,14 @@
               {
                 "id": "displayName",
                 "value": "LV Power"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -116,22 +140,6 @@
             "matcher": {
               "id": "byName",
               "options": "packet_id"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": true,
-                  "tooltip": true,
-                  "viz": true
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/^(?!(lv_power)$).*$/"
             },
             "properties": [
               {
@@ -246,6 +254,22 @@
         "overrides": [
           {
             "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
               "id": "byName",
               "options": "gps_velocity"
             },
@@ -257,6 +281,14 @@
               {
                 "id": "displayName",
                 "value": "GPS Velocity"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -280,22 +312,6 @@
             "matcher": {
               "id": "byName",
               "options": "packet_id"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": true,
-                  "tooltip": true,
-                  "viz": true
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/^(?!(gps_velocity)$).*$/"
             },
             "properties": [
               {
@@ -410,6 +426,22 @@
         "overrides": [
           {
             "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
               "id": "byName",
               "options": "front_speed"
             },
@@ -421,6 +453,14 @@
               {
                 "id": "displayName",
                 "value": "Front Speed"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -437,6 +477,14 @@
               {
                 "id": "displayName",
                 "value": "Rear Speed"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
               }
             ]
           },
@@ -460,22 +508,6 @@
             "matcher": {
               "id": "byName",
               "options": "packet_id"
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": true,
-                  "tooltip": true,
-                  "viz": true
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/^(?!(front_speed|rear_speed)$).*$/"
             },
             "properties": [
               {
