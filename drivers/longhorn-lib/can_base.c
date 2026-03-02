@@ -279,42 +279,43 @@ void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t RxFifo0ITs) {
           continue;
         }
 
-      if (rx_header.Identifier == BUS_ENABLE_DISABLE_ID) {
-        unpack_bus_enable_disable(rx_data, &bus_status);
+        if (rx_header.Identifier == BUS_ENABLE_DISABLE_ID) {
+          unpack_bus_enable_disable(rx_data, &bus_status);
 
-        return;
-      }
-
-      if (rx_header.Identifier == FIRMWARE_UPDATE_COMMAND_PACKET_ID) {
-        if (!bus_status.enable) {
-          // bus is disabled, check if update for us
-          if (bus_status.device == can.device_id && bus_status.fw_update) {
-            unpack_firmware_update_command_packet(rx_data, &dfu_command_packet);
-
-            if (dfu_command_packet.command == UPDATE_COMMAND_WRITE &&
-                can.fw_update_begin_fn) {
-              can.fw_update_begin_fn(dfu_command_packet.num_blocks);
-            }
-
-            update_response_t response =
-                fw_update_process_command(&dfu_command_packet);
-            dfu_response.response = response;
-            can_send_immediate(interface, dfu_response_msg);
-          }
+          return;
         }
 
-        return;
-      }
+        if (rx_header.Identifier == FIRMWARE_UPDATE_COMMAND_PACKET_ID) {
+          if (!bus_status.enable) {
+            // bus is disabled, check if update for us
+            if (bus_status.device == can.device_id && bus_status.fw_update) {
+              unpack_firmware_update_command_packet(rx_data,
+                                                    &dfu_command_packet);
 
-      if (rx_header.Identifier == FIRMWARE_UPDATE_DATA_PACKET_ID) {
-        update_response_t response = fw_update_process_data(rx_data);
+              if (dfu_command_packet.command == UPDATE_COMMAND_WRITE &&
+                  can.fw_update_begin_fn) {
+                can.fw_update_begin_fn(dfu_command_packet.num_blocks);
+              }
 
-        dfu_response.response = response;
-        can_send_immediate(interface, dfu_response_msg);
-        return;
-      }
+              update_response_t response =
+                  fw_update_process_command(&dfu_command_packet);
+              dfu_response.response = response;
+              can_send_immediate(interface, dfu_response_msg);
+            }
+          }
 
-      interfaces[i]->_last_id_received = rx_header.Identifier;
+          return;
+        }
+
+        if (rx_header.Identifier == FIRMWARE_UPDATE_DATA_PACKET_ID) {
+          update_response_t response = fw_update_process_data(rx_data);
+
+          dfu_response.response = response;
+          can_send_immediate(interface, dfu_response_msg);
+          return;
+        }
+
+        interfaces[i]->_last_id_received = rx_header.Identifier;
 
         // make sure it exists in our table
         can_receive_message_t *msg =
