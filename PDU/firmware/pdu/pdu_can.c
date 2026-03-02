@@ -75,8 +75,6 @@ void pdu_can_init(void) {
   can_rtos_start_transceiver_task(osPriorityNormal);
   can_rtos_start_receiver_task(osPriorityAboveNormal);
 
-  HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_BUS_OFF, 0);
-
   log_printf(LOG_INFO, "[PDU] CAN RTOS initialized\n");
 }
 

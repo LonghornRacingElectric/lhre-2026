@@ -40,6 +40,8 @@ void can_start_interface(can_interface_t *interface) {
   // registered)
   can.start_fn(interface->handle);
 
+  can.noti_fn(interface->handle, FDCAN_IT_BUS_OFF, 0);
+
   // note that the interface started
   interface->_started = true;
 }

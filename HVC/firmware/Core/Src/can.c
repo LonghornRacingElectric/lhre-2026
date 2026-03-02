@@ -75,8 +75,6 @@ void hvc_can_init(void) {
   can_rtos_start_transceiver_task(osPriorityHigh);
   can_rtos_start_receiver_task(osPriorityHigh);
 
-  HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_BUS_OFF, 0);
-
   log_printf(LOG_INFO, "[HVC] CAN RTOS initialized\n");
 }
 
