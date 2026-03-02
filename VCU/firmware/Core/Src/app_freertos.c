@@ -9,9 +9,9 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "task.h"
-#include "main.h"
 #include "cmsis_os.h"
+#include "main.h"
+#include "task.h"
 
 #include "usb_device.h"
 
@@ -45,6 +45,8 @@ extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc2;
 extern ADC_HandleTypeDef hadc3;
 
+#define FUDGE_FACTOR 0.95f
+
 // DMA buffers
 // APPS1, APPS2 from ADC3 (configured in adc.c)
 extern volatile uint16_t adc3_dma_buf[2];
@@ -77,9 +79,9 @@ const osThreadAttr_t controlTask_attributes = {
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define ADC_MAX_VAL   ((1u << 12) - 1u)
+#define ADC_MAX_VAL ((1u << 12) - 1u)
 #define ADC_APPS_SCALE_V 3.3f
-#define ADC_BSE_SCALE_V  3.2837f
+#define ADC_BSE_SCALE_V 3.2837f
 
 /* USER CODE END PM */
 
@@ -89,19 +91,23 @@ const osThreadAttr_t controlTask_attributes = {
 static vcu_parameters_t s_params = {
     .apps =
         {
-            .apps1_min_adc_v = (1815.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL, // 1815 is ~0% pedal, 1500 is ~100% pedal
-            .apps1_max_adc_v = (1500.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL,
+            .apps1_min_adc_v =
+                ((FUDGE_FACTOR * 1200.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+            .apps1_max_adc_v =
+                ((FUDGE_FACTOR * 750.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
 
-            .apps2_min_adc_v = (1806.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL,
-            .apps2_max_adc_v = (1499.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL,
+            .apps2_min_adc_v =
+                ((FUDGE_FACTOR * 1180.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+            .apps2_max_adc_v =
+                ((FUDGE_FACTOR * 700.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
 
             .implaus_debounce_time_ms = 100u,
             .max_allowable_diff = 0.10f,
-            .min_travel_threshold = 0.10f,
-            .max_travel_restore_threshold = 0.05f,
+            // .min_travel_threshold = 0.10f,
+            // .max_travel_restore_threshold = 0.05f,
 
-            .min_travel_deadzone = 0.10f,
-            .max_travel_deadzone = 0.97f,
+            .min_travel_deadzone = 0.12f,
+            .max_travel_deadzone = 0.82f,
             .pedal_ema_alpha = 0.35f,
         },
     .torque_map =
@@ -113,10 +119,16 @@ static vcu_parameters_t s_params = {
         {
             .bse_off_psi = 30.0f,
             .bse_on_psi = 50.0f,
-            .bse1_adc_at_min_psi_v = (370.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL,
-            .bse1_adc_at_max_psi_v = (800.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL,
-            .bse2_adc_at_min_psi_v = (370.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL, // set same as bse1 for now since bse2 isn't working
-            .bse2_adc_at_max_psi_v = (800.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL,
+            .bse1_adc_at_min_psi_v =
+                ((FUDGE_FACTOR * 370.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
+            .bse1_adc_at_max_psi_v =
+                ((FUDGE_FACTOR * 800.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
+            .bse2_adc_at_min_psi_v =
+                ((FUDGE_FACTOR * 370.0f * ADC_BSE_SCALE_V) /
+                 ADC_MAX_VAL), // set same as bse1 for now
+                               // since bse2 isn't working
+            .bse2_adc_at_max_psi_v =
+                ((FUDGE_FACTOR * 800.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
             .bse_max_psi = 1000.0f,
             .max_pedal_while_braking = 0.25f,
             .max_pedal_restore_threshold = 0.05f,
@@ -136,10 +148,9 @@ static vcu_model_context_t ctx = {0};
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
-  .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 128 * 4
-};
+    .name = "defaultTask",
+    .priority = (osPriority_t)osPriorityNormal,
+    .stack_size = 128 * 4};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -155,10 +166,10 @@ void StartDefaultTask(void *argument);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /**
-  * @brief  FreeRTOS initialization
-  * @param  None
-  * @retval None
-  */
+ * @brief  FreeRTOS initialization
+ * @param  None
+ * @retval None
+ */
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
@@ -203,7 +214,8 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  defaultTaskHandle =
+      osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -212,7 +224,6 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
   /* USER CODE END RTOS_EVENTS */
-
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -222,14 +233,13 @@ void MX_FREERTOS_Init(void) {
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
-{
+void StartDefaultTask(void *argument) {
   /* init code for USB_Device */
   MX_USB_Device_Init();
   /* USER CODE BEGIN StartDefaultTask */
   /* Infinite loop */
   for (;;) {
-    osDelay(1);
+    osDelay(10000);
   }
   /* USER CODE END StartDefaultTask */
 }
@@ -310,57 +320,53 @@ void StartControlTask(void *argument) {
     }
 
     // Optional: small delay to let conversions complete before we read
-    osDelay(1);
+    // osDelay(1);
 
     // To-Do: Steering
-    HAL_ADC_Start(&hadc1);
-    if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
-      adc1_val = HAL_ADC_GetValue(&hadc1);
-    }
-    HAL_ADC_Stop(&hadc1);
+    // HAL_ADC_Start(&hadc1);
+    // if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
+    //   adc1_val = HAL_ADC_GetValue(&hadc1);
+    // }
+    // HAL_ADC_Stop(&hadc1);
 
     // Read pedal sensors from DMA buffers
     in.apps1_raw = ((float)adc3_dma_buf[0] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
     in.apps2_raw = ((float)adc3_dma_buf[1] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
-    in.bse1_raw = ((float)adc2_dma_buf[0] * ADC_BSE_SCALE_V) / ADC_MAX_VAL;
+    in.bse1_raw = ((float)adc2_dma_buf[1] * ADC_BSE_SCALE_V) / ADC_MAX_VAL;
     in.bse2_raw = in.bse1_raw; // TODO: use second BSE sensor when it works
 
     in.drive_switch = is_drive_switch_pressed();
 
     in.contactors_closed = hvc_tractive_ready();
 
-
-
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
 
     vcu_can_set_model_outputs(&out);
 
-//     static uint32_t dbg_div = 0;
-// if (++dbg_div >= 10) {
-//   dbg_div = 0;
+    log_printf(LOG_WARNING,
+               "PEDAL OUT, %0.2f, TORQUE OUT %0.2f, FAULT %d, APPS1 %0.2f, "
+               "APPS2 %0.2f",
+               out.accel_pedal_travel, out.torque_cmd,
+               out.faults.apps_any_fault, out.apps1_travel, out.apps2_travel);
+    //     static uint32_t dbg_div = 0;
+    // if (++dbg_div >= 10) {
+    //   dbg_div = 0;
 
-//   log_printf(LOG_INFO,
-//     "PED:%.3f TQ:%.1f | PRNDL:%u INV:%u | "
-//     "DRV_IN:%u TR:%u | "
-//     "APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
-//     (double)out.accel_pedal_travel,
-//     (double)out.torque_cmd,
-//     (unsigned)out.prndl_state,
-//     (unsigned)out.inverter_enable,
-//     (unsigned)in.drive_switch,
-//     (unsigned)in.contactors_closed,
-//     (unsigned)out.faults.apps_any_fault,
-//     (unsigned)out.brake_pressed,
-//     (unsigned)out.faults.any_fault
-//   );
-// }
+    // log_printf(LOG_INFO,
+    //            "PED:%.3f TQ:%.1f | PRNDL:%u INV:%u | "
+    //            "DRV_IN:%u TR:%u | "
+    //            "APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
+    //            (double)out.accel_pedal_travel, (double)out.torque_cmd,
+    //            (unsigned)out.prndl_state, (unsigned)out.inverter_enable,
+    //            (unsigned)in.drive_switch, (unsigned)in.contactors_closed,
+    //            (unsigned)out.faults.apps_any_fault,
+    //            (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault);
+    // }
 
     // 10 ms control loop (100 Hz)
-    osDelay(pdMS_TO_TICKS(10));
+    osDelay(pdMS_TO_TICKS(3));
   }
 }
 
-
 /* USER CODE END Application */
-

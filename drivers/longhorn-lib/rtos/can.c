@@ -149,14 +149,16 @@ static void receiver_task(void *params) {
       if (item.msg != NULL && item.msg->unpacking_fn != NULL) {
         item.msg->unpacking_fn(item.data, item.msg->latest_msg);
       }
+      // log_printf(LOG_INFO, "[CAN] Received message with ID %d\n",
+      //            item.msg->packet_id);
     }
   }
 }
 
 BaseType_t can_rtos_start_transceiver_task(UBaseType_t priority) {
-  return xTaskCreate(transceiver_task, "CAN_Tx", 256, NULL, priority, NULL);
+  return xTaskCreate(transceiver_task, "CAN_Tx", 512, NULL, priority, NULL);
 }
 
 BaseType_t can_rtos_start_receiver_task(UBaseType_t priority) {
-  return xTaskCreate(receiver_task, "CAN_Rx", 256, NULL, priority, NULL);
+  return xTaskCreate(receiver_task, "CAN_Rx", 512, NULL, priority, NULL);
 }

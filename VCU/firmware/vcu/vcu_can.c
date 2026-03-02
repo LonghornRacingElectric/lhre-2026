@@ -6,8 +6,11 @@
 #include "fdcan.h"
 #include "hvc_states/Core/Inc/hvc_states.h"
 #include "longhorn/rtos/can.h"
+#include "longhorn/rtos/led.h"
 #include "longhorn/rtos/logger.h"
+#include <PRNDL.h>
 #include <stm32g4xx_hal_fdcan.h>
+#include <vcu_inputs.h>
 
 /** ==
  *  CAN Interface and Configuration Setup
@@ -16,6 +19,8 @@
 
 can_interface_t critical_bus;
 can_interface_t data_acq_bus;
+
+extern vcu_inputs_t s_inputs;
 
 /** ==
  * CAN Packets
@@ -60,7 +65,7 @@ void vcu_can_init(void) {
           (CAN_GetRxFifoFillLevel_fn)HAL_FDCAN_GetRxFifoFillLevel,
       .tick_fn = HAL_GetTick,
       .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
-      .malloc_fn = pvPortMalloc,  
+      .malloc_fn = pvPortMalloc,
       .free_fn = vPortFree,
       .init_bit = FDCAN_CCCR_INIT,
   };
@@ -90,8 +95,10 @@ void vcu_can_init(void) {
   can_rtos_start_interface(&critical_bus);
   can_rtos_start_interface(&data_acq_bus);
 
-  can_rtos_start_transceiver_task(osPriorityNormal);
-  can_rtos_start_receiver_task(osPriorityAboveNormal);
+  can_rtos_start_transceiver_task(osPriorityHigh);
+  can_rtos_start_receiver_task(osPriorityHigh);
+
+  HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_BUS_OFF, 0);
 
   vcu_init_inverter();
 
@@ -135,6 +142,25 @@ void vcu_can_set_model_outputs(vcu_outputs_t *out) {
   inverter_torque_command_mailbox.enable = out->inverter_enable;
   inverter_torque_command_mailbox.torque_limit = 200.0f;
   inverter_torque_command_mailbox.direction = 1;
+
+  led_set(out->brake_pressed, dui_r2d_status_mailbox.r2d_status == 1,
+          out->accel_pedal_travel == 0);
+
+  // log_printf(LOG_INFO, "DUI R2D: %d", dui_r2d_status_mailbox.r2d_status);
+
+  // log_printf(LOG_ERROR, "ERROR BITS ON CAN: %d, LEC: %d",
+  // hfdcan1.Instance->PSR,
+  //            hfdcan1.Instance->PSR & FDCAN_PSR_LEC_Msk);
+
+  // log_printf(LOG_WARNING, "CAN fill level: %d, %d",
+  //            HAL_FDCAN_GetRxFifoFillLevel(&hfdcan1, FDCAN_RX_FIFO0),
+  //            HAL_FDCAN_GetRxFifoFillLevel(&hfdcan1, FDCAN_RX_FIFO1));
+
+  if (out->prndl_state == PRNDL_DRIVE) {
+    led_start_thread();
+  } else {
+    led_stop_thread();
+  }
 }
 
 bool is_drive_switch_pressed(void) {
