@@ -55,3 +55,4 @@ float hvc_adc_read_current_sense_a(void);
 #endif
 
 #endif /* __ADC_H__ */
+
