@@ -1,17 +1,18 @@
 [
     {
-        "packet_id": 4,
+        "packet_id": 16,
         "packet_name": "Write Memory Data -- Firmware Update",
         "from": [
             "Pi"
         ],
         "to": [
-            "\\*"
+            "*"
         ],
         "data_length": 8,
         "frequency_ms": null,
         "frequency": null,
         "quantity": 0,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -80,18 +81,22 @@
         ]
     },
     {
-        "packet_id": 32,
+        "packet_id": 17,
         "packet_name": "Bus Enable/Disable",
         "from": [
             "Pi"
         ],
         "to": [
-            "HVC, VCU, Upright, Undertray"
+            "HVC",
+            "VCU",
+            "USM",
+            "CSM"
         ],
         "data_length": 1,
         "frequency_ms": null,
         "frequency": null,
         "quantity": 20,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -104,22 +109,23 @@
         ]
     },
     {
-        "packet_id": 49,
-        "packet_name": "(Meta Data for Write Memory -- Firmware Update, 256B max)",
+        "packet_id": 18,
+        "packet_name": "'(Meta Data for Write Memory -- Firmware Update",
         "from": [
             "Pi"
         ],
         "to": [
-            "\\*"
+            "*"
         ],
-        "data_length": 5,
+        "data_length": 0,
         "frequency_ms": null,
         "frequency": null,
-        "quantity": 0,
+        "quantity": 5,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
-                "start_byte": 0,
+                "start_byte": 1,
                 "name": "Field_0",
                 "length": 1,
                 "conv_type": "uint8",
@@ -127,7 +133,7 @@
             },
             {
                 "index": 1,
-                "start_byte": 1,
+                "start_byte": 2,
                 "name": "Field_1",
                 "length": 1,
                 "conv_type": "uint8",
@@ -135,7 +141,7 @@
             },
             {
                 "index": 2,
-                "start_byte": 2,
+                "start_byte": 3,
                 "name": "Field_2",
                 "length": 1,
                 "conv_type": "uint8",
@@ -143,7 +149,7 @@
             },
             {
                 "index": 3,
-                "start_byte": 3,
+                "start_byte": 4,
                 "name": "Field_3",
                 "length": 1,
                 "conv_type": "uint8",
@@ -151,7 +157,7 @@
             },
             {
                 "index": 4,
-                "start_byte": 4,
+                "start_byte": 5,
                 "name": "Field_4",
                 "length": 1,
                 "conv_type": "uint8",
@@ -172,6 +178,7 @@
         "frequency_ms": 100,
         "frequency": 10.0,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -220,6 +227,7 @@
         "frequency_ms": 100,
         "frequency": 10.0,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -268,6 +276,7 @@
         "frequency_ms": 10,
         "frequency": 100.0,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -313,9 +322,10 @@
             "VCU"
         ],
         "data_length": 8,
-        "frequency_ms": 10,
-        "frequency": 100.0,
+        "frequency_ms": 100,
+        "frequency": 10.0,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -364,6 +374,7 @@
         "frequency_ms": 10,
         "frequency": 100.0,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -371,7 +382,13 @@
                 "name": "DC Bus Voltage",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 0.1
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "dc_bus_v",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 1,
@@ -379,7 +396,7 @@
                 "name": "Neutral Output Voltage",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0
+                "precision": 0.1
             },
             {
                 "index": 2,
@@ -387,7 +404,7 @@
                 "name": "Vab / Vq Voltage",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0
+                "precision": 0.1
             },
             {
                 "index": 3,
@@ -395,7 +412,7 @@
                 "name": "Vbc / Vd Voltage",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0
+                "precision": 0.1
             }
         ]
     },
@@ -412,6 +429,7 @@
         "frequency_ms": 10,
         "frequency": 100.0,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -492,6 +510,7 @@
         "frequency_ms": 10,
         "frequency": 100.0,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -524,6 +543,7 @@
         "frequency_ms": 10,
         "frequency": 100.0,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -564,6 +584,7 @@
         "frequency_ms": 3,
         "frequency": 333.0,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -571,7 +592,13 @@
                 "name": "commanded torque",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "torque_command",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 1,
@@ -612,6 +639,7 @@
         "frequency_ms": 3,
         "frequency": 333.0,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -619,7 +647,13 @@
                 "name": "torque request",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 0.1
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "torque_request",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 1,
@@ -627,7 +661,13 @@
                 "name": "rpm request",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "rpm_request",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 2,
@@ -635,7 +675,8 @@
                 "name": "direction",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 1.0
+                "precision": 1.0,
+                "is_boolean": true
             },
             {
                 "index": 3,
@@ -643,7 +684,8 @@
                 "name": "enable",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 1.0
+                "precision": 1.0,
+                "is_boolean": true
             },
             {
                 "index": 4,
@@ -668,6 +710,7 @@
         "frequency_ms": null,
         "frequency": null,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -682,8 +725,9 @@
                 "start_byte": 2,
                 "name": "r/w",
                 "length": 1,
-                "conv_type": "0/1",
-                "precision": 1.0
+                "conv_type": "uint8",
+                "precision": 1.0,
+                "is_boolean": true
             }
         ]
     },
@@ -700,6 +744,7 @@
         "frequency_ms": null,
         "frequency": null,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -715,23 +760,25 @@
                 "name": "success",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 1.0
+                "precision": 1.0,
+                "is_boolean": true
             }
         ]
     },
     {
-        "packet_id": 209,
+        "packet_id": 64,
         "packet_name": "Wheel Speed, Ride height",
         "from": [
-            "Upright"
+            "USM"
         ],
         "to": [
             "VCU"
         ],
         "data_length": 4,
-        "frequency_ms": 10,
-        "frequency": 100.0,
+        "frequency_ms": 100,
+        "frequency": 10.0,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -752,1786 +799,68 @@
         ]
     },
     {
-        "packet_id": 240,
-        "packet_name": "APPS Voltages",
+        "packet_id": 80,
+        "packet_name": "Contactor Status",
         "from": [
-            "Rack"
-        ],
-        "to": [
-            "VCU"
-        ],
-        "data_length": 8,
-        "frequency_ms": 3,
-        "frequency": 333.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "APPS1 Voltage",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.0001
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "APPS2 Voltage",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.0001
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "APPS1 Travel",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.0001
-            },
-            {
-                "index": 3,
-                "start_byte": 6,
-                "name": "APPS2 Travel",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.0001
-            }
-        ]
-    },
-    {
-        "packet_id": 241,
-        "packet_name": "Accelerator Pedal",
-        "from": [
-            "Rack"
+            "HVC"
         ],
         "to": [
             "VCU"
         ],
         "data_length": 3,
-        "frequency_ms": 3,
-        "frequency": 333.0,
+        "frequency_ms": 10,
+        "frequency": 100.0,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
                 "start_byte": 0,
-                "name": "Accelerator Pedal Travel",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.0001
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "APPS Faults",
-                "length": 1,
-                "conv_type": "bitfield",
-                "precision": 1.0,
-                "bitfield_encoding": [
-                    {
-                        "protobuf_field": "apps1_disconnect",
-                        "bit_index": 0
-                    },
-                    {
-                        "protobuf_field": "apps2_disconnect",
-                        "bit_index": 1
-                    },
-                    {
-                        "protobuf_field": "apps1_out_range",
-                        "bit_index": 2
-                    },
-                    {
-                        "protobuf_field": "apps2_out_range",
-                        "bit_index": 3
-                    },
-                    {
-                        "protobuf_field": "apps_mismatch",
-                        "bit_index": 4
-                    },
-                    {
-                        "protobuf_field": "apps_implause",
-                        "bit_index": 5
-                    }
-                ]
-            }
-        ]
-    },
-    {
-        "packet_id": 242,
-        "packet_name": "BPPS Voltages",
-        "from": [
-            "Rack"
-        ],
-        "to": [
-            "VCU"
-        ],
-        "data_length": 8,
-        "frequency_ms": 3,
-        "frequency": 333.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "BPPS1 Voltage",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.0001
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "BPPS2 Voltage",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.0001
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "BPPS1 Travel",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.0001
-            },
-            {
-                "index": 3,
-                "start_byte": 6,
-                "name": "BPPS2 Travel",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.0001
-            }
-        ]
-    },
-    {
-        "packet_id": 243,
-        "packet_name": "Brake Pedal",
-        "from": [
-            "Rack"
-        ],
-        "to": [
-            "VCU"
-        ],
-        "data_length": 3,
-        "frequency_ms": 3,
-        "frequency": 333.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Brake Pedal Travel",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.0001
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "BPPS Faults",
-                "length": 1,
-                "conv_type": "bitfield",
-                "precision": 1.0,
-                "bitfield_encoding": [
-                    {
-                        "protobuf_field": "bpps1_disconnect",
-                        "bit_index": 0
-                    },
-                    {
-                        "protobuf_field": "bpps2_disconnect",
-                        "bit_index": 1
-                    },
-                    {
-                        "protobuf_field": "bpps1_out_range",
-                        "bit_index": 2
-                    },
-                    {
-                        "protobuf_field": "bpps2_out_range",
-                        "bit_index": 3
-                    },
-                    {
-                        "protobuf_field": "bpps_mismatch",
-                        "bit_index": 4
-                    }
-                ]
-            }
-        ]
-    },
-    {
-        "packet_id": 256,
-        "packet_name": "BSE Voltages",
-        "from": [
-            "VCU"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 6,
-        "frequency_ms": 3,
-        "frequency": 333.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "BSE Front Voltage",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.0001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bse1_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "BSE Rear Voltage",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.0001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bse2_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "BSE Line Lock Voltage",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.0001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bse3_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 2564,
-        "packet_name": "Brakes",
-        "from": [
-            "Rack"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 8,
-        "frequency_ms": 3,
-        "frequency": 333.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Brake Pressure Front",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.05,
-                "protobuf": {
-                    "type": "float",
-                    "field": "brake_pressure_f",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Brake Pressure Rear Pre Lock",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.05,
-                "protobuf": {
-                    "type": "float",
-                    "field": "brake_pressure_rbll",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Brake Pressure Rear Post Lock",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.05,
-                "protobuf": {
-                    "type": "float",
-                    "field": "brake_pressure_rall",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 6,
-                "name": "Brake Bias",
+                "name": "HVC State Machine",
                 "length": 1,
                 "conv_type": "uint8",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "brake_bias",
-                    "repeated": false,
-                    "field_index": null
-                }
+                "precision": 1.0
             },
             {
-                "index": 4,
-                "start_byte": 7,
-                "name": "BSE Faults",
+                "index": 1,
+                "start_byte": 1,
+                "name": "Positive HV Contactor",
                 "length": 1,
-                "conv_type": "bitfield",
-                "precision": 1.0,
-                "bitfield_encoding": [
-                    {
-                        "protobuf_field": "bse1_disconnect",
-                        "bit_index": 0
-                    },
-                    {
-                        "protobuf_field": "bse2_disconnect",
-                        "bit_index": 1
-                    },
-                    {
-                        "protobuf_field": "bse1_out_range",
-                        "bit_index": 2
-                    },
-                    {
-                        "protobuf_field": "bse2_out_range",
-                        "bit_index": 3
-                    }
-                ]
-            }
-        ]
-    },
-    {
-        "packet_id": 2565,
-        "packet_name": "Rack Steering",
-        "from": [
-            "Rack"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 2,
-        "frequency_ms": 3,
-        "frequency": 333.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Steering Column Angle",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.004,
-                "protobuf": {
-                    "type": "float",
-                    "field": "steer_col_angle",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1024,
-        "packet_name": "FL Steering",
-        "from": [
-            "Upright"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 2,
-        "frequency_ms": 3,
-        "frequency": 333.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "FL Est Steering Angle",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fl_steer_angle",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1025,
-        "packet_name": "FR Steering",
-        "from": [
-            "Upright"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 2,
-        "frequency_ms": 3,
-        "frequency": 333.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "FR Est Steering Angle",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fr_steer_angle",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1026,
-        "packet_name": "Acceleration Vector Unsprung FL",
-        "from": [
-            "Upright"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 6,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "X",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fl_unsprung_accel",
-                    "repeated": true,
-                    "field_index": 0
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Y",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fl_unsprung_accel",
-                    "repeated": true,
-                    "field_index": 1
-                }
+                "conv_type": "uint8",
+                "precision": 1.0
             },
             {
                 "index": 2,
-                "start_byte": 4,
-                "name": "Z",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fl_unsprung_accel",
-                    "repeated": true,
-                    "field_index": 2
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1027,
-        "packet_name": "Acceleration Vector Unsprung FR",
-        "from": [
-            "Upright"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 6,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "X",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fr_unsprung_accel",
-                    "repeated": true,
-                    "field_index": 0
-                }
-            },
-            {
-                "index": 1,
                 "start_byte": 2,
-                "name": "Y",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fr_unsprung_accel",
-                    "repeated": true,
-                    "field_index": 1
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Z",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fr_unsprung_accel",
-                    "repeated": true,
-                    "field_index": 2
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1028,
-        "packet_name": "Acceleration Vector Unsprung RL",
-        "from": [
-            "Upright"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 6,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "X",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bl_unsprung_accel",
-                    "repeated": true,
-                    "field_index": 0
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Y",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bl_unsprung_accel",
-                    "repeated": true,
-                    "field_index": 1
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Z",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bl_unsprung_accel",
-                    "repeated": true,
-                    "field_index": 2
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1029,
-        "packet_name": "Acceleration Vector Unsprung RR",
-        "from": [
-            "Upright"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 6,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "X",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "br_unsprung_accel",
-                    "repeated": true,
-                    "field_index": 0
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Y",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "br_unsprung_accel",
-                    "repeated": true,
-                    "field_index": 1
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Z",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "br_unsprung_accel",
-                    "repeated": true,
-                    "field_index": 2
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1280,
-        "packet_name": "Acceleration Vector Sprung + Ride Height FL",
-        "from": [
-            "Undertray"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 8,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "X",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fl_sprung_accel",
-                    "repeated": true,
-                    "field_index": 0
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Y",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fl_sprung_accel",
-                    "repeated": true,
-                    "field_index": 1
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Z",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fl_sprung_accel",
-                    "repeated": true,
-                    "field_index": 2
-                }
+                "name": "Negative HV Contactor",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0
             },
             {
                 "index": 3,
-                "start_byte": 6,
-                "name": "Ride Height",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.002,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fl_ride_height",
-                    "repeated": false,
-                    "field_index": null
-                }
+                "start_byte": 3,
+                "name": "Precharge Contactor",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0
             }
         ]
     },
     {
-        "packet_id": 1281,
-        "packet_name": "Acceleration Vector Sprung + Ride Height FR",
-        "from": [
-            "Undertray"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 8,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "X",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fr_sprung_accel",
-                    "repeated": true,
-                    "field_index": 0
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Y",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fr_sprung_accel",
-                    "repeated": true,
-                    "field_index": 1
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Z",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fr_sprung_accel",
-                    "repeated": true,
-                    "field_index": 2
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 6,
-                "name": "Ride Height",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.002,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fr_ride_height",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1282,
-        "packet_name": "Acceleration Vector Sprung + Ride Height RL",
-        "from": [
-            "Undertray"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 8,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "X",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bl_sprung_accel",
-                    "repeated": true,
-                    "field_index": 0
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Y",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bl_sprung_accel",
-                    "repeated": true,
-                    "field_index": 1
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Z",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bl_sprung_accel",
-                    "repeated": true,
-                    "field_index": 2
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 6,
-                "name": "Ride Height",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.002,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bl_ride_height",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1283,
-        "packet_name": "Acceleration Vector Sprung + Ride Height RR",
-        "from": [
-            "Undertray"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 8,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "X",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "br_sprung_accel",
-                    "repeated": true,
-                    "field_index": 0
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Y",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "br_sprung_accel",
-                    "repeated": true,
-                    "field_index": 1
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Z",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "br_sprung_accel",
-                    "repeated": true,
-                    "field_index": 2
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 6,
-                "name": "Ride Height",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.002,
-                "protobuf": {
-                    "type": "float",
-                    "field": "br_ride_height",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1284,
-        "packet_name": "Angular Rate Vector FL Sprung",
-        "from": [
-            "Undertray"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 6,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "X",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.03,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fl_sprung_ang_rate",
-                    "repeated": true,
-                    "field_index": 0
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Y",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.03,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fl_sprung_ang_rate",
-                    "repeated": true,
-                    "field_index": 1
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Z",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.03,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fl_sprung_ang_rate",
-                    "repeated": true,
-                    "field_index": 2
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1285,
-        "packet_name": "Angular Rate Vector FR Sprung",
-        "from": [
-            "Undertray"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 6,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "X",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.03,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fr_sprung_ang_rate",
-                    "repeated": true,
-                    "field_index": 0
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Y",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.03,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fr_sprung_ang_rate",
-                    "repeated": true,
-                    "field_index": 1
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Z",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.03,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fr_sprung_ang_rate",
-                    "repeated": true,
-                    "field_index": 2
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1286,
-        "packet_name": "Angular Rate Vector BL Sprung",
-        "from": [
-            "Undertray"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 6,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "X",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.03,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bl_sprung_ang_rate",
-                    "repeated": true,
-                    "field_index": 0
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Y",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.03,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bl_sprung_ang_rate",
-                    "repeated": true,
-                    "field_index": 1
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Z",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.03,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bl_sprung_ang_rate",
-                    "repeated": true,
-                    "field_index": 2
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1287,
-        "packet_name": "Angular Rate Vector BR Sprung",
-        "from": [
-            "Undertray"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 6,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "X",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.03,
-                "protobuf": {
-                    "type": "float",
-                    "field": "br_sprung_ang_rate",
-                    "repeated": true,
-                    "field_index": 0
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Y",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.03,
-                "protobuf": {
-                    "type": "float",
-                    "field": "br_sprung_ang_rate",
-                    "repeated": true,
-                    "field_index": 1
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Z",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.03,
-                "protobuf": {
-                    "type": "float",
-                    "field": "br_sprung_ang_rate",
-                    "repeated": true,
-                    "field_index": 2
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1030,
-        "packet_name": "Wheel Speed + Strain Gauge + Pushrod + Spring Disp. FL",
-        "from": [
-            "Upright"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 8,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Speed",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "flw_speed",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Strain Gauge Voltage",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.0002,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fl_strain_gauge_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Pushrod",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.5,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fl_pushrod_stress",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 6,
-                "name": "Spring Displacement",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fl_spring_displace",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1031,
-        "packet_name": "Wheel Speed + Strain Gauge + Pushrod + Spring Disp. FR",
-        "from": [
-            "Upright"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 8,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Speed",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "frw_speed",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Strain Gauge Voltage",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.0002,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fr_strain_gauge_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Pushrod",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.5,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fr_pushrod_stress",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 6,
-                "name": "Spring Displacement",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fr_spring_displace",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1032,
-        "packet_name": "Wheel Speed + Strain Gauge + Pushrod + Spring Disp. RL",
-        "from": [
-            "Upright"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 8,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Speed",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "blw_speed",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Strain Gauge Voltage",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.0002,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bl_strain_gauge_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Pushrod",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.5,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bl_pushrod_stress",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 6,
-                "name": "Spring Displacement",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bl_spring_displace",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1033,
-        "packet_name": "Wheel Speed + Strain Gauge + Pushrod + Spring Disp. RR",
-        "from": [
-            "Upright"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 8,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Speed",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "brw_speed",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Strain Gauge Voltage",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.0002,
-                "protobuf": {
-                    "type": "float",
-                    "field": "br_strain_gauge_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Pushrod",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.5,
-                "protobuf": {
-                    "type": "float",
-                    "field": "br_pushrod_stress",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 6,
-                "name": "Spring Displacement",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "br_spring_displace",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 257,
-        "packet_name": "GPS",
-        "from": [
-            "VCU"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 8,
-        "frequency_ms": 100,
-        "frequency": 10.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Rear Longitude",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "r_gps",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Rear Latitude",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "r_gps",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Rear Speed",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "r_gps_velocity",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 6,
-                "name": "Rear Heading",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "r_gps_heading",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 258,
-        "packet_name": "Motor Cooling",
-        "from": [
-            "VCU"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 8,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Loop Temp After Motor",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "motor_loop_motor_temp",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Loop Temp After Inverter",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "motor_loop_inverter_temp",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Temp After Radiator",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "motor_loop_rad_temp",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 6,
-                "name": "Radiator Fan Speed",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.2,
-                "protobuf": {
-                    "type": "float",
-                    "field": "motor_loop_rad_fan_speed",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 259,
-        "packet_name": "Battery Cooling",
-        "from": [
-            "VCU"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 6,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Temp After Battery",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "batt_loop_batt_temp",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Temp After Radiator",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "batt_loop_rad_temp",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Radiator Fan Speed",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.2,
-                "protobuf": {
-                    "type": "float",
-                    "field": "batt_loop_rad_fan_speed",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 260,
-        "packet_name": "Temps",
-        "from": [
-            "VCU"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 8,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Inverter",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "inverter_temp",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Motor",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "motor_temp",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Ambient",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "ambient_temp",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 6,
-                "name": "Discharge Resistor Temp",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "discharge_r_temp",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 512,
+        "packet_id": 81,
         "packet_name": "Battery Pack Status",
         "from": [
             "HVC"
         ],
         "to": [
-            "Pi"
+            "PDU"
         ],
         "data_length": 8,
-        "frequency_ms": 10,
-        "frequency": 100.0,
+        "frequency_ms": 100,
+        "frequency": 10.0,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -2594,18 +923,19 @@
         ]
     },
     {
-        "packet_id": 513,
+        "packet_id": 82,
         "packet_name": "Battery Temperature Status",
         "from": [
             "HVC"
         ],
         "to": [
-            "Pi"
+            "PDU"
         ],
         "data_length": 8,
         "frequency_ms": 100,
         "frequency": 10.0,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -2666,18 +996,19 @@
         ]
     },
     {
-        "packet_id": 514,
+        "packet_id": 83,
         "packet_name": "Indicators + Shutdown Status",
         "from": [
             "HVC"
         ],
         "to": [
-            "Pi"
+            "PDU"
         ],
         "data_length": 6,
         "frequency_ms": 100,
         "frequency": 10.0,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -2766,58 +1097,35 @@
         ]
     },
     {
-        "packet_id": 515,
-        "packet_name": "Contactor Status",
+        "packet_id": 84,
+        "packet_name": "Allow Balance Command",
         "from": [
-            "HVC"
+            "VCU"
         ],
         "to": [
-            "Pi"
+            "HVC"
         ],
-        "data_length": 3,
-        "frequency_ms": 100,
-        "frequency": 10.0,
-        "quantity": 1,
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "HVC State Machine",
-                "length": 1,
-                "conv_type": "uint8",
-                "precision": 1.0
-            },
-            {
-                "index": 1,
-                "start_byte": 1,
-                "name": "Positive HV Contactor",
-                "length": 1,
-                "conv_type": "uint8",
-                "precision": 1.0
-            },
-            {
-                "index": 2,
-                "start_byte": 2,
-                "name": "Negative HV Contactor",
-                "length": 1,
-                "conv_type": "uint8",
-                "precision": 1.0
-            }
-        ]
+        "data_length": 0,
+        "frequency_ms": null,
+        "frequency": null,
+        "quantity": 0,
+        "bus": "Critical",
+        "bytes": []
     },
     {
-        "packet_id": 528,
+        "packet_id": 96,
         "packet_name": "Cell Voltages",
         "from": [
             "HVC"
         ],
         "to": [
-            "Pi"
+            "PDU"
         ],
         "data_length": 8,
         "frequency_ms": 1000,
         "frequency": 1.0,
         "quantity": 35,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -2878,18 +1186,19 @@
         ]
     },
     {
-        "packet_id": 576,
+        "packet_id": 232,
         "packet_name": "Cell Temperatures",
         "from": [
             "HVC"
         ],
         "to": [
-            "Pi"
+            "PDU"
         ],
         "data_length": 8,
         "frequency_ms": 1000,
         "frequency": 1.0,
         "quantity": 23,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -2950,48 +1259,123 @@
         ]
     },
     {
-        "packet_id": 261,
-        "packet_name": "Allow Balance Command",
+        "packet_id": 288,
+        "packet_name": "DUI R2D Status",
+        "from": [
+            "DUI"
+        ],
+        "to": [
+            "VCU"
+        ],
+        "data_length": 2,
+        "frequency_ms": 100,
+        "frequency": 10.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "R2D Status",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0
+            },
+            {
+                "index": 1,
+                "start_byte": 1,
+                "name": "DUI Shutdown Faults",
+                "length": 1,
+                "conv_type": "bitfield",
+                "precision": 1.0,
+                "bitfield_encoding": [
+                    {
+                        "protobuf_field": "temp_shutdown_1",
+                        "bit_index": 0
+                    },
+                    {
+                        "protobuf_field": "temp_shutdown_2",
+                        "bit_index": 1
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "packet_id": 289,
+        "packet_name": "DUI R2D Authorization",
         "from": [
             "VCU"
         ],
         "to": [
-            "HVC"
+            "DUI"
         ],
-        "data_length": 0,
-        "frequency_ms": null,
-        "frequency": null,
-        "quantity": 0,
-        "bytes": []
+        "data_length": 3,
+        "frequency_ms": 100,
+        "frequency": 10.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "R2D Authorized",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0
+            },
+            {
+                "index": 1,
+                "start_byte": 1,
+                "name": "DUI IMD Faults",
+                "length": 1,
+                "conv_type": "bitfield",
+                "precision": 1.0,
+                "bitfield_encoding": [
+                    {
+                        "protobuf_field": "temp_imd_1",
+                        "bit_index": 0
+                    },
+                    {
+                        "protobuf_field": "temp_imd_2",
+                        "bit_index": 1
+                    }
+                ]
+            },
+            {
+                "index": 2,
+                "start_byte": 2,
+                "name": "DUI AMS Faults",
+                "length": 1,
+                "conv_type": "bitfield",
+                "precision": 1.0,
+                "bitfield_encoding": [
+                    {
+                        "protobuf_field": "temp_ams_1",
+                        "bit_index": 0
+                    },
+                    {
+                        "protobuf_field": "temp_ams_2",
+                        "bit_index": 1
+                    }
+                ]
+            }
+        ]
     },
     {
-        "packet_id": 1536,
-        "packet_name": "HVC Bounds Parameters",
-        "from": [
-            "Pi"
-        ],
-        "to": [
-            "HVC"
-        ],
-        "data_length": 0,
-        "frequency_ms": null,
-        "frequency": null,
-        "quantity": 0,
-        "bytes": []
-    },
-    {
-        "packet_id": 262,
+        "packet_id": 320,
         "packet_name": "VCU Shutdown Status",
         "from": [
             "VCU"
         ],
         "to": [
-            "Pi"
+            "PDU"
         ],
         "data_length": 1,
         "frequency_ms": 3,
         "frequency": 333.0,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -3014,18 +1398,19 @@
         ]
     },
     {
-        "packet_id": 263,
+        "packet_id": 321,
         "packet_name": "VCU Fuses",
         "from": [
             "VCU"
         ],
         "to": [
-            "Pi"
+            "PDU"
         ],
         "data_length": 2,
         "frequency_ms": 3,
         "frequency": 333.0,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -3094,18 +1479,19 @@
         ]
     },
     {
-        "packet_id": 264,
+        "packet_id": 322,
         "packet_name": "VCU Current Sense",
         "from": [
             "VCU"
         ],
         "to": [
-            "Pi"
+            "PDU"
         ],
         "data_length": 5,
         "frequency_ms": 3,
         "frequency": 333.0,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
@@ -3150,7 +1536,1537 @@
         ]
     },
     {
-        "packet_id": 34,
+        "packet_id": 323,
+        "packet_name": "Switch Command",
+        "from": [
+            "VCU"
+        ],
+        "to": [
+            "PDU"
+        ],
+        "data_length": 2,
+        "frequency_ms": 100,
+        "frequency": 10.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Switch Command",
+                "length": 1,
+                "conv_type": "bitfield",
+                "precision": 1.0,
+                "bitfield_encoding": [
+                    {
+                        "protobuf_field": "temp_command_1",
+                        "bit_index": 0
+                    },
+                    {
+                        "protobuf_field": "temp_command_2",
+                        "bit_index": 1
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "packet_id": 324,
+        "packet_name": "Switch Outputs",
+        "from": [
+            "PDU"
+        ],
+        "to": [
+            "VCU"
+        ],
+        "data_length": 2,
+        "frequency_ms": 100,
+        "frequency": 10.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Switch Output",
+                "length": 1,
+                "conv_type": "bitfield",
+                "precision": 1.0,
+                "bitfield_encoding": [
+                    {
+                        "protobuf_field": "temp_output_1",
+                        "bit_index": 0
+                    },
+                    {
+                        "protobuf_field": "temp_output_2",
+                        "bit_index": 1
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "packet_id": 385,
+        "packet_name": "Battery Cooling",
+        "from": [
+            "PDU"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 6,
+        "frequency_ms": 100,
+        "frequency": 10.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Temp After Battery",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "batt_loop_batt_temp",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Temp After Radiator",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "batt_loop_rad_temp",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Radiator Fan Speed",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.2,
+                "protobuf": {
+                    "type": "float",
+                    "field": "batt_loop_rad_fan_speed",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 386,
+        "packet_name": "Temps",
+        "from": [
+            "PDU"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 8,
+        "frequency_ms": 100,
+        "frequency": 10.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Inverter",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "inverter_temp",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Motor",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "motor_temp",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Ambient",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "ambient_temp",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Discharge Resistor Temp",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "discharge_r_temp",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 387,
+        "packet_name": "LV Battery",
+        "from": [
+            "PDU"
+        ],
+        "to": [
+            "PI"
+        ],
+        "data_length": 6,
+        "frequency_ms": 100,
+        "frequency": 10.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "LV Battery Voltage",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "lv_batt_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "LV Battery Current",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "lv_batt_c",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "LV Battery Temp",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "lv_batt_t",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 416,
+        "packet_name": "Motor Cooling",
+        "from": [
+            "TSM"
+        ],
+        "to": [
+            "PDU"
+        ],
+        "data_length": 8,
+        "frequency_ms": 100,
+        "frequency": 10.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Loop Temp After Motor",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "motor_loop_motor_temp",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Loop Temp After Inverter",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "motor_loop_inverter_temp",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Temp After Radiator",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "motor_loop_rad_temp",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Radiator Fan Speed",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.2,
+                "protobuf": {
+                    "type": "float",
+                    "field": "motor_loop_rad_fan_speed",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 448,
+        "packet_name": "APPS Voltages",
+        "from": [
+            "VCU"
+        ],
+        "to": [
+            "PI"
+        ],
+        "data_length": 8,
+        "frequency_ms": 3,
+        "frequency": 333.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "APPS1 Voltage",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "apps1_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "APPS2 Voltage",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "apps2_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "APPS1 Travel",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "apps1_travel",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "APPS2 Travel",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "apps2_travel",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 449,
+        "packet_name": "Accelerator Pedal",
+        "from": [
+            "VCU"
+        ],
+        "to": [
+            "PI"
+        ],
+        "data_length": 3,
+        "frequency_ms": 3,
+        "frequency": 333.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Accelerator Pedal Travel",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "APPS Faults",
+                "length": 1,
+                "conv_type": "bitfield",
+                "precision": 1.0,
+                "bitfield_encoding": [
+                    {
+                        "protobuf_field": "apps1_disconnect",
+                        "bit_index": 0
+                    },
+                    {
+                        "protobuf_field": "apps2_disconnect",
+                        "bit_index": 1
+                    },
+                    {
+                        "protobuf_field": "apps1_out_range",
+                        "bit_index": 2
+                    },
+                    {
+                        "protobuf_field": "apps2_out_range",
+                        "bit_index": 3
+                    },
+                    {
+                        "protobuf_field": "apps_mismatch",
+                        "bit_index": 4
+                    },
+                    {
+                        "protobuf_field": "apps_implause",
+                        "bit_index": 5
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "packet_id": 450,
+        "packet_name": "BPPS Voltages",
+        "from": [
+            "VCU"
+        ],
+        "to": [
+            "PI"
+        ],
+        "data_length": 8,
+        "frequency_ms": 3,
+        "frequency": 333.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "BPPS1 Voltage",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bpps1_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "BPPS2 Voltage",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bpps2_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "BPPS1 Travel",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bpps1_travel",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "BPPS2 Travel",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bpps2_travel",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 451,
+        "packet_name": "Brake Pedal",
+        "from": [
+            "VCU"
+        ],
+        "to": [
+            "PI"
+        ],
+        "data_length": 3,
+        "frequency_ms": 3,
+        "frequency": 333.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Brake Pedal Travel",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "BPPS Faults",
+                "length": 1,
+                "conv_type": "bitfield",
+                "precision": 1.0,
+                "bitfield_encoding": [
+                    {
+                        "protobuf_field": "bpps1_disconnect",
+                        "bit_index": 0
+                    },
+                    {
+                        "protobuf_field": "bpps2_disconnect",
+                        "bit_index": 1
+                    },
+                    {
+                        "protobuf_field": "bpps1_out_range",
+                        "bit_index": 2
+                    },
+                    {
+                        "protobuf_field": "bpps2_out_range",
+                        "bit_index": 3
+                    },
+                    {
+                        "protobuf_field": "bpps_mismatch",
+                        "bit_index": 4
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "packet_id": 452,
+        "packet_name": "BSE Voltages",
+        "from": [
+            "VCU"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 6,
+        "frequency_ms": 3,
+        "frequency": 333.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "BSE Front Voltage",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bse1_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "BSE Rear Voltage",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bse2_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "BSE Line Lock Voltage",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bse3_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 453,
+        "packet_name": "Brakes",
+        "from": [
+            "VCU"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 8,
+        "frequency_ms": 3,
+        "frequency": 333.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Brake Pressure Front",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.05,
+                "protobuf": {
+                    "type": "float",
+                    "field": "brake_pressure_f",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Brake Pressure Rear Pre Lock",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.05,
+                "protobuf": {
+                    "type": "float",
+                    "field": "brake_pressure_rbll",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Brake Pressure Rear Post Lock",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.05,
+                "protobuf": {
+                    "type": "float",
+                    "field": "brake_pressure_rall",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Brake Bias",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "brake_bias",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 4,
+                "start_byte": 7,
+                "name": "BSE Faults",
+                "length": 1,
+                "conv_type": "bitfield",
+                "precision": 1.0,
+                "bitfield_encoding": [
+                    {
+                        "protobuf_field": "bse1_disconnect",
+                        "bit_index": 0
+                    },
+                    {
+                        "protobuf_field": "bse2_disconnect",
+                        "bit_index": 1
+                    },
+                    {
+                        "protobuf_field": "bse1_out_range",
+                        "bit_index": 2
+                    },
+                    {
+                        "protobuf_field": "bse2_out_range",
+                        "bit_index": 3
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "packet_id": 454,
+        "packet_name": "Steering Column",
+        "from": [
+            "VCU"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 2,
+        "frequency_ms": 3,
+        "frequency": 333.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Steering Column Angle",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.004,
+                "protobuf": {
+                    "type": "float",
+                    "field": "steer_col_angle",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1024,
+        "packet_name": "Wheel Speeds",
+        "from": [
+            "USM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 8,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Front Left Speed",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "flw_speed",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Front Right Speed",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "frw_speed",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Back Left Speed",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "blw_speed",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Back Right Speed",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "brw_speed",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1026,
+        "packet_name": "Acceleration Vector Unsprung FL",
+        "from": [
+            "USM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 6,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "X",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_unsprung_accel",
+                    "repeated": true,
+                    "field_index": 0
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Y",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_unsprung_accel",
+                    "repeated": true,
+                    "field_index": 1
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Z",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_unsprung_accel",
+                    "repeated": true,
+                    "field_index": 2
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1027,
+        "packet_name": "Acceleration Vector Unsprung FR",
+        "from": [
+            "USM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 6,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "X",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_unsprung_accel",
+                    "repeated": true,
+                    "field_index": 0
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Y",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_unsprung_accel",
+                    "repeated": true,
+                    "field_index": 1
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Z",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_unsprung_accel",
+                    "repeated": true,
+                    "field_index": 2
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1028,
+        "packet_name": "Acceleration Vector Unsprung RL",
+        "from": [
+            "USM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 6,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "X",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_unsprung_accel",
+                    "repeated": true,
+                    "field_index": 0
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Y",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_unsprung_accel",
+                    "repeated": true,
+                    "field_index": 1
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Z",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_unsprung_accel",
+                    "repeated": true,
+                    "field_index": 2
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1029,
+        "packet_name": "Acceleration Vector Unsprung RR",
+        "from": [
+            "USM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 6,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "X",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "br_unsprung_accel",
+                    "repeated": true,
+                    "field_index": 0
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Y",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "br_unsprung_accel",
+                    "repeated": true,
+                    "field_index": 1
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Z",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "br_unsprung_accel",
+                    "repeated": true,
+                    "field_index": 2
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1280,
+        "packet_name": "Acceleration Vector Sprung + Ride Height FL",
+        "from": [
+            "CSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 8,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "X",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_sprung_accel",
+                    "repeated": true,
+                    "field_index": 0
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Y",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_sprung_accel",
+                    "repeated": true,
+                    "field_index": 1
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Z",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_sprung_accel",
+                    "repeated": true,
+                    "field_index": 2
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Ride Height",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.002,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_ride_height",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1281,
+        "packet_name": "Acceleration Vector Sprung + Ride Height FR",
+        "from": [
+            "CSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 8,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "X",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_sprung_accel",
+                    "repeated": true,
+                    "field_index": 0
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Y",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_sprung_accel",
+                    "repeated": true,
+                    "field_index": 1
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Z",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_sprung_accel",
+                    "repeated": true,
+                    "field_index": 2
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Ride Height",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.002,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_ride_height",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1282,
+        "packet_name": "Acceleration Vector Sprung + Ride Height RL",
+        "from": [
+            "CSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 8,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "X",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_sprung_accel",
+                    "repeated": true,
+                    "field_index": 0
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Y",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_sprung_accel",
+                    "repeated": true,
+                    "field_index": 1
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Z",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_sprung_accel",
+                    "repeated": true,
+                    "field_index": 2
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Ride Height",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.002,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_ride_height",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1283,
+        "packet_name": "Acceleration Vector Sprung + Ride Height RR",
+        "from": [
+            "CSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 8,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "X",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "br_sprung_accel",
+                    "repeated": true,
+                    "field_index": 0
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Y",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "br_sprung_accel",
+                    "repeated": true,
+                    "field_index": 1
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Z",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "br_sprung_accel",
+                    "repeated": true,
+                    "field_index": 2
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Ride Height",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.002,
+                "protobuf": {
+                    "type": "float",
+                    "field": "br_ride_height",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1284,
+        "packet_name": "Front Strain Gauge + Sus Pot.",
+        "from": [
+            "CSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 8,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Front Left Strain Gauge Voltage",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.0002,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_strain_gauge_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Front Right Strain Gauge Voltage",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.0002,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_strain_gauge_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Front Left Suspension Potentiometer",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_sus_pot_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Front Right Suspension Potentiometer",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_sus_pot_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1285,
+        "packet_name": "Back Strain Gauge + Sus Pot.",
+        "from": [
+            "CSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 8,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Back Left Strain Gauge Voltage",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.0002,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_strain_gauge_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Back Right Strain Gauge Voltage",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.0002,
+                "protobuf": {
+                    "type": "float",
+                    "field": "br_strain_gauge_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Back Left Suspension Potentiometer",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_sus_pot_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Back Right Suspension Potentiometer",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "br_sus_pot_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 37,
         "packet_name": "VCU Enter Bootloader",
         "from": [
             "Pi"
@@ -3162,25 +3078,27 @@
         "frequency_ms": null,
         "frequency": null,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": []
     },
     {
-        "packet_id": 35,
-        "packet_name": "Undertray Enter Bootloader",
+        "packet_id": 38,
+        "packet_name": "CSM Enter Bootloader",
         "from": [
             "Pi"
         ],
         "to": [
-            "Undertray"
+            "CSM"
         ],
         "data_length": 1,
         "frequency_ms": null,
         "frequency": null,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": []
     },
     {
-        "packet_id": 36,
+        "packet_id": 39,
         "packet_name": "HVC Enter Bootloader",
         "from": [
             "Pi"
@@ -3192,36 +3110,39 @@
         "frequency_ms": null,
         "frequency": null,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": []
     },
     {
-        "packet_id": 37,
-        "packet_name": "Upright Enter Bootloader",
+        "packet_id": 40,
+        "packet_name": "USM Enter Bootloader",
         "from": [
             "Pi"
         ],
         "to": [
-            "Upright"
+            "USM"
         ],
         "data_length": 1,
         "frequency_ms": null,
         "frequency": null,
         "quantity": 1,
+        "bus": "Critical",
         "bytes": []
     },
     {
-        "packet_id": 38,
-        "packet_name": "Rack Enter Bootloader",
+        "packet_id": 48,
+        "packet_name": "HVC Bounds Parameters",
         "from": [
             "Pi"
         ],
         "to": [
-            "Rack"
+            "HVC"
         ],
         "data_length": 0,
         "frequency_ms": null,
         "frequency": null,
         "quantity": 0,
+        "bus": "",
         "bytes": []
     }
 ]

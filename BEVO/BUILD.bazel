@@ -20,8 +20,8 @@
 # rust_library(
 #     name = "sensor_proto",
 #     srcs = [
-#         "lib.rs", 
-#         "config.rs",            
+#         "lib.rs",
+#         "config.rs",
 #         "generated_mapping.rs",
 #     ],
 #     deps = [

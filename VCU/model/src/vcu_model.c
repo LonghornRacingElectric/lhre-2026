@@ -53,6 +53,7 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
   // evaluate cooling
   cooling_evaluate(in, out, &ctx->cooling_state, &ctx->params, dt_ms);
 
+
   // Latch outputs based on current state
   switch (out->prndl_state) {
   case PRNDL_DRIVE: {

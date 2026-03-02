@@ -2,10 +2,10 @@
 
 # rust_binary(
 #     name = "cand",
-#     srcs = ["main.rs"], 
+#     srcs = ["main.rs"],
 #     compile_data = ["//drivers/proto:can_packets.json"],
 #     deps = [
-#         "//BEVO:sensor_proto", 
+#         "//BEVO:sensor_proto",
 #         "@crate_index//:anyhow",
 #         "@crate_index//:prost",
 #         "@crate_index//:serde",

@@ -59,7 +59,7 @@ services:
       - /run/postgresql
 
   grafana:
-    image: grafana/grafana-oss
+    image: grafana/grafana-oss:11.3.0
     container_name: grafana
     restart: unless-stopped
     env_file:

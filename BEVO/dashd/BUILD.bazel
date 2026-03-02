@@ -4,7 +4,7 @@
 #     name = "dashd",
 #     srcs = ["main.rs"],
 #     deps = [
-#         "//BEVO:sensor_proto", 
+#         "//BEVO:sensor_proto",
 #         "@crate_index//:anyhow",
 #         "@crate_index//:prost",
 #     ],

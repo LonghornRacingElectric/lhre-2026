@@ -1,21 +1,21 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file    spi.c
-  * @brief   This file provides code for the configuration
-  *          of the SPI instances.
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2025 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file    spi.c
+ * @brief   This file provides code for the configuration
+ *          of the SPI instances.
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2025 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "spi.h"
@@ -27,8 +27,7 @@
 SPI_HandleTypeDef hspi4;
 
 /* SPI4 init function */
-void MX_SPI4_Init(void)
-{
+void MX_SPI4_Init(void) {
 
   /* USER CODE BEGIN SPI4_Init 0 */
 
@@ -51,25 +50,21 @@ void MX_SPI4_Init(void)
   hspi4.Init.CRCPolynomial = 7;
   hspi4.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
   hspi4.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
-  if (HAL_SPI_Init(&hspi4) != HAL_OK)
-  {
+  if (HAL_SPI_Init(&hspi4) != HAL_OK) {
     Error_Handler();
   }
   /* USER CODE BEGIN SPI4_Init 2 */
 
   /* USER CODE END SPI4_Init 2 */
-
 }
 
-void HAL_SPI_MspInit(SPI_HandleTypeDef* spiHandle)
-{
+void HAL_SPI_MspInit(SPI_HandleTypeDef *spiHandle) {
 
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(spiHandle->Instance==SPI4)
-  {
-  /* USER CODE BEGIN SPI4_MspInit 0 */
+  if (spiHandle->Instance == SPI4) {
+    /* USER CODE BEGIN SPI4_MspInit 0 */
 
-  /* USER CODE END SPI4_MspInit 0 */
+    /* USER CODE END SPI4_MspInit 0 */
     /* SPI4 clock enable */
     __HAL_RCC_SPI4_CLK_ENABLE();
 
@@ -79,27 +74,25 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* spiHandle)
     PE5     ------> SPI4_MISO
     PE6     ------> SPI4_MOSI
     */
-    GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_5|GPIO_PIN_6;
+    GPIO_InitStruct.Pin = GPIO_PIN_2 | GPIO_PIN_5 | GPIO_PIN_6;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     GPIO_InitStruct.Alternate = GPIO_AF5_SPI4;
     HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-  /* USER CODE BEGIN SPI4_MspInit 1 */
+    /* USER CODE BEGIN SPI4_MspInit 1 */
 
-  /* USER CODE END SPI4_MspInit 1 */
+    /* USER CODE END SPI4_MspInit 1 */
   }
 }
 
-void HAL_SPI_MspDeInit(SPI_HandleTypeDef* spiHandle)
-{
+void HAL_SPI_MspDeInit(SPI_HandleTypeDef *spiHandle) {
 
-  if(spiHandle->Instance==SPI4)
-  {
-  /* USER CODE BEGIN SPI4_MspDeInit 0 */
+  if (spiHandle->Instance == SPI4) {
+    /* USER CODE BEGIN SPI4_MspDeInit 0 */
 
-  /* USER CODE END SPI4_MspDeInit 0 */
+    /* USER CODE END SPI4_MspDeInit 0 */
     /* Peripheral clock disable */
     __HAL_RCC_SPI4_CLK_DISABLE();
 
@@ -108,11 +101,11 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* spiHandle)
     PE5     ------> SPI4_MISO
     PE6     ------> SPI4_MOSI
     */
-    HAL_GPIO_DeInit(GPIOE, GPIO_PIN_2|GPIO_PIN_5|GPIO_PIN_6);
+    HAL_GPIO_DeInit(GPIOE, GPIO_PIN_2 | GPIO_PIN_5 | GPIO_PIN_6);
 
-  /* USER CODE BEGIN SPI4_MspDeInit 1 */
+    /* USER CODE BEGIN SPI4_MspDeInit 1 */
 
-  /* USER CODE END SPI4_MspDeInit 1 */
+    /* USER CODE END SPI4_MspDeInit 1 */
   }
 }
 
