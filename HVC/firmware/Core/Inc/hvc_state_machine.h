@@ -28,10 +28,8 @@ extern "C" {
 
 /* Exported constants --------------------------------------------------------*/
 
-#define HVC_PRECHARGE_THRESHOLD_PERCENT                                        \
-  83 /**< Precharge voltage threshold (% of pack) */
-#define HVC_PRECHARGE_VALID_MS 5000  /**< Precharge timeout (milliseconds) */
-#define HVC_FAULT_HYSTERESIS_MS 5000 /**< Fault detection hysteresis time */
+#define HVC_PRECHARGE_THRESHOLD_PERCENT 0.90f
+#define HVC_PRECHARGE_VALID_MS 5000
 
 /* Exported functions --------------------------------------------------------*/
 
@@ -45,7 +43,7 @@ void state_machine_init(void);
  * @brief Update state machine (called periodically by RTOS task)
  * @note Should be called at 10Hz
  */
-void update_state_machine(void);
+void update_state_machine(bool any_faults);
 
 /**
  * @brief Get current state
@@ -67,12 +65,6 @@ const char *get_state_name(hvc_state_t state);
  * @return true if TS_Enable is active, false otherwise
  */
 bool is_shutdown_closed(void);
-
-/**
- * @brief Check if any faults are present
- * @return true if fault detected, false otherwise
- */
-bool is_fault_present(void);
 
 /**
  * @brief Check if charge enable is active

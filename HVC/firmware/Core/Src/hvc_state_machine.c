@@ -42,22 +42,21 @@ void state_machine_init(void) {
     precharge_start_time = 0;
     
     // Ensure all contactors are open on startup
-    open_all_contactors();
+    set_positive_contactor(false);
 }
 
 /**
  * @brief Update state machine
  * @note Based on 2024 implementation with ~80 lines of proven logic
  */
-void update_state_machine(void) {
+void update_state_machine(bool any_faults) {
     uint32_t current_time = osKernelGetTickCount();
     
     // Check for faults - immediately return to NOT_ENERGIZED if fault detected
-    if (is_fault_present()) {
-        if (current_state != HVC_STATE_NOT_ENERGIZED) {
-            open_all_contactors();
-            current_state = HVC_STATE_NOT_ENERGIZED;
-        }
+    if (any_faults) {
+        // set_positive_contactor((osKernelGetTickCount() % 2000) < 1000); // TODO false
+        set_positive_contactor(false);
+        current_state = HVC_STATE_NOT_ENERGIZED;
         return;
     }
     
@@ -65,16 +64,14 @@ void update_state_machine(void) {
     switch (current_state) {
         case HVC_STATE_NOT_ENERGIZED:
             // Stay open until shutdown is closed
-            open_all_contactors();
+            set_positive_contactor(false);
             
             if (is_shutdown_closed() && !is_charge_enable_active()) {
                 // Transition to precharging
-                set_precharge_contactor(true);
                 precharge_start_time = current_time;
                 current_state = HVC_STATE_PRECHARGING;
             } else if (is_charge_enable_active()) {
                 // Transition to charging precharge
-                set_precharge_contactor(true);
                 precharge_start_time = current_time;
                 current_state = HVC_STATE_CHARGING_PRECHARGING;
             }
@@ -84,16 +81,15 @@ void update_state_machine(void) {
             // Check if precharge complete
             float tractive_voltage = get_tractive_voltage();
             float pack_voltage = get_pack_voltage();
-            // 500.0f since pack voltage is a bit messed up rn
-            // float precharge_threshold = pack_voltage * HVC_PRECHARGE_THRESHOLD_PERCENT / 100.0f;
-            float precharge_threshold = 400.0f; // Temporary fixed threshold for testing
+            float precharge_threshold = pack_voltage * HVC_PRECHARGE_THRESHOLD_PERCENT;
 
             if (tractive_voltage > precharge_threshold) {
                 uint32_t elapsed = current_time - precharge_start_time;
+                // log_printf(LOG_INFO, "shutdown closed: %d, elapsed: %lu ms, tractive voltage: %.2f V, pack voltage: %.2f V, threshold: %.2f V\n",
+                //             is_shutdown_closed(), elapsed, tractive_voltage, pack_voltage, precharge_threshold);
                 if (elapsed >= HVC_PRECHARGE_VALID_MS) {
                     // Precharge complete - close drive contactors
-                    set_drive_contactors(true);
-                    set_precharge_contactor(false);
+                    set_positive_contactor(true);
                     current_state = HVC_STATE_ENERGIZED;
                 }
             } else {
@@ -103,15 +99,16 @@ void update_state_machine(void) {
 
             // Check if shutdown is closed
             if (!is_shutdown_closed()) {
-                open_all_contactors();
+                set_positive_contactor(false);
                 current_state = HVC_STATE_NOT_ENERGIZED;
             }
             break;
             
         case HVC_STATE_ENERGIZED:
             // Stay energized while TS_Enable is active
+            // log_printf(LOG_INFO, "energized - shutdown closed: %d\n", is_shutdown_closed());
             if (!is_shutdown_closed()) {
-                open_all_contactors();
+                set_positive_contactor(false);
                 current_state = HVC_STATE_NOT_ENERGIZED;
             }
             break;
@@ -120,15 +117,14 @@ void update_state_machine(void) {
             // Similar to normal precharge, but for charging
             tractive_voltage = get_tractive_voltage();
             pack_voltage = get_pack_voltage();
-            precharge_threshold = pack_voltage * HVC_PRECHARGE_THRESHOLD_PERCENT / 100.0f;
+            precharge_threshold = pack_voltage * HVC_PRECHARGE_THRESHOLD_PERCENT;
             
             if (tractive_voltage > precharge_threshold) {
                 uint32_t elapsed = current_time - precharge_start_time;
 
                 if (elapsed >= HVC_PRECHARGE_VALID_MS) {
                     // Precharge complete - transition to charging
-                    set_drive_contactors(true);
-                    set_precharge_contactor(false);
+                    set_positive_contactor(true);
                     current_state = HVC_STATE_CHARGING;
                 }
             } else {
@@ -138,7 +134,7 @@ void update_state_machine(void) {
             
             // Check if charge enable released
             if (!is_charge_enable_active()) {
-                open_all_contactors();
+                set_positive_contactor(false);
                 current_state = HVC_STATE_NOT_ENERGIZED;
             }
             break;
@@ -146,14 +142,14 @@ void update_state_machine(void) {
         case HVC_STATE_CHARGING:
             // Stay in charging while charge enable is active
             if (!is_charge_enable_active()) {
-                open_all_contactors();
+                set_positive_contactor(false);
                 current_state = HVC_STATE_NOT_ENERGIZED;
             }
             break;
             
         default:
             // Invalid state - go to safe state
-            open_all_contactors();
+            set_positive_contactor(false);
             current_state = HVC_STATE_NOT_ENERGIZED;
             break;
     }
@@ -198,7 +194,7 @@ const char* get_state_name(hvc_state_t state) {
     static uint8_t debounce_counter = 0;
     
     // Read TS_Enable GPIO Pin, Shutdown 12/End (assumed active high)
-    bool current_reading = (HAL_GPIO_ReadPin(Shutdown_Sense_12_GPIO_Port, Shutdown_Sense_12_Pin) == GPIO_PIN_SET);
+    bool current_reading = (HAL_GPIO_ReadPin(IR__SenseC3_GPIO_Port, IR__SenseC3_Pin) == GPIO_PIN_RESET);
     
     // Debouncing logic: require SHUTDOWN_DEBOUNCE_COUNT consecutive identical reads
     if (current_reading == debounced_state) {
@@ -218,10 +214,6 @@ const char* get_state_name(hvc_state_t state) {
     return debounced_state;
 }
 
-__attribute__((weak)) bool is_fault_present(void) {
-    // Default: return false (no fault)
-    return false;
-}
 
 __attribute__((weak)) bool is_charge_enable_active(void) {
     // Default: return false (not charging)
