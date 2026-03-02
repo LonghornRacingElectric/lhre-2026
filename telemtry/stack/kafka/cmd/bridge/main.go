@@ -34,6 +34,7 @@ type bridgeServer struct {
 }
 
 func (s *bridgeServer) SendSensorData(ctx context.Context, req *pb.SensorDataRequest) (*pb.SensorDataResponse, error) {
+	log.Printf("Received SensorDataRequest: CarType=%s, PayloadSize=%d", req.CarType, len(req.Payload))
 	msg := SensorMessage{
 		Payload: req.Payload,
 		CarType: req.CarType,
@@ -189,7 +190,7 @@ func rawDataWorker(producer sarama.SyncProducer) {
 	}
 }
 
-// grafanaDataWorker deserializes protobuf and publishes JSON to grafana_data topic
+// grafanaDataWorker deserializes protobuf and publishes JSON to car-specific grafana_data topics
 func grafanaDataWorker(producer sarama.SyncProducer) {
 	for msg := range grafanaDataChan {
 		jsonData, err := deserializeToJSON(msg.Payload, msg.CarType)
@@ -198,17 +199,26 @@ func grafanaDataWorker(producer sarama.SyncProducer) {
 			continue
 		}
 
+		normalizedCarType := strings.ToLower(strings.TrimSpace(msg.CarType))
+		if normalizedCarType == "" {
+			normalizedCarType = "unknown"
+			log.Printf("Warning: Empty CarType received, using 'grafana_data_unknown' topic")
+		}
+		topic := fmt.Sprintf("grafana_data_%s", normalizedCarType)
+
 		kafkaMsg := &sarama.ProducerMessage{
-			Topic: "grafana_data",
+			Topic: topic,
 			Value: sarama.ByteEncoder(jsonData),
 			Headers: []sarama.RecordHeader{
 				{Key: []byte("car_type"), Value: []byte(msg.CarType)},
 			},
 		}
 
-		_, _, err = producer.SendMessage(kafkaMsg)
+		partition, offset, err := producer.SendMessage(kafkaMsg)
 		if err != nil {
-			log.Printf("Error sending to grafana_data: %v", err)
+			log.Printf("Error sending to topic %s: %v", topic, err)
+		} else {
+			log.Printf("Successfully sent message to topic %s (partition: %d, offset: %d)", topic, partition, offset)
 		}
 	}
 }
@@ -544,15 +554,21 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 func main() {
 	log.Println("Starting Kafka Bridge Service...")
 
-	// Create admin and ensure grafana_data topic exists so Grafana always sees it
+	// Cars we support
+	cars := []string{"angelique", "orion", "nightwatch"}
+
+	// Create admin and ensure topics exist
 	admin, err := newKafkaAdmin()
 	if err != nil {
 		log.Fatalf("Failed to create Kafka admin: %v", err)
 	}
 	defer admin.Close()
 
-	if err := ensureTopicExists(admin, "grafana_data"); err != nil {
-		log.Fatalf("Failed to ensure grafana_data topic exists: %v", err)
+	for _, car := range cars {
+		topic := fmt.Sprintf("grafana_data_%s", car)
+		if err := ensureTopicExists(admin, topic); err != nil {
+			log.Fatalf("Failed to ensure %s topic exists: %v", topic, err)
+		}
 	}
 
 	if err := ensureTopicExists(admin, "sensor_data"); err != nil {
@@ -580,8 +596,10 @@ func main() {
 	}
 	defer producer.Close()
 
-	// Seed grafana_data topic to ensure it exists and viewable in grafana
-	seedTopic(producer, "grafana_data")
+	// Seed topics to ensure they are viewable in grafana
+	for _, car := range cars {
+		seedTopic(producer, fmt.Sprintf("grafana_data_%s", car))
+	}
 
 	// Start worker goroutines
 	go rawDataWorker(producer)
