@@ -6,6 +6,7 @@ from typing import List, Tuple
 
 import numpy as np
 from scipy.spatial import Delaunay
+from scipy.spatial.qhull import QhullError
 
 import rclpy
 from rclpy.node import Node
@@ -226,7 +227,7 @@ class TrackBuilder(Node):
 
         try:
             tri = Delaunay(pts)
-        except Exception:
+        except QhullError:
             return []
 
         # Extract unique edges from triangles
