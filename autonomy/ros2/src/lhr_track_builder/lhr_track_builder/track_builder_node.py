@@ -239,7 +239,7 @@ class TrackBuilder(Node):
         # Filter edges by track-width band
         lo = self._track_width - self._track_width_tol
         hi = self._track_width + self._track_width_tol
-        midpoints: List[Tuple[float, float]] = []
+        raw_midpoints: List[Tuple[float, float]] = []
         for a, b in edges:
             dx = pts[a][0] - pts[b][0]
             dy = pts[a][1] - pts[b][1]
@@ -247,6 +247,18 @@ class TrackBuilder(Node):
             if lo <= d <= hi:
                 mx = (pts[a][0] + pts[b][0]) / 2.0
                 my = (pts[a][1] + pts[b][1]) / 2.0
+                raw_midpoints.append((mx, my))
+
+        # Deduplicate nearby midpoints (keep one per ~1 m radius)
+        dedup_sq = 1.0  # 1 m²
+        midpoints: List[Tuple[float, float]] = []
+        for mx, my in raw_midpoints:
+            too_close = False
+            for ex, ey in midpoints:
+                if (mx - ex) ** 2 + (my - ey) ** 2 < dedup_sq:
+                    too_close = True
+                    break
+            if not too_close:
                 midpoints.append((mx, my))
 
         if len(midpoints) > self._max_points:
@@ -267,7 +279,12 @@ class TrackBuilder(Node):
         self, points: List[Tuple[float, float]],
     ) -> List[Tuple[float, float]]:
         """Chain midpoints starting from the nearest to the vehicle,
-        oriented in the vehicle's heading direction."""
+        oriented in the vehicle's heading direction.
+
+        The chain is truncated when it doubles back (sharp reversal),
+        preventing the path from wrapping backwards through midpoints
+        behind the vehicle.
+        """
 
         # Find the midpoint closest to the vehicle
         vx, vy = self._veh_x, self._veh_y
@@ -290,6 +307,26 @@ class TrackBuilder(Node):
                 math.cos(path_angle - self._veh_yaw))
             if abs(angle_diff) > math.pi / 2:
                 ordered.reverse()
+
+        # Truncate where the chain doubles back.  Walk forward and
+        # cut when consecutive segment direction changes by > 120°.
+        if len(ordered) >= 3:
+            truncated = [ordered[0], ordered[1]]
+            prev_angle = math.atan2(
+                ordered[1][1] - ordered[0][1],
+                ordered[1][0] - ordered[0][0])
+            for k in range(2, len(ordered)):
+                seg_angle = math.atan2(
+                    ordered[k][1] - ordered[k - 1][1],
+                    ordered[k][0] - ordered[k - 1][0])
+                turn = abs(math.atan2(
+                    math.sin(seg_angle - prev_angle),
+                    math.cos(seg_angle - prev_angle)))
+                if turn > 2.0 * math.pi / 3.0:  # > 120°
+                    break
+                truncated.append(ordered[k])
+                prev_angle = seg_angle
+            ordered = truncated
 
         return ordered
 

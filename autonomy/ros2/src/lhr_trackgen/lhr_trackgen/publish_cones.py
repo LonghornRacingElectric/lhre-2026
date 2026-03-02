@@ -80,30 +80,57 @@ def generate_oval_track(
     """Generate a smooth oval (elliptical) track.
 
     The oval has semi-major axis *radius_m* and semi-minor axis
-    *radius_m * aspect*.  Cones are placed at *cone_spacing_m*
-    intervals along the centerline.
+    *radius_m * aspect*.  Cones are placed at uniform arc-length
+    intervals of *cone_spacing_m* along the centerline.
     """
     a = radius_m          # semi-major axis (x)
     b = radius_m * aspect  # semi-minor axis (y)
     half_w = width_m / 2.0
 
-    # Approximate ellipse perimeter (Ramanujan)
-    h = ((a - b) / (a + b)) ** 2
-    perimeter = math.pi * (a + b) * (1 + 3 * h / (10 + math.sqrt(4 - 3 * h)))
+    # Step 1: Dense sampling of the ellipse centerline
+    n_dense = 1000
+    dense_pts: List[Tuple[float, float]] = []
+    for i in range(n_dense):
+        t = 2.0 * math.pi * i / n_dense
+        dense_pts.append((a * math.cos(t), b * math.sin(t)))
 
-    n = max(20, int(perimeter / cone_spacing_m))
+    # Step 2: Compute cumulative arc lengths
+    arc = [0.0]
+    for i in range(1, n_dense):
+        dx = dense_pts[i][0] - dense_pts[i - 1][0]
+        dy = dense_pts[i][1] - dense_pts[i - 1][1]
+        arc.append(arc[-1] + math.hypot(dx, dy))
+    # Close the loop
+    dx = dense_pts[0][0] - dense_pts[-1][0]
+    dy = dense_pts[0][1] - dense_pts[-1][1]
+    perimeter = arc[-1] + math.hypot(dx, dy)
+
+    # Step 3: Resample at uniform arc-length intervals
+    n_cones = max(20, int(perimeter / cone_spacing_m))
+    target_spacing = perimeter / n_cones
 
     left: ConeList = []
     right: ConeList = []
+    j = 0  # index into dense_pts
 
-    for i in range(n):
-        t = 2.0 * math.pi * i / n
+    for i in range(n_cones):
+        target_s = i * target_spacing
 
-        # Centerline
-        cx = a * math.cos(t)
-        cy = b * math.sin(t)
+        # Advance j until arc[j] >= target_s
+        while j < n_dense - 1 and arc[j + 1] < target_s:
+            j += 1
 
-        # Tangent (derivative of ellipse parametric form)
+        # Interpolate between dense_pts[j] and dense_pts[j+1]
+        if j < n_dense - 1:
+            seg_len = arc[j + 1] - arc[j]
+            frac = (target_s - arc[j]) / seg_len if seg_len > 0 else 0.0
+            cx = dense_pts[j][0] + frac * (dense_pts[j + 1][0] - dense_pts[j][0])
+            cy = dense_pts[j][1] + frac * (dense_pts[j + 1][1] - dense_pts[j][1])
+        else:
+            cx, cy = dense_pts[j]
+
+        # Tangent via finite difference on the ellipse parametric form
+        t = 2.0 * math.pi * target_s / perimeter
         tx = -a * math.sin(t)
         ty = b * math.cos(t)
         tn = math.hypot(tx, ty) or 1.0
