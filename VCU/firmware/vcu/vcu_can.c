@@ -20,8 +20,6 @@
 can_interface_t critical_bus;
 can_interface_t data_acq_bus;
 
-extern vcu_inputs_t s_inputs;
-
 /** ==
  * CAN Packets
  *  ==
