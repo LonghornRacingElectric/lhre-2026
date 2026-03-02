@@ -12,7 +12,7 @@ static can_config_t can;
 
 static can_interface_t *interfaces[MAX_INTERFACES];
 
-#define TX_FIFO_TIMEOUT_MS 1
+#define TX_FIFO_TIMEOUT_MS 3
 
 static uint8_t interface_count = 0;
 
@@ -181,8 +181,6 @@ can_register_receive_packet(can_interface_t *interface,
   interface->_filter_index++;
 }
 
-static uint8_t data_packet[MAX_CAN_DATA_LEN];
-
 cHAL_StatusTypeDef can_send_immediate(can_interface_t *interface,
                                       can_message_t *msg) {
 
@@ -204,6 +202,8 @@ cHAL_StatusTypeDef can_send_immediate(can_interface_t *interface,
   tx_header.BitRateSwitch = FDCAN_BRS_OFF;
   tx_header.FDFormat = FDCAN_CLASSIC_CAN;
   tx_header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+
+  uint8_t data_packet[MAX_CAN_DATA_LEN];
 
   msg->packing_fn(msg->msg, data_packet);
   interface->_messages_sent++;
@@ -265,17 +265,19 @@ void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t RxFifo0ITs) {
       // we found the interface
       can_interface_t *interface = interfaces[i];
 
-      // see what message it was
-      cFDCAN_RxHeaderTypeDef rx_header;
-      uint8_t rx_data[MAX_CAN_DATA_LEN] = {0};
-      cHAL_StatusTypeDef status = can.get_rx_message_fn(
-          interface->handle, FDCAN_RX_FIFO0, &rx_header, rx_data);
+      while (can.get_rx_fifo_fill_level_fn(interface->handle, FDCAN_RX_FIFO0) >
+             0) {
+        // see what message it was
+        cFDCAN_RxHeaderTypeDef rx_header;
+        uint8_t rx_data[MAX_CAN_DATA_LEN] = {0};
+        cHAL_StatusTypeDef status = can.get_rx_message_fn(
+            interface->handle, FDCAN_RX_FIFO0, &rx_header, rx_data);
 
-      if (status != cHAL_OK) {
-        interface->_error_occurred = true;
-        interface->_error_code_receive = status;
-        continue;
-      }
+        if (status != cHAL_OK) {
+          interface->_error_occurred = true;
+          interface->_error_code_receive = status;
+          continue;
+        }
 
       if (rx_header.Identifier == BUS_ENABLE_DISABLE_ID) {
         unpack_bus_enable_disable(rx_data, &bus_status);
@@ -314,35 +316,36 @@ void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t RxFifo0ITs) {
 
       interfaces[i]->_last_id_received = rx_header.Identifier;
 
-      // make sure it exists in our table
-      can_receive_message_t *msg =
-          interface->receive_table[rx_header.Identifier % RECEIVE_TABLE_SIZE];
+        // make sure it exists in our table
+        can_receive_message_t *msg =
+            interface->receive_table[rx_header.Identifier % RECEIVE_TABLE_SIZE];
 
-      if (msg == NULL) {
-        // we don't have a message registered for this ID
-        continue;
-      } else {
-        // we have a message registered for this ID OR a clash on our
-        // hash table
-        // we need to check the linked list
-        while (msg != NULL) {
-          if (msg->packet_id == rx_header.Identifier) {
-            // we found the message
-            break;
-          }
-          msg = msg->_next;
-        }
         if (msg == NULL) {
           // we don't have a message registered for this ID
           continue;
+        } else {
+          // we have a message registered for this ID OR a clash on our
+          // hash table
+          // we need to check the linked list
+          while (msg != NULL) {
+            if (msg->packet_id == rx_header.Identifier) {
+              // we found the message
+              break;
+            }
+            msg = msg->_next;
+          }
+          if (msg == NULL) {
+            // we don't have a message registered for this ID
+            continue;
+          }
         }
+
+        // call the unpack function
+        can_rx_hook(msg, rx_data);
+
+        // update the latest rx time
+        msg->_latest_rx_ms = can.tick_fn();
       }
-
-      // call the unpack function
-      can_rx_hook(msg, rx_data);
-
-      // update the latest rx time
-      msg->_latest_rx_ms = can.tick_fn();
     }
   }
 }

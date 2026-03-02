@@ -1,7 +1,7 @@
 """
-Integration test that verifies the Kafka bridge seeds the grafana_data topic.
-The bridge service seeds a minimal JSON payload via seedTopic when it starts
-(implemented in cmd/bridge/main.go). This test consumes from grafana_data and
+Integration test that verifies the Kafka bridge seeds car-specific grafana_data topics.
+The bridge service seeds a minimal JSON payload via seedTopic for each car when it starts
+(implemented in cmd/bridge/main.go). This test consumes from each car's topic and
 asserts that the seed message is present.
 """
 
@@ -30,31 +30,36 @@ class TestKafkaBridgeSeed(unittest.TestCase):
             timeout=60,
         )
 
-    def test_grafana_topic_seeded(self):
+    def test_grafana_topics_seeded(self):
         client = KafkaTestClient(self.config)
-        consumer = client.create_consumer("grafana_data", group_id="bridge-seed-test")
+        cars = ["angelique", "orion", "nightwatch"]
 
-        seed_found = False
-        start = time.time()
-        while time.time() - start < 30:
-            batch = consumer.poll(timeout_ms=1000)
-            for _, records in batch.items():
-                for record in records:
-                    try:
-                        payload = json.loads(record.value.decode("utf-8"))
-                    except Exception:
-                        continue
+        for car in cars:
+            topic = f"grafana_data_{car}"
+            consumer = client.create_consumer(topic, group_id=f"bridge-seed-test-{car}")
 
-                    if payload.get("packet_id") == 0 and payload.get("car_type") == "init":
-                        seed_found = True
+            seed_found = False
+            start = time.time()
+            while time.time() - start < 15:
+                batch = consumer.poll(timeout_ms=1000)
+                for _, records in batch.items():
+                    for record in records:
+                        try:
+                            payload = json.loads(record.value.decode("utf-8"))
+                        except Exception:
+                            continue
+
+                        if payload.get("packet_id") == 0 and payload.get("car_type") == "init":
+                            seed_found = True
+                            break
+                    if seed_found:
                         break
                 if seed_found:
                     break
-            if seed_found:
-                break
+
+            self.assertTrue(seed_found, f"Kafka bridge should seed {topic} at startup")
 
         client.close()
-        self.assertTrue(seed_found, "Kafka bridge should seed grafana_data at startup")
 
 
 if __name__ == "__main__":

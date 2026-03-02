@@ -12,9 +12,9 @@ float bse_adc_to_psi(float adc, float min_adc, float max_adc, float max_psi) {
   return linear_interp(0.0f, max_psi, pct);
 }
 
-bool bse_under_voltage(float adc, float min, float max) { return adc < min; }
+bool bse_under_voltage(float adc, float min, float max) { return (adc < min) && 0; } // TODO alice fix this
 
-bool bse_over_voltage(float adc, float min, float max) { return adc > max; }
+bool bse_over_voltage(float adc, float min, float max) { return (adc > max) && 0; } // TODO alice fix this
 
 void bse_init(bse_state_t *state) {
   state->brake_pressed = false;

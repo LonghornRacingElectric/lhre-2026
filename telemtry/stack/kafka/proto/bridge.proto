@@ -11,7 +11,7 @@ service BridgeService {
 
 message SensorDataRequest {
   bytes payload = 1;        // Raw protobuf bytes
-  string car_type = 2;      // "Nightwatch" or "Angelique"
+  string car_type = 2;      // "Nightwatch", "Angelique", or "Orion"
 }
 
 message SensorDataResponse {

@@ -117,7 +117,7 @@ crate.from_cargo(
 )
 
 # 2. Expose the generated repo
-use_repo(crate, "crate_index")
+# use_repo(crate, "crate_index")
 
 # OCI Container Base Images for Telemetry Services
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")

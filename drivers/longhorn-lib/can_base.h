@@ -57,6 +57,7 @@ typedef void (*write_memory_fn)(uint32_t address, uint8_t *data,
 /* Called at the start of a firmware update session with the total block count
  */
 typedef void (*fw_update_begin_fn)(uint16_t num_blocks);
+typedef uint32_t (*CAN_GetRxFifoFillLevel_fn)(void *hfdcan, uint32_t fifo);
 
 typedef void (*Free_fn)(void *ptr);
 
@@ -69,6 +70,7 @@ typedef struct can_config_t {
   CAN_AddToQ_fn add_to_queue_fn;
   CAN_GetTxFifoFreeLevel_fn get_tx_fifo_free_level_fn;
   CAN_GetRxMessage_fn get_rx_message_fn;
+  CAN_GetRxFifoFillLevel_fn get_rx_fifo_fill_level_fn;
   Tick_fn tick_fn;
   CAN_AddFilter_fn add_filter_fn;
   Malloc_fn malloc_fn;

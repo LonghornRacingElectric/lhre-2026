@@ -2,3 +2,5 @@ USB_DEVICE/
 Middlewares/
 Drivers/
 USB_Device/
+build/
+USB_Device/

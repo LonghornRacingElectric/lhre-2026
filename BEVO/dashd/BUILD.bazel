@@ -1,12 +1,11 @@
-load("@rules_rust//rust:defs.bzl", "rust_binary")
+# load("@rules_rust//rust:defs.bzl", "rust_binary")
 
-rust_binary(
-    name = "dashd",
-    srcs = ["main.rs"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//BEVO:sensor_proto", 
-        "@crate_index//:anyhow",
-        "@crate_index//:prost",
-    ],
-)
+# rust_binary(
+#     name = "dashd",
+#     srcs = ["main.rs"],
+#     deps = [
+#         "//BEVO:sensor_proto",
+#         "@crate_index//:anyhow",
+#         "@crate_index//:prost",
+#     ],
+# )

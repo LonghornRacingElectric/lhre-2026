@@ -1,60 +1,32 @@
-load("@rules_rust//rust:defs.bzl", "rust_library")
-load("@rules_rust//cargo:defs.bzl", "cargo_build_script")
-load("@rules_python//python:defs.bzl", "py_binary")
-load("@telemtry_stack_reqs//:requirements.bzl", "requirement")
+# load("@rules_rust//rust:defs.bzl", "rust_library")
+# load("@rules_rust//cargo:defs.bzl", "cargo_build_script")
 
-package(default_visibility = ["//visibility:public"])
+# package(default_visibility = ["//visibility:public"])
 
-py_binary(
-    name = "generate_mapping",
-    srcs = ["codegen.py"],
-    main = "codegen.py",
-    deps = [requirement("protobuf")],
-)
+# cargo_build_script(
+#     name = "build_script_gen",
+#     srcs = ["build.rs"],
+#     data = [
+#         "//drivers/proto:template.proto",
+#         "@protobuf//:protoc",
+#     ],
+#     build_script_env = {
+#         "PROTO_FILE": "$(location //drivers/proto:template.proto)",
+#         "PROTOC": "$(execpath @protobuf//:protoc)",
+#     },
+#     deps = ["@crate_index//:prost-build"],
+# )
 
-genrule(
-    name = "sensor_desc",
-    srcs = ["//drivers/longhorn-lib:can_proto"],
-    outs = ["sensor_data.desc"],
-    cmd = """$(location @protobuf//:protoc) --descriptor_set_out=$@ $(location //drivers/longhorn-lib:can_proto)""",
-    tools = ["@protobuf//:protoc"],
-)
-
-genrule(
-    name = "generated_mapping_rs",
-    srcs = [
-        "//drivers/longhorn-lib:can_json",
-        ":sensor_desc",
-    ],
-    outs = ["generated_mapping.rs"],
-    cmd = """$(location :generate_mapping) --json $(location //drivers/longhorn-lib:can_json) --desc $(location :sensor_desc) --out $@""",
-    tools = [":generate_mapping"],
-)
-
-cargo_build_script(
-    name = "build_script_gen",
-    srcs = ["build.rs"],
-    data = [
-        "//drivers/longhorn-lib:can_proto",
-        "@protobuf//:protoc",
-    ],
-    build_script_env = {
-        "PROTO_FILE": "$(location //drivers/longhorn-lib:can_proto)",
-        "PROTOC": "$(execpath @protobuf//:protoc)",
-    },
-    deps = ["@crate_index//:prost-build"],
-)
-
-rust_library(
-    name = "sensor_proto",
-    srcs = [
-        "lib.rs", 
-        "config.rs",            
-        ":generated_mapping_rs",
-    ],
-    deps = [
-        ":build_script_gen",
-        "@crate_index//:prost",
-        "@crate_index//:serde",
-    ],
-)
+# rust_library(
+#     name = "sensor_proto",
+#     srcs = [
+#         "lib.rs",
+#         "config.rs",
+#         "generated_mapping.rs",
+#     ],
+#     deps = [
+#         ":build_script_gen",
+#         "@crate_index//:prost",
+#         "@crate_index//:serde",
+#     ],
+# )

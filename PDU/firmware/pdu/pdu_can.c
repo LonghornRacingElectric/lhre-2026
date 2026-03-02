@@ -52,6 +52,8 @@ void pdu_can_init(void) {
       .get_tx_fifo_free_level_fn =
           (CAN_GetTxFifoFreeLevel_fn)HAL_FDCAN_GetTxFifoFreeLevel,
       .get_rx_message_fn = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
+      .get_rx_fifo_fill_level_fn =
+          (CAN_GetRxFifoFillLevel_fn)HAL_FDCAN_GetRxFifoFillLevel,
       .tick_fn = HAL_GetTick,
       .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
       .malloc_fn = pvPortMalloc,
@@ -136,16 +138,14 @@ bool vehicle_in_drive(void) { return !vehicle_in_park(); }
  * @return true
  * @return false
  */
-bool hvc_imd_fault(void) {
-  return indicator_status_mailbox.imd_error ||
-         message_timed_out(indicator_status_mailbox_handle,
-                           INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS * 4);
-}
+bool hvc_imd_fault(void) { return indicator_status_mailbox.imd_error; }
 
-bool hvc_bms_fault(void) {
-  return indicator_status_mailbox.bms_error ||
-         message_timed_out(indicator_status_mailbox_handle,
+bool hvc_bms_fault(void) { return indicator_status_mailbox.bms_error; }
+
+bool hvc_imd_timeout(void) {
+  return message_timed_out(indicator_status_mailbox_handle,
                            INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS * 4);
 }
+bool hvc_bms_timeout(void) { return hvc_imd_timeout(); }
 
 float brake_light_pct(void) { return brake_pedal_mailbox.brake_light_percent; }
