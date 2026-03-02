@@ -203,6 +203,9 @@ fn handle_server_message(
                     println!("publishd received OTA device ID: {}", device_id);
 
                     // set semaphore to tell can daemon to transition to sending packets rather than sniffing CAN bus
+                    write_ota_semaphore(device_id as u32, link).unwrap_or_else(|error| {
+                        eprintln!("publishd failed to write OTA semaphore: {error}");
+                    });
                 } else {
                     eprintln!("publishd received malformed OTA request: {}", message);
                 }
@@ -238,15 +241,16 @@ fn write_startup_semaphore(packet_id: u64) -> Result<()> {
     Ok(())
 }
 
-fn write_ota_semaphore() -> Result<()> {
+fn write_ota_semaphore(device_id: u32, data_link: &str) -> Result<()> {
     let temp_path = format!("{}.tmp", OTA_SEMAPHORE_PATH);
-    std::fs::write(&temp_path, "ready")?;
+    std::fs::write(&temp_path, format!("{}:{}", device_id, data_link))?;
     std::fs::rename(temp_path, OTA_SEMAPHORE_PATH)?;
     Ok(())
 }
 
 fn main() -> Result<()> {
     let _ = std::fs::remove_file(STARTUP_SEMAPHORE_PATH);
+    let _ = std::fs::remove_file(OTA_SEMAPHORE_PATH);
     let mqtt_host = env_or_default("PUBLISHD_MQTT_HOST", MQTT_HOST);
     let mqtt_port = std::env::var("PUBLISHD_MQTT_PORT")
         .ok()

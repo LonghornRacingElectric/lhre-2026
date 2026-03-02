@@ -112,7 +112,7 @@ def flash_firmware(channel, file_path: str, start_address: int, target_device_id
     """Reads a binary file, silences the bus, and sends the firmware over CAN."""
     if not os.path.exists(file_path):
         print("Firmware file not found.")
-        return
+        return False
 
     print("Silencing the bus...")
     set_bus_state(channel, enable=False, fw_update=True, device_id=target_device_id)
@@ -139,25 +139,50 @@ def flash_firmware(channel, file_path: str, start_address: int, target_device_id
             abort_frame = Frame(id_=CAN_ID_CMD, data=struct.pack('<B I H B', UPDATE_COMMAND_ABORT, 0, 0, 0), flags=canlib.MessageFlag.STD)
             channel.write(abort_frame)
             set_bus_state(channel, enable=False, fw_update=False, device_id=target_device_id)
-            return
+            return False
 
         current_address += FW_BLOCK_SIZE
 
     print("Firmware update completed successfully!")
     print("Re-enabling the bus...")
     set_bus_state(channel, enable=True, fw_update=False, device_id=target_device_id)
+    return True
 
 if __name__ == "__main__":
+    import sys
+
+    # Usage: bootload.py <firmware_path> [start_address] <target_device_id>
+    # Examples:
+    #   bootload.py /tmp/fw.bin 6
+    #   bootload.py /tmp/fw.bin 0x00000000 6
+    if len(sys.argv) not in (3, 4):
+        print("Usage: bootload.py <firmware_path> [start_address] <target_device_id>")
+        raise SystemExit(2)
+
+    firmware_path = sys.argv[1]
+    if len(sys.argv) == 3:
+        start_address = 0x00000000
+        target_device_id = int(sys.argv[2])
+    else:
+        start_address = int(sys.argv[2], 0)
+        target_device_id = int(sys.argv[3])
+
     try:
         ch = canlib.openChannel(channel=0, flags=canlib.Open.ACCEPT_VIRTUAL)
         ch.setBusParams(canlib.canBITRATE_500K)
         ch.busOn()
-        
-        # Example: DEVICE_ID_VCU is usually 2 based on your enum
-        flash_firmware(ch, "/home/home/Documents/Code/lhre-2026/bazel-bin/DUI/firmware/dui_firmware_2026.bin", start_address=0x00000000, target_device_id=6)
+        success = flash_firmware(
+            ch,
+            firmware_path,
+            start_address=start_address,
+            target_device_id=target_device_id,
+        )
+        if not success:
+            raise SystemExit(1)
         
     except Exception as e:
         print(f"Failed to initialize Kvaser CAN: {e}")
+        raise SystemExit(1)
     finally:
         if 'ch' in locals():
             ch.busOff()
