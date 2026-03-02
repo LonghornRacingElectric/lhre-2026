@@ -100,7 +100,7 @@ static vcu_parameters_t s_params = {
             .min_travel_threshold = 0.10f,
             .max_travel_restore_threshold = 0.05f,
 
-            .min_travel_deadzone = 0.08f,
+            .min_travel_deadzone = 0.10f,
             .max_travel_deadzone = 0.97f,
             .pedal_ema_alpha = 0.35f,
         },
@@ -335,6 +335,26 @@ void StartControlTask(void *argument) {
     vcu_model_step(&ctx, &in, &out, dt_ms);
 
     vcu_can_set_model_outputs(&out);
+
+//     static uint32_t dbg_div = 0;
+// if (++dbg_div >= 10) {
+//   dbg_div = 0;
+
+//   log_printf(LOG_INFO,
+//     "PED:%.3f TQ:%.1f | PRNDL:%u INV:%u | "
+//     "DRV_IN:%u TR:%u | "
+//     "APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
+//     (double)out.accel_pedal_travel,
+//     (double)out.torque_cmd,
+//     (unsigned)out.prndl_state,
+//     (unsigned)out.inverter_enable,
+//     (unsigned)in.drive_switch,
+//     (unsigned)in.contactors_closed,
+//     (unsigned)out.faults.apps_any_fault,
+//     (unsigned)out.brake_pressed,
+//     (unsigned)out.faults.any_fault
+//   );
+// }
 
     // 10 ms control loop (100 Hz)
     osDelay(pdMS_TO_TICKS(10));
