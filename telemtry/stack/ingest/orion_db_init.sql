@@ -198,6 +198,7 @@ CREATE TABLE public.packet (
 -- Generated Dynamics Table
 CREATE TABLE public.dynamics (
     packet_id           bigint   NOT NULL,
+    accel_pedal_travel   real,
     steer_col_angle      real,
     bl_sprung_accel      real[],
     bl_unsprung_accel    real[],
@@ -223,12 +224,16 @@ CREATE TABLE public.dynamics (
     fr_strain_gauge_v    real,
     fr_sus_pot_v         real,
     frw_speed            real,
+    ride_height          real,
+    wheel_speed          real,
     CONSTRAINT fk_dynamics_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
 
 -- Generated Controls Table
 CREATE TABLE public.controls (
     packet_id           bigint   NOT NULL,
+    motor_speed          real,
+    torque_feedback      real,
     apps1_travel         real,
     apps1_v              real,
     apps2_travel         real,
@@ -238,29 +243,64 @@ CREATE TABLE public.controls (
     bpps2_travel         real,
     bpps2_v              real,
     brake_bias           real,
+    brake_light_pct      real,
     brake_pressure_f     real,
     brake_pressure_rall  real,
     brake_pressure_rbll  real,
     bse1_v               real,
     bse2_v               real,
     bse3_v               real,
+    lights_current       real,
     rpm_request          real,
+    torque_command       real,
+    torque_limit         real,
     torque_request       real,
+    commanded_torque     real,
+    motor_angle          real,
+    direction            boolean,
+    enable               boolean,
+    torque_shudder       real,
     CONSTRAINT fk_controls_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
 
 -- Generated Pack Table
 CREATE TABLE public.pack (
     packet_id           bigint   NOT NULL,
-    torque_command       real,
+    bus_voltage          real,
+    lv_boards_current    real,
+    cells_v              real[],
     dc_bus_v             real,
+    delta_resolver_angle real,
+    inverter_freq        real,
+    neutral_output_v     real,
+    time_since_on        real,
+    vab_vq_v             real,
+    vbc_vd_v             real,
+    cells_temps          real[],
+    dc_bus_current       real,
     hv_c                 real,
     hv_pack_v            real,
     hv_soc               real,
     lv_batt_c            real,
     lv_batt_t            real,
     lv_batt_v            real,
+    phase_a_current      real,
+    phase_b_current      real,
+    phase_c_current      real,
     CONSTRAINT fk_pack_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
+);
+
+-- Generated Diagnostics_high Table
+CREATE TABLE public.diagnostics_high (
+    packet_id           bigint   NOT NULL,
+    shutdown_current     real,
+    hvc_state_machine    real,
+    post_faults          real,
+    run_faults           real,
+    neg_hv_contactor     boolean,
+    pos_hv_contactor     boolean,
+    precharge_contactor  boolean,
+    CONSTRAINT fk_diagnostics_high_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
 
 -- Generated Diagnostics_low Table
@@ -269,6 +309,8 @@ CREATE TABLE public.diagnostics_low (
     precharge_r_temp     real,
     bmb_comm_error       boolean,
     imd_gnd_isolation_error boolean,
+    r2d_authorized       boolean,
+    r2d_status           boolean,
     shutdown_leg1        boolean,
     shutdown_leg2        boolean,
     shutdown_leg3        boolean,
@@ -279,8 +321,9 @@ CREATE TABLE public.diagnostics_low (
 -- Generated Thermal Table
 CREATE TABLE public.thermal (
     packet_id           bigint   NOT NULL,
-    cells_v              real[],
-    cells_temps          real[],
+    batt_cooling_current real,
+    motor_cooling_current real,
+    motor_temp           real,
     ambient_temp         real,
     batt_loop_batt_temp  real,
     batt_loop_rad_fan_speed real,
@@ -288,12 +331,19 @@ CREATE TABLE public.thermal (
     bus_bar_temp1        real,
     bus_bar_temp2        real,
     bus_bar_temp3        real,
+    cell_bottom_temp     real,
+    cell_top_temp        real,
     discharge_r_temp     real,
+    gate_driver_temp     real,
     inverter_temp        real,
+    module_a_temp        real,
+    module_b_temp        real,
+    module_c_temp        real,
     motor_loop_inverter_temp real,
     motor_loop_motor_temp real,
     motor_loop_rad_fan_speed real,
     motor_loop_rad_temp  real,
-    motor_temp           real,
+    rtd4_temp            real,
+    rtd5_temp            real,
     CONSTRAINT fk_thermal_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );

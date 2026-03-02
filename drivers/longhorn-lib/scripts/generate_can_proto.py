@@ -238,6 +238,10 @@ def _partition_for_field(
         "bse",
         "brake",
         "accel_pedal",
+        "torque",
+        "pedal",
+        "motor_speed",
+        "motor_angle"
     ]):
         return "Controls"
 
@@ -248,6 +252,7 @@ def _partition_for_field(
         "avg_cell",
         "soc",
         "pack_",
+        "cells"
     ]):
         return "Pack"
 

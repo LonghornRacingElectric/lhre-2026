@@ -1,5 +1,5 @@
 pub mod proto {
-    include!(concat!(env!("OUT_DIR"), "/sensor_data.rs"));
+    include!(concat!(env!("OUT_DIR"), "/_.rs"));
 }
 
 pub mod config;

@@ -215,7 +215,7 @@ void adBms6830_init_config(uint8_t tIC, cell_asic *ic)
 //    ic[cic].cfga.cth = CVT_8_1mV;
 //    ic[cic].cfga.flag_d = ConfigA_Flag(FLAG_D0, FLAG_SET) | ConfigA_Flag(FLAG_D1, FLAG_SET);
 //    ic[cic].cfga.gpo = ConfigA_Gpo(GPO2, GPO_SET) | ConfigA_Gpo(GPO10, GPO_SET);
-    ic[cic].tx_cfga.gpo = 0X3FF; /* All GPIO pull down off */
+    ic[cic].tx_cfga.gpo = 0X3FE; /* only LED on */
 //    ic[cic].cfga.soakon = SOAKON_CLR;
 //    ic[cic].cfga.fc = IIR_FPA256;
 

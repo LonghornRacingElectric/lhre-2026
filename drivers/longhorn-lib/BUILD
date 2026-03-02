@@ -102,6 +102,7 @@ genrule(
     tools = [
         "generate_can_json",
     ],
+    visibility = ["//visibility:public"],
 )
 
 genrule(
@@ -152,9 +153,7 @@ genrule(
     outs = [
         "can_packets.proto",
     ],
-    cmd = """$(location generate_can_proto) \\
-            $(location config/can_packets.csv) $(location config/can_bitfields.csv) \\
-            --out $@""",
+    cmd = """$(location generate_can_proto) $(location config/can_packets.csv) $(location config/can_bitfields.csv) --out $@""",
     tools = [
         "generate_can_proto",
     ],

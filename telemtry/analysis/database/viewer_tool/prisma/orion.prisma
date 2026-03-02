@@ -130,12 +130,14 @@ model packet {
   dynamics dynamics?
   controls controls?
   pack pack?
+  diagnostics_high diagnostics_high?
   diagnostics_low diagnostics_low?
   thermal thermal?
 }
 
 model dynamics {
   packet_id BigInt @id
+  accel_pedal_travel   Float?
   steer_col_angle      Float?
   bl_sprung_accel      Float[]?
   bl_unsprung_accel    Float[]?
@@ -161,12 +163,16 @@ model dynamics {
   fr_strain_gauge_v    Float?
   fr_sus_pot_v         Float?
   frw_speed            Float?
+  ride_height          Float?
+  wheel_speed          Float?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }
 
 model controls {
   packet_id BigInt @id
+  motor_speed          Float?
+  torque_feedback      Float?
   apps1_travel         Float?
   apps1_v              Float?
   apps2_travel         Float?
@@ -176,28 +182,63 @@ model controls {
   bpps2_travel         Float?
   bpps2_v              Float?
   brake_bias           Float?
+  brake_light_pct      Float?
   brake_pressure_f     Float?
   brake_pressure_rall  Float?
   brake_pressure_rbll  Float?
   bse1_v               Float?
   bse2_v               Float?
   bse3_v               Float?
+  lights_current       Float?
   rpm_request          Float?
+  torque_command       Float?
+  torque_limit         Float?
   torque_request       Float?
+  commanded_torque     Float?
+  motor_angle          Float?
+  direction            Boolean?
+  enable               Boolean?
+  torque_shudder       Float?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }
 
 model pack {
   packet_id BigInt @id
-  torque_command       Float?
+  bus_voltage          Float?
+  lv_boards_current    Float?
+  cells_v              Float[]?
   dc_bus_v             Float?
+  delta_resolver_angle Float?
+  inverter_freq        Float?
+  neutral_output_v     Float?
+  time_since_on        Float?
+  vab_vq_v             Float?
+  vbc_vd_v             Float?
+  cells_temps          Float[]?
+  dc_bus_current       Float?
   hv_c                 Float?
   hv_pack_v            Float?
   hv_soc               Float?
   lv_batt_c            Float?
   lv_batt_t            Float?
   lv_batt_v            Float?
+  phase_a_current      Float?
+  phase_b_current      Float?
+  phase_c_current      Float?
+
+  packet packet @relation(fields: [packet_id], references: [packet_id])
+}
+
+model diagnostics_high {
+  packet_id BigInt @id
+  shutdown_current     Float?
+  hvc_state_machine    Float?
+  post_faults          Float?
+  run_faults           Float?
+  neg_hv_contactor     Boolean?
+  pos_hv_contactor     Boolean?
+  precharge_contactor  Boolean?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }
@@ -207,6 +248,8 @@ model diagnostics_low {
   precharge_r_temp     Float?
   bmb_comm_error       Boolean?
   imd_gnd_isolation_error Boolean?
+  r2d_authorized       Boolean?
+  r2d_status           Boolean?
   shutdown_leg1        Boolean?
   shutdown_leg2        Boolean?
   shutdown_leg3        Boolean?
@@ -217,8 +260,9 @@ model diagnostics_low {
 
 model thermal {
   packet_id BigInt @id
-  cells_v              Float[]?
-  cells_temps          Float[]?
+  batt_cooling_current Float?
+  motor_cooling_current Float?
+  motor_temp           Float?
   ambient_temp         Float?
   batt_loop_batt_temp  Float?
   batt_loop_rad_fan_speed Float?
@@ -226,13 +270,20 @@ model thermal {
   bus_bar_temp1        Float?
   bus_bar_temp2        Float?
   bus_bar_temp3        Float?
+  cell_bottom_temp     Float?
+  cell_top_temp        Float?
   discharge_r_temp     Float?
+  gate_driver_temp     Float?
   inverter_temp        Float?
+  module_a_temp        Float?
+  module_b_temp        Float?
+  module_c_temp        Float?
   motor_loop_inverter_temp Float?
   motor_loop_motor_temp Float?
   motor_loop_rad_fan_speed Float?
   motor_loop_rad_temp  Float?
-  motor_temp           Float?
+  rtd4_temp            Float?
+  rtd5_temp            Float?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }
