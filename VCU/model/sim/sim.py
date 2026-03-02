@@ -130,15 +130,37 @@ def main() -> None:
     print_outputs("Scenario 1 — Idle (no pedal, no brake)", out)
 
     # ── Scenario 2: Full throttle, in drive ──────────────────────────────
-    inp.apps1_raw = adc_v(750.0, ADC_APPS_SCALE_V)  # max → 100 % travel
-    inp.apps2_raw = adc_v(700.0, ADC_APPS_SCALE_V)
-    inp.drive_switch = True
-    inp.contactors_closed = True
+    # PRNDL needs: rising edge of drive_switch + brake pressed + APPS at
+    # zero + contactors closed.  We must get the pedal EMA to settle at 0
+    # first, then fire the rising edge.
 
-    # Need to step a few times for PRNDL to transition and buzzer to run
-    for i in range(40):
+    # Step 2a: Brake on, pedal released, contactors closed, switch still OFF
+    #          (establishes prev_drive_switch = false for the rising edge)
+    inp.apps1_raw = adc_v(1200.0, ADC_APPS_SCALE_V)  # 0 % travel
+    inp.apps2_raw = adc_v(1180.0, ADC_APPS_SCALE_V)
+    inp.bse1_raw = adc_v(700.0, ADC_BSE_SCALE_V)  # brake pressed
+    inp.bse2_raw = adc_v(700.0, ADC_BSE_SCALE_V)
+    inp.contactors_closed = True
+    inp.drive_switch = False
+    # Let the pedal EMA settle to exactly 0
+    for _ in range(10):
+        vcu.vcu_model_step(ctx, inp, dt_ms)
+
+    # Step 2b: Rising edge — flip drive_switch to True (pedal still 0, brake on)
+    inp.drive_switch = True
+    out = vcu.vcu_model_step(ctx, inp, dt_ms)
+    print_outputs("Scenario 2a — Just entered drive", out)
+
+    # Step 2c: Now release brake and go full throttle
+    inp.bse1_raw = adc_v(370.0, ADC_BSE_SCALE_V)
+    inp.bse2_raw = adc_v(370.0, ADC_BSE_SCALE_V)
+    inp.apps1_raw = adc_v(750.0, ADC_APPS_SCALE_V)  # 100 % travel
+    inp.apps2_raw = adc_v(700.0, ADC_APPS_SCALE_V)
+
+    # Let buzzer finish and filters settle
+    for _ in range(40):
         out = vcu.vcu_model_step(ctx, inp, dt_ms)
-    print_outputs("Scenario 2 — Full throttle, drive mode", out)
+    print_outputs("Scenario 2b — Full throttle, drive mode", out)
 
     # ── Scenario 3: Braking ──────────────────────────────────────────────
     inp.apps1_raw = adc_v(1200.0, ADC_APPS_SCALE_V)  # release throttle
