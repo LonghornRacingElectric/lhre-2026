@@ -51,16 +51,44 @@ void lights_init(void) {
   osThreadNew(lights_update, NULL, &lightsTask_attributes);
 }
 
+void set_red_light(bool on) {
+  if (on) {
+    setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.05f);
+  } else {
+    setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.0f);
+  }
+}
+
+void set_green_light(bool on) {
+  if (on) {
+    setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.05f);
+  } else {
+    setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.0f);
+  }
+}
+
 void toggleRed() {
   static bool red_on = false;
   if (red_on) {
     // Turn it off
-    setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.0f);
+    set_red_light(false);
   } else {
     // Turn it on
-    setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.05f);
+    set_red_light(true);
   }
   red_on = !red_on;
+}
+
+void toggleGreen() {
+  static bool green_on = false;
+  if (green_on) {
+    // Turn it off
+    set_green_light(false);
+  } else {
+    // Turn it on
+    set_green_light(true);
+  }
+  green_on = !green_on;
 }
 
 void lights_update(void *argument) {
@@ -69,19 +97,22 @@ void lights_update(void *argument) {
   while (1) {
     if (hvc_imd_fault() || hvc_bms_fault()) {
       // Turn on Red LED and Disable Green LED
-      // Turn off Green LED
-      HAL_TIM_PWM_Stop(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL);
-      HAL_TIM_PWM_Start(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL);
+      set_green_light(false);
       if (osKernelGetTickCount() - previous_tick >= 300) {
         toggleRed();
         previous_tick = osKernelGetTickCount();
       }
-
+    } else if (hvc_imd_timeout() || hvc_bms_timeout()) {
+      // if anything times out, we just flash green
+      set_red_light(false);
+      if (osKernelGetTickCount() - previous_tick >= 300) {
+        toggleGreen();
+        previous_tick = osKernelGetTickCount();
+      }
     } else {
-      // Turn on Green LED and Disable Red LED
-      HAL_TIM_PWM_Start(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL);
-      HAL_TIM_PWM_Stop(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL);
-      setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.08f);
+      // Normal state
+      set_green_light(true);
+      set_red_light(false);
     }
 
     // Brake Light
