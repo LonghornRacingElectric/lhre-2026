@@ -1,5 +1,6 @@
 #include "can.h"
 
+#include <cmsis_os2.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -71,8 +72,8 @@ void hvc_can_init(void) {
   can_rtos_start_interface(&critical_can_bus);
 
   // Start tasks LAST
-  can_rtos_start_transceiver_task(osPriorityNormal);
-  can_rtos_start_receiver_task(osPriorityAboveNormal);
+  can_rtos_start_transceiver_task(osPriorityHigh);
+  can_rtos_start_receiver_task(osPriorityHigh);
 
   log_printf(LOG_INFO, "[HVC] CAN RTOS initialized\n");
 }

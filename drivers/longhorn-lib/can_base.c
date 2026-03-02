@@ -34,7 +34,7 @@ void can_register_interface(can_interface_t *interface) {
 
 void can_start_interface(can_interface_t *interface) {
   // Enable RX notifications
-  can.noti_fn(interface->handle, NEW_MESSAGE_FIFO0, 0);
+  can.noti_fn(interface->handle, NEW_MESSAGE_FIFO0 | cFDCAN_IT_BUS_OFF, 0);
 
   // Start the CAN peripheral (must be called AFTER all filters/packets are
   // registered)
@@ -231,6 +231,7 @@ void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t RxFifo0ITs) {
     // callback didn't fire for a new message
     return;
   }
+
   // whenever we see a new packet come in, we need to see whawt handle it was
   // make sure it exists in our table, and then call the unpack function
   for (int i = 0; i < interface_count; i++) {
