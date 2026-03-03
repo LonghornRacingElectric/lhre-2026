@@ -4,15 +4,22 @@ firmware_project_g4(
     name = "g4display_firmware_2026",
     defines = [
         "STM32G474xx",
+        "LV_CONF_INCLUDE_SIMPLE",
     ],
     enable_freertos = True,
     extra_includes = [
         "display",
+        "external/",
     ],
     extra_srcs = glob([
         "display/*.c",
         "display/*.h",
-    ]),
+        "external/lvgl/src/**/*.c",
+        "external/lvgl/src/**/*.h",
+    ]) + [
+        "external/lvgl/lvgl.h",
+        "external/lv_conf.h",
+    ],
     linker_script = "STM32G474XX_FLASH.ld",
     startup_script = "startup_stm32g474xx.s",
 )

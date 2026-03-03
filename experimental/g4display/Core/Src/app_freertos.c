@@ -25,6 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "LCDController.h"
 #include <spi.h>
 
 /* USER CODE END Includes */
@@ -53,10 +54,34 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
     .name = "defaultTask",
     .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 128 * 4};
+    .stack_size = 512 * 4};
+
+const osThreadAttr_t lvgl_tick_attributes = {.name = "lvgl_tick",
+                                             .priority =
+                                                 (osPriority_t)osPriorityNormal,
+                                             .stack_size = 256 * 4};
+
+const osThreadAttr_t lvgl_timer_attributes = {
+    .name = "lvgl_timer",
+    .priority = (osPriority_t)osPriorityNormal,
+    .stack_size = 512 * 4};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
+/* LVGL timer for tasks. */
+void LVGLTimer(void *argument) {
+  for (;;) {
+    lv_timer_handler();
+    osDelay(20);
+  }
+}
+/* LVGL tick source */
+void LVGLTick(void *argument) {
+  for (;;) {
+    lv_tick_inc(10);
+    osDelay(10);
+  }
+}
 
 /* USER CODE END FunctionPrototypes */
 
@@ -95,6 +120,15 @@ void MX_FREERTOS_Init(void) {
   defaultTaskHandle =
       osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
+  osThreadId_t lvgl_tickHandle;
+  osThreadId_t lvgl_timerHandle;
+
+  /* definition and creation of lvgl_tick */
+  lvgl_tickHandle = osThreadNew(LVGLTick, NULL, &lvgl_tick_attributes);
+
+  // LVGL update timer
+  lvgl_timerHandle = osThreadNew(LVGLTimer, NULL, &lvgl_timer_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -112,123 +146,32 @@ void MX_FREERTOS_Init(void) {
  * @retval None
  */
 
-void ST7789_WriteCommand(uint8_t cmd) {
-  HAL_GPIO_WritePin(LCD_NCS_GPIO_Port, LCD_NCS_Pin,
-                    GPIO_PIN_RESET); // CS Low to begin
-  HAL_GPIO_WritePin(LCD_DC_GPIO_Port, LCD_DC_Pin,
-                    GPIO_PIN_RESET); // DC Low for Command
-  HAL_SPI_Transmit(&hspi2, &cmd, 1, HAL_MAX_DELAY);
-  HAL_GPIO_WritePin(LCD_NCS_GPIO_Port, LCD_NCS_Pin,
-                    GPIO_PIN_SET); // CS High to end
-}
-
-void ST7789_WriteData(uint8_t data) {
-  HAL_GPIO_WritePin(LCD_NCS_GPIO_Port, LCD_NCS_Pin,
-                    GPIO_PIN_RESET); // CS Low to begin
-  HAL_GPIO_WritePin(LCD_DC_GPIO_Port, LCD_DC_Pin,
-                    GPIO_PIN_SET); // DC High for Data
-  HAL_SPI_Transmit(&hspi2, &data, 1, HAL_MAX_DELAY);
-  HAL_GPIO_WritePin(LCD_NCS_GPIO_Port, LCD_NCS_Pin,
-                    GPIO_PIN_SET); // CS High to end
-}
-
-void ST7789_SetWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1) {
-  ST7789_WriteCommand(0x2A); // Column Address Set
-  ST7789_WriteData(x0 >> 8);
-  ST7789_WriteData(x0 & 0xFF);
-  ST7789_WriteData(x1 >> 8);
-  ST7789_WriteData(x1 & 0xFF);
-
-  ST7789_WriteCommand(0x2B); // Row Address Set
-  ST7789_WriteData(y0 >> 8);
-  ST7789_WriteData(y0 & 0xFF);
-  ST7789_WriteData(y1 >> 8);
-  ST7789_WriteData(y1 & 0xFF);
-
-  ST7789_WriteCommand(0x2C); // Memory Write
-}
-
-void ST7789_TestPattern(void) {
-  // Clear screen to Black (0x0000)
-  ST7789_SetWindow(0, 0, 239, 239);
-  HAL_GPIO_WritePin(LCD_DC_GPIO_Port, LCD_DC_Pin, GPIO_PIN_SET);
-
-  uint8_t black[2] = {0, 0};
-  uint8_t white[2] = {0xFF, 0xFF};
-
-  for (int y = 0; y < 240; y++) {
-    for (int x = 0; x < 240; x++) {
-      // Create a grid: white pixel every 20 pixels
-      if (x % 20 == 0 || y % 20 == 0) {
-        HAL_SPI_Transmit(&hspi2, white, 2, HAL_MAX_DELAY);
-      } else {
-        HAL_SPI_Transmit(&hspi2, black, 2, HAL_MAX_DELAY);
-      }
-    }
-  }
-}
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void *argument) {
   /* USER CODE BEGIN StartDefaultTask */
 
-  // 1. HARDWARE RESET
+  /* Hardware reset the display */
   HAL_GPIO_WritePin(LCD_RES_GPIO_Port, LCD_RES_Pin, GPIO_PIN_RESET);
   osDelay(50);
   HAL_GPIO_WritePin(LCD_RES_GPIO_Port, LCD_RES_Pin, GPIO_PIN_SET);
   osDelay(50);
+  HAL_GPIO_WritePin(BACKLIGHT_EN_GPIO_Port, BACKLIGHT_EN_Pin, GPIO_PIN_SET);
 
-  // 2. ACTIVATE CHIP SELECT
-  // Your schematic shows LCD_CS on pin 9 of J2.
-  // Ensure this GPIO is initialized in CubeMX.
-  HAL_GPIO_WritePin(LCD_NCS_GPIO_Port, LCD_NCS_Pin, GPIO_PIN_RESET);
+  /* Initialize LVGL and the display driver (must be done after RTOS starts,
+   * because ST7789_Init uses osDelay) */
+  lv_init();
+  lv_port_disp_init();
 
-  // 3. MINIMAL INIT SEQUENCE
-  ST7789_WriteCommand(0x01); // Software Reset
-  osDelay(150);
-  ST7789_WriteCommand(0x11); // Sleep Out
-  osDelay(120);
+  lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x003a57), LV_PART_MAIN);
 
-  ST7789_WriteCommand(0x3A); // Interface Pixel Format
-  ST7789_WriteData(0x05);    // 16-bit/pixel (RGB565)
-
-  ST7789_WriteCommand(0x36); // MADCTL: Memory Data Access Control
-  ST7789_WriteData(
-      0x00); // 0x00 is default. Use 0x70, 0xC0 etc., to rotate screen
-
-  ST7789_WriteCommand(
-      0x21); // Display Inversion ON (Crucial for most ST7789 IPS panels)
-
-  ST7789_WriteCommand(0x29); // Display ON
-  osDelay(10);
-
-  // 4. DRAW TEST LINES (Red)
-
+  /*Create a spinner*/
+  lv_obj_t *spinner = lv_spinner_create(lv_scr_act(), 1000, 60);
+  lv_obj_set_size(spinner, 64, 64);
+  lv_obj_align(spinner, LV_ALIGN_BOTTOM_MID, 0, 0);
   for (;;) {
     HAL_GPIO_TogglePin(LEDG_GPIO_Port, LEDG_Pin);
 
     osDelay(500);
-
-    // 4. DRAW TEST LINES (Red)
-    ST7789_SetWindow(0, 0, 239, 239);
-
-    // Turn on backlight
-    HAL_GPIO_WritePin(BACKLIGHT_EN_GPIO_Port, BACKLIGHT_EN_Pin, GPIO_PIN_SET);
-
-    uint16_t red = 0xF800; // RGB565 Red
-    uint8_t data[2] = {red >> 8, red & 0xFF};
-
-    // Prepare for bulk data transfer
-    HAL_GPIO_WritePin(LCD_NCS_GPIO_Port, LCD_NCS_Pin,
-                      GPIO_PIN_RESET); // Bulk CS Low
-    HAL_GPIO_WritePin(LCD_DC_GPIO_Port, LCD_DC_Pin,
-                      GPIO_PIN_SET); // DC High for Data
-
-    for (int i = 0; i < 240 * 240; i++) {
-      HAL_SPI_Transmit(&hspi2, data, 2, HAL_MAX_DELAY);
-    }
-
-    HAL_GPIO_WritePin(LCD_NCS_GPIO_Port, LCD_NCS_Pin,
-                      GPIO_PIN_SET); // Bulk CS High
   }
   /* USER CODE END StartDefaultTask */
 }
