@@ -15,6 +15,17 @@ bazel_dep(name = "rules_python", version = "1.5.3")
 bazel_dep(name = "rules_proto", version = "7.0.2")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 
+# LVGL Graphics Library (v8.3.11) — fetched from GitHub
+lvgl = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+lvgl(
+    name = "lvgl",
+    build_file = "//third_party/lvgl:lvgl.BUILD",
+    integrity = "sha256-g7cyWkt4y7GaOfOsdTRsgIaSbX+uq1/y2CXCDaC720Y=",
+    strip_prefix = "lvgl-8.3.11",
+    url = "https://github.com/lvgl/lvgl/archive/refs/tags/v8.3.11.tar.gz",
+)
+
 # Protobuf compiler/runtime for Bazel code generation (protoc).
 bazel_dep(name = "protobuf", version = "29.0", dev_dependency = True)
 

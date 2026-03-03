@@ -5,8 +5,10 @@ firmware_project_g4(
     defines = [
         "STM32G474xx",
         "LV_CONF_INCLUDE_SIMPLE",
+        "LV_LVGL_H_INCLUDE_SIMPLE",
     ],
     enable_freertos = True,
+    extra_deps = ["@lvgl//:lvgl_headers"],
     extra_includes = [
         "display",
         "external/",
@@ -14,10 +16,8 @@ firmware_project_g4(
     extra_srcs = glob([
         "display/*.c",
         "display/*.h",
-        "external/lvgl/src/**/*.c",
-        "external/lvgl/src/**/*.h",
     ]) + [
-        "external/lvgl/lvgl.h",
+        "@lvgl//:lvgl_srcs",
         "external/lv_conf.h",
     ],
     linker_script = "STM32G474XX_FLASH.ld",
