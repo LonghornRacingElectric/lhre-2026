@@ -1,0 +1,18 @@
+load("//tools:outputs/build_outputs.bzl", "firmware_project_g4")
+
+firmware_project_g4(
+    name = "g4display_firmware_2026",
+    defines = [
+        "STM32G474xx",
+    ],
+    enable_freertos = True,
+    extra_includes = [
+        "display",
+    ],
+    extra_srcs = glob([
+        "display/*.c",
+        "display/*.h",
+    ]),
+    linker_script = "STM32G474XX_FLASH.ld",
+    startup_script = "startup_stm32g474xx.s",
+)
