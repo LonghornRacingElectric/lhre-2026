@@ -1,0 +1,25 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//tools:outputs/build_outputs.bzl", "MCU_FLAGS")
+
+cc_library(
+    name = "vcu_core_lib",
+    srcs = glob(["src/**/*.cpp"]),
+    hdrs = glob(["src/**/*.h"]),
+    copts = MCU_FLAGS,
+    include_prefix = "VcuModel",
+    includes = ["src"],
+    target_compatible_with = [
+        "@platforms//cpu:arm",
+        "@platforms//os:none",
+    ],
+    visibility = ["//legacy/2024/vcu:__subpackages__"],
+)
+
+cc_library(
+    name = "vcu_core_host",
+    srcs = glob(["src/**/*.cpp"]),
+    hdrs = glob(["src/**/*.h"]),
+    include_prefix = "VcuModel",
+    includes = ["src"],
+    visibility = ["//legacy/2024/vcu:__subpackages__"],
+)
