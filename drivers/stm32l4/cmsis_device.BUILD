@@ -3,7 +3,7 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
 cc_library(
-    name = "cmsis_device_headers",
+    name = "cmsis_device_l4_headers",
     hdrs = glob(["Include/**/*.h"]),
     includes = ["Include"],
     visibility = ["//visibility:public"],

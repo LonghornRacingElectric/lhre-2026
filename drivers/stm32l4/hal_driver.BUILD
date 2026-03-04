@@ -14,8 +14,8 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "@cmsis_core//:cmsis_core_headers",
-        "@cmsis_device_l4//:cmsis_device_headers",
+        "@cmsis_core_l4//:cmsis_core_l4_headers",
+        "@cmsis_device_l4//:cmsis_device_l4_headers",
     ],
 )
 

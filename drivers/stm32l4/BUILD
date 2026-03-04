@@ -20,8 +20,8 @@ cc_library(
     name = "stm32_headers",
     visibility = ["//visibility:public"],
     deps = [
-        "@cmsis_core//:cmsis_core_headers",
-        "@cmsis_device_l4//:cmsis_device_headers",
+        "@cmsis_core_l4//:cmsis_core_l4_headers",
+        "@cmsis_device_l4//:cmsis_device_l4_headers",
         "@stm32l4xx_hal_driver//:hal_headers",
     ],
 )
