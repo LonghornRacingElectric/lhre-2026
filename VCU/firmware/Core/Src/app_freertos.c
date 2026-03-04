@@ -47,7 +47,7 @@ extern ADC_HandleTypeDef hadc3;
 
 // necessary because USB voltage is up a little bit so tuning is slightly
 // off, we need to scale down to match values when not using USB
-#define FUDGE_FACTOR 1.0f
+#define FUDGE_FACTOR 0.95f
 
 // DMA buffers
 // APPS1, APPS2 from ADC3 (configured in adc.c)
@@ -346,13 +346,13 @@ void StartControlTask(void *argument) {
 
     vcu_can_set_model_outputs(&out);
 
-    log_printf(LOG_WARNING,
-               "PEDAL OUT, %0.2f, TORQUE OUT %0.2f, FAULT %d, APPS1 %0.2f, "
-               "APPS2 %0.2f",
-               out.accel_pedal_travel, out.torque_cmd,
-               out.faults.apps_any_fault, out.apps1_travel,
-               out.apps2_travel);
-        static uint32_t dbg_div = 0;
+    // log_printf(LOG_WARNING,
+    //            "PEDAL OUT, %0.2f, TORQUE OUT %0.2f, FAULT %d, APPS1 %0.2f, "
+    //            "APPS2 %0.2f",
+    //            out.accel_pedal_travel, out.torque_cmd,
+    //            out.faults.apps_any_fault, out.apps1_travel,
+    //            out.apps2_travel);
+    //     static uint32_t dbg_div = 0;
     // if (++dbg_div >= 10) {
     //   dbg_div = 0;
 
