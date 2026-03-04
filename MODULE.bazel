@@ -99,6 +99,11 @@ use_repo(openocd, "openocd")
 dfu = use_extension("//tools/dfu:dfu.bzl", "dfu")
 use_repo(dfu, "dfu")
 
+# STM32 L4 External Driver Dependencies
+# Fetches HAL, CMSIS device, USB device, and CMSIS core from GitHub
+stm32l4 = use_extension("//drivers/stm32l4:deps.bzl", "stm32l4_deps")
+use_repo(stm32l4, "cmsis_core", "cmsis_device_l4", "stm32_mw_usb_device", "stm32l4xx_hal_driver")
+
 # Hermetic Rust Toolchain
 rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
 rust.toolchain(

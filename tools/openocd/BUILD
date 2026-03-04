@@ -11,3 +11,9 @@ filegroup(
     srcs = ["stm32g4.cfg"],
     visibility = ["//visibility:public"],
 )
+
+filegroup(
+    name = "l4_flashing_cfg",
+    srcs = ["stm32l4.cfg"],
+    visibility = ["//visibility:public"],
+)

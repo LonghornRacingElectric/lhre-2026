@@ -1,0 +1,8 @@
+load("//tools:outputs/build_outputs.bzl", "firmware_project_l4")
+
+firmware_project_l4(
+    name = "charger_fw_2025",
+    defines = ["STM32L496xx"],
+    linker_script = "STM32L496RGTX_FLASH.ld",
+    startup_script = "Core/Startup/startup_stm32l496rgtx.s",
+)

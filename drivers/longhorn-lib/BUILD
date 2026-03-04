@@ -2,6 +2,15 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@rules_python//python:defs.bzl", "py_binary")
 load("//tools:outputs/build_outputs.bzl", "MCU_FLAGS")
 
+# Minimal LED library — no STM32/HAL dependencies, usable by any ARM target (G4, L4, etc.)
+cc_library(
+    name = "longhorn_led",
+    srcs = ["led_base.c"],
+    hdrs = ["led_base.h"],
+    include_prefix = "longhorn",
+    visibility = ["//visibility:public"],
+)
+
 # Longhorn Lib is defined for both Bare Metal and FreeRTOS targets.
 # If using the FreeRTOS version, it is expected that the build target that includes
 # longhorn_lib will have the freertos sources. (longhorn_lib is built without linking)
@@ -133,8 +142,8 @@ py_binary(
 py_binary(
     name = "generate_can_proto",
     srcs = [
-        "scripts/generate_can_proto.py",
         "scripts/generate_can_json.py",
+        "scripts/generate_can_proto.py",
     ],
 )
 
@@ -165,8 +174,8 @@ genrule(
 py_binary(
     name = "update_can_proto",
     srcs = [
-        "scripts/generate_can_proto.py",
         "scripts/generate_can_json.py",
+        "scripts/generate_can_proto.py",
         "scripts/update_can_proto.py",
     ],
     data = [
