@@ -26,9 +26,14 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "LCDController.h"
+#include "tim.h"
+#include <cmsis_os2.h>
+#include <screens/ui_Screen1.h>
 #include <spi.h>
 #include <stdio.h>
+#include <stm32g4xx_hal_tim.h>
 #include <ui.h>
+#include <ui_helpers.h>
 
 /* USER CODE END Includes */
 
@@ -169,6 +174,8 @@ void StartDefaultTask(void *argument) {
   lv_port_disp_init();
   ui_init();
 
+  lv_scr_load_anim(ui_Screen1, LV_SCR_LOAD_ANIM_FADE_IN, 500, 0, true);
+
   // lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x003a57),
   // LV_PART_MAIN);
 
@@ -178,16 +185,24 @@ void StartDefaultTask(void *argument) {
   // lv_obj_align(spinner, LV_ALIGN_BOTTOM_MID, 0, 0);
 
   char buffer[100];
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+  uint32_t diff = 0;
+  float pct = 0.0f;
   for (;;) {
-    HAL_GPIO_TogglePin(LEDG_GPIO_Port, LEDG_Pin);
-
-    osDelay(500);
+    uint32_t start = osKernelGetTickCount();
+    sprintf(buffer, "Hello World %u", diff);
+    lv_textarea_set_text(ui_TextArea1, buffer);
+    lv_bar_set_value(ui_Bar2, (int32_t)(pct * 100), LV_ANIM_ON);
+    osMutexRelease(lvgl_mutex);
+    pct += 0.01f;
+    if (pct > 1.0f) {
+      pct = 0.0f;
+    }
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, (uint32_t)(pct * 1000));
+    osDelay(50);
 
     osMutexAcquire(lvgl_mutex, osWaitForever);
-
-    sprintf(buffer, "Hello World %d", HAL_GetTick());
-    lv_textarea_set_text(ui_TextArea1, buffer);
-    osMutexRelease(lvgl_mutex);
+    diff = osKernelGetTickCount() - start;
   }
   /* USER CODE END StartDefaultTask */
 }

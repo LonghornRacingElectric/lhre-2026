@@ -5,39 +5,66 @@
 
 #include "../ui.h"
 
+lv_obj_t *uic_PWM;
 lv_obj_t *uic_TextArea1;
-lv_obj_t *ui_Screen1 = NULL;
-lv_obj_t *ui_TextArea1 = NULL;
+lv_obj_t *ui_Screen1 = NULL;lv_obj_t *ui_TextArea1 = NULL;lv_obj_t *ui_Bar2 = NULL;lv_obj_t *ui_PWM = NULL;
 // event funtions
-void ui_event_Screen1(lv_event_t *e) {
-  lv_event_code_t event_code = lv_event_get_code(e);
+void ui_event_Screen1( lv_event_t * e) {
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+if ( event_code == LV_EVENT_CLICKED) {
+      upClicked( e );
+}
 }
 
 // build funtions
 
-void ui_Screen1_screen_init(void) {
-  ui_Screen1 = lv_obj_create(NULL);
-  lv_obj_clear_flag(ui_Screen1, LV_OBJ_FLAG_SCROLLABLE); /// Flags
+void ui_Screen1_screen_init(void)
+{
+ui_Screen1 = lv_obj_create(NULL);
+lv_obj_clear_flag( ui_Screen1, LV_OBJ_FLAG_SCROLLABLE );    /// Flags
 
-  ui_TextArea1 = lv_textarea_create(ui_Screen1);
-  lv_obj_set_width(ui_TextArea1, 185);
-  lv_obj_set_height(ui_TextArea1, LV_SIZE_CONTENT); /// 70
-  lv_obj_set_x(ui_TextArea1, 0);
-  lv_obj_set_y(ui_TextArea1, -76);
-  lv_obj_set_align(ui_TextArea1, LV_ALIGN_CENTER);
-  lv_textarea_set_placeholder_text(ui_TextArea1, "Errors will appear here");
-  lv_textarea_set_one_line(ui_TextArea1, true);
+ui_TextArea1 = lv_textarea_create(ui_Screen1);
+lv_obj_set_width( ui_TextArea1, 185);
+lv_obj_set_height( ui_TextArea1, LV_SIZE_CONTENT);   /// 70
+lv_obj_set_x( ui_TextArea1, 0 );
+lv_obj_set_y( ui_TextArea1, -76 );
+lv_obj_set_align( ui_TextArea1, LV_ALIGN_CENTER );
+lv_textarea_set_placeholder_text(ui_TextArea1,"Errors will appear here");
+lv_textarea_set_one_line(ui_TextArea1,true);
 
-  lv_obj_add_event_cb(ui_Screen1, ui_event_Screen1, LV_EVENT_ALL, NULL);
-  uic_TextArea1 = ui_TextArea1;
+ui_Bar2 = lv_bar_create(ui_Screen1);
+lv_bar_set_start_value(ui_Bar2, 1, LV_ANIM_OFF);
+lv_obj_set_width( ui_Bar2, 150);
+lv_obj_set_height( ui_Bar2, 10);
+lv_obj_set_x( ui_Bar2, -6 );
+lv_obj_set_y( ui_Bar2, -6 );
+lv_obj_set_align( ui_Bar2, LV_ALIGN_CENTER );
+
+ui_PWM = lv_label_create(ui_Screen1);
+lv_obj_set_width( ui_PWM, LV_SIZE_CONTENT);  /// 1
+lv_obj_set_height( ui_PWM, LV_SIZE_CONTENT);   /// 1
+lv_obj_set_x( ui_PWM, -60 );
+lv_obj_set_y( ui_PWM, 16 );
+lv_obj_set_align( ui_PWM, LV_ALIGN_CENTER );
+lv_label_set_text(ui_PWM,"PWM");
+
+lv_obj_add_event_cb(ui_Screen1, ui_event_Screen1, LV_EVENT_ALL, NULL);
+uic_TextArea1 = ui_TextArea1;
+uic_PWM = ui_PWM;
+
 }
 
-void ui_Screen1_screen_destroy(void) {
-  if (ui_Screen1)
-    lv_obj_del(ui_Screen1);
+void ui_Screen1_screen_destroy(void)
+{
+   if (ui_Screen1) lv_obj_del(ui_Screen1);
 
-  // NULL screen variables
-  ui_Screen1 = NULL;
-  uic_TextArea1 = NULL;
-  ui_TextArea1 = NULL;
+// NULL screen variables
+ui_Screen1= NULL;
+uic_TextArea1= NULL;
+ui_TextArea1= NULL;
+ui_Bar2= NULL;
+uic_PWM= NULL;
+ui_PWM= NULL;
+
 }

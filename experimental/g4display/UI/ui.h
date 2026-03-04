@@ -12,6 +12,7 @@ extern "C" {
 
 #include "lvgl.h"
 
+#include "ui_events.h"
 #include "ui_helpers.h"
 
 ///////////////////// SCREENS ////////////////////
