@@ -1,8 +1,8 @@
-"""STM32 L4 driver interface package.
+"""STM32 H7 driver interface package.
 
-Provides a unified interface to STM32 L4 drivers fetched from GitHub.
+Provides a unified interface to STM32 H7 drivers fetched from GitHub.
 All targets here re-export from external repositories so that projects
-can depend on //drivers/stm32l4:<target> without knowing the external
+can depend on //drivers/stm32h7:<target> without knowing the external
 repo layout.
 
 Available targets:
@@ -20,31 +20,15 @@ cc_library(
     name = "stm32_headers",
     visibility = ["//visibility:public"],
     deps = [
-        "@cmsis_core_l4//:cmsis_core_l4_headers",
-        "@cmsis_device_l4//:cmsis_device_l4_headers",
-        "@stm32l4xx_hal_driver//:hal_headers",
+        "@cmsis_core_h7//:cmsis_core_h7_headers",
+        "@cmsis_device_h7//:cmsis_device_h7_headers",
+        "@stm32h7xx_hal_driver//:hal_headers",
     ],
 )
 
 # HAL driver source files for compilation
 filegroup(
     name = "hal_srcs",
-    srcs = ["@stm32l4xx_hal_driver//:hal_srcs"],
-    visibility = ["//visibility:public"],
-)
-
-# USB Device middleware headers (Core + CDC class)
-cc_library(
-    name = "usb_device_headers",
-    visibility = ["//visibility:public"],
-    deps = [
-        "@stm32_mw_usb_device//:usb_device_headers",
-    ],
-)
-
-# USB Device middleware source files for compilation
-filegroup(
-    name = "usb_device_srcs",
-    srcs = ["@stm32_mw_usb_device//:usb_device_srcs"],
+    srcs = ["@stm32h7xx_hal_driver//:hal_srcs"],
     visibility = ["//visibility:public"],
 )

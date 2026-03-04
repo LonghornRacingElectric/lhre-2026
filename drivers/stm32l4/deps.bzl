@@ -25,7 +25,7 @@ def _stm32l4_deps_impl(_ctx):
     )
 
     git_repository(
-        name = "cmsis_core",
+        name = "cmsis_core_l4",
         remote = "https://github.com/ARM-software/CMSIS_5.git",
         commit = "55b19837f5703e418ca37894d5745b1dc05e4c91",
         build_file = "//drivers/stm32l4:cmsis_core.BUILD",
