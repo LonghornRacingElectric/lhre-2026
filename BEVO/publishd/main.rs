@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 const IPC_SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
 const STARTUP_SEMAPHORE_PATH: &str = "/tmp/BEVO_publishd_ready";
-const MQTT_HOST: &str = "192.168.1.109";
+const MQTT_HOST: &str = "18.191.225.118"; // aws broker hard coded for testing
 const MQTT_PORT: u16 = 1883;
 const MQTT_CLIENT_ID: &str = "BEVO-ORION";
 const MQTT_ANNOUNCE_CLIENT_ID: &str = "BEVO-Orion";
