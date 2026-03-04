@@ -47,7 +47,7 @@ extern ADC_HandleTypeDef hadc3;
 
 // necessary because USB voltage is up a little bit so tuning is slightly
 // off, we need to scale down to match values when not using USB
-#define FUDGE_FACTOR 0.95f
+#define FUDGE_FACTOR 1.0f
 
 // DMA buffers
 // APPS1, APPS2 from ADC3 (configured in adc.c)
@@ -94,12 +94,12 @@ static vcu_parameters_t s_params = {
     .apps =
         {
             .apps1_min_adc_v =
-                ((FUDGE_FACTOR * 1200.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+                ((FUDGE_FACTOR * 1065.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
             .apps1_max_adc_v =
                 ((FUDGE_FACTOR * 750.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
 
             .apps2_min_adc_v =
-                ((FUDGE_FACTOR * 1180.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+                ((FUDGE_FACTOR * 1045.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
             .apps2_max_adc_v =
                 ((FUDGE_FACTOR * 700.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
 
@@ -109,7 +109,7 @@ static vcu_parameters_t s_params = {
             // .max_travel_restore_threshold = 0.05f,
 
             .min_travel_deadzone = 0.12f,
-            .max_travel_deadzone = 0.82f,
+            .max_travel_deadzone = 0.95,
             .pedal_ema_alpha = 0.35f,
         },
     .torque_map =
@@ -346,13 +346,13 @@ void StartControlTask(void *argument) {
 
     vcu_can_set_model_outputs(&out);
 
-    // log_printf(LOG_WARNING,
-    //            "PEDAL OUT, %0.2f, TORQUE OUT %0.2f, FAULT %d, APPS1 %0.2f, "
-    //            "APPS2 %0.2f",
-    //            out.accel_pedal_travel, out.torque_cmd,
-    //            out.faults.apps_any_fault, out.apps1_travel,
-    //            out.apps2_travel);
-    //     static uint32_t dbg_div = 0;
+    log_printf(LOG_WARNING,
+               "PEDAL OUT, %0.2f, TORQUE OUT %0.2f, FAULT %d, APPS1 %0.2f, "
+               "APPS2 %0.2f",
+               out.accel_pedal_travel, out.torque_cmd,
+               out.faults.apps_any_fault, out.apps1_travel,
+               out.apps2_travel);
+        static uint32_t dbg_div = 0;
     // if (++dbg_div >= 10) {
     //   dbg_div = 0;
 
