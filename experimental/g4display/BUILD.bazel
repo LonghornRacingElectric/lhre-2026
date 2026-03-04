@@ -11,15 +11,18 @@ firmware_project_g4(
     extra_deps = ["@lvgl//:lvgl_headers"],
     extra_includes = [
         "display",
-        "external/",
+        "external",
+        "UI",
     ],
-    extra_srcs = glob([
-        "display/*.c",
-        "display/*.h",
-    ]) + [
+    extra_srcs = [
         "@lvgl//:lvgl_srcs",
         "external/lv_conf.h",
-    ],
+    ] + glob([
+        "display/*.c",
+        "display/*.h",
+        "UI/**/*.c",
+        "UI/**/*.h",
+    ]),
     linker_script = "STM32G474XX_FLASH.ld",
     startup_script = "startup_stm32g474xx.s",
 )

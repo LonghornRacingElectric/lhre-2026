@@ -27,6 +27,8 @@
 /* USER CODE BEGIN Includes */
 #include "LCDController.h"
 #include <spi.h>
+#include <stdio.h>
+#include <ui.h>
 
 /* USER CODE END Includes */
 
@@ -49,6 +51,16 @@
 /* USER CODE BEGIN Variables */
 
 /* USER CODE END Variables */
+
+/* Mutex for protecting LVGL access from multiple tasks */
+osMutexId_t lvgl_mutex;
+const osMutexAttr_t lvgl_mutex_attr = {
+    "lvgl_mutex",                          // human readable name
+    osMutexRecursive | osMutexPrioInherit, // attr_bits
+    NULL,                                  // memory
+    0                                      // size
+};
+
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
@@ -71,7 +83,9 @@ const osThreadAttr_t lvgl_timer_attributes = {
 /* LVGL timer for tasks. */
 void LVGLTimer(void *argument) {
   for (;;) {
+    osMutexAcquire(lvgl_mutex, osWaitForever);
     lv_timer_handler();
+    osMutexRelease(lvgl_mutex);
     osDelay(20);
   }
 }
@@ -100,7 +114,7 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */
-  /* add mutexes, ... */
+  lvgl_mutex = osMutexNew(&lvgl_mutex_attr);
   /* USER CODE END RTOS_MUTEX */
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
@@ -120,17 +134,9 @@ void MX_FREERTOS_Init(void) {
   defaultTaskHandle =
       osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
-  osThreadId_t lvgl_tickHandle;
-  osThreadId_t lvgl_timerHandle;
-
-  /* definition and creation of lvgl_tick */
-  lvgl_tickHandle = osThreadNew(LVGLTick, NULL, &lvgl_tick_attributes);
-
-  // LVGL update timer
-  lvgl_timerHandle = osThreadNew(LVGLTimer, NULL, &lvgl_timer_attributes);
-
   /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
+  osThreadNew(LVGLTick, NULL, &lvgl_tick_attributes);
+  osThreadNew(LVGLTimer, NULL, &lvgl_timer_attributes);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -161,17 +167,27 @@ void StartDefaultTask(void *argument) {
    * because ST7789_Init uses osDelay) */
   lv_init();
   lv_port_disp_init();
+  ui_init();
 
-  lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x003a57), LV_PART_MAIN);
+  // lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x003a57),
+  // LV_PART_MAIN);
 
   /*Create a spinner*/
-  lv_obj_t *spinner = lv_spinner_create(lv_scr_act(), 1000, 60);
-  lv_obj_set_size(spinner, 64, 64);
-  lv_obj_align(spinner, LV_ALIGN_BOTTOM_MID, 0, 0);
+  // lv_obj_t *spinner = lv_spinner_create(lv_scr_act(), 1000, 60);
+  // lv_obj_set_size(spinner, 64, 64);
+  // lv_obj_align(spinner, LV_ALIGN_BOTTOM_MID, 0, 0);
+
+  char buffer[100];
   for (;;) {
     HAL_GPIO_TogglePin(LEDG_GPIO_Port, LEDG_Pin);
 
     osDelay(500);
+
+    osMutexAcquire(lvgl_mutex, osWaitForever);
+
+    sprintf(buffer, "Hello World %d", HAL_GetTick());
+    lv_textarea_set_text(ui_TextArea1, buffer);
+    osMutexRelease(lvgl_mutex);
   }
   /* USER CODE END StartDefaultTask */
 }

@@ -1,6 +1,7 @@
 #include "st7789.h"
 #include "cmsis_os.h"
 #include "spi.h"
+#include <stm32g4xx_hal_spi.h>
 
 void ST7789_WriteCommand(uint8_t cmd) {
   HAL_GPIO_WritePin(LCD_NCS_GPIO_Port, LCD_NCS_Pin,
@@ -89,10 +90,12 @@ void ST7789_DrawBitmap(uint16_t w, uint16_t h, const uint8_t *bitmap) {
                     GPIO_PIN_SET); // CS High
 }
 
-void ST7789_Flush(lv_disp_drv_t *disp_drv, const lv_area_t *area,
-                  lv_color_t *color_p) {
-  ST7789_SetWindow(area->x1, area->y1, area->x2, area->y2);
-  ST7789_DrawBitmap(area->x2 - area->x1 + 1, area->y2 - area->y1 + 1,
-                    (const uint8_t *)color_p);
-  lv_disp_flush_ready(disp_drv);
+void ST7789_DrawBitmap_DMA(uint16_t w, uint16_t h, const uint8_t *bitmap) {
+  HAL_GPIO_WritePin(LCD_NCS_GPIO_Port, LCD_NCS_Pin,
+                    GPIO_PIN_RESET); // CS Low
+  HAL_GPIO_WritePin(LCD_DC_GPIO_Port, LCD_DC_Pin,
+                    GPIO_PIN_SET); // DC High for data
+  /* Non-blocking DMA transfer. CS is released in HAL_SPI_TxCpltCallback
+   * (implemented in LCDController.c). */
+  HAL_SPI_Transmit_DMA(&hspi2, (uint8_t *)bitmap, w * h * 2);
 }
