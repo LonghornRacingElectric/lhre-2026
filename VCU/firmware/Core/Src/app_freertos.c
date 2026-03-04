@@ -114,7 +114,7 @@ static vcu_parameters_t s_params = {
         },
     .torque_map =
         {
-            .max_torque_nm = 200.0f,
+            .max_torque_nm = 220.0f,
         },
 
     .bse =
