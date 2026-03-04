@@ -44,7 +44,7 @@ register_toolchains(
 # Override to use a custom fork for the ARM toolchain, allowing for patches.
 git_override(
     module_name = "toolchains_arm_gnu",
-    commit = "613f3423e4370efc1057435217f56b499c24be0c",
+    commit = "38c8921dbc10e732d97cf4db593c0b10326ff34d",
     remote = "https://github.com/LonghornRacingElectric/toolchains_arm_gnu.git",
 )
 
