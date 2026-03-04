@@ -1,4 +1,4 @@
- #ifndef VCU_CAN_H
+#ifndef VCU_CAN_H
 #define VCU_CAN_H
 
 #include "vcu_outputs.h"
