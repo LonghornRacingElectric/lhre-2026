@@ -30,11 +30,17 @@ void MX_ADC1_Init(void)
     hadc1.Init.Resolution            = ADC_RESOLUTION_12B;
     hadc1.Init.DataAlign             = ADC_DATAALIGN_RIGHT;
     hadc1.Init.GainCompensation      = 0;
-    hadc1.Init.ScanConvMode          = ADC_SCAN_DISABLE;
-    hadc1.Init.EOCSelection          = ADC_EOC_SINGLE_CONV;
+
+    /* Enable scan mode for multiple sensors */
+    hadc1.Init.ScanConvMode          = ADC_SCAN_ENABLE;
+
+    hadc1.Init.EOCSelection          = ADC_EOC_SEQ_CONV;
     hadc1.Init.LowPowerAutoWait      = DISABLE;
     hadc1.Init.ContinuousConvMode    = DISABLE;
-    hadc1.Init.NbrOfConversion       = 1;
+
+    /* 3 temperature sensors */
+    hadc1.Init.NbrOfConversion       = 3;
+
     hadc1.Init.DiscontinuousConvMode = DISABLE;
     hadc1.Init.ExternalTrigConv      = ADC_SOFTWARE_START;
     hadc1.Init.ExternalTrigConvEdge  = ADC_EXTERNALTRIGCONVEDGE_NONE;
@@ -45,22 +51,35 @@ void MX_ADC1_Init(void)
     if (HAL_ADC_Init(&hadc1) != HAL_OK)
         Error_Handler();
 
-    /* ADC Multimode configuration */
     multimode.Mode = ADC_MODE_INDEPENDENT;
 
     if (HAL_ADCEx_MultiModeConfigChannel(&hadc1, &multimode) != HAL_OK)
         Error_Handler();
 
-    /* Configure ADC Channel */
+    /* -------- Channel 1 : PA3 -------- */
+
     sConfig.Channel      = ADC_CHANNEL_4;
     sConfig.Rank         = ADC_REGULAR_RANK_1;
-    sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+    sConfig.SamplingTime = ADC_SAMPLETIME_12CYCLES_5;
     sConfig.SingleDiff   = ADC_SINGLE_ENDED;
     sConfig.OffsetNumber = ADC_OFFSET_NONE;
     sConfig.Offset       = 0;
 
-    if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-        Error_Handler();
+    HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+
+    /* -------- Channel 2 : PB0 -------- */
+
+    sConfig.Channel = ADC_CHANNEL_15;
+    sConfig.Rank    = ADC_REGULAR_RANK_2;
+
+    HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+
+    /* -------- Channel 3 : PB1 -------- */
+
+    sConfig.Channel = ADC_CHANNEL_12;
+    sConfig.Rank    = ADC_REGULAR_RANK_3;
+
+    HAL_ADC_ConfigChannel(&hadc1, &sConfig);
 }
 
 /* --------------------------------------------------------- */
@@ -76,11 +95,14 @@ void MX_ADC2_Init(void)
     hadc2.Init.Resolution            = ADC_RESOLUTION_12B;
     hadc2.Init.DataAlign             = ADC_DATAALIGN_RIGHT;
     hadc2.Init.GainCompensation      = 0;
+
     hadc2.Init.ScanConvMode          = ADC_SCAN_DISABLE;
+
     hadc2.Init.EOCSelection          = ADC_EOC_SINGLE_CONV;
     hadc2.Init.LowPowerAutoWait      = DISABLE;
     hadc2.Init.ContinuousConvMode    = DISABLE;
     hadc2.Init.NbrOfConversion       = 1;
+
     hadc2.Init.DiscontinuousConvMode = DISABLE;
     hadc2.Init.ExternalTrigConv      = ADC_SOFTWARE_START;
     hadc2.Init.ExternalTrigConvEdge  = ADC_EXTERNALTRIGCONVEDGE_NONE;
@@ -91,16 +113,16 @@ void MX_ADC2_Init(void)
     if (HAL_ADC_Init(&hadc2) != HAL_OK)
         Error_Handler();
 
-    /* Configure ADC Channel */
-    sConfig.Channel      = ADC_CHANNEL_12;
+    /* Thermal sensor */
+
+    sConfig.Channel      = ADC_CHANNEL_3;
     sConfig.Rank         = ADC_REGULAR_RANK_1;
-    sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+    sConfig.SamplingTime = ADC_SAMPLETIME_12CYCLES_5;
     sConfig.SingleDiff   = ADC_SINGLE_ENDED;
     sConfig.OffsetNumber = ADC_OFFSET_NONE;
     sConfig.Offset       = 0;
 
-    if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
-        Error_Handler();
+    HAL_ADC_ConfigChannel(&hadc2, &sConfig);
 }
 
 /* --------------------------------------------------------- */
