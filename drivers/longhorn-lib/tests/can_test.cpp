@@ -154,8 +154,9 @@ TEST_F(CanBaseTest, StartInterface_ActivatesNotificationsAndStarts) {
   // Then start — should call ActivateNotifications then Start
   {
     InSequence seq;
-    EXPECT_CALL(mockHal, ActivateNotifications(test_interface.handle,
-                                               NEW_MESSAGE_FIFO0, 0));
+    EXPECT_CALL(mockHal, ActivateNotifications(
+                             test_interface.handle,
+                             NEW_MESSAGE_FIFO0 | cFDCAN_IT_BUS_OFF, 0));
     EXPECT_CALL(mockHal, Start(test_interface.handle));
   }
 
