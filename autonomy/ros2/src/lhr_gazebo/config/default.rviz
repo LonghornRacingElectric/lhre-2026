@@ -6,8 +6,9 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
+        - /ConesVisible1
       Splitter Ratio: 0.5
-    Tree Height: 446
+    Tree Height: 388
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -161,20 +162,19 @@ Visualization Manager:
       Enabled: true
       Name: ConesVisible
       Namespaces:
-        left_cones_viz: true
-        right_cones_viz: true
+        cones: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /lhr/sensor/cones_viz
+        Value: /lhr/sensor/cones_detected
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
       Name: FOV
       Namespaces:
-        fov: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -228,7 +228,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/ThirdPersonFollower
-      Distance: 83.66500854492188
+      Distance: 55.3851432800293
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -251,10 +251,10 @@ Visualization Manager:
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 1090
+  Height: 1003
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd0000000300000000000001600000038ffc0200000003fb000000100044006900730070006c00610079007301000000480000025c000000f300fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007301000002ab0000012c0000006f00fffffffb0000000a0056006900650077007300000002ba000000c9000000c500ffffff00000001000001020000038ffc0200000002fb0000000a005600690065007700730100000048000002b8000000c500fffffffb0000001200530065006c0065006300740069006f006e0100000307000000d00000006f00ffffff00000003000006c700000042fc0100000001fb0000000800540069006d00650100000000000006c7000002dc00ffffff000004570000038f00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000003000000000000016000000338fc0200000003fb000000100044006900730070006c006100790073010000004800000222000000f300fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007301000002710000010f0000006f00fffffffb0000000a0056006900650077007300000002ba000000c9000000c500ffffff000000010000010200000338fc0200000002fb0000000a00560069006500770073010000004800000275000000c500fffffffb0000001200530065006c0065006300740069006f006e01000002c4000000bc0000006f00ffffff00000003000006c700000042fc0100000001fb0000000800540069006d00650100000000000006c7000002dc00ffffff000004570000033800000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -264,5 +264,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1735
-  X: 376
-  Y: 103
+  X: 185
+  Y: 40

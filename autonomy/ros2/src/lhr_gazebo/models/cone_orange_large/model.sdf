@@ -4,6 +4,7 @@
     <static>true</static>
     <link name="link">
       <collision name="collision">
+        <pose>0 0 -0.2525 0 0 0</pose>
         <geometry>
           <mesh>
             <uri>model://cone_orange_large/meshes/cone.stl</uri>
