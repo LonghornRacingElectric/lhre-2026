@@ -6,12 +6,17 @@
       <!-- collision disabled for tuning -->
       <!--<collision name="collision">
         <geometry>
-          <box><size>0.228 0.228 0.325</size></box>
+          <mesh>
+            <uri>model://cone_yellow/meshes/cone.stl</uri>
+          </mesh>
         </geometry>
       </collision>-->
       <visual name="visual">
+        <pose>0 0 -0.1625 0 0 0</pose>
         <geometry>
-          <box><size>0.228 0.228 0.325</size></box>
+          <mesh>
+            <uri>model://cone_yellow/meshes/cone.stl</uri>
+          </mesh>
         </geometry>
         <material>
           <ambient>1.0 1.0 0.0 1</ambient>
