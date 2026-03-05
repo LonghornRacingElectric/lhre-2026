@@ -141,7 +141,8 @@ Script: `lhr_gazebo/scripts/generate_world.py`
 - Vehicle spawn auto-computed on straightest track section
 - ODE physics at 1 kHz, real-time factor 1.0
 - `gz-sim-sensors-system` with Ogre2 render engine
-- Cone collisions disabled (Phase 4 will re-enable)
+- Blue/yellow cone collisions disabled for tuning (Phase 4 will re-enable)
+- Cone models use generated cone-shaped STL meshes (not box primitives)
 - Worlds installed by colcon via `setup.py` `data_files`
 
 ### Launch File
@@ -183,11 +184,15 @@ ros2/src/lhr_gazebo/
 │   ├── __init__.py
 │   └── joint_cmd_adapter.py
 ├── models/
-│   ├── fsae_vehicle/model.sdf      (vehicle + IMU + LiDAR)
+│   ├── fsae_vehicle/
+│   │   ├── model.sdf               (vehicle + IMU + LiDAR)
+│   │   └── meshes/                  (carBody.stl, carTire.stl)
 │   ├── cone_blue/
-│   ├── cone_yellow/
-│   ├── cone_orange_small/
-│   └── cone_orange_large/
+│   │   ├── model.sdf
+│   │   └── meshes/cone.stl
+│   ├── cone_yellow/                 (same structure)
+│   ├── cone_orange_small/           (same structure)
+│   └── cone_orange_large/           (same structure)
 ├── scripts/
 │   └── generate_world.py           (--style autocross|oval|simple)
 ├── worlds/

@@ -235,7 +235,7 @@ The `track_style` argument selects the track generator (`oval`, `autocross`, or 
 
 ### Vehicle model
 
-The FSAE vehicle (`models/fsae_vehicle/model.sdf`) is a simplified box-and-cylinder model:
+The FSAE vehicle (`models/fsae_vehicle/model.sdf`) uses STL meshes (`meshes/carBody.stl`, `meshes/carTire.stl`) for visuals with simplified collision geometry:
 
 | Parameter | Value |
 |-----------|-------|
@@ -515,8 +515,8 @@ Processes LiDAR pointcloud to detect cones. Pipeline: ground removal → range f
 | `min_range` | `0.8` | Min detection range — avoids vehicle self-hits (m) |
 | `ground_z_min` | `-0.40` | Ground removal lower threshold in sensor frame (m) |
 | `ground_z_max` | `0.5` | Ground removal upper threshold in sensor frame (m) |
-| `cluster_radius` | `0.35` | Euclidean clustering radius (m) |
-| `min_cluster_points` | `2` | Minimum points for a valid cluster |
+| `cluster_radius` | `0.5` | Euclidean clustering radius (m) |
+| `min_cluster_points` | `1` | Minimum points for a valid cluster |
 | `max_cluster_extent` | `0.5` | Maximum cluster bounding box extent (m) |
 | `max_cluster_points` | `50` | Maximum points in a valid cone cluster |
 | `dedup_radius` | `1.5` | Spatial dedup radius — new detections within this distance of existing ones are ignored (m) |
