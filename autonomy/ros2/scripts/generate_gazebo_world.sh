@@ -5,5 +5,4 @@ cd "$(dirname "$0")/.."
 source "$(dirname "$0")/_ros_env.sh"
 source install/setup.bash || true
 
-# setsid avoids WSLg focus conflicts with other Qt apps (e.g. RViz)
-setsid ros2 run plotjuggler plotjuggler "$@"
+python3 src/lhr_gazebo/scripts/generate_world.py "$@"

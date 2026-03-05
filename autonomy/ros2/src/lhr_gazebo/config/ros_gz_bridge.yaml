@@ -1,0 +1,76 @@
+# ros_gz_bridge topic mapping for the LHR FSAE Gazebo simulation.
+#
+# Bridges Gazebo transport topics to/from ROS 2.
+
+# Odometry: Gazebo → ROS2
+- gz_topic_name: "/model/fsae_vehicle/odometry"
+  ros_topic_name: "/lhr/vehicle/odom"
+  gz_type_name: "gz.msgs.Odometry"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  direction: GZ_TO_ROS
+
+# TF: Gazebo → ROS2
+- gz_topic_name: "/model/fsae_vehicle/tf"
+  ros_topic_name: "/tf"
+  gz_type_name: "gz.msgs.Pose_V"
+  ros_type_name: "tf2_msgs/msg/TFMessage"
+  direction: GZ_TO_ROS
+
+# Steering position commands: ROS2 → Gazebo
+- ros_topic_name: "/model/fsae_vehicle/joint/front_left_steering_joint/cmd_pos"
+  gz_topic_name: "/model/fsae_vehicle/joint/front_left_steering_joint/cmd_pos"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+
+- ros_topic_name: "/model/fsae_vehicle/joint/front_right_steering_joint/cmd_pos"
+  gz_topic_name: "/model/fsae_vehicle/joint/front_right_steering_joint/cmd_pos"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+
+# Wheel velocity commands: ROS2 → Gazebo
+- ros_topic_name: "/model/fsae_vehicle/joint/front_left_wheel_joint/cmd_vel"
+  gz_topic_name: "/model/fsae_vehicle/joint/front_left_wheel_joint/cmd_vel"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+
+- ros_topic_name: "/model/fsae_vehicle/joint/front_right_wheel_joint/cmd_vel"
+  gz_topic_name: "/model/fsae_vehicle/joint/front_right_wheel_joint/cmd_vel"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+
+- ros_topic_name: "/model/fsae_vehicle/joint/rear_left_wheel_joint/cmd_vel"
+  gz_topic_name: "/model/fsae_vehicle/joint/rear_left_wheel_joint/cmd_vel"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+
+- ros_topic_name: "/model/fsae_vehicle/joint/rear_right_wheel_joint/cmd_vel"
+  gz_topic_name: "/model/fsae_vehicle/joint/rear_right_wheel_joint/cmd_vel"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+
+# Clock: Gazebo → ROS2 (for sim time)
+- gz_topic_name: "/clock"
+  ros_topic_name: "/clock"
+  gz_type_name: "gz.msgs.Clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  direction: GZ_TO_ROS
+
+# IMU: Gazebo → ROS2
+- gz_topic_name: "/imu/data"
+  ros_topic_name: "/lhr/imu/data"
+  gz_type_name: "gz.msgs.IMU"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  direction: GZ_TO_ROS
+
+# LiDAR PointCloud: Gazebo → ROS2
+- gz_topic_name: "/lidar/points/points"
+  ros_topic_name: "/lhr/lidar/points"
+  gz_type_name: "gz.msgs.PointCloudPacked"
+  ros_type_name: "sensor_msgs/msg/PointCloud2"
+  direction: GZ_TO_ROS
