@@ -2,6 +2,7 @@ import datetime
 import os
 import logging
 import json
+import csv
 import pickle
 import base64
 import sys
@@ -53,6 +54,9 @@ class MQTTHandler:
         self.target = target
         self.sessions = db_sessions
         self.client = mqtt_client.Client(client_id = name)
+        # logging state for Orion csv output
+        self.orion_log_path: Path | None = None
+        self.orion_cols: list[str] = []
         self.client.username_pw_set(name)
         self.client.user_data_set(self)  # Pass self to callbacks
         self.client.on_connect = self.on_connect
@@ -159,6 +163,27 @@ class MQTTHandler:
                             next_packet_id = result[0] + 1
                         else:
                             next_packet_id = 1
+
+                    # determine log base directory: allow override for mounted volume
+                    base_env = os.getenv("LOG_BASE_DIR")
+                    if base_env:
+                        log_base = Path(base_env)
+                    else:
+                        repo_root = Path(__file__).parents[2]
+                        log_base = repo_root / "logs"
+                    log_dir = log_base / "orion"
+                    log_dir.mkdir(parents=True, exist_ok=True)
+                    log_file = log_dir / f"orion_log_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                    cols = []
+                    # Qualify columns with table name so similarly named fields map correctly.
+                    for table, col_spec in self.table_specs["Orion"].items():
+                        cols.extend(f"{table}.{col}" for col in col_spec.keys())
+                    with open(log_file, 'w', newline='') as f:
+                        csv.writer(f).writerow(cols)
+                    logging.info(f'\t\tCreated new log file for Orion at {log_file}')
+                    # record path and header columns for later appends
+                    self.orion_log_path = log_file
+                    self.orion_cols = cols
                 except Exception as e:
                     logging.error(f'\t\tUnable to fetch latest Orion packet_id: {e}')
                     next_packet_id = 1
@@ -313,7 +338,35 @@ class MQTTHandler:
                         if (len(self.cache) == 24):
                             self.cache_flush(car)
                             self.cache.clear()
+
         session.commit()
+
+        # if an Orion log file is active, append this decoded record
+        if car == "Orion" and self.orion_log_path is not None:
+            flat = {}
+            for table in table_specs.keys():
+                model = builder._models.get(self._model_key(table))
+                if not model:
+                    continue
+
+                # Mirror the same unpacking shape as DB insertion logic.
+                data = {col.name: message_dict[col.name] for col in model.__table__.columns if col.name in message_dict} if table == "packet" else None
+                if data is None:
+                    data = ({col.name: message_dict[table][col.name] for col in model.__table__.columns if col.name in message_dict[table]}
+                            | {"packet_id": message_dict["packet_id"]}) if table in message_dict else None
+
+                if data is not None:
+                    for col_name, val in data.items():
+                        flat[f"{table}.{col_name}"] = val
+
+            row_vals = []
+            for col in self.orion_cols:
+                val = flat.get(col, "")
+                if isinstance(val, (list, dict)):
+                    val = json.dumps(val)
+                row_vals.append(val)
+            with open(self.orion_log_path, 'a', newline='') as f:
+                csv.writer(f).writerow(row_vals)
 
 
     def _b64_ingest(self, payload: str, high_freq: bool):

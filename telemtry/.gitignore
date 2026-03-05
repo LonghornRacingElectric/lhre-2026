@@ -11,3 +11,5 @@ events.png
 
 !stack/ingest/common_schema.sql
 
+logs/
+

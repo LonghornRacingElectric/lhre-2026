@@ -31,9 +31,11 @@ services:
       SERVER_TARGET: 'LOCAL'
       DB_CONN_TYPE: 6
       LOGLEVEL: 'DEBUG'
+      LOG_BASE_DIR: /app/logs
     volumes:
       - ../../.env:/.env
       - ../../net_configs.json:/app/net_configs.json
+      - ../../logs:/app/logs
     networks:
       - telemetry_network
 
@@ -84,6 +86,9 @@ volumes:
     external: true
   telemetry_db:
     external: true
+  # named volume used when bind-mount is not desired
+  logs:
+    driver: local
 
 networks:
   telemetry_network:
