@@ -5,7 +5,7 @@ firmware_project_g4(
     linker_script = "STM32G491XX_FLASH.ld",
     startup_script = "startup_stm32g491xx.s",
     defines = [
-        "STM32G491xx",
+        "STM32G474xx",
     ],
     enable_freertos = True,
     enable_usb = True,
