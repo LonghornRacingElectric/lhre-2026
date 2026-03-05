@@ -25,4 +25,5 @@ py_binary(
     deps = [
         ":sim",
     ],
+    target_compatible_with = ["@platforms//os:linux", "@platforms//os:macos"],
 )
