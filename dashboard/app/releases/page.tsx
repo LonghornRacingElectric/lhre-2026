@@ -1,47 +1,44 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import ReactMarkdown from 'react-markdown';
 import {
-    fetchReleases, getGlobalReleases, getLatestRelease,
-    FIRMWARE_TARGETS, type Release,
+    fetchReleases, fetchWorkflowRuns,
+    FIRMWARE_TARGETS, getTargetReleases, getGlobalReleases, getLatestRelease, type Release, type WorkflowRun,
 } from '@/lib/github';
+import FlashModal from '@/components/FlashModal';
 
-export default function ReleasesPage() {
+export default function TargetMatrixPage() {
     const [releases, setReleases] = useState<Release[]>([]);
+    const [runs, setRuns] = useState<WorkflowRun[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [filter, setFilter] = useState('ALL');
+    const [flashTarget, setFlashTarget] = useState<{ id: string; name: string; version: string; sha: string } | null>(null);
 
     useEffect(() => {
-        fetchReleases()
-            .then(r => {
+        Promise.all([fetchReleases(), fetchWorkflowRuns()])
+            .then(([r, w]) => {
                 setReleases(r);
+                setRuns(w.workflow_runs);
                 setLoading(false);
             })
             .catch(() => setLoading(false));
     }, []);
 
-    const allReleases = [...releases]
-        .sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
-
-    const globalReleases = getGlobalReleases(releases)
-        .sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
-
-    const latestStable = getLatestRelease(globalReleases.filter(r => !r.prerelease && !r.draft));
-
-    const filteredReleases = search
-        ? allReleases.filter(r =>
-            r.tag_name.toLowerCase().includes(search.toLowerCase()) ||
-            r.name?.toLowerCase().includes(search.toLowerCase()) ||
-            r.body?.toLowerCase().includes(search.toLowerCase())
-        )
-        : allReleases;
-
-    function formatDate(dateStr: string): string {
-        return new Date(dateStr).toLocaleDateString('en-US', {
-            year: 'numeric', month: 'short', day: 'numeric',
-        });
+    // Build status from workflow runs
+    const targetBuildStatus: Record<string, string> = {};
+    for (const run of runs) {
+        const isGlobal = ["presubmit", "postsubmit", "release"].some(w => run.name?.toLowerCase().includes(w));
+        if (isGlobal && !targetBuildStatus['GLOBAL']) {
+            targetBuildStatus['GLOBAL'] = run.conclusion || 'in_progress';
+        }
+        for (const t of FIRMWARE_TARGETS) {
+            if (!targetBuildStatus[t.id]) {
+                if (isGlobal || run.name?.toLowerCase().includes(t.id.toLowerCase())) {
+                    targetBuildStatus[t.id] = run.conclusion || 'in_progress';
+                }
+            }
+        }
     }
 
     function timeAgo(dateStr: string): string {
@@ -54,310 +51,269 @@ export default function ReleasesPage() {
         return `${Math.floor(diff / 86400)}d ago`;
     }
 
-    function getBadgeClass(r: Release): string {
-        if (r.draft) return 'neutral';
-        if (r.prerelease) return 'warning';
-        return 'success';
-    }
-
-    function getBadgeLabel(r: Release): string {
-        if (r.draft) return 'Draft';
-        if (r.prerelease) return 'Pre-release';
-        return 'Stable';
-    }
-
-    function extractLocation(assetName: string, targetId: string): string | null {
-        // Asset names follow pattern: {target}_firmware_2026_{LOCATION}.{ext}
-        // e.g. csm_firmware_2026_FL.bin -> "FL"
-        const baseName = assetName.replace(/\.[^.]+$/, ''); // strip extension
-        const targetLower = targetId.toLowerCase();
-        const lowerBase = baseName.toLowerCase();
-
-        // Find the target id in the name and check what comes after
-        const idx = lowerBase.indexOf(targetLower);
-        if (idx === -1) return null;
-
-        const afterTarget = baseName.substring(idx + targetId.length);
-        // Match pattern like _firmware_2026_FL or just ending with _FL
-        const locMatch = afterTarget.match(/_([A-Z]{2})$/i);
-        if (locMatch) {
-            return locMatch[1].toUpperCase();
-        }
-        return null;
-    }
-
-    const LOCATION_LABELS: Record<string, string> = {
-        FL: 'Front Left',
-        FR: 'Front Right',
-        RL: 'Rear Left',
-        RR: 'Rear Right',
+    const getIconForTarget = (id: string) => {
+        if (id === 'GLOBAL') return 'public';
+        const map: Record<string, string> = {
+            VCU: 'memory', HVC: 'battery_charging_full', CSM: 'sensors',
+            DUI: 'display_settings', LVBMS: 'battery_std', TSM: 'device_thermostat',
+            USM: 'precision_manufacturing', PDU: 'electrical_services', BEVO: 'cell_tower',
+        };
+        return map[id] || 'memory';
     };
 
-    function renderAssetsGroups(assets?: { name: string; browser_download_url: string }[]) {
-        if (!assets || assets.length === 0) return null;
+    const allTargets = [
+        { id: 'GLOBAL', fullName: 'Global Trunk Release', chip: 'All Architectures' },
+        ...FIRMWARE_TARGETS
+    ];
 
-        const grouped: Record<string, typeof assets> = {};
-        const others: typeof assets = [];
+    const filteredTargets = allTargets.filter(t => {
+        if (filter !== 'ALL' && t.id !== filter) return false;
+        if (search && !t.id.toLowerCase().includes(search.toLowerCase()) && !t.fullName.toLowerCase().includes(search.toLowerCase())) return false;
+        return true;
+    });
 
-        assets.forEach(asset => {
-            const lowerName = asset.name.toLowerCase();
-            const target = FIRMWARE_TARGETS.find(t => lowerName.includes(t.id.toLowerCase()));
-            if (target) {
-                if (!grouped[target.id]) grouped[target.id] = [];
-                grouped[target.id].push(asset);
-            } else {
-                others.push(asset);
-            }
-        });
-
-        return (
-            <div className="release-assets-grouped">
-                {FIRMWARE_TARGETS.map(target => {
-                    const targetAssets = grouped[target.id];
-                    if (!targetAssets || targetAssets.length === 0) return null;
-
-                    // Sub-group by location
-                    const byLocation: Record<string, typeof targetAssets> = {};
-                    const noLocation: typeof targetAssets = [];
-
-                    targetAssets.forEach(a => {
-                        const loc = extractLocation(a.name, target.id);
-                        if (loc) {
-                            if (!byLocation[loc]) byLocation[loc] = [];
-                            byLocation[loc].push(a);
-                        } else {
-                            noLocation.push(a);
-                        }
-                    });
-
-                    const locations = Object.keys(byLocation).sort();
-                    const hasLocations = locations.length > 0;
-
-                    return (
-                        <div key={target.id} className="release-target-assets">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <div className={`target-icon small ${target.id.toLowerCase()}`} title={target.fullName}>
-                                    {target.id.substring(0, 3)}
-                                </div>
-                                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{target.name}</span>
-                                {hasLocations && (
-                                    <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>
-                                        {locations.length} location{locations.length !== 1 ? 's' : ''}
-                                    </span>
-                                )}
-                            </div>
-                            {!hasLocations ? (
-                                /* Single location - flat download links */
-                                <div className="target-asset-links" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
-                                    <span className="target-asset-label">Downloads:</span>
-                                    {noLocation.map(a => {
-                                        const ext = a.name.split('.').pop()?.toUpperCase() || 'FILE';
-                                        return (
-                                            <a key={a.name} href={a.browser_download_url} className="target-asset-link" target="_blank" rel="noopener noreferrer">
-                                                ⬇ {ext}
-                                            </a>
-                                        );
-                                    })}
-                                    <button className="target-asset-link ota-btn" onClick={() => { }} title="Over-the-Air Update (Coming Soon)">
-                                        ☁️ OTA
-                                    </button>
-                                </div>
-                            ) : (
-                                /* Multiple locations - show sub-rows */
-                                <div className="target-locations" style={{ width: '100%', marginTop: 6 }}>
-                                    {locations.map(loc => (
-                                        <div key={loc} className="target-location-row" style={{
-                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                            padding: '4px 0 4px 32px', borderTop: '1px solid var(--border-color)',
-                                        }}>
-                                            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)', minWidth: 80 }}>
-                                                📍 {loc} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{LOCATION_LABELS[loc] || ''}</span>
-                                            </span>
-                                            <div className="target-asset-links" style={{ display: 'flex', alignItems: 'center' }}>
-                                                {byLocation[loc].map(a => {
-                                                    const ext = a.name.split('.').pop()?.toUpperCase() || 'FILE';
-                                                    return (
-                                                        <a key={a.name} href={a.browser_download_url} className="target-asset-link" target="_blank" rel="noopener noreferrer">
-                                                            ⬇ {ext}
-                                                        </a>
-                                                    );
-                                                })}
-                                                <button className="target-asset-link ota-btn" onClick={() => { }} title={`OTA to ${loc} (Coming Soon)`}>
-                                                    ☁️ OTA
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
-                {others.length > 0 && (
-                    <div className="release-target-assets">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div className="target-icon small" style={{ background: 'var(--border-color)', color: 'var(--text-muted)' }} title="Other Assets">
-                                OTH
-                            </div>
-                            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Other</span>
-                        </div>
-                        <div className="target-asset-links" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
-                            <span className="target-asset-label">Downloads:</span>
-                            {others.map(a => (
-                                <a key={a.name} href={a.browser_download_url} className="target-asset-link" target="_blank" rel="noopener noreferrer">
-                                    ⬇ {a.name}
-                                </a>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
-        );
-    }
+    const getLatestForTarget = (targetId: string) => {
+        if (targetId === 'GLOBAL') {
+            return getLatestRelease(getGlobalReleases(releases));
+        }
+        return getLatestRelease(getTargetReleases(releases, targetId));
+    };
 
     return (
         <>
             {/* Header */}
-            <div className="page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                <div>
-                    <div className="page-breadcrumb">
-                        <Link href="/">Dashboard</Link>
-                        <span>›</span>
-                        <span style={{ color: 'var(--text-primary)' }}>Releases</span>
-                    </div>
-                    <h1 className="page-title">
-                        Global Repository Releases
-                        <span className="badge info" style={{ marginLeft: 12, verticalAlign: 'middle' }}>
-                            lhre-2026
-                        </span>
-                    </h1>
-                </div>
-                <div className="search-bar" style={{ marginTop: 16 }}>
-                    <span className="search-icon">🔍</span>
-                    <input
-                        type="text"
-                        placeholder="Search releases..."
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                    />
-                </div>
-            </div>
-
-            {/* Featured Stable Release */}
-            {!loading && latestStable && (
-                <div className="release-featured">
-                    <div className="release-featured-label">
-                        <span className="star">⭐</span> Stable Trunk Release
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                        <div style={{ position: 'relative', zIndex: 1 }}>
-                            <div className="release-version">
-                                {latestStable.version || latestStable.tag_name}
-                                {' '}
-                                <span className="badge success" style={{ verticalAlign: 'middle' }}>Production Ready</span>
-                            </div>
-                            <div className="release-date">
-                                Released {formatDate(latestStable.published_at)} · {timeAgo(latestStable.published_at)}
-                            </div>
-                            {latestStable.body && (
-                                <div className="release-body release-markdown">
-                                    <ReactMarkdown>
-                                        {latestStable.body}
-                                    </ReactMarkdown>
-                                </div>
-                            )}
-                            {latestStable.author && (
-                                <div className="author" style={{ marginTop: 8 }}>
-                                    {latestStable.author.avatar_url && (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img src={latestStable.author.avatar_url} alt={latestStable.author.login} className="author-avatar" />
-                                    )}
-                                    <span className="author-name">by {latestStable.author.login}</span>
-                                </div>
-                            )}
-                            <div className="release-actions" style={{ marginBottom: 16 }}>
-                                <a href={latestStable.html_url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: 12 }}>
-                                    📝 View Release on GitHub
-                                </a>
-                            </div>
-                            {renderAssetsGroups(latestStable.assets)}
-                        </div>
+            <header className="page-header-bar">
+                <div className="page-header-left">
+                    <h2 className="page-header-title">Target Matrix</h2>
+                    <div style={{ height: 24, width: 1, background: 'var(--stroke)' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>cloud_done</span>
+                        <span>FIRMWARE REPO: SYNCED</span>
                     </div>
                 </div>
-            )}
-
-            {/* Release History */}
-            <div className="section-header">
-                <h2 className="section-title">Release History</h2>
-                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                    {filteredReleases.length} release{filteredReleases.length !== 1 ? 's' : ''}
-                </span>
-            </div>
-
-            {loading ? (
-                <div className="loading-text">Loading releases from GitHub…</div>
-            ) : filteredReleases.length === 0 ? (
-                <div className="empty-state">
-                    <div className="empty-state-icon">📦</div>
-                    <p>{search ? 'No matching releases found' : 'No releases yet'}</p>
-                </div>
-            ) : (
-                filteredReleases.map((r, i) => (
-                    <div
-                        className="release-item"
-                        key={r.id}
-                        style={{ animationDelay: `${0.05 * Math.min(i, 10)}s` }}
+                <div className="page-header-right">
+                    <div className="search-wrap">
+                        <span className="material-symbols-outlined">search</span>
+                        <input
+                            type="text"
+                            className="search-input"
+                            placeholder="SEARCH TARGET ID..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                        />
+                    </div>
+                    <button
+                        className="btn-secondary"
+                        onClick={() => { setLoading(true); Promise.all([fetchReleases(), fetchWorkflowRuns()]).then(([r, w]) => { setReleases(r); setRuns(w.workflow_runs); setLoading(false); }); }}
                     >
-                        <div className="release-item-header">
-                            <div>
-                                <div className="release-item-version">
-                                    {r.name || r.tag_name}
-                                    {' '}
-                                    <span className={`badge ${getBadgeClass(r)}`} style={{ marginLeft: 8 }}>
-                                        {getBadgeLabel(r)}
-                                    </span>
-                                    {r.targetPrefix && (
-                                        <span className="badge info" style={{ marginLeft: 4 }}>
-                                            {r.targetPrefix}
-                                        </span>
+                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span>
+                        Refresh
+                    </button>
+                </div>
+            </header>
+
+            {/* Filters */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 32px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-muted)', textTransform: 'uppercase', marginRight: 8 }}>Filter Targets:</span>
+                    <button className={`filter-pill ${filter === 'ALL' ? 'active' : ''}`} onClick={() => setFilter('ALL')}>All Systems</button>
+                    {allTargets.map(t => (
+                        <button key={t.id} className={`filter-pill ${filter === t.id ? 'active' : ''}`} onClick={() => setFilter(t.id)}>
+                            {t.id}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Table */}
+            <main style={{ flex: 1, overflowY: 'auto', padding: '0 32px 32px' }}>
+                {/* Header */}
+                <div className="matrix-header">
+                    <div>Target Identity</div>
+                    <div>Version Status</div>
+                    <div>Build Metadata</div>
+                    <div>Hardware</div>
+                    <div style={{ textAlign: 'right' }}>Actions</div>
+                </div>
+
+                {loading ? (
+                    <div className="loading-text">Loading target data…</div>
+                ) : filteredTargets.length === 0 ? (
+                    <div className="empty-state"><p>No targets match your search</p></div>
+                ) : (
+                    filteredTargets.map(target => {
+                        const latestRelease = getLatestForTarget(target.id);
+                        const latest = latestRelease ? {
+                            version: latestRelease.version || latestRelease.tag_name,
+                            sha: latestRelease.tag_name.substring(0, 6),
+                            time: latestRelease.published_at,
+                            author: latestRelease.author?.login || 'unknown',
+                            assets: latestRelease.assets.filter(a => target.id === 'GLOBAL' || a.name.toLowerCase().includes(target.id.toLowerCase()))
+                        } : null;
+
+                        const locations = new Set<string>();
+                        if (latest && target.id !== 'GLOBAL') {
+                            latest.assets.forEach(a => {
+                                const baseName = a.name.replace(/\.[^.]+$/, '');
+                                const locMatch = baseName.match(/_([A-Z]{2})$/i);
+                                if (locMatch) locations.add(locMatch[1].toUpperCase());
+                            });
+                        }
+                        const locArray = Array.from(locations).sort();
+
+                        const status = targetBuildStatus[target.id];
+                        const isFailing = status === 'failure';
+                        const versionBadgeCls = isFailing ? 'error' : (status === 'success' ? 'stable' : 'warning');
+                        const versionLabel = isFailing ? 'BUILD FAILED' : (latest ? `${latest.version} ${status === 'success' ? 'STABLE' : 'UNKNOWN'}` : 'NO RELEASE');
+
+                        return (
+                            <div key={target.id} className="matrix-row">
+                                {/* Identity */}
+                                <div className="matrix-identity">
+                                    <div className="matrix-icon">
+                                        <span className="material-symbols-outlined">{getIconForTarget(target.id)}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span className="matrix-name">{target.id}</span>
+                                        <span className="matrix-id">{target.fullName}</span>
+                                    </div>
+                                </div>
+                                {/* Version */}
+                                <div>
+                                    <div className={`matrix-version-badge ${versionBadgeCls}`}>
+                                        {!isFailing && <span className="matrix-version-dot" />}
+                                        {isFailing && <span className="material-symbols-outlined" style={{ fontSize: 12 }}>block</span>}
+                                        {versionLabel}
+                                    </div>
+                                </div>
+                                {/* Metadata */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    {latest ? (
+                                        <>
+                                            <div className="matrix-sha">
+                                                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>commit</span>
+                                                <span className="matrix-sha-link">sha: {latest.sha}</span>
+                                            </div>
+                                            <span className="matrix-built-by">Built {timeAgo(latest.time)} by @{latest.author}</span>
+                                        </>
+                                    ) : (
+                                        <span className="matrix-built-by">No releases yet</span>
                                     )}
                                 </div>
-                                <div className="release-item-date">{formatDate(r.published_at)}</div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                {r.author && (
-                                    <div className="author">
-                                        {r.author.avatar_url && (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img src={r.author.avatar_url} alt={r.author.login} className="author-avatar" />
-                                        )}
-                                        <span className="author-name">{r.author.login}</span>
-                                    </div>
-                                )}
-                                <a href={r.html_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13 }}>
-                                    View Details →
-                                </a>
-                            </div>
-                        </div>
-                        {r.body && (
-                            <div className="release-item-body release-markdown">
-                                <ReactMarkdown>
-                                    {r.body}
-                                </ReactMarkdown>
-                            </div>
-                        )}
-                        {r.assets && r.assets.length > 0 && renderAssetsGroups(r.assets)}
-                    </div>
-                ))
-            )}
+                                {/* Hardware */}
+                                <div>
+                                    <span className="matrix-chip">{target.chip}</span>
+                                </div>
+                                {/* Actions */}
+                                {/* Actions */}
+                                <div className="matrix-actions">
+                                    {target.id === 'GLOBAL' && latest ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+                                            <a
+                                                href={`https://github.com/LonghornRacingElectric/lhre-2026/releases/tag/${latest.version}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="btn-primary"
+                                                style={{ textDecoration: 'none', textAlign: 'center' }}
+                                            >
+                                                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>open_in_new</span>
+                                                VIEW TRUNK
+                                            </a>
+                                        </div>
+                                    ) : isFailing ? (
+                                        <a
+                                            href="https://github.com/LonghornRacingElectric/lhre-2026/actions"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: 8,
+                                                borderRadius: 4, border: '1px solid rgba(218, 54, 51, 0.5)',
+                                                color: 'var(--error)', padding: '8px 16px', fontSize: 13,
+                                                fontWeight: 700, textDecoration: 'none', transition: 'all 0.2s',
+                                            }}
+                                        >
+                                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>bug_report</span>
+                                            LOGS
+                                        </a>
+                                    ) : latest ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+                                            {(() => {
+                                                const groups: Record<string, { loc: string | null; bin?: string; hex?: string; elf?: string }> = {};
+                                                latest.assets.forEach(a => {
+                                                    const extMatch = a.name.match(/\.(bin|hex|elf)$/i);
+                                                    if (!extMatch) return;
+                                                    const ext = extMatch[1].toLowerCase();
 
-            <footer className="footer">
-                <span>© 2026 Longhorn Racing Electric. Built for the track.</span>
-                <div className="footer-links">
-                    <a href="https://github.com/LonghornRacingElectric/lhre-2026" target="_blank" rel="noopener noreferrer">GitHub</a>
-                    <a href="https://github.com/LonghornRacingElectric/lhre-2026/releases" target="_blank" rel="noopener noreferrer">All Releases</a>
-                </div>
-            </footer>
+                                                    const baseName = a.name.replace(/\.[^.]+$/, '');
+                                                    const locMatch = baseName.match(/_([A-Z]{2})$/i);
+                                                    const loc = locMatch ? locMatch[1].toUpperCase() : null;
+                                                    const key = loc || 'DEFAULT';
+
+                                                    if (!groups[key]) groups[key] = { loc };
+                                                    groups[key][ext as 'bin' | 'hex' | 'elf'] = a.browser_download_url;
+                                                });
+
+                                                const groupVals = Object.values(groups).sort((a, b) => (a.loc || '').localeCompare(b.loc || ''));
+                                                if (groupVals.length === 0) {
+                                                    return <span className="matrix-built-by">No flashable artifacts</span>;
+                                                }
+
+                                                return groupVals.map(g => (
+                                                    <div key={g.loc || 'default'} style={{ display: 'flex', flexDirection: 'column', gap: 4, background: 'var(--bg-dark)', padding: 6, borderRadius: 6, border: '1px solid var(--stroke)' }}>
+                                                        {g.loc && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textAlign: 'center' }}>LOCATION: {g.loc}</span>}
+                                                        {g.bin && (
+                                                            <button
+                                                                className="btn-primary"
+                                                                style={{ padding: '4px 8px', fontSize: 11, width: '100%' }}
+                                                                onClick={() => setFlashTarget({
+                                                                    id: g.loc ? `${target.id}_${g.loc}` : target.id,
+                                                                    name: g.loc ? `${target.fullName} (${g.loc})` : target.fullName,
+                                                                    version: latest.version,
+                                                                    sha: latest.sha,
+                                                                })}
+                                                            >
+                                                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>flash_on</span>
+                                                                {g.loc ? `FLASH ${g.loc}` : 'FLASH TARGET'}
+                                                            </button>
+                                                        )}
+                                                        <div style={{ display: 'flex', gap: 4 }}>
+                                                            {['bin', 'hex', 'elf'].map(e => {
+                                                                const url = g[e as 'bin' | 'hex' | 'elf'];
+                                                                return url ? (
+                                                                    <a key={e} href={url} target="_blank" rel="noopener noreferrer" title={`Download ${e.toUpperCase()}`} style={{
+                                                                        flex: 1, textAlign: 'center', padding: '4px 0', fontSize: 10, background: 'rgba(255,255,255,0.05)',
+                                                                        color: 'white', textDecoration: 'none', borderRadius: 4, border: '1px solid rgba(255,255,255,0.1)',
+                                                                        transition: 'background 0.2s', fontFamily: 'var(--font-mono)'
+                                                                    }}>
+                                                                        {e.toUpperCase()}
+                                                                    </a>
+                                                                ) : null;
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                ));
+                                            })()}
+                                        </div>
+                                    ) : (
+                                        <span className="matrix-built-by">N/A</span>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })
+                )}
+            </main>
+
+            {/* Flash Modal */}
+            {flashTarget && (
+                <FlashModal
+                    targetId={flashTarget.id}
+                    targetName={flashTarget.name}
+                    version={flashTarget.version}
+                    sha={flashTarget.sha}
+                    onClose={() => setFlashTarget(null)}
+                />
+            )}
         </>
     );
 }

@@ -129,7 +129,7 @@ export async function fetchCommits(days = 7): Promise<Commit[]> {
 export function getTargetReleases(releases: Release[], targetId: string): Release[] {
     return releases.filter(r => {
         const prefix = r.targetPrefix || '';
-        return prefix.startsWith(targetId + '/') || prefix === targetId;
+        return prefix === '' || prefix.startsWith(targetId + '/') || prefix === targetId;
     });
 }
 
