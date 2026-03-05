@@ -1,0 +1,8 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+
+py_binary(
+    name = "refresh_compile_commands",
+    srcs = ["refresh_compile_commands.py"],
+    data = ["fix_compile_commands.py"],
+    visibility = ["//visibility:public"],
+)

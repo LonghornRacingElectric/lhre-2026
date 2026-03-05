@@ -1,5 +1,8 @@
 {
   "compilerOptions": {
-    "module": "CommonJS"
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "module": "commonjs",
+    "target": "es2020"
   }
 }

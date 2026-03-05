@@ -1,5 +1,6 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//tools:outputs/build_outputs.bzl", "MCU_FLAGS")
 
 cc_binary(
     name = "vcu_model_host",
@@ -9,8 +10,9 @@ cc_binary(
 
 cc_library(
     name = "vcu_model_2026",
-    srcs = glob(["src/**/*.c"]),
-    hdrs = glob(["inc/**/*.h"]),
+    srcs = glob(["src/**/*.c", "util/**/*.c", "components/**/*.c"]),
+    hdrs = glob(["inc/**/*.h", "util/**/*.h", "components/**/*.h"]),
+    includes = ["inc/", "util/", "components/"],
     include_prefix = "vcu_model",
     visibility = ["//visibility:public"],
 )
@@ -21,8 +23,10 @@ cc_library(
         "@platforms//cpu:arm",
         "@platforms//os:none",
     ],
-    srcs = glob(["src/**/*.c"]),
-    hdrs = glob(["inc/**/*.h"]),
+    srcs = glob(["src/**/*.c", "util/**/*.c", "components/**/*.c"]),
+    hdrs = glob(["inc/**/*.h", "util/**/*.h", "components/**/*.h"]),
+    includes = ["inc/", "util/", "components/"],
+    copts = MCU_FLAGS,
     include_prefix = "vcu_model",
     visibility = ["//visibility:public"],
 )

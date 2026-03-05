@@ -157,10 +157,17 @@ def main():
 
         process = os.popen(f"{dfu_util_exe_actual_path} --list")
         dfu_path = find_first_path_for_device_regex(process.read())
-        dfu_command = f'{dfu_util_exe_actual_path} -a 0 -p "{dfu_path}" --dfuse-address 0x08000000 -D "{firmware_elf_actual_path}"'
-        print(f'DFU VID:PID used: -p "{dfu_path}"')
+        # Flash to both banks so the board boots correctly regardless of
+        # which bank BFB2 is currently pointing at (OTA toggles BFB2).
+        # Bank 1: 0x08000000, Bank 2: 0x08040000 (STM32G4, 512K flash)
+        for bank_addr in ["0x08000000"]:
+            dfu_command = (
+                f'{dfu_util_exe_actual_path} -a 0 -p "{dfu_path}" '
+                f'--dfuse-address {bank_addr} -D "{firmware_elf_actual_path}"'
+            )
+            print(f"{bcolors.OKBLUE}--- Flashing to {bank_addr} ---{bcolors.ENDC}")
+            run_command(dfu_command, ignore_error=False)
 
-        run_command(dfu_command, ignore_error=False)
         run_command(
             f'{dfu_util_exe_actual_path} -a 0 -p "{dfu_path}" -s :leave',
             ignore_error=True,

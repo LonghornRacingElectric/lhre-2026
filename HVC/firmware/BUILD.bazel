@@ -1,0 +1,28 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//tools:outputs/build_outputs.bzl", "firmware_project_g4")
+
+firmware_project_g4(
+    name = "hvc_firmware_2026",
+    defines = [
+        "STM32G474xx",
+    ],
+    enable_dfu = True,
+    enable_freertos = True,
+    enable_usb = True,
+    extra_includes = [
+        "../adbms6830/inc",
+    ],
+    extra_srcs = [
+        "//HVC/adbms6830:adbms_sources",
+    ],
+    linker_script = "STM32G474XX_FLASH.ld",
+    startup_script = "startup_stm32g474xx.s",
+    usb_device_name = "High Voltage Controller",
+)
+
+cc_library(
+    name = "hvc_state_machine_h",
+    hdrs = ["Core/Inc/hvc_states.h"],
+    include_prefix = "hvc_states",
+    visibility = ["//VCU/firmware:__subpackages__"],
+)

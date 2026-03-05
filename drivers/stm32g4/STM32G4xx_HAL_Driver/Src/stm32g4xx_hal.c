@@ -147,6 +147,8 @@ uint32_t uwTickFreq = HAL_TICK_FREQ_DEFAULT;  /* 1KHz */
   */
 HAL_StatusTypeDef HAL_Init(void)
 {
+  // For some reason, bootloader fails when not de-init
+  HAL_DeInit();
   HAL_StatusTypeDef  status = HAL_OK;
   /* Configure Flash prefetch, Instruction cache, Data cache */
   /* Default configuration at reset is:                      */

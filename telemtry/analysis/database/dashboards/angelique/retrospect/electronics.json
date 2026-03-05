@@ -1,0 +1,429 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 12,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "angelique"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 25,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 21,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "hidden",
+          "placement": "right",
+          "showLegend": false
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "angelique"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n  AVG(pack.lv_v) * AVG(pack.lv_c) as lv_power\r\nFROM pack\r\nJOIN packet ON packet.packet_id = pack.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;\r\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "LV Power Draw vs Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "angelique"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 3,
+        "x": 21,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "displayMode": "lcd",
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "vertical",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "angelique"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n  AVG(pack.lv_v) * AVG(pack.lv_c) as lv_power\r\nFROM pack\r\nJOIN packet ON packet.packet_id = pack.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;\r\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "LV Battery Power Draw",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "angelique"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "gps_velocity"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "fw_speed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bw_speed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "angelique"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n  AVG(dynamics.gps_velocity) AS gps_velocity,\r\n  AVG((dynamics.flw_speed + dynamics.frw_speed)/2.0) AS fw_speed,\r\n  AVG((dynamics.blw_speed + dynamics.brw_speed)/2.0) AS bw_speed\r\nFROM dynamics\r\nJOIN packet ON packet.packet_id = dynamics.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;\r\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Traction Control",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "refresh": "",
+  "schemaVersion": 40,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "allowCustomValue": false,
+        "current": {
+          "text": "2025-04-28 00:27:02",
+          "value": "2025-04-28 00:27:02"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "angelique"
+        },
+        "definition": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "description": "Select time period to query data from that time period",
+        "label": "Zoom to partition",
+        "name": "Zoom",
+        "options": [],
+        "query": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "2025-04-28T00:26:56.901Z",
+    "to": "2025-04-28T00:32:26.165Z"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Angelique-Electronics",
+  "uid": "ae26c0m7bot1cc2",
+  "version": 9,
+  "weekStart": ""
+}

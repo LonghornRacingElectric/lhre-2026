@@ -45,6 +45,7 @@ class DfuBaseTest : public ::testing::Test {
         config.pin = DUMMY_PIN;
         config.semaphore_id = NULL;
         config.semaphore_release_fn = NULL;
+        config.set_bank1_fn = NULL;
         dfu_init(config);
     }
 

@@ -1,0 +1,38 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//tools:outputs/build_outputs.bzl", "firmware_project_h7")
+
+firmware_project_h7(
+    name = "vcu_firmware_2024",
+    defines = [
+        "STM32H7A3xx",
+    ],
+    extra_deps = [
+        "//legacy/2024/LonghornLib:LonghornLib2024_headers",
+        "//legacy/2024/vcu/core:vcu_core_lib",
+        ":fatfs_headers",
+    ],
+    extra_includes = [
+        "FATFS/Target",
+        "FATFS/App",
+    ],
+    extra_srcs = [
+        "//legacy/2024/LonghornLib:LonghornLib2024_srcs",
+    ] + glob([
+        "Middlewares/**/*.c",
+        "FATFS/**/*.c",
+    ]),
+    linker_script = "STM32H7A3RGTX_FLASH.ld",
+    startup_script = "Core/Startup/startup_stm32h7a3rgtx.s",
+)
+
+cc_library(
+    name = "fatfs_headers",
+    hdrs = glob([
+        "Middlewares/**/*.h",
+        "FATFS/**/*.h",
+    ]),
+    includes = [
+        "FATFS/Target",
+        "Middlewares/Third_Party/FatFs/src",
+    ],
+)

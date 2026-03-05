@@ -19,9 +19,10 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "cmsis_os.h"
-#include "main.h"
 #include "task.h"
+#include "main.h"
+#include "cmsis_os.h"
+
 #include "usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -34,7 +35,13 @@
 #include "longhorn/rtos/usb.h"
 #include "longhorn/usb_base.h"
 #include "tim.h"
+#include "usb_device.h"
 #include "usbd_cdc_if.h"
+#include "ota/ota_flash.h"
+
+#include "cmsis_os2.h"
+#include <dui_can.h>
+#include <r2d.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -54,130 +61,87 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
+static dfu_config dfu_conf = {
+    .delay_fn = (Delay_fn)osDelay,
+    .gpiox = GPIOB,
+    .pin = GPIO_PIN_7,
+    .pin_set_fn = (PinSet_fn)HAL_GPIO_WritePin,
+    .reset_fn = HAL_NVIC_SystemReset,
+    .set_bank1_fn = (SetBank1_fn)ota_set_bank1,
+};
+
+static rainbow_led_t led_conf = {
+    .ccr2 = &TIM2->CCR1,
+    .ccr1 = &TIM2->CCR2,
+    .ccr3 = &TIM2->CCR3,
+    .channel1 = TIM_CHANNEL_1,
+    .channel2 = TIM_CHANNEL_2,
+    .channel3 = TIM_CHANNEL_3,
+    .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
+    .timer_handle = &htim2,
+};
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
-    .name = "defaultTask",
-    .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 128 + 1024};
+  .name = "defaultTask",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 1024 * 4
+};
 
-uint32_t AD_RES = 0;
-
-/* Private function prototypes
-   -----------------------------------------------*/
+/* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 osThreadId_t led_handle;
 
 /* USER CODE END FunctionPrototypes */
 
-void StartDefaultTask(void* argument);
+void StartDefaultTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /**
- * @brief  FreeRTOS initialization
- * @param  None
- * @retval None
- */
+  * @brief  FreeRTOS initialization
+  * @param  None
+  * @retval None
+  */
 void MX_FREERTOS_Init(void) {
-    /* USER CODE BEGIN Init */
+  /* USER CODE BEGIN Init */
 
-    /* USER CODE END Init */
+  /* USER CODE END Init */
 
-    /* USER CODE BEGIN RTOS_MUTEX */
-    /* add mutexes, ... */
-    /* USER CODE END RTOS_MUTEX */
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
 
-    /* USER CODE BEGIN RTOS_SEMAPHORES */
-    /* add semaphores, ... */
-    /* USER CODE END RTOS_SEMAPHORES */
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
 
-    /* USER CODE BEGIN RTOS_TIMERS */
-    /* start timers, add new ones, ... */
-    /* USER CODE END RTOS_TIMERS */
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
 
-    /* USER CODE BEGIN RTOS_QUEUES */
-    /* add queues, ... */
-    /* USER CODE END RTOS_QUEUES */
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
 
-    /* Create the thread(s) */
-    /* creation of defaultTask */
-    defaultTaskHandle =
-        osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  /* Create the thread(s) */
+  /* creation of defaultTask */
+  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
-    /* USER CODE BEGIN RTOS_THREADS */
-    /* add threads, ... */
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
 
-    rainbow_led_t led = {
-        .ccr2 = &TIM2->CCR1,
-        .ccr1 = &TIM2->CCR2,
-        .ccr3 = &TIM2->CCR3,
-        .channel1 = TIM_CHANNEL_1,
-        .channel2 = TIM_CHANNEL_2,
-        .channel3 = TIM_CHANNEL_3,
-        .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
-        .timer_handle = &htim2,
-    };
+  led_init(&led_conf);
+  led_handle = led_start_thread();
 
-    led_init(&led);
-    led_handle = led_start_thread();
+  /* USER CODE END RTOS_THREADS */
 
-    /* USER CODE END RTOS_THREADS */
+  /* USER CODE BEGIN RTOS_EVENTS */
+  /* add events, ... */
+  /* USER CODE END RTOS_EVENTS */
 
-    /* USER CODE BEGIN RTOS_EVENTS */
-    /* add events, ... */
-    /* USER CODE END RTOS_EVENTS */
-}
-
-const osThreadAttr_t fakecantaskattributes = {
-    .name = "fakecan",
-    .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 128 + 1024};
-
-void fakeCANTask(void* argument) {
-    // initialize can buses
-    HAL_FDCAN_Init(&hfdcan2);
-    HAL_FDCAN_Init(&hfdcan1);
-    HAL_FDCAN_Start(&hfdcan1);
-    HAL_FDCAN_Start(&hfdcan2);
-
-    FDCAN_TxHeaderTypeDef tx_header;
-    char fakedata[1] = {100};
-
-    tx_header.DataLength = 1;
-    tx_header.IdType = FDCAN_STANDARD_ID;
-    tx_header.Identifier = 0x100;
-    tx_header.TxFrameType = FDCAN_DATA_FRAME;
-    tx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
-    tx_header.BitRateSwitch = FDCAN_BRS_OFF;
-    tx_header.FDFormat = FDCAN_CLASSIC_CAN;
-    tx_header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
-    for (;;) {
-        HAL_StatusTypeDef hal_status =
-            HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &tx_header, &fakedata);
-
-        if (hal_status) {
-            // error occurred
-            // log_printf(LOG_ERROR, "Sending FDCAN Data: %d, Bus Status: %d",
-            //     fakedata[0], hal_status);
-        } else {
-            // log_printf(LOG_INFO, "Sending FDCAN Data: %d, Bus Status: %d",
-            // fakedata[0],
-            //     hal_status);
-        }
-
-        hal_status =
-            HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &tx_header, &fakedata);
-        // log_printf(hal_status ? LOG_ERROR : LOG_SUCCESS,
-        //     "Sending FDCAN2 Data: %d, Bus Status: %d", fakedata[0],
-        //     hal_status);
-
-        fakedata[0]++;
-
-        osDelay(33);
-    }
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -187,44 +151,32 @@ void fakeCANTask(void* argument) {
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void* argument) {
-    /* init code for USB_Device */
-    MX_USB_Device_Init();
-    /* USER CODE BEGIN StartDefaultTask */
+void StartDefaultTask(void *argument)
+{
+  /* init code for USB_Device */
+  MX_USB_Device_Init();
+  /* USER CODE BEGIN StartDefaultTask */
 
-    if (init_logging(CDC_Transmit_FS) == -1) {
-        osThreadTerminate(led_handle);
-    }
+  if (init_logging(CDC_Transmit_FS) == -1) {
+    osThreadTerminate(led_handle);
+  }
 
-    dfu_config dfu_conf = {
-        .delay_fn = osDelay,
-        .gpiox = GPIOB,
-        .pin = GPIO_PIN_7,
-        .pin_set_fn = HAL_GPIO_WritePin,
-        .reset_fn = HAL_NVIC_SystemReset,
-    };
+  init_dfu(dfu_conf);
+  dfu_start_thread();
 
-    osThreadNew(fakeCANTask, NULL, &fakecantaskattributes);
+  dui_r2d_init();
 
-    init_dfu(dfu_conf);
-    dfu_start_thread();
-    HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
+  dui_can_init();
 
-    /* Infinite loop */
-
-    for (;;) {
-        // log_printf(LOG_INFO, "Main thread! Code Running from the DUI",
-        //     osKernelGetTickCount());
-        log_printf(LOG_INFO, "The ADC data was %d", AD_RES);
-
-        osDelay(pdMS_TO_TICKS(1000));
-
-        HAL_ADC_Start_DMA(&hadc1, &AD_RES, 1);
-    }
-    /* USER CODE END StartDefaultTask */
+  /* Infinite loop */
+  for (;;) {
+    osDelay(1000);
+  }
+  /* USER CODE END StartDefaultTask */
 }
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
 
 /* USER CODE END Application */
+

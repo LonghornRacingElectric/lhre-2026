@@ -1,0 +1,16 @@
+load("//tools:outputs/build_outputs.bzl", "firmware_project_h7")
+
+firmware_project_h7(
+    name = "hvc_firmware_2024",
+    defines = [
+        "STM32H7A3xx",
+    ],
+    extra_deps = [
+        "//legacy/2024/LonghornLib:LonghornLib2024_headers",
+    ],
+    extra_srcs = [
+        "//legacy/2024/LonghornLib:LonghornLib2024_srcs",
+    ],
+    linker_script = "STM32H7A3RGTX_FLASH.ld",
+    startup_script = "Core/Startup/startup_stm32h7a3rgtx.s",
+)

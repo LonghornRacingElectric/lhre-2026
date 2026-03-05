@@ -1,0 +1,14 @@
+# load("@rules_rust//rust:defs.bzl", "rust_binary")
+
+# rust_binary(
+# 	name = "publishd",
+# 	srcs = ["main.rs"],
+# 	visibility = ["//visibility:public"],
+# 	deps = [
+# 		"//BEVO:sensor_proto",
+# 		"@crate_index//:anyhow",
+# 		"@crate_index//:rumqttc",
+# 		"@crate_index//:prost",
+# 		"@crate_index//:serde_json",
+# 	],
+# )

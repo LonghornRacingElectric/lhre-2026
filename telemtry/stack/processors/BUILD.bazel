@@ -1,0 +1,16 @@
+# telemtry/stack/processors/BUILD.bazel
+# BUILD file for processor services
+# Contains aggregate targets for all Kafka consumer processors
+
+package(default_visibility = ["//telemtry:__subpackages__"])
+
+# Aggregate target for all processor Docker images
+filegroup(
+    name = "processor_images",
+    srcs = [
+        "//telemtry/stack/processors/gps_classifier:gps_classifier_image",
+        "//telemtry/stack/processors/kafka_base:kafka_base_image",
+        "//telemtry/stack/processors/lap_timer:lap_timer_image",
+    ],
+    visibility = ["//visibility:public"],
+)

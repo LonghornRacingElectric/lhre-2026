@@ -1,0 +1,14 @@
+CompileFlags:
+  # Remove flags that standard clang parsing doesn't understand
+  Remove:
+    # GCC-specific flags that clang doesn't understand
+    - -mthumb-interwork
+    - -frandom-seed=*
+    - -fdiagnostics-color
+    # Host CPU flags injected by Bazel that clangd doesn't recognize
+    - -mcpu=*
+    # Remove the GCC compiler path so clangd doesn't try to query it
+    # (clangd will use its own built-in clang driver instead)
+
+Diagnostics:
+  UnusedIncludes: None

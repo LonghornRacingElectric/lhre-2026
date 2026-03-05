@@ -1,0 +1,506 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 14,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "angelique"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "angelique"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n),\r\nunnested AS (\r\n  SELECT\r\n    to_timestamp(\r\n      floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n    ) AS time,\r\n    UNNEST(diagnostics.cells_v) AS cell_v\r\n  FROM diagnostics\r\n  JOIN packet ON packet.packet_id = diagnostics.packet_id\r\n  JOIN bounds ON true\r\n  JOIN partitions p ON p.partition_name = '$Zoom'\r\n  WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\n)\r\nSELECT\r\n  time,\r\n  AVG(cell_v) AS avg_cells_v\r\nFROM unnested\r\nGROUP BY time\r\nORDER BY time;\r\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [
+                  {
+                    "name": "cells_v",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
+          "table": "diagnostics"
+        }
+      ],
+      "title": "Cell Voltages",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "angelique"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 25,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "hidden",
+          "placement": "right",
+          "showLegend": false
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "angelique"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n   AVG(pack.hv_c) * AVG(pack.hv_pack_v) as hv_pack_power\r\nFROM pack\r\nJOIN packet ON packet.packet_id = pack.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;\r\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "HV Power vs Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "angelique"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 25,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 15,
+        "x": 0,
+        "y": 8
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "hidden",
+          "placement": "right",
+          "showLegend": false
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "angelique"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS (\r\n  SELECT \r\n    GREATEST(\r\n      (\r\n        LEAST(\r\n          p.end_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n        ) -\r\n        GREATEST(\r\n          p.start_time,\r\n          COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n        )\r\n      ) / 5000.0,\r\n      1\r\n    ) AS bucket_len,\r\n    GREATEST(\r\n      p.start_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeFrom()::timestamptz) * 1000)::bigint, p.start_time)\r\n    ) AS effective_start,\r\n    LEAST(\r\n      p.end_time,\r\n      COALESCE((EXTRACT(EPOCH FROM $__timeTo()::timestamptz) * 1000)::bigint, p.end_time)\r\n    ) AS effective_end\r\n  FROM partitions p\r\n  WHERE p.partition_name = '$Zoom'\r\n)\r\nSELECT\r\n  to_timestamp(\r\n    floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0\r\n  ) AS time,\r\n   AVG(pack.hv_pack_v) as hv_pack_v\r\nFROM pack\r\nJOIN packet ON packet.packet_id = pack.packet_id\r\nJOIN bounds ON true\r\nJOIN partitions p ON p.partition_name = '$Zoom'\r\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\r\nGROUP BY 1\r\nORDER BY time;\r\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "High Voltage Battery Voltage vs Time ",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "angelique"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "#EAB839",
+                "value": 10
+              },
+              {
+                "color": "green",
+                "value": 20
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "id": 2,
+      "options": {
+        "displayMode": "lcd",
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "angelique"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT hv_charge_state\r\n\r\nFROM diagnostics\r\nORDER BY packet_id DESC \r\nLIMIT 1",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Charge State",
+      "type": "bargauge"
+    }
+  ],
+  "preload": false,
+  "refresh": "auto",
+  "schemaVersion": 40,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "allowCustomValue": false,
+        "current": {
+          "text": "2024-10-12 12:35:00",
+          "value": "2024-10-12 12:35:00"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "angelique"
+        },
+        "definition": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "description": "Select time to query data from that time",
+        "label": "Zoom to Partition",
+        "name": "Zoom",
+        "options": [],
+        "query": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1y",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Angelique - High Voltage Battery",
+  "uid": "ce26f7z7nrgn4b2",
+  "version": 7,
+  "weekStart": ""
+}
