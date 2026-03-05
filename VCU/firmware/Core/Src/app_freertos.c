@@ -346,12 +346,12 @@ void StartControlTask(void *argument) {
 
     vcu_can_set_model_outputs(&out);
 
-    log_printf(LOG_WARNING,
-               "PEDAL OUT, %0.2f, TORQUE OUT %0.2f, FAULT %d, APPS1 %0.2f, "
-               "APPS2 %0.2f",
-               out.accel_pedal_travel, out.torque_cmd,
-               out.faults.apps_any_fault, out.apps1_travel,
-               out.apps2_travel);
+    // log_printf(LOG_WARNING,
+    //            "PEDAL OUT, %0.2f, TORQUE OUT %0.2f, FAULT %d, APPS1 %0.2f, "
+    //            "APPS2 %0.2f",
+    //            out.accel_pedal_travel, out.torque_cmd,
+    //            out.faults.apps_any_fault, out.apps1_travel,
+    //            out.apps2_travel);
     //     static uint32_t dbg_div = 0;
     // if (++dbg_div >= 10) {
     //   dbg_div = 0;
