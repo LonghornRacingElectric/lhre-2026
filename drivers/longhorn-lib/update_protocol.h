@@ -6,14 +6,27 @@
 
 typedef enum {
   DEVICE_ID_ALL = 0,
+
+  // Critical path
   DEVICE_ID_HVC,
   DEVICE_ID_VCU,
-  DEVICE_ID_USM,
-  DEVICE_ID_CSM,
-  DEVICE_ID_TSM,
   DEVICE_ID_DUI,
+  DEVICE_ID_PDU,
   DEVICE_ID_BEVO,
-  DEVICE_ID_PDU
+
+  // Non critical path
+  DEVICE_ID_USM_FR,
+  DEVICE_ID_USM_RR,
+  DEVICE_ID_USM_FL,
+  DEVICE_ID_USM_RL,
+  DEVICE_ID_CSM_FR,
+  DEVICE_ID_CSM_RR,
+  DEVICE_ID_CSM_FL,
+  DEVICE_ID_CSM_RL,
+  DEVICE_ID_TSM_FR,
+  DEVICE_ID_TSM_RR,
+  DEVICE_ID_TSM_FL,
+  DEVICE_ID_TSM_RL,
 } can_device_t;
 
 typedef enum {
