@@ -66,6 +66,33 @@ export default function ReleasesPage() {
         return 'Stable';
     }
 
+    function extractLocation(assetName: string, targetId: string): string | null {
+        // Asset names follow pattern: {target}_firmware_2026_{LOCATION}.{ext}
+        // e.g. csm_firmware_2026_FL.bin -> "FL"
+        const baseName = assetName.replace(/\.[^.]+$/, ''); // strip extension
+        const targetLower = targetId.toLowerCase();
+        const lowerBase = baseName.toLowerCase();
+
+        // Find the target id in the name and check what comes after
+        const idx = lowerBase.indexOf(targetLower);
+        if (idx === -1) return null;
+
+        const afterTarget = baseName.substring(idx + targetId.length);
+        // Match pattern like _firmware_2026_FL or just ending with _FL
+        const locMatch = afterTarget.match(/_([A-Z]{2})$/i);
+        if (locMatch) {
+            return locMatch[1].toUpperCase();
+        }
+        return null;
+    }
+
+    const LOCATION_LABELS: Record<string, string> = {
+        FL: 'Front Left',
+        FR: 'Front Right',
+        RL: 'Rear Left',
+        RR: 'Rear Right',
+    };
+
     function renderAssetsGroups(assets?: { name: string; browser_download_url: string }[]) {
         if (!assets || assets.length === 0) return null;
 
@@ -89,6 +116,23 @@ export default function ReleasesPage() {
                     const targetAssets = grouped[target.id];
                     if (!targetAssets || targetAssets.length === 0) return null;
 
+                    // Sub-group by location
+                    const byLocation: Record<string, typeof targetAssets> = {};
+                    const noLocation: typeof targetAssets = [];
+
+                    targetAssets.forEach(a => {
+                        const loc = extractLocation(a.name, target.id);
+                        if (loc) {
+                            if (!byLocation[loc]) byLocation[loc] = [];
+                            byLocation[loc].push(a);
+                        } else {
+                            noLocation.push(a);
+                        }
+                    });
+
+                    const locations = Object.keys(byLocation).sort();
+                    const hasLocations = locations.length > 0;
+
                     return (
                         <div key={target.id} className="release-target-assets">
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -96,21 +140,56 @@ export default function ReleasesPage() {
                                     {target.id.substring(0, 3)}
                                 </div>
                                 <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{target.name}</span>
+                                {hasLocations && (
+                                    <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>
+                                        {locations.length} location{locations.length !== 1 ? 's' : ''}
+                                    </span>
+                                )}
                             </div>
-                            <div className="target-asset-links" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
-                                <span className="target-asset-label">Downloads:</span>
-                                {targetAssets.map(a => {
-                                    const ext = a.name.split('.').pop()?.toUpperCase() || 'FILE';
-                                    return (
-                                        <a key={a.name} href={a.browser_download_url} className="target-asset-link" target="_blank" rel="noopener noreferrer">
-                                            ⬇ {ext}
-                                        </a>
-                                    );
-                                })}
-                                <button className="target-asset-link ota-btn" onClick={() => { }} title="Over-the-Air Update (Coming Soon)">
-                                    ☁️ OTA
-                                </button>
-                            </div>
+                            {!hasLocations ? (
+                                /* Single location - flat download links */
+                                <div className="target-asset-links" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+                                    <span className="target-asset-label">Downloads:</span>
+                                    {noLocation.map(a => {
+                                        const ext = a.name.split('.').pop()?.toUpperCase() || 'FILE';
+                                        return (
+                                            <a key={a.name} href={a.browser_download_url} className="target-asset-link" target="_blank" rel="noopener noreferrer">
+                                                ⬇ {ext}
+                                            </a>
+                                        );
+                                    })}
+                                    <button className="target-asset-link ota-btn" onClick={() => { }} title="Over-the-Air Update (Coming Soon)">
+                                        ☁️ OTA
+                                    </button>
+                                </div>
+                            ) : (
+                                /* Multiple locations - show sub-rows */
+                                <div className="target-locations" style={{ width: '100%', marginTop: 6 }}>
+                                    {locations.map(loc => (
+                                        <div key={loc} className="target-location-row" style={{
+                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            padding: '4px 0 4px 32px', borderTop: '1px solid var(--border-color)',
+                                        }}>
+                                            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)', minWidth: 80 }}>
+                                                📍 {loc} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{LOCATION_LABELS[loc] || ''}</span>
+                                            </span>
+                                            <div className="target-asset-links" style={{ display: 'flex', alignItems: 'center' }}>
+                                                {byLocation[loc].map(a => {
+                                                    const ext = a.name.split('.').pop()?.toUpperCase() || 'FILE';
+                                                    return (
+                                                        <a key={a.name} href={a.browser_download_url} className="target-asset-link" target="_blank" rel="noopener noreferrer">
+                                                            ⬇ {ext}
+                                                        </a>
+                                                    );
+                                                })}
+                                                <button className="target-asset-link ota-btn" onClick={() => { }} title={`OTA to ${loc} (Coming Soon)`}>
+                                                    ☁️ OTA
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     );
                 })}
