@@ -116,8 +116,12 @@
         </inertia>
       </inertial>
       <visual name="visual">
+        <pose>-0.59 -0.20 -0.61 1.5708 0 0</pose>
         <geometry>
-          <cylinder><radius>0.2</radius><length>0.15</length></cylinder>
+          <mesh>
+            <uri>model://fsae_vehicle/meshes/carTire.stl</uri>
+            <scale>2.17 2.17 2.17</scale>
+          </mesh>
         </geometry>
         <material>
           <ambient>0.15 0.15 0.15 1</ambient>
@@ -182,8 +186,12 @@
         </inertia>
       </inertial>
       <visual name="visual">
+        <pose>-0.59 -0.20 -0.61 1.5708 0 0</pose>
         <geometry>
-          <cylinder><radius>0.2</radius><length>0.15</length></cylinder>
+          <mesh>
+            <uri>model://fsae_vehicle/meshes/carTire.stl</uri>
+            <scale>2.17 2.17 2.17</scale>
+          </mesh>
         </geometry>
         <material>
           <ambient>0.15 0.15 0.15 1</ambient>
@@ -222,8 +230,12 @@
         </inertia>
       </inertial>
       <visual name="visual">
+        <pose>-0.59 -0.20 -0.61 1.5708 0 0</pose>
         <geometry>
-          <cylinder><radius>0.2</radius><length>0.15</length></cylinder>
+          <mesh>
+            <uri>model://fsae_vehicle/meshes/carTire.stl</uri>
+            <scale>2.17 2.17 2.17</scale>
+          </mesh>
         </geometry>
         <material>
           <ambient>0.15 0.15 0.15 1</ambient>
@@ -262,8 +274,12 @@
         </inertia>
       </inertial>
       <visual name="visual">
+        <pose>-0.59 -0.20 -0.61 1.5708 0 0</pose>
         <geometry>
-          <cylinder><radius>0.2</radius><length>0.15</length></cylinder>
+          <mesh>
+            <uri>model://fsae_vehicle/meshes/carTire.stl</uri>
+            <scale>2.17 2.17 2.17</scale>
+          </mesh>
         </geometry>
         <material>
           <ambient>0.15 0.15 0.15 1</ambient>
