@@ -22,7 +22,6 @@ export default function MissionControlPage() {
       .catch(() => setLoading(false));
   }, []);
 
-
   const recentCommits = commits.slice(0, 5);
   const recentRuns = runs.workflow_runs.slice(0, 10);
   const failingCount = recentRuns.filter(r => r.conclusion === 'failure').length;
