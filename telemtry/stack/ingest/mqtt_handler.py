@@ -177,7 +177,8 @@ class MQTTHandler:
                     cols = []
                     # Qualify columns with table name so similarly named fields map correctly.
                     for table, col_spec in self.table_specs["Orion"].items():
-                        cols.extend(f"{table}.{col}" for col in col_spec.keys())
+                        if (table in {"packet", "dynamics", "controls", "pack", "diagnostics_low", "diagnostics_high", "thermal"}):
+                            cols.extend(f"{table}.{col}" for col in col_spec.keys())
                     with open(log_file, 'w', newline='') as f:
                         csv.writer(f).writerow(cols)
                     logging.info(f'\t\tCreated new log file for Orion at {log_file}')
