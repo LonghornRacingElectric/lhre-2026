@@ -95,12 +95,12 @@ static vcu_parameters_t s_params = {
     .apps =
         {
             .apps1_min_adc_v =
-                ((FUDGE_FACTOR * 1200.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+                ((FUDGE_FACTOR * 925.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
             .apps1_max_adc_v =
                 ((FUDGE_FACTOR * 750.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
 
             .apps2_min_adc_v =
-                ((FUDGE_FACTOR * 1180.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+                ((FUDGE_FACTOR * 905.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
             .apps2_max_adc_v =
                 ((FUDGE_FACTOR * 700.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
 
@@ -110,12 +110,12 @@ static vcu_parameters_t s_params = {
             // .max_travel_restore_threshold = 0.05f,
 
             .min_travel_deadzone = 0.12f,
-            .max_travel_deadzone = 0.82f,
+            .max_travel_deadzone = 0.95,
             .pedal_ema_alpha = 0.35f,
         },
     .torque_map =
         {
-            .max_torque_nm = 200.0f,
+            .max_torque_nm = 220.0f,
         },
 
     .bse =
