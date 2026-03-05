@@ -190,11 +190,16 @@ export default function TargetPage({ params }: { params: Promise<{ target: strin
                                             <div className={`timeline-card ${isLatest ? 'active' : ''} ${release.prerelease ? 'warning-border' : ''} ${i > 1 ? 'faded' : ''}`}>
                                                 <div className="timeline-card-header">
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                                        <div className="timeline-card-title">
+                                                        <div className="timeline-card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                             <span className={`timeline-card-version ${isLatest ? 'success' : ''}`}>
                                                                 {release.version || release.tag_name}
                                                             </span>
-                                                            <div style={{ display: 'flex', gap: 4 }}>
+                                                            {release.name && (
+                                                                <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600 }}>
+                                                                    {release.name}
+                                                                </span>
+                                                            )}
+                                                            <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
                                                                 <span className={`timeline-card-tag ${scopeBadgeCls}`}>{scopeLabel}</span>
                                                                 <span className={`timeline-card-tag ${badgeCls}`}>{badgeLabel}</span>
                                                             </div>
