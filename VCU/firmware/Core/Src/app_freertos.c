@@ -27,6 +27,7 @@
 #include "longhorn/rtos/logger.h"
 #include "longhorn/rtos/usb.h"
 #include "longhorn/usb_base.h"
+#include "ota/ota_flash.h"
 
 #include "vcu_model/inc/vcu_inputs.h"
 #include "vcu_model/inc/vcu_model.h"
@@ -265,6 +266,7 @@ void StartSystemTask(void *argument) {
       .pin = GPIO_PIN_7,
       .pin_set_fn = (PinSet_fn)HAL_GPIO_WritePin,
       .reset_fn = (SystemReset_fn)HAL_NVIC_SystemReset,
+      .set_bank1_fn = (SetBank1_fn)ota_set_bank1,
   };
   init_dfu(dfu);
   dfu_start_thread();

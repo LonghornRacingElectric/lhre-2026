@@ -3,6 +3,8 @@
 #include <stddef.h>
 #include <stdlib.h>
 
+#include "drivers/longhorn-lib/fw_update.h"
+#include "longhorn/can/can_ids.h"
 #include "longhorn/can_hal.h"
 #include "longhorn/led_base.h"
 
@@ -14,9 +16,26 @@ static can_interface_t *interfaces[MAX_INTERFACES];
 
 static uint8_t interface_count = 0;
 
+static msg_firmware_update_command_packet_t dfu_command_packet;
+static msg_firmware_update_data_packet_t dfu_data_packet;
+static msg_bus_enable_disable_t bus_status;
+
+static msg_device_firmware_update_response_packet_t dfu_response;
+static can_message_t *dfu_response_msg;
+
 void can_init(can_config_t *config) {
   // set our can library to use the correct functions
   can = *config;
+
+  fw_update_init(can.write_memory_fn, can.abort_update_fn);
+
+  dfu_response_msg = can_get_message_handle(
+      &dfu_response, DEVICE_FIRMWARE_UPDATE_RESPONSE_PACKET_ID,
+      DEVICE_FIRMWARE_UPDATE_RESPONSE_PACKET_FREQ,
+      DEVICE_FIRMWARE_UPDATE_RESPONSE_PACKET_DLC,
+      (CAN_pack_message_fn)pack_device_firmware_update_response_packet);
+
+  bus_status.enable = true;
 }
 
 void can_register_interface(can_interface_t *interface) {
@@ -53,7 +72,8 @@ can_get_message_handle(void *msg, uint32_t packet_id, uint16_t freq,
     return NULL;
   }
   // Malloc and receive a pointer to a new object that can then be populated
-  can_message_t *new_msg = can.malloc_fn(sizeof(can_message_t));
+  can_message_t *new_msg =
+      (can_message_t *)can.malloc_fn(sizeof(can_message_t));
   if (new_msg == NULL)
     return NULL;
 
@@ -108,7 +128,8 @@ __attribute__((weak)) void can_register_send_packet(can_interface_t *interface,
 __attribute__((weak)) can_receive_message_t *
 can_get_receive_message_handle(void *msg, uint32_t packet_id,
                                CAN_unpack_message_fn unpacking_fn) {
-  can_receive_message_t *new_msg = can.malloc_fn(sizeof(can_receive_message_t));
+  can_receive_message_t *new_msg =
+      (can_receive_message_t *)can.malloc_fn(sizeof(can_receive_message_t));
   if (new_msg == NULL)
     return NULL;
 
@@ -200,6 +221,12 @@ cHAL_StatusTypeDef can_send_immediate(can_interface_t *interface,
 void can_service(can_interface_t *interface) {
   can_message_t *cur = interface->_head;
 
+  if (!bus_status.enable) {
+    // don't allow writing if the bus is disabled, but allow sending with
+    // send_immediate
+    return;
+  }
+
   while (cur) {
     if (cur->_is_scheduled && cur->period_ms > 0 &&
         (can.tick_fn() - cur->_last_tx_time_ms) >= cur->period_ms) {
@@ -251,6 +278,42 @@ void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t RxFifo0ITs) {
           interface->_error_occurred = true;
           interface->_error_code_receive = status;
           continue;
+        }
+
+        if (rx_header.Identifier == BUS_ENABLE_DISABLE_ID) {
+          unpack_bus_enable_disable(rx_data, &bus_status);
+
+          return;
+        }
+
+        if (rx_header.Identifier == FIRMWARE_UPDATE_COMMAND_PACKET_ID) {
+          if (!bus_status.enable) {
+            // bus is disabled, check if update for us
+            if (bus_status.device == can.device_id && bus_status.fw_update) {
+              unpack_firmware_update_command_packet(rx_data,
+                                                    &dfu_command_packet);
+
+              if (dfu_command_packet.command == UPDATE_COMMAND_WRITE &&
+                  can.fw_update_begin_fn) {
+                can.fw_update_begin_fn(dfu_command_packet.num_blocks);
+              }
+
+              update_response_t response =
+                  fw_update_process_command(&dfu_command_packet);
+              dfu_response.response = response;
+              can_send_immediate(interface, dfu_response_msg);
+            }
+          }
+
+          return;
+        }
+
+        if (rx_header.Identifier == FIRMWARE_UPDATE_DATA_PACKET_ID) {
+          update_response_t response = fw_update_process_data(rx_data);
+
+          dfu_response.response = response;
+          can_send_immediate(interface, dfu_response_msg);
+          return;
         }
 
         interfaces[i]->_last_id_received = rx_header.Identifier;

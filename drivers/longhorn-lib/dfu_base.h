@@ -8,19 +8,21 @@
 
 typedef void (*SystemReset_fn)(void);
 typedef void (*Delay_fn)(uint32_t delay);
-typedef void (*PinSet_fn)(void* gpiox, uint16_t pin, uint8_t pin_state);
-typedef long (*SemaphoreRelease_Fn)(void*, long* const);
+typedef void (*PinSet_fn)(void *gpiox, uint16_t pin, uint8_t pin_state);
+typedef long (*SemaphoreRelease_Fn)(void *, long *const);
 typedef void (*Yield_Fn)(void);
+typedef void (*SetBank1_fn)(void);
 
 typedef struct dfu_config {
-    SystemReset_fn reset_fn;
-    Delay_fn delay_fn;
-    PinSet_fn pin_set_fn;
-    SemaphoreRelease_Fn semaphore_release_fn;
-    Yield_Fn yield_fn;
-    void* semaphore_id;
-    void* gpiox;
-    uint16_t pin;
+  SystemReset_fn reset_fn;
+  Delay_fn delay_fn;
+  PinSet_fn pin_set_fn;
+  SemaphoreRelease_Fn semaphore_release_fn;
+  Yield_Fn yield_fn;
+  void *semaphore_id;
+  void *gpiox;
+  uint16_t pin;
+  SetBank1_fn set_bank1_fn;
 } dfu_config;
 
 /**
@@ -38,7 +40,7 @@ void dfu_init(dfu_config config);
  * @param  buf: Pointer to the new data that just arrived.
  * @param  len: The number of bytes in the 'buf'.
  */
-void dfu_receiveData(uint8_t* buf, uint32_t len);
+void dfu_receiveData(uint8_t *buf, uint32_t len);
 
 /**
  * @brief Periodic function to check DFU status, automatically invokes reset
