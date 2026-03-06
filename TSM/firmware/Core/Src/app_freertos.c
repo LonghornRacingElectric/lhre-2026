@@ -12,196 +12,117 @@
 #include "task.h"
 #include "main.h"
 #include "cmsis_os.h"
+
 #include "usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
-#include "longhorn/rtos/led.h"
-#include "longhorn/rtos/logger.h"
-
-#include "adc.h"
-#include "tim.h"
-#include "usbd_cdc_if.h"
-
 /* USER CODE BEGIN Includes */
 
 /* Pulse counters from interrupts */
 volatile uint32_t tach_pulse_count = 0;
 volatile uint32_t flow_pulse_count = 0;
+float thermistor_to_c(uint32_t adc);
 
 /* USER CODE END Includes */
 
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
 /* Private variables ---------------------------------------------------------*/
+/* USER CODE BEGIN Variables */
 
-extern ADC_HandleTypeDef hadc1;
-extern ADC_HandleTypeDef hadc2;
-extern TIM_HandleTypeDef htim2;
-
-/* Default task */
+/* USER CODE END Variables */
+/* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
-
 const osThreadAttr_t defaultTask_attributes = {
-    .name = "defaultTask",
-    .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 128 * 4};
-
-/* ADC task */
-osThreadId_t adcTaskHandle;
+  .name = "defaultTask",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 128 * 4
+};
 
 /* Private function prototypes -----------------------------------------------*/
+/* USER CODE BEGIN FunctionPrototypes */
+
+/* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
-void StartADCTask(void *argument);
 
-/* ---------------------------------------------------------- */
-/* FreeRTOS Initialization                                    */
-/* ---------------------------------------------------------- */
+void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
-void MX_FREERTOS_Init(void)
-{
+/**
+  * @brief  FreeRTOS initialization
+  * @param  None
+  * @retval None
+  */
+void MX_FREERTOS_Init(void) {
+  /* USER CODE BEGIN Init */
 
-  /* Default Task */
+  /* USER CODE END Init */
+
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* creation of defaultTask */
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
-  /* ---------- LED THREAD ---------- */
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
 
-  rainbow_led_t led = {
-      .ccr1 = &TIM2->CCR1,
-      .ccr2 = &TIM2->CCR2,
-      .ccr3 = &TIM2->CCR3,
-      .channel1 = TIM_CHANNEL_1,
-      .channel2 = TIM_CHANNEL_2,
-      .channel3 = TIM_CHANNEL_3,
-      .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
-      .timer_handle = &htim2,
-  };
+  /* USER CODE BEGIN RTOS_EVENTS */
+  /* add events, ... */
+  /* USER CODE END RTOS_EVENTS */
 
-  led_init(&led);
-  led_start_thread();
-
-  /* ---------- ADC TASK ---------- */
-
-  const osThreadAttr_t adcTask_attributes = {
-      .name = "ADC_Task",
-      .priority = osPriorityNormal,
-      .stack_size = 512 * 4};
-
-  adcTaskHandle = osThreadNew(StartADCTask, NULL, &adcTask_attributes);
 }
 
-/* ---------------------------------------------------------- */
-/* Default Task (USB + Logging)                               */
-/* ---------------------------------------------------------- */
-
+/* USER CODE BEGIN Header_StartDefaultTask */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void *argument)
 {
+  /* init code for USB_Device */
   MX_USB_Device_Init();
-
-  if (init_logging(CDC_Transmit_FS) == -1)
+  /* USER CODE BEGIN StartDefaultTask */
+  /* Infinite loop */
+  for(;;)
   {
-    Error_Handler();
+    osDelay(1);
   }
-
-  for (;;)
-  {
-    osDelay(1000);
-  }
+  /* USER CODE END StartDefaultTask */
 }
 
-/* ---------------------------------------------------------- */
-/* ADC + Sensor Task                                          */
-/* ---------------------------------------------------------- */
+/* Private application code --------------------------------------------------*/
+/* USER CODE BEGIN Application */
 
-void StartADCTask(void *argument)
-{
-  uint32_t adc1_raw[3];
-  uint32_t adc2_raw;
+/* USER CODE END Application */
 
-  TickType_t last_wake = xTaskGetTickCount();
-
-  for (;;)
-  {
-
-    /* ---------- ADC1 : 3 inline temperature sensors ---------- */
-
-    HAL_ADC_Start(&hadc1);
-
-    for (int i = 0; i < 3; i++)
-    {
-      if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
-      {
-          adc1_raw[i] = HAL_ADC_GetValue(&hadc1);
-      }
-      adc1_raw[i] = HAL_ADC_GetValue(&hadc1);
-    }
-
-    HAL_ADC_Stop(&hadc1);
-
-    /* ---------- ADC2 : thermal sensor ---------- */
-
-    HAL_ADC_Start(&hadc2);
-    HAL_ADC_PollForConversion(&hadc2, 10);
-    adc2_raw = HAL_ADC_GetValue(&hadc2);
-    HAL_ADC_Stop(&hadc2);
-
-    /* ---------- Convert to millivolts ---------- */
-
-    float mv1 = ((float)adc1_raw[0] / 4095.0f) * 3300.0f;
-    float mv2 = ((float)adc1_raw[1] / 4095.0f) * 3300.0f;
-    float mv3 = ((float)adc1_raw[2] / 4095.0f) * 3300.0f;
-    float mv4 = ((float)adc2_raw  / 4095.0f) * 3300.0f;
-
-    /* ---------- Temperature conversion ---------- */
-    /* Example LM35 style: 10mV per °C */
-
-    float temp1_c = mv1 / 10.0f;
-    float temp2_c = mv2 / 10.0f;
-    float temp3_c = mv3 / 10.0f;
-    float temp4_c = mv4 / 10.0f;
-
-    /* ---------- RPM + Flow ---------- */
-
-  taskENTER_CRITICAL();
-
-  uint32_t tach_count = tach_pulse_count;
-  uint32_t flow_count = flow_pulse_count;
-
-  tach_pulse_count = 0;
-  flow_pulse_count = 0;
-
-  taskEXIT_CRITICAL();
-
-    float rpm = (tach_count / 2.0f) * 60.0f;
-    float flow_lpm = (flow_count / 169.0f) * 60.0f;
-
-    /* ---------- Print ---------- */
-
-    log_printf(LOG_INFO,
-               "T1: %.1fC T2: %.1fC T3: %.1fC T4: %.1fC RPM: %.0f Flow: %.2f L/min\r\n",
-               temp1_c,
-               temp2_c,
-               temp3_c,
-               temp4_c,
-               rpm,
-               flow_lpm);
-
-    vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(1000));
-  }
-}
-
-/* ---------------------------------------------------------- */
-/* GPIO Interrupt Callback                                    */
-/* ---------------------------------------------------------- */
-
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-
-  if (GPIO_Pin == GPIO_PIN_5)
-  {
-    tach_pulse_count++;
-  }
-
-  if (GPIO_Pin == GPIO_PIN_7)
-  {
-    flow_pulse_count++;
-  }
-}

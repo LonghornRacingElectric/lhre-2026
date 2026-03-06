@@ -1,9 +1,17 @@
 {
   "configurations": [
     {
-      "name": "Firmware",
-      "includePath": ["${default}"],
-      "compileCommands": ["${workspaceFolder}/compile_commands.json"]
+      "name": "macos-clang-arm64",
+      "includePath": [
+        "${workspaceFolder}/**"
+      ],
+      "compileCommands": [
+        "${workspaceFolder}/compile_commands.json"
+      ],
+      "cStandard": "${default}",
+      "cppStandard": "${default}",
+      "compilerPath": "/usr/bin/clang",
+      "intelliSenseMode": "macos-clang-arm64"
     }
   ],
   "version": 4
