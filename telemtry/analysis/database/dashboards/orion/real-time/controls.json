@@ -87,10 +87,11 @@
           { "matcher": { "id": "byName", "options": "bpps1_v" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }] },
           { "matcher": { "id": "byName", "options": "bpps2_v" },"properties": [{ "id": "custom.axisPlacement", "value": "left" }] },
           { "matcher": { "id": "byName", "options": "brake_pressure_f" },"properties": [{ "id": "custom.axisPlacement", "value": "right" }] },
+          { "matcher": { "id": "byName", "options": "brake_bias" },"properties": [{ "id": "custom.axisPlacement", "value": "right" }] },
           { "matcher": { "id": "byName", "options": "time" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "packet_id" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "car_type" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byRegexp", "options": "/^(?!(bpps[12]_v|brake_pressure_f)$).*$/" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] }
+          { "matcher": { "id": "byRegexp", "options": "/^(?!(bpps[12]_v|brake_pressure_f|brake_bias)$).*$/" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] }
         ]
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
@@ -98,7 +99,7 @@
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
       "pluginVersion": "11.3.0",
       "targets": [{ "autoOffsetReset": "latest", "avroSchemaSource": "schemaRegistry", "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" }, "lastN": 100, "messageFormat": "json", "partition": "all", "refId": "A", "timestampMode": "message", "topicName": "grafana_data_orion" }],
-      "title": "Brake Pressure Sensors",
+      "title": "Brake Pressure & Bias",
       "type": "timeseries"
     },
     {
@@ -117,13 +118,14 @@
           "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] }
         },
         "overrides": [
-          { "matcher": { "id": "byName", "options": "steer_col_angle" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }, { "id": "displayName", "value": "Steer Column Angle" }] },
-          { "matcher": { "id": "byName", "options": "torque_request" }, "properties": [{ "id": "custom.axisPlacement", "value": "right" }] },
+          { "matcher": { "id": "byName", "options": "torque_request" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }] },
           { "matcher": { "id": "byName", "options": "torque_command" }, "properties": [{ "id": "custom.axisPlacement", "value": "right" }] },
+          { "matcher": { "id": "byName", "options": "torque_feedback" }, "properties": [{ "id": "custom.axisPlacement", "value": "right" }] },
+          { "matcher": { "id": "byName", "options": "motor_speed" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }, { "id": "displayName", "value": "Motor Speed" }] },
           { "matcher": { "id": "byName", "options": "time" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "packet_id" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "car_type" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byRegexp", "options": "/^(?!(steer_col_angle|torque_request|torque_command)$).*$/" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] }
+          { "matcher": { "id": "byRegexp", "options": "/^(?!(motor_speed|torque_feedback|torque_request|torque_command)$).*$/" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] }
         ]
       },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
@@ -131,7 +133,7 @@
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
       "pluginVersion": "11.3.0",
       "targets": [{ "autoOffsetReset": "latest", "avroSchemaSource": "schemaRegistry", "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" }, "lastN": 100, "messageFormat": "json", "partition": "all", "refId": "A", "timestampMode": "message", "topicName": "grafana_data_orion" }],
-      "title": "Steering & Torque",
+      "title": "Motor Speed & Torque",
       "type": "timeseries"
     }
   ],

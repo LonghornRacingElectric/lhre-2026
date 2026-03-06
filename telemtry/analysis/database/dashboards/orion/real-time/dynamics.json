@@ -94,10 +94,12 @@
           "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] }
         },
         "overrides": [
-          { "matcher": { "id": "byRegexp", "options": "/.*strain_gauge_v$/" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }] },
+          { "matcher": { "id": "byName", "options": "steer_col_angle" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }, { "id": "displayName", "value": "Steer Column Angle" }] },
+          { "matcher": { "id": "byName", "options": "accel_pedal_travel" }, "properties": [{ "id": "custom.axisPlacement", "value": "right" }, { "id": "displayName", "value": "Accel Pedal Travel" }] },
           { "matcher": { "id": "byName", "options": "time" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "packet_id" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byRegexp", "options": "/^(?!.*strain_gauge_v$).*$/" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] }
+          { "matcher": { "id": "byName", "options": "car_type" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byRegexp", "options": "/^(?!(steer_col_angle|accel_pedal_travel)$).*$/" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] }
         ]
       },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
@@ -105,7 +107,7 @@
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
       "pluginVersion": "11.3.0",
       "targets": [{ "autoOffsetReset": "latest", "avroSchemaSource": "schemaRegistry", "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" }, "lastN": 100, "messageFormat": "json", "partition": "all", "refId": "A", "timestampMode": "message", "topicName": "grafana_data_orion" }],
-      "title": "Strain Gauges",
+      "title": "Steering & Pedal Travel",
       "type": "timeseries"
     }
   ],

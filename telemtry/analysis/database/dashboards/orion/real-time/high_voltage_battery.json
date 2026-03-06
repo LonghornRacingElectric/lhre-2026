@@ -116,6 +116,73 @@
       "targets": [{ "autoOffsetReset": "latest", "avroSchemaSource": "schemaRegistry", "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" }, "lastN": 100, "messageFormat": "json", "partition": "all", "refId": "A", "timestampMode": "message", "topicName": "grafana_data_orion" }],
       "title": "Cell Voltage Stats",
       "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto",
+            "barAlignment": 0, "barWidthFactor": 0.6, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear",
+            "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "auto", "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "shutdown_current" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }, { "id": "displayName", "value": "Shutdown Current" }] },
+          { "matcher": { "id": "byName", "options": "hvc_state_machine" }, "properties": [{ "id": "custom.axisPlacement", "value": "right" }, { "id": "displayName", "value": "HVC State" }] },
+          { "matcher": { "id": "byName", "options": "time" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byName", "options": "packet_id" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byName", "options": "car_type" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byRegexp", "options": "/^(?!(shutdown_current|hvc_state_machine)$).*$/" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "id": 4,
+      "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.3.0",
+      "targets": [{ "autoOffsetReset": "latest", "avroSchemaSource": "schemaRegistry", "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" }, "lastN": 100, "messageFormat": "json", "partition": "all", "refId": "A", "timestampMode": "message", "topicName": "grafana_data_orion" }],
+      "title": "Shutdown Current & HVC State",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto",
+            "barAlignment": 0, "barWidthFactor": 0.6, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear",
+            "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "auto", "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "post_faults" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }, { "id": "displayName", "value": "POST Faults" }] },
+          { "matcher": { "id": "byName", "options": "run_faults" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }, { "id": "displayName", "value": "Run Faults" }] },
+          { "matcher": { "id": "byName", "options": "neg_hv_contactor" }, "properties": [{ "id": "custom.axisPlacement", "value": "right" }, { "id": "displayName", "value": "Neg HV Contactor" }] },
+          { "matcher": { "id": "byName", "options": "pos_hv_contactor" }, "properties": [{ "id": "custom.axisPlacement", "value": "right" }, { "id": "displayName", "value": "Pos HV Contactor" }] },
+          { "matcher": { "id": "byName", "options": "precharge_contactor" }, "properties": [{ "id": "custom.axisPlacement", "value": "right" }, { "id": "displayName", "value": "Precharge Contactor" }] },
+          { "matcher": { "id": "byName", "options": "time" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byName", "options": "packet_id" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byName", "options": "car_type" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byRegexp", "options": "/^(?!(post_faults|run_faults|neg_hv_contactor|pos_hv_contactor|precharge_contactor)$).*$/" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "id": 5,
+      "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.3.0",
+      "targets": [{ "autoOffsetReset": "latest", "avroSchemaSource": "schemaRegistry", "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" }, "lastN": 100, "messageFormat": "json", "partition": "all", "refId": "A", "timestampMode": "message", "topicName": "grafana_data_orion" }],
+      "title": "Faults & Contactors",
+      "type": "timeseries"
     }
   ],
   "preload": false,

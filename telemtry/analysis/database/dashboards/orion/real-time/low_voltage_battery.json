@@ -81,6 +81,39 @@
       "targets": [{ "autoOffsetReset": "latest", "avroSchemaSource": "schemaRegistry", "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" }, "lastN": 100, "messageFormat": "json", "partition": "all", "refId": "A", "timestampMode": "message", "topicName": "grafana_data_orion" }],
       "title": "LV Battery Temperature",
       "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false, "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto",
+            "barAlignment": 0, "barWidthFactor": 0.6, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear",
+            "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "auto", "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "r2d_status" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }, { "id": "displayName", "value": "R2D Status" }] },
+          { "matcher": { "id": "byName", "options": "bmb_comm_error" }, "properties": [{ "id": "custom.axisPlacement", "value": "right" }, { "id": "displayName", "value": "BMB Comm Error" }] },
+          { "matcher": { "id": "byName", "options": "imd_gnd_isolation_error" }, "properties": [{ "id": "custom.axisPlacement", "value": "right" }, { "id": "displayName", "value": "IMD Isolation Error" }] },
+          { "matcher": { "id": "byName", "options": "time" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byName", "options": "packet_id" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byName", "options": "car_type" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
+          { "matcher": { "id": "byRegexp", "options": "/^(?!(r2d_status|bmb_comm_error|imd_gnd_isolation_error)$).*$/" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "id": 3,
+      "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.3.0",
+      "targets": [{ "autoOffsetReset": "latest", "avroSchemaSource": "schemaRegistry", "datasource": { "type": "hamedkarbasi93-kafka-datasource", "uid": "real-time-data" }, "lastN": 100, "messageFormat": "json", "partition": "all", "refId": "A", "timestampMode": "message", "topicName": "grafana_data_orion" }],
+      "title": "Safety & LV Flags",
+      "type": "timeseries"
     }
   ],
   "preload": false,
