@@ -2,27 +2,38 @@
 /**
  ******************************************************************************
  * File Name          : app_freertos.c
- * Description        : FreeRTOS application tasks
+ * Description        : Code for freertos applications
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2025 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
  ******************************************************************************
  */
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "task.h"
-#include "main.h"
 #include "cmsis_os.h"
+#include "main.h"
+#include "task.h"
+
 
 #include "usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
-/* Pulse counters from interrupts */
-volatile uint32_t tach_pulse_count = 0;
-volatile uint32_t flow_pulse_count = 0;
-float thermistor_to_c(uint32_t adc);
-
+#include "longhorn/rtos/led.h"
+#include "longhorn/rtos/logger.h"
+#include "longhorn/rtos/usb.h"
+#include "longhorn/usb_base.h"
+#include "tim.h"
+#include "usbd_cdc_if.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -47,10 +58,9 @@ float thermistor_to_c(uint32_t adc);
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
-  .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 128 * 4
-};
+    .name = "defaultTask",
+    .priority = (osPriority_t)osPriorityNormal,
+    .stack_size = 128 * 4};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -62,10 +72,10 @@ void StartDefaultTask(void *argument);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /**
-  * @brief  FreeRTOS initialization
-  * @param  None
-  * @retval None
-  */
+ * @brief  FreeRTOS initialization
+ * @param  None
+ * @retval None
+ */
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
@@ -89,34 +99,52 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  defaultTaskHandle =
+      osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
+
+  rainbow_led_t led = {
+      .ccr1 = &TIM2->CCR1,
+      .ccr2 = &TIM2->CCR2,
+      .ccr3 = &TIM2->CCR3,
+      .channel1 = TIM_CHANNEL_1,
+      .channel2 = TIM_CHANNEL_2,
+      .channel3 = TIM_CHANNEL_3,
+      .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
+      .timer_handle = &htim2,
+  };
+
+  led_init(&led);
+  led_start_thread();
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
   /* USER CODE END RTOS_EVENTS */
-
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
 /**
-  * @brief  Function implementing the defaultTask thread.
-  * @param  argument: Not used
-  * @retval None
-  */
+ * @brief  Function implementing the defaultTask thread.
+ * @param  argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
-{
+void StartDefaultTask(void *argument) {
   /* init code for USB_Device */
   MX_USB_Device_Init();
   /* USER CODE BEGIN StartDefaultTask */
+
+  if (init_logging(CDC_Transmit_FS) == -1) {
+    // If USB logging fails, stop LED thread so we notice
+    // osThreadTerminate(ledHandle);
+  }
   /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
+
+  for (;;) {
+    osDelay(1000);
   }
   /* USER CODE END StartDefaultTask */
 }
@@ -125,4 +153,3 @@ void StartDefaultTask(void *argument)
 /* USER CODE BEGIN Application */
 
 /* USER CODE END Application */
-

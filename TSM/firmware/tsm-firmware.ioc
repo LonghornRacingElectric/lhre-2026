@@ -1,5 +1,5 @@
 #MicroXplorer Configuration settings - do not modify
-ADC1.Channel-0\#ChannelRegularConversion=ADC_CHANNEL_4
+ADC1.Channel-0\#ChannelRegularConversion=ADC_CHANNEL_12
 ADC1.CommonPathInternal=null|null|null|null
 ADC1.IPParameters=Rank-0\#ChannelRegularConversion,Channel-0\#ChannelRegularConversion,SamplingTime-0\#ChannelRegularConversion,OffsetNumber-0\#ChannelRegularConversion,NbrOfConversionFlag,master,CommonPathInternal
 ADC1.NbrOfConversionFlag=1
@@ -144,9 +144,9 @@ PB10.Mode=Asynchronous
 PB10.Signal=USART3_TX
 PB11.Mode=Asynchronous
 PB11.Signal=USART3_RX
-PB12.Locked=true
 PB12.Mode=FDCAN_Activate
 PB12.Signal=FDCAN2_RX
+PB13.Locked=true
 PB13.Mode=FDCAN_Activate
 PB13.Signal=FDCAN2_TX
 PB2.Locked=true
@@ -196,7 +196,7 @@ ProjectManager.ToolChainLocation=
 ProjectManager.UAScriptAfterPath=
 ProjectManager.UAScriptBeforePath=
 ProjectManager.UnderRoot=false
-ProjectManager.functionlistsort=1-SystemClock_Config-RCC-false-HAL-false,2-MX_GPIO_Init-GPIO-false-HAL-true,3-MX_TIM2_Init-TIM2-false-HAL-true,4-MX_USB_Device_Init-USB_DEVICE-false-HAL-false,5-MX_I2C3_Init-I2C3-false-HAL-true,6-MX_USART3_UART_Init-USART3-false-HAL-true,7-MX_USART1_UART_Init-USART1-false-HAL-true,8-MX_ADC1_Init-ADC1-false-HAL-true,9-MX_ADC2_Init-ADC2-false-HAL-true
+ProjectManager.functionlistsort=1-SystemClock_Config-RCC-false-HAL-false,2-MX_GPIO_Init-GPIO-false-HAL-true,3-MX_TIM2_Init-TIM2-false-HAL-true,4-MX_USB_Device_Init-USB_DEVICE-false-HAL-false,5-MX_I2C3_Init-I2C3-false-HAL-true,6-MX_USART3_UART_Init-USART3-false-HAL-true,7-MX_USART1_UART_Init-USART1-false-HAL-true
 RCC.ADC12Freq_Value=16000000
 RCC.ADC345Freq_Value=16000000
 RCC.AHBFreq_Value=16000000
