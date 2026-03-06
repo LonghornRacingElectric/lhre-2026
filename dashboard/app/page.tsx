@@ -92,10 +92,10 @@ export default function MissionControlPage() {
       {/* Main Grid */}
       <div style={{
         flex: 1, overflow: 'hidden', padding: 24,
-        display: 'grid', gridTemplateColumns: '3fr 5fr 4fr', gap: 24,
+        display: 'grid', gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 5fr) minmax(0, 4fr)', gap: 24, minHeight: 0,
       }}>
         {/* LEFT COLUMN: Repo Health */}
-        <section style={{ display: 'flex', flexDirection: 'column', gap: 24, height: '100%', overflowY: 'auto', paddingRight: 4 }}>
+        <section style={{ display: 'flex', flexDirection: 'column', gap: 24, height: '100%', minHeight: 0, paddingRight: 4 }}>
           <div className="section-bar">
             <h2>REPO HEALTH</h2>
             <span className="material-symbols-outlined">monitor_heart</span>
@@ -120,7 +120,7 @@ export default function MissionControlPage() {
           </div>
 
           {/* Commit Ticker */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0 }}>
             <h3 style={{
               fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
               letterSpacing: '0.1em', color: 'var(--text-muted)',
@@ -129,7 +129,7 @@ export default function MissionControlPage() {
               <span style={{ width: 4, height: 4, background: 'var(--primary)', borderRadius: '50%' }} />
               Recent Commits
             </h3>
-            <div className="commit-list">
+            <div className="commit-list" style={{ overflowY: 'auto', flex: 1, paddingRight: 8 }}>
               {loading ? (
                 <div className="loading-text">Loading…</div>
               ) : recentCommits.length === 0 ? (
@@ -178,7 +178,7 @@ export default function MissionControlPage() {
 
         {/* CENTER COLUMN: Live Action Feed */}
         <section style={{
-          display: 'flex', flexDirection: 'column', gap: 24, height: '100%',
+          display: 'flex', flexDirection: 'column', gap: 24, height: '100%', minHeight: 0,
           borderLeft: '1px solid rgba(48, 54, 61, 0.3)', borderRight: '1px solid rgba(48, 54, 61, 0.3)',
           paddingLeft: 24, paddingRight: 24,
         }}>
@@ -243,7 +243,7 @@ export default function MissionControlPage() {
         </section>
 
         {/* RIGHT COLUMN: Target Health */}
-        <section style={{ display: 'flex', flexDirection: 'column', gap: 24, height: '100%' }}>
+        <section style={{ display: 'flex', flexDirection: 'column', gap: 24, height: '100%', minHeight: 0 }}>
           <div className="section-bar">
             <h2>TARGET HEALTH</h2>
             <span className="material-symbols-outlined">hub</span>

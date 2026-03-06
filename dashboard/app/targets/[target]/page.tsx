@@ -61,7 +61,7 @@ export default function TargetPage({ params }: { params: Promise<{ target: strin
 
             <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
                 {/* Left Column (Details & Specs) */}
-                <div style={{
+                <div className="hide-scrollbar" style={{
                     minWidth: 400, width: '30%', padding: 24, paddingRight: 0,
                     display: 'flex', flexDirection: 'column', gap: 24, overflowY: 'auto'
                 }}>
