@@ -1,0 +1,26 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+package(default_visibility = ["//legacy/2024:__subpackages__"])
+
+cc_library(
+    name = "LonghornLib2024_headers",
+    hdrs = glob(
+        [
+            "*.h",
+            "*.hpp",
+        ],
+        allow_empty = True,
+    ),
+    include_prefix = "LonghornLib",
+)
+
+filegroup(
+    name = "LonghornLib2024_srcs",
+    srcs = glob(
+        [
+            "*.cpp",
+            "*.c",
+        ],
+        allow_empty = True,
+    ),
+)

@@ -17,6 +17,8 @@ else:
 class DBTarget:
     @staticmethod
     def get(client=False, car = "Nightwatch"):
+        host = global_target["TARGETS"][global_target["CLIENT_TARGET"]] if client else 'db' if os.getenv('IN_DOCKER') else global_target["TARGETS"][global_target["SERVER_TARGET"]]
+
         if car == "Nightwatch":
             return {
                 'dbname': 'telemetry',
@@ -25,7 +27,7 @@ class DBTarget:
                     'grafana': os.getenv('GRAFANA_PWD'),
                     'analysis': os.getenv('ANALYSIS_PWD')
                 },
-                'host': global_target["TARGETS"][global_target["CLIENT_TARGET"]] if client else 'db' if os.getenv('IN_DOCKER') else global_target["TARGETS"][global_target["SERVER_TARGET"]],
+                'host': host,
                 'port': 5432
             }
         elif car == "Angelique":
@@ -36,7 +38,18 @@ class DBTarget:
                     'grafana': os.getenv('GRAFANA_PWD'),
                     'analysis': os.getenv('ANALYSIS_PWD')
                 },
-                'host': global_target["TARGETS"][global_target["CLIENT_TARGET"]] if client else 'db' if os.getenv('IN_DOCKER') else global_target["TARGETS"][global_target["SERVER_TARGET"]],
+                'host': host,
+                'port': 5432
+            }
+        elif car == "Orion":
+            return {
+                'dbname': 'orion',
+                'users': {
+                    'electric': os.getenv('ELECTRIC_PWD'),
+                    'grafana': os.getenv('GRAFANA_PWD'),
+                    'analysis': os.getenv('ANALYSIS_PWD')
+                },
+                'host': host,
                 'port': 5432
             }
         else:
@@ -52,6 +65,9 @@ SessionLocal_nightwatch = sessionmaker(autocommit=False, autoflush=False, bind=e
 engine_angelique = create_engine(get_db_url(car="Angelique"))
 SessionLocal_angelique = sessionmaker(autocommit=False, autoflush=False, bind=engine_angelique)
 
+engine_orion = create_engine(get_db_url(car="Orion"))
+SessionLocal_orion = sessionmaker(autocommit=False, autoflush=False, bind=engine_orion)
+
 @contextmanager
 def get_db(car="Nightwatch"):
     if car == "Nightwatch":
@@ -62,6 +78,12 @@ def get_db(car="Nightwatch"):
             db.close()
     elif car == "Angelique":
         db = SessionLocal_angelique()
+        try:
+            yield db
+        finally:
+            db.close()
+    elif car == "Orion":
+        db = SessionLocal_orion()
         try:
             yield db
         finally:

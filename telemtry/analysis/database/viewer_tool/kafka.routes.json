@@ -1,0 +1,24 @@
+{
+  "sensor_data": [
+    {
+      "to": "driver_input_visualizer",
+      "pick": ["controls"]
+    },
+    {
+      "to": "car_visualization",
+      "pick": ["dynamics"]
+    },
+    {
+      "to": "live_banner",
+      "pick": ["battery", "odometer"]
+    },
+    {
+      "to": "map",
+      "pick": ["dynamics"]
+    }
+  ],
+  "gg-plot": {
+    "to": "gg-plot",
+    "pick": ["data"]
+  }
+}

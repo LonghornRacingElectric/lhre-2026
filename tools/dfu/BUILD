@@ -11,6 +11,7 @@ compile_pip_requirements(
     name = "dfu_requirements",
     src = "requirements.txt",
     requirements_txt = "requirements_lock.txt",
+    tags = ["requirements"],
 )
 
 filegroup(

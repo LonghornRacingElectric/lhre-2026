@@ -3,7 +3,7 @@
     "accel_pedal_t": "Inverter Torque Request",
     "dash_speed" : "Speed",
     "cent_mass_accel": ["Vehicle Acceleration X", "Vehicle Acceleration Y", "Vehicle Acceleration Z"],
-    "f_gps": ["Longitude", "Latitude"],
+    "f_gps": ["Latitude", "Longitude"],
     "f_gps_velocity": "Speed",
     "f_gps_heading": "Heading",
     "fl_unsprung_accel": ["VCU Acceleration X", "VCU Acceleration Y", "VCU Acceleration Z"],

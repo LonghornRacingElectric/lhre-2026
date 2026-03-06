@@ -1,0 +1,136 @@
+# telemtry/stack/processors/lap_timer/BUILD.bazel
+# BUILD file for the lap timer processor
+# This processor tracks lap times by detecting when the car crosses a finish line gate
+
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+load("@rules_python//python:pip.bzl", "compile_pip_requirements")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_load")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("@telemtry_reqs//:requirements.bzl", "requirement")
+
+package(default_visibility = ["//telemtry:__subpackages__"])
+
+# Compile pip requirements
+compile_pip_requirements(
+    name = "lap_timer_requirements",
+    src = "requirements.txt",
+    requirements_txt = "requirements_lock.txt",
+    python_version = "3.11",
+    generate_hashes = False,
+    tags = ["requirements"],
+)
+
+# Export configuration files
+exports_files([
+    "docker-compose.yml",
+    "entrypoint.sh",
+    "requirements.txt",
+    "requirements_lock.txt",
+])
+
+# Python library for the lap timer
+py_library(
+    name = "lap_timer_lib",
+    srcs = [
+        "__init__.py",
+        "lap_timer.py",
+        "main.py",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//telemtry/analysis:analysis_lib",
+        "//telemtry/stack/ingest:ingest_lib",
+        requirement("matplotlib"),
+        requirement("numpy"),
+        requirement("paho-mqtt"),
+        requirement("pandas"),
+        requirement("protobuf"),
+        requirement("psycopg2-binary"),
+        requirement("python-dotenv"),
+        requirement("requests"),
+        requirement("SQLAlchemy"),
+    ],
+)
+
+# Python binary for the lap timer
+py_binary(
+    name = "lap_timer_binary",
+    srcs = ["main.py"],
+    main = "main.py",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":lap_timer_lib",
+    ],
+)
+
+# Package the processor application files
+pkg_tar(
+    name = "lap_timer_app_tar",
+    srcs = [
+        "__init__.py",
+        "entrypoint.sh",
+        "lap_timer.py",
+        "main.py",
+    ],
+    package_dir = "/app/stack/processors/lap_timer",
+    strip_prefix = ".",
+)
+
+# Package ingest dependencies
+pkg_tar(
+    name = "ingest_deps_tar",
+    srcs = [
+        "//telemtry/stack/ingest:ingest_lib",
+        "//telemtry/stack/ingest:protobuf_files",
+    ],
+    package_dir = "/app/stack/ingest",
+)
+
+# Package analysis dependencies
+pkg_tar(
+    name = "analysis_deps_tar",
+    srcs = [
+        "//telemtry/analysis:analysis_lib",
+    ],
+    package_dir = "/app/analysis",
+)
+
+# Package configuration files
+pkg_tar(
+    name = "config_tar",
+    srcs = [
+        "//telemtry:config_files",
+    ],
+    package_dir = "/app",
+)
+
+# OCI image for the lap timer processor
+oci_image(
+    name = "lap_timer_image",
+    base = "@python311_linux_amd64",
+    tars = [
+        ":lap_timer_app_tar",
+        ":config_tar",
+    ],
+    entrypoint = ["/app/stack/processors/lap_timer/entrypoint.sh"],
+    env = {
+        "PYTHONPATH": "/app",
+        "PYTHONUNBUFFERED": "1",
+    },
+    visibility = ["//visibility:public"],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+# Tarball for local Docker loading (use oci_load instead of oci_tarball)
+oci_load(
+    name = "lap_timer_tarball",
+    image = ":lap_timer_image",
+    repo_tags = ["lap_timer:latest"],
+)
+
+# Push target for container registry
+oci_push(
+    name = "lap_timer_push",
+    image = ":lap_timer_image",
+    repository = "ghcr.io/longhornracingelectric/telemetry-lap-timer",
+)

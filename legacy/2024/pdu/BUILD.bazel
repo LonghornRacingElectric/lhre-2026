@@ -1,0 +1,16 @@
+load("//tools:outputs/build_outputs.bzl", "firmware_project_l4")
+
+firmware_project_l4(
+    name = "pdu_firmware_2024",
+    defines = [
+        "STM32L431xx",
+    ],
+    extra_deps = [
+        "//legacy/2024/LonghornLib:LonghornLib2024_headers",
+    ],
+    extra_srcs = [
+        "//legacy/2024/LonghornLib:LonghornLib2024_srcs",
+    ],
+    linker_script = "STM32L431CBTX_FLASH.ld",
+    startup_script = "Core/Startup/startup_stm32l431cbtx.s",
+)

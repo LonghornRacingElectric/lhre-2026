@@ -210,8 +210,9 @@ model dynamics {
   bl_spring_displace Float?
   br_spring_displace Float?
   dash_speed         Float?
-  f_gps              Unsupported("point")?
-  b_gps              Unsupported("point")?
+  // Store as [lat, lng] numeric arrays (instead of Postgres point)
+  f_gps              Float[]?
+  b_gps              Float[]?
   f_gps_velocity     Float?
   b_gps_velocity     Float?
   f_gps_heading      Float?
