@@ -209,9 +209,18 @@ class DataTester:
                 row[col] = time.time() * 1000
             elif col == 'packet_id':
                 row[col] = packet
-            elif col == 'cells_temp':
-                # row[col] = np.random.randint(1, 101, size=(4, 5)).tolist()
-                row[col] = np.random.randint(1, 101, size=140).tolist()
+            elif col in ['cells_temp', 'cells_temps']:
+                # Handle both singular and plural forms for different car models
+                size = 140 if col == 'cells_temps' else 80
+                row[col] = np.random.randint(20, 50, size=size).tolist()
+            elif col in ['hv_pack_v', 'bus_voltage', 'hv_tractive_v', 'dc_bus_v']:
+                row[col] = self.rng.uniform(300, 400)
+            elif col in ['hv_soc', 'lv_soc']:
+                row[col] = self.rng.uniform(0, 100)
+            elif col in ['hv_c', 'lv_c', 'dc_bus_current']:
+                row[col] = self.rng.uniform(0, 50)
+            elif col == 'avg_cell_v' or col == 'cell_min_v' or col == 'cell_max_v':
+                row[col] = self.rng.uniform(3.0, 4.2)
             elif dtype is datetime.datetime:
                 row[col] = datetime.date.today()
             elif dtype is dict:
@@ -392,7 +401,7 @@ if __name__ == '__main__':
             proto_tables = {
                 "Nightwatch": ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'],
                 "Angelique": ['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
-                "Orion": ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_low', 'thermal'],
+                "Orion": ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'],
             }
             dt.send_proto_rows(
                 tables=proto_tables[car_name],
