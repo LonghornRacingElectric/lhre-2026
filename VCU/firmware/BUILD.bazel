@@ -19,4 +19,5 @@ firmware_project_g4(
     linker_script = "STM32G474XX_FLASH.ld",
     startup_script = "startup_stm32g474xx.s",
     usb_device_name = "Vehicle Control Unit",
+    version = "0.5.5",
 )

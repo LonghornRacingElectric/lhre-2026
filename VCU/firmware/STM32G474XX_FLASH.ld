@@ -76,6 +76,13 @@ SECTIONS
     . = ALIGN(4);
   } >FLASH
 
+  .ver_info :
+  {
+    . = ALIGN(4);
+    KEEP(*(.ver_info))   /* KEEP prevents the linker from optimizing it away */
+    . = ALIGN(4);
+  } >FLASH
+
   /* The program code and other data goes into FLASH */
   .text :
   {
