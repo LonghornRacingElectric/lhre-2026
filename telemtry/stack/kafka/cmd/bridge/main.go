@@ -178,6 +178,7 @@ func rawDataWorker(producer sarama.SyncProducer) {
 		kafkaMsg := &sarama.ProducerMessage{
 			Topic: "sensor_data",
 			Value: sarama.ByteEncoder(msg.Payload),
+			Timestamp: time.Now(),
 			Headers: []sarama.RecordHeader{
 				{Key: []byte("car_type"), Value: []byte(msg.CarType)},
 			},
@@ -199,6 +200,11 @@ func grafanaDataWorker(producer sarama.SyncProducer) {
 			continue
 		}
 
+		// Extract time from JSON for logging
+		var data map[string]interface{}
+		json.Unmarshal(jsonData, &data)
+		msgTime, _ := data["time"].(float64)
+
 		normalizedCarType := strings.ToLower(strings.TrimSpace(msg.CarType))
 		if normalizedCarType == "" {
 			normalizedCarType = "unknown"
@@ -209,6 +215,7 @@ func grafanaDataWorker(producer sarama.SyncProducer) {
 		kafkaMsg := &sarama.ProducerMessage{
 			Topic: topic,
 			Value: sarama.ByteEncoder(jsonData),
+			Timestamp: time.Now(),
 			Headers: []sarama.RecordHeader{
 				{Key: []byte("car_type"), Value: []byte(msg.CarType)},
 			},
@@ -218,7 +225,7 @@ func grafanaDataWorker(producer sarama.SyncProducer) {
 		if err != nil {
 			log.Printf("Error sending to topic %s: %v", topic, err)
 		} else {
-			log.Printf("Successfully sent message to topic %s (partition: %d, offset: %d)", topic, partition, offset)
+			log.Printf("Successfully sent message to topic %s (partition: %d, offset: %d, msgTime: %v)", topic, partition, offset, int64(msgTime))
 		}
 	}
 }
@@ -493,6 +500,7 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["brake_pressure_f"] = msg.Controls.BrakePressureF
 		m["torque_request"] = msg.Controls.TorqueRequest
 		m["torque_command"] = msg.Controls.TorqueCommand
+		log.Printf("Debug: Orion Controls PRESENT. Apps1V: %v, TorqueReq: %v", msg.Controls.Apps1V, msg.Controls.TorqueRequest)
 	} else {
 		log.Println("Debug: Orion Controls block is nil")
 	}
@@ -506,11 +514,16 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["lv_batt_t"] = msg.Pack.LvBattT
 		m["bus_voltage"] = msg.Pack.BusVoltage
 
+		log.Printf("Debug: Orion Pack PRESENT. HV Pack V: %v, HV SOC: %v, Bus V: %v", msg.Pack.HvPackV, msg.Pack.HvSoc, msg.Pack.BusVoltage)
+
 		if len(msg.Pack.CellsV) > 0 {
 			avg, min, max := statsFromFloat32Slice(msg.Pack.CellsV)
 			m["avg_cell_v_stat"] = avg
 			m["max_cell_v"] = max
 			m["min_cell_v"] = min
+			log.Printf("Debug: Orion CellsV stats: avg=%v, min=%v, max=%v", avg, min, max)
+		} else {
+			log.Println("Debug: Orion msg.Pack.CellsV is EMPTY")
 		}
 		if len(msg.Pack.CellsTemps) > 0 {
 			avg, min, max := statsFromFloat32Slice(msg.Pack.CellsTemps)
