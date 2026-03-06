@@ -1,0 +1,9 @@
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "fw_version",
+    srcs = [
+        "fw_version.c",
+        "fw_version.h",
+    ],
+)

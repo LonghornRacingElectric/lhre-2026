@@ -122,6 +122,7 @@ def firmware_project_g4(
         enable_freertos = False,
         enable_dfu = False,
         locations = [],
+        version = "0.0.0",
         **kwargs):
     """Creates a firmware project for the STM32G4 family of chips.
 
@@ -140,6 +141,7 @@ def firmware_project_g4(
         locations (list, optional): A list of location identifiers (e.g., ["FR", "FL"]).
                                     For each location, a separate binary will be generated
                                     with a "BOARD_<location>" define. Defaults to [].
+        version (string, optional): The version of the firmware. Defaults to "0.0.0".
         **kwargs: extra args to pass to cc_binary.
     """
 
@@ -151,6 +153,10 @@ def firmware_project_g4(
     final_extra_deps = extra_deps[:]
     final_defines = defines[:]
 
+    final_defines.append("APP_VERS_MAJOR=" + version.split(".")[0])
+    final_defines.append("APP_VERS_MINOR=" + version.split(".")[1])
+    final_defines.append("APP_VERS_PATCH=" + version.split(".")[2])
+
     if (enable_usb):
         final_extra_srcs.append("//drivers/stm32g4:usb_device_srcs")
         final_extra_deps.append("//drivers/stm32g4:usb_device_headers")
@@ -161,6 +167,7 @@ def firmware_project_g4(
         final_extra_deps.append("//drivers/stm32g4:freertos_headers")
 
     final_extra_srcs.append("//drivers/ota:ota_flash_srcs")
+    final_extra_srcs.append("//drivers/versioning:fw_version")
     final_extra_deps.append("//drivers/ota:ota_flash_headers")
 
     # enable DFU if the board has it enabled
