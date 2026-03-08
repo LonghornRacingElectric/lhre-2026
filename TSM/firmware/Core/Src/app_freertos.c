@@ -22,8 +22,17 @@
 #include "cmsis_os.h"
 #include "main.h"
 #include "task.h"
+#include "tsm_can.h"
 
 #include "usb_device.h"
+#include <math.h>
+
+#define ADC_MAX 4095.0f
+#define VREF 3.3f
+#define R_FIXED 10000.0f  // 10k resistor in divider
+#define THERM_R0 10000.0f // thermistor resistance at 25C
+#define THERM_BETA 3950.0f
+#define TEMP_REF_K 298.15f // 25C in Kelvin
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -50,8 +59,6 @@ volatile uint32_t fan_pulses = 0;
 
 float coolant_flow_lpm = 0;
 float fan_rpm = 0;
-
-uint16_t therm_adc[4];
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -169,13 +176,42 @@ void StartDefaultTask(void *argument) {
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+
+// thermistor to adc
+
+float thermistor_adc_to_temp(uint16_t adc) {
+  if (adc == 0 || adc >= ADC_MAX)
+    return -100.0f;
+
+  /* Convert ADC → voltage */
+  float v = (adc / ADC_MAX) * VREF;
+
+  /* Voltage divider: thermistor on top, 10k to ground */
+  float r_therm = R_FIXED * ((VREF / v) - 1.0f);
+
+  /* Beta equation */
+  float temp_k = 1.0f / ((1.0f / TEMP_REF_K) +
+                         (1.0f / THERM_BETA) * logf(r_therm / THERM_R0));
+
+  return temp_k - 273.15f;
+}
+
+/* placeholder for ambient waterproof */
+
+float ds18b20_read_temp(void) {
+  /* placeholder value so CAN works during testing */
+  return 25.0f;
+}
+
 void StartSensorTask(void *argument) {
   uint32_t last_flow = 0;
   uint32_t last_fan = 0;
 
   for (;;) {
+    uint16_t therm_adc[3];
+    float temps_c[4];
 
-    /* ---- READ ADC THERMISTORS ---- */
+    // adc thermistors
 
     HAL_ADC_Start(&hadc1);
 
@@ -186,32 +222,39 @@ void StartSensorTask(void *argument) {
 
     HAL_ADC_Stop(&hadc1);
 
-    HAL_ADC_Start(&hadc2);
-    HAL_ADC_PollForConversion(&hadc2, HAL_MAX_DELAY);
-    therm_adc[3] = HAL_ADC_GetValue(&hadc2);
-    HAL_ADC_Stop(&hadc2);
+    // convert to temp
 
-    /* ---- FLOW RATE ---- */
+    for (int i = 0; i < 3; i++) {
+      temps_c[i] = thermistor_adc_to_temp(therm_adc[i]);
+    }
+
+    // ambient waterproof sensor
+    temps_c[3] = ds18b20_read_temp();
+
+    // flow rate
 
     uint32_t flow_now = flow_pulses;
     uint32_t flow_delta = flow_now - last_flow;
     last_flow = flow_now;
 
-    /* Koolance meters ≈ 169 pulses per liter */
-    coolant_flow_lpm = (flow_delta * 60.0) / 169.0;
+    // koolance coolant flow
 
-    /* ---- FAN RPM ---- */
+    coolant_flow_lpm = (flow_delta * 60.0f) / 169.0f;
 
+    // fan rpm
     uint32_t fan_now = fan_pulses;
     uint32_t fan_delta = fan_now - last_fan;
     last_fan = fan_now;
 
     /* most fans = 2 pulses per revolution */
-    fan_rpm = (fan_delta * 60.0) / 2.0;
 
-    /* delay 100 ms */
+    fan_rpm = (fan_delta * 60.0f) / 2.0f;
+
+    // send to can
+
+    tsm_can_update_sensors(temps_c[0], temps_c[1], temps_c[2], temps_c[3],
+                           coolant_flow_lpm, fan_rpm);
 
     osDelay(100);
   }
 }
-/* USER CODE END Application */

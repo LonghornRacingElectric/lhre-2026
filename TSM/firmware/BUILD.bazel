@@ -10,4 +10,9 @@ firmware_project_g4(
     enable_freertos = True,
     enable_usb = True,
     usb_device_name = "Thermal Sensor Module",
+    extra_includes = ["tsm/"],
+    extra_srcs = glob([
+        "tsm/*.c",
+        "tsm/*.h",
+    ]),
 )
