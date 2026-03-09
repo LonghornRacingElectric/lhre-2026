@@ -7,21 +7,31 @@
 extern "C" {
 #endif
 
+/**
+ * Initialize the TSM CAN interface and start RTOS CAN tasks
+ */
 void tsm_can_init(void);
 
-/* Update the sensor CAN packet */
-void tsm_can_update_sensors(uint16_t therm1, uint16_t therm2, uint16_t therm3,
-                            uint16_t therm4, float coolant_flow_lpm,
-                            float fan_rpm);
+/**
+ * Update coolant loop temperatures
+ *
+ * @param loop_motor_temp        temp after motor (°C)
+ * @param loop_inverter_temp     temp after inverter (°C)
+ * @param radiator_outlet_temp   temp after radiator (°C)
+ */
+void tsm_can_update_coolant_loop(float loop_motor_temp,
+                                 float loop_inverter_temp,
+                                 float radiator_outlet_temp);
 
-typedef struct {
-  uint16_t thermistor1;
-  uint16_t thermistor2;
-  uint16_t thermistor3;
-  uint16_t thermistor4;
-  float coolant_flow_lpm;
-  float fan_rpm;
-} msg_tsm_sensors_t;
+/**
+ * Update cooling system telemetry
+ *
+ * @param fan_rpm           radiator fan speed (rpm)
+ * @param coolant_flow_lpm  coolant flow rate (L/min)
+ * @param ambient_temp      ambient temperature (°C)
+ */
+void tsm_can_update_cooling_system(float fan_rpm, float coolant_flow_lpm,
+                                   float ambient_temp);
 
 #ifdef __cplusplus
 }

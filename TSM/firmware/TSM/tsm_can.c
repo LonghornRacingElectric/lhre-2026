@@ -11,26 +11,34 @@
 #include <stm32g4xx_hal_fdcan.h>
 
 /* ===============================
-   CAN Interface
+   CAN Interfaces
    =============================== */
 
 static can_interface_t data_acq_bus;
 
 /* ===============================
-   CAN Sensor Packet
+   CAN Mailboxes
    =============================== */
 
-static msg_tsm_sensors_t tsm_sensors_mailbox = {0};
-static can_message_t *tsm_sensors_mailbox_handle = NULL;
+/* Coolant loop temps (ID 416) */
+static msg_coolant_loop_temps_t coolant_loop_mailbox = {0};
+static can_message_t *coolant_loop_handle = NULL;
+
+/* Cooling system sensors (ID 418) */
+static msg_tsm_cooling_system_t cooling_sys_mailbox = {0};
+static can_message_t *cooling_sys_handle = NULL;
 
 /* ===============================
-   CAN Init
+   Internal Function Prototypes
    =============================== */
 
 static void tsm_can_add_send_handlers(void);
 
-void tsm_can_init(void) {
+/* ===============================
+   CAN Initialization
+   =============================== */
 
+void tsm_can_init(void) {
   ota_flash_init();
 
   can_config_t cfg = {
@@ -55,6 +63,7 @@ void tsm_can_init(void) {
       .abort_update_fn = ota_flash_abort,
   };
 
+  /* TSM uses CAN2 for data acquisition */
   data_acq_bus.handle = &hfdcan2;
   data_acq_bus.cccr_reg = &hfdcan2.Instance->CCCR;
 
@@ -63,47 +72,68 @@ void tsm_can_init(void) {
   /* Register physical interface */
   can_rtos_register_interface(&data_acq_bus);
 
-  /* Register packets BEFORE starting interface */
+  /* Register CAN packets before starting interface */
   tsm_can_add_send_handlers();
 
-  /* Start CAN */
+  /* Start CAN interface */
   can_rtos_start_interface(&data_acq_bus);
 
-  /* Start RTOS CAN tasks */
+  /* Start CAN RTOS tasks */
   can_rtos_start_transceiver_task(osPriorityHigh);
   can_rtos_start_receiver_task(osPriorityHigh);
 
-  log_printf(LOG_INFO, "[TSM] CAN initialized\n");
+  log_printf(LOG_INFO, "[TSM] CAN RTOS initialized\n");
 }
 
-// Send handlers
+/* ===============================
+   Send Handler Registration
+   =============================== */
 
 static void tsm_can_add_send_handlers(void) {
+  /* Coolant Loop Temps (ID 416) */
+  coolant_loop_handle = can_get_message_handle(
+      &coolant_loop_mailbox, COOLANT_LOOP_TEMPS_ID, COOLANT_LOOP_TEMPS_FREQ,
+      COOLANT_LOOP_TEMPS_DLC, (CAN_pack_message_fn)pack_coolant_loop_temps);
 
-  tsm_sensors_mailbox_handle = can_get_message_handle(
-      &tsm_sensors_mailbox, TSM_SENSORS_ID, TSM_SENSORS_FREQ, TSM_SENSORS_DLC,
-      (CAN_pack_message_fn)pack_tsm_sensors);
+  can_rtos_register_send_packet(&data_acq_bus, coolant_loop_handle);
 
-  can_rtos_register_send_packet(&data_acq_bus, tsm_sensors_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[TSM] CAN send handler for coolant loop temps registered\n");
 
-  log_printf(LOG_INFO, "[TSM] Sensor CAN packet registered\n");
+  /* Cooling System (ID 418) */
+  cooling_sys_handle = can_get_message_handle(
+      &cooling_sys_mailbox, TSM_COOLING_SYSTEM_ID, TSM_COOLING_SYSTEM_FREQ,
+      TSM_COOLING_SYSTEM_DLC, (CAN_pack_message_fn)pack_tsm_cooling_system);
+
+  can_rtos_register_send_packet(&data_acq_bus, cooling_sys_handle);
+
+  log_printf(LOG_INFO,
+             "[TSM] CAN send handler for cooling system registered\n");
 }
 
-//  Sensor Update
+/* ===============================
+   Packet Update APIs
+   =============================== */
 
-void tsm_can_update_sensors(float therm1, float therm2, float therm3,
-                            float therm4, float coolant_flow_lpm,
-                            float fan_rpm) {
-
+void tsm_can_update_coolant_loop(float loop_motor_temp,
+                                 float loop_inverter_temp,
+                                 float radiator_outlet_temp) {
   taskENTER_CRITICAL();
 
-  tsm_sensors_mailbox.thermistor1 = therm1;
-  tsm_sensors_mailbox.thermistor2 = therm2;
-  tsm_sensors_mailbox.thermistor3 = therm3;
-  tsm_sensors_mailbox.thermistor4 = therm4;
+  coolant_loop_mailbox.loop_temp_after_motor = loop_motor_temp;
+  coolant_loop_mailbox.loop_temp_after_inverter = loop_inverter_temp;
+  coolant_loop_mailbox.temp_after_radiator = radiator_outlet_temp;
 
-  tsm_sensors_mailbox.coolant_flow_lpm = coolant_flow_lpm;
-  tsm_sensors_mailbox.fan_rpm = fan_rpm;
+  taskEXIT_CRITICAL();
+}
+
+void tsm_can_update_cooling_system(float fan_rpm, float coolant_flow_lpm,
+                                   float ambient_temp) {
+  taskENTER_CRITICAL();
+
+  cooling_sys_mailbox.radiator_fan_speed = (uint16_t)fan_rpm;
+  cooling_sys_mailbox.coolant_flow = coolant_flow_lpm;
+  cooling_sys_mailbox.ambient_temp_ds18b20 = ambient_temp;
 
   taskEXIT_CRITICAL();
 }

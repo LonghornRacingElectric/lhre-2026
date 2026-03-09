@@ -22,26 +22,20 @@
 #include "cmsis_os.h"
 #include "main.h"
 #include "task.h"
-#include "tsm_can.h"
-
-#include "usb_device.h"
-#include <math.h>
-
-#define ADC_MAX 4095.0f
-#define VREF 3.3f
-#define R_FIXED 10000.0f  // 10k resistor in divider
-#define THERM_R0 10000.0f // thermistor resistance at 25C
-#define THERM_BETA 3950.0f
-#define TEMP_REF_K 298.15f // 25C in Kelvin
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "longhorn/rtos/dfu.h"
 #include "longhorn/rtos/led.h"
 #include "longhorn/rtos/logger.h"
 #include "longhorn/rtos/usb.h"
 #include "longhorn/usb_base.h"
+#include "ota/ota_flash.h"
 #include "tim.h"
+#include "tsm_can.h"
+#include "usb_device.h"
 #include "usbd_cdc_if.h"
+#include <math.h>
 
 #include "adc.h"
 #include "gpio.h"
@@ -49,6 +43,12 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+#define ADC_MAX 4095.0f
+#define VREF 3.3f
+#define R_FIXED 10000.0f  // 10k resistor in divider
+#define THERM_R0 10000.0f // thermistor resistance at 25C
+#define THERM_BETA 3950.0f
+#define TEMP_REF_K 298.15f // 25C in Kelvin
 
 /* USER CODE END PTD */
 
@@ -68,14 +68,14 @@ float fan_rpm = 0;
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
-
+osThreadId_t sensorTaskHandle;
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
     .name = "defaultTask",
     .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 128 * 4};
+    .stack_size = 1024 * 4};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -91,8 +91,6 @@ void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
  * @param  None
  * @retval None
  */
-
-osThreadId_t sensorTaskHandle;
 
 const osThreadAttr_t sensorTask_attributes = {
     .name = "sensorTask",
@@ -160,17 +158,34 @@ void MX_FREERTOS_Init(void) {
 void StartDefaultTask(void *argument) {
   /* init code for USB_Device */
   MX_USB_Device_Init();
+
   /* USER CODE BEGIN StartDefaultTask */
+  dfu_config dfu = {
+      .delay_fn = (Delay_fn)osDelay,
+      .gpiox = GPIOB,
+      .pin = GPIO_PIN_9,
+      .pin_set_fn = (PinSet_fn)HAL_GPIO_WritePin,
+      .reset_fn = (SystemReset_fn)HAL_NVIC_SystemReset,
+      .set_bank1_fn = (SetBank1_fn)ota_set_bank1,
+  };
+
+  init_dfu(dfu);
+  dfu_start_thread();
 
   if (init_logging(CDC_Transmit_FS) == -1) {
     // If USB logging fails, stop LED thread so we notice
-    // osThreadTerminate(ledHandle);
   }
-  /* Infinite loop */
 
+  /* Initialize CAN */
+  tsm_can_init();
+
+  log_printf(LOG_INFO, "[TSM] Application started\n");
+
+  /* Infinite loop */
   for (;;) {
     osDelay(1000);
   }
+
   /* USER CODE END StartDefaultTask */
 }
 
@@ -208,10 +223,13 @@ void StartSensorTask(void *argument) {
   uint32_t last_fan = 0;
 
   for (;;) {
+
     uint16_t therm_adc[3];
     float temps_c[4];
 
-    // adc thermistors
+    /* ======================
+       Read thermistors
+       ====================== */
 
     HAL_ADC_Start(&hadc1);
 
@@ -222,39 +240,51 @@ void StartSensorTask(void *argument) {
 
     HAL_ADC_Stop(&hadc1);
 
-    // convert to temp
+    /* Convert ADC → temperature */
 
     for (int i = 0; i < 3; i++) {
       temps_c[i] = thermistor_adc_to_temp(therm_adc[i]);
     }
 
-    // ambient waterproof sensor
+    /* Ambient waterproof sensor */
     temps_c[3] = ds18b20_read_temp();
 
-    // flow rate
+    /* ======================
+       Flow sensor
+       ====================== */
 
     uint32_t flow_now = flow_pulses;
     uint32_t flow_delta = flow_now - last_flow;
     last_flow = flow_now;
 
-    // koolance coolant flow
+    /* Koolance flow sensor: 169 pulses per liter */
 
     coolant_flow_lpm = (flow_delta * 60.0f) / 169.0f;
 
-    // fan rpm
+    /* ======================
+       Fan RPM
+       ====================== */
+
     uint32_t fan_now = fan_pulses;
     uint32_t fan_delta = fan_now - last_fan;
     last_fan = fan_now;
 
-    /* most fans = 2 pulses per revolution */
+    /* Most fans = 2 pulses per revolution */
 
     fan_rpm = (fan_delta * 60.0f) / 2.0f;
 
-    // send to can
+    /* ======================
+       Send CAN packets
+       ====================== */
 
-    tsm_can_update_sensors(temps_c[0], temps_c[1], temps_c[2], temps_c[3],
-                           coolant_flow_lpm, fan_rpm);
+    tsm_can_update_coolant_loop(temps_c[0],  // after motor
+                                temps_c[1],  // after inverter
+                                temps_c[2]); // after radiator
+
+    tsm_can_update_cooling_system(fan_rpm, coolant_flow_lpm, temps_c[3]);
 
     osDelay(100);
   }
 }
+
+/* USER CODE END Application */

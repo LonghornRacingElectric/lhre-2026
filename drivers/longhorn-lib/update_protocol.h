@@ -23,10 +23,7 @@ typedef enum {
   DEVICE_ID_CSM_RR,
   DEVICE_ID_CSM_FL,
   DEVICE_ID_CSM_RL,
-  DEVICE_ID_TSM_FR,
-  DEVICE_ID_TSM_RR,
-  DEVICE_ID_TSM_FL,
-  DEVICE_ID_TSM_RL,
+  DEVICE_ID_TSM,
 } can_device_t;
 
 typedef enum {

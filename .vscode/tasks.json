@@ -6,7 +6,8 @@
       "command": "bazel",
       "args": [
         "run",
-        "@rules_rust//tools/rust_analyzer:gen_rust_project"
+        "@rules_rust//tools/rust_analyzer:gen_rust_project",
+        "--config=rust"
       ],
       "options": {
         "cwd": "${workspaceFolder}"
@@ -17,13 +18,16 @@
         "reveal": "never",
         "panel": "dedicated"
       }
+      // "runOptions": {
+      //   "runOn": "folderOpen"
+      // }
     },
     {
       "label": "Generate compile_commands.json",
       "command": "bazel",
       "args": [
         "run",
-        "@hedron_compile_commands//:refresh_all"
+        "//tools/compile_commands:refresh_compile_commands"
       ],
       "options": {
         "cwd": "${workspaceFolder}"
@@ -31,9 +35,12 @@
       "group": "build",
       "problemMatcher": [],
       "presentation": {
-        "reveal": "never",
+        "reveal": "always",
         "panel": "dedicated"
       }
+      // "runOptions": {
+      //   "runOn": "folderOpen"
+      // }
     },
     {
       "label": "vcu-firmware-build",
@@ -52,6 +59,9 @@
         "reveal": "always",
         "panel": "dedicated"
       }
+      // "runOptions": {
+      //   "runOn": "folderOpen"
+      // }
     }
   ]
 }
