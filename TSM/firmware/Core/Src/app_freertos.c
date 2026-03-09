@@ -60,7 +60,6 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 volatile uint32_t flow_pulses = 0;
-
 volatile uint32_t fan_pulses = 0;
 
 float coolant_flow_lpm = 0;
