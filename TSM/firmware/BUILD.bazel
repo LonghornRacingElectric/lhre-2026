@@ -16,3 +16,4 @@ firmware_project_g4(
         "tsm/*.h",
     ]),
 )
+th

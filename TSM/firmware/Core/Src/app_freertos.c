@@ -23,6 +23,8 @@
 #include "main.h"
 #include "task.h"
 
+#include "usb_device.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "longhorn/rtos/dfu.h"
@@ -45,16 +47,20 @@
 /* USER CODE BEGIN PTD */
 #define ADC_MAX 4095.0f
 #define VREF 3.3f
-#define R_FIXED 10000.0f  // 10k resistor in divider
-#define THERM_R0 10000.0f // thermistor resistance at 25C
-#define THERM_BETA 3950.0f
+#define R_FIXED 10000.0f   // 10k resistor in divider
+#define THERM_R0 10000.0f  // thermistor resistance at 25C
+#define THERM_BETA 3977.0f // beta constant
 #define TEMP_REF_K 298.15f // 25C in Kelvin
+
+#define DS18B20_PORT GPIOA
+#define DS18B20_PIN GPIO_PIN_3
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 volatile uint32_t flow_pulses = 0;
+
 volatile uint32_t fan_pulses = 0;
 
 float coolant_flow_lpm = 0;
@@ -69,13 +75,17 @@ float fan_rpm = 0;
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
 osThreadId_t sensorTaskHandle;
+const osThreadAttr_t sensorTask_attributes = {
+    .name = "sensorTask",
+    .priority = (osPriority_t)osPriorityAboveNormal,
+    .stack_size = 2048 * 4};
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
     .name = "defaultTask",
     .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 1024 * 4};
+    .stack_size = 2048 * 4};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -91,12 +101,6 @@ void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
  * @param  None
  * @retval None
  */
-
-const osThreadAttr_t sensorTask_attributes = {
-    .name = "sensorTask",
-    .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 256 * 4};
-
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
@@ -158,7 +162,6 @@ void MX_FREERTOS_Init(void) {
 void StartDefaultTask(void *argument) {
   /* init code for USB_Device */
   MX_USB_Device_Init();
-
   /* USER CODE BEGIN StartDefaultTask */
   dfu_config dfu = {
       .delay_fn = (Delay_fn)osDelay,
@@ -199,10 +202,10 @@ float thermistor_adc_to_temp(uint16_t adc) {
     return -100.0f;
 
   /* Convert ADC → voltage */
-  float v = (adc / ADC_MAX) * VREF;
+  float v = ((float)adc / ADC_MAX) * VREF;
 
-  /* Voltage divider: thermistor on top, 10k to ground */
-  float r_therm = R_FIXED * ((VREF / v) - 1.0f);
+  /* Voltage divider: 10k to VREF, thermistor to GND */
+  float r_therm = R_FIXED * (v / (VREF - v));
 
   /* Beta equation */
   float temp_k = 1.0f / ((1.0f / TEMP_REF_K) +
@@ -211,11 +214,109 @@ float thermistor_adc_to_temp(uint16_t adc) {
   return temp_k - 273.15f;
 }
 
-/* placeholder for ambient waterproof */
+// ambient waterproof
+
+static inline void ds18b20_low(void) {
+  HAL_GPIO_WritePin(DS18B20_PORT, DS18B20_PIN, GPIO_PIN_RESET);
+}
+
+static inline void ds18b20_release(void) {
+  HAL_GPIO_WritePin(DS18B20_PORT, DS18B20_PIN, GPIO_PIN_SET);
+}
+
+static inline uint8_t ds18b20_read_pin(void) {
+  return HAL_GPIO_ReadPin(DS18B20_PORT, DS18B20_PIN);
+}
+
+uint8_t ds18b20_reset(void) {
+  ds18b20_low();
+  HAL_Delay(1); // ~480us
+
+  ds18b20_release();
+
+  for (volatile int i = 0; i < 100; i++)
+    ;
+
+  uint8_t presence = !ds18b20_read_pin();
+
+  osDelay(1);
+
+  return presence;
+}
+
+void ds18b20_write_bit(uint8_t bit) {
+  ds18b20_low();
+
+  if (bit) {
+    for (volatile int i = 0; i < 5; i++)
+      ;
+    ds18b20_release();
+    for (volatile int i = 0; i < 60; i++)
+      ;
+  } else {
+    for (volatile int i = 0; i < 60; i++)
+      ;
+    ds18b20_release();
+  }
+}
+
+uint8_t ds18b20_read_bit(void) {
+  uint8_t bit;
+
+  ds18b20_low();
+  for (volatile int i = 0; i < 5; i++)
+    ;
+
+  ds18b20_release();
+  for (volatile int i = 0; i < 5; i++)
+    ;
+
+  bit = ds18b20_read_pin();
+
+  for (volatile int i = 0; i < 50; i++)
+    ;
+
+  return bit;
+}
+
+uint8_t ds18b20_read_byte(void) {
+  uint8_t value = 0;
+
+  for (int i = 0; i < 8; i++) {
+    value |= (ds18b20_read_bit() << i);
+  }
+
+  return value;
+}
 
 float ds18b20_read_temp(void) {
-  /* placeholder value so CAN works during testing */
-  return 25.0f;
+  if (!ds18b20_reset())
+    return -100;
+
+  /* Skip ROM */
+  for (int i = 0; i < 8; i++)
+    ds18b20_write_bit((0xCC >> i) & 1);
+
+  /* Convert temperature */
+  for (int i = 0; i < 8; i++)
+    ds18b20_write_bit((0x44 >> i) & 1);
+
+  osDelay(750);
+
+  ds18b20_reset();
+
+  for (int i = 0; i < 8; i++)
+    ds18b20_write_bit((0xCC >> i) & 1);
+
+  for (int i = 0; i < 8; i++)
+    ds18b20_write_bit((0xBE >> i) & 1);
+
+  uint8_t temp_l = ds18b20_read_byte();
+  uint8_t temp_h = ds18b20_read_byte();
+
+  int16_t raw = (temp_h << 8) | temp_l;
+
+  return raw / 16.0f;
 }
 
 void StartSensorTask(void *argument) {
@@ -231,22 +332,30 @@ void StartSensorTask(void *argument) {
        Read thermistors
        ====================== */
 
+    /* ADC1 reads PB0 + PB1 */
     HAL_ADC_Start(&hadc1);
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 2; i++) {
       HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
       therm_adc[i] = HAL_ADC_GetValue(&hadc1);
     }
 
     HAL_ADC_Stop(&hadc1);
 
-    /* Convert ADC → temperature */
+    // adc2 for pb2
+
+    HAL_ADC_Start(&hadc2);
+    HAL_ADC_PollForConversion(&hadc2, HAL_MAX_DELAY);
+    therm_adc[2] = HAL_ADC_GetValue(&hadc2);
+    HAL_ADC_Stop(&hadc2);
+
+    /* Convert temperatures */
 
     for (int i = 0; i < 3; i++) {
       temps_c[i] = thermistor_adc_to_temp(therm_adc[i]);
     }
 
-    /* Ambient waterproof sensor */
+    // Ambient waterproof sensor
     temps_c[3] = ds18b20_read_temp();
 
     /* ======================
