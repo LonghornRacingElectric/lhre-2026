@@ -37,7 +37,6 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include <math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -344,7 +343,7 @@ void StartControlTask(void *argument) {
 
     in.contactors_closed = hvc_tractive_ready();
 
-    in.motor_speed_rpm = fabsf(vcu_can_get_motor_speed_rpm());
+    in.motor_speed_rpm = vcu_can_get_motor_speed_rpm();
 
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
