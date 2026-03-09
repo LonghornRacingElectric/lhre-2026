@@ -34,6 +34,9 @@ static can_receive_message_t *contactor_status_mailbox_handle = NULL;
 static msg_dui_r2d_status_t dui_r2d_status_mailbox = {0};
 static can_receive_message_t *dui_r2d_status_mailbox_handle = NULL;
 
+static msg_inverter_speed_t inverter_speed_mailbox = {0};
+static can_receive_message_t *inverter_speed_mailbox_handle = NULL;
+
 /** Sending */
 
 static msg_inverter_torque_command_t inverter_torque_command_mailbox = {0};
@@ -143,7 +146,7 @@ void vcu_can_set_model_outputs(vcu_outputs_t *out) {
 
   inverter_torque_command_mailbox.torque_request = out->torque_cmd;
   inverter_torque_command_mailbox.enable = out->inverter_enable;
-  inverter_torque_command_mailbox.torque_limit = 200.0f;
+  inverter_torque_command_mailbox.torque_limit = 220.0f;
   inverter_torque_command_mailbox.direction = 1;
 
   led_set(out->brake_pressed, dui_r2d_status_mailbox.r2d_status == 1,
@@ -174,6 +177,10 @@ bool hvc_tractive_ready(void) {
   return contactor_status_mailbox.hvc_state_machine == HVC_STATE_ENERGIZED;
 }
 
+float vcu_can_get_motor_speed_rpm(void) {
+  return (float)inverter_speed_mailbox.motor_speed;
+}
+
 /**
  * @brief Creates the CAN receive handlers and registers them with the CAN lib
  *
@@ -197,7 +204,16 @@ void vcu_can_add_receive_handlers(void) {
                                    dui_r2d_status_mailbox_handle);
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for DUI R2D status registered\n");
-}
+
+ inverter_speed_mailbox_handle = can_get_receive_message_handle(
+      &inverter_speed_mailbox, INVERTER_SPEED_ID,
+      (CAN_unpack_message_fn)unpack_inverter_speed);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   inverter_speed_mailbox_handle);
+            
+  log_printf(LOG_INFO,
+            "[VCU] CAN receive handler for DUI R2D status registered\n");                      
+      }
 
 // #include "vcu_can.h"
 // #include "FreeRTOS.h"

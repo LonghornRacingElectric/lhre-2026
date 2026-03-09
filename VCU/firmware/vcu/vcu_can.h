@@ -26,6 +26,8 @@ bool is_drive_switch_pressed(void);
 
 bool hvc_tractive_ready(void);
 
+float vcu_can_get_motor_speed_rpm(void);
+
 // Inverter feedback variables (populated automatically)
 extern float inverter_torque_fb;   // Nm
 extern int16_t inverter_rpm;       // rpm
