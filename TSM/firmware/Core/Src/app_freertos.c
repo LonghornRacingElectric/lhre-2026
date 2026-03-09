@@ -74,11 +74,6 @@ float fan_rpm = 0;
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
-osThreadId_t sensorTaskHandle;
-const osThreadAttr_t sensorTask_attributes = {
-    .name = "sensorTask",
-    .priority = (osPriority_t)osPriorityAboveNormal,
-    .stack_size = 2048 * 4};
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -143,6 +138,12 @@ void MX_FREERTOS_Init(void) {
 
   led_init(&led);
   led_start_thread();
+
+  osThreadId_t sensorTaskHandle;
+  const osThreadAttr_t sensorTask_attributes = {
+      .name = "sensorTask",
+      .priority = (osPriority_t)osPriorityAboveNormal,
+      .stack_size = 2048 * 4};
 
   sensorTaskHandle = osThreadNew(StartSensorTask, NULL, &sensorTask_attributes);
   /* USER CODE END RTOS_THREADS */
