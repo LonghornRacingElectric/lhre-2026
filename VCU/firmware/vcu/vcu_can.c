@@ -205,15 +205,15 @@ void vcu_can_add_receive_handlers(void) {
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for DUI R2D status registered\n");
 
- inverter_speed_mailbox_handle = can_get_receive_message_handle(
+  inverter_speed_mailbox_handle = can_get_receive_message_handle(
       &inverter_speed_mailbox, INVERTER_SPEED_ID,
       (CAN_unpack_message_fn)unpack_inverter_speed);
   can_rtos_register_receive_packet(&critical_bus,
                                    inverter_speed_mailbox_handle);
-            
+
   log_printf(LOG_INFO,
-            "[VCU] CAN receive handler for inverter speed registered\n");                      
-      }
+             "[VCU] CAN receive handler for inverter speed registered\n");
+}
 
 // #include "vcu_can.h"
 // #include "FreeRTOS.h"
