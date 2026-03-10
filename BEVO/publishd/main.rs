@@ -10,13 +10,13 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 // OTA globals
-static OTA_LINK: Mutex<Option<String>> = Mutex::new(None);
-static OTA_DEVICE_ID: Mutex<Option<u32>> = Mutex::new(None);
+// static OTA_LINK: Mutex<Option<String>> = Mutex::new(None);
+// static OTA_DEVICE_ID: Mutex<Option<u32>> = Mutex::new(None);
 
 const IPC_SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
 const STARTUP_SEMAPHORE_PATH: &str = "/tmp/BEVO_publishd_ready";
-const OTA_SEMAPHORE_PATH: &str = "/tmp/BEVO_ota_request";
-// const MQTT_HOST: &str = "192.168.1.109";
+// const OTA_SEMAPHORE_PATH: &str = "/tmp/BEVO_ota_request";
+// // const MQTT_HOST: &str = "192.168.1.109";
 const MQTT_HOST: &str = "18.191.225.118"; // aws broker hard coded for testing
 const MQTT_PORT: u16 = 1883;
 const MQTT_CLIENT_ID: &str = "BEVO-ORION";
@@ -186,35 +186,35 @@ fn handle_server_message(
         return;
     };
 
-    if message.get("type").and_then(Value::as_str).is_some()
-    {
-        println!("publishd received server message: {}", message);
-    }
+    // if message.get("type").and_then(Value::as_str).is_some()
+    // {
+    //     println!("publishd received server message: {}", message);
+    // }
 
-    if message.get("packet_id").is_none() {
-        // Assume request for OTA
-        if let Some(ota_obj) = message.get("OTA_request").and_then(Value::as_object) {
-            if let Some(link) = ota_obj.get("OTA_link").and_then(Value::as_str) {
-                if let Some(device_id) = ota_obj.get("OTA_device_id").and_then(Value::as_u64) {
-                    let mut ota_link_lock = OTA_LINK.lock().unwrap();
-                    *ota_link_lock = Some(link.to_string());
-                    println!("publishd received OTA link: {}", link);
-                    let mut ota_device_id_lock = OTA_DEVICE_ID.lock().unwrap();
-                    *ota_device_id_lock = Some(device_id as u32);
-                    println!("publishd received OTA device ID: {}", device_id);
+    // if message.get("packet_id").is_none() {
+    //     // Assume request for OTA
+    //     if let Some(ota_obj) = message.get("OTA_request").and_then(Value::as_object) {
+    //         if let Some(link) = ota_obj.get("OTA_link").and_then(Value::as_str) {
+    //             if let Some(device_id) = ota_obj.get("OTA_device_id").and_then(Value::as_u64) {
+    //                 let mut ota_link_lock = OTA_LINK.lock().unwrap();
+    //                 *ota_link_lock = Some(link.to_string());
+    //                 println!("publishd received OTA link: {}", link);
+    //                 let mut ota_device_id_lock = OTA_DEVICE_ID.lock().unwrap();
+    //                 *ota_device_id_lock = Some(device_id as u32);
+    //                 println!("publishd received OTA device ID: {}", device_id);
 
-                    // set semaphore to tell can daemon to transition to sending packets rather than sniffing CAN bus
-                    write_ota_semaphore(device_id as u32, link).unwrap_or_else(|error| {
-                        eprintln!("publishd failed to write OTA semaphore: {error}");
-                    });
-                } else {
-                    eprintln!("publishd received malformed OTA request: {}", message);
-                }
-            } else {
-                eprintln!("publishd received malformed OTA request: {}", message);
-            }
-        }
-    }
+    //                 // set semaphore to tell can daemon to transition to sending packets rather than sniffing CAN bus
+    //                 write_ota_semaphore(device_id as u32, link).unwrap_or_else(|error| {
+    //                     eprintln!("publishd failed to write OTA semaphore: {error}");
+    //                 });
+    //             } else {
+    //                 eprintln!("publishd received malformed OTA request: {}", message);
+    //             }
+    //         } else {
+    //             eprintln!("publishd received malformed OTA request: {}", message);
+    //         }
+    //     }
+    // }
 
     if let Some(server_packet_id) = message.get("packet_id").and_then(Value::as_u64) {
         let candidate = server_packet_id.saturating_add(1);
@@ -242,16 +242,16 @@ fn write_startup_semaphore(packet_id: u64) -> Result<()> {
     Ok(())
 }
 
-fn write_ota_semaphore(device_id: u32, data_link: &str) -> Result<()> {
-    let temp_path = format!("{}.tmp", OTA_SEMAPHORE_PATH);
-    std::fs::write(&temp_path, format!("{}:{}", device_id, data_link))?;
-    std::fs::rename(temp_path, OTA_SEMAPHORE_PATH)?;
-    Ok(())
-}
+// fn write_ota_semaphore(device_id: u32, data_link: &str) -> Result<()> {
+//     let temp_path = format!("{}.tmp", OTA_SEMAPHORE_PATH);
+//     std::fs::write(&temp_path, format!("{}:{}", device_id, data_link))?;
+//     std::fs::rename(temp_path, OTA_SEMAPHORE_PATH)?;
+//     Ok(())
+// }
 
 fn main() -> Result<()> {
     let _ = std::fs::remove_file(STARTUP_SEMAPHORE_PATH);
-    let _ = std::fs::remove_file(OTA_SEMAPHORE_PATH);
+    // let _ = std::fs::remove_file(OTA_SEMAPHORE_PATH);
     let mqtt_host = env_or_default("PUBLISHD_MQTT_HOST", MQTT_HOST);
     let mqtt_port = std::env::var("PUBLISHD_MQTT_PORT")
         .ok()

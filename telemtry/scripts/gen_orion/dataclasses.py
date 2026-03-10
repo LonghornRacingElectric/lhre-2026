@@ -123,8 +123,10 @@ class OrionThermal:
     bus_bar_temp3: Optional[float] = None
     cell_bottom_temp: Optional[float] = None
     cell_top_temp: Optional[float] = None
+    coolant_temp: Optional[float] = None
     discharge_r_temp: Optional[float] = None
     gate_driver_temp: Optional[float] = None
+    inverter_hotspot_temp: Optional[float] = None
     inverter_temp: Optional[float] = None
     module_a_temp: Optional[float] = None
     module_b_temp: Optional[float] = None
@@ -133,8 +135,6 @@ class OrionThermal:
     motor_loop_motor_temp: Optional[float] = None
     motor_loop_rad_fan_speed: Optional[float] = None
     motor_loop_rad_temp: Optional[float] = None
-    rtd4_temp: Optional[float] = None
-    rtd5_temp: Optional[float] = None
 
 @dataclass
 class OrionSensorData:
