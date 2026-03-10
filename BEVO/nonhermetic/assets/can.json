@@ -1,7 +1,7 @@
 [
     {
         "packet_id": 16,
-        "packet_name": "Write Memory Data -- Firmware Update",
+        "packet_name": "Firmware Update Command Packet",
         "from": [
             "Pi"
         ],
@@ -11,13 +11,13 @@
         "data_length": 8,
         "frequency_ms": null,
         "frequency": null,
-        "quantity": 0,
+        "quantity": 1,
         "bus": "Critical",
         "bytes": [
             {
                 "index": 0,
                 "start_byte": 0,
-                "name": "Field_0",
+                "name": "Command",
                 "length": 1,
                 "conv_type": "uint8",
                 "precision": 1.0
@@ -25,55 +25,23 @@
             {
                 "index": 1,
                 "start_byte": 1,
-                "name": "Field_1",
-                "length": 1,
-                "conv_type": "uint8",
+                "name": "Address",
+                "length": 4,
+                "conv_type": "uint32",
                 "precision": 1.0
             },
             {
                 "index": 2,
-                "start_byte": 2,
-                "name": "Field_2",
-                "length": 1,
-                "conv_type": "uint8",
+                "start_byte": 5,
+                "name": "Num Blocks",
+                "length": 2,
+                "conv_type": "uint16",
                 "precision": 1.0
             },
             {
                 "index": 3,
-                "start_byte": 3,
-                "name": "Field_3",
-                "length": 1,
-                "conv_type": "uint8",
-                "precision": 1.0
-            },
-            {
-                "index": 4,
-                "start_byte": 4,
-                "name": "Field_4",
-                "length": 1,
-                "conv_type": "uint8",
-                "precision": 1.0
-            },
-            {
-                "index": 5,
-                "start_byte": 5,
-                "name": "Field_5",
-                "length": 1,
-                "conv_type": "uint8",
-                "precision": 1.0
-            },
-            {
-                "index": 6,
-                "start_byte": 6,
-                "name": "Field_6",
-                "length": 1,
-                "conv_type": "uint8",
-                "precision": 1.0
-            },
-            {
-                "index": 7,
                 "start_byte": 7,
-                "name": "Field_7",
+                "name": "CRC",
                 "length": 1,
                 "conv_type": "uint8",
                 "precision": 1.0
@@ -92,7 +60,7 @@
             "USM",
             "CSM"
         ],
-        "data_length": 1,
+        "data_length": 8,
         "frequency_ms": null,
         "frequency": null,
         "quantity": 20,
@@ -101,7 +69,23 @@
             {
                 "index": 0,
                 "start_byte": 0,
-                "name": "Field_0",
+                "name": "Enable",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0
+            },
+            {
+                "index": 1,
+                "start_byte": 1,
+                "name": "FW Update",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0
+            },
+            {
+                "index": 2,
+                "start_byte": 2,
+                "name": "Device",
                 "length": 1,
                 "conv_type": "uint8",
                 "precision": 1.0
@@ -110,14 +94,14 @@
     },
     {
         "packet_id": 18,
-        "packet_name": "'(Meta Data for Write Memory -- Firmware Update",
+        "packet_name": "Firmware Update Data Packet",
         "from": [
             "Pi"
         ],
         "to": [
             "*"
         ],
-        "data_length": 0,
+        "data_length": 8,
         "frequency_ms": null,
         "frequency": null,
         "quantity": 5,
@@ -125,40 +109,89 @@
         "bytes": [
             {
                 "index": 0,
-                "start_byte": 1,
-                "name": "Field_0",
+                "start_byte": 0,
+                "name": "Index",
                 "length": 1,
                 "conv_type": "uint8",
                 "precision": 1.0
             },
             {
                 "index": 1,
-                "start_byte": 2,
-                "name": "Field_1",
+                "start_byte": 1,
+                "name": "data0",
                 "length": 1,
                 "conv_type": "uint8",
                 "precision": 1.0
             },
             {
                 "index": 2,
-                "start_byte": 3,
-                "name": "Field_2",
+                "start_byte": 2,
+                "name": "data1",
                 "length": 1,
                 "conv_type": "uint8",
                 "precision": 1.0
             },
             {
                 "index": 3,
-                "start_byte": 4,
-                "name": "Field_3",
+                "start_byte": 3,
+                "name": "data2",
                 "length": 1,
                 "conv_type": "uint8",
                 "precision": 1.0
             },
             {
                 "index": 4,
+                "start_byte": 4,
+                "name": "data3",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0
+            },
+            {
+                "index": 5,
                 "start_byte": 5,
-                "name": "Field_4",
+                "name": "data4",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0
+            },
+            {
+                "index": 6,
+                "start_byte": 6,
+                "name": "data5",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0
+            },
+            {
+                "index": 7,
+                "start_byte": 7,
+                "name": "data6",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0
+            }
+        ]
+    },
+    {
+        "packet_id": 19,
+        "packet_name": "Device Firmware Update Response Packet",
+        "from": [
+            "Pi"
+        ],
+        "to": [
+            "*"
+        ],
+        "data_length": 1,
+        "frequency_ms": null,
+        "frequency": null,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Response",
                 "length": 1,
                 "conv_type": "uint8",
                 "precision": 1.0
@@ -256,13 +289,13 @@
             {
                 "index": 0,
                 "start_byte": 0,
-                "name": "RTD #4 Temp",
+                "name": "Coolant Temp",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
-                    "field": "rtd4_temp",
+                    "field": "coolant_temp",
                     "repeated": false,
                     "field_index": null
                 }
@@ -270,13 +303,13 @@
             {
                 "index": 1,
                 "start_byte": 2,
-                "name": "RTD #5 Temp",
+                "name": "Inverter Hot Spot Temp",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
-                    "field": "rtd5_temp",
+                    "field": "inverter_hotspot_temp",
                     "repeated": false,
                     "field_index": null
                 }
@@ -287,7 +320,7 @@
                 "name": "Motor Temp",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
                     "field": "motor_temp",
@@ -739,7 +772,7 @@
                 "name": "torque feedback",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
                     "field": "torque_feedback",
@@ -753,7 +786,7 @@
                 "name": "Time since turned ON",
                 "length": 4,
                 "conv_type": "uint32",
-                "precision": 1.0,
+                "precision": 0.003,
                 "protobuf": {
                     "type": "float",
                     "field": "time_since_on",
@@ -784,7 +817,7 @@
                 "name": "commanded torque",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
                     "field": "torque_command",
@@ -798,7 +831,7 @@
                 "name": "torque feedback",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
                     "field": "torque_feedback",
@@ -826,7 +859,7 @@
                 "name": "Bus Voltage",
                 "length": 2,
                 "conv_type": "uint16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
                     "field": "bus_voltage",
