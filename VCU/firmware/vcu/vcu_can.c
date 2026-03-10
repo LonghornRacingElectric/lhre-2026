@@ -212,7 +212,7 @@ void vcu_can_add_receive_handlers(void) {
                                    inverter_speed_mailbox_handle);
             
   log_printf(LOG_INFO,
-            "[VCU] CAN receive handler for DUI R2D status registered\n");                      
+            "[VCU] CAN receive handler for inverter speed registered\n");                      
       }
 
 // #include "vcu_can.h"
