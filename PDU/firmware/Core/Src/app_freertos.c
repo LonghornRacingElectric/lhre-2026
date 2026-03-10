@@ -171,8 +171,8 @@ void StartDefaultTask(void *argument) {
 
   // Enable cooling stuff
   HAL_GPIO_WritePin(SW_FANS_GPIO_Port, SW_FANS_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(SW_BATT_FANS1_GPIO_Port, SW_BATT_FANS1_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(SW_BATT_FANS2_GPIO_Port, SW_BATT_FANS2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(SW_BATT_FANS1_GPIO_Port, SW_BATT_FANS1_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(SW_BATT_FANS2_GPIO_Port, SW_BATT_FANS2_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(SW_PUMPS_GPIO_Port, SW_PUMPS_Pin, GPIO_PIN_SET);
 
   // Enable shutdown

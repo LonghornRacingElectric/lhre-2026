@@ -31,6 +31,9 @@ static can_receive_message_t *indicator_status_mailbox_handle = NULL;
 static msg_dui_r2d_authorization_t r2d_authorization_mailbox = {0};
 static can_receive_message_t *r2d_authorization_mailbox_handle = NULL;
 
+static msg_dui_r2d_status_t r2d_status_mailbox = {0};
+static can_receive_message_t *r2d_status_mailbox_handle = NULL;
+
 static msg_brake_pedal_t brake_pedal_mailbox = {0};
 static can_receive_message_t *brake_pedal_mailbox_handle = NULL;
 
@@ -113,6 +116,15 @@ void pdu_can_add_receive_handlers(void) {
 
   log_printf(LOG_INFO, "[PDU] CAN R2D Authorization handler registered\n");
 
+  // DUI R2D Status
+  r2d_status_mailbox_handle = can_get_receive_message_handle(
+      &r2d_status_mailbox, DUI_R2D_STATUS_ID,
+      (CAN_unpack_message_fn)unpack_dui_r2d_status);
+
+  can_rtos_register_receive_packet(&critical_bus, r2d_status_mailbox_handle);
+
+  log_printf(LOG_INFO, "[PDU] CAN R2D Status handler registered\n");
+
   // Brake Pedal
   brake_pedal_mailbox_handle =
       can_get_receive_message_handle(&brake_pedal_mailbox, BRAKE_PEDAL_ID,
@@ -126,6 +138,17 @@ void pdu_can_add_receive_handlers(void) {
 bool vehicle_in_park(void) {
   // 0 indicates VCU has NOT authorized R2D, so vehicle is in Park.
   return r2d_authorization_mailbox.r2d_authorized == 0;
+}
+
+/**
+ * @brief Returns whether the DUI R2D status signal indicates R2D is active.
+ *        Cooling should only be enabled when this returns true.
+ *
+ * @return true if DUI reports R2D is active (r2d_status != 0)
+ * @return false if DUI reports R2D is not active
+ */
+bool r2d_status_active(void) {
+  return r2d_status_mailbox.r2d_status != 0;
 }
 
 bool vehicle_in_drive(void) { return !vehicle_in_park(); }

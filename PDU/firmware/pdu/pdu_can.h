@@ -52,7 +52,15 @@ bool hvc_bms_fault(void);
 bool hvc_imd_timeout(void);
 bool hvc_bms_timeout(void);
 
-float brake_light_pct(void);
+/**
+ * @brief Returns whether the DUI R2D status signal indicates R2D is active.
+ *        Cooling (pumps, radiator fans, battery fans) should only be
+ *        enabled when this returns true.
+ *
+ * @return true if DUI reports R2D is active
+ * @return false if DUI reports R2D is not active
+ */
+bool r2d_status_active(void);
 
 #ifdef __cplusplus
 }
