@@ -107,7 +107,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH recent AS ( SELECT packet_id, time FROM packet ORDER BY packet_id DESC LIMIT 20000) SELECT to_timestamp(recent.time / 1000.0) AS time, thermal.module_a_temp, thermal.module_b_temp, thermal.module_c_temp, thermal.gate_driver_temp FROM recent LEFT JOIN thermal ON thermal.packet_id = recent.packet_id ORDER BY recent.time",
+          "rawSql": "WITH recent AS ( SELECT packet_id, time FROM packet ORDER BY packet_id DESC LIMIT 20000) SELECT to_timestamp(recent.time / 1000.0) AS time, thermal.module_a_temp AS \"module_a_temp [C]\", thermal.module_b_temp AS \"module_b_temp [C]\", thermal.module_c_temp AS \"module_c_temp [C]\", thermal.gate_driver_temp AS \"gate_driver_temp [C]\" FROM recent LEFT JOIN thermal ON thermal.packet_id = recent.packet_id ORDER BY recent.time",
           "refId": "A",
           "sql": {
             "columns": [
@@ -128,7 +128,7 @@
           }
         }
       ],
-      "title": "Inverter Temps A (4 fields)",
+      "title": "0x0A0 Inverter Temps (4 fields)",
       "type": "timeseries"
     },
     {
@@ -217,7 +217,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH recent AS ( SELECT packet_id, time FROM packet ORDER BY packet_id DESC LIMIT 20000) SELECT to_timestamp(recent.time / 1000.0) AS time, thermal.rtd4_temp, thermal.rtd5_temp, thermal.motor_temp, thermal.discharge_r_temp FROM recent LEFT JOIN thermal ON thermal.packet_id = recent.packet_id ORDER BY recent.time",
+          "rawSql": "WITH recent AS ( SELECT packet_id, time FROM packet ORDER BY packet_id DESC LIMIT 20000) SELECT to_timestamp(recent.time / 1000.0) AS time, thermal.coolant_temp AS \"coolant_temp [C]\", thermal.inverter_hotspot_temp AS \"inverter_hotspot_temp [C]\", thermal.motor_temp AS \"motor_temp [C]\", controls.torque_shudder AS \"torque_shudder [Nm]\" FROM recent LEFT JOIN thermal ON thermal.packet_id = recent.packet_id LEFT JOIN controls ON controls.packet_id = recent.packet_id ORDER BY recent.time",
           "refId": "A",
           "sql": {
             "columns": [
@@ -238,7 +238,7 @@
           }
         }
       ],
-      "title": "Inverter Temps B (4 fields)",
+      "title": "0x0A2 Temps + Shudder (4 fields)",
       "type": "timeseries"
     },
     {
@@ -327,7 +327,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH recent AS ( SELECT packet_id, time FROM packet ORDER BY packet_id DESC LIMIT 20000) SELECT to_timestamp(recent.time / 1000.0) AS time, controls.motor_angle, controls.motor_speed, pack.inverter_freq, pack.delta_resolver_angle FROM recent LEFT JOIN controls ON controls.packet_id = recent.packet_id LEFT JOIN pack ON pack.packet_id = recent.packet_id ORDER BY recent.time",
+          "rawSql": "WITH recent AS ( SELECT packet_id, time FROM packet ORDER BY packet_id DESC LIMIT 20000) SELECT to_timestamp(recent.time / 1000.0) AS time, controls.motor_angle AS \"motor_angle [deg]\", controls.motor_speed AS \"motor_speed [rpm]\", pack.inverter_freq AS \"inverter_freq [Hz]\", pack.delta_resolver_angle AS \"delta_resolver_angle [deg]\" FROM recent LEFT JOIN controls ON controls.packet_id = recent.packet_id LEFT JOIN pack ON pack.packet_id = recent.packet_id ORDER BY recent.time",
           "refId": "A",
           "sql": {
             "columns": [
@@ -348,7 +348,7 @@
           }
         }
       ],
-      "title": "Inverter Status (4 fields)",
+      "title": "0x0A5 Inverter Status (4 fields)",
       "type": "timeseries"
     },
     {
@@ -437,7 +437,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH recent AS ( SELECT packet_id, time FROM packet ORDER BY packet_id DESC LIMIT 20000) SELECT to_timestamp(recent.time / 1000.0) AS time, pack.time_since_on, controls.torque_shudder, controls.torque_feedback, controls.commanded_torque FROM recent LEFT JOIN controls ON controls.packet_id = recent.packet_id LEFT JOIN pack ON pack.packet_id = recent.packet_id ORDER BY recent.time",
+          "rawSql": "WITH recent AS ( SELECT packet_id, time FROM packet ORDER BY packet_id DESC LIMIT 20000) SELECT to_timestamp(recent.time / 1000.0) AS time, diagnostics_high.post_faults AS \"post_faults [uint32]\", diagnostics_high.run_faults AS \"run_faults [uint32]\", controls.commanded_torque AS \"commanded_torque [Nm]\", pack.time_since_on AS \"time_since_on [s]\" FROM recent LEFT JOIN diagnostics_high ON diagnostics_high.packet_id = recent.packet_id LEFT JOIN controls ON controls.packet_id = recent.packet_id LEFT JOIN pack ON pack.packet_id = recent.packet_id ORDER BY recent.time",
           "refId": "A",
           "sql": {
             "columns": [
@@ -458,7 +458,7 @@
           }
         }
       ],
-      "title": "TSO / Feedback (4 fields)",
+      "title": "0x0AB/0x0AC Faults + TSO (4 fields)",
       "type": "timeseries"
     },
     {
@@ -547,7 +547,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH recent AS ( SELECT packet_id, time FROM packet ORDER BY packet_id DESC LIMIT 20000) SELECT to_timestamp(recent.time / 1000.0) AS time, pack.phase_a_current, pack.phase_b_current, pack.phase_c_current, pack.dc_bus_current FROM recent LEFT JOIN pack ON pack.packet_id = recent.packet_id ORDER BY recent.time",
+          "rawSql": "WITH recent AS ( SELECT packet_id, time FROM packet ORDER BY packet_id DESC LIMIT 20000) SELECT to_timestamp(recent.time / 1000.0) AS time, pack.phase_a_current AS \"phase_a_current [A]\", pack.phase_b_current AS \"phase_b_current [A]\", pack.phase_c_current AS \"phase_c_current [A]\", pack.dc_bus_current AS \"dc_bus_current [A]\" FROM recent LEFT JOIN pack ON pack.packet_id = recent.packet_id ORDER BY recent.time",
           "refId": "A",
           "sql": {
             "columns": [
@@ -568,7 +568,7 @@
           }
         }
       ],
-      "title": "Inverter Current (4 fields)",
+      "title": "0x0A6 Inverter Current (4 fields)",
       "type": "timeseries"
     },
     {
@@ -657,7 +657,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH recent AS ( SELECT packet_id, time FROM packet ORDER BY packet_id DESC LIMIT 20000) SELECT to_timestamp(recent.time / 1000.0) AS time, pack.dc_bus_v, pack.neutral_output_v, pack.vab_vq_v, pack.vbc_vd_v FROM recent LEFT JOIN pack ON pack.packet_id = recent.packet_id ORDER BY recent.time",
+          "rawSql": "WITH recent AS ( SELECT packet_id, time FROM packet ORDER BY packet_id DESC LIMIT 20000) SELECT to_timestamp(recent.time / 1000.0) AS time, pack.dc_bus_v AS \"dc_bus_v [V]\", pack.neutral_output_v AS \"neutral_output_v [V]\", pack.vab_vq_v AS \"vab_vq_v [V]\", pack.vbc_vd_v AS \"vbc_vd_v [V]\" FROM recent LEFT JOIN pack ON pack.packet_id = recent.packet_id ORDER BY recent.time",
           "refId": "A",
           "sql": {
             "columns": [
@@ -678,7 +678,7 @@
           }
         }
       ],
-      "title": "Inverter Voltage (4 fields)",
+      "title": "0x0A7 Inverter Voltage (4 fields)",
       "type": "timeseries"
     },
     {
@@ -767,7 +767,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH recent AS ( SELECT packet_id, time FROM packet ORDER BY packet_id DESC LIMIT 20000) SELECT to_timestamp(recent.time / 1000.0) AS time, pack.bus_voltage, pack.hv_pack_v, pack.hv_c, pack.hv_soc FROM recent LEFT JOIN pack ON pack.packet_id = recent.packet_id ORDER BY recent.time",
+          "rawSql": "WITH recent AS ( SELECT packet_id, time FROM packet ORDER BY packet_id DESC LIMIT 20000) SELECT to_timestamp(recent.time / 1000.0) AS time, controls.torque_feedback AS \"torque_feedback [Nm]\", controls.torque_command AS \"torque_command [Nm]\", pack.bus_voltage AS \"bus_voltage [V]\", controls.torque_request AS \"torque_request [Nm]\" FROM recent LEFT JOIN controls ON controls.packet_id = recent.packet_id LEFT JOIN pack ON pack.packet_id = recent.packet_id ORDER BY recent.time",
           "refId": "A",
           "sql": {
             "columns": [
@@ -788,7 +788,7 @@
           }
         }
       ],
-      "title": "Pack / Bus Snapshot (4 fields)",
+      "title": "0x0B0/0x0C0 Speed + Torque Cmd (4 fields)",
       "type": "timeseries"
     },
     {
@@ -877,7 +877,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH recent AS ( SELECT packet_id, time FROM packet ORDER BY packet_id DESC LIMIT 20000) SELECT to_timestamp(recent.time / 1000.0) AS time, diagnostics_high.post_faults, diagnostics_high.run_faults, controls.torque_command, controls.torque_request FROM recent LEFT JOIN diagnostics_high ON diagnostics_high.packet_id = recent.packet_id LEFT JOIN controls ON controls.packet_id = recent.packet_id ORDER BY recent.time",
+          "rawSql": "WITH recent AS ( SELECT packet_id, time FROM packet ORDER BY packet_id DESC LIMIT 20000) SELECT to_timestamp(recent.time / 1000.0) AS time, controls.rpm_request AS \"rpm_request [rpm]\", controls.torque_limit AS \"torque_limit [Nm]\", CASE WHEN controls.direction THEN 1 ELSE 0 END AS \"direction [bool]\", CASE WHEN controls.enable THEN 1 ELSE 0 END AS \"enable [bool]\" FROM recent LEFT JOIN controls ON controls.packet_id = recent.packet_id ORDER BY recent.time",
           "refId": "A",
           "sql": {
             "columns": [
@@ -898,117 +898,7 @@
           }
         }
       ],
-      "title": "Faults + Torque Cmd (4 fields)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "orion"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 32
-      },
-      "id": 9,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.5.2",
-      "targets": [
-        {
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "WITH recent AS ( SELECT packet_id, time FROM packet ORDER BY packet_id DESC LIMIT 20000) SELECT to_timestamp(recent.time / 1000.0) AS time, controls.rpm_request, controls.torque_limit, CASE WHEN controls.direction THEN 1 ELSE 0 END AS direction, CASE WHEN controls.enable THEN 1 ELSE 0 END AS enable FROM recent LEFT JOIN controls ON controls.packet_id = recent.packet_id ORDER BY recent.time",
-          "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 20000
-          }
-        }
-      ],
-      "title": "Request / Limits / State (4 fields)",
+      "title": "0x0C0 Request / Limits / State (4 fields)",
       "type": "timeseries"
     }
   ],
