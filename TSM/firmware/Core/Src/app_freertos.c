@@ -19,9 +19,9 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "cmsis_os.h"
-#include "main.h"
 #include "task.h"
+#include "main.h"
+#include "cmsis_os.h"
 
 #include "usb_device.h"
 
@@ -65,6 +65,7 @@ volatile uint32_t fan_pulses = 0;
 
 float coolant_flow_lpm = 0;
 float fan_rpm = 0;
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -84,9 +85,10 @@ const osThreadAttr_t sensorTask_attributes = {
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
-    .name = "defaultTask",
-    .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 2048 * 4};
+  .name = "defaultTask",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 2048 * 4
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -98,10 +100,10 @@ void StartDefaultTask(void *argument);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /**
- * @brief  FreeRTOS initialization
- * @param  None
- * @retval None
- */
+  * @brief  FreeRTOS initialization
+  * @param  None
+  * @retval None
+  */
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
@@ -125,8 +127,7 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* creation of defaultTask */
-  defaultTaskHandle =
-      osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -144,13 +145,12 @@ void MX_FREERTOS_Init(void) {
 
   led_init(&led);
   led_start_thread();
-
-  sensorTaskHandle = osThreadNew(StartSensorTask, NULL, &sensorTask_attributes);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
   /* USER CODE END RTOS_EVENTS */
+
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -160,10 +160,19 @@ void MX_FREERTOS_Init(void) {
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument) {
+void StartDefaultTask(void *argument)
+{
   /* init code for USB_Device */
   MX_USB_Device_Init();
   /* USER CODE BEGIN StartDefaultTask */
+  if (init_logging(CDC_Transmit_FS) == -1) {
+    Error_Handler();
+  }
+
+  log_printf(LOG_INFO, "BOOT\r\n");
+
+  sensorTaskHandle = osThreadNew(StartSensorTask, NULL, &sensorTask_attributes);
+
   dfu_config dfu = {
       .delay_fn = (Delay_fn)osDelay,
       .gpiox = GPIOB,
@@ -176,14 +185,10 @@ void StartDefaultTask(void *argument) {
   init_dfu(dfu);
   dfu_start_thread();
 
-  if (init_logging(CDC_Transmit_FS) == -1) {
-    // If USB logging fails, stop LED thread so we notice
-  }
-
   /* Initialize CAN */
   tsm_can_init();
 
-  log_printf(LOG_INFO, "[TSM] Application started\n");
+  // log_printf(LOG_INFO, "[TSM] Application started\n");
 
   /* Infinite loop */
   for (;;) {
@@ -392,9 +397,16 @@ void StartSensorTask(void *argument) {
                                 temps_c[2]); // after radiator
 
     tsm_can_update_cooling_system(fan_rpm, coolant_flow_lpm, temps_c[3]);
+    // logging
+    log_printf(LOG_INFO,
+               "Motor: %.1f C | Inverter: %.1f C | Radiator: %.1f C | Ambient: "
+               "%.1f C | Flow: %.2f LPM | Fan: %.0f RPM\r\n",
+               temps_c[0], temps_c[1], temps_c[2], temps_c[3], coolant_flow_lpm,
+               fan_rpm);
 
-    osDelay(100);
+    osDelay(pdMS_TO_TICKS(300));
   }
 }
 
 /* USER CODE END Application */
+
