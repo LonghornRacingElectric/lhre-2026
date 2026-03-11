@@ -19,9 +19,9 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "task.h"
-#include "main.h"
 #include "cmsis_os.h"
+#include "main.h"
+#include "task.h"
 
 #include "usb_device.h"
 
@@ -85,10 +85,9 @@ const osThreadAttr_t sensorTask_attributes = {
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
-  .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 2048 * 4
-};
+    .name = "defaultTask",
+    .priority = (osPriority_t)osPriorityNormal,
+    .stack_size = 2048 * 4};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -100,10 +99,10 @@ void StartDefaultTask(void *argument);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /**
-  * @brief  FreeRTOS initialization
-  * @param  None
-  * @retval None
-  */
+ * @brief  FreeRTOS initialization
+ * @param  None
+ * @retval None
+ */
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
@@ -127,7 +126,8 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  defaultTaskHandle =
+      osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -150,7 +150,6 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
   /* USER CODE END RTOS_EVENTS */
-
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -160,11 +159,11 @@ void MX_FREERTOS_Init(void) {
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
-{
+void StartDefaultTask(void *argument) {
   /* init code for USB_Device */
   MX_USB_Device_Init();
   /* USER CODE BEGIN StartDefaultTask */
+  osDelay(500);
   if (init_logging(CDC_Transmit_FS) == -1) {
     Error_Handler();
   }
@@ -198,6 +197,28 @@ void StartDefaultTask(void *argument)
   /* USER CODE END StartDefaultTask */
 }
 
+// TEST STARTDEFAULTTASK FUNCTION
+
+// void StartDefaultTask(void *argument) {
+//   MX_USB_Device_Init();
+//   osDelay(500); // flat delay, no state polling
+
+//   if (init_logging(CDC_Transmit_FS) == -1) {
+//     Error_Handler();
+//   }
+
+//   log_printf(LOG_INFO, "BOOT\r\n");
+
+//   sensorTaskHandle = osThreadNew(StartSensorTask, NULL,
+//   &sensorTask_attributes);
+
+//   // rest of your init...
+//   for (;;) {
+//     // log_printf(LOG_INFO, "hi\r\n");
+//     osDelay(1000);
+//   }
+// }
+
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
 
@@ -222,6 +243,14 @@ float thermistor_adc_to_temp(uint16_t adc) {
 
 // ambient waterproof
 
+static void delay_us(uint32_t us) {
+  // Use DWT cycle counter or a timer
+  uint32_t start = DWT->CYCCNT;
+  uint32_t ticks = us * (SystemCoreClock / 1000000);
+  while ((DWT->CYCCNT - start) < ticks)
+    ;
+}
+
 static inline void ds18b20_low(void) {
   HAL_GPIO_WritePin(DS18B20_PORT, DS18B20_PIN, GPIO_PIN_RESET);
 }
@@ -236,52 +265,34 @@ static inline uint8_t ds18b20_read_pin(void) {
 
 uint8_t ds18b20_reset(void) {
   ds18b20_low();
-  HAL_Delay(1); // ~480us
-
+  delay_us(480);
   ds18b20_release();
-
-  for (volatile int i = 0; i < 100; i++)
-    ;
-
+  delay_us(70); // wait for presence pulse
   uint8_t presence = !ds18b20_read_pin();
-
-  osDelay(1);
-
+  delay_us(410); // remainder of reset slot
   return presence;
 }
 
 void ds18b20_write_bit(uint8_t bit) {
   ds18b20_low();
-
   if (bit) {
-    for (volatile int i = 0; i < 5; i++)
-      ;
+    delay_us(1);
     ds18b20_release();
-    for (volatile int i = 0; i < 60; i++)
-      ;
+    delay_us(60);
   } else {
-    for (volatile int i = 0; i < 60; i++)
-      ;
+    delay_us(60);
     ds18b20_release();
+    delay_us(1);
   }
 }
 
 uint8_t ds18b20_read_bit(void) {
-  uint8_t bit;
-
   ds18b20_low();
-  for (volatile int i = 0; i < 5; i++)
-    ;
-
+  delay_us(1);
   ds18b20_release();
-  for (volatile int i = 0; i < 5; i++)
-    ;
-
-  bit = ds18b20_read_pin();
-
-  for (volatile int i = 0; i < 50; i++)
-    ;
-
+  delay_us(14);
+  uint8_t bit = ds18b20_read_pin();
+  delay_us(45);
   return bit;
 }
 
@@ -339,21 +350,39 @@ void StartSensorTask(void *argument) {
        ====================== */
 
     /* ADC1 reads PB0 + PB1 */
+    ADC_ChannelConfTypeDef sConfig = {0};
+    sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+    sConfig.SingleDiff = ADC_SINGLE_ENDED;
+    sConfig.OffsetNumber = ADC_OFFSET_NONE;
+    sConfig.Offset = 0;
+    sConfig.Rank = ADC_REGULAR_RANK_1;
+
+    // PB0 = IN15 = motor
+    sConfig.Channel = ADC_CHANNEL_15;
+    HAL_ADC_ConfigChannel(&hadc1, &sConfig);
     HAL_ADC_Start(&hadc1);
+    HAL_ADC_PollForConversion(&hadc1, 10);
+    therm_adc[0] = HAL_ADC_GetValue(&hadc1);
+    HAL_ADC_Stop(&hadc1);
 
-    for (int i = 0; i < 2; i++) {
-      HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
-      therm_adc[i] = HAL_ADC_GetValue(&hadc1);
-    }
-
+    // PB1 = IN12 = inverter
+    sConfig.Channel = ADC_CHANNEL_12;
+    HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+    HAL_ADC_Start(&hadc1);
+    HAL_ADC_PollForConversion(&hadc1, 10);
+    therm_adc[1] = HAL_ADC_GetValue(&hadc1);
     HAL_ADC_Stop(&hadc1);
 
     // adc2 for pb2
 
     HAL_ADC_Start(&hadc2);
-    HAL_ADC_PollForConversion(&hadc2, HAL_MAX_DELAY);
+    HAL_ADC_PollForConversion(&hadc2, 10);
     therm_adc[2] = HAL_ADC_GetValue(&hadc2);
     HAL_ADC_Stop(&hadc2);
+
+    log_printf(LOG_INFO, "ADC volts: %.3f %.3f %.3f\r\n",
+               (therm_adc[0] / 4095.0f) * 3.3f, (therm_adc[1] / 4095.0f) * 3.3f,
+               (therm_adc[2] / 4095.0f) * 3.3f);
 
     /* Convert temperatures */
 
@@ -409,4 +438,3 @@ void StartSensorTask(void *argument) {
 }
 
 /* USER CODE END Application */
-
