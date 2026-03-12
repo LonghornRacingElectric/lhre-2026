@@ -14,6 +14,7 @@ bazel_dep(name = "rules_rust", version = "0.63.0")
 bazel_dep(name = "rules_python", version = "1.5.3")
 bazel_dep(name = "rules_proto", version = "7.0.2")
 bazel_dep(name = "rules_shell", version = "0.6.1")
+bazel_dep(name = "pybind11_bazel", version = "3.0.0")
 
 # Protobuf compiler/runtime for Bazel code generation (protoc).
 bazel_dep(name = "protobuf", version = "29.0", dev_dependency = True)
