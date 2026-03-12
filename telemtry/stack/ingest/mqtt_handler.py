@@ -7,6 +7,8 @@ import pickle
 import base64
 import sys
 import time
+import queue
+import threading
 import numpy as np
 import copy
 import grpc
@@ -65,11 +67,31 @@ class MQTTHandler:
         self.scalar_or_list = lambda val, scalar: val.tolist()[0] if scalar else val.tolist()
         self.cache = []
         self.cache_enable = cache_enable
+        self._shutdown = False
         self.table_specs = {
             "Nightwatch": QueryBuilder("Nightwatch").get_table_column_specs(),
             "Angelique": QueryBuilder("Angelique").get_table_column_specs(),
             "Orion": QueryBuilder("Orion").get_table_column_specs(),
         }
+
+        # Non-blocking producer/consumer queues.
+        # MQTT callback enqueues jobs, workers perform blocking DB and CSV IO.
+        self.db_queues = {
+            "Nightwatch": queue.Queue(maxsize=4096),
+            "Angelique": queue.Queue(maxsize=4096),
+            "Orion": queue.Queue(maxsize=8096),
+        }
+        self.db_workers = {
+            car: threading.Thread(target=self._db_worker, args=(car,), daemon=True)
+            for car in self.db_queues
+        }
+        for worker in self.db_workers.values():
+            worker.start()
+
+        # Single CSV worker preserves append order for Orion log output.
+        self.csv_queue = queue.Queue(maxsize=8096)
+        self.csv_worker = threading.Thread(target=self._csv_worker, daemon=True)
+        self.csv_worker.start()
         
         # gRPC bridge client instead of Kafka
         bridge_addr = 'kafka-bridge:50051' if os.getenv("IN_DOCKER") else 'localhost:50051'
@@ -123,6 +145,7 @@ class MQTTHandler:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self._shutdown_workers()
         self.client.disconnect()
 
     def subscribe(self, topic: str = '#'):
@@ -132,6 +155,55 @@ class MQTTHandler:
 
     def publish(self, *args, **kwargs):
         self.client.publish(*args, **kwargs)
+
+    def _shutdown_workers(self):
+        if self._shutdown:
+            return
+        self._shutdown = True
+
+        for car in self.db_queues:
+            try:
+                self.db_queues[car].put_nowait(None)
+            except queue.Full:
+                pass
+        try:
+            self.csv_queue.put_nowait(None)
+        except queue.Full:
+            pass
+
+    def _db_worker(self, car: str):
+        with get_db(car) as session:
+            while True:
+                job = self.db_queues[car].get()
+                if job is None:
+                    self.db_queues[car].task_done()
+                    break
+
+                try:
+                    for table, model, data, table_desc in job:
+                        QueryBuilder.insert(session, table, model, data, table_desc, commit=False)
+                    session.commit()
+                except Exception as e:
+                    session.rollback()
+                    logging.error(f"DB worker insert failed for {car}: {e}")
+                finally:
+                    self.db_queues[car].task_done()
+
+    def _csv_worker(self):
+        while True:
+            item = self.csv_queue.get()
+            if item is None:
+                self.csv_queue.task_done()
+                break
+
+            file_path, row_vals = item
+            try:
+                with open(file_path, 'a', newline='') as f:
+                    csv.writer(f).writerow(row_vals)
+            except Exception as e:
+                logging.error(f"CSV worker write failed for {file_path}: {e}")
+            finally:
+                self.csv_queue.task_done()
 
     def on_message(self, client: mqtt_client.Client, userdata, msg):
         if msg.topic == 'client-connections':
@@ -277,10 +349,12 @@ class MQTTHandler:
                 logging.error(f'\tUnexpected payload received: {payload}')
 
     def cache_flush(self, car):
-        if (len(self.cache) > 0):
-            session = self.sessions[car]
-            session.bulk_insert_mappings(self.cache[0][0], [item[1] for item in self.cache])
-            session.commit()
+        if len(self.cache) > 0:
+            try:
+                self.db_queues[car].put_nowait(list(self.cache))
+                self.cache.clear()
+            except queue.Full:
+                logging.error(f"DB queue full for {car}; dropping cached batch")
 
     def _data_ingest(self, payload: str, table: str, car:str, cache_enable = False):
         '''
@@ -316,9 +390,9 @@ class MQTTHandler:
         if ("time" not in message_dict or "packet_id" not in message_dict):
             raise Exception("time/packet_id MISSING FROM PAYLOAD")
         
-        session = self.sessions[car]
         builder = QueryBuilder(car)
         table_specs = self.table_specs[car]
+        insert_jobs = []
 
         for table in table_specs.keys():
             model = builder._models.get(self._model_key(table))
@@ -331,16 +405,20 @@ class MQTTHandler:
 
                 if data is not None:
                     if not cache_enable:
-                        QueryBuilder.insert(session, table, model, data, table_desc, commit=False)
+                        insert_jobs.append((table, model, data, table_desc))
                     elif table == 'packet':
-                        QueryBuilder.insert(session, table, model, data, table_desc, commit=False)
+                        insert_jobs.append((table, model, data, table_desc))
                     elif table != 'packet':
-                        self.cache.append((model, data))
+                        self.cache.append((table, model, data, table_desc))
                         if (len(self.cache) == 24):
-                            self.cache_flush(car)
+                            insert_jobs.extend(self.cache)
                             self.cache.clear()
 
-        session.commit()
+        if insert_jobs:
+            try:
+                self.db_queues[car].put_nowait(insert_jobs)
+            except queue.Full:
+                logging.error(f"DB queue full for {car}; dropping message packet_id={message_dict.get('packet_id')}")
 
         # if an Orion log file is active, append this decoded record
         if car == "Orion" and self.orion_log_path is not None:
@@ -366,8 +444,10 @@ class MQTTHandler:
                 if isinstance(val, (list, dict)):
                     val = json.dumps(val)
                 row_vals.append(val)
-            with open(self.orion_log_path, 'a', newline='') as f:
-                csv.writer(f).writerow(row_vals)
+            try:
+                self.csv_queue.put_nowait((self.orion_log_path, row_vals))
+            except queue.Full:
+                logging.error("CSV queue full for Orion log; dropping row")
 
 
     def _b64_ingest(self, payload: str, high_freq: bool):
