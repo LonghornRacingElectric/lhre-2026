@@ -38,3 +38,5 @@ void tsm_can_update_cooling_system(float fan_rpm, float coolant_flow_lpm,
 #endif
 
 #endif
+
+void tsm_can_debug(void);

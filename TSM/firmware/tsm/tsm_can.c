@@ -76,7 +76,27 @@ void tsm_can_init(void) {
   tsm_can_add_send_handlers();
 
   /* Start CAN interface */
+
+  HAL_StatusTypeDef status = HAL_FDCAN_Start(&hfdcan2);
+  //   for (int i = 0; i < 10; i++) {
+  //     log_printf(LOG_INFO, "FDCAN start status: %d\n", status);
+  //     osDelay(500);
+  //   }
+
   can_rtos_start_interface(&data_acq_bus);
+  //   log_printf(LOG_INFO, "FDCAN start status: %d\n", status);
+  //   osDelay(2000);
+  //   log_printf(LOG_INFO, "data_acq_bus head: %p\n", data_acq_bus._head);
+  //   log_printf(LOG_INFO, "coolant handle: %p scheduled: %d\n",
+  //              coolant_loop_handle,
+  //              coolant_loop_handle ? coolant_loop_handle->_is_scheduled :
+  //              -1);
+
+  //   osDelay(1000);
+  //   can_message_t *test = coolant_loop_handle;
+  //   cHAL_StatusTypeDef result = can_rtos_send_immediate(&data_acq_bus, test);
+  //   log_printf(LOG_INFO, "force send result: %d\n", result);
+  //   log_printf(LOG_INFO, "FDCAN PSR: 0x%08lX\n", hfdcan2.Instance->PSR);
 
   /* Start CAN RTOS tasks */
   can_rtos_start_transceiver_task(osPriorityHigh);
@@ -136,4 +156,10 @@ void tsm_can_update_cooling_system(float fan_rpm, float coolant_flow_lpm,
   cooling_sys_mailbox.ambient_temp_ds18b20 = ambient_temp;
 
   taskEXIT_CRITICAL();
+}
+
+void tsm_can_debug(void) {
+  log_printf(LOG_INFO, "sent: %lu dropped: %lu err: %d errcode: %d\n",
+             data_acq_bus._messages_sent, data_acq_bus.dropped_packets,
+             data_acq_bus._error_occurred, data_acq_bus._error_code_send);
 }
