@@ -290,9 +290,9 @@ uint8_t ds18b20_read_bit(void) {
   ds18b20_low();
   delay_us(1);
   ds18b20_release();
-  delay_us(14);
+  delay_us(10);
   uint8_t bit = ds18b20_read_pin();
-  delay_us(45);
+  delay_us(55);
   return bit;
 }
 
@@ -331,12 +331,15 @@ float ds18b20_read_temp(void) {
   uint8_t temp_l = ds18b20_read_byte();
   uint8_t temp_h = ds18b20_read_byte();
 
+  // log_printf(LOG_INFO, "raw: %02X %02X\r\n", temp_h, temp_l);
+
   int16_t raw = (temp_h << 8) | temp_l;
 
   return raw / 16.0f;
 }
 
 void StartSensorTask(void *argument) {
+
   uint32_t last_flow = 0;
   uint32_t last_fan = 0;
 
@@ -380,9 +383,9 @@ void StartSensorTask(void *argument) {
     therm_adc[2] = HAL_ADC_GetValue(&hadc2);
     HAL_ADC_Stop(&hadc2);
 
-    log_printf(LOG_INFO, "ADC volts: %.3f %.3f %.3f\r\n",
-               (therm_adc[0] / 4095.0f) * 3.3f, (therm_adc[1] / 4095.0f) * 3.3f,
-               (therm_adc[2] / 4095.0f) * 3.3f);
+    // log_printf(LOG_INFO, "ADC volts: %.3f %.3f %.3f\r\n",
+    //            (therm_adc[0] / 4095.0f) * 3.3f, (therm_adc[1] / 4095.0f)
+    //            * 3.3f, (therm_adc[2] / 4095.0f) * 3.3f);
 
     /* Convert temperatures */
 
