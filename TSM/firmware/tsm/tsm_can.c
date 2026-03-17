@@ -3,7 +3,6 @@
 #include "FreeRTOS.h"
 #include "cmsis_os.h"
 #include "fdcan.h"
-
 #include "longhorn/rtos/can.h"
 #include "longhorn/rtos/logger.h"
 
