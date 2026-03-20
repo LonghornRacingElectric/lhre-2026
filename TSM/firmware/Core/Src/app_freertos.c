@@ -226,7 +226,7 @@ void StartSensorTask(void *argument) {
                fan_rpm);
 
     osDelay(pdMS_TO_TICKS(300));
-    tsm_can_debug();
+    // tsm_can_debug();
   }
 }
 
