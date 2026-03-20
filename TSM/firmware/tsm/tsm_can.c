@@ -24,7 +24,7 @@ static msg_coolant_loop_temps_t coolant_loop_mailbox = {0};
 static can_message_t *coolant_loop_handle = NULL;
 
 /* Cooling system sensors (ID 418) */
-static msg_tsm_cooling_system_t cooling_sys_mailbox = {0};
+static msg_fan_flow_speeds_t cooling_sys_mailbox = {0};
 static can_message_t *cooling_sys_handle = NULL;
 
 /* ===============================
@@ -121,8 +121,8 @@ static void tsm_can_add_send_handlers(void) {
 
   /* Cooling System (ID 418) */
   cooling_sys_handle = can_get_message_handle(
-      &cooling_sys_mailbox, TSM_COOLING_SYSTEM_ID, TSM_COOLING_SYSTEM_FREQ,
-      TSM_COOLING_SYSTEM_DLC, (CAN_pack_message_fn)pack_tsm_cooling_system);
+      &cooling_sys_mailbox, FAN_FLOW_SPEEDS_ID, FAN_FLOW_SPEEDS_FREQ,
+      FAN_FLOW_SPEEDS_DLC, (CAN_pack_message_fn)pack_fan_flow_speeds);
 
   can_rtos_register_send_packet(&data_acq_bus, cooling_sys_handle);
 
@@ -152,7 +152,7 @@ void tsm_can_update_cooling_system(float fan_rpm, float coolant_flow_lpm,
 
   cooling_sys_mailbox.radiator_fan_speed = (uint16_t)fan_rpm;
   cooling_sys_mailbox.coolant_flow = coolant_flow_lpm;
-  cooling_sys_mailbox.ambient_temp_ds18b20 = ambient_temp;
+  cooling_sys_mailbox.ambient_temp = ambient_temp;
 
   taskEXIT_CRITICAL();
 }
