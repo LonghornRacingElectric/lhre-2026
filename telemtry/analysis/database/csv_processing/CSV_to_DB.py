@@ -154,14 +154,20 @@ class CSVToDB():
       
     def enumerate_packet_id(self, df):       
         """
-        Enumerates the packet_id from the last known packet_id. Uses the csv with car data to determine amount of packet_id to add
+        Enumerates the packet_id from the last known packet_id in the car's database.
+        Queries the database for the most recent packet_id and increments from there.
         """
-        try: 
-            last_packet = self.db_session.query(Packet.packet_id).order_by(Packet.packet_id.desc()).first()[0]
+        try:
+            # Use car-aware packet model from _table_models
+            packet_model = self._table_models.get("packet")
+            if packet_model:
+                last_packet = self.db_session.query(packet_model.packet_id).order_by(packet_model.packet_id.desc()).first()[0]
+            else:
+                last_packet = self.last_packet
         except (IndexError, TypeError):
             last_packet = self.last_packet
 
-        pack_id = list(range(last_packet + 1, last_packet+1+len(df.index)))
+        pack_id = list(range(last_packet + 1, last_packet + 1 + len(df.index)))
         self.last_packet = last_packet + len(df.index)
         return pack_id
 
@@ -188,7 +194,16 @@ class CSVToDB():
             for column, (dtype, ndim) in table_desc[table].items():
                 if column not in {"time", "packet_id", "gps", "f_gps", "b_gps"} and column in pg_to_csv:
                     if ndim:
-                        convert[table][column] = df[pg_to_csv[column]].astype(dtype).to_numpy().tolist()
+                        # Handle array columns
+                        if self.car == "Orion":
+                            # For Orion, arrays are stored as strings in CSV (e.g., "[]" or "[1.0, 2.0]")
+                            import ast
+                            convert[table][column] = [
+                                ast.literal_eval(str(val)) if isinstance(val, str) else val 
+                                for val in df[pg_to_csv[column]]
+                            ]
+                        else:
+                            convert[table][column] = df[pg_to_csv[column]].astype(dtype).to_numpy().tolist()
                     else:
                         convert[table][column] = df[pg_to_csv[column]].astype(dtype)
                 elif (column == "time"):
@@ -227,7 +242,9 @@ class CSVToDB():
             raise Exception("This function is not supported for the Nightwatch database. ")
         data = self.dataConvert(df, table_desc=table_desc)
         packets = data["packet"]
-        packet_model = self._table_models.get("packet", Packet)
+        packet_model = self._table_models.get("packet")
+        if not packet_model:
+            raise ValueError(f"Packet model not found for car {self.car}")
 
         for i in tqdm(range(num_rows)):
             row_dict = {j : packets[j][i] for j in packets if (len(packets[j]) != 0)}
@@ -256,7 +273,9 @@ class CSVToDB():
         # Setup data within method--------------------------------------------------------------------------------
         data = self.dataConvert(df, table_desc=table_desc)
         packets = data["packet"]
-        packet_model = self._table_models.get("packet", Packet)
+        packet_model = self._table_models.get("packet")
+        if not packet_model:
+            raise ValueError(f"Packet model not found for car {self.car}")
 
         def insert_chunk(start, end, packets, data):
             with get_db(self.car) as session:
@@ -510,9 +529,9 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.CRITICAL)
     
-    # Orion CSV ingestion
-    car = "Orion"
-    csv_file = Path(__file__).parent.joinpath("csv_data", "orion", "orion_log_20260311_011817.csv")
+    # Angelique CSV ingestion for testing
+    car = "Angelique"
+    csv_file = Path(__file__).parent.joinpath("csv_data", "angelique", "Log__2024_10_13__14_26_10.csv")
     run_mode = "insert"  # insert or playback
 
     if not csv_file.exists():
