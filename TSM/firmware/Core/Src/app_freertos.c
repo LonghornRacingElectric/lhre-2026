@@ -221,18 +221,18 @@ void StartSensorTask(void *argument) {
     // Logging
     char m_buf[8], i_buf[8], r_buf[8], a_buf[8];
 
-    log_printf(LOG_INFO,
-               "ADC Raw | Motor: %4u | Inverter: %4u | Radiator: %4u\r\n",
-               therm_adc[0], therm_adc[1], therm_adc[2]);
+    // log_printf(LOG_INFO,
+    //            "ADC Raw | Motor: %4u | Inverter: %4u | Radiator: %4u\r\n",
+    //            therm_adc[0], therm_adc[1], therm_adc[2]);
 
-    log_printf(
-        LOG_INFO,
-        "Motor: %s C | Inverter: %s C | Radiator: %s C | Ambient: %.1f C "
-        "| Flow: %.2f LPM | Fan: %.0f RPM\r\n",
-        temp_to_str(temps_c[0], m_buf, sizeof(m_buf)),
-        temp_to_str(temps_c[1], i_buf, sizeof(i_buf)),
-        temp_to_str(temps_c[2], r_buf, sizeof(r_buf)), temps_c[3],
-        coolant_flow_lpm, fan_rpm);
+    log_printf(LOG_INFO,
+               "Motor: %s C | Inverter: %s C | Radiator: %s C | Ambient: %s C "
+               "| Flow: %.2f LPM | Fan: %.0f RPM\r\n",
+               temp_to_str(temps_c[0], m_buf, sizeof(m_buf)),
+               temp_to_str(temps_c[1], i_buf, sizeof(i_buf)),
+               temp_to_str(temps_c[2], r_buf, sizeof(r_buf)),
+               temp_to_str(temps_c[3], a_buf, sizeof(a_buf)), coolant_flow_lpm,
+               fan_rpm);
 
     osDelay(pdMS_TO_TICKS(300));
     // tsm_can_debug();

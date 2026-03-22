@@ -2,7 +2,11 @@
 #include "adc.h"
 #include "cmsis_os2.h"
 #include "gpio.h"
+#include <math.h>
 #include <stdio.h>
+
+#define TEMP_ERR -127.0f   // disconnected/floating
+#define TEMP_SHORT -126.0f // pulled to GND / shorted
 
 static void delay_us(uint32_t us) {
   uint32_t start = DWT->CYCCNT;
@@ -63,7 +67,7 @@ static uint8_t ds18b20_read_byte(void) {
 
 float ds18b20_read_temp(void) {
   if (!ds18b20_reset())
-    return -100;
+    return TEMP_ERR;
 
   for (int i = 0; i < 8; i++)
     ds18b20_write_bit((0xCC >> i) & 1);
@@ -79,14 +83,20 @@ float ds18b20_read_temp(void) {
   uint8_t l = ds18b20_read_byte();
   uint8_t h = ds18b20_read_byte();
   int16_t raw = (h << 8) | l;
-  return raw / 16.0f;
+
+  float temp = raw / 16.0f;
+
+  if (temp == 85.0f) // power-on default, likely means sensor is disconnected
+    return TEMP_ERR;
+
+  return temp;
 }
 
 float thermistor_adc_to_temp(uint16_t adc) {
-  if (adc == 0 || adc >= ADC_MAX)
-    return -100.0f;
-  if (adc > ADC_MAX * 0.95)
-    return NAN;
+  if (adc < ADC_MAX * 0.01)
+    return TEMP_SHORT;
+  if (adc > ADC_MAX * 0.97)
+    return TEMP_ERR;
   float v = ((float)adc / ADC_MAX) * VREF;
   float r_therm = R_FIXED * (v / (VREF - v));
   float temp_k = 1.0f / ((1.0f / TEMP_REF_K) +
@@ -112,8 +122,12 @@ uint16_t read_therm_adc(ADC_HandleTypeDef *hadc, uint32_t channel) {
 }
 
 const char *temp_to_str(float temp, char *buf, size_t len) {
-  if (isnan(temp)) {
-    return "DISC";
+  if (temp == TEMP_ERR) {
+    return "ERR";
+  }
+
+  if (temp == TEMP_SHORT) {
+    return "SHORT";
   }
   snprintf(buf, len, "%.1f", temp);
   return buf;

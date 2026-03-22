@@ -6,9 +6,9 @@
 #include "longhorn/rtos/can.h"
 #include "longhorn/rtos/logger.h"
 
+#include <math.h>
 #include <ota_flash.h>
 #include <stm32g4xx_hal_fdcan.h>
-
 /* ===============================
    CAN Interfaces
    =============================== */
