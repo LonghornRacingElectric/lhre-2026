@@ -77,10 +77,10 @@ void tsm_can_init(void) {
   /* Start CAN interface */
 
   HAL_StatusTypeDef status = HAL_FDCAN_Start(&hfdcan2);
-  //   for (int i = 0; i < 10; i++) {
-  //     log_printf(LOG_INFO, "FDCAN start status: %d\n", status);
-  //     osDelay(500);
-  //   }
+  // for (int i = 0; i < 10; i++) {
+  //   log_printf(LOG_INFO, "FDCAN start status: %d\n", status);
+  //   osDelay(500);
+  // }
 
   can_rtos_start_interface(&data_acq_bus);
   //   log_printf(LOG_INFO, "FDCAN start status: %d\n", status);
@@ -95,7 +95,7 @@ void tsm_can_init(void) {
   //   can_message_t *test = coolant_loop_handle;
   //   cHAL_StatusTypeDef result = can_rtos_send_immediate(&data_acq_bus, test);
   //   log_printf(LOG_INFO, "force send result: %d\n", result);
-  //   log_printf(LOG_INFO, "FDCAN PSR: 0x%08lX\n", hfdcan2.Instance->PSR);
+  // log_printf(LOG_INFO, "FDCAN PSR: 0x%08lX\n", hfdcan2.Instance->PSR);
 
   /* Start CAN RTOS tasks */
   can_rtos_start_transceiver_task(osPriorityHigh);

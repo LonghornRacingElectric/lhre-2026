@@ -2,6 +2,7 @@
 #include "adc.h"
 #include "cmsis_os2.h"
 #include "gpio.h"
+// #include "longhorn/rtos/logger.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -85,6 +86,7 @@ float ds18b20_read_temp(void) {
   int16_t raw = (h << 8) | l;
 
   float temp = raw / 16.0f;
+  // log_printf(LOG_INFO, "%.1f", temp);
 
   if (temp == 85.0f) // power-on default, likely means sensor is disconnected
     return TEMP_ERR;
@@ -106,7 +108,7 @@ float thermistor_adc_to_temp(uint16_t adc) {
 
 uint16_t read_therm_adc(ADC_HandleTypeDef *hadc, uint32_t channel) {
   ADC_ChannelConfTypeDef sConfig = {0};
-  sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_247CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;

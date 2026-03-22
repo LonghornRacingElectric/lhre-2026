@@ -42,7 +42,9 @@
 #include <math.h>
 
 #include "adc.h"
+#include "fdcan.h"
 #include "gpio.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -162,8 +164,6 @@ void StartDefaultTask(void *argument) {
 
   log_printf(LOG_INFO, "BOOT\r\n");
 
-  sensorTaskHandle = osThreadNew(StartSensorTask, NULL, &sensorTask_attributes);
-
   dfu_config dfu = {
       .delay_fn = (Delay_fn)osDelay,
       .gpiox = GPIOB,
@@ -178,6 +178,8 @@ void StartDefaultTask(void *argument) {
 
   /* Initialize CAN */
   tsm_can_init();
+
+  sensorTaskHandle = osThreadNew(StartSensorTask, NULL, &sensorTask_attributes);
 
   // log_printf(LOG_INFO, "[TSM] Application started\n");
 
@@ -195,7 +197,11 @@ void StartSensorTask(void *argument) {
   uint32_t last_flow = 0;
   uint32_t last_fan = 0;
 
+  bool psr_logged = false;
+
   for (;;) {
+    // log_printf(LOG_INFO, "FDCAN PSR: 0x%08lX\n", hfdcan2.Instance->PSR);
+
     uint16_t therm_adc[3];
     float temps_c[4];
 
@@ -210,6 +216,7 @@ void StartSensorTask(void *argument) {
 
     // Ambient temp sensor
     temps_c[3] = ds18b20_read_temp();
+    // temps_c[3] = 0.0f;
 
     // Flow + fan update
     flow_fan_update(&last_flow, &last_fan, &coolant_flow_lpm, &fan_rpm);
@@ -224,6 +231,7 @@ void StartSensorTask(void *argument) {
     // log_printf(LOG_INFO,
     //            "ADC Raw | Motor: %4u | Inverter: %4u | Radiator: %4u\r\n",
     //            therm_adc[0], therm_adc[1], therm_adc[2]);
+    // osDelay(100);
 
     log_printf(LOG_INFO,
                "Motor: %s C | Inverter: %s C | Radiator: %s C | Ambient: %s C "
@@ -234,8 +242,9 @@ void StartSensorTask(void *argument) {
                temp_to_str(temps_c[3], a_buf, sizeof(a_buf)), coolant_flow_lpm,
                fan_rpm);
 
-    osDelay(pdMS_TO_TICKS(300));
+    osDelay(pdMS_TO_TICKS(1000));
     // tsm_can_debug();
+    // osDelay(10);
   }
 }
 
