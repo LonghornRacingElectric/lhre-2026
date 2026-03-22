@@ -30,6 +30,10 @@ from analysis.sql_utils.models import (
 )
 from analysis.sql_utils.query_builder import QueryBuilder
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
+from analysis.database.csv_processing.proto_builders import (
+    build_angelique_sensor_data_proto,
+    build_orion_sensor_data_proto,
+)
 
 class CSVToDB():
 
@@ -37,7 +41,8 @@ class CSVToDB():
         self.db_session = db_session
         self.MQTT_target = MQTT_target
         self.mqtt = mqtt
-        self.last_packet = 0
+        # Lazily initialized from DB on first use, then incremented locally.
+        self.last_packet = None
         self.car = car
         self._models = QueryBuilder(car)._models
         self._table_models = {model.__tablename__: model for model in self._models.values()}
@@ -154,21 +159,22 @@ class CSVToDB():
       
     def enumerate_packet_id(self, df):       
         """
-        Enumerates the packet_id from the last known packet_id in the car's database.
-        Queries the database for the most recent packet_id and increments from there.
+        Enumerates packet_id from a single DB snapshot at run start, then increments locally.
+        This avoids duplicate ids when setup/publish stages run concurrently.
         """
-        try:
-            # Use car-aware packet model from _table_models
-            packet_model = self._table_models.get("packet")
-            if packet_model:
-                last_packet = self.db_session.query(packet_model.packet_id).order_by(packet_model.packet_id.desc()).first()[0]
-            else:
-                last_packet = self.last_packet
-        except (IndexError, TypeError):
-            last_packet = self.last_packet
+        if self.last_packet is None:
+            try:
+                packet_model = self._table_models.get("packet")
+                if packet_model:
+                    result = self.db_session.query(packet_model.packet_id).order_by(packet_model.packet_id.desc()).first()
+                    self.last_packet = int(result[0]) if result else 0
+                else:
+                    self.last_packet = 0
+            except (IndexError, TypeError):
+                self.last_packet = 0
 
-        pack_id = list(range(last_packet + 1, last_packet + 1 + len(df.index)))
-        self.last_packet = last_packet + len(df.index)
+        pack_id = list(range(self.last_packet + 1, self.last_packet + 1 + len(df.index)))
+        self.last_packet += len(df.index)
         return pack_id
 
     def dataConvert(self, df, table_desc):
@@ -192,6 +198,16 @@ class CSVToDB():
         for table in table_desc:
             convert[table] = {}
             for column, (dtype, ndim) in table_desc[table].items():
+                # Angelique logs store GPS as Latitude/Longitude columns.
+                if self.car == "Angelique" and column == "gps":
+                    lat_col = next((c for c in df.columns if c.lower() in {"latitude", "lat"} or "latitude" in c.lower()), None)
+                    lon_col = next((c for c in df.columns if c.lower() in {"longitude", "lon", "lng"} or "longitude" in c.lower()), None)
+                    if lat_col and lon_col:
+                        lat_vals = df[lat_col].astype(float).to_numpy()
+                        lon_vals = df[lon_col].astype(float).to_numpy()
+                        convert[table][column] = [[lat, lon] for lat, lon in zip(lat_vals, lon_vals)]
+                        continue
+
                 if column not in {"time", "packet_id", "gps", "f_gps", "b_gps"} and column in pg_to_csv:
                     if ndim:
                         # Handle array columns
@@ -325,7 +341,7 @@ class CSVToDB():
         for chunk in (pd.read_csv(df, chunksize=2000)):
             yield chunk.reset_index(drop = True)
 
-    def event_playback(self, file_path, table_desc, time_adjustment = True, batch_amt = 1):
+    def event_playback(self, file_path, table_desc, time_adjustment = True, batch_amt = 1, protobuf = True):
         """
         Publishes to database based on time delays from the csv
         """
@@ -362,7 +378,13 @@ class CSVToDB():
                     for i in range(chunk_length):
                         time.sleep((float(differences[i])/ 1000))
                         global_progress.update(1)
-                        if (i % batch_amt == 0):
+                        if self.car == "Angelique" and protobuf:
+                            msg = build_angelique_sensor_data_proto(row_dict_list, i)
+                            self.mqtt.publish('angelique', msg.SerializeToString(), qos=0)
+                        elif self.car == "Orion" and protobuf:
+                            msg = build_orion_sensor_data_proto(row_dict_list, i)
+                            self.mqtt.publish('orion', msg.SerializeToString(), qos=0)
+                        elif (i % batch_amt == 0):
                             for table in tables: #Through the different tables
                                 end_index = min(i + batch_amt, chunk_length)  # Ensure we don't exceed the length
                                 batch_data = row_dict_list.get(table)[i:end_index]
@@ -532,7 +554,7 @@ if __name__ == '__main__':
     # Angelique CSV ingestion for testing
     car = "Angelique"
     csv_file = Path(__file__).parent.joinpath("csv_data", "angelique", "Log__2024_10_13__14_26_10.csv")
-    run_mode = "insert"  # insert or playback
+    run_mode = "playback"  # insert or playback
 
     if not csv_file.exists():
         raise FileNotFoundError(f"CSV file not found: {csv_file}")
@@ -545,6 +567,6 @@ if __name__ == '__main__':
 
             if run_mode == "playback":
                 # dataSender.handle_event_start()
-                dataSender.event_playback(csv_file, table_desc=table_desc)
+                dataSender.event_playback(csv_file, table_desc=table_desc, protobuf=True)
             elif run_mode == "insert":
                 dataSender.insert_multi_row_from_csv(df=pd.read_csv(csv_file), table_desc=table_desc, amt=500)
