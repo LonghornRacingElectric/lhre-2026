@@ -2,6 +2,7 @@
 #include "adc.h"
 #include "cmsis_os2.h"
 #include "gpio.h"
+#include <stdio.h>
 
 static void delay_us(uint32_t us) {
   uint32_t start = DWT->CYCCNT;
@@ -84,6 +85,8 @@ float ds18b20_read_temp(void) {
 float thermistor_adc_to_temp(uint16_t adc) {
   if (adc == 0 || adc >= ADC_MAX)
     return -100.0f;
+  if (adc > ADC_MAX * 0.95)
+    return NAN;
   float v = ((float)adc / ADC_MAX) * VREF;
   float r_therm = R_FIXED * (v / (VREF - v));
   float temp_k = 1.0f / ((1.0f / TEMP_REF_K) +
@@ -106,4 +109,12 @@ uint16_t read_therm_adc(ADC_HandleTypeDef *hadc, uint32_t channel) {
   uint16_t val = HAL_ADC_GetValue(hadc);
   HAL_ADC_Stop(hadc);
   return val;
+}
+
+const char *temp_to_str(float temp, char *buf, size_t len) {
+  if (isnan(temp)) {
+    return "DISC";
+  }
+  snprintf(buf, len, "%.1f", temp);
+  return buf;
 }

@@ -16,3 +16,4 @@
 float thermistor_adc_to_temp(uint16_t adc);
 float ds18b20_read_temp(void);
 uint16_t read_therm_adc(ADC_HandleTypeDef *hadc, uint32_t channel);
+const char *temp_to_str(float temp, char *buf, size_t len);
