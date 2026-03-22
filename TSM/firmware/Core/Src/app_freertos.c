@@ -23,7 +23,6 @@
 #include "main.h"
 #include "task.h"
 
-
 #include "usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -35,6 +34,7 @@
 #include "longhorn/rtos/usb.h"
 #include "longhorn/usb_base.h"
 #include "ota/ota_flash.h"
+#include "stm32g4xx_hal.h"
 #include "tim.h"
 #include "tsm_can.h"
 #include "tsm_sensors.h"
@@ -60,7 +60,6 @@ volatile uint32_t fan_pulses = 0;
 
 float coolant_flow_lpm = 0;
 float fan_rpm = 0;
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -197,8 +196,9 @@ void StartDefaultTask(void *argument) {
 void StartSensorTask(void *argument) {
   uint32_t last_flow = 0;
   uint32_t last_fan = 0;
+  uint32_t last_tick = HAL_GetTick();
 
-  bool psr_logged = false;
+  // bool psr_logged = false;
 
   for (;;) {
     // log_printf(LOG_INFO, "FDCAN PSR: 0x%08lX\n", hfdcan2.Instance->PSR);
@@ -220,7 +220,8 @@ void StartSensorTask(void *argument) {
     // temps_c[3] = 0.0f;
 
     // Flow + fan update
-    flow_fan_update(&last_flow, &last_fan, &coolant_flow_lpm, &fan_rpm);
+    flow_fan_update(&last_flow, &last_fan, &coolant_flow_lpm, &fan_rpm,
+                    &last_tick);
 
     // Send CAN packets
     tsm_can_update_coolant_loop(temps_c[0], temps_c[1], temps_c[2]);
