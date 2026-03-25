@@ -323,8 +323,8 @@ CREATE TABLE public.thermal (
     packet_id           bigint   NOT NULL,
     batt_cooling_current real,
     motor_cooling_current real,
-    motor_temp           real,
     ambient_temp         real,
+    motor_temp           real,
     batt_loop_batt_temp  real,
     batt_loop_rad_fan_speed real,
     batt_loop_rad_temp   real,
@@ -333,8 +333,10 @@ CREATE TABLE public.thermal (
     bus_bar_temp3        real,
     cell_bottom_temp     real,
     cell_top_temp        real,
+    coolant_flow_lpm     real,
     coolant_temp         real,
     discharge_r_temp     real,
+    fan_rpm              real,
     gate_driver_temp     real,
     inverter_hotspot_temp real,
     inverter_temp        real,
@@ -343,7 +345,6 @@ CREATE TABLE public.thermal (
     module_c_temp        real,
     motor_loop_inverter_temp real,
     motor_loop_motor_temp real,
-    motor_loop_rad_fan_speed real,
     motor_loop_rad_temp  real,
     CONSTRAINT fk_thermal_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );

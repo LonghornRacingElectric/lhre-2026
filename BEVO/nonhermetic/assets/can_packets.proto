@@ -123,8 +123,8 @@ message DiagnosticsLow {
 message Thermal {
     float batt_cooling_current = 1;
     float motor_cooling_current = 2;
-    float motor_temp = 3;
-    float ambient_temp = 4;
+    float ambient_temp = 3;
+    float motor_temp = 4;
     float batt_loop_batt_temp = 5;
     float batt_loop_rad_fan_speed = 6;
     float batt_loop_rad_temp = 7;
@@ -133,16 +133,17 @@ message Thermal {
     float bus_bar_temp3 = 10;
     float cell_bottom_temp = 11;
     float cell_top_temp = 12;
-    float coolant_temp = 13;
-    float discharge_r_temp = 14;
-    float gate_driver_temp = 15;
-    float inverter_hotspot_temp = 16;
-    float inverter_temp = 17;
-    float module_a_temp = 18;
-    float module_b_temp = 19;
-    float module_c_temp = 20;
-    float motor_loop_inverter_temp = 21;
-    float motor_loop_motor_temp = 22;
-    float motor_loop_rad_fan_speed = 23;
-    float motor_loop_rad_temp = 24;
+    float coolant_flow_lpm = 13;
+    float coolant_temp = 14;
+    float discharge_r_temp = 15;
+    float fan_rpm = 16;
+    float gate_driver_temp = 17;
+    float inverter_hotspot_temp = 18;
+    float inverter_temp = 19;
+    float module_a_temp = 20;
+    float module_b_temp = 21;
+    float module_c_temp = 22;
+    float motor_loop_inverter_temp = 23;
+    float motor_loop_motor_temp = 24;
+    float motor_loop_rad_temp = 25;
 }
