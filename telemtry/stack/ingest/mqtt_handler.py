@@ -172,22 +172,61 @@ class MQTTHandler:
             pass
 
     def _db_worker(self, car: str):
+        jobs = []
+        pending_acks = 0
         with get_db(car) as session:
             while True:
-                job = self.db_queues[car].get()
+                try:
+                    job = self.db_queues[car].get(block=True, timeout=30)
+                    pending_acks += 1
+                except queue.Empty:
+                    logging.warning(f"DB worker for {car} timed out while waiting for job.")
+                    if (jobs):
+                        try:
+                            QueryBuilder.execute_insert(session, jobs, self.table_specs[car], commit=True)
+                        except Exception as e:
+                            session.rollback()
+                            logging.error(f"DB worker batch insert failed for {car} during timeout: {e}")
+                        finally:
+                            jobs.clear() # clear the batch
+                    while pending_acks > 0:
+                        self.db_queues[car].task_done()
+                        pending_acks -= 1
+                    continue
+
+                # Add jobs to a lsit for batch insertion
                 if job is None:
-                    self.db_queues[car].task_done()
+                    if (jobs):
+                        try:
+                            QueryBuilder.execute_insert(session, jobs, self.table_specs[car], commit=True)
+                        except Exception as e:
+                            session.rollback()
+                            logging.error(f"DB worker batch insert failed for {car} during shutdown: {e}")
+                    while pending_acks > 0:
+                        self.db_queues[car].task_done()
+                        pending_acks -= 1
                     break
 
-                try:
-                    for table, model, data, table_desc in job:
-                        QueryBuilder.insert(session, table, model, data, table_desc, commit=False)
-                    session.commit()
-                except Exception as e:
-                    session.rollback()
-                    logging.error(f"DB worker insert failed for {car}: {e}")
-                finally:
-                    self.db_queues[car].task_done()
+                if not isinstance(job, list):
+                    logging.error(f"DB worker for {car} received malformed job type: {type(job)}")
+                    while pending_acks > 0:
+                        self.db_queues[car].task_done()
+                        pending_acks -= 1
+                    continue
+
+                jobs.extend(job)
+
+                if len(jobs) >= 40:
+                    try:
+                        QueryBuilder.execute_insert(session, jobs, self.table_specs[car], commit=True)
+                    except Exception as e:
+                        session.rollback()
+                        logging.error(f"DB worker batch insert failed for {car}: {e}")
+                    finally:
+                        while pending_acks > 0:
+                            self.db_queues[car].task_done()
+                            pending_acks -= 1
+                        jobs.clear() # clear the batch
 
     def _csv_worker(self):
         while True:
@@ -405,11 +444,11 @@ class MQTTHandler:
 
                 if data is not None:
                     if not cache_enable:
-                        insert_jobs.append((table, model, data, table_desc))
+                        insert_jobs.append((table, data))
                     elif table == 'packet':
-                        insert_jobs.append((table, model, data, table_desc))
+                        insert_jobs.append((table, data))
                     elif table != 'packet':
-                        self.cache.append((table, model, data, table_desc))
+                        self.cache.append((table, data))
                         if (len(self.cache) == 24):
                             insert_jobs.extend(self.cache)
                             self.cache.clear()
@@ -420,7 +459,6 @@ class MQTTHandler:
             except queue.Full:
                 logging.error(f"DB queue full for {car}; dropping message packet_id={message_dict.get('packet_id')}")
 
-        # if an Orion log file is active, append this decoded record
         if car == "Orion" and self.orion_log_path is not None:
             flat = {}
             for table in table_specs.keys():
@@ -428,7 +466,6 @@ class MQTTHandler:
                 if not model:
                     continue
 
-                # Mirror the same unpacking shape as DB insertion logic.
                 data = {col.name: message_dict[col.name] for col in model.__table__.columns if col.name in message_dict} if table == "packet" else None
                 if data is None:
                     data = ({col.name: message_dict[table][col.name] for col in model.__table__.columns if col.name in message_dict[table]}
