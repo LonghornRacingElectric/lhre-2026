@@ -282,7 +282,7 @@ class CSVToDB():
         except Exception as e:
             logging.error(f"An error occurred during insertion: {e}")
 
-    def insert_multi_row_from_csv(self, df, table_desc, amt = 500):
+    def insert_multi_row_from_csv(self, df, table_desc, amt = 500, rebuild_partitions = True, partition_gap_seconds = 300):
         """
         Inserts data into the database in larger batches determined by the given amt value. 
         """
@@ -336,6 +336,9 @@ class CSVToDB():
             # Wait for the rest to finish
             for f in as_completed(futures):
                 f.result()
+
+        if rebuild_partitions:
+            self.csv_event_injection(time_threshold=partition_gap_seconds)
 
     def stream_data(self, df):
         for chunk in (pd.read_csv(df, chunksize=2000)):
@@ -499,9 +502,9 @@ class CSVToDB():
         logging.info(config)
         self.mqtt.publish('config/event_update_sync', json.dumps(config, indent=4))
 
-    def csv_event_injection(self, time_threshold = 300):
+    def _rebuild_partitions_in_session(self, session, time_threshold = 300, min_partition_duration_ms = 120000):
         """
-        Find start and end times for an event and records into the database. Assumes csv files already input into database. 
+        Rebuilds partition windows from packet timestamp gaps.
         """
 
         query = f"""
@@ -535,17 +538,34 @@ class CSVToDB():
         if not events:
             logging.info("No events found in the database.")
             return
-        
-        for index, (start, end) in enumerate(events):
-            if end - start > 120000:
+
+        session.query(Partitions).delete()
+
+        inserted = 0
+        for start, end in events:
+            if end - start > min_partition_duration_ms:
                 event = {
                     'start_time' : start,
                     'end_time' : end,
                     'partition_name' : datetime.datetime.fromtimestamp(start / 1000).strftime('%Y-%m-%d %H:%M:%S')
                 }
-                self.db_session.add(Partitions(**event))
-        self.db_session.commit()
-        logging.info(f"Inserted {len(events)} events into the database.")    
+                session.add(Partitions(**event))
+                inserted += 1
+
+        session.commit()
+        logging.info(f"Inserted {inserted} partitions into the database.")
+
+    def csv_event_injection(self, time_threshold = 300):
+        """
+        Find start and end times for an event and records into the database. Assumes csv files already input into database. 
+        """
+
+        if self.db_session is not None:
+            self._rebuild_partitions_in_session(self.db_session, time_threshold=time_threshold)
+            return
+
+        with get_db(self.car) as session:
+            self._rebuild_partitions_in_session(session, time_threshold=time_threshold)
 
 if __name__ == '__main__':
 

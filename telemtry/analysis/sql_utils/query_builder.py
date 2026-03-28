@@ -3,7 +3,7 @@ import numpy as np
 import datetime
 import logging
 import time
-from sqlalchemy import text
+from sqlalchemy import text, insert
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import Query, aliased
 from .db_session import get_db
@@ -325,6 +325,47 @@ class QueryBuilder:
         session.add(model(**processed))
         if commit:
             session.commit()
+
+    @staticmethod
+    def execute_insert(session, rows, table_desc, commit=True):
+        if not rows:
+            return
+        
+        model_lookup = {
+            model.__tablename__: model for model in [
+                Packet, Dynamics, Controls, Pack, DiagnosticsHigh, DiagnosticsLow, Thermal,
+                AngeliquePacket, AngeliqueDynamics, AngeliqueControls, AngeliquePack, AngeliqueDiagnostics, AngeliqueThermal,
+                OrionPacket, OrionDynamics, OrionControls, OrionPack, OrionDiagnosticsLow, OrionThermal,
+            ]
+        }
+        
+        rows_by_table = {}
+        for table_name, row_data in rows:
+            if table_name not in rows_by_table:
+                rows_by_table[table_name] = []
+            rows_by_table[table_name].append(row_data)
+        
+        packet_tables = [t for t in rows_by_table.keys() if 'packet' in t]
+        other_tables = [t for t in rows_by_table.keys() if 'packet' not in t]
+        
+        for table_name in packet_tables + other_tables:
+            table_rows = rows_by_table[table_name]
+            model = model_lookup.get(table_name)
+            
+            if not model or not table_rows:
+                continue
+            
+            processed_rows = [
+                QueryBuilder.get_insert_values(table_name, row, model, table_desc[model.__tablename__])
+                for row in table_rows
+            ]
+            
+            stmt = insert(model.__table__).values(processed_rows)
+            session.execute(stmt)
+        
+        if commit:
+            session.commit()
+
 
 if __name__ == '__main__':
     with QueryBuilder() as qb:

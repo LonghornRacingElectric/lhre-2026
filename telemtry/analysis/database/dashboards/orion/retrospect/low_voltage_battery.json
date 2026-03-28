@@ -1,0 +1,77 @@
+{
+  "annotations": { "list": [{ "builtIn": 1, "datasource": { "type": "grafana", "uid": "-- Grafana --" }, "enable": true, "hide": true, "iconColor": "rgba(0, 211, 255, 1)", "name": "Annotations & Alerts", "type": "dashboard" }] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(pack.lv_batt_v) AS \"pdu/lv_batt_v [V]\", AVG(pack.lv_batt_c) AS \"pdu/lv_batt_c [A]\", AVG(pack.lv_batt_t) AS \"pdu/lv_batt_t [C]\" FROM pack JOIN packet ON packet.packet_id = pack.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;", "refId": "A" }],
+      "title": "LV Battery Core Signals",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "id": 2,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(pack.lv_boards_current) AS \"vcu/lv_boards_current [A]\", AVG(diagnostics_high.shutdown_current) AS \"vcu/shutdown_current [A]\", AVG(thermal.batt_cooling_current) AS \"vcu/batt_cooling_current [A]\", AVG(thermal.motor_cooling_current) AS \"vcu/motor_cooling_current [A]\", AVG(controls.lights_current) AS \"vcu/lights_current [A]\" FROM pack JOIN diagnostics_high ON diagnostics_high.packet_id = pack.packet_id JOIN thermal ON thermal.packet_id = pack.packet_id JOIN controls ON controls.packet_id = pack.packet_id JOIN packet ON packet.packet_id = pack.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;", "refId": "A" }],
+      "title": "Auxiliary Current Draw [A]",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "id": 3,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(thermal.ambient_temp) AS \"pdu/ambient_temp [C]\", AVG(thermal.discharge_r_temp) AS \"pdu/discharge_r_temp [C]\", AVG(thermal.batt_loop_batt_temp) AS \"pdu/batt_loop_batt_temp [C]\", AVG(thermal.batt_loop_rad_temp) AS \"pdu/batt_loop_rad_temp [C]\", AVG(thermal.inverter_temp) AS \"pdu/inverter_temp [C]\" FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;", "refId": "A" }],
+      "title": "LV/PDU Thermal Signals [C]",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "id": 4,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(thermal.motor_loop_motor_temp) AS \"tsm/motor_loop_motor_temp [C]\", AVG(thermal.motor_loop_inverter_temp) AS \"tsm/motor_loop_inverter_temp [C]\", AVG(thermal.motor_loop_rad_temp) AS \"tsm/motor_loop_rad_temp [C]\" FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;", "refId": "A" }],
+      "title": "Motor Cooling Loop Temperatures [C]",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "id": 5,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(thermal.batt_loop_rad_fan_speed) AS \"pdu/batt_loop_rad_fan_speed [RPM]\", AVG(thermal.motor_loop_rad_fan_speed) AS \"tsm/motor_loop_rad_fan_speed [RPM]\" FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;", "refId": "A" }],
+      "title": "Cooling Fan Speeds [RPM]",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "refresh": "",
+  "schemaVersion": 40,
+  "tags": ["orion", "retrospective", "low-voltage"],
+  "templating": { "list": [{ "allowCustomValue": false, "current": { "text": "", "value": "" }, "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" }, "definition": "SELECT partition_name FROM partitions ORDER BY start_time;", "description": "Select partition generated from packet gaps", "label": "Zoom to partition", "name": "Zoom", "options": [], "query": "SELECT partition_name FROM partitions ORDER BY start_time;", "refresh": 1, "regex": "", "type": "query" }] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Orion Low Voltage Battery - Retrospective",
+  "uid": "orion_lv_batt_retro_v2",
+  "version": 2,
+  "weekStart": ""
+}

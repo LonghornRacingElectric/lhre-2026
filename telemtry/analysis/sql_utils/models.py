@@ -432,6 +432,7 @@ class AngeliquePacket(BaseAngelique):
 
 class Partitions(Base):
     __tablename__ = 'partitions'
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
     partition_name = Column(Text, primary_key=True)
     start_time = Column(BigInteger, primary_key=True)
     end_time = Column(BigInteger, nullable=False)
