@@ -21,6 +21,7 @@ sys.path.append(str(Path(__file__).parents[2]))
 from analysis.sql_utils.db_session import get_db
 from analysis.sql_utils.query_builder import QueryBuilder
 from analysis.sql_utils.models import AngeliquePacket, OrionPacket
+from stack.ingest.partition_manager import PartitionManager
 from stack.ingest.protobuf import template_pb2, angelique_pb2, can_packets_pb2, bridge_pb2, bridge_pb2_grpc
 
 # Determine path to net_configs.json based on execution context
@@ -68,6 +69,8 @@ class MQTTHandler:
         self.cache = []
         self.cache_enable = cache_enable
         self._shutdown = False
+        self.partition_manager = PartitionManager(gap_seconds=int(os.getenv("PARTITION_GAP_SECONDS", "300")))
+        self.partition_enabled_cars = {"Angelique", "Orion"}
         self.table_specs = {
             "Nightwatch": QueryBuilder("Nightwatch").get_table_column_specs(),
             "Angelique": QueryBuilder("Angelique").get_table_column_specs(),
@@ -174,59 +177,77 @@ class MQTTHandler:
     def _db_worker(self, car: str):
         jobs = []
         pending_acks = 0
+
+        def flush_batch(session_obj, timeout_flush: bool = False):
+            nonlocal jobs
+            if not jobs:
+                return
+
+            try:
+                QueryBuilder.execute_insert(session_obj, jobs, self.table_specs[car], commit=False)
+
+                packet_times = sorted({
+                    int(row["time"])
+                    for table, row in jobs
+                    if table == "packet" and isinstance(row, dict) and row.get("time") is not None
+                })
+                if car in self.partition_enabled_cars and packet_times:
+                    # Create partitions only at boundaries/gaps; avoid per-packet updates.
+                    prev_time = packet_times[0]
+                    self.partition_manager.record_packet_time(session_obj, prev_time)
+
+                    for packet_time in packet_times[1:]:
+                        if packet_time - prev_time > self.partition_manager.partition_gap_ms:
+                            self.partition_manager.record_packet_time(session_obj, packet_time)
+                        prev_time = packet_time
+
+                    # On timeout flush, explicitly advance end_time to the latest packet in this batch.
+                    if timeout_flush:
+                        self.partition_manager.set_latest_end_time(session_obj, packet_times[-1])
+                    else:
+                        self.partition_manager.set_latest_end_time(session_obj, packet_times[-1])
+
+                session_obj.commit()
+            except Exception as e:
+                session_obj.rollback()
+                logging.error(f"DB worker batch insert failed for {car}: {e}")
+            finally:
+                jobs.clear()
+
         with get_db(car) as session:
             while True:
                 try:
                     job = self.db_queues[car].get(block=True, timeout=30)
-                    pending_acks += 1
                 except queue.Empty:
-                    logging.warning(f"DB worker for {car} timed out while waiting for job.")
-                    if (jobs):
-                        try:
-                            QueryBuilder.execute_insert(session, jobs, self.table_specs[car], commit=True)
-                        except Exception as e:
-                            session.rollback()
-                            logging.error(f"DB worker batch insert failed for {car} during timeout: {e}")
-                        finally:
-                            jobs.clear() # clear the batch
-                    while pending_acks > 0:
-                        self.db_queues[car].task_done()
-                        pending_acks -= 1
+                    if jobs:
+                        flush_batch(session, timeout_flush=True)
+                        while pending_acks > 0:
+                            self.db_queues[car].task_done()
+                            pending_acks -= 1
                     continue
 
-                # Add jobs to a lsit for batch insertion
                 if job is None:
-                    if (jobs):
-                        try:
-                            QueryBuilder.execute_insert(session, jobs, self.table_specs[car], commit=True)
-                        except Exception as e:
-                            session.rollback()
-                            logging.error(f"DB worker batch insert failed for {car} during shutdown: {e}")
+                    if jobs:
+                        flush_batch(session)
                     while pending_acks > 0:
                         self.db_queues[car].task_done()
                         pending_acks -= 1
+                    self.db_queues[car].task_done()
                     break
 
                 if not isinstance(job, list):
                     logging.error(f"DB worker for {car} received malformed job type: {type(job)}")
-                    while pending_acks > 0:
-                        self.db_queues[car].task_done()
-                        pending_acks -= 1
+                    self.db_queues[car].task_done()
                     continue
 
                 jobs.extend(job)
+                pending_acks += 1
 
                 if len(jobs) >= 40:
-                    try:
-                        QueryBuilder.execute_insert(session, jobs, self.table_specs[car], commit=True)
-                    except Exception as e:
-                        session.rollback()
-                        logging.error(f"DB worker batch insert failed for {car}: {e}")
-                    finally:
-                        while pending_acks > 0:
-                            self.db_queues[car].task_done()
-                            pending_acks -= 1
-                        jobs.clear() # clear the batch
+                    flush_batch(session)
+                    while pending_acks > 0:
+                        self.db_queues[car].task_done()
+                        pending_acks -= 1
 
     def _csv_worker(self):
         while True:
@@ -415,13 +436,35 @@ class MQTTHandler:
 
         if model:
             table_desc = self.table_specs[car][model.__tablename__]
-            if isinstance(data_dict, list):
-                if len(data_dict) > 1:
-                    QueryBuilder.bulk_insert(session, table, model, data_dict, table_desc, commit=True)
-                else:
-                    QueryBuilder.insert(session, table, model, data_dict[0], table_desc, commit=True)
-            elif not cache_enable:
-                QueryBuilder.insert(session, table, model, data_dict, table_desc, commit=True)
+            should_record_partition = (car in self.partition_enabled_cars and table == "packet")
+
+            try:
+                if isinstance(data_dict, list):
+                    if len(data_dict) > 1:
+                        QueryBuilder.bulk_insert(session, table, model, data_dict, table_desc, commit=not should_record_partition)
+                        if should_record_partition:
+                            for row in data_dict:
+                                packet_time = row.get("time") if isinstance(row, dict) else None
+                                if packet_time is not None:
+                                    self.partition_manager.record_packet_time(session, int(packet_time))
+                            session.commit()
+                    else:
+                        QueryBuilder.insert(session, table, model, data_dict[0], table_desc, commit=not should_record_partition)
+                        if should_record_partition:
+                            packet_time = data_dict[0].get("time") if isinstance(data_dict[0], dict) else None
+                            if packet_time is not None:
+                                self.partition_manager.record_packet_time(session, int(packet_time))
+                            session.commit()
+                elif not cache_enable:
+                    QueryBuilder.insert(session, table, model, data_dict, table_desc, commit=not should_record_partition)
+                    if should_record_partition:
+                        packet_time = data_dict.get("time") if isinstance(data_dict, dict) else None
+                        if packet_time is not None:
+                            self.partition_manager.record_packet_time(session, int(packet_time))
+                        session.commit()
+            except Exception as e:
+                session.rollback()
+                logging.error(f"Data ingest failed for {car}.{table}: {e}")
     
     def _proto_ingest(self, payload:str, cache_enable = False, car = "Nightwatch"):
         message_dict = self._proto_decode(payload=payload, car=car)

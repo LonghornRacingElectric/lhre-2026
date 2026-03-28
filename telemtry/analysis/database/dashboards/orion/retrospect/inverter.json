@@ -1,0 +1,55 @@
+{
+  "annotations": { "list": [{ "builtIn": 1, "datasource": { "type": "grafana", "uid": "-- Grafana --" }, "enable": true, "hide": true, "iconColor": "rgba(0, 211, 255, 1)", "name": "Annotations & Alerts", "type": "dashboard" }] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(thermal.module_a_temp) AS \"inv/module_a_temp [C]\", AVG(thermal.module_b_temp) AS \"inv/module_b_temp [C]\", AVG(thermal.module_c_temp) AS \"inv/module_c_temp [C]\", AVG(thermal.gate_driver_temp) AS \"inv/gate_driver_temp [C]\", AVG(thermal.coolant_temp) AS \"inv/coolant_temp [C]\", AVG(thermal.inverter_hotspot_temp) AS \"inv/inverter_hotspot_temp [C]\", AVG(thermal.motor_temp) AS \"inv/motor_temp [C]\" FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;", "refId": "A" }],
+      "title": "Inverter Temperatures [C]",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(pack.phase_a_current) AS \"inv/phase_a_current [A]\", AVG(pack.phase_b_current) AS \"inv/phase_b_current [A]\", AVG(pack.phase_c_current) AS \"inv/phase_c_current [A]\", AVG(pack.dc_bus_current) AS \"inv/dc_bus_current [A]\", AVG(pack.dc_bus_v) AS \"inv/dc_bus_v [V]\", AVG(pack.neutral_output_v) AS \"inv/neutral_output_v [V]\", AVG(pack.vab_vq_v) AS \"inv/vab_vq_v [V]\", AVG(pack.vbc_vd_v) AS \"inv/vbc_vd_v [V]\", AVG(pack.bus_voltage) AS \"inv/bus_voltage [V]\" FROM pack JOIN packet ON packet.packet_id = pack.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;", "refId": "A" }],
+      "title": "Inverter Electrical Signals",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "id": 3,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(controls.motor_speed) AS \"inv/motor_speed [rpm]\", AVG(controls.rpm_request) AS \"vcu/rpm_request [rpm]\", AVG(controls.motor_angle) AS \"inv/motor_angle [deg]\", AVG(pack.delta_resolver_angle) AS \"inv/delta_resolver_angle [deg]\", AVG(pack.inverter_freq) AS \"inv/inverter_freq [Hz]\", AVG(pack.time_since_on) AS \"inv/time_since_on [s]\", AVG(controls.commanded_torque) AS \"inv/commanded_torque [Nm]\", AVG(controls.torque_feedback) AS \"inv/torque_feedback [Nm]\", AVG(controls.torque_command) AS \"inv/torque_command [Nm]\", AVG(controls.torque_shudder) AS \"inv/torque_shudder [Nm]\", AVG(controls.torque_request) AS \"vcu/torque_request [Nm]\", AVG(controls.torque_limit) AS \"vcu/torque_limit [Nm]\", AVG(CASE WHEN controls.enable THEN 1 ELSE 0 END) AS \"vcu/enable [bool]\", AVG(CASE WHEN controls.direction THEN 1 ELSE 0 END) AS \"vcu/direction [bool]\", AVG(diagnostics_high.post_faults) AS \"inv/post_faults [uint32]\", AVG(diagnostics_high.run_faults) AS \"inv/run_faults [uint32]\" FROM controls JOIN packet ON packet.packet_id = controls.packet_id JOIN pack ON pack.packet_id = controls.packet_id JOIN diagnostics_high ON diagnostics_high.packet_id = controls.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;", "refId": "A" }],
+      "title": "Inverter Command, Speed, and Fault Path",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "refresh": "",
+  "schemaVersion": 40,
+  "tags": ["orion", "retrospective", "inverter"],
+  "templating": { "list": [{ "allowCustomValue": false, "current": { "text": "", "value": "" }, "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" }, "definition": "SELECT partition_name FROM partitions ORDER BY start_time;", "description": "Select partition generated from packet gaps", "label": "Zoom to partition", "name": "Zoom", "options": [], "query": "SELECT partition_name FROM partitions ORDER BY start_time;", "refresh": 1, "regex": "", "type": "query" }] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Orion Inverter - Retrospective",
+  "uid": "orion_inverter_retro_v2",
+  "version": 2,
+  "weekStart": ""
+}
