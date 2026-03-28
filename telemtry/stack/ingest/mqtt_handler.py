@@ -217,7 +217,7 @@ class MQTTHandler:
         with get_db(car) as session:
             while True:
                 try:
-                    job = self.db_queues[car].get(block=True, timeout=30)
+                    job = self.db_queues[car].get(block=True, timeout=5)
                 except queue.Empty:
                     if jobs:
                         flush_batch(session, timeout_flush=True)
