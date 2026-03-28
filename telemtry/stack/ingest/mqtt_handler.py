@@ -69,7 +69,7 @@ class MQTTHandler:
         self.cache = []
         self.cache_enable = cache_enable
         self._shutdown = False
-        self.partition_manager = PartitionManager(gap_seconds=int(os.getenv("PARTITION_GAP_SECONDS", "300")))
+        self.partition_manager = PartitionManager(gap_seconds=300)
         self.partition_enabled_cars = {"Angelique", "Orion"}
         self.table_specs = {
             "Nightwatch": QueryBuilder("Nightwatch").get_table_column_specs(),
@@ -82,7 +82,7 @@ class MQTTHandler:
         self.db_queues = {
             "Nightwatch": queue.Queue(maxsize=4096),
             "Angelique": queue.Queue(maxsize=4096),
-            "Orion": queue.Queue(maxsize=8096),
+            "Orion": queue.Queue(maxsize=15000),
         }
         self.db_workers = {
             car: threading.Thread(target=self._db_worker, args=(car,), daemon=True)
@@ -92,7 +92,7 @@ class MQTTHandler:
             worker.start()
 
         # Single CSV worker preserves append order for Orion log output.
-        self.csv_queue = queue.Queue(maxsize=8096)
+        self.csv_queue = queue.Queue(maxsize=15000)
         self.csv_worker = threading.Thread(target=self._csv_worker, daemon=True)
         self.csv_worker.start()
         
