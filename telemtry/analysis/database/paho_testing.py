@@ -19,11 +19,13 @@ from pathlib import Path
 from typing import Union, Tuple
 from google.protobuf.message import Message
 import pandas as pd
+from sqlalchemy import func, select
 
 sys.path.append(str(Path(__file__).parents[2]))
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
 from analysis.sql_utils.db_session import get_db, DBTarget
 from analysis.sql_utils.query_builder import QueryBuilder
+from analysis.sql_utils.models import Packet, AngeliquePacket, OrionPacket
 from stack.ingest.protobuf.template_pb2 import SensorData
 from stack.ingest.protobuf.angelique_pb2 import AngeliqueSensorData
 from stack.ingest.protobuf.can_packets_pb2 import OrionSensorData
@@ -74,6 +76,27 @@ class DataTester:
         with open(mapping_path, 'r') as f:
             self.mapping = json.load(f)
         logging.info(f"Loaded mapping with {len(self.mapping)} fields")
+
+    @staticmethod
+    def get_next_packet_id(target: str) -> int:
+        """
+        Query the selected car DB for max packet_id and return max + 1.
+
+        :param target: car name (Nightwatch, Angelique, Orion)
+        :return: next packet_id to use
+        """
+        packet_model = {
+            "Nightwatch": Packet,
+            "Angelique": AngeliquePacket,
+            "Orion": OrionPacket,
+        }.get(target, Packet)
+
+        with get_db(target) as session:
+            latest_packet_id = session.scalar(select(func.max(packet_model.packet_id)))
+
+        next_packet_id = (int(latest_packet_id) if latest_packet_id is not None else 0) + 1
+        logging.info(f"Starting packet IDs for {target} at {next_packet_id} (latest={latest_packet_id})")
+        return next_packet_id
     
     def create_row_from_csv(self, packet: int, table_desc: dict = None):
         """
@@ -248,20 +271,23 @@ class DataTester:
         :return: returns 0 for successful runs
         """
         table_desc = kwargs.pop('table_desc', self.get_desc(tables=[table], rm_cols=rm_cols, **kwargs)[table])
+        target = kwargs.get('target', 'Orion')
+        start_packet_id = kwargs.pop('start_packet_id', self.get_next_packet_id(target))
 
         # for i in range(num_rows) if kwargs.get('verbose') else tqdm(range(num_rows)):
         for i in range(num_rows) if kwargs.get('verbose') else tqdm(range(num_rows)):
+            packet_id = start_packet_id + i
             if use_csv and self.csv_data is not None and self.mapping is not None:
-                row = self.create_row_from_csv(i + 1, table_desc)
+                row = self.create_row_from_csv(packet_id, table_desc)
             else:
-                row = self.create_row(table_desc, i + 1)
+                row = self.create_row(table_desc, packet_id)
             if kwargs.get('verbose') and (num_rows < 1000 or not i % (num_rows // 100)):
                 logging.info(f'Publishing payload #{i:>3} to {table}: {row}')
-            if kwargs.get('target') == "Angelique":
+            if target == "Angelique":
                 self.mqtt.publish(f'angelique/{table}', pickle.dumps(row), qos=0)
-            elif kwargs.get('target') == "Nightwatch":
+            elif target == "Nightwatch":
                 self.mqtt.publish(f'nightwatch/{table}', pickle.dumps(row), qos=0)
-            elif kwargs.get('target') == "Orion":
+            elif target == "Orion":
                 self.mqtt.publish(f'orion/{table}', pickle.dumps(row), qos=0)
             time.sleep(delay)
         return 0
@@ -297,6 +323,7 @@ class DataTester:
     def send_proto_rows(self, tables:list,  num_rows:int, delay:float, rm_cols = None, use_csv=False, **kwargs):
         db_desc = self.get_desc(tables=tables, rm_cols=rm_cols, **kwargs)
         target = kwargs.get('target', 'Nightwatch')
+        start_packet_id = kwargs.get('start_packet_id', self.get_next_packet_id(target))
         if target == "Angelique":
             topic = 'angelique/data'
         elif target == "Nightwatch":
@@ -306,7 +333,8 @@ class DataTester:
         else:
             topic = 'data'
         for i in tqdm(range(num_rows)):
-            data = self.create_proto_message(i + 1, db_desc, use_csv=use_csv, target=kwargs.get('target', 'Nightwatch'))
+            packet_id = start_packet_id + i
+            data = self.create_proto_message(packet_id, db_desc, use_csv=use_csv, target=target)
             self.mqtt.publish(topic, data.SerializeToString(), qos=0)
             time.sleep(delay)
 
@@ -402,7 +430,8 @@ if __name__ == '__main__':
         }
         with MQTTHandler('paho_test', db_sessions=db_sessions, target=MQTTTarget.get()) as mqtt:
             # Protobuf message testing with CSV data
-            dt = DataTester(mqtt=mqtt, seed=42, csv_path=csv_path, mapping_path=mapping_path)
+            dt = DataTester(mqtt=mqtt, seed=42, csv_path=None, mapping_path=None)
+            start_packet_id = dt.get_next_packet_id(car_name)
             proto_tables = {
                 "Nightwatch": ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal'],
                 "Angelique": ['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal'],
@@ -410,10 +439,11 @@ if __name__ == '__main__':
             }
             dt.send_proto_rows(
                 tables=proto_tables[car_name],
-                num_rows=2000,
-                delay=0.1,
-                use_csv=use_csv_data,
-                target=car_name
+                num_rows= 500000,
+                delay= 0.001,
+                use_csv=False,
+                target=car_name,
+                start_packet_id=start_packet_id,
             )
 
             # data_ingest with fully processed data

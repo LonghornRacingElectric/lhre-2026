@@ -353,6 +353,11 @@ typedef enum {
   ((uint32_t)0x00000006U) /*!< Set high priority and store in FIFO 1 if        \
                              filter matches   */
 
+#define cFDCAN_IT_ERROR_PASSIVE                                                \
+  FDCAN_IE_EPE /*!< Error_Passive status changed      */
+#define cFDCAN_IT_ERROR_WARNING                                                \
+  FDCAN_IE_EWE /*!< Error_Warning status changed      */
+
 #define FDCAN_RX_FIFO0                                                         \
   ((uint32_t)0x00000040U) /*!< Get received message from Rx FIFO 0    */
 #define FDCAN_RX_FIFO1                                                         \

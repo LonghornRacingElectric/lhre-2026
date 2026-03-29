@@ -1,0 +1,127 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(controls.apps1_v) AS \"vcu/apps1_v [V]\", AVG(controls.apps2_v) AS \"vcu/apps2_v [V]\", AVG(controls.bpps1_v) AS \"vcu/bpps1_v [V]\", AVG(controls.bpps2_v) AS \"vcu/bpps2_v [V]\", AVG(controls.bse1_v) AS \"vcu/bse1_v [V]\", AVG(controls.bse2_v) AS \"vcu/bse2_v [V]\", AVG(controls.bse3_v) AS \"vcu/bse3_v [V]\" FROM controls JOIN packet ON packet.packet_id = controls.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "title": "Pedal and Brake Sensor Voltages [V]",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 2,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(controls.apps1_travel) AS \"vcu/apps1_travel [%]\", AVG(controls.apps2_travel) AS \"vcu/apps2_travel [%]\", AVG(controls.bpps1_travel) AS \"vcu/bpps1_travel [%]\", AVG(controls.bpps2_travel) AS \"vcu/bpps2_travel [%]\", AVG(controls.brake_light_pct) AS \"vcu/brake_light_pct [%]\", AVG(controls.brake_bias) AS \"vcu/brake_bias [%]\" FROM controls JOIN packet ON packet.packet_id = controls.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "title": "Travel and Bias Signals [%]",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 3,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(controls.brake_pressure_f) AS \"vcu/brake_pressure_f [psi]\", AVG(controls.brake_pressure_rbll) AS \"vcu/brake_pressure_rbll [psi]\", AVG(controls.brake_pressure_rall) AS \"vcu/brake_pressure_rall [psi]\" FROM controls JOIN packet ON packet.packet_id = controls.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "title": "Brake Pressure Signals [psi]",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "id": 4,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(dynamics.steer_col_angle) AS \"vcu/steer_col_angle [deg]\" FROM dynamics JOIN packet ON packet.packet_id = dynamics.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "title": "Steering Column [deg]",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "refresh": "",
+  "schemaVersion": 40,
+  "tags": ["orion", "retrospective", "controls"],
+  "templating": {
+    "list": [
+      {
+        "allowCustomValue": false,
+        "current": { "text": "", "value": "" },
+        "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+        "definition": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "description": "Select partition generated from packet gaps",
+        "label": "Zoom to partition",
+        "name": "Zoom",
+        "options": [],
+        "query": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Orion Controls - Retrospective",
+  "uid": "orion_controls_retro_v2",
+  "version": 2,
+  "weekStart": ""
+}

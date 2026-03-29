@@ -432,6 +432,7 @@ class AngeliquePacket(BaseAngelique):
 
 class Partitions(Base):
     __tablename__ = 'partitions'
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
     partition_name = Column(Text, primary_key=True)
     start_time = Column(BigInteger, primary_key=True)
     end_time = Column(BigInteger, nullable=False)
@@ -588,8 +589,10 @@ class OrionThermal(BaseOrion):
     bus_bar_temp3 = Column(Float)
     cell_bottom_temp = Column(Float)
     cell_top_temp = Column(Float)
+    coolant_temp = Column(Float)
     discharge_r_temp = Column(Float)
     gate_driver_temp = Column(Float)
+    inverter_hotspot_temp = Column(Float)
     inverter_temp = Column(Float)
     module_a_temp = Column(Float)
     module_b_temp = Column(Float)
@@ -598,8 +601,6 @@ class OrionThermal(BaseOrion):
     motor_loop_motor_temp = Column(Float)
     motor_loop_rad_fan_speed = Column(Float)
     motor_loop_rad_temp = Column(Float)
-    rtd4_temp = Column(Float)
-    rtd5_temp = Column(Float)
     packet = relationship("OrionPacket", back_populates="thermal")
 
 # END GENERATED Orion

@@ -4,7 +4,7 @@ lhrelectric.org/grafana/ (dm any of the Telemetry members for password access)
 ## Realtime Dashboards
 1. Create a regular new dashboard
 2. Select "Real Time Data" as Data Source
-3. Set the Topic to "grafana_data"
+3. Set the Topic to "grafana_data_<car_name>" (e.g. "grafana_data_angelique")
 4. If all the fields appear on the dashboard:
 - Time Series / If there are no default options to select only one value:
     1. Add an Override in the dashboard settings.

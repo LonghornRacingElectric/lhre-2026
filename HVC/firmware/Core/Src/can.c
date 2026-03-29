@@ -1,5 +1,7 @@
 #include "can.h"
 
+#include <ota_flash.h>
+#include <cmsis_os2.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -25,6 +27,7 @@ can_interface_t critical_can_bus = {
 };
 
 void hvc_can_init(void) {
+  ota_flash_init();
 
   can_config_t can_config = {
       .init_fn = (CAN_Init_fn)HAL_FDCAN_Init,
@@ -35,11 +38,17 @@ void hvc_can_init(void) {
       .get_tx_fifo_free_level_fn =
           (CAN_GetTxFifoFreeLevel_fn)HAL_FDCAN_GetTxFifoFreeLevel,
       .get_rx_message_fn = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
+      .get_rx_fifo_fill_level_fn =
+          (CAN_GetRxFifoFillLevel_fn)HAL_FDCAN_GetRxFifoFillLevel,
       .tick_fn = (Tick_fn)osKernelGetTickCount,
       .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
       .malloc_fn = (Malloc_fn)pvPortMalloc,
       .free_fn = (Free_fn)vPortFree,
       .init_bit = FDCAN_CCCR_INIT,
+      .device_id = DEVICE_ID_HVC,
+      .write_memory_fn = ota_flash_write_memory,
+      .fw_update_begin_fn = ota_flash_begin,
+      .abort_update_fn = ota_flash_abort,
   };
 
   critical_can_bus.cccr_reg = &hfdcan1.Instance->CCCR;
@@ -69,8 +78,8 @@ void hvc_can_init(void) {
   can_rtos_start_interface(&critical_can_bus);
 
   // Start tasks LAST
-  can_rtos_start_transceiver_task(osPriorityNormal);
-  can_rtos_start_receiver_task(osPriorityAboveNormal);
+  can_rtos_start_transceiver_task(osPriorityHigh);
+  can_rtos_start_receiver_task(osPriorityHigh);
 
   log_printf(LOG_INFO, "[HVC] CAN RTOS initialized\n");
 }

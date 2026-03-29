@@ -272,8 +272,10 @@ model thermal {
   bus_bar_temp3        Float?
   cell_bottom_temp     Float?
   cell_top_temp        Float?
+  coolant_temp         Float?
   discharge_r_temp     Float?
   gate_driver_temp     Float?
+  inverter_hotspot_temp Float?
   inverter_temp        Float?
   module_a_temp        Float?
   module_b_temp        Float?
@@ -282,8 +284,6 @@ model thermal {
   motor_loop_motor_temp Float?
   motor_loop_rad_fan_speed Float?
   motor_loop_rad_temp  Float?
-  rtd4_temp            Float?
-  rtd5_temp            Float?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }

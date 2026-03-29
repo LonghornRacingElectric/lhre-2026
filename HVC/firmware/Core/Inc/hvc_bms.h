@@ -28,6 +28,20 @@ void bms_init(void);
  */
 void bms_update(void);
 
+/**
+ * @brief Read thermistor values from GPIO 2-9 on each BMB
+ * 
+ * Reads auxiliary ADC channels corresponding to GPIO 2-9 which are
+ * connected to analog thermistor inputs for temperature sensing.
+ */
+void bms_read_thermistors(void);
+
+uint32_t bms_get_num_responsive_ics(void);
+bool bms_check_disconnection(void);
+bool bms_check_undervoltage(void);
+bool bms_check_overvoltage(void);
+bool bms_check_overtemp(void);
+
 float getPackVoltage_v(void);
 
 void StartBmsTask(void *argument);

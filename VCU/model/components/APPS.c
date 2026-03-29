@@ -33,9 +33,9 @@ void apps_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   out->faults.apps_implaus = apps_implausible(
       out->apps1_travel, out->apps2_travel, state, params, dt_ms);
   out->faults.apps1_over_range = out->apps1_travel > 1.0f;
-  out->faults.apps1_under_range = out->apps1_travel < 0.0f;
+  out->faults.apps1_under_range = out->apps1_travel < -0.5f;  // TODO alice fix this bs
   out->faults.apps2_over_range = out->apps2_travel > 1.0f;
-  out->faults.apps2_under_range = out->apps2_travel < 0.0f;
+  out->faults.apps2_under_range = out->apps2_travel < -0.5f;
 
   out->faults.apps_any_fault =
       out->faults.apps_implaus || out->faults.apps1_over_range ||

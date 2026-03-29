@@ -34,6 +34,7 @@ public:
   MOCK_METHOD(cHAL_StatusTypeDef, AddFilter,
               (void *, const cFDCAN_FilterTypeDef *));
   MOCK_METHOD(uint32_t, Tick, ());
+  MOCK_METHOD(uint32_t, GetRxFifoFillLevel, (void *, uint32_t));
 
   // Helper for packing/unpacking
   MOCK_METHOD(int, Pack, (const void *, uint8_t *));
@@ -66,6 +67,10 @@ uint32_t Mock_Tick() { return globalMock->Tick(); }
 
 uint32_t Mock_GetTxFifoFreeLevel(void *h) { return 1; }
 
+uint32_t Mock_GetRxFifoFillLevel(void *h, uint32_t f) {
+  return globalMock->GetRxFifoFillLevel(h, f);
+}
+
 // We use real malloc/free for the tests to ensure valid memory logic
 void *Real_Malloc(size_t sz) { return malloc(sz); }
 void Real_Free(void *ptr) { free(ptr); }
@@ -97,6 +102,7 @@ protected:
     config.add_filter_fn = Mock_AddFilter;
     config.tick_fn = Mock_Tick;
     config.get_tx_fifo_free_level_fn = Mock_GetTxFifoFreeLevel;
+    config.get_rx_fifo_fill_level_fn = Mock_GetRxFifoFillLevel;
     config.malloc_fn = Real_Malloc;
     config.free_fn = Real_Free;
 
@@ -148,8 +154,9 @@ TEST_F(CanBaseTest, StartInterface_ActivatesNotificationsAndStarts) {
   // Then start — should call ActivateNotifications then Start
   {
     InSequence seq;
-    EXPECT_CALL(mockHal, ActivateNotifications(test_interface.handle,
-                                               NEW_MESSAGE_FIFO0, 0));
+    EXPECT_CALL(mockHal, ActivateNotifications(
+                             test_interface.handle,
+                             NEW_MESSAGE_FIFO0 | cFDCAN_IT_BUS_OFF, 0));
     EXPECT_CALL(mockHal, Start(test_interface.handle));
   }
 
@@ -346,6 +353,12 @@ TEST_F(CanBaseTest, RxCallback_UnpacksDataCorrectly) {
   // We simulate receiving 2 bytes: 0xCA, 0xFE
   uint8_t simulated_rx_data[] = {0xCA, 0xFE};
 
+  // Expectation: GetRxFifoFillLevel
+  EXPECT_CALL(mockHal,
+              GetRxFifoFillLevel(test_interface.handle, FDCAN_RX_FIFO0))
+      .WillOnce(Return(1))
+      .WillRepeatedly(Return(0));
+
   // 4. Expectation: GetRxMessage
   // When the callback runs, it asks HAL for data.
   EXPECT_CALL(mockHal,
@@ -418,6 +431,11 @@ TEST_F(CanBaseTest, RxCallback_HandlesHashCollisionsCorrectly) {
 
   // 4. Test Scenario: Receive the Colliding ID (ID_2)
   uint8_t simulated_data[] = {0xAA, 0xBB};
+
+  EXPECT_CALL(mockHal,
+              GetRxFifoFillLevel(test_interface.handle, FDCAN_RX_FIFO0))
+      .WillOnce(Return(1))
+      .WillRepeatedly(Return(0));
 
   EXPECT_CALL(mockHal,
               GetRxMessage(test_interface.handle, FDCAN_RX_FIFO0, _, _))

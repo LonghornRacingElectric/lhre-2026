@@ -14,6 +14,7 @@ bazel_dep(name = "rules_rust", version = "0.63.0")
 bazel_dep(name = "rules_python", version = "1.5.3")
 bazel_dep(name = "rules_proto", version = "7.0.2")
 bazel_dep(name = "rules_shell", version = "0.6.1")
+bazel_dep(name = "pybind11_bazel", version = "3.0.0")
 
 # Protobuf compiler/runtime for Bazel code generation (protoc).
 bazel_dep(name = "protobuf", version = "29.0", dev_dependency = True)
@@ -44,7 +45,7 @@ register_toolchains(
 # Override to use a custom fork for the ARM toolchain, allowing for patches.
 git_override(
     module_name = "toolchains_arm_gnu",
-    commit = "613f3423e4370efc1057435217f56b499c24be0c",
+    commit = "38c8921dbc10e732d97cf4db593c0b10326ff34d",
     remote = "https://github.com/LonghornRacingElectric/toolchains_arm_gnu.git",
 )
 
@@ -99,6 +100,14 @@ use_repo(openocd, "openocd")
 dfu = use_extension("//tools/dfu:dfu.bzl", "dfu")
 use_repo(dfu, "dfu")
 
+# STM32 L4 External Driver Dependencies
+stm32l4 = use_extension("//drivers/stm32l4:deps.bzl", "stm32l4_deps")
+use_repo(stm32l4, "cmsis_core_l4", "cmsis_device_l4", "stm32_mw_usb_device", "stm32l4xx_hal_driver")
+
+# STM32 H7 External Driver Dependencies
+stm32h7 = use_extension("//drivers/stm32h7:deps.bzl", "stm32h7_deps")
+use_repo(stm32h7, "cmsis_core_h7", "cmsis_device_h7", "stm32h7xx_hal_driver")
+
 # Hermetic Rust Toolchain
 rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
 rust.toolchain(
@@ -117,7 +126,7 @@ crate.from_cargo(
 )
 
 # 2. Expose the generated repo
-use_repo(crate, "crate_index")
+# use_repo(crate, "crate_index")
 
 # OCI Container Base Images for Telemetry Services
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")

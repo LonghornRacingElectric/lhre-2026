@@ -23,7 +23,7 @@ void r2d_task(void *argument) {
   while (true) {
     dui_set_r2d(is_r2d_enabled());
     osDelay(pdMS_TO_TICKS(10));
-    log_printf(LOG_INFO, "R2D: %d\n", is_r2d_enabled());
+    // log_printf(LOG_INFO, "R2D: %d\n", is_r2d_enabled());
   }
 }
 

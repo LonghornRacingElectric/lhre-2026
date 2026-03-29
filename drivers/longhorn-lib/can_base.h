@@ -6,6 +6,7 @@
 
 #include "longhorn/can/can_ids.h"
 #include "longhorn/can_hal.h"
+#include "longhorn/fw_update.h"
 
 /* Function Pointers for HAL functions */
 
@@ -50,6 +51,14 @@ typedef void *(*Malloc_fn)(size_t size);
 
 typedef uint32_t (*CAN_GetTxFifoFreeLevel_fn)(void *hfdcan);
 
+typedef void (*write_memory_fn)(uint32_t address, uint8_t *data,
+                                uint16_t length);
+
+/* Called at the start of a firmware update session with the total block count
+ */
+typedef void (*fw_update_begin_fn)(uint16_t num_blocks);
+typedef uint32_t (*CAN_GetRxFifoFillLevel_fn)(void *hfdcan, uint32_t fifo);
+
 typedef void (*Free_fn)(void *ptr);
 
 /* Define configuration for CAN */
@@ -61,11 +70,16 @@ typedef struct can_config_t {
   CAN_AddToQ_fn add_to_queue_fn;
   CAN_GetTxFifoFreeLevel_fn get_tx_fifo_free_level_fn;
   CAN_GetRxMessage_fn get_rx_message_fn;
+  CAN_GetRxFifoFillLevel_fn get_rx_fifo_fill_level_fn;
   Tick_fn tick_fn;
   CAN_AddFilter_fn add_filter_fn;
   Malloc_fn malloc_fn;
   Free_fn free_fn;
   uint32_t init_bit;
+  can_device_t device_id;
+  write_memory_fn write_memory_fn;
+  fw_update_begin_fn fw_update_begin_fn;
+  abort_update_fn abort_update_fn;
 } can_config_t;
 
 typedef struct can_handle_t {

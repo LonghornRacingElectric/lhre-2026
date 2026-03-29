@@ -28,10 +28,6 @@ case "$CAR_NAME" in
     PROTO_FILE="$INGEST_DIR/protobuf/angelique.proto"
     ROOT_MESSAGE="AngeliqueSensorData"
     ;;
-  Nightwatch)
-    PROTO_FILE="$INGEST_DIR/protobuf/template.proto"
-    ROOT_MESSAGE="SensorData"
-    ;;
   *)
     PROTO_FILE="$REPO_ROOT/drivers/longhorn-lib/protobuf/can_packets.proto"
     ROOT_MESSAGE="auto"

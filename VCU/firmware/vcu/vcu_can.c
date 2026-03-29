@@ -6,8 +6,12 @@
 #include "fdcan.h"
 #include "hvc_states/Core/Inc/hvc_states.h"
 #include "longhorn/rtos/can.h"
+#include "longhorn/rtos/led.h"
 #include "longhorn/rtos/logger.h"
+#include <ota_flash.h>
+#include <PRNDL.h>
 #include <stm32g4xx_hal_fdcan.h>
+#include <vcu_inputs.h>
 
 /** ==
  *  CAN Interface and Configuration Setup
@@ -40,12 +44,15 @@ static can_message_t *brake_pedal_mailbox_handle = NULL;
 
 void vcu_can_add_receive_handlers(void);
 void vcu_can_add_send_handlers(void);
+void vcu_init_inverter(void);
 
 /**
  * @brief Initializes the CAN interface with the RTOS library and registers
  * handlers. Also starts the CAN transceiver and receiver tasks.
  */
 void vcu_can_init(void) {
+  ota_flash_init();
+
   can_config_t vcu_can_config = {
       .init_fn = (CAN_Init_fn)HAL_FDCAN_Init,
       .start_fn = (CAN_Start_fn)HAL_FDCAN_Start,
@@ -55,11 +62,17 @@ void vcu_can_init(void) {
       .get_tx_fifo_free_level_fn =
           (CAN_GetTxFifoFreeLevel_fn)HAL_FDCAN_GetTxFifoFreeLevel,
       .get_rx_message_fn = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
+      .get_rx_fifo_fill_level_fn =
+          (CAN_GetRxFifoFillLevel_fn)HAL_FDCAN_GetRxFifoFillLevel,
       .tick_fn = HAL_GetTick,
       .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
       .malloc_fn = pvPortMalloc,
       .free_fn = vPortFree,
       .init_bit = FDCAN_CCCR_INIT,
+      .device_id = DEVICE_ID_VCU,
+      .write_memory_fn = ota_flash_write_memory,
+      .fw_update_begin_fn = ota_flash_begin,
+      .abort_update_fn = ota_flash_abort,
   };
 
   critical_bus.handle = &hfdcan1;
@@ -87,8 +100,10 @@ void vcu_can_init(void) {
   can_rtos_start_interface(&critical_bus);
   can_rtos_start_interface(&data_acq_bus);
 
-  can_rtos_start_transceiver_task(osPriorityNormal);
-  can_rtos_start_receiver_task(osPriorityAboveNormal);
+  can_rtos_start_transceiver_task(osPriorityHigh);
+  can_rtos_start_receiver_task(osPriorityHigh);
+
+  vcu_init_inverter();
 
   log_printf(LOG_INFO, "[VCU] CAN RTOS initialized\n");
 }
@@ -110,14 +125,45 @@ void vcu_can_add_send_handlers(void) {
   log_printf(LOG_INFO, "[VCU] CAN send handler for brake pedal registered\n");
 }
 
+void vcu_init_inverter() {
+  // send can packet with all 0s
+  inverter_torque_command_mailbox.torque_request = 0.0f;
+  inverter_torque_command_mailbox.enable = 0;
+  inverter_torque_command_mailbox.direction = 1;
+  inverter_torque_command_mailbox.torque_limit = 0.0f;
+
+  // start actual driving after 100ms
+  vTaskDelay(pdMS_TO_TICKS(100));
+}
+
 void vcu_can_set_model_outputs(vcu_outputs_t *out) {
   // TODO: use BPPS instead of BSE for this.
   brake_pedal_mailbox.brake_pedal_travel = out->bse_psi_filtered;
   brake_pedal_mailbox.brake_light_percent = out->brake_light_pct;
-  
+
   inverter_torque_command_mailbox.torque_request = out->torque_cmd;
   inverter_torque_command_mailbox.enable = out->inverter_enable;
   inverter_torque_command_mailbox.torque_limit = 200.0f;
+  inverter_torque_command_mailbox.direction = 1;
+
+  led_set(out->brake_pressed, dui_r2d_status_mailbox.r2d_status == 1,
+          out->accel_pedal_travel == 0);
+
+  // log_printf(LOG_INFO, "DUI R2D: %d", dui_r2d_status_mailbox.r2d_status);
+
+  // log_printf(LOG_ERROR, "ERROR BITS ON CAN: %d, LEC: %d",
+  // hfdcan1.Instance->PSR,
+  //            hfdcan1.Instance->PSR & FDCAN_PSR_LEC_Msk);
+
+  // log_printf(LOG_WARNING, "CAN fill level: %d, %d",
+  //            HAL_FDCAN_GetRxFifoFillLevel(&hfdcan1, FDCAN_RX_FIFO0),
+  //            HAL_FDCAN_GetRxFifoFillLevel(&hfdcan1, FDCAN_RX_FIFO1));
+
+  if (out->prndl_state == PRNDL_DRIVE) {
+    led_start_thread();
+  } else {
+    led_stop_thread();
+  }
 }
 
 bool is_drive_switch_pressed(void) {

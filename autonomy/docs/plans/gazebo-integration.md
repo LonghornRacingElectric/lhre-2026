@@ -2,163 +2,217 @@
 
 ## Goal
 
-Replace the bottom three simulation nodes (`lhr_sim_kinematic`, `lhr_sensor_sim`, `lhr_trackgen`) with Gazebo physics simulation, while keeping the entire upper stack unchanged (control, track builder, mission manager, metrics).
+Replace the kinematic vehicle simulator (`lhr_sim_kinematic`) with a full Gazebo physics simulation with realistic sensor-based perception, targeting Ubuntu 24.04 / ROS 2 Jazzy / Gazebo Harmonic.
 
-## Why Gazebo
+## Current Status
 
-- Standard ROS2 physics sim with native integration (no bridge glue)
-- Good enough physics (ODE/Bullet/DART) for FSAE speeds
-- Sensor plugins for camera and LiDAR (needed for real perception testing)
-- Lightweight enough for WSL2
-- Isaac ROS packages (for Jetson deployment) consume standard ROS2 topics — they work with Gazebo or Isaac Sim
-- Install: `sudo apt install ros-{humble,jazzy}-ros-gz`
+**Phase 1 (Gazebo physics):** Complete.
+**Phase 2 (LiDAR perception):** Functional on the oval track. Unreliable on autocross tracks.
+**Phase 3 (Camera fusion + tuning):** Not started. See [camera-fusion.md](camera-fusion.md) for detailed plan.
 
-## Architecture: What Changes, What Stays
+## What Works Today
 
-```
-CURRENT                              WITH GAZEBO
-───────                              ───────────
-lhr_trackgen (procedural cones)  →   Gazebo world file (cones placed in scene)
-lhr_sensor_sim (FOV filter)      →   Gazebo sensor plugins (camera, LiDAR)
-lhr_sim_kinematic (bicycle model)→   Gazebo physics (tire dynamics, collisions)
+- Gazebo physics sim with direct joint control (no AckermannSteering plugin)
+- Sim perception mode (`perception:=sim`) — ground-truth cones, index pairing, fully reliable
+- LiDAR perception mode (`perception:=lidar`) — pointcloud clustering, Delaunay boundary pairing
+- Oval track (`track_style:=oval`) — LiDAR pipeline completes laps reliably
+- `OpaqueFunction`-based launch file auto-resolves world SDF from `track_style` + `seed`
+- RViz runs alongside Gazebo with centerline, cones, and odometry visualization
 
-lhr_track_builder                →   STAYS (still pairs cones → centerline)
-lhr_control                      →   STAYS (still sends Ackermann commands)
-lhr_mission_manager              →   STAYS (still manages state)
-lhr_metrics                      →   STAYS (still tracks CTE, laps)
-```
+## Known Issues
 
-## Pieces to Build
+1. **Cone duplication during swerves** — when the car turns sharply, odom-based sensor→map transform jitter places the same cone at slightly different positions, exceeding the 1.5m dedup radius. Duplicated cones corrupt the Delaunay triangulation and produce spurious centerline points.
 
-### 1. Vehicle Model (SDF)
+2. **Centerline unreliable on tight corners** — the Delaunay boundary pairing produces valid midpoints, but the greedy nearest-neighbor chaining can misoreder them on sharp curves where midpoints cluster close together.
 
-An FSAE car model with:
-- Ackermann steering geometry (two front wheels that turn, two rear driven)
-- Mass, inertia, wheelbase matching real car (~1.6m wheelbase, ~250kg)
-- Tire/friction properties (where the physics value comes from)
-- Sensor mounts for cameras and/or LiDAR
+3. **No left/right cone classification** — the LiDAR has no color information. The Delaunay approach sidesteps this but is fundamentally less robust than knowing which side each cone is on. A camera would solve this.
 
-Start from simple box/cylinder geometry — visual fidelity doesn't matter, physics fidelity does. Can adapt an open-source FSAE Gazebo model if one fits.
+4. **Backwards path wrapping** — the chain starts from the vehicle and goes forward, then wraps backwards through midpoints behind the vehicle. Cosmetic only (pure pursuit ignores the backwards portion) but messy in RViz.
 
-### 2. Cone Models + World File
+5. **Cone collisions disabled** — cones are ghost objects. The car drives through them instead of being penalized.
 
-- Small blue cone: 228mm x 228mm x 325mm (single white stripe)
-- Small yellow cone: 228mm x 228mm x 325mm (single black stripe)
-- Small orange cone: 228mm x 228mm x 325mm (single white stripe)
-- Large orange cone: 285mm x 285mm x 505mm (dual white stripe)
+---
 
-Cone placement options:
-- **A) Procedural (recommended):** Script that takes existing `lhr_trackgen` Catmull-Rom output and generates a Gazebo world file (`.sdf`). Reuses proven track generation, can test many layouts.
-- **B) Manual:** Hand-place cones in the world file for specific test tracks.
+## Remaining Work
 
-Option A is preferred — keeps procedural track generation and parameterized testing.
+### Phase 2b — LiDAR Tuning (no new sensors)
 
-### 3. Sensor Plugins
+Goal: make LiDAR perception reliable enough to complete autocross laps.
 
-Gazebo built-in sensor plugins attached to the vehicle:
+#### 2b.1 — Improve cone dedup robustness
 
-| Sensor | Gazebo Plugin | ROS2 Topic Output | Purpose |
-|--------|--------------|-------------------|---------|
-| Logical Camera | `gz::sim::sensors::LogicalCamera` | Bounding boxes (ground truth) | Bypass perception initially |
-| Camera | `gz::sim::sensors::Camera` | `sensor_msgs/Image` | Cone detection via vision |
-| LiDAR | `gz::sim::sensors::Lidar` | `sensor_msgs/PointCloud2` | Cone detection via point cloud |
-| IMU | `gz::sim::sensors::Imu` | `sensor_msgs/Imu` | Orientation, acceleration |
+**File:** `lhr_perception/lidar_cone_detector.py`
 
-**The logical camera is the key enabler for incremental integration.** It gives ground-truth cone positions (with color labels) in the sensor frame — effectively replacing `lhr_sensor_sim` without needing a real perception pipeline yet. Swap in real camera-based detection later.
+The current dedup uses a fixed 1.5m radius with running-average position merging. During swerves, transform error can exceed this. Options:
+- Gate new cone additions on vehicle angular velocity (skip detections during rapid yaw change)
+- Use a larger dedup radius (up to ~1.8m, limited by same-side cone spacing)
+- Weight running average by distance from sensor (closer = more accurate = higher weight)
 
-### 4. ROS2 <-> Gazebo Bridge
+#### 2b.2 — Improve centerline chaining
 
-The `ros_gz_bridge` package connects Gazebo topics to ROS2 topics:
+**File:** `lhr_track_builder/track_builder_node.py`
 
-```
-Gazebo → ROS2:
-  /model/vehicle/odometry  →  /lhr/vehicle/odom
-  /logical_camera           →  (adapter node) → /lhr/sensor/cones_detected
-  /camera/image             →  /lhr/camera/image_raw  (for future perception)
+The greedy nearest-neighbor chain produces poor results when midpoints are clustered. Options:
+- Add a maximum step distance to the chain (skip midpoints that are too far from the last chained point)
+- Use angular continuity — prefer the next point that continues roughly in the same direction
+- Only chain midpoints within a forward arc of the vehicle (ignore midpoints behind)
 
-ROS2 → Gazebo:
-  /lhr/vehicle/cmd          →  /model/vehicle/cmd_vel  (Ackermann commands)
-```
+#### 2b.3 — Validate on autocross
 
-### 5. Ackermann Controller
+Test with `track_style:=autocross perception:=lidar` and iterate on the above until the car completes laps.
 
-The `gz-sim-ackermann-steering-system` Gazebo plugin translates `AckermannDriveStamped` messages into wheel joint commands. Configure with wheelbase and track width.
+### Phase 3 — Camera Fusion
 
-## Phased Rollout
+Goal: add a camera sensor to see cone colors, enabling proper left/right classification and simpler pairing.
 
-### Phase 1: Drop-in Replacement (minimum viable)
+#### 3.1 — Add camera sensor to vehicle model
 
-- Vehicle SDF model with Ackermann plugin
-- Cone models in Gazebo world generated from trackgen script
-- Logical camera for ground-truth cone detection (no perception needed)
-- `ros_gz_bridge` config for odom + commands
-- Small adapter node: logical camera output → `/lhr/sensor/cones_detected` MarkerArray
-- Gazebo-specific launch file (keep old launch file working too)
+**File:** `lhr_gazebo/models/fsae_vehicle/model.sdf`
 
-**Result:** Same behavior as current stack but with Gazebo physics instead of kinematic bicycle model. Upper stack (control, track builder, mission manager, metrics) is untouched.
+Add a forward-facing camera to the chassis link (near the LiDAR mount). Bridge the image topic via `ros_gz_bridge`.
 
-### Phase 2: Real Sensors
+#### 3.2 — Camera-based cone color classification
 
-- Mount camera and/or LiDAR on the vehicle model
-- Bridge image/pointcloud topics to ROS2
-- Build a perception node (cone detection from camera or LiDAR)
-- Replace logical camera with real perception pipeline
+**File:** `lhr_perception/` (new node or extend `lidar_cone_detector`)
 
-### Phase 3: Fidelity Tuning
+- Subscribe to camera image + LiDAR cones
+- Project each cone's map position into the camera frame
+- Sample the pixel color at the projected location
+- Classify as blue (left) or yellow (right)
+- Publish classified MarkerArray with `left_cones`/`right_cones` namespaces
 
-- Tune tire friction, mass, suspension to match real car
-- Add sensor noise models
-- Test at competition speeds
+This restores proper left/right classification, allowing the track builder to use simpler and more reliable pairing strategies (index or nearest-neighbor) instead of Delaunay.
+
+#### 3.3 — Update track builder for fused perception
+
+**File:** `lhr_track_builder/track_builder_node.py`
+
+With camera-classified cones, add a `'fused'` pairing strategy (or reuse `'nearest'`) that pairs left/right cones with confidence. Fall back to `'boundary'` for unclassified cones.
+
+### Phase 4 — Fidelity Tuning
+
+Goal: make the simulation match the real car closely enough for control parameter transfer.
+
+- Re-enable cone collisions and tune control to avoid them
+- Tune tire friction, mass distribution, and steering dynamics to match real car
+- Add sensor noise models (LiDAR range noise, camera exposure variation)
+- Test at competition speeds (up to 15 m/s)
 - Validate against real car telemetry data
+- Add IMU-based state estimation (replace ground-truth odometry)
+
+---
+
+## Architecture
+
+```
+PHASE 1 (perception:=sim)            PHASE 2 (perception:=lidar)
+─────────────────────────            ──────────────────────────
+lhr_trackgen (ground-truth cones)    Gazebo gpu_lidar sensor
+lhr_sensor_sim (FOV filter)          lhr_perception (pointcloud → unclassified cones)
+Gazebo physics (joint control)       Gazebo physics (joint control)
+
+lhr_track_builder (index pairing)    lhr_track_builder (Delaunay boundary pairing)
+lhr_control                      →   STAYS (pure pursuit + curvature speed planning)
+lhr_mission_manager              →   STAYS (FSAE state machine)
+lhr_metrics                      →   STAYS (CTE, lap detection, CSV output)
+```
+
+Future Phase 3 adds a camera branch feeding into `lhr_perception` for color classification, enabling the track builder to switch back to left/right pairing.
+
+## Implemented Components
+
+### Vehicle Model (SDF)
+
+File: `lhr_gazebo/models/fsae_vehicle/model.sdf`
+
+- Ackermann steering geometry (front two wheels steer, rear two driven)
+- Wheelbase 1.6 m, track width 1.2 m, wheel radius 0.2 m
+- 232 kg total (200 kg chassis + 4x 8 kg wheels)
+- Steering limits ±0.7 rad, 10 rad/s velocity limit
+- Direct joint control (JointPositionController + JointController) — NOT AckermannSteering
+- Sensors: IMU (100 Hz), GPU LiDAR (360x16 channels, 0.5–25 m, 10 Hz)
+
+### Cone Models + World Generation
+
+Script: `lhr_gazebo/scripts/generate_world.py`
+
+- `--style` flag selects generator: `autocross` (Catmull-Rom spline), `oval` (arc-length ellipse), `simple` (wobble oval)
+- `--seed`, `--num-waypoints`, `--radius`, `--jitter`, `--width`, `--cone-spacing` parameters
+- Vehicle spawn auto-computed on straightest track section
+- ODE physics at 1 kHz, real-time factor 1.0
+- `gz-sim-sensors-system` with Ogre2 render engine
+- Cone collisions disabled (Phase 4 will re-enable)
+- Worlds installed by colcon via `setup.py` `data_files`
+
+### Launch File
+
+File: `lhr_gazebo/launch/gazebo_demo.launch.py`
+
+Uses `OpaqueFunction` for runtime resolution:
+- `track_style` + `seed` → auto-resolves world SDF path (source tree or install dir)
+- `perception` → selects sim or lidar node set
+- `gui` → Gazebo GUI or headless
+- All control/mission/metrics params exposed as launch args
+
+### ROS2 ↔ Gazebo Bridge
+
+File: `lhr_gazebo/config/ros_gz_bridge.yaml` — 11 bridged topics.
+
+### Joint Command Adapter
+
+File: `lhr_gazebo/lhr_gazebo/joint_cmd_adapter.py`
+
+AckermannDriveStamped → 6 individual joint commands with proper Ackermann differential geometry.
 
 ## Gazebo Version Matrix
 
-| Ubuntu | ROS2 Distro | Gazebo Version | Install Package |
-|--------|-------------|----------------|-----------------|
-| 22.04 | Humble | Fortress (gz-sim 6) | `ros-humble-ros-gz` |
+| Ubuntu | ROS 2 | Gazebo | Install |
+|--------|-------|--------|---------|
 | 24.04 | Jazzy | Harmonic (gz-sim 8) | `ros-jazzy-ros-gz` |
 
-## Effort Estimate (Phase 1)
-
-| Piece | Effort | Notes |
-|-------|--------|-------|
-| Vehicle SDF + Ackermann plugin | Medium | Most time here — geometry, joints, inertia |
-| Cone models + world generator script | Small | Simple meshes + Python script |
-| `ros_gz_bridge` config | Small | YAML config file |
-| Logical camera → cone topic adapter | Small-Medium | New ROS2 node |
-| Launch file integration | Small | New launch file for Gazebo mode |
-
-## File Structure (anticipated)
+## File Structure
 
 ```
-ros2/src/
-├── lhr_gazebo/                      (new package)
-│   ├── models/
-│   │   ├── fsae_vehicle/            (vehicle SDF + meshes)
-│   │   ├── cone_blue/               (cone SDF)
-│   │   ├── cone_yellow/
-│   │   ├── cone_orange_small/
-│   │   └── cone_orange_large/
-│   ├── worlds/
-│   │   └── autocross.sdf            (generated or hand-made)
-│   ├── launch/
-│   │   └── gazebo_demo.launch.py
-│   ├── config/
-│   │   └── ros_gz_bridge.yaml
-│   ├── scripts/
-│   │   └── generate_world.py        (trackgen → Gazebo world)
-│   └── lhr_gazebo/
-│       ├── __init__.py
-│       └── logical_camera_adapter.py (logical cam → /lhr/sensor/cones_detected)
-├── lhr_control/                     (unchanged)
-├── lhr_track_builder/               (unchanged)
-├── lhr_mission_manager/             (unchanged)
-├── lhr_metrics/                     (unchanged)
-└── lhr_demo/                        (keep existing launch for non-Gazebo runs)
+ros2/src/lhr_gazebo/
+├── config/
+│   ├── ros_gz_bridge.yaml          (11 topic bridges)
+│   └── default.rviz
+├── launch/
+│   └── gazebo_demo.launch.py       (OpaqueFunction-based, auto-resolves world)
+├── lhr_gazebo/
+│   ├── __init__.py
+│   └── joint_cmd_adapter.py
+├── models/
+│   ├── fsae_vehicle/model.sdf      (vehicle + IMU + LiDAR)
+│   ├── cone_blue/
+│   ├── cone_yellow/
+│   ├── cone_orange_small/
+│   └── cone_orange_large/
+├── scripts/
+│   └── generate_world.py           (--style autocross|oval|simple)
+├── worlds/
+│   ├── autocross_seed1.sdf
+│   └── oval_seed1.sdf
+├── package.xml
+├── setup.py                        (installs worlds/*.sdf)
+└── setup.cfg
+
+ros2/src/lhr_perception/
+├── lhr_perception/
+│   ├── __init__.py
+│   └── lidar_cone_detector.py      (PointCloud2 → unclassified MarkerArray)
+├── package.xml
+├── setup.py
+└── setup.cfg
 ```
 
-## Compatibility
+## Key Debugging Lessons
 
-- The existing `lhr_sim_kinematic` + `lhr_sensor_sim` + `lhr_trackgen` stack remains functional for quick algorithm testing without Gazebo overhead
-- Gazebo mode is an alternative launch path, not a replacement
-- Both paths produce the same ROS2 topic interface — upper stack nodes don't know the difference
+1. **AckermannSteering plugin is too sluggish** — direct joint control gives near-instant response.
+2. **Gazebo Harmonic LiDAR topic** is `/lidar/points/points` (not `/lidar/points`) for PointCloud2.
+3. **LiDAR self-detection** — 360° LiDAR hits the car body. Requires vehicle exclusion zone filter in sensor frame.
+4. **Left/right classification by sensor-frame lateral position fails on curves** — both track boundaries appear on the same side of the sensor. Delaunay boundary pairing avoids this but camera fusion is the proper fix.
+5. **Cone duplication during swerves** — odom-based transform jitter places the same cone at multiple positions. Larger dedup radius + running average helps but doesn't eliminate it.
+6. **Greedy nearest-neighbor chaining** produces poor path ordering when midpoints cluster on tight curves.
+7. **Vehicle spawn position matters** — spawn on the straightest section to avoid loop closure artifacts.
+8. **`symlink-install` doesn't always update** Python files. When in doubt: `rm -rf build/<pkg> install/<pkg>`.

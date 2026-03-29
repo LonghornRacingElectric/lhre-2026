@@ -1112,6 +1112,7 @@ a:hover {
 .release-target-assets {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-md);
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);

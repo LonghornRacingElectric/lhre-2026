@@ -37,9 +37,9 @@ if ip link show "$CAN_IFACE" >/dev/null 2>&1; then
 fi
 ip link set "$CAN_IFACE" up type can bitrate "$CAN_BITRATE"
 
-echo "Starting VPN connection..."
-openvpn --config "$OPENVPN_CONFIG" --auth-user-pass "$OPENVPN_CREDS" --daemon
-sleep 5
+# echo "Starting VPN connection..."
+# openvpn --config "$OPENVPN_CONFIG" --auth-user-pass "$OPENVPN_CREDS" --daemon
+# sleep 5
 
 echo "Starting BEVO real CAN stack..."
 LOGGERD_ENABLED=0 "$SCRIPT_ROOT/run_real_stack.sh" &

@@ -5,6 +5,7 @@
 #include "fdcan.h"
 #include "longhorn/rtos/can.h"
 #include "longhorn/rtos/logger.h"
+#include <ota_flash.h>
 
 /** ==
  *  CAN Interface and Configuration Setup
@@ -40,6 +41,8 @@ void pdu_can_add_receive_handlers(void);
  * handlers. Also starts the CAN transceiver and receiver tasks.
  */
 void pdu_can_init(void) {
+  ota_flash_init();
+
   can_config_t pdu_can_config = {
       .init_fn = (CAN_Init_fn)HAL_FDCAN_Init,
       .start_fn = (CAN_Start_fn)HAL_FDCAN_Start,
@@ -49,11 +52,17 @@ void pdu_can_init(void) {
       .get_tx_fifo_free_level_fn =
           (CAN_GetTxFifoFreeLevel_fn)HAL_FDCAN_GetTxFifoFreeLevel,
       .get_rx_message_fn = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
+      .get_rx_fifo_fill_level_fn =
+          (CAN_GetRxFifoFillLevel_fn)HAL_FDCAN_GetRxFifoFillLevel,
       .tick_fn = HAL_GetTick,
       .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
       .malloc_fn = pvPortMalloc,
       .free_fn = vPortFree,
       .init_bit = FDCAN_CCCR_INIT,
+      .device_id = DEVICE_ID_PDU,
+      .write_memory_fn = ota_flash_write_memory,
+      .fw_update_begin_fn = ota_flash_begin,
+      .abort_update_fn = ota_flash_abort,
   };
 
   can_rtos_init(&pdu_can_config);
@@ -129,16 +138,14 @@ bool vehicle_in_drive(void) { return !vehicle_in_park(); }
  * @return true
  * @return false
  */
-bool hvc_imd_fault(void) {
-  return indicator_status_mailbox.imd_error ||
-         message_timed_out(indicator_status_mailbox_handle,
-                           INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS * 4);
-}
+bool hvc_imd_fault(void) { return indicator_status_mailbox.imd_error; }
 
-bool hvc_bms_fault(void) {
-  return indicator_status_mailbox.bms_error ||
-         message_timed_out(indicator_status_mailbox_handle,
+bool hvc_bms_fault(void) { return indicator_status_mailbox.bms_error; }
+
+bool hvc_imd_timeout(void) {
+  return message_timed_out(indicator_status_mailbox_handle,
                            INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS * 4);
 }
+bool hvc_bms_timeout(void) { return hvc_imd_timeout(); }
 
 float brake_light_pct(void) { return brake_pedal_mailbox.brake_light_percent; }
