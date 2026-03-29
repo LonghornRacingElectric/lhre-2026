@@ -107,7 +107,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(thermal.module_a_temp) AS \"inv/module_a_temp [C]\", AVG(thermal.module_b_temp) AS \"inv/module_b_temp [C]\", AVG(thermal.module_c_temp) AS \"inv/module_c_temp [C]\", AVG(thermal.gate_driver_temp) AS \"inv/gate_driver_temp [C]\" FROM packet JOIN bounds ON true LEFT JOIN thermal ON thermal.packet_id = packet.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ), bucket AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS bucket_len ) SELECT to_timestamp(floor(packet.time / bucket.bucket_len) * bucket.bucket_len / 1000.0) AS time, AVG(thermal.module_a_temp) AS \"inv/module_a_temp [C]\", AVG(thermal.module_b_temp) AS \"inv/module_b_temp [C]\", AVG(thermal.module_c_temp) AS \"inv/module_c_temp [C]\", AVG(thermal.gate_driver_temp) AS \"inv/gate_driver_temp [C]\" FROM packet JOIN bounds ON true JOIN bucket ON true LEFT JOIN thermal ON thermal.packet_id = packet.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -217,7 +217,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(thermal.coolant_temp) AS \"inv/coolant_temp [C]\", AVG(thermal.inverter_hotspot_temp) AS \"inv/inverter_hotspot_temp [C]\", AVG(thermal.motor_temp) AS \"inv/motor_temp [C]\", AVG(controls.torque_shudder) AS \"inv/torque_shudder [Nm]\" FROM packet JOIN bounds ON true LEFT JOIN thermal ON thermal.packet_id = packet.packet_id LEFT JOIN controls ON controls.packet_id = packet.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ), bucket AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS bucket_len ) SELECT to_timestamp(floor(packet.time / bucket.bucket_len) * bucket.bucket_len / 1000.0) AS time, AVG(thermal.coolant_temp) AS \"inv/coolant_temp [C]\", AVG(thermal.inverter_hotspot_temp) AS \"inv/inverter_hotspot_temp [C]\", AVG(thermal.motor_temp) AS \"inv/motor_temp [C]\", AVG(controls.torque_shudder) AS \"inv/torque_shudder [Nm]\" FROM packet JOIN bounds ON true JOIN bucket ON true LEFT JOIN thermal ON thermal.packet_id = packet.packet_id LEFT JOIN controls ON controls.packet_id = packet.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -327,7 +327,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(controls.motor_angle) AS \"inv/motor_angle [deg]\", AVG(controls.motor_speed) AS \"inv/motor_speed [rpm]\", AVG(pack.inverter_freq) AS \"inv/inverter_freq [Hz]\", AVG(pack.delta_resolver_angle) AS \"inv/delta_resolver_angle [deg]\" FROM packet JOIN bounds ON true LEFT JOIN controls ON controls.packet_id = packet.packet_id LEFT JOIN pack ON pack.packet_id = packet.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ), bucket AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS bucket_len ) SELECT to_timestamp(floor(packet.time / bucket.bucket_len) * bucket.bucket_len / 1000.0) AS time, AVG(controls.motor_angle) AS \"inv/motor_angle [deg]\", AVG(controls.motor_speed) AS \"inv/motor_speed [rpm]\", AVG(pack.inverter_freq) AS \"inv/inverter_freq [Hz]\", AVG(pack.delta_resolver_angle) AS \"inv/delta_resolver_angle [deg]\" FROM packet JOIN bounds ON true JOIN bucket ON true LEFT JOIN controls ON controls.packet_id = packet.packet_id LEFT JOIN pack ON pack.packet_id = packet.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -437,7 +437,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(diagnostics_high.post_faults) AS \"inv/post_faults [uint32]\", AVG(diagnostics_high.run_faults) AS \"inv/run_faults [uint32]\", AVG(controls.commanded_torque) AS \"inv/commanded_torque [Nm]\", AVG(pack.time_since_on) AS \"inv/time_since_on [s]\" FROM packet JOIN bounds ON true LEFT JOIN diagnostics_high ON diagnostics_high.packet_id = packet.packet_id LEFT JOIN controls ON controls.packet_id = packet.packet_id LEFT JOIN pack ON pack.packet_id = packet.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ), bucket AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS bucket_len ) SELECT to_timestamp(floor(packet.time / bucket.bucket_len) * bucket.bucket_len / 1000.0) AS time, AVG(diagnostics_high.post_faults) AS \"inv/post_faults [uint32]\", AVG(diagnostics_high.run_faults) AS \"inv/run_faults [uint32]\", AVG(controls.commanded_torque) AS \"inv/commanded_torque [Nm]\", AVG(pack.time_since_on) AS \"inv/time_since_on [s]\" FROM packet JOIN bounds ON true JOIN bucket ON true LEFT JOIN diagnostics_high ON diagnostics_high.packet_id = packet.packet_id LEFT JOIN controls ON controls.packet_id = packet.packet_id LEFT JOIN pack ON pack.packet_id = packet.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -547,7 +547,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(pack.phase_a_current) AS \"inv/phase_a_current [A]\", AVG(pack.phase_b_current) AS \"inv/phase_b_current [A]\", AVG(pack.phase_c_current) AS \"inv/phase_c_current [A]\", AVG(pack.dc_bus_current) AS \"inv/dc_bus_current [A]\" FROM packet JOIN bounds ON true LEFT JOIN pack ON pack.packet_id = packet.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ), bucket AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS bucket_len ) SELECT to_timestamp(floor(packet.time / bucket.bucket_len) * bucket.bucket_len / 1000.0) AS time, AVG(pack.phase_a_current) AS \"inv/phase_a_current [A]\", AVG(pack.phase_b_current) AS \"inv/phase_b_current [A]\", AVG(pack.phase_c_current) AS \"inv/phase_c_current [A]\", AVG(pack.dc_bus_current) AS \"inv/dc_bus_current [A]\" FROM packet JOIN bounds ON true JOIN bucket ON true LEFT JOIN pack ON pack.packet_id = packet.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -657,7 +657,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(pack.dc_bus_v) AS \"inv/dc_bus_v [V]\", AVG(pack.neutral_output_v) AS \"inv/neutral_output_v [V]\", AVG(pack.vab_vq_v) AS \"inv/vab_vq_v [V]\", AVG(pack.vbc_vd_v) AS \"inv/vbc_vd_v [V]\" FROM packet JOIN bounds ON true LEFT JOIN pack ON pack.packet_id = packet.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ), bucket AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS bucket_len ) SELECT to_timestamp(floor(packet.time / bucket.bucket_len) * bucket.bucket_len / 1000.0) AS time, AVG(pack.dc_bus_v) AS \"inv/dc_bus_v [V]\", AVG(pack.neutral_output_v) AS \"inv/neutral_output_v [V]\", AVG(pack.vab_vq_v) AS \"inv/vab_vq_v [V]\", AVG(pack.vbc_vd_v) AS \"inv/vbc_vd_v [V]\" FROM packet JOIN bounds ON true JOIN bucket ON true LEFT JOIN pack ON pack.packet_id = packet.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -767,7 +767,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(controls.torque_feedback) AS \"inv/torque_feedback [Nm]\", AVG(controls.torque_command) AS \"inv/torque_command [Nm]\", AVG(pack.bus_voltage) AS \"inv/bus_voltage [V]\", AVG(controls.torque_request) AS \"vcu/torque_request [Nm]\" FROM packet JOIN bounds ON true LEFT JOIN controls ON controls.packet_id = packet.packet_id LEFT JOIN pack ON pack.packet_id = packet.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ), bucket AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS bucket_len ) SELECT to_timestamp(floor(packet.time / bucket.bucket_len) * bucket.bucket_len / 1000.0) AS time, AVG(controls.torque_feedback) AS \"inv/torque_feedback [Nm]\", AVG(controls.torque_command) AS \"inv/torque_command [Nm]\", AVG(pack.bus_voltage) AS \"inv/bus_voltage [V]\", AVG(controls.torque_request) AS \"vcu/torque_request [Nm]\" FROM packet JOIN bounds ON true JOIN bucket ON true LEFT JOIN controls ON controls.packet_id = packet.packet_id LEFT JOIN pack ON pack.packet_id = packet.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -877,7 +877,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(controls.rpm_request) AS \"vcu/rpm_request [rpm]\", AVG(controls.torque_limit) AS \"vcu/torque_limit [Nm]\", AVG(COALESCE(controls.direction::int, 0)) AS \"vcu/direction [bool]\", AVG(COALESCE(controls.enable::int, 0)) AS \"vcu/enable [bool]\" FROM packet JOIN bounds ON true LEFT JOIN controls ON controls.packet_id = packet.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ), bucket AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS bucket_len ) SELECT to_timestamp(floor(packet.time / bucket.bucket_len) * bucket.bucket_len / 1000.0) AS time, AVG(controls.rpm_request) AS \"vcu/rpm_request [rpm]\", AVG(controls.torque_limit) AS \"vcu/torque_limit [Nm]\", AVG(COALESCE(controls.direction::int, 0)) AS \"vcu/direction [bool]\", AVG(COALESCE(controls.enable::int, 0)) AS \"vcu/enable [bool]\" FROM packet JOIN bounds ON true JOIN bucket ON true LEFT JOIN controls ON controls.packet_id = packet.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
           "refId": "A",
           "sql": {
             "columns": [
