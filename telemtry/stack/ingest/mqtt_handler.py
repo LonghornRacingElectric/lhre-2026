@@ -42,6 +42,13 @@ class MQTTTarget:
         if aws and aws.strip():
             return aws.strip()
         return 'mosquitto' if os.environ.get("IN_DOCKER") else global_target["TARGETS"][global_target["SERVER_TARGET"]]
+    
+    @staticmethod
+    def set_client_passwd(client, name):
+        if (MQTTTarget.get() != 'mosquitto'):
+            client.username_pw_set(name, os.getenv("MQTT_PASSWORD", ""))
+        else:
+            client.username_pw_set(name)
 
 
 class MQTTHandler:
@@ -60,7 +67,7 @@ class MQTTHandler:
         # logging state for Orion csv output
         self.orion_log_path: Path | None = None
         self.orion_cols: list[str] = []
-        self.client.username_pw_set(name)
+        MQTTTarget.set_client_passwd(self.client, "telemtry")
         self.client.user_data_set(self)  # Pass self to callbacks
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect

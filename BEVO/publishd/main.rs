@@ -8,6 +8,7 @@ use std::sync::mpsc::{self, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
+use once_cell::sync::Lazy;
 
 // OTA globals
 // static OTA_LINK: Mutex<Option<String>> = Mutex::new(None);
@@ -16,9 +17,16 @@ use std::time::{Duration, Instant};
 const IPC_SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
 const STARTUP_SEMAPHORE_PATH: &str = "/tmp/BEVO_publishd_ready";
 // const OTA_SEMAPHORE_PATH: &str = "/tmp/BEVO_ota_request";
-// // const MQTT_HOST: &str = "192.168.1.109";
-const MQTT_HOST: &str = "18.191.225.118"; // aws broker hard coded for testing
+
+static MQTT_HOST: once_cell::sync::Lazy<String> = once_cell::sync::Lazy::new(|| {
+    env_or_default("AWS_MQTT_IP", "127.0.0.1")
+});
 const MQTT_PORT: u16 = 1883;
+const MQTT_UNAME: &str = "telemtry";
+static MQTT_PWD: once_cell::sync::Lazy<String> = once_cell::sync::Lazy::new(|| {
+    env_or_default("MQTT_PASSWORD", "telemtry")
+});
+
 const MQTT_CLIENT_ID: &str = "BEVO-ORION";
 const MQTT_ANNOUNCE_CLIENT_ID: &str = "BEVO-Orion";
 const MQTT_TOPIC_PUBLISH: &str = "orion";
@@ -57,6 +65,7 @@ impl MqttClient {
     fn new(host: &str, port: u16, client_id: &str) -> Result<Self> {
         let mut mqtt_options = MqttOptions::new(client_id, host, port);
         mqtt_options.set_keep_alive(Duration::from_secs(20));
+        mqtt_options.set_credentials(MQTT_UNAME, MQTT_PWD.as_str());
 
         let (client, mut connection) = Client::new(mqtt_options, 64);
         let client = Arc::new(Mutex::new(client));
@@ -252,11 +261,8 @@ fn write_startup_semaphore(packet_id: u64) -> Result<()> {
 fn main() -> Result<()> {
     let _ = std::fs::remove_file(STARTUP_SEMAPHORE_PATH);
     // let _ = std::fs::remove_file(OTA_SEMAPHORE_PATH);
-    let mqtt_host = env_or_default("PUBLISHD_MQTT_HOST", MQTT_HOST);
-    let mqtt_port = std::env::var("PUBLISHD_MQTT_PORT")
-        .ok()
-        .and_then(|value| value.parse::<u16>().ok())
-        .unwrap_or(MQTT_PORT);
+    let mqtt_host = MQTT_HOST.clone();
+    let mqtt_port = *MQTT_PORT;
     let mqtt_client_id = env_or_default("PUBLISHD_MQTT_CLIENT_ID", MQTT_CLIENT_ID);
     let announce_payload = packet_id_announce_payload(MQTT_ANNOUNCE_CLIENT_ID);
 

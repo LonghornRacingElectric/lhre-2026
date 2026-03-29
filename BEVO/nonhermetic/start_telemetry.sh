@@ -12,6 +12,15 @@ CAN_BITRATE="${BEVO_CAN_BITRATE:-1000000}"
 OPENVPN_CONFIG="${BEVO_OPENVPN_CONFIG:-/etc/openvpn/client/client.ovpn}"
 OPENVPN_CREDS="${BEVO_OPENVPN_CREDS:-$BEVO_ROOT/vpn_creds.txt}"
 
+# Load environment from .env if present
+if [[ -f "$REPO_ROOT/.env" ]]; then
+  echo "Loading environment variables from $REPO_ROOT/.env"
+  set -o allexport
+  # shellcheck disable=SC1091
+  source "$REPO_ROOT/.env"
+  set +o allexport
+fi
+
 echo "Starting BEVO telemetry system..."
 echo "Repo root: $REPO_ROOT"
 echo "BEVO root: $BEVO_ROOT"
