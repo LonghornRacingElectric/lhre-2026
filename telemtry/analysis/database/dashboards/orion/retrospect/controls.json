@@ -117,7 +117,7 @@
       }
     ]
   },
-  "time": { "from": "now-6h", "to": "now" },
+  "time": { "from": "now-30d", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
   "title": "Orion Controls - Retrospective",

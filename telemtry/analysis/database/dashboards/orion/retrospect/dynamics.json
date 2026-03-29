@@ -89,7 +89,7 @@
   "schemaVersion": 40,
   "tags": ["orion", "retrospective", "dynamics"],
   "templating": { "list": [{ "allowCustomValue": false, "current": { "text": "", "value": "" }, "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" }, "definition": "SELECT partition_name FROM partitions ORDER BY start_time;", "description": "Select partition generated from packet gaps", "label": "Zoom to partition", "name": "Zoom", "options": [], "query": "SELECT partition_name FROM partitions ORDER BY start_time;", "refresh": 1, "regex": "", "type": "query" }] },
-  "time": { "from": "now-6h", "to": "now" },
+  "time": { "from": "now-30d", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
   "title": "Orion Dynamics - Retrospective",
