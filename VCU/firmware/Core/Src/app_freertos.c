@@ -48,7 +48,7 @@ extern ADC_HandleTypeDef hadc3;
 
 // necessary because USB voltage is up a little bit so tuning is slightly
 // off, we need to scale down to match values when not using USB
-#define FUDGE_FACTOR 0.95f
+#define FUDGE_FACTOR 1.0f
 
 // DMA buffers
 // APPS1, APPS2 from ADC3 (configured in adc.c)
@@ -95,21 +95,21 @@ static vcu_parameters_t s_params = {
     .apps =
         {
             .apps1_min_adc_v =
-                ((FUDGE_FACTOR * 925.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+                ((FUDGE_FACTOR * 1570.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
             .apps1_max_adc_v =
-                ((FUDGE_FACTOR * 750.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+                ((FUDGE_FACTOR * 1363.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
 
             .apps2_min_adc_v =
-                ((FUDGE_FACTOR * 905.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+                ((FUDGE_FACTOR * 1577.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
             .apps2_max_adc_v =
-                ((FUDGE_FACTOR * 700.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+                ((FUDGE_FACTOR * 1352.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
 
             .implaus_debounce_time_ms = 100u,
-            .max_allowable_diff = 0.10f,
+            .max_allowable_diff = 0.12f,
             // .min_travel_threshold = 0.10f,
             // .max_travel_restore_threshold = 0.05f,
 
-            .min_travel_deadzone = 0.12f,
+            .min_travel_deadzone = 0.08f,
             .max_travel_deadzone = 0.95,
             .pedal_ema_alpha = 0.35f,
         },
@@ -123,16 +123,15 @@ static vcu_parameters_t s_params = {
             .bse_off_psi = 30.0f,
             .bse_on_psi = 50.0f,
             .bse1_adc_at_min_psi_v =
-                ((FUDGE_FACTOR * 370.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
+                ((FUDGE_FACTOR * 385.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
             .bse1_adc_at_max_psi_v =
-                ((FUDGE_FACTOR * 800.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
+                ((FUDGE_FACTOR * 2267.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
             .bse2_adc_at_min_psi_v =
-                ((FUDGE_FACTOR * 370.0f * ADC_BSE_SCALE_V) /
-                 ADC_MAX_VAL), // set same as bse1 for now
-                               // since bse2 isn't working
+                ((FUDGE_FACTOR * 385.0f * ADC_BSE_SCALE_V) /
+                 ADC_MAX_VAL), 
             .bse2_adc_at_max_psi_v =
-                ((FUDGE_FACTOR * 800.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
-            .bse_max_psi = 1000.0f,
+                ((FUDGE_FACTOR * 2017.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
+            .bse_max_psi = 3000.0f,
             .max_pedal_while_braking = 0.25f,
             .max_pedal_restore_threshold = 0.05f,
             .min_psi_deadzone = 0.0f,
@@ -337,7 +336,7 @@ void StartControlTask(void *argument) {
     in.apps1_raw = ((float)adc3_dma_buf[0] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
     in.apps2_raw = ((float)adc3_dma_buf[1] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
     in.bse1_raw = ((float)adc2_dma_buf[1] * ADC_BSE_SCALE_V) / ADC_MAX_VAL;
-    in.bse2_raw = in.bse1_raw; // TODO: use second BSE sensor when it works
+    in.bse2_raw = ((float)adc2_dma_buf[0] * ADC_BSE_SCALE_V) / ADC_MAX_VAL;
 
     in.drive_switch = is_drive_switch_pressed();
 
@@ -354,9 +353,34 @@ void StartControlTask(void *argument) {
     //            out.accel_pedal_travel, out.torque_cmd,
     //            out.faults.apps_any_fault, out.apps1_travel,
     //            out.apps2_travel);
-    //     static uint32_t dbg_div = 0;
-    // if (++dbg_div >= 10) {
-    //   dbg_div = 0;
+
+    log_printf(LOG_WARNING,
+    "BSE_RAW adc1=%u adc2=%u | V1=%.4f V2=%.4f | CAL1 min=%.4f max=%.4f | CAL2 min=%.4f max=%.4f | PSI1=%.2f PSI2=%.2f AVG=%.2f | BRAKE=%u",
+    (unsigned)adc2_dma_buf[1],
+    (unsigned)adc2_dma_buf[0],
+    in.bse1_raw,
+    in.bse2_raw,
+    s_params.bse.bse1_adc_at_min_psi_v,
+    s_params.bse.bse1_adc_at_max_psi_v,
+    s_params.bse.bse2_adc_at_min_psi_v,
+    s_params.bse.bse2_adc_at_max_psi_v,
+    out.bse1_psi,
+    out.bse2_psi,
+    out.bse_psi,
+    (unsigned)out.brake_pressed
+);
+    
+    // log_printf(LOG_WARNING,
+    // "PEDAL_OUT %.2f, TORQUE_OUT %.2f, FAULT %d, APPS %.3f, APPS1 %.2f, APPS2 %.2f, BSE1 %.2f psi, BSE2 %.2f psi, BSE_AVG %.2f",
+    // out.accel_pedal_travel,
+    // out.torque_cmd,
+    // out.faults.apps_any_fault,
+    // (double)out.accel_pedal_travel
+    // out.apps1_travel,
+    // out.apps2_travel,
+    // out.bse1_psi,
+    // out.bse2_psi,
+    // out.bse_psi);           
 
     // log_printf(LOG_INFO,
     //            "PED:%.3f TQ:%.1f | PRNDL:%u INV:%u | "
@@ -367,7 +391,8 @@ void StartControlTask(void *argument) {
     //            (unsigned)in.drive_switch, (unsigned)in.contactors_closed,
     //            (unsigned)out.faults.apps_any_fault,
     //            (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault);
-    // }
+
+    
 
     // 3 ms control loop (333 Hz)
     osDelay(pdMS_TO_TICKS(3));
