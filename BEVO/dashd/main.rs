@@ -1,5 +1,6 @@
 use anyhow::Result;
 use prost::Message;
+use rumqttc::{Client, Event, Incoming, MqttOptions, QoS};
 use serde::Serialize;
 use std::io::Read;
 use std::net::TcpListener;
@@ -10,9 +11,23 @@ use std::time::{Duration, Instant};
 
 use sensor_proto::proto::orion::OrionSensorData;
 
+// ---------------------------------------------------------------------------
+// Configuration
+// ---------------------------------------------------------------------------
+
 const SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
 const WS_PORT: u16 = 8001;
 const WS_SEND_HZ: u64 = 30;
+
+const MQTT_HOST: &str = "18.191.225.118";
+const MQTT_PORT: u16 = 1883;
+const MQTT_CLIENT_ID: &str = "BEVO-DASHD";
+const MQTT_TOPIC_PREFIX: &str = "lhre/dash/";
+const MQTT_STALE_TIMEOUT: Duration = Duration::from_secs(5);
+
+fn env_or_default(name: &str, default: &str) -> String {
+    std::env::var(name).unwrap_or_else(|_| default.to_string())
+}
 
 // ---------------------------------------------------------------------------
 // JSON schema structs — must match DashData.ts exactly
@@ -55,15 +70,12 @@ struct CanData {
 
 #[derive(Serialize, Clone, Default)]
 struct MqttData {
-    /// NOT AVAILABLE — comes from external MQTT timing system. Always null.
     #[serde(rename = "lapDelta")]
     lap_delta: Option<f32>,
 
-    /// NOT AVAILABLE — comes from external MQTT strategy system. Always null.
     #[serde(rename = "energyDelta")]
     energy_delta: Option<f32>,
 
-    /// NOT AVAILABLE — comes from external MQTT strategy system. Always null.
     #[serde(rename = "lapsRemaining")]
     laps_remaining: Option<f32>,
 }
@@ -76,12 +88,51 @@ struct DashMessage {
 }
 
 // ---------------------------------------------------------------------------
-// Shared state between IPC reader and WebSocket sender
+// Shared state between all threads
 // ---------------------------------------------------------------------------
+
+struct MqttState {
+    lap_delta: Option<f32>,
+    energy_delta: Option<f32>,
+    laps_remaining: Option<f32>,
+    last_lap_delta: Instant,
+    last_energy_delta: Instant,
+    last_laps_remaining: Instant,
+}
+
+impl MqttState {
+    fn new() -> Self {
+        let epoch = Instant::now() - MQTT_STALE_TIMEOUT; // start stale
+        Self {
+            lap_delta: None,
+            energy_delta: None,
+            laps_remaining: None,
+            last_lap_delta: epoch,
+            last_energy_delta: epoch,
+            last_laps_remaining: epoch,
+        }
+    }
+
+    /// Convert to the JSON-serializable MqttData, nulling out stale fields.
+    fn to_mqtt_data(&self) -> MqttData {
+        let now = Instant::now();
+        MqttData {
+            lap_delta: self
+                .lap_delta
+                .filter(|_| now.duration_since(self.last_lap_delta) < MQTT_STALE_TIMEOUT),
+            energy_delta: self
+                .energy_delta
+                .filter(|_| now.duration_since(self.last_energy_delta) < MQTT_STALE_TIMEOUT),
+            laps_remaining: self
+                .laps_remaining
+                .filter(|_| now.duration_since(self.last_laps_remaining) < MQTT_STALE_TIMEOUT),
+        }
+    }
+}
 
 struct DashState {
     can: CanData,
-    mqtt: MqttData,
+    mqtt: MqttState,
 }
 
 // ---------------------------------------------------------------------------
@@ -184,7 +235,7 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                 DashMessage {
                                     seq,
                                     can: locked.can.clone(),
-                                    mqtt: locked.mqtt.clone(),
+                                    mqtt: locked.mqtt.to_mqtt_data(),
                                 }
                             };
 
@@ -216,13 +267,109 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
 }
 
 // ---------------------------------------------------------------------------
+// Thread 3: MQTT subscriber — receives off-car computed values
+// ---------------------------------------------------------------------------
+
+fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
+    let mqtt_host = env_or_default("DASHD_MQTT_HOST", MQTT_HOST);
+    let mqtt_port: u16 = std::env::var("DASHD_MQTT_PORT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(MQTT_PORT);
+
+    loop {
+        println!(
+            "[DASHD] Connecting to MQTT broker {}:{}...",
+            mqtt_host, mqtt_port
+        );
+
+        let mut opts = MqttOptions::new(MQTT_CLIENT_ID, &mqtt_host, mqtt_port);
+        opts.set_keep_alive(Duration::from_secs(20));
+
+        let (client, mut connection) = Client::new(opts, 64);
+
+        if let Err(e) = client.subscribe(
+            format!("{}#", MQTT_TOPIC_PREFIX),
+            QoS::AtMostOnce,
+        ) {
+            eprintln!("[DASHD] MQTT subscribe error: {}, will retry", e);
+            thread::sleep(Duration::from_secs(5));
+            continue;
+        }
+
+        println!("[DASHD] MQTT subscribed to {}#", MQTT_TOPIC_PREFIX);
+
+        let mut connected = true;
+        for event in connection.iter() {
+            match event {
+                Ok(Event::Incoming(Incoming::Publish(publish))) => {
+                    let topic = &publish.topic;
+                    let Some(field) = topic.strip_prefix(MQTT_TOPIC_PREFIX) else {
+                        continue;
+                    };
+
+                    let payload_str = match std::str::from_utf8(&publish.payload) {
+                        Ok(s) => s.trim(),
+                        Err(_) => continue,
+                    };
+
+                    let val: f32 = match payload_str.parse() {
+                        Ok(v) => v,
+                        Err(_) => {
+                            eprintln!(
+                                "[DASHD] MQTT bad payload on {}: {:?}",
+                                topic, payload_str
+                            );
+                            continue;
+                        }
+                    };
+
+                    let now = Instant::now();
+                    let mut locked = state.lock().unwrap();
+                    match field {
+                        "lapDelta" => {
+                            locked.mqtt.lap_delta = Some(val);
+                            locked.mqtt.last_lap_delta = now;
+                        }
+                        "energyDelta" => {
+                            locked.mqtt.energy_delta = Some(val);
+                            locked.mqtt.last_energy_delta = now;
+                        }
+                        "lapsRemaining" => {
+                            locked.mqtt.laps_remaining = Some(val);
+                            locked.mqtt.last_laps_remaining = now;
+                        }
+                        _ => {} // ignore unknown subtopics
+                    }
+                }
+                Ok(Event::Incoming(Incoming::Disconnect)) => {
+                    println!("[DASHD] MQTT broker disconnected, will reconnect");
+                    connected = false;
+                    break;
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("[DASHD] MQTT connection error: {}", e);
+                    connected = false;
+                    break;
+                }
+            }
+        }
+
+        if !connected {
+            thread::sleep(Duration::from_secs(5));
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
 fn main() -> Result<()> {
     let state = Arc::new(Mutex::new(DashState {
         can: CanData::default(),
-        mqtt: MqttData::default(),
+        mqtt: MqttState::new(),
     }));
 
     let ipc_state = Arc::clone(&state);
@@ -231,7 +378,10 @@ fn main() -> Result<()> {
     let ws_state = Arc::clone(&state);
     thread::spawn(move || ws_server_loop(ws_state));
 
-    println!("[DASHD] Started (IPC reader + WebSocket on :{})", WS_PORT);
+    let mqtt_state = Arc::clone(&state);
+    thread::spawn(move || mqtt_subscriber_loop(mqtt_state));
+
+    println!("[DASHD] Started (IPC reader + WebSocket on :{} + MQTT subscriber)", WS_PORT);
 
     // Park the main thread forever (matches cand/main.rs pattern)
     loop {
