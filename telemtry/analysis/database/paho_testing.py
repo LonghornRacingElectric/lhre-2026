@@ -348,6 +348,9 @@ class DataTester:
         :param target: target database
         :return: protobuf message
         """
+        if use_csv:
+            row = self.create_row_from_csv(packet, db_desc)
+
         if target == "Angelique":
             data = AngeliqueSensorData()
         elif target == "Orion":
@@ -355,39 +358,34 @@ class DataTester:
         else:
             data = SensorData()
         
+        # Get data from CSV once if needed
+        csv_row = None
+        if use_csv and self.csv_data is not None and self.mapping is not None:
+            # We need to pass table_desc but we'll use a merged version for all tables
+            # or just handle type conversion more carefully
+            csv_row = self.create_row_from_csv(packet, table_desc=None)
+        
         for table in db_desc:
-            if use_csv and self.csv_data is not None and self.mapping is not None:
-                # Use CSV data for this table
-                row = self.create_row_from_csv(packet, db_desc[table])
+            if use_csv and csv_row is not None:
+                row = csv_row  # Use the CSV data for all tables
             else:
-                # Create random data for this table
-                row = self.create_row(db_desc[table], packet)
+                row = self.create_row(db_desc[table], packet)  # Create random data
             
             if hasattr(data, table):  
                 table_instance = getattr(data, table)
                 if isinstance(table_instance, Message): # Iterate through a specific table (not packet table)
                     for key, value in row.items():
                         if hasattr(table_instance, key): # Set values in protobuf message
-                            try:
-                                if (isinstance(value, list) or isinstance(value, tuple)):
-                                    getattr(table_instance, key).extend(value)
-                                elif isinstance(value, dict):
-                                    setattr(table_instance, key, json.dumps(value))
-                                else:
-                                    setattr(table_instance, key, value)
-                            except TypeError as e:
-                                # If type error, try converting to int
-                                if isinstance(value, float):
-                                    setattr(table_instance, key, int(value))
-                                else:
-                                    logging.warning(f"Type error setting {table}.{key} = {value}: {e}")
+                            if (isinstance(value, list) or isinstance(value, tuple)):
+                                getattr(table_instance, key).extend(value)
+                            elif isinstance(value, dict):
+                                setattr(table_instance, key, json.dumps(value))
+                            else:
+                                setattr(table_instance, key, value)
             else:
                 for key, value in row.items(): # Edit packet and time
-                    if hasattr(data, key):
-                        try:
-                            setattr(data, key, int(value))
-                        except (TypeError, ValueError):
-                            logging.warning(f"Could not set {key} = {value}")
+                    if hasattr(data, key):  
+                        setattr(data, key, int(value))
         return data
     
     def send_base64_row(self, ver: int, high_freq=True):
@@ -404,23 +402,11 @@ class DataTester:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    car_name = "Angelique"  # Change to "Nightwatch", "Angelique", or "Orion" as needed
+    car_name = "Orion"  # Change to "Nightwatch", "Angelique", or "Orion" as needed
     
     # Optional Paths for CSV and mapping files
     csv_path = Path(__file__).parent / 'csv_processing/csv_data/Log__2024_10_11__05_50_47.csv'
     mapping_path = Path(__file__).parent / 'csv_processing/angelique_pg_to_csv.json'
-    
-    # Check if CSV and mapping files exist
-    use_csv_data = csv_path.exists() and mapping_path.exists()
-    if use_csv_data:
-        print(f"✓ CSV file found: {csv_path}")
-        print(f"✓ Mapping file found: {mapping_path}")
-        print("Using CSV data for testing")
-    else:
-        print(f"✗ CSV or mapping file not found (CSV exists: {csv_path.exists()}, Mapping exists: {mapping_path.exists()})")
-        print("Using random data instead")
-        csv_path = None
-        mapping_path = None
     
     with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session, get_db("Orion") as orion_session:
         db_sessions = {
