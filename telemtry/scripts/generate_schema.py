@@ -325,8 +325,8 @@ def generate_prisma_from_proto(messages, root_msg_name):
                 p_type = PROTO_TO_PRISMA_TYPES.get(f['type'], 'String')
                 if f['name'].endswith('_json'):
                     p_type = 'Json'
-                elif f['name'] == 'gps' and f['type'] == 'float' and f['repeated']:
-                    p_type = 'Unsupported("point")'
+                # elif f['name'] == 'gps' and f['type'] == 'float' and f['repeated']:
+                #     p_type = 'Unsupported("point")'
                 elif f['repeated']:
                     p_type += '[]'
                 
