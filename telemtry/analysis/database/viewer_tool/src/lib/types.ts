@@ -10,6 +10,7 @@ export interface DriveDayState {
   airTemperature?: number;
   relativeHumidity?: number;
   trackTemperature?: number;
+  trackName?: string;
 }
 
 export interface NewEventState {
