@@ -6,6 +6,7 @@ import time
 import threading
 import requests
 from kafka import KafkaConsumer
+import json
 
 from analysis.sql_utils.db_session import get_db
 from analysis.sql_utils.query_builder import QueryBuilder
