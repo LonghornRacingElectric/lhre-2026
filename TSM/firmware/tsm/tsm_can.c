@@ -16,7 +16,7 @@
 static can_interface_t data_acq_bus;
 
 /* ===============================
-   CAN Mailboxes
+   CAN Mailboxesy
    =============================== */
 
 /* Coolant loop temps (ID 416) */
@@ -146,11 +146,12 @@ void tsm_can_update_coolant_loop(float loop_motor_temp,
   taskEXIT_CRITICAL();
 }
 
-void tsm_can_update_cooling_system(float fan_rpm, float coolant_flow_lpm,
-                                   float ambient_temp) {
+void tsm_can_update_cooling_system(float rad_fan_rpm, float bat_fan_rpm,
+                                   float coolant_flow_lpm, float ambient_temp) {
   taskENTER_CRITICAL();
 
-  cooling_sys_mailbox.radiator_fan_speed = (uint16_t)fan_rpm;
+  cooling_sys_mailbox.radiator_fan_speed = (uint16_t)rad_fan_rpm;
+  cooling_sys_mailbox.battery_fan_speed = (uint16_t)bat_fan_rpm;
   cooling_sys_mailbox.coolant_flow = coolant_flow_lpm;
   cooling_sys_mailbox.ambient_temp = ambient_temp;
 

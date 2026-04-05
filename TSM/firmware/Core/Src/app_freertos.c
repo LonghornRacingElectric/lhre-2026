@@ -57,9 +57,11 @@
 /* USER CODE BEGIN PD */
 volatile uint32_t flow_pulses = 0;
 volatile uint32_t fan_pulses = 0;
+volatile uint32_t bat_fan_pulses = 0;
 
 float coolant_flow_lpm = 0;
-float fan_rpm = 0;
+float rad_fan_rpm = 0;
+float bat_fan_rpm = 0;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -195,7 +197,8 @@ void StartDefaultTask(void *argument) {
 /* USER CODE BEGIN Application */
 void StartSensorTask(void *argument) {
   uint32_t last_flow = 0;
-  uint32_t last_fan = 0;
+  uint32_t last_rad_fan = 0;
+  uint32_t last_bat_fan = 0;
   uint32_t last_tick = HAL_GetTick();
 
   // bool psr_logged = false;
@@ -220,12 +223,13 @@ void StartSensorTask(void *argument) {
     // temps_c[3] = 0.0f;
 
     // Flow + fan update
-    flow_fan_update(&last_flow, &last_fan, &coolant_flow_lpm, &fan_rpm,
-                    &last_tick);
+    flow_fan_update(&last_flow, &last_rad_fan, &last_bat_fan, &coolant_flow_lpm,
+                    &rad_fan_rpm, &bat_fan_rpm, &last_tick);
 
     // Send CAN packets
     tsm_can_update_coolant_loop(temps_c[0], temps_c[1], temps_c[2]);
-    tsm_can_update_cooling_system(fan_rpm, coolant_flow_lpm, temps_c[3]);
+    tsm_can_update_cooling_system(rad_fan_rpm, bat_fan_rpm, coolant_flow_lpm,
+                                  temps_c[3]);
 
     // Logging
     char m_buf[8], i_buf[8], r_buf[8], a_buf[8];
@@ -237,12 +241,12 @@ void StartSensorTask(void *argument) {
 
     log_printf(LOG_INFO,
                "Motor: %s C | Inverter: %s C | Radiator: %s C | Ambient: %s C "
-               "| Flow: %.2f LPM | Fan: %.0f RPM\r\n",
+               "| Flow: %.2f LPM | Rad Fan: %.0f RPM | Bat Fan: %.0f RPM\r\n",
                temp_to_str(temps_c[0], m_buf, sizeof(m_buf)),
                temp_to_str(temps_c[1], i_buf, sizeof(i_buf)),
                temp_to_str(temps_c[2], r_buf, sizeof(r_buf)),
                temp_to_str(temps_c[3], a_buf, sizeof(a_buf)), coolant_flow_lpm,
-               fan_rpm);
+               rad_fan_rpm, bat_fan_rpm);
 
     osDelay(pdMS_TO_TICKS(1000));
     // tsm_can_debug();

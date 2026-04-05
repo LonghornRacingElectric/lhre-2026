@@ -31,6 +31,7 @@
 /* USER CODE BEGIN Includes */
 extern volatile uint32_t flow_pulses;
 extern volatile uint32_t fan_pulses;
+extern volatile uint32_t bat_fan_pulses;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -180,6 +181,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
   if (GPIO_Pin == GPIO_PIN_5) {
     fan_pulses++;
+  }
+
+  if (GPIO_Pin == GPIO_PIN_6) {
+    bat_fan_pulses++;
   }
 }
 /* USER CODE END 4 */

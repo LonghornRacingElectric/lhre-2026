@@ -30,8 +30,8 @@ void tsm_can_update_coolant_loop(float loop_motor_temp,
  * @param coolant_flow_lpm  coolant flow rate (L/min)
  * @param ambient_temp      ambient temperature (°C)
  */
-void tsm_can_update_cooling_system(float fan_rpm, float coolant_flow_lpm,
-                                   float ambient_temp);
+void tsm_can_update_cooling_system(float rad_fan_rpm, float bat_fan_rpm,
+                                   float coolant_flow_lpm, float ambient_temp);
 
 #ifdef __cplusplus
 }
