@@ -183,7 +183,7 @@ model packet {
 
 model dynamics {
   packet_id BigInt @id
-  gps                  Unsupported("point")?
+  gps                  Float[]?
   gps_imu              Float[]?
   accel_pedal_travel   Float?
   steer_col_angle      Float?
