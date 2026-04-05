@@ -16,6 +16,7 @@ serde_json = "1.0"
 socketcan = "3.0"
 rumqttc = { version = "0.24", default-features = false }
 curl = "0.4.49"
+tungstenite = "0.24"
 
 [build-dependencies]
 prost-build = "0.12"

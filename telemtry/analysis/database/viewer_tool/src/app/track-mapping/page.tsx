@@ -1,9 +1,15 @@
+"use client";
+
 import React from 'react';
+import TrackMapper from '@/components/TrackMapper';
 
 const TrackMappingPage = () => {
   return (
-    <div>
-      <h1>Setup UI goes here probably</h1>
+    <div className="p-4">
+      <h1 className="text-2xl font-bold mb-4">Track Mapping</h1>
+      <div style={{ width: '100%', height: '70vh' }} className="border rounded">
+        <TrackMapper />
+      </div>
     </div>
   );
 };
