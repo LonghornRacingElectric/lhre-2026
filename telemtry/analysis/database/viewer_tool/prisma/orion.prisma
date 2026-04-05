@@ -185,14 +185,14 @@ model dynamics {
   packet_id BigInt @id
   accel_pedal_travel   Float?
   steer_col_angle      Float?
-  bl_sprung_accel      Float[]
-  bl_unsprung_accel    Float[]
-  br_sprung_accel      Float[]
-  br_unsprung_accel    Float[]
-  fl_sprung_accel      Float[]
-  fl_unsprung_accel    Float[]
-  fr_sprung_accel      Float[]
-  fr_unsprung_accel    Float[]
+  bl_sprung_accel      Float[]?
+  bl_unsprung_accel    Float[]?
+  br_sprung_accel      Float[]?
+  br_unsprung_accel    Float[]?
+  fl_sprung_accel      Float[]?
+  fl_unsprung_accel    Float[]?
+  fr_sprung_accel      Float[]?
+  fr_unsprung_accel    Float[]?
   bl_ride_height       Float?
   bl_strain_gauge_v    Float?
   bl_sus_pot_v         Float?
@@ -253,7 +253,7 @@ model pack {
   packet_id BigInt @id
   bus_voltage          Float?
   lv_boards_current    Float?
-  cells_v              Float[]
+  cells_v              Float[]?
   dc_bus_v             Float?
   delta_resolver_angle Float?
   inverter_freq        Float?
@@ -261,7 +261,7 @@ model pack {
   time_since_on        Float?
   vab_vq_v             Float?
   vbc_vd_v             Float?
-  cells_temps          Float[]
+  cells_temps          Float[]?
   dc_bus_current       Float?
   hv_c                 Float?
   hv_pack_v            Float?
