@@ -47,12 +47,8 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error('Error saving track points:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to save track points';
     return NextResponse.json(
-      { 
-        error: errorMessage,
-        details: error instanceof Error ? error.stack : 'Unknown error'
-      },
+      { error: 'Failed to save track points' },
       { status: 500 }
     );
   } finally {
