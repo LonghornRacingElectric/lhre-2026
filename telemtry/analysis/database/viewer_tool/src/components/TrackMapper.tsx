@@ -21,7 +21,10 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
   const [pointCount, setPointCount] = useState(0);
   const [hoverLine, setHoverLine] = useState<{ x: number; y: number; angle: number; index: number } | null>(null);
   const [isRecording, setIsRecording] = useState(true);
-  
+  const [isSettingStartGate, setIsSettingStartGate] = useState(false);
+  const [isSavingToDb, setIsSavingToDb] = useState(false);
+  const [saveDbStatus, setSaveDbStatus] = useState<{ ok: boolean; msg: string } | null>(null);
+
   // Track Management State
   const [trackName, setTrackName] = useState<string>('Untitled');
   const [availableTracks, setAvailableTracks] = useState<string[]>([]);
@@ -380,6 +383,60 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
     setIsDefiningSectors((prev) => !prev);
   };
 
+  const handleToggleSetStartGate = () => {
+    setIsSettingStartGate((prev) => !prev);
+    setIsDefiningSectors(false);
+  };
+
+  const handleSvgClickStartGate = useCallback((_event: React.MouseEvent<SVGSVGElement>) => {
+    if (!isSettingStartGate || !xScale || !yScale) return;
+
+    if (hoverLine) {
+      const length = 60;
+      const dx = (length / 2) * Math.cos(hoverLine.angle);
+      const dy = (length / 2) * Math.sin(hoverLine.angle);
+
+      const p1: LatLon = [yScale.invert(hoverLine.y - dy), xScale.invert(hoverLine.x - dx)];
+      const p2: LatLon = [yScale.invert(hoverLine.y + dy), xScale.invert(hoverLine.x + dx)];
+
+      setSectors((prev) => {
+        // Replace sectors[0] (start gate); keep remaining sector gates
+        const rest = prev.slice(1);
+        return [[p1, p2], ...rest];
+      });
+      setIsSettingStartGate(false);
+      setSaveDbStatus(null);
+    }
+  }, [isSettingStartGate, hoverLine, xScale, yScale]);
+
+  const handleSaveToDatabase = async () => {
+    if (!sectors[0]) return;
+    setIsSavingToDb(true);
+    setSaveDbStatus(null);
+    try {
+      const res = await fetch('/api/save-track-mapping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: trackName.trim(),
+          start_gate: sectors[0],
+          points,
+          sectors,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setSaveDbStatus({ ok: true, msg: json.message });
+      } else {
+        setSaveDbStatus({ ok: false, msg: json.error || 'Unknown error' });
+      }
+    } catch {
+      setSaveDbStatus({ ok: false, msg: 'Network error' });
+    } finally {
+      setIsSavingToDb(false);
+    }
+  };
+
   const handleClearSectors = () => {
     if (confirm('Are you sure you want to clear all defined sectors?')) {
       setSectors([]);
@@ -387,7 +444,7 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
   };
 
   const handleMouseMove = useCallback((event: React.MouseEvent<SVGSVGElement>) => {
-    if (!isDefiningSectors || !xScale || !yScale) return;
+    if ((!isDefiningSectors && !isSettingStartGate) || !xScale || !yScale) return;
 
     const svg = event.currentTarget;
     const pt = svg.createSVGPoint();
@@ -516,6 +573,21 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
               Finish Mapping
             </button>
           )}
+          {/* Mandatory: Set Start Gate */}
+          <button
+            onClick={handleToggleSetStartGate}
+            disabled={points.length === 0}
+            className={`px-3 py-1 text-xs rounded transition font-semibold border-2 ${
+              isSettingStartGate
+                ? 'bg-green-600 text-white border-green-700 hover:bg-green-700'
+                : sectors[0]
+                ? 'bg-green-100 text-green-800 border-green-400 hover:bg-green-200'
+                : 'bg-orange-500 text-white border-orange-600 hover:bg-orange-600 animate-pulse'
+            } disabled:bg-gray-300 disabled:border-gray-300 disabled:cursor-not-allowed disabled:animate-none`}
+            title={sectors[0] ? 'Start gate is set — click to reposition' : 'Required: click to place the start gate on the track'}
+          >
+            {isSettingStartGate ? 'Click track to place…' : sectors[0] ? 'Start Gate ✓' : 'Set Start Gate *'}
+          </button>
           <button
             onClick={handleToggleDefineSectors}
             disabled={points.length === 0}
@@ -541,6 +613,22 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
           >
             Clear Track
           </button>
+          {/* Save to Database — only enabled once start gate is placed */}
+          <div className="flex flex-col items-end gap-1">
+            <button
+              onClick={handleSaveToDatabase}
+              disabled={!sectors[0] || isSavingToDb || points.length === 0}
+              className="px-3 py-1 text-xs bg-gray-800 text-white rounded hover:bg-black disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+              title={!sectors[0] ? 'Set a start gate before saving' : 'Save track mapping to database'}
+            >
+              {isSavingToDb ? 'Saving…' : 'Save to DB'}
+            </button>
+            {saveDbStatus && (
+              <span className={`text-[10px] ${saveDbStatus.ok ? 'text-green-600' : 'text-red-500'}`}>
+                {saveDbStatus.msg}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -548,11 +636,11 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
       <div className="flex-grow overflow-hidden relative">
         {points.length > 0 ? (
           <>
-            <svg 
-              viewBox={`0 0 ${width} ${height}`} 
-              className={`w-full h-full ${isDefiningSectors ? 'cursor-crosshair' : ''}`}
+            <svg
+              viewBox={`0 0 ${width} ${height}`}
+              className={`w-full h-full ${(isDefiningSectors || isSettingStartGate) ? 'cursor-crosshair' : ''}`}
               preserveAspectRatio="xMidYMid meet"
-              onClick={handleSvgClick}
+              onClick={isSettingStartGate ? handleSvgClickStartGate : handleSvgClick}
               onMouseMove={handleMouseMove}
               onMouseLeave={handleMouseLeave}
             >
@@ -575,6 +663,7 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
                 const y1 = yScale(gate[0][0]);
                 const x2 = xScale(gate[1][1]);
                 const y2 = yScale(gate[1][0]);
+                const isStartGate = index === 0;
 
                 return (
                   <g key={`sector-${index}`}>
@@ -583,37 +672,37 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
                       y1={y1}
                       x2={x2}
                       y2={y2}
-                      stroke="red"
-                      strokeWidth={4}
+                      stroke={isStartGate ? '#16a34a' : 'red'}
+                      strokeWidth={isStartGate ? 5 : 4}
                     />
                     <text
                       x={x2}
                       y={y2}
                       dx={5}
                       dy={5}
-                      fill="red"
+                      fill={isStartGate ? '#16a34a' : 'red'}
                       fontSize="12"
                       fontWeight="bold"
                       textAnchor="start"
                       alignmentBaseline="hanging"
-                    >{index === 0 ? 'Start' : index}</text>
+                    >{isStartGate ? 'START' : index}</text>
                   </g>
                 );
               })}
               
               {/* Hover Line */}
-              {isDefiningSectors && hoverLine && (
+              {(isDefiningSectors || isSettingStartGate) && hoverLine && (
                 <g>
-                   <line
-                      x1={hoverLine.x - (30 * Math.cos(hoverLine.angle))}
-                      y1={hoverLine.y - (30 * Math.sin(hoverLine.angle))}
-                      x2={hoverLine.x + (30 * Math.cos(hoverLine.angle))}
-                      y2={hoverLine.y + (30 * Math.sin(hoverLine.angle))}
-                      stroke="rgba(255, 0, 0, 0.7)"
-                      strokeWidth={4}
-                      strokeDasharray="5,5"
-                      pointerEvents="none"
-                    />
+                  <line
+                    x1={hoverLine.x - (30 * Math.cos(hoverLine.angle))}
+                    y1={hoverLine.y - (30 * Math.sin(hoverLine.angle))}
+                    x2={hoverLine.x + (30 * Math.cos(hoverLine.angle))}
+                    y2={hoverLine.y + (30 * Math.sin(hoverLine.angle))}
+                    stroke={isSettingStartGate ? 'rgba(22, 163, 74, 0.8)' : 'rgba(255, 0, 0, 0.7)'}
+                    strokeWidth={isSettingStartGate ? 5 : 4}
+                    strokeDasharray="5,5"
+                    pointerEvents="none"
+                  />
                 </g>
               )}
             </svg>
@@ -631,12 +720,12 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
       {/* Sector Coordinates Footer */}
       {sectors.length > 0 && (
         <div className="p-3 border-t bg-gray-50 text-xs overflow-y-auto max-h-60">
-            <h3 className="font-bold mb-2 text-gray-700">Sector Gates (Start/End Points)</h3>
+            <h3 className="font-bold mb-2 text-gray-700">Gates — <span className="text-green-700">Start Gate</span> + Sector Gates</h3>
             <div className="grid grid-cols-2 gap-2">
                 {sectors.map((s, i) => (
                     <div key={i} className="flex items-center gap-2 bg-white p-1 rounded border">
-                        <div className="h-4 px-1.5 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
-                            {i === 0 ? 'Start' : i}
+                        <div className={`h-4 px-1.5 rounded-full text-white flex items-center justify-center text-[10px] font-bold shrink-0 ${i === 0 ? 'bg-green-600' : 'bg-red-500'}`}>
+                            {i === 0 ? 'START' : i}
                         </div>
                         <div className="flex flex-col font-mono text-gray-600">
                             <span>P1: {s[0][0].toFixed(6)}, {s[0][1].toFixed(6)}</span>

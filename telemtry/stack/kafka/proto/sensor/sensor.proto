@@ -264,8 +264,10 @@ message OrionSensorData {
 }
 
 message OrionDynamics {
-    float accel_pedal_travel = 1;
-    float steer_col_angle = 2;
+    repeated float gps = 1;
+    repeated float gps_imu = 2;
+    float accel_pedal_travel = 3;
+    float steer_col_angle = 4;
     repeated float bl_sprung_accel = 3;
     repeated float bl_unsprung_accel = 4;
     repeated float br_sprung_accel = 5;

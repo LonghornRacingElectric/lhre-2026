@@ -172,6 +172,20 @@ CREATE TABLE public.event (
     CONSTRAINT fk_event_type FOREIGN KEY(event_type) REFERENCES lut_event_type(type_id)
 );
 
+-- Track Mapping table
+CREATE TABLE public.track_mapping (
+    track_mapping_id    serial          NOT NULL,
+    name                text            NOT NULL,
+    created_at          bigint          NOT NULL,
+    start_gate_lat1     double precision NOT NULL,
+    start_gate_lon1     double precision NOT NULL,
+    start_gate_lat2     double precision NOT NULL,
+    start_gate_lon2     double precision NOT NULL,
+    points              jsonb,
+    sectors             jsonb,
+    CONSTRAINT track_mapping_pk PRIMARY KEY (track_mapping_id)
+);
+
 -- Classifier table
 CREATE TABLE public.classifier (
     event_id            bigint      NOT NULL,

@@ -360,6 +360,21 @@ model thermal {
 }
 
 // ----------------------------------------------------
+// TRACK MAPPING TABLE
+// ----------------------------------------------------
+model track_mapping {
+  track_mapping_id  Int      @id @default(autoincrement())
+  name              String
+  created_at        BigInt
+  start_gate_lat1   Float
+  start_gate_lon1   Float
+  start_gate_lat2   Float
+  start_gate_lon2   Float
+  points            Json?
+  sectors           Json?
+}
+
+// ----------------------------------------------------
 // CLASSIFIER TABLE
 // ----------------------------------------------------
 model classifier {

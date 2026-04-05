@@ -111,7 +111,7 @@ try:
                 # if record.topic == 'reload_processors':
                 #     lapCompleted = False
                 try:
-                    decoded_message = handler._proto_decode(payload=record.value, car="Angelique")
+                    decoded_message = handler._proto_decode(payload=record.value, car="Orion")
                     print(f"  Decoded Message: {decoded_message}")
                     print("LAP COMPLETED ", lapCompleted)
                     if not lapCompleted:
