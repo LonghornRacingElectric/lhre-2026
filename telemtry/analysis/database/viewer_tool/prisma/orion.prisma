@@ -15,6 +15,7 @@ model drive_day {
   air_temperature Float?
   relative_humidity Float?
   track_temperature Float?
+  track_name String?
 }
 
 model lut_driver {
@@ -27,6 +28,8 @@ model lut_location {
   location_id Int @id
   area String
   track String
+
+  tracks track[]
 }
 
 model lut_car {
@@ -107,6 +110,8 @@ model event {
   rear_corner_spring_rate Float?
   front_arb_setting String?
   rear_arb_setting String?
+
+  track_points track_point[]
 }
 
 model classifier {
@@ -115,12 +120,53 @@ model classifier {
   start_time BigInt
   end_time BigInt?
   notes String?
+
+  @@id([event_id, type, start_time])
 }
 
 model partitions {
-  partition_name String
+  partition_name String @id
   start_time BigInt
   end_time BigInt
+}
+
+model track_point {
+  point_id     BigInt   @id @default(autoincrement())
+  event_id     Int
+  latitude     Float
+  longitude    Float
+  timestamp_ms BigInt
+
+  event event @relation(fields: [event_id], references: [event_id])
+
+  @@index([event_id])
+}
+
+model track {
+  track_id    Int      @id @default(autoincrement())
+  name        String   @unique
+  location_id Int?
+  created_at  DateTime @default(now())
+
+  location     lut_location?  @relation(fields: [location_id], references: [location_id])
+  sector_gates sector_gate[]
+
+  @@index([location_id])
+}
+
+model sector_gate {
+  gate_id    Int   @id @default(autoincrement())
+  track_id   Int
+  gate_index Int
+  lat1       Float
+  lon1       Float
+  lat2       Float
+  lon2       Float
+
+  track track @relation(fields: [track_id], references: [track_id])
+
+  @@unique([track_id, gate_index])
+  @@index([track_id])
 }
 
 model packet {

@@ -114,16 +114,6 @@ export async function POST(req: NextRequest) {
 
     const DEFAULT = 0;
 
-    // Determine which specialty fields to include to avoid Prisma "Unknown arg" errors
-    const carRecord = await prisma.lut_car.findUnique({
-      where: { car_id: toInt(carId) ?? DEFAULT },
-      select: { car_name: true },
-    });
-    const isAngelique =
-      (carRecord?.car_name?.toLowerCase?.().includes("angelique") ?? false) ||
-      toInt(carId) === 3;
-
-    // Base fields common to all cars
     const baseData: any = {
         day_id: currentDriveDay.day_id,
         status,
@@ -187,22 +177,16 @@ export async function POST(req: NextRequest) {
         undertray_on: undertrayOn ?? false,
     };
 
-    // Include only applicable specialty fields
-    const specialtyData: any = isAngelique
-      ? {
-          // Angelique-only
-          front_roll_spring_rate: toFloat(frontRollSpringRate),
-          front_heave_spring_rate: toFloat(frontHeaveSpringRate),
-          rear_roll_spring_rate: toFloat(rearRollSpringRate),
-          rear_heave_spring_rate: toFloat(rearHeaveSpringRate),
-        }
-      : {
-          // 2026-only
-          front_corner_spring_rate: toFloat(frontCornerSpringRate),
-          rear_corner_spring_rate: toFloat(rearCornerSpringRate),
-          front_arb_setting: frontArbSetting ?? null,
-          rear_arb_setting: rearArbSetting ?? null,
-        };
+    const specialtyData: any = {
+      front_roll_spring_rate: toFloat(frontRollSpringRate),
+      front_heave_spring_rate: toFloat(frontHeaveSpringRate),
+      rear_roll_spring_rate: toFloat(rearRollSpringRate),
+      rear_heave_spring_rate: toFloat(rearHeaveSpringRate),
+      front_corner_spring_rate: toFloat(frontCornerSpringRate),
+      rear_corner_spring_rate: toFloat(rearCornerSpringRate),
+      front_arb_setting: frontArbSetting ?? null,
+      rear_arb_setting: rearArbSetting ?? null,
+    };
 
     // Merge and prune undefined keys to keep payload clean
     const mergedData = { ...baseData, ...specialtyData };

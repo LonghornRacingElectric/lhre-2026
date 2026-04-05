@@ -11,14 +11,19 @@
     {
       "to": "live_banner",
       "pick": ["battery", "odometer"]
-    },
-    {
-      "to": "map",
-      "pick": ["dynamics"]
     }
+    
   ],
+
+  "track-mapper":
+  {
+      "to": "track-mapper",
+      "pick": []
+    },
+
   "gg-plot": {
     "to": "gg-plot",
     "pick": ["data"]
   }
+  
 }

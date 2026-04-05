@@ -45,6 +45,16 @@
     animation: pulse-red 1.5s infinite;
 }
 
+.status-unknown {
+    border-color: rgba(136, 136, 136, 0.3);
+    opacity: 0.5;
+}
+
+.status-unknown .status-indicator {
+    background-color: #888;
+    box-shadow: 0 0 5px #888;
+}
+
 @keyframes pulse-red {
     0% { box-shadow: 0 0 20px rgba(255, 0, 0, 0.3) inset; }
     50% { box-shadow: 0 0 40px rgba(255, 0, 0, 0.6) inset; }
