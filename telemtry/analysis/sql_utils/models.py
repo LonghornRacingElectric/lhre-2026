@@ -454,7 +454,7 @@ class OrionDynamics(BaseOrion):
     __tablename__ = 'dynamics'
     __table_args__ = {'schema': 'public', 'extend_existing': True}
     packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
-    gps = Column(PointType())
+    gps = Column(ARRAY(Float))
     gps_imu = Column(ARRAY(Float))
     accel_pedal_travel = Column(Float)
     steer_col_angle = Column(Float)

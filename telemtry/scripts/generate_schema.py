@@ -249,7 +249,7 @@ def generate_sqlalchemy_from_proto(messages, root_msg_name, prefix=""):
                 if f['name'].endswith('_json'):
                     sa_type = 'JSONB'
                 elif f['name'] == 'gps' and f['type'] == 'float' and f['repeated']:
-                    sa_type = 'PointType()'
+                    sa_type = f"ARRAY({sa_type})"
                 elif f['repeated']:
                     sa_type = f"ARRAY({sa_type})"
                 
