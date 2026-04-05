@@ -118,6 +118,7 @@ class OrionThermal:
     batt_loop_batt_temp: Optional[float] = None
     batt_loop_rad_fan_speed: Optional[float] = None
     batt_loop_rad_temp: Optional[float] = None
+    battery_fan_rpm: Optional[float] = None
     bus_bar_temp1: Optional[float] = None
     bus_bar_temp2: Optional[float] = None
     bus_bar_temp3: Optional[float] = None

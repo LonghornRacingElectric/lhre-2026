@@ -267,6 +267,7 @@ model thermal {
   batt_loop_batt_temp  Float?
   batt_loop_rad_fan_speed Float?
   batt_loop_rad_temp   Float?
+  battery_fan_rpm      Float?
   bus_bar_temp1        Float?
   bus_bar_temp2        Float?
   bus_bar_temp3        Float?

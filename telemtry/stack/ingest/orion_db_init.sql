@@ -328,6 +328,7 @@ CREATE TABLE public.thermal (
     batt_loop_batt_temp  real,
     batt_loop_rad_fan_speed real,
     batt_loop_rad_temp   real,
+    battery_fan_rpm      real,
     bus_bar_temp1        real,
     bus_bar_temp2        real,
     bus_bar_temp3        real,

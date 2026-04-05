@@ -38,6 +38,7 @@ pub fn update_proto_field_generated(data: &mut OrionSensorData, name: &str, val:
             "batt_loop_batt_temp" => _t.batt_loop_batt_temp = val,
             "batt_loop_rad_fan_speed" => _t.batt_loop_rad_fan_speed = val,
             "batt_loop_rad_temp" => _t.batt_loop_rad_temp = val,
+            "battery_fan_rpm" => _t.battery_fan_rpm = val,
             "bl_ride_height" => _d.bl_ride_height = val,
             "bl_strain_gauge_v" => _d.bl_strain_gauge_v = val,
             "bl_sus_pot_v" => _d.bl_sus_pot_v = val,

@@ -144,6 +144,7 @@ class OrionThermal(BaseOrion):
     batt_loop_batt_temp = Column(Float)
     batt_loop_rad_fan_speed = Column(Float)
     batt_loop_rad_temp = Column(Float)
+    battery_fan_rpm = Column(Float)
     bus_bar_temp1 = Column(Float)
     bus_bar_temp2 = Column(Float)
     bus_bar_temp3 = Column(Float)
