@@ -229,12 +229,10 @@ export default function NewEventPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="0">Other</SelectItem>
-                    <SelectItem value="1">Rylan Hanks</SelectItem>
-                    <SelectItem value="2">Sohan Agnihotri</SelectItem>
-                    <SelectItem value="3">Dylan Hammerback</SelectItem>
                     <SelectItem value="4">Andrew Cloran</SelectItem>
+                    <SelectItem value="7">Viraj Bhalla</SelectItem>
+                    <SelectItem value="8">Luke Ballengee</SelectItem>
                     <SelectItem value="5">Ali Jensen</SelectItem>
-                    <SelectItem value="6">David Easter</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -40,12 +40,10 @@ CREATE TABLE public.lut_driver (
 	CONSTRAINT lut_driver_pk PRIMARY KEY (driver_id)
 );
 INSERT INTO public.lut_driver (driver_id, driver_name, driver_weight) VALUES (0, 'Other', DEFAULT);
-INSERT INTO public.lut_driver (driver_id, driver_name, driver_weight) VALUES (1, 'Rylan Hanks', DEFAULT);
-INSERT INTO public.lut_driver (driver_id, driver_name, driver_weight) VALUES (2, 'Sohan Agnihotri', DEFAULT);
-INSERT INTO public.lut_driver (driver_id, driver_name, driver_weight) VALUES (3, 'Dylan Hammerback', DEFAULT);
 INSERT INTO public.lut_driver (driver_id, driver_name, driver_weight) VALUES (4, 'Andrew Cloran', DEFAULT);
 INSERT INTO public.lut_driver (driver_id, driver_name, driver_weight) VALUES (5, 'Ali Jensen', DEFAULT);
-INSERT INTO public.lut_driver (driver_id, driver_name, driver_weight) VALUES (6, 'David Easter', DEFAULT);
+INSERT INTO public.lut_driver (driver_id, driver_name, driver_weight) VALUES (7, 'Viraj Bhalla', DEFAULT);
+INSERT INTO public.lut_driver (driver_id, driver_name, driver_weight) VALUES (8, 'Luke Ballengee', DEFAULT);
 
 -- LUT for Location IDs
 CREATE TABLE public.lut_location (
