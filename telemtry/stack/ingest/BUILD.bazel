@@ -10,6 +10,45 @@ load("@telemtry_stack_reqs//:requirements.bzl", "requirement")
 
 package(default_visibility = ["//telemtry:__subpackages__"])
 
+# ---------------------------------------------------------------------------
+# Protobuf generation (Longhorn CAN -> Python pb2)
+#
+# Generates a Python `_pb2.py` module from the generated CAN schema.
+#
+# Build output path:
+# - bazel-bin/telemtry/stack/ingest/protobuf/can_packets_pb2.py
+#
+# Input chain:
+# - drivers/longhorn-lib/config/can_packets.csv -> //drivers/longhorn-lib:can_proto
+#   -> this genrule
+# ---------------------------------------------------------------------------
+
+genrule(
+    name = "can_packets_pb2",
+    srcs = [
+        "//drivers/longhorn-lib:can_proto",
+    ],
+    outs = [
+        "protobuf/can_packets_pb2.py",
+    ],
+    cmd = """\
+set -euo pipefail
+
+mkdir -p "$(RULEDIR)/protobuf"
+
+# Protoc writes <basename>_pb2.py based on the input filename.
+cp "$(location //drivers/longhorn-lib:can_proto)" "$(RULEDIR)/can_packets.proto"
+
+$(location @protobuf//:protoc) \\
+  --proto_path="$(RULEDIR)" \\
+  --python_out="$(RULEDIR)/protobuf" \\
+  "$(RULEDIR)/can_packets.proto"
+""",
+    tools = [
+        "@protobuf//:protoc",
+    ],
+)
+
 # Compile pip requirements for stack services
 compile_pip_requirements(
     name = "stack_requirements",
@@ -29,6 +68,8 @@ exports_files([
     "init-databases.sh",
     "nightwatch_db_init.sql",
     "angelique_db_init.sql",
+    "orion_db_init.sql",
+    "common_schema.sql",
 ])
 
 # Filegroup for SQL initialization scripts
@@ -38,6 +79,7 @@ filegroup(
         "angelique_db_init.sql",
         "init-databases.sh",
         "nightwatch_db_init.sql",
+        "orion_db_init.sql",
     ],
     visibility = ["//visibility:public"],
 )
@@ -45,7 +87,9 @@ filegroup(
 # Filegroup for protobuf files
 filegroup(
     name = "protobuf_files",
-    srcs = glob(["protobuf/**"]),
+    srcs = glob(["protobuf/**"]) + [
+        ":can_packets_pb2",
+    ],
     visibility = ["//visibility:public"],
 )
 
@@ -93,13 +137,28 @@ py_binary(
     ],
 )
 
+# Writes telemtry/stack/ingest/protobuf/can_packets_pb2.py into the workspace.
+# Use: bazel run //telemtry/stack/ingest:update_can_packets_pb2
+py_binary(
+    name = "update_can_packets_pb2",
+    srcs = [
+        "update_can_packets_pb2.py",
+    ],
+    data = [
+        ":can_packets_pb2",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 # Package the ingest application files into a tar
 pkg_tar(
     name = "ingest_app_tar",
     srcs = [
         "__init__.py",
         "mqtt_handler.py",
-    ] + glob(["protobuf/**"]) + glob(["car_configs/**"]),
+    ] + glob(["protobuf/**"]) + glob(["car_configs/**"]) + [
+        ":can_packets_pb2",
+    ],
     package_dir = "/app/stack/ingest",
     strip_prefix = ".",
 )
@@ -136,6 +195,7 @@ oci_image(
         "PYTHONUNBUFFERED": "1",
     },
     visibility = ["//visibility:public"],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 # Tarball for local Docker loading (use oci_load instead of oci_tarball)

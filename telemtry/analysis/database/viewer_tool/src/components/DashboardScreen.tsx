@@ -31,7 +31,8 @@ const DashboardScreen: React.FC = () => {
 
     useEffect(() => {
         const interval = setInterval(() => {
-            let { phase, speed, targetSpeed, accelRate, timer } = simState.current;
+            const { phase, targetSpeed, accelRate } = simState.current;
+            let { speed, timer } = simState.current;
             let newPower = 0;
 
             if (phase === 'accel') {

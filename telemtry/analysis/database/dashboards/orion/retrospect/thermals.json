@@ -1,0 +1,127 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(thermal.ambient_temp) AS \"thermal/ambient_temp [C]\", AVG(thermal.coolant_temp) AS \"thermal/coolant_temp [C]\", AVG(thermal.motor_temp) AS \"thermal/motor_temp [C]\", AVG(thermal.inverter_temp) AS \"thermal/inverter_temp [C]\", AVG(thermal.batt_loop_batt_temp) AS \"thermal/batt_loop_batt_temp [C]\", AVG(thermal.motor_loop_motor_temp) AS \"thermal/motor_loop_motor_temp [C]\", AVG(thermal.motor_loop_inverter_temp) AS \"thermal/motor_loop_inverter_temp [C]\" FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "title": "Core Thermal Temperatures [C]",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "id": 2,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(thermal.module_a_temp) AS \"thermal/module_a_temp [C]\", AVG(thermal.module_b_temp) AS \"thermal/module_b_temp [C]\", AVG(thermal.module_c_temp) AS \"thermal/module_c_temp [C]\", AVG(thermal.gate_driver_temp) AS \"thermal/gate_driver_temp [C]\", AVG(thermal.inverter_hotspot_temp) AS \"thermal/inverter_hotspot_temp [C]\", AVG(thermal.discharge_r_temp) AS \"thermal/discharge_r_temp [C]\", AVG(diagnostics_low.precharge_r_temp) AS \"thermal/precharge_r_temp [C]\" FROM thermal JOIN diagnostics_low ON diagnostics_low.packet_id = thermal.packet_id JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "title": "Inverter, Resistor, and Module Temps [C]",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "id": 3,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(thermal.batt_loop_rad_fan_speed) AS \"thermal/batt_loop_rad_fan_speed\", AVG(thermal.motor_loop_rad_fan_speed) AS \"thermal/motor_loop_rad_fan_speed\", AVG(thermal.batt_loop_rad_temp) AS \"thermal/batt_loop_rad_temp [C]\", AVG(thermal.motor_loop_rad_temp) AS \"thermal/motor_loop_rad_temp [C]\", AVG(thermal.batt_cooling_current) AS \"thermal/batt_cooling_current [A]\", AVG(thermal.motor_cooling_current) AS \"thermal/motor_cooling_current [A]\" FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "title": "Cooling Loops, Fan Speeds, and Currents",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+      "id": 4,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ), cell_t AS (SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, UNNEST(pack.cells_temps) AS value FROM pack JOIN packet ON packet.packet_id = pack.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end), thermal_t AS (SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(thermal.cell_top_temp) AS cell_top_temp, AVG(thermal.cell_bottom_temp) AS cell_bottom_temp, AVG(thermal.bus_bar_temp1) AS bus_bar_temp1, AVG(thermal.bus_bar_temp2) AS bus_bar_temp2, AVG(thermal.bus_bar_temp3) AS bus_bar_temp3 FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1), diag_t AS (SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(diagnostics_low.precharge_r_temp) AS precharge_r_temp FROM diagnostics_low JOIN packet ON packet.packet_id = diagnostics_low.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1) SELECT cell_t.time, AVG(cell_t.value) AS \"hvc/cells_temp_avg [C]\", MIN(cell_t.value) AS \"hvc/cells_temp_min [C]\", MAX(cell_t.value) AS \"hvc/cells_temp_max [C]\", MAX(thermal_t.cell_top_temp) AS \"hvc/cell_top_temp [C]\", MAX(thermal_t.cell_bottom_temp) AS \"hvc/cell_bottom_temp [C]\", MAX(thermal_t.bus_bar_temp1) AS \"hvc/bus_bar_temp1 [C]\", MAX(thermal_t.bus_bar_temp2) AS \"hvc/bus_bar_temp2 [C]\", MAX(thermal_t.bus_bar_temp3) AS \"hvc/bus_bar_temp3 [C]\", MAX(diag_t.precharge_r_temp) AS \"hvc/precharge_r_temp [C]\" FROM cell_t LEFT JOIN thermal_t ON thermal_t.time = cell_t.time LEFT JOIN diag_t ON diag_t.time = cell_t.time GROUP BY cell_t.time ORDER BY cell_t.time;",
+          "refId": "A"
+        }
+      ],
+      "title": "Cell and Bus Thermal Signals [C]",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "refresh": "",
+  "schemaVersion": 40,
+  "tags": ["orion", "retrospective", "thermals"],
+  "templating": {
+    "list": [
+      {
+        "allowCustomValue": false,
+        "current": { "text": "", "value": "" },
+        "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+        "definition": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "description": "Select partition generated from packet gaps",
+        "label": "Zoom to partition",
+        "name": "Zoom",
+        "options": [],
+        "query": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Orion Thermals - Retrospective",
+  "uid": "orion_thermals_retro_v1",
+  "version": 1,
+  "weekStart": ""
+}

@@ -1,0 +1,99 @@
+{
+  "annotations": { "list": [{ "builtIn": 1, "datasource": { "type": "grafana", "uid": "-- Grafana --" }, "enable": true, "hide": true, "iconColor": "rgba(0, 211, 255, 1)", "name": "Annotations & Alerts", "type": "dashboard" }] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(dynamics.flw_speed) AS \"usm/flw_speed [rad/s]\", AVG(dynamics.frw_speed) AS \"usm/frw_speed [rad/s]\", AVG(dynamics.blw_speed) AS \"usm/blw_speed [rad/s]\", AVG(dynamics.brw_speed) AS \"usm/brw_speed [rad/s]\", AVG(dynamics.wheel_speed) AS \"usm/wheel_speed [rad/s]\" FROM dynamics JOIN packet ON packet.packet_id = dynamics.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;", "refId": "A" }],
+      "title": "Wheel Speeds [rad/s]",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "id": 2,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(dynamics.fl_ride_height) AS \"csm/fl_ride_height [mm]\", AVG(dynamics.fr_ride_height) AS \"csm/fr_ride_height [mm]\", AVG(dynamics.bl_ride_height) AS \"csm/bl_ride_height [mm]\", AVG(dynamics.br_ride_height) AS \"csm/br_ride_height [mm]\", AVG(dynamics.ride_height) AS \"usm/ride_height [mm]\" FROM dynamics JOIN packet ON packet.packet_id = dynamics.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;", "refId": "A" }],
+      "title": "Ride Heights [mm]",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "id": 3,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(dynamics.fl_strain_gauge_v) AS \"csm/fl_strain_gauge_v [V]\", AVG(dynamics.fr_strain_gauge_v) AS \"csm/fr_strain_gauge_v [V]\", AVG(dynamics.bl_strain_gauge_v) AS \"csm/bl_strain_gauge_v [V]\", AVG(dynamics.br_strain_gauge_v) AS \"csm/br_strain_gauge_v [V]\", AVG(dynamics.fl_sus_pot_v) AS \"csm/fl_sus_pot_v [V]\", AVG(dynamics.fr_sus_pot_v) AS \"csm/fr_sus_pot_v [V]\", AVG(dynamics.bl_sus_pot_v) AS \"csm/bl_sus_pot_v [V]\", AVG(dynamics.br_sus_pot_v) AS \"csm/br_sus_pot_v [V]\" FROM dynamics JOIN packet ON packet.packet_id = dynamics.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;", "refId": "A" }],
+      "title": "Strain Gauges and Suspension Pots [V]",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "id": 4,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(dynamics.accel_pedal_travel) AS \"vcu/accel_pedal_travel [%]\" FROM dynamics JOIN packet ON packet.packet_id = dynamics.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;", "refId": "A" }],
+      "title": "Accelerator Pedal Travel [%]",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "id": 5,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(dynamics.steer_col_angle) AS \"vcu/steer_col_angle [deg]\" FROM dynamics JOIN packet ON packet.packet_id = dynamics.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;", "refId": "A" }],
+      "title": "Steering Angle [deg]",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 32 },
+      "id": 6,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(dynamics.fl_sprung_accel[1]) AS \"csm/fl_sprung_accel_x [m/s^2]\", AVG(dynamics.fl_sprung_accel[2]) AS \"csm/fl_sprung_accel_y [m/s^2]\", AVG(dynamics.fl_sprung_accel[3]) AS \"csm/fl_sprung_accel_z [m/s^2]\", AVG(dynamics.fr_sprung_accel[1]) AS \"csm/fr_sprung_accel_x [m/s^2]\", AVG(dynamics.fr_sprung_accel[2]) AS \"csm/fr_sprung_accel_y [m/s^2]\", AVG(dynamics.fr_sprung_accel[3]) AS \"csm/fr_sprung_accel_z [m/s^2]\", AVG(dynamics.bl_sprung_accel[1]) AS \"csm/bl_sprung_accel_x [m/s^2]\", AVG(dynamics.bl_sprung_accel[2]) AS \"csm/bl_sprung_accel_y [m/s^2]\", AVG(dynamics.bl_sprung_accel[3]) AS \"csm/bl_sprung_accel_z [m/s^2]\", AVG(dynamics.br_sprung_accel[1]) AS \"csm/br_sprung_accel_x [m/s^2]\", AVG(dynamics.br_sprung_accel[2]) AS \"csm/br_sprung_accel_y [m/s^2]\", AVG(dynamics.br_sprung_accel[3]) AS \"csm/br_sprung_accel_z [m/s^2]\" FROM dynamics JOIN packet ON packet.packet_id = dynamics.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;", "refId": "A" }],
+      "title": "Sprung Acceleration Components [m/s^2]",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 41 },
+      "id": 7,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "pluginVersion": "11.5.2",
+      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(dynamics.fl_unsprung_accel[1]) AS \"usm/fl_unsprung_accel_x [m/s^2]\", AVG(dynamics.fl_unsprung_accel[2]) AS \"usm/fl_unsprung_accel_y [m/s^2]\", AVG(dynamics.fl_unsprung_accel[3]) AS \"usm/fl_unsprung_accel_z [m/s^2]\", AVG(dynamics.fr_unsprung_accel[1]) AS \"usm/fr_unsprung_accel_x [m/s^2]\", AVG(dynamics.fr_unsprung_accel[2]) AS \"usm/fr_unsprung_accel_y [m/s^2]\", AVG(dynamics.fr_unsprung_accel[3]) AS \"usm/fr_unsprung_accel_z [m/s^2]\", AVG(dynamics.bl_unsprung_accel[1]) AS \"usm/bl_unsprung_accel_x [m/s^2]\", AVG(dynamics.bl_unsprung_accel[2]) AS \"usm/bl_unsprung_accel_y [m/s^2]\", AVG(dynamics.bl_unsprung_accel[3]) AS \"usm/bl_unsprung_accel_z [m/s^2]\", AVG(dynamics.br_unsprung_accel[1]) AS \"usm/br_unsprung_accel_x [m/s^2]\", AVG(dynamics.br_unsprung_accel[2]) AS \"usm/br_unsprung_accel_y [m/s^2]\", AVG(dynamics.br_unsprung_accel[3]) AS \"usm/br_unsprung_accel_z [m/s^2]\" FROM dynamics JOIN packet ON packet.packet_id = dynamics.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;", "refId": "A" }],
+      "title": "Unsprung Acceleration Components [m/s^2]",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "refresh": "",
+  "schemaVersion": 40,
+  "tags": ["orion", "retrospective", "dynamics"],
+  "templating": { "list": [{ "allowCustomValue": false, "current": { "text": "", "value": "" }, "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" }, "definition": "SELECT partition_name FROM partitions ORDER BY start_time;", "description": "Select partition generated from packet gaps", "label": "Zoom to partition", "name": "Zoom", "options": [], "query": "SELECT partition_name FROM partitions ORDER BY start_time;", "refresh": 1, "regex": "", "type": "query" }] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Orion Dynamics - Retrospective",
+  "uid": "orion_dynamics_retro_v2",
+  "version": 2,
+  "weekStart": ""
+}

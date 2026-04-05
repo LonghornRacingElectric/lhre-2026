@@ -160,6 +160,9 @@ def firmware_project_g4(
         final_extra_srcs.append("//drivers/stm32g4:freertos_srcs")
         final_extra_deps.append("//drivers/stm32g4:freertos_headers")
 
+    final_extra_srcs.append("//drivers/ota:ota_flash_srcs")
+    final_extra_deps.append("//drivers/ota:ota_flash_headers")
+
     # enable DFU if the board has it enabled
     if (enable_dfu):
         final_defines.append("ENABLE_DFU")
@@ -291,6 +294,400 @@ def firmware_project_g4(
                 "$(rlocationpath @openocd//:openocd)",
                 "$(rlocationpath :" + target_name + ".elf" + ")",
                 "$(rlocationpath //tools/openocd:g4_flashing_cfg)",
+            ],
+            deps = [
+                "@rules_python//python/runfiles",
+            ],
+            tags = ["local", "flasher"],
+        )
+
+        py_binary(
+            name = ("dfu_" + location) if location else "dfu",
+            srcs = ["//tools/dfu:dfu_flashing_script"],
+            main = "flash.py",
+            data = [
+                ":" + target_name + ".bin",
+                "@dfu//:dfu",
+            ],
+            args = [
+                "$(rlocationpath @dfu//:dfu)",
+                "$(rlocationpath :" + target_name + ".bin" + ")",
+            ],
+            deps = [
+                "@rules_python//python/runfiles",
+                "@dfu_reqs//pyserial",
+            ],
+            tags = ["local", "flasher"],
+        )
+
+    native.filegroup(
+        name = "release",
+        srcs = release_srcs,
+        visibility = ["//visibility:public"],
+        tags = ["stm32_firmware"],
+    )
+
+def firmware_project_l4(
+        name,
+        linker_script,
+        startup_script,
+        enable_usb = False,
+        defines = [],
+        extra_srcs = [],
+        extra_deps = [],
+        usb_device_name = None,
+        extra_includes = [],
+        enable_dfu = False,
+        locations = [],
+        **kwargs):
+    """Creates a firmware project for the STM32L4 family of chips.
+
+    Drivers are fetched from GitHub at build time via the stm32l4 module
+    extension, instead of being vendored in the repository.
+
+    Args:
+        name (string): name of the project
+        linker_script (path): the location of the linker script being used (.ld file)
+        startup_script (path): the location of the startup script being used (.s file)
+        enable_usb (bool, optional): Whether or not to use USB drivers. Defaults to False.
+        defines (list, optional): defines to pass to the compiler. Defaults to [].
+        extra_srcs (list, optional): extra sources to compile with. Defaults to [].
+        extra_deps (list, optional): extra dependencies to compile with. Defaults to [].
+        usb_device_name (_type_, optional): name you want the USB driver to have. Defaults to None.
+        extra_includes (list, optional): extra include paths to compile with. Defaults to [].
+        enable_dfu (bool, optional): Whether or not to accept strings to go into DFU. Defaults to False.
+        locations (list, optional): A list of location identifiers (e.g., ["FR", "FL"]).
+                                    For each location, a separate binary will be generated
+                                    with a "BOARD_<location>" define. Defaults to [].
+        **kwargs: extra args to pass to cc_binary.
+    """
+
+    if (usb_device_name == None):
+        usb_device_name = name
+
+    final_extra_srcs = extra_srcs[:]
+    final_extra_deps = extra_deps[:]
+    final_defines = defines[:]
+
+    if (enable_usb):
+        final_extra_srcs.append("//drivers/stm32l4:usb_device_srcs")
+        final_extra_deps.append("//drivers/stm32l4:usb_device_headers")
+        final_defines.append('USB_DEVICE_NAME_TOKEN="ELC ' + usb_device_name + '"')
+
+    if (enable_dfu):
+        final_defines.append("ENABLE_DFU")
+
+    release_srcs = []
+
+    if not locations:
+        locations_to_build = [None]
+    else:
+        locations_to_build = locations
+
+    for location in locations_to_build:
+        target_name = name
+        project_name = name
+        location_defines = []
+
+        if location:
+            target_name = name + "_" + location
+            project_name = name + "_" + location
+            location_defines.append("BOARD_" + location)
+
+        cc_binary(
+            name = target_name + "_project",
+            srcs = native.glob([
+                       "Core/Src/**/*.c",
+                       "Core/Inc/**/*.h",
+                       "Core/Src/**/*.cpp",
+                   ], allow_empty = True) +
+                   [
+                       "//drivers/stm32l4:hal_srcs",
+                   ] + final_extra_srcs,
+            includes = [
+                "Core/Inc",
+            ] + extra_includes,
+            deps = final_extra_deps + [
+                "//drivers/stm32l4:stm32_headers",
+            ],
+            linkopts = MCU_FLAGS + [
+                "-Wl,-Map=" + target_name + ".map,--cref",
+                "-Wl,--gc-sections",
+                "-T $(location " + linker_script + ")",
+                "$(location " + startup_script + ")",
+                "-specs=nano.specs",
+                "-lnosys",
+                "-lc",
+                "-lm",
+                "-lstdc++",
+                "-u _printf_float",
+            ],
+            defines = final_defines + location_defines + ["USE_HAL_DRIVER"],
+            additional_linker_inputs = [
+                linker_script,
+                startup_script,
+            ],
+            target_compatible_with = [
+                "@platforms//cpu:arm",
+                "@platforms//os:none",
+            ],
+            copts = MCU_FLAGS + [
+                "-mthumb-interwork",
+                "-ffunction-sections",
+                "-fdata-sections",
+                "-Og",
+                "-g3",
+            ],
+            visibility = ["//visibility:private"],
+            features = ["generate_linkmap"],
+            tags = ["stm32_firmware"],
+            **kwargs
+        )
+
+        native.filegroup(
+            name = target_name + ".out.map",
+            srcs = [":" + target_name + "_project"],
+            output_group = "linkmap",
+            tags = ["stm32_firmware"],
+        )
+
+        platform_transition_filegroup(
+            name = target_name,
+            srcs = [target_name + "_project"],
+            target_platform = "//:arm_none_eabi",
+            visibility = ["//visibility:public"],
+            tags = ["stm32_firmware"],
+        )
+
+        elf_out(
+            name = project_name,
+            src = target_name,
+            visibility = ["//visibility:public"],
+        )
+        hex_out(
+            name = project_name,
+            src = target_name,
+            visibility = ["//visibility:public"],
+        )
+        binary_out(
+            name = project_name,
+            src = target_name,
+            visibility = ["//visibility:public"],
+        )
+
+        release_srcs.append(target_name + ".elf")
+        release_srcs.append(target_name + ".bin")
+        release_srcs.append(target_name + ".hex")
+
+        py_binary(
+            name = ("openocd_" + location) if location else "openocd",
+            srcs = ["//tools/openocd:openocd_flashing_script"],
+            main = "flash.py",
+            data = [
+                ":" + target_name + ".elf",
+                "@openocd//:openocd",
+                "//tools/openocd:l4_flashing_cfg",
+            ],
+            args = [
+                "$(rlocationpath @openocd//:openocd)",
+                "$(rlocationpath :" + target_name + ".elf" + ")",
+                "$(rlocationpath //tools/openocd:l4_flashing_cfg)",
+            ],
+            deps = [
+                "@rules_python//python/runfiles",
+            ],
+            tags = ["local", "flasher"],
+        )
+
+        py_binary(
+            name = ("dfu_" + location) if location else "dfu",
+            srcs = ["//tools/dfu:dfu_flashing_script"],
+            main = "flash.py",
+            data = [
+                ":" + target_name + ".bin",
+                "@dfu//:dfu",
+            ],
+            args = [
+                "$(rlocationpath @dfu//:dfu)",
+                "$(rlocationpath :" + target_name + ".bin" + ")",
+            ],
+            deps = [
+                "@rules_python//python/runfiles",
+                "@dfu_reqs//pyserial",
+            ],
+            tags = ["local", "flasher"],
+        )
+
+    native.filegroup(
+        name = "release",
+        srcs = release_srcs,
+        visibility = ["//visibility:public"],
+        tags = ["stm32_firmware"],
+    )
+
+def firmware_project_h7(
+        name,
+        linker_script,
+        startup_script,
+        enable_usb = False,
+        defines = [],
+        extra_srcs = [],
+        extra_deps = [],
+        usb_device_name = None,
+        extra_includes = [],
+        enable_dfu = False,
+        locations = [],
+        **kwargs):
+    """Creates a firmware project for the STM32H7 family of chips.
+
+    Drivers are fetched from GitHub at build time via the stm32h7 module
+    extension, instead of being vendored in the repository.
+
+    Args:
+        name (string): name of the project
+        linker_script (path): the location of the linker script being used (.ld file)
+        startup_script (path): the location of the startup script being used (.s file)
+        enable_usb (bool, optional): Whether or not to use USB drivers. Defaults to False.
+        defines (list, optional): defines to pass to the compiler. Defaults to [].
+        extra_srcs (list, optional): extra sources to compile with. Defaults to [].
+        extra_deps (list, optional): extra dependencies to compile with. Defaults to [].
+        usb_device_name (_type_, optional): name you want the USB driver to have. Defaults to None.
+        extra_includes (list, optional): extra include paths to compile with. Defaults to [].
+        enable_dfu (bool, optional): Whether or not to accept strings to go into DFU. Defaults to False.
+        locations (list, optional): A list of location identifiers (e.g., ["FR", "FL"]).
+                                    For each location, a separate binary will be generated
+                                    with a "BOARD_<location>" define. Defaults to [].
+        **kwargs: extra args to pass to cc_binary.
+    """
+
+    if (usb_device_name == None):
+        usb_device_name = name
+
+    final_extra_srcs = extra_srcs[:]
+    final_extra_deps = extra_deps[:]
+    final_defines = defines[:]
+
+    if (enable_usb):
+        final_defines.append('USB_DEVICE_NAME_TOKEN="ELC ' + usb_device_name + '"')
+
+    if (enable_dfu):
+        final_defines.append("ENABLE_DFU")
+
+    release_srcs = []
+
+    if not locations:
+        locations_to_build = [None]
+    else:
+        locations_to_build = locations
+
+    for location in locations_to_build:
+        target_name = name
+        project_name = name
+        location_defines = []
+
+        if location:
+            target_name = name + "_" + location
+            project_name = name + "_" + location
+            location_defines.append("BOARD_" + location)
+
+        cc_binary(
+            name = target_name + "_project",
+            srcs = native.glob([
+                       "Core/Src/**/*.c",
+                       "Core/Inc/**/*.h",
+                       "Core/Src/**/*.cpp",
+                   ], allow_empty = True) +
+                   [
+                       "//drivers/stm32h7:hal_srcs",
+                   ] + final_extra_srcs,
+            includes = [
+                "Core/Inc",
+            ] + extra_includes,
+            deps = final_extra_deps + [
+                "//drivers/stm32h7:stm32_headers",
+            ],
+            linkopts = MCU_FLAGS + [
+                "-Wl,-Map=" + target_name + ".map,--cref",
+                "-Wl,--gc-sections",
+                "-T $(location " + linker_script + ")",
+                "$(location " + startup_script + ")",
+                "-specs=nano.specs",
+                "-lnosys",
+                "-lc",
+                "-lm",
+                "-lstdc++",
+                "-u _printf_float",
+            ],
+            defines = final_defines + location_defines + ["USE_HAL_DRIVER"],
+            additional_linker_inputs = [
+                linker_script,
+                startup_script,
+            ],
+            target_compatible_with = [
+                "@platforms//cpu:arm",
+                "@platforms//os:none",
+            ],
+            copts = MCU_FLAGS + [
+                "-mthumb-interwork",
+                "-ffunction-sections",
+                "-fdata-sections",
+                "-Og",
+                "-g3",
+            ],
+            visibility = ["//visibility:private"],
+            features = ["generate_linkmap"],
+            tags = ["stm32_firmware"],
+            **kwargs
+        )
+
+        native.filegroup(
+            name = target_name + ".out.map",
+            srcs = [":" + target_name + "_project"],
+            output_group = "linkmap",
+            tags = ["stm32_firmware"],
+        )
+
+        platform_transition_filegroup(
+            name = target_name,
+            srcs = [target_name + "_project"],
+            target_platform = "//:arm_none_eabi",
+            visibility = ["//visibility:public"],
+            tags = ["stm32_firmware"],
+        )
+
+        elf_out(
+            name = project_name,
+            src = target_name,
+            visibility = ["//visibility:public"],
+        )
+        hex_out(
+            name = project_name,
+            src = target_name,
+            visibility = ["//visibility:public"],
+        )
+        binary_out(
+            name = project_name,
+            src = target_name,
+            visibility = ["//visibility:public"],
+        )
+
+        release_srcs.append(target_name + ".elf")
+        release_srcs.append(target_name + ".bin")
+        release_srcs.append(target_name + ".hex")
+
+        py_binary(
+            name = ("openocd_" + location) if location else "openocd",
+            srcs = ["//tools/openocd:openocd_flashing_script"],
+            main = "flash.py",
+            data = [
+                ":" + target_name + ".elf",
+                "@openocd//:openocd",
+                "//tools/openocd:h7_flashing_cfg",
+            ],
+            args = [
+                "$(rlocationpath @openocd//:openocd)",
+                "$(rlocationpath :" + target_name + ".elf" + ")",
+                "$(rlocationpath //tools/openocd:h7_flashing_cfg)",
             ],
             deps = [
                 "@rules_python//python/runfiles",

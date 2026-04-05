@@ -1,25 +1,24 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file    adc.c
-  * @brief   This file provides code for the configuration
-  *          of the ADC instances.
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2025 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file    adc.c
+ * @brief   This file provides code for the configuration
+ *          of the ADC instances.
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2025 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "adc.h"
-#include <stdint.h>
 
 /* USER CODE BEGIN 0 */
 
@@ -46,7 +45,7 @@ void MX_ADC1_Init(void)
   /** Common config
   */
   hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.GainCompensation = 0;
@@ -108,7 +107,7 @@ void MX_ADC2_Init(void)
   /** Common config
   */
   hadc2.Instance = ADC2;
-  hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc2.Init.Resolution = ADC_RESOLUTION_12B;
   hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc2.Init.GainCompensation = 0;
@@ -181,7 +180,7 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* adcHandle)
     PC1     ------> ADC1_IN7
     PA3     ------> ADC1_IN4
     */
-    GPIO_InitStruct.Pin = Temp_Sense_3_Pin|Temp_Sense_4_Pin;
+    GPIO_InitStruct.Pin = Voltage_Sense_P_Pin|Voltage_Sense_M_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
@@ -225,12 +224,12 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* adcHandle)
     PC4     ------> ADC2_IN5
     PC5     ------> ADC2_IN11
     */
-    GPIO_InitStruct.Pin = Temp_Sense_2_Pin|Current_Sense___Pin|Current_Sense__A7_Pin;
+    GPIO_InitStruct.Pin = Temp_Sense_2_Pin|Current_Sense_P_Pin|Current_Sense_M_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = Voltage_Sense___Pin|Voltage_Sense__C5_Pin;
+    GPIO_InitStruct.Pin = Temp_Sense_3_Pin|Temp_Sense_4_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
@@ -260,7 +259,7 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* adcHandle)
     PC1     ------> ADC1_IN7
     PA3     ------> ADC1_IN4
     */
-    HAL_GPIO_DeInit(GPIOC, Temp_Sense_3_Pin|Temp_Sense_4_Pin);
+    HAL_GPIO_DeInit(GPIOC, Voltage_Sense_P_Pin|Voltage_Sense_M_Pin);
 
     HAL_GPIO_DeInit(Temp_Sense_1_GPIO_Port, Temp_Sense_1_Pin);
 
@@ -286,9 +285,9 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* adcHandle)
     PC4     ------> ADC2_IN5
     PC5     ------> ADC2_IN11
     */
-    HAL_GPIO_DeInit(GPIOA, Temp_Sense_2_Pin|Current_Sense___Pin|Current_Sense__A7_Pin);
+    HAL_GPIO_DeInit(GPIOA, Temp_Sense_2_Pin|Current_Sense_P_Pin|Current_Sense_M_Pin);
 
-    HAL_GPIO_DeInit(GPIOC, Voltage_Sense___Pin|Voltage_Sense__C5_Pin);
+    HAL_GPIO_DeInit(GPIOC, Temp_Sense_3_Pin|Temp_Sense_4_Pin);
 
   /* USER CODE BEGIN ADC2_MspDeInit 1 */
 
@@ -296,11 +295,9 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* adcHandle)
   }
 }
 
-
-
 /* USER CODE BEGIN 1 */
-static uint16_t adc_read_raw(ADC_HandleTypeDef *hadc, uint32_t channel, uint32_t sampling_time, uint32_t single_diff)
-{
+static uint16_t adc_read_raw(ADC_HandleTypeDef *hadc, uint32_t channel,
+                             uint32_t sampling_time, uint32_t single_diff) {
   ADC_ChannelConfTypeDef sConfig = {0};
 
   sConfig.Channel = channel;
@@ -328,29 +325,59 @@ static uint16_t adc_read_raw(ADC_HandleTypeDef *hadc, uint32_t channel, uint32_t
   return raw;
 }
 
-uint16_t hvc_adc_read_voltage_sense_raw(void)
-{
-  /* Voltage sense is measured on two single-ended inputs:
-   *   VSENSE+ on PC4 (ADC2_IN5)
-   *   VSENSE- on PC5 (ADC2_IN11)
-   * Return a signed-differential representation packed into uint16_t.
+uint16_t hvc_adc_read_voltage_sense_raw(void) {
+  /* Voltage sense is measured as a differential input on ADC1:
+   *   VSENSE+ on PC0 (ADC1_IN6)
+   *   VSENSE- on PC1 (ADC1_IN7)
+   * Returns raw differential ADC value.
    */
-  uint16_t pos = adc_read_raw(&hadc2, ADC_CHANNEL_5, ADC_SAMPLETIME_2CYCLES_5, ADC_SINGLE_ENDED);
-  uint16_t neg = adc_read_raw(&hadc2, ADC_CHANNEL_11, ADC_SAMPLETIME_2CYCLES_5, ADC_SINGLE_ENDED);
-
-  int32_t diff = (int32_t)pos - (int32_t)neg;
-
-  /* Clamp into int16_t range and return as uint16_t bit-pattern. */
-  if (diff > 32767) diff = 32767;
-  if (diff < -32768) diff = -32768;
-  return (uint16_t)((int16_t)diff);
+  return adc_read_raw(&hadc1, ADC_CHANNEL_6, ADC_SAMPLETIME_2CYCLES_5,
+                      ADC_DIFFERENTIAL_ENDED);
 }
 
-uint16_t hvc_adc_read_current_sense_raw(void)
-{
-  /* Current sense channel example; adjust channel to match your schematic.
-   * Leaving as ADC_CHANNEL_4 placeholder.
+float hvc_adc_read_voltage_sense_v(void) {
+  /* Read differential voltage and convert to volts.
+   * Differential ADC range: -2048 to 2047 (2^12 / 2 total range)
+   * Reference voltage: 3300 mV (3.3V)
+   * Voltage per LSB: 3.3V / 4096 = 0.000805 V/LSB for full differential range
    */
-  return adc_read_raw(&hadc2, ADC_CHANNEL_4, ADC_SAMPLETIME_2CYCLES_5, ADC_SINGLE_ENDED);
+  int16_t raw = (int16_t)hvc_adc_read_voltage_sense_raw();
+  // Convert from differential range (-2048 to 2047) to voltage
+  // Full scale differential = 3.3V
+  float voltage_v = (float)raw * (3.3f / 4096.0f);
+  return voltage_v;
+}
+
+uint16_t hvc_adc_read_current_sense_raw(void) {
+  /* Current sense is measured as a differential input on ADC2:
+   *   ISENSE+ on PA6 (ADC2_IN3)
+   *   ISENSE- on PA7 (ADC2_IN4)
+   * Returns raw differential ADC value.
+   */
+  return adc_read_raw(&hadc2, ADC_CHANNEL_3, ADC_SAMPLETIME_2CYCLES_5,
+                      ADC_DIFFERENTIAL_ENDED);
+}
+
+float hvc_adc_read_current_sense_a(void) {
+  /* Read differential current and convert to amperes.
+   * Differential ADC range: -2048 to 2047
+   * Reference voltage: 3300 mV (3.3V)
+   * Assuming a current sense amplifier with gain (adjust based on actual
+   * design): If using a 1mV/A sensor with 10x gain amplifier: 10mV/A output
+   * Voltage per LSB: 3.3V / 4096 = 0.000805 V/LSB
+   * Current per LSB: 0.000805 / (10mV/A) = 0.0805 A/LSB (for 10mV/A
+   * sensitivity)
+   *
+   * Adjust the scaling factor (10.0f) based on your actual amplifier gain and
+   * sensor output.
+   */
+  int16_t raw = (int16_t)hvc_adc_read_current_sense_raw();
+  // Convert from differential ADC to voltage
+  float voltage_v = (float)raw * (3.3f / 4096.0f);
+  // Convert voltage to current (adjust gain factor for your specific design)
+  // Example: for 10mV/A output, divide by 0.01 to get amperes
+  float current_a =
+      voltage_v / 0.01f; // Adjust 0.01 based on your sensor sensitivity
+  return current_a;
 }
 /* USER CODE END 1 */

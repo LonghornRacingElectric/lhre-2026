@@ -1,0 +1,15 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "ota_flash_headers",
+    hdrs = ["ota_flash.h"],
+    include_prefix = "ota",
+    includes = ["."],
+)
+
+filegroup(
+    name = "ota_flash_srcs",
+    srcs = ["ota_flash.c"],
+)

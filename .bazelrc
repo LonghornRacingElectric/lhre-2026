@@ -24,3 +24,6 @@ build:linux --sandbox_add_mount_pair=/tmp
 build:macos --sandbox_add_mount_pair=/var/tmp
 build:windows --sandbox_add_mount_pair=C:\Temp
 build --action_env BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
+
+build:rust --extra_toolchains=@llvm_toolchain//:all
+build:rust --define=toolchain=llvm

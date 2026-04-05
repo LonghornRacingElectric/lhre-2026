@@ -4,7 +4,7 @@
     "vcu_position": ["Vehicle Displacement X", "Vehicle Displacement Y", "Vehicle Displacement Z"],
     "vcu_velocity": ["Vehicle Velocity X", "Vehicle Velocity Y", "Vehicle Velocity Z"],
     "vcu_accel": ["Vehicle Acceleration X", "Vehicle Acceleration Y", "Vehicle Acceleration Z"],
-    "gps": ["Longitude", "Latitude"],
+    "gps": ["Latitude", "Longitude"],
     "gps_velocity": "Speed",
     "gps_heading": "Heading",
     "body1_accel": ["VCU Acceleration X", "VCU Acceleration Y", "VCU Acceleration Z"],

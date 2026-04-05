@@ -3,7 +3,7 @@ import numpy as np
 import datetime
 import logging
 import time
-from sqlalchemy import text
+from sqlalchemy import text, insert
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import Query, aliased
 from .db_session import get_db
@@ -29,6 +29,12 @@ from .models import (
     AngeliquePack,
     AngeliqueDiagnostics,
     AngeliqueThermal,
+    OrionPacket,
+    OrionDynamics,
+    OrionControls,
+    OrionPack,
+    OrionDiagnosticsLow,
+    OrionThermal,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import JSONB # Added for JSONB type handling
@@ -71,6 +77,13 @@ class QueryBuilder:
             self._models["Diagnostics"] = AngeliqueDiagnostics
             self._models["Thermal"] = AngeliqueThermal
             self._models["Packet"] = AngeliquePacket
+        elif car == "Orion":
+            self._models["Dynamics"] = OrionDynamics
+            self._models["Controls"] = OrionControls
+            self._models["Pack"] = OrionPack
+            self._models["DiagnosticsLow"] = OrionDiagnosticsLow
+            self._models["Thermal"] = OrionThermal
+            self._models["Packet"] = OrionPacket
         else:
             raise ValueError(f"Car {car} is not supported.")
 
@@ -113,6 +126,8 @@ class QueryBuilder:
         self._query = self.session.query() # Initialize query here
         if self._car.lower() == "angelique":
             self.session.execute(text("SET search_path TO angelique"))
+        elif self._car.lower() == "orion":
+            self.session.execute(text("SET search_path TO orion"))
         else:
             self.session.execute(text("SET search_path TO telemetry"))
         return self
@@ -267,20 +282,27 @@ class QueryBuilder:
         Collects data to be inserted into DB via SQLAlchemy bulk insert.
         Applies table-specific preprocessing and type normalization.
         """
+        def is_missing_value(val):
+            if val is None:
+                return True
+            if isinstance(val, (float, np.floating)):
+                return np.isnan(val)
+            return False
+
         # --- Find missing columns ---
         missing_cols = [col for col in table_desc if col not in data]
         if missing_cols:
             logging.warning(f"Missing columns in {table}: {', '.join(missing_cols)}")
 
-        # --- Handle NaN/empty values ---
-        nan_flags = [val == 0 or bool(val) for _, val in data.items()]
-        nans = {k: v for (k, v), ok in zip(data.items(), nan_flags) if not ok}
+        # --- Handle NaN/None values ---
+        missing_flags = [not is_missing_value(val) for _, val in data.items()]
+        nans = {k: v for (k, v), ok in zip(data.items(), missing_flags) if not ok}
         if nans:
             logging.warning(f"NaN-like data in {table}: {nans}")
 
         # --- Normalize values ---
         processed = {}
-        for (key, val), ok in zip(data.items(), nan_flags):
+        for (key, val), ok in zip(data.items(), missing_flags):
             if not ok:
                 continue
             if key not in table_desc:
@@ -304,10 +326,51 @@ class QueryBuilder:
         if commit:
             session.commit()
 
+    @staticmethod
+    def execute_insert(session, rows, table_desc, commit=True):
+        if not rows:
+            return
+        
+        model_lookup = {
+            model.__tablename__: model for model in [
+                Packet, Dynamics, Controls, Pack, DiagnosticsHigh, DiagnosticsLow, Thermal,
+                AngeliquePacket, AngeliqueDynamics, AngeliqueControls, AngeliquePack, AngeliqueDiagnostics, AngeliqueThermal,
+                OrionPacket, OrionDynamics, OrionControls, OrionPack, OrionDiagnosticsLow, OrionThermal,
+            ]
+        }
+        
+        rows_by_table = {}
+        for table_name, row_data in rows:
+            if table_name not in rows_by_table:
+                rows_by_table[table_name] = []
+            rows_by_table[table_name].append(row_data)
+        
+        packet_tables = [t for t in rows_by_table.keys() if 'packet' in t]
+        other_tables = [t for t in rows_by_table.keys() if 'packet' not in t]
+        
+        for table_name in packet_tables + other_tables:
+            table_rows = rows_by_table[table_name]
+            model = model_lookup.get(table_name)
+            
+            if not model or not table_rows:
+                continue
+            
+            processed_rows = [
+                QueryBuilder.get_insert_values(table_name, row, model, table_desc[model.__tablename__])
+                for row in table_rows
+            ]
+            
+            stmt = insert(model.__table__).values(processed_rows)
+            session.execute(stmt)
+        
+        if commit:
+            session.commit()
+
+
 if __name__ == '__main__':
     with QueryBuilder() as qb:
         data = (qb
                 .select("Event")
                 .limit(10)
             ).send_query(pd.DataFrame)
-        print(data)
+        logging.debug(data)

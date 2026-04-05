@@ -92,6 +92,10 @@ void check_dfu() {
         // Write the pin to be set high (this will set boot 0)
         system_config.pin_set_fn(system_config.gpiox, system_config.pin, 1);
 
+        if (system_config.set_bank1_fn) {
+            system_config.set_bank1_fn();
+        }
+
         // delay so that the high boot0 can propagate and be detected by
         // bootloader
         system_config.delay_fn(50);

@@ -16,11 +16,11 @@ class SampleAnalysisTest(unittest.TestCase):
 
     def test_import(self):
         """
-        Example of how you might import and test a module.
+        Ensure analysis modules can be imported without side effects.
         """
-        # from telemtry.analysis import my_module
-        # self.assertIsNotNone(my_module)
-        pass
+        from telemtry import analysis
+
+        self.assertIsNotNone(analysis)
 
 if __name__ == '__main__':
     unittest.main()

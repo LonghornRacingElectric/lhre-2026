@@ -33,6 +33,7 @@ gen/
 log/
 *.log
 *.sql
+!telemtry/stack/ingest/orion_db_init.sql
 *.sqlite
 
 # OS generated files #
@@ -91,3 +92,7 @@ VCU/firmware/.mxproject
 DUI/Drivers/*
 DUI/Middlewares/*
 MODULE.bazel.lock
+
+rust-project.json
+
+BEVO/vpn_creds.txt

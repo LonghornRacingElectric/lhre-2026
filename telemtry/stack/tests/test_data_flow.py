@@ -32,7 +32,7 @@ class TestDataFlow(unittest.TestCase):
     End-to-end tests for telemetry data flow.
     
     Tests the following data paths:
-    1. MQTT publish -> Ingest service -> Database (data/packet, data/dynamics, etc.)
+    1. MQTT publish -> Ingest service -> Database (nightwatch/packet, nightwatch/dynamics, etc.)
     2. MQTT publish -> Ingest service -> Kafka (sensor_data topic)
     3. Kafka consume -> Processor -> Database (for gps_classifier, lap_timer, etc.)
     """
@@ -58,7 +58,7 @@ class TestDataFlow(unittest.TestCase):
         """
         Test that data published to MQTT is forwarded to Kafka by the ingest service.
         
-        Data flow: MQTT (data topic) -> Ingest Service -> Kafka (sensor_data topic)
+        Data flow: MQTT (Orion data topic) -> Ingest Service -> Kafka (sensor_data topic)
         """
         # Set up Kafka consumer first to catch the forwarded message
         kafka_client = KafkaTestClient(self.config)
@@ -67,11 +67,11 @@ class TestDataFlow(unittest.TestCase):
         try:
             # Generate and send protobuf test data via MQTT
             with MQTTTestClient(self.config) as mqtt_client:
-                # Generate test protobuf message
-                test_data = self.data_generator.generate_protobuf_message(packet_id=1001)
+                # Generate Orion test protobuf message
+                test_data = self.data_generator.generate_protobuf_message(packet_id=1001, car="Orion")
                 
                 if test_data:
-                    # Publish to MQTT data topic
+                    # Publish to Orion data topic (bare data is Orion stream)
                     mqtt_client.publish("data", test_data, qos=1)
                     time.sleep(2)  # Allow time for ingest to process and forward
                     
@@ -104,11 +104,11 @@ class TestDataFlow(unittest.TestCase):
         to send test data to the containerized ingest service.
         """
         with MQTTTestClient(self.config) as mqtt_client:
-            # Generate multiple protobuf messages
+            # Generate multiple Nightwatch protobuf messages
             for packet_id in range(1, 11):
-                test_data = self.data_generator.generate_protobuf_message(packet_id=packet_id)
+                test_data = self.data_generator.generate_protobuf_message(packet_id=packet_id, car="Nightwatch")
                 if test_data:
-                    mqtt_client.publish("data", test_data, qos=0)
+                    mqtt_client.publish("nightwatch/data", test_data, qos=0)
                     time.sleep(0.01)  # Small delay between messages
             
             time.sleep(1)  # Allow processing time
@@ -130,7 +130,7 @@ class TestDataFlow(unittest.TestCase):
             # Publish to specific table topics
             tables = ["packet", "dynamics", "controls", "thermal"]
             for table in tables:
-                mqtt_client.publish(f"data/{table}", payload, qos=0)
+                mqtt_client.publish(f"nightwatch/{table}", payload, qos=0)
                 time.sleep(0.1)
             
             # If we get here without exception, the pattern works
@@ -192,6 +192,23 @@ class TestDataFlow(unittest.TestCase):
                 self.assertTrue(True, "Angelique data flow works")
             else:
                 self.skipTest("Could not generate Angelique protobuf data")
+
+    def test_orion_data_flow(self):
+        """
+        Test Orion-specific data flow.
+        """
+        with MQTTTestClient(self.config) as mqtt_client:
+            test_data = self.data_generator.generate_protobuf_message(
+                packet_id=3101,
+                car="Orion"
+            )
+
+            if test_data:
+                mqtt_client.publish("orion/data", test_data, qos=0)
+                time.sleep(1)
+                self.assertTrue(True, "Orion data flow works")
+            else:
+                self.skipTest("Could not generate Orion protobuf data")
 
 
 class TestKafkaProcessorFlow(unittest.TestCase):
