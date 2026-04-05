@@ -28,6 +28,7 @@ CREATE TABLE public.drive_day (
 	air_temperature         real,
     relative_humidity       real,
     track_temperature       real,
+	track_name              text,
 	CONSTRAINT drive_day_pk PRIMARY KEY (day_id)
 );
 
@@ -72,6 +73,7 @@ INSERT INTO public.lut_car (car_id, car_name) VALUES (1, 'Easy Driver');
 INSERT INTO public.lut_car (car_id, car_name) VALUES (2, 'Lady Luck');
 INSERT INTO public.lut_car (car_id, car_name) VALUES (3, 'Angelique');
 INSERT INTO public.lut_car (car_id, car_name) VALUES (4, 'Nightwatch');
+INSERT INTO public.lut_car (car_id, car_name) VALUES (5, 'Orion');
 
 
 -- LUT for Event Types
@@ -381,3 +383,40 @@ $$
 $$;
 
 ALTER FUNCTION public.get_partition_bounds(text,timestamptz,timestamptz,double precision) OWNER TO electric;
+
+-- Track mapping tables
+CREATE TABLE public.track (
+    track_id    serial      NOT NULL,
+    name        text        NOT NULL,
+    location_id integer,
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT track_pk PRIMARY KEY (track_id),
+    CONSTRAINT track_name_unique UNIQUE (name),
+    CONSTRAINT fk_location_id FOREIGN KEY (location_id) REFERENCES lut_location(location_id)
+);
+CREATE INDEX track_location_idx ON public.track (location_id);
+
+CREATE TABLE public.sector_gate (
+    gate_id    serial  NOT NULL,
+    track_id   integer NOT NULL,
+    gate_index integer NOT NULL,
+    lat1       real    NOT NULL,
+    lon1       real    NOT NULL,
+    lat2       real    NOT NULL,
+    lon2       real    NOT NULL,
+    CONSTRAINT sector_gate_pk PRIMARY KEY (gate_id),
+    CONSTRAINT sector_gate_unique UNIQUE (track_id, gate_index),
+    CONSTRAINT fk_track_id FOREIGN KEY (track_id) REFERENCES track(track_id)
+);
+CREATE INDEX sector_gate_track_idx ON public.sector_gate (track_id);
+
+CREATE TABLE public.track_point (
+    point_id     bigserial NOT NULL,
+    event_id     integer   NOT NULL,
+    latitude     real      NOT NULL,
+    longitude    real      NOT NULL,
+    timestamp_ms bigint    NOT NULL,
+    CONSTRAINT track_point_pk PRIMARY KEY (point_id),
+    CONSTRAINT fk_event_id FOREIGN KEY (event_id) REFERENCES event(event_id)
+);
+CREATE INDEX track_point_event_idx ON public.track_point (event_id);

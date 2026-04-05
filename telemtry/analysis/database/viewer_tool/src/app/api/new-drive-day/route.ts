@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma/telemtry';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { power_limit, air_temperature, relative_humidity, track_temperature } = body;
+    const { power_limit, air_temperature, relative_humidity, track_temperature, track_name } = body;
 
     const today = new Date();
 
@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
         air_temperature,
         relative_humidity,
         track_temperature,
+        track_name,
       },
       select: { day_id: true }, // only return the ID
     });

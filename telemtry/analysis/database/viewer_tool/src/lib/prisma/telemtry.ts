@@ -1,6 +1,4 @@
-
-// import { PrismaClient } from '../../../.prisma/telemetry-client';
-import { PrismaClient } from '../../../.prisma/angelique-client';
+import { PrismaClient } from '../../../.prisma/orion-client';
 
 declare global {
   var telemtry_prisma: PrismaClient | undefined;

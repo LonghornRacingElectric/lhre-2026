@@ -182,6 +182,11 @@ export default function NewEventPage() {
     sendStateUpdate({ newEvent: newFormState });
   };
 
+  const handleEndDriveDay = async () => {
+    await sendStateUpdate({ driveDay: undefined, newEvent: undefined, currentPage: "/driveday" });
+    router.push("/driveday");
+  };
+
   const handleCreateEvent = async () => {
     const response = await fetch("/api/create-event", {
       method: "POST",
@@ -199,11 +204,16 @@ export default function NewEventPage() {
   return (
     <div className="p-8 flex justify-center items-center pt-20">
       <Card className="w-full max-w-4xl">
-        <CardHeader>
-          <CardTitle>Create New Event</CardTitle>
-          <CardDescription>
-            Enter the details for the new event.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Create New Event</CardTitle>
+            <CardDescription>
+              Enter the details for the new event.
+            </CardDescription>
+          </div>
+          <Button variant="outline" type="button" onClick={handleEndDriveDay}>
+            End Drive Day
+          </Button>
         </CardHeader>
         <CardContent>
           <form>
@@ -283,6 +293,7 @@ export default function NewEventPage() {
                     <SelectItem value="2">Lady Luck</SelectItem>
                     <SelectItem value="3">Angelique</SelectItem>
                     <SelectItem value="4">Nightwatch</SelectItem>
+                    <SelectItem value="5">Orion</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
