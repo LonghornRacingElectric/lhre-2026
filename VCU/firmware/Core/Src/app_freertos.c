@@ -48,7 +48,7 @@ extern ADC_HandleTypeDef hadc3;
 
 // necessary because USB voltage is up a little bit so tuning is slightly
 // off, we need to scale down to match values when not using USB
-#define FUDGE_FACTOR 1.0f
+#define FUDGE_FACTOR 0.95f
 
 // DMA buffers
 // APPS1, APPS2 from ADC3 (configured in adc.c)
@@ -123,11 +123,11 @@ static vcu_parameters_t s_params = {
             .bse_off_psi = 30.0f,
             .bse_on_psi = 50.0f,
             .bse1_adc_at_min_psi_v =
-                ((FUDGE_FACTOR * 385.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
+                ((FUDGE_FACTOR * 397.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
             .bse1_adc_at_max_psi_v =
                 ((FUDGE_FACTOR * 2267.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
             .bse2_adc_at_min_psi_v =
-                ((FUDGE_FACTOR * 385.0f * ADC_BSE_SCALE_V) /
+                ((FUDGE_FACTOR * 397.0f * ADC_BSE_SCALE_V) /
                  ADC_MAX_VAL), 
             .bse2_adc_at_max_psi_v =
                 ((FUDGE_FACTOR * 2017.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
@@ -335,8 +335,8 @@ void StartControlTask(void *argument) {
     // Read pedal sensors from DMA buffers
     in.apps1_raw = ((float)adc3_dma_buf[0] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
     in.apps2_raw = ((float)adc3_dma_buf[1] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
-    in.bse1_raw = ((float)adc2_dma_buf[1] * ADC_BSE_SCALE_V) / ADC_MAX_VAL;
-    in.bse2_raw = ((float)adc2_dma_buf[0] * ADC_BSE_SCALE_V) / ADC_MAX_VAL;
+    in.bse1_raw = ((float)adc2_dma_buf[0] * ADC_BSE_SCALE_V) / ADC_MAX_VAL;
+    in.bse2_raw = ((float)adc2_dma_buf[1] * ADC_BSE_SCALE_V) / ADC_MAX_VAL;
 
     in.drive_switch = is_drive_switch_pressed();
 
@@ -354,21 +354,39 @@ void StartControlTask(void *argument) {
     //            out.faults.apps_any_fault, out.apps1_travel,
     //            out.apps2_travel);
 
-    log_printf(LOG_WARNING,
-    "BSE_RAW adc1=%u adc2=%u | V1=%.4f V2=%.4f | CAL1 min=%.4f max=%.4f | CAL2 min=%.4f max=%.4f | PSI1=%.2f PSI2=%.2f AVG=%.2f | BRAKE=%u",
-    (unsigned)adc2_dma_buf[1],
-    (unsigned)adc2_dma_buf[0],
-    in.bse1_raw,
-    in.bse2_raw,
-    s_params.bse.bse1_adc_at_min_psi_v,
-    s_params.bse.bse1_adc_at_max_psi_v,
-    s_params.bse.bse2_adc_at_min_psi_v,
-    s_params.bse.bse2_adc_at_max_psi_v,
-    out.bse1_psi,
-    out.bse2_psi,
-    out.bse_psi,
-    (unsigned)out.brake_pressed
-);
+float front_bias_pct = 0.0f;
+float total = out.bse1_psi + out.bse2_psi;
+
+if (total > 1e-3f) {
+    front_bias_pct = (out.bse1_psi / total) * 100.0f;
+}
+
+// log_printf(LOG_WARNING,
+//     "BSE_RAW adc1=%u adc2=%u | PSI1=%.2f PSI2=%.2f AVG=%.2f | FRONT_BIAS=%.1f%% | BRAKE=%u",
+//     (unsigned)adc2_dma_buf[0],
+//     (unsigned)adc2_dma_buf[1],
+//     out.bse1_psi,
+//     out.bse2_psi,
+//     out.bse_psi,
+//     front_bias_pct,
+//     (unsigned)out.brake_pressed
+// );
+
+//     log_printf(LOG_WARNING,
+//     "BSE_RAW adc1=%u adc2=%u | V1=%.4f V2=%.4f | CAL1 min=%.4f max=%.4f | CAL2 min=%.4f max=%.4f | PSI1=%.2f PSI2=%.2f AVG=%.2f | BRAKE=%u",
+//     (unsigned)adc2_dma_buf[0],
+//     (unsigned)adc2_dma_buf[1],
+//     in.bse1_raw,
+//     in.bse2_raw,
+//     s_params.bse.bse1_adc_at_min_psi_v,
+//     s_params.bse.bse1_adc_at_max_psi_v,
+//     s_params.bse.bse2_adc_at_min_psi_v,
+//     s_params.bse.bse2_adc_at_max_psi_v,
+//     out.bse1_psi,
+//     out.bse2_psi,
+//     out.bse_psi,
+//     (unsigned)out.brake_pressed
+// );
     
     // log_printf(LOG_WARNING,
     // "PEDAL_OUT %.2f, TORQUE_OUT %.2f, FAULT %d, APPS %.3f, APPS1 %.2f, APPS2 %.2f, BSE1 %.2f psi, BSE2 %.2f psi, BSE_AVG %.2f",
@@ -382,15 +400,15 @@ void StartControlTask(void *argument) {
     // out.bse2_psi,
     // out.bse_psi);           
 
-    // log_printf(LOG_INFO,
-    //            "PED:%.3f TQ:%.1f | PRNDL:%u INV:%u | "
-    //            "DRV_IN:%u TR:%u | "
-    //            "APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
-    //            (double)out.accel_pedal_travel, (double)out.torque_cmd,
-    //            (unsigned)out.prndl_state, (unsigned)out.inverter_enable,
-    //            (unsigned)in.drive_switch, (unsigned)in.contactors_closed,
-    //            (unsigned)out.faults.apps_any_fault,
-    //            (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault);
+    log_printf(LOG_INFO,
+               "PED:%.3f TQ:%.1f | PRNDL:%u INV:%u | "
+               "DRV_IN:%u TR:%u | "
+               "APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
+               (double)out.accel_pedal_travel, (double)out.torque_cmd,
+               (unsigned)out.prndl_state, (unsigned)out.inverter_enable,
+               (unsigned)in.drive_switch, (unsigned)in.contactors_closed,
+               (unsigned)out.faults.apps_any_fault,
+               (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault);
 
     
 
