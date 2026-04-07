@@ -95,14 +95,14 @@ static vcu_parameters_t s_params = {
     .apps =
         {
             .apps1_min_adc_v =
-                ((FUDGE_FACTOR * 1570.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+                ((FUDGE_FACTOR * 1553.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
             .apps1_max_adc_v =
-                ((FUDGE_FACTOR * 1363.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+                ((FUDGE_FACTOR * 1295.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
 
             .apps2_min_adc_v =
-                ((FUDGE_FACTOR * 1577.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+                ((FUDGE_FACTOR * 1557.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
             .apps2_max_adc_v =
-                ((FUDGE_FACTOR * 1352.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+                ((FUDGE_FACTOR * 1280.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
 
             .implaus_debounce_time_ms = 100u,
             .max_allowable_diff = 0.12f,
@@ -389,16 +389,13 @@ if (total > 1e-3f) {
 // );
     
     // log_printf(LOG_WARNING,
-    // "PEDAL_OUT %.2f, TORQUE_OUT %.2f, FAULT %d, APPS %.3f, APPS1 %.2f, APPS2 %.2f, BSE1 %.2f psi, BSE2 %.2f psi, BSE_AVG %.2f",
+    // "PEDAL_OUT %.2f, TORQUE_OUT %.2f, APPS1 %.2f, APPS2 %.2f, adc1: %u, adc2: %u",
     // out.accel_pedal_travel,
     // out.torque_cmd,
-    // out.faults.apps_any_fault,
-    // (double)out.accel_pedal_travel
     // out.apps1_travel,
     // out.apps2_travel,
-    // out.bse1_psi,
-    // out.bse2_psi,
-    // out.bse_psi);           
+    // adc3_dma_buf[0],
+    // adc3_dma_buf[1]);           
 
     log_printf(LOG_INFO,
                "PED:%.3f TQ:%.1f | PRNDL:%u INV:%u | "
