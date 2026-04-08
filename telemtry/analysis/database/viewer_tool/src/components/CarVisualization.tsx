@@ -7,6 +7,7 @@ import { useRef } from "react";
 import * as THREE from "three";
 import React from "react";
 import { useKafkaJSON } from "@/hooks/useKafkaStream";
+import { useCarSelection } from "@/lib/carSelection";
 
 const CarConstants = {
   suspension: {
@@ -47,8 +48,12 @@ export default function CarVisualization({
 }: {
   data?: CarVisualizationData | null;
 } = {}) {
+  const { selectedCar, ssePath, matchesSelectedCar } = useCarSelection();
   const { data: liveData } = useKafkaJSON<CarData>({
     topic: 'car_visualization',
+    car: selectedCar,
+    ssePath,
+    filter: matchesSelectedCar,
     // Extend staleness so we keep last sample between slower updates
     staleAfterMs: 1000,
     merge: true,

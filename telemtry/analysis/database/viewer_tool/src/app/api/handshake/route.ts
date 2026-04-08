@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import prismaAngelique from "@/lib/prisma/angelique";
+import prismaTelemtry from "@/lib/prisma/telemtry";
+import {
+  getCarPrisma,
+  normalizeCar,
+  resolveCarFromCarId,
+} from "@/lib/prisma/carPrisma";
 
 export const dynamic = "force-dynamic";
-
-function normalizeCarName(value: string | null): "angelique" | "orion" | null {
-  if (!value) return null;
-  const v = value.trim().toLowerCase();
-  if (v === "angelique") return "angelique";
-  if (v === "orion") return "orion";
-  return null;
-}
 
 function isMissingPacketTableError(err: unknown): boolean {
   const message = err instanceof Error ? err.message : String(err);
@@ -27,23 +24,34 @@ export async function GET(req: NextRequest) {
   const time = Date.now();
 
   const { searchParams } = new URL(req.url);
-  // Backward compatible default: if omitted, use Angelique.
-  const car = normalizeCarName(searchParams.get("car")) ?? "angelique";
 
   try {
-    let latest;
-    switch(car) {
-      case "angelique":
-        latest = await prismaAngelique.packet.findFirst({
-          orderBy: { packet_id: "desc" },
-          select: { packet_id: true },
-        });
-        break;
+    let car = normalizeCar(searchParams.get("car"));
+
+    if (!car) {
+      const latestEvent = await prismaTelemtry.event.findFirst({
+        orderBy: [{ creation_time: "desc" }, { event_id: "desc" }],
+        select: {
+          car_id: true,
+          car: { select: { car_name: true } },
+        },
+      });
+
+      car =
+        normalizeCar(latestEvent?.car?.car_name) ??
+        (await resolveCarFromCarId(latestEvent?.car_id)) ??
+        "angelique";
     }
+
+    const carPrisma = getCarPrisma(car);
+    const latest = await carPrisma.packet.findFirst({
+      orderBy: { packet_id: "desc" },
+      select: { packet_id: true },
+    });
 
     const last_packet =
       latest?.packet_id != null ? latest.packet_id.toString() : 0;
-    return NextResponse.json({ time, last_packet });
+    return NextResponse.json({ time, last_packet, car });
   } catch (e) {
     console.error("Error in handshake:", e);
     if (isMissingPacketTableError(e)) {

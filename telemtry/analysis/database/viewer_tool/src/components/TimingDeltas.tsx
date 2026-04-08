@@ -1,96 +1,111 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { useStopwatch } from '@/hooks/useStopwatch';
-import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
+
+import { useKafkaJSON } from '@/hooks/useKafkaStream';
+import { useCarSelection } from '@/lib/carSelection';
+
+type TimingData = {
+  speed?: number | null;
+  throttlePct?: number | null;
+  brakePct?: number | null;
+  packetId?: number | null;
+};
+
+const HISTORY_LIMIT = 120;
+
+function toFiniteNumber(value: number | null | undefined): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
+  return value;
+}
 
 const TimingDeltas = () => {
-    const { formattedTime, start } = useStopwatch();
+  const { selectedCar, selectedCarLabel, ssePath, matchesSelectedCar } = useCarSelection();
+  const [speedHistory, setSpeedHistory] = useState<number[]>([]);
+  const [sampleRateHz, setSampleRateHz] = useState<number | undefined>(undefined);
+  const lastSampleAtRef = useRef<number | undefined>(undefined);
 
-    // FAKE DATA: Replace with actual data from the backend
-    const fakeLapData = [
-        ['0:25.123', '0:30.456', '0:28.789'],
-        ['0:24.987', '0:30.123', '0:28.543'],
-        ['0:25.543', '0:30.789', '0:29.123'],
-        ['0:24.789', '0:29.987', '0:28.321'],
-    ];
+  const { data } = useKafkaJSON<TimingData>({
+    topic: 'timing_deltas',
+    car: selectedCar,
+    ssePath,
+    filter: matchesSelectedCar,
+    staleAfterMs: 2000,
+    merge: true,
+    onMessage: (_evt, parsed) => {
+      const speed = toFiniteNumber(parsed?.speed);
+      if (speed !== undefined) {
+        setSpeedHistory((prev) => [...prev.slice(-(HISTORY_LIMIT - 1)), speed]);
+      }
 
-    // TEMPORARY: This is a temporary variable for display purposes.
-    // Replace with the actual delta value from the backend.
-    const currentDelta = -0.13;
+      const now = Date.now();
+      if (lastSampleAtRef.current) {
+        const hz = 1000 / (now - lastSampleAtRef.current);
+        if (Number.isFinite(hz)) {
+          setSampleRateHz(hz);
+        }
+      }
+      lastSampleAtRef.current = now;
+    },
+  });
 
-    useEffect(() => {
-        start(Date.now(), 0);
-    }, [start]);
+  useEffect(() => {
+    setSpeedHistory([]);
+    setSampleRateHz(undefined);
+    lastSampleAtRef.current = undefined;
+  }, [selectedCar]);
+
+  const currentSpeed = toFiniteNumber(data?.speed);
+  const rollingSpeed =
+    speedHistory.length > 0
+      ? speedHistory.reduce((sum, value) => sum + value, 0) / speedHistory.length
+      : undefined;
+  const paceDelta =
+    currentSpeed !== undefined && rollingSpeed !== undefined
+      ? currentSpeed - rollingSpeed
+      : undefined;
+  const paceDeltaClass =
+    paceDelta === undefined
+      ? 'text-gray-600'
+      : paceDelta >= 0
+      ? 'text-green-600'
+      : 'text-red-600';
 
   return (
-    <div className="flex flex-col h-full">
-        <style jsx>{`
-            @keyframes pulse-size {
-                50% {
-                    transform: scale(1.2);
-                }
-            }
-            .pulse-size {
-                animation: pulse-size 1.5s infinite;
-            }
-        `}</style>
-        <div className="flex justify-between items-center mb-2">
-            <div className="text-2xl font-mono text-gray-500">{formattedTime}</div>
-            <div className={`text-4xl font-mono ${currentDelta >= 0 ? 'text-red-500' : 'text-green-500'}`}>
-                {/* TODO: Wire up the actual delta value here */}
-                {currentDelta.toFixed(2)}
-            </div>
+    <div className="h-full w-full flex flex-col px-4 py-2 text-sm">
+      <h3 className="text-lg font-semibold mb-2">{selectedCarLabel} Timing &amp; Deltas</h3>
+      <p className="text-xs text-gray-500 mb-3">
+        Live pacing is calculated from telemetry speed against a rolling baseline.
+      </p>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="border rounded p-3 bg-white">
+          <div className="text-gray-500">Current Speed</div>
+          <div className="font-semibold">
+            {currentSpeed !== undefined ? currentSpeed.toFixed(2) : '—'}
+          </div>
         </div>
-        <p className="text-center text-xs text-gray-500 mb-2">(Fake Data)</p>
-        <div className="flex-grow overflow-auto">
-            <Table>
-                <TableHeader>
-                <TableRow>
-                    <TableHead>Lap</TableHead>
-                    <TableHead>Sector 1</TableHead>
-                    <TableHead>Sector 2</TableHead>
-                    <TableHead>Sector 3</TableHead>
-                </TableRow>
-                </TableHeader>
-                <TableBody>
-                {fakeLapData.map((lap, lapIndex) => (
-                    <TableRow key={lapIndex}>
-                    <TableCell>{lapIndex + 1}</TableCell>
-                    {lap.map((sectorTime, sectorIndex) => (
-                        <TableCell key={sectorIndex}>{sectorTime}</TableCell>
-                    ))}
-                    </TableRow>
-                ))}
-                </TableBody>
-            </Table>
+        <div className="border rounded p-3 bg-white">
+          <div className="text-gray-500">Rolling Pace</div>
+          <div className="font-semibold">
+            {rollingSpeed !== undefined ? rollingSpeed.toFixed(2) : '—'}
+          </div>
         </div>
-        <div className="flex justify-end items-center mt-2">
-            {/* 
-                Status Indicator for Track Setup:
-                - Red: Not yet fully set up.
-                - Yellow: Setup in progress (track is mapping or mapped but no sectors have been defined yet).
-                - Green: Track is mapped and at least 1 sector exists.
-                The setup page at /track-mapping should update the status of this indicator.
-                This is currently using fake data and is set to green.
-            */}
-            <div 
-                className="w-4 h-4 rounded-full bg-green-500 pulse-size mr-2"
-                title="Red: Not set up. Yellow: Setup in progress. Green: Ready."
-            ></div>
-            <Link href="/track-mapping">
-                <Button variant="outline">Setup & Track Mapping</Button>
-            </Link>
+        <div className="border rounded p-3 bg-white">
+          <div className="text-gray-500">Pace Delta</div>
+          <div className={`font-semibold ${paceDeltaClass}`}>
+            {paceDelta !== undefined
+              ? `${paceDelta >= 0 ? '+' : ''}${paceDelta.toFixed(2)}`
+              : '—'}
+          </div>
         </div>
+        <div className="border rounded p-3 bg-white">
+          <div className="text-gray-500">Sample Rate</div>
+          <div className="font-semibold">
+            {sampleRateHz !== undefined ? `${sampleRateHz.toFixed(1)} Hz` : '—'}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

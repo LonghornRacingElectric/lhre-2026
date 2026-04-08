@@ -1,70 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# viewer_tool
 
-## Getting Started
+Next.js viewer for live telemetry and replay workflows.
 
-First, run the development server:
+## Current multi-car status
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Implemented:
+- Header-driven live routing for `Orion` and `Angelique` (`car_type` respected end-to-end).
+- Server-side car filtering in `/api/kafka-stream` via `?car=<orion|angelique>`.
+- Canonical live topics from raw `sensor_data`: `car_visualization`, `driver_input_visualizer`, `map`, `live_banner`.
+- Additional normalized live topics for remaining widgets: `dashboard_screen`, `timing_deltas`, `shutdown_screen`, `thermal_headroom`, `energy_budget`.
+- Live car selector in `LiveViewerBanner` with URL/localStorage persistence and keyboard cycling (`[` / `]`).
+- Rollout flag support with `NEXT_PUBLIC_VIEWER_MULTI_CAR` (set `false`/`0` to lock viewer to active/default car).
+- Car-aware replay packet reads and handshake/end-event/status packet-end lookups.
+- Thermal, energy, dashboard, shutdown, and timing widgets now consume live telemetry-backed contracts.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Still pending:
+- Full sector/lap timing delta integration (current timing tile is telemetry pace-trend based).
+- Add integration tests for simultaneous two-car streams and full widget parity.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Kafka routing model
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Raw topics are consumed once by the backend Kafka consumer.
+- Live widget topics are emitted on the in-process event bus.
+- `kafka.routes.json` handles pass-through routing for derived topics (`gg-plot`, `track-mapper`).
+- `sensor_data` normalization is handled directly in `src/lib/kafka/kafkaConsumer.ts`.
 
-## Kafka routing configuration
+## Environment variables
 
-The viewer consumes raw Kafka topics and routes them to logical UI topics via a JSON config.
-
-- Preferred: point to a JSON file with `KAFKA_ROUTES_FILE`.
-- Backward-compatible: `KAFKA_ROUTES_JSON` also works (JSON string env var).
-- Default: if neither is set, the app will try `./kafka.routes.json` from the project root of `viewer_tool`.
-
-Example env:
+Example viewer-side Kafka/env values:
 
 ```env
 KAFKA_BROKERS=localhost:29092
 KAFKA_CLIENT_ID=viewer-tool
 KAFKA_GROUP_ID=viewer-tool-group
-KAFKA_TOPICS=status
-KAFKA_AUTO_CREATE=1
+KAFKA_TOPICS=status,sensor_data,gg-plot,track-mapper
 KAFKA_ROUTES_FILE=./kafka.routes.json
+KAFKA_SENSOR_TOPIC=sensor_data
+NEXT_PUBLIC_DEFAULT_LIVE_CAR=orion
+NEXT_PUBLIC_VIEWER_MULTI_CAR=true
 ```
 
-Example `kafka.routes.json`:
+## Local setup
 
-```json
-{
-	"status": [
-		{ "to": "livebanner", "pick": ["battery", "odometer", "dynamics.speed"] }
-	]
-}
+Install deps:
+
+```bash
+npm install
 ```
 
-Notes:
-- You can use dot-notation in `pick` to select nested fields (e.g. `dynamics.speed`).
-- When picking nested paths, the output preserves structure, e.g. `{ "dynamics": { "speed": 123 } }`.
-- If `rename` is also provided, it applies to the leaf key of each picked path (e.g. renaming `speed` to `v`).
+Generate Prisma clients:
 
-## Learn More
+```bash
+npm run prisma-auth-generate
+npm run prisma-telemtry-generate
+npm run prisma-orion-generate
+npm run prisma-angelique-generate
+```
 
-To learn more about Next.js, take a look at the following resources:
+> Note: current Prisma schemas `prisma/{orion,telemtry}.prisma` include optional-list fields (`Float[]?`) that are rejected by Prisma 6.x. Resolve schema compatibility before relying on generated clients in fresh environments.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Generate protobuf TS stubs (optional helper scripts):
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run protobuf-angelique
+npm run protobuf-orion
+```
 
-## Deploy on Vercel
+Run dev server:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run dev
+```

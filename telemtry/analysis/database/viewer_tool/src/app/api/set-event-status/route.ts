@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma/telemtry'; // Make sure you export PrismaClient instance here
+import prismaTelemtry from '@/lib/prisma/telemtry';
+import {
+  getCarPrisma,
+  normalizeCar,
+  resolveCarFromCarId,
+} from '@/lib/prisma/carPrisma';
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,10 +16,21 @@ export async function POST(req: NextRequest) {
     }
 
     const now = start_time ?? Date.now();
+    const eventMeta = await prismaTelemtry.event.findUnique({
+      where: { event_id },
+      select: {
+        car_id: true,
+        car: { select: { car_name: true } },
+      },
+    });
+    const car =
+      normalizeCar(body.car) ??
+      normalizeCar(eventMeta?.car?.car_name) ??
+      (await resolveCarFromCarId(eventMeta?.car_id));
 
     if (status === 1) {
       // Event is starting
-      await prisma.event.update({
+      await prismaTelemtry.event.update({
         where: { event_id },
         data: {
           start_time: now,
@@ -23,13 +39,14 @@ export async function POST(req: NextRequest) {
       });
     } else if (status === 0) {
       // Event is ending: need last packet_id
-      const lastPacket = await prisma.packet.findFirst({
+      const carPrisma = getCarPrisma(car);
+      const lastPacket = await carPrisma.packet.findFirst({
         orderBy: { packet_id: 'desc' },
+        select: { packet_id: true },
       });
-
       const packet_end = lastPacket?.packet_id ?? body.packet_end ?? 0;
 
-      await prisma.event.update({
+      await prismaTelemtry.event.update({
         where: { event_id },
         data: {
           end_time: now,
@@ -39,7 +56,7 @@ export async function POST(req: NextRequest) {
       });
     } else {
       // Other statuses
-      await prisma.event.update({
+      await prismaTelemtry.event.update({
         where: { event_id },
         data: { status },
       });

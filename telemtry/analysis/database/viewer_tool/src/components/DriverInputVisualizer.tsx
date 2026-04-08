@@ -1,7 +1,7 @@
 'use client';
 
 import { useKafkaJSON } from '@/hooks/useKafkaStream';
-import { useState } from 'react';
+import { useCarSelection } from '@/lib/carSelection';
 
 // TODO: Replace with actual steering wheel image maybe
 const SteeringWheelIcon = () => (
@@ -12,7 +12,12 @@ const SteeringWheelIcon = () => (
 );
 
 export type DriverInputData = {
-  controls?: { steerV?: number | null };
+  controls?: {
+    steerV?: number | null;
+    steerColAngle?: number | null;
+    throttlePct?: number | null;
+    brakePct?: number | null;
+  };
 };
 
 const DriverInputVisualizer = ({
@@ -20,9 +25,13 @@ const DriverInputVisualizer = ({
 }: {
   data?: DriverInputData | null;
 } = {}) => {
+  const { selectedCar, ssePath, matchesSelectedCar } = useCarSelection();
   // Live connection to Kafka "sensor_data" topic
   const { data: liveData } = useKafkaJSON<DriverInputData>({
     topic: 'driver_input_visualizer',
+    car: selectedCar,
+    ssePath,
+    filter: matchesSelectedCar,
     // Extend staleness so we keep last sample between slower updates
     staleAfterMs: 1000,
     merge: true,
@@ -32,14 +41,14 @@ const DriverInputVisualizer = ({
   const sensorData = data !== undefined ? data : liveData;
   
   // Default values if no data is available
-  const brakeInput = 0//sensorData?.brakeInput ?? 0; // Percentage (0-100)
-  const throttleInput = 0//sensorData?.throttleInput ?? 0; // Percentage (0-100)
+  const brakeInput = Number(sensorData?.controls?.brakePct ?? 0); // Percentage (0-100)
+  const throttleInput = Number(sensorData?.controls?.throttlePct ?? 0); // Percentage (0-100)
   const steerVoltage = sensorData?.controls?.steerV ?? 0; // Voltage (0 to 2.5)
+  const steerColAngle = sensorData?.controls?.steerColAngle;
 
   const getStatus = () => {
     if (brakeInput > 5) return 'Braking';
     if (throttleInput > 5) return 'Accelerating';
-    console.log(sensorData);
     return 'Idle';
   };
 
@@ -53,7 +62,10 @@ const DriverInputVisualizer = ({
   const MAX_LEFT_DEGREE = -135; // Placeholder for exact value
   const MAX_RIGHT_DEGREE = 135; // Placeholder for exact value
 
-  const steeringAngle = (steerVoltage - 1.25) * ((MAX_RIGHT_DEGREE - MAX_LEFT_DEGREE) / 2.5); // Map 0-2.5V to MAX_LEFT_DEGREE to MAX_RIGHT_DEGREE
+  const steeringAngle =
+    typeof steerColAngle === "number"
+      ? steerColAngle
+      : (steerVoltage - 1.25) * ((MAX_RIGHT_DEGREE - MAX_LEFT_DEGREE) / 2.5); // Map 0-2.5V to MAX_LEFT_DEGREE to MAX_RIGHT_DEGREE
 
   return (
     <div className="bg-white rounded-lg shadow-md p-4 w-full h-full flex flex-col">

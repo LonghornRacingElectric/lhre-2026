@@ -32,6 +32,8 @@ import GGPlot from "@/components/GGPlot";
 import DashboardScreen from "@/components/DashboardScreen";
 import ShutdownScreen from "@/components/ShutdownScreen";
 import EventFlagger from "@/components/EventFlagger";
+import ThermalHeadroomMeter from "@/components/ThermalHeadroomMeter";
+import EnergyBudget from "@/components/EnergyBudget";
 
 const DynamicMap = dynamic(() => import("@/components/Map"), {
   ssr: false,
@@ -118,10 +120,15 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
           </div>
         );
       case "thermal-headroom":
+        return (
+          <div className="w-full h-full">
+            <ThermalHeadroomMeter />
+          </div>
+        );
       case "energy-budget":
         return (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-gray-500">Soon&trade;</p>
+          <div className="w-full h-full">
+            <EnergyBudget />
           </div>
         );
       default:

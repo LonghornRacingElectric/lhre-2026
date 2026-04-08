@@ -1,157 +1,114 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import FixedAspectContainer from './dashboard/FixedAspectContainer';
+import { useKafkaJSON } from '@/hooks/useKafkaStream';
+import { useCarSelection } from '@/lib/carSelection';
 
-interface ShutdownItem {
-    id: number;
-    name: string;
-    description?: string;
-}
+type ShutdownData = {
+  shutdownHealthy?: boolean;
+  contactorState?: number;
+  hvcStateMachine?: number;
+  shutdownCurrent?: number;
+  r2dAuthorized?: boolean;
+  r2dStatus?: boolean;
+  negHvContactor?: boolean;
+  posHvContactor?: boolean;
+  prechargeContactor?: boolean;
+  legs?: Record<string, boolean | undefined>;
+};
 
-const ITEMS: ShutdownItem[] = [
-    { id: 1, name: "LV Master Switch", description: "" },
-    { id: 2, name: "Shutdown Fuse", description: "5A" },
-    { id: 3, name: "R-ESTOP", description: "Right E-Stop Button" },
-    { id: 4, name: "BMS", description: "Battery Management System Relay" },
-    { id: 5, name: "IMD", description: "Insulation Monitoring Device Relay" },
-    { id: 6, name: "Battery ACU HVIL", description: "" },
-    { id: 7, name: "L-ESTOP", description: "Left E-Stop Button" },
-    { id: 8, name: "D-ESTOP", description: "Dash E-Stop Button" },
-    { id: 9, name: "Inertial Switch", description: "" },
-    { id: 10, name: "BOTS", description: "Brake Over-Travel Switch" },
-    { id: 11, name: "BSPD", description: "Brake Systems Plausibility Device Relay" },
-    { id: 12, name: "E-Meter HVIL", description: "" },
-    { id: 13, name: "MSD HVIL", description: "Manual Service Disconnect" },
-    { id: 14, name: "Battery HVIL", description: "" },
-    { id: 15, name: "Inverter HVIL", description: "" },
-    { id: 16, name: "TSMS", description: "Tractive Systems Master Switch" },
-];
+const StatusChip = ({
+  label,
+  value,
+}: {
+  label: string;
+  value: boolean | null | undefined;
+}) => {
+  const colorClass =
+    value === true ? 'text-green-600' : value === false ? 'text-red-600' : 'text-gray-500';
+  const labelText = value === true ? 'OK' : value === false ? 'Fault' : '—';
 
-const ShutdownScreen: React.FC = () => {
-    const [statuses, setStatuses] = useState<boolean[]>(Array(16).fill(true));
+  return (
+    <div className="border rounded p-2 bg-white">
+      <div className="text-xs text-gray-500">{label}</div>
+      <div className={`font-semibold ${colorClass}`}>{labelText}</div>
+    </div>
+  );
+};
 
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setStatuses(prev => {
-                const newStatuses = [...prev];
-                if (Math.random() > 0.8) {
-                    const idx = Math.floor(Math.random() * 16);
-                    newStatuses[idx] = !newStatuses[idx];
-                } else {
-                    const idx = Math.floor(Math.random() * 16);
-                    newStatuses[idx] = true;
-                }
-                return newStatuses;
-            });
-        }, 2000);
-        return () => clearInterval(interval);
-    }, []);
+const ShutdownScreen = () => {
+  const { selectedCar, selectedCarLabel, ssePath, matchesSelectedCar } = useCarSelection();
+  const { data } = useKafkaJSON<ShutdownData>({
+    topic: 'shutdown_screen',
+    car: selectedCar,
+    ssePath,
+    filter: matchesSelectedCar,
+    staleAfterMs: 2000,
+    merge: true,
+  });
 
-    return (
-        <FixedAspectContainer width={800} height={480}>
-            <div
-                className="p-5 box-border text-white overflow-hidden"
-                style={{
-                    width: '800px',
-                    height: '480px',
-                    background: 'radial-gradient(circle at center, #1a1a1a 0%, #000000 100%)',
-                    fontFamily: "'Segoe UI', 'Roboto', sans-serif"
-                }}
-            >
-                <div
-                    className="grid h-full w-full gap-4"
-                    style={{
-                        gridTemplateColumns: 'repeat(4, 1fr)',
-                        gridTemplateRows: 'repeat(4, 1fr)'
-                    }}
-                >
-                {ITEMS.map((item, index) => {
-                    const isGood = statuses[index];
+  const legs = Object.entries(data?.legs ?? {}).filter(
+    ([, value]) => typeof value === 'boolean',
+  ) as Array<[string, boolean]>;
+  const hasCircuitData =
+    legs.length > 0 ||
+    typeof data?.negHvContactor === 'boolean' ||
+    typeof data?.posHvContactor === 'boolean' ||
+    typeof data?.prechargeContactor === 'boolean' ||
+    typeof data?.r2dStatus === 'boolean';
 
-                    return (
-                        <div
-                            key={item.id}
-                            className="relative flex items-center rounded-lg transition-all duration-300"
-                            style={{
-                                background: isGood
-                                    ? 'rgba(255, 255, 255, 0.05)'
-                                    : 'rgba(255, 0, 0, 0.15)',
-                                backdropFilter: 'blur(5px)',
-                                border: isGood
-                                    ? '1px solid rgba(0, 255, 100, 0.3)'
-                                    : '1px solid rgba(255, 50, 50, 0.5)',
-                                boxShadow: isGood
-                                    ? '0 0 15px rgba(0, 255, 100, 0.1) inset'
-                                    : '0 0 20px rgba(255, 0, 0, 0.3) inset',
-                                padding: '0 30px',
-                                overflow: 'hidden',
-                                animation: isGood ? 'none' : 'pulse-red 1.5s infinite'
-                            }}
-                        >
-                            {/* Item Number */}
-                            <div
-                                className="absolute left-2 top-1/2 -translate-y-1/2 font-bold opacity-50"
-                                style={{
-                                    fontFamily: "'Consolas', 'Monaco', monospace",
-                                    fontSize: '1.25rem',
-                                    color: '#888',
-                                    width: '20px'
-                                }}
-                            >
-                                {item.id}
-                            </div>
+  return (
+    <div className="h-full w-full flex flex-col px-4 py-2 text-sm">
+      <h3 className="text-lg font-semibold mb-2">{selectedCarLabel} Shutdown Circuit</h3>
 
-                            {/* Item Content */}
-                            <div className="flex flex-col justify-center flex-grow">
-                                <div
-                                    className="font-semibold uppercase"
-                                    style={{
-                                        fontSize: '0.75rem',
-                                        letterSpacing: '0.5px'
-                                    }}
-                                >
-                                    {item.name}
-                                </div>
-                                {item.description && (
-                                    <div
-                                        style={{
-                                            fontSize: '0.55rem',
-                                            color: '#aaa',
-                                            marginTop: '-1px'
-                                        }}
-                                    >
-                                        {item.description}
-                                    </div>
-                                )}
-                            </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+        <StatusChip
+          label="Circuit Health"
+          value={data?.shutdownHealthy ?? (hasCircuitData ? false : null)}
+        />
+        <StatusChip label="R2D Authorized" value={data?.r2dAuthorized} />
+        <StatusChip label="R2D Status" value={data?.r2dStatus} />
+        <StatusChip label="Precharge" value={data?.prechargeContactor} />
+      </div>
 
-                            {/* Status Indicator */}
-                            <div
-                                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full flex-shrink-0"
-                                style={{
-                                    width: '12px',
-                                    height: '12px',
-                                    backgroundColor: isGood ? '#00FF66' : '#FF3333',
-                                    boxShadow: isGood ? '0 0 10px #00FF66' : '0 0 15px #FF3333'
-                                }}
-                            />
-                        </div>
-                    );
-                })}
-                </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+        <StatusChip label="Negative HV Contactor" value={data?.negHvContactor} />
+        <StatusChip label="Positive HV Contactor" value={data?.posHvContactor} />
+        <div className="border rounded p-2 bg-white">
+          <div className="text-xs text-gray-500">Shutdown Current</div>
+          <div className="font-semibold">
+            {typeof data?.shutdownCurrent === 'number'
+              ? `${data.shutdownCurrent.toFixed(2)} A`
+              : '—'}
+          </div>
+        </div>
+        <div className="border rounded p-2 bg-white">
+          <div className="text-xs text-gray-500">HVC State</div>
+          <div className="font-semibold">
+            {typeof data?.hvcStateMachine === 'number' ? data.hvcStateMachine : '—'}
+          </div>
+        </div>
+      </div>
 
-                {/* CSS Animation for pulse */}
-                <style jsx>{`
-                    @keyframes pulse-red {
-                        0% { box-shadow: 0 0 20px rgba(255, 0, 0, 0.3) inset; }
-                        50% { box-shadow: 0 0 40px rgba(255, 0, 0, 0.6) inset; }
-                        100% { box-shadow: 0 0 20px rgba(255, 0, 0, 0.3) inset; }
-                    }
-                `}</style>
-            </div>
-        </FixedAspectContainer>
-    );
+      <div className="border rounded p-2 bg-white mb-3 max-w-[12rem]">
+        <div className="text-xs text-gray-500">Contactor State</div>
+        <div className="font-semibold">
+          {typeof data?.contactorState === 'number' ? data.contactorState : '—'}
+        </div>
+      </div>
+
+      {legs.length ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {legs.map(([leg, value]) => (
+            <StatusChip key={leg} label={leg.replace('leg', 'Leg ')} value={value} />
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-gray-500">
+          No per-leg shutdown telemetry available for {selectedCarLabel} in current stream.
+        </p>
+      )}
+    </div>
+  );
 };
 
 export default ShutdownScreen;

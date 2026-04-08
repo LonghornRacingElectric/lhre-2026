@@ -3,8 +3,44 @@ export const dynamic = "force-dynamic";  // don't cache SSE
 
 import { NextRequest } from "next/server";
 import { bus } from "@/lib/kafka/bus";
-import { startKafkaConsumer } from "@/lib/kafka/kafkaConsumer";
+import {
+  ensureSubscribe,
+  resolveRawTopicsForRequested,
+  startKafkaConsumer,
+} from "@/lib/kafka/kafkaConsumer";
 import { getBufferedMessages } from "@/lib/kafka/messageBuffer";
+
+function normalizeCar(value: string | null): "orion" | "angelique" | null {
+  if (!value) return null;
+  const v = value.trim().toLowerCase();
+  if (v === "orion") return "orion";
+  if (v === "angelique") return "angelique";
+  return null;
+}
+
+function getMessageCarType(msg: any): "orion" | "angelique" | null {
+  const rawFromHeader = msg?.headers?.car_type;
+  const headerCar = normalizeCar(typeof rawFromHeader === "string" ? rawFromHeader : null);
+  if (headerCar) return headerCar;
+
+  if (typeof msg?.payload === "string") {
+    try {
+      const parsed = JSON.parse(msg.payload);
+      const payloadCar =
+        normalizeCar(
+          typeof parsed?.car_type === "string"
+            ? parsed.car_type
+            : typeof parsed?.carType === "string"
+              ? parsed.carType
+              : null,
+        );
+      if (payloadCar) return payloadCar;
+    } catch {
+      // ignore
+    }
+  }
+  return null;
+}
 
 export async function GET(req: NextRequest) {
   await startKafkaConsumer();
@@ -12,6 +48,7 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const topicsParam = url.searchParams.get("topics");
   const rawTopic = url.searchParams.get("topic");
+  const requestedCar = normalizeCar(url.searchParams.get("car"));
 
   const topics: string[] = (topicsParam
     ? topicsParam.split(",")
@@ -25,8 +62,8 @@ export async function GET(req: NextRequest) {
     return new Response("Missing 'topics' or 'topic' query parameter", { status: 400 });
   }
 
-  // Do not subscribe to Kafka here. The consumer subscribes to raw topics from env (KAFKA_TOPICS).
-  // We only attach bus listeners for the exact topics requested.
+  const sourceTopics = resolveRawTopicsForRequested(topics);
+  await Promise.all(sourceTopics.map((topic) => ensureSubscribe(topic)));
 
   const enc = new TextEncoder();
   let closed = false;
@@ -43,15 +80,19 @@ export async function GET(req: NextRequest) {
       for (const t of topics) {
         const history = getBufferedMessages(t);
         for (const msg of history) {
-           write(msg);
+          const msgCar = getMessageCarType(msg);
+          if (requestedCar && msgCar && msgCar !== requestedCar) continue;
+          write(msg);
         }
       }
 
       const handlers: Array<{ topic: string; fn: (msg: any) => void }> = [];
       for (const t of topics) {
-        const fn = (msg: any) => { 
-          console.log("SSE sending message for topic:", t, "message:", msg);
-          if (msg?.topic === t) write(msg); 
+        const fn = (msg: any) => {
+          if (msg?.topic !== t) return;
+          const msgCar = getMessageCarType(msg);
+          if (requestedCar && msgCar && msgCar !== requestedCar) return;
+          write(msg);
         };
         bus.on(`kafka:${t}`, fn);
         handlers.push({ topic: t, fn });

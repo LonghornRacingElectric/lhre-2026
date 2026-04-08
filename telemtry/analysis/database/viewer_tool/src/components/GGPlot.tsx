@@ -1,24 +1,34 @@
 import { useEffect, useState } from 'react';
 import { useKafkaJSON } from '@/hooks/useKafkaStream';
+import { useCarSelection } from '@/lib/carSelection';
 import * as d3 from 'd3';
 
 const GGPlot = () => {
   const [points, setPoints] = useState<{ x: number; y: number }[]>([]);
+  const { selectedCar, ssePath, matchesSelectedCar } = useCarSelection();
 
   // Live connection to Kafka "gg_plot_data" topic
-  const { connected: kafkaConnected } = useKafkaJSON<{
+  useKafkaJSON<{
     data: { x: number; y: number };
   }>({
     topic: 'gg-plot',
+    car: selectedCar,
+    ssePath,
+    filter: matchesSelectedCar,
+    staleAfterMs: 2000,
     onMessage: (evt, parsed) => {
       if (parsed?.data) {
         setPoints((prevPoints) => [
-          ...prevPoints,
+          ...prevPoints.slice(-1499),
           { x: parsed.data.x, y: parsed.data.y },
         ]);
       }
     },
   });
+
+  useEffect(() => {
+    setPoints([]);
+  }, [selectedCar]);
 
   const width = 500;
   const height = 500;

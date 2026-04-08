@@ -13,6 +13,7 @@ import L from "leaflet";
 import { useState, useEffect, useRef } from "react";
 import { nanoid } from "nanoid";
 import { useKafkaJSON } from "@/hooks/useKafkaStream";
+import { useCarSelection } from "@/lib/carSelection";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -59,6 +60,7 @@ const MapResizer = ({ resize }: { resize: any }) => {
 const TRAIL_MAX_POINTS = 1000;
 
 const Map = ({ resize, data }: { resize?: any, data?: MapData | null; }) => {
+  const { selectedCar, ssePath, matchesSelectedCar } = useCarSelection();
   const [position, setPosition] = useState<[number, number]>([51.505, -0.09]);
   const [trail, setTrail] = useState<Array<[number, number]>>([]);
   const [showTrail, setShowTrail] = useState(true);
@@ -68,6 +70,9 @@ const Map = ({ resize, data }: { resize?: any, data?: MapData | null; }) => {
   // Live connection to Kafka "sensor_data" topic
   const { data: liveData } = useKafkaJSON<MapData>({
     topic: "map",
+    car: selectedCar,
+    ssePath,
+    filter: matchesSelectedCar,
     // Extend staleness so we keep last sample between slower updates
     staleAfterMs: 1000,
     merge: true,
@@ -77,6 +82,10 @@ const Map = ({ resize, data }: { resize?: any, data?: MapData | null; }) => {
   const sensorData = data !== undefined ? data : liveData;
   const latitude = sensorData?.dynamics?.gps?.[0];
   const longitude = sensorData?.dynamics?.gps?.[1];
+
+  useEffect(() => {
+    setTrail([]);
+  }, [selectedCar]);
 
   useEffect(() => {
     if (latitude != null && longitude != null) {

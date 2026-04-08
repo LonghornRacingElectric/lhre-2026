@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma/telemtry";
+import prismaTelemtry from "@/lib/prisma/telemtry";
+import {
+  getCarPrisma,
+  normalizeCar,
+  resolveCarFromCarId,
+} from "@/lib/prisma/carPrisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,12 +40,6 @@ function toBigInt(value: string | null): bigint | null {
   }
 }
 
-function median(values: bigint[]): bigint | null {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-  return sorted[Math.floor(sorted.length / 2)] ?? null;
-}
-
 function bigintToSafeNumber(v: bigint | null): number | null {
   if (v == null) return null;
   const n = Number(v);
@@ -61,7 +60,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const ev = await prisma.event.findUnique({
+    const ev = await prismaTelemtry.event.findUnique({
       where: { event_id: eventId },
       select: {
         event_id: true,
@@ -146,13 +145,20 @@ export async function GET(req: NextRequest) {
 
     const packetStart = BigInt(ev.packet_start as any);
     const packetEnd = BigInt(ev.packet_end as any);
+    const requestedCar = normalizeCar(url.searchParams.get("car"));
+    const car =
+      requestedCar ??
+      normalizeCar(ev.car?.car_name) ??
+      (await resolveCarFromCarId(ev.car_id)) ??
+      "orion";
+    const packetPrisma = getCarPrisma(car);
 
     const [p0, p1] = await Promise.all([
-      prisma.packet.findUnique({
+      packetPrisma.packet.findUnique({
         where: { packet_id: packetStart },
         select: { time: true },
       }),
-      prisma.packet.findUnique({
+      packetPrisma.packet.findUnique({
         where: { packet_id: packetEnd },
         select: { time: true },
       }),
@@ -168,7 +174,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const classifiers = await prisma.classifier.findMany({
+    const classifiers = await prismaTelemtry.classifier.findMany({
       where: {
         AND: [
           { event_id: eventId },
@@ -282,6 +288,7 @@ export async function GET(req: NextRequest) {
         track: ev.location?.track ?? null,
         event_type: ev.eventType?.event_type ?? null,
         car_name: ev.car?.car_name ?? null,
+        car_type: car,
         time_start: bigintToSafeNumber(startMs),
         time_end: bigintToSafeNumber(endMs),
         lap_times,

@@ -15,6 +15,7 @@ export type KafkaEvent = {
 export type UseKafkaStreamOptions<TData = unknown, TSelected = TData> = {
   topic: string;            // e.g., "telemetry" or "telemetry/*"
   prefix?: boolean;         // treat topic as a prefix (also implied by trailing /*)
+  car?: string;             // optional car filter passed to SSE endpoint
   parse?: (payload: string) => TData; // defaults to JSON.parse fallback to string
   select?: (data: TData, evt: KafkaEvent) => TSelected; // pick specific data from message
   filter?: (evt: KafkaEvent) => boolean; // additional filter besides topic
@@ -81,15 +82,15 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
 ): UseKafkaStreamState<TSelected> {
   const {
     topic,
-    prefix,
     parse = defaultParse,
     select,
     filter,
+    car,
     initial,
     onMessage,
     onError,
     ssePath = getSSEPath(),
-    staleAfterMs = 100,
+    staleAfterMs = 5000,
     merge = false,
   } = opts;
 
@@ -104,18 +105,15 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
 
   const restartRef = useRef<() => void>(() => {});
 
-  const { url, isPrefix } = useMemo(() => {
-    const hasWildcard = topic.endsWith("/*");
-    const base = hasWildcard ? topic.slice(0, -2) : topic;
-    const usePrefix = !!prefix || hasWildcard;
+  const effectiveSsePath = useMemo(() => {
+    if (!car) return ssePath;
     const u = new URL(
       ssePath,
       typeof window !== "undefined" ? window.location.origin : "http://localhost"
     );
-    u.searchParams.set("topic", base + (hasWildcard ? "/*" : ""));
-    if (!hasWildcard && usePrefix) u.searchParams.set("prefix", "true");
-    return { url: u.toString(), isPrefix: usePrefix };
-  }, [topic, prefix, ssePath]);
+    u.searchParams.set("car", car);
+    return `${u.pathname}${u.search}`;
+  }, [car, ssePath]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -156,12 +154,13 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
         onMessage?.(evt, parsed, selected);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
+        onError?.(new Event("kafka-stream-error"));
       }
-    }, { ssePath });
+    }, { ssePath: effectiveSsePath });
 
     restartRef.current = () => restartSSE();
     return () => { offConn(); unsub(); };
-  }, [topic, ssePath, filter, parse, select, onMessage, merge]);
+  }, [topic, effectiveSsePath, filter, parse, select, onMessage, onError, merge]);
 
   // Freshness monitoring: mark kafkaConnected false if stale
   useEffect(() => {
@@ -190,7 +189,7 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
     setLastEvent(undefined);
     setLastMessageAt(undefined);
     setKafkaConnected(false);
-  }, [topic, initial]);
+  }, [topic, initial, car]);
 
   return {
     data,
@@ -207,5 +206,5 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
 
 /** Convenience helper for JSON payloads with a simple selector. */
 export function useKafkaJSON<TSelected = unknown>(opts: Omit<UseKafkaStreamOptions<any, TSelected>, "parse">) {
-  return useKafkaStream<any, TSelected>({ ...opts, parse: defaultParse, staleAfterMs: 100 });
+  return useKafkaStream<any, TSelected>({ ...opts, parse: defaultParse });
 }
