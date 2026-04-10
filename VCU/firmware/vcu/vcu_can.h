@@ -9,6 +9,7 @@
 extern "C" {
 #endif
 
+
 void vcu_can_init(void);
 
 // Send torque request in Nm
