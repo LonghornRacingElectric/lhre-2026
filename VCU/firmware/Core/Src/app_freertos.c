@@ -46,10 +46,6 @@ extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc2;
 extern ADC_HandleTypeDef hadc3;
 
-// necessary because USB voltage is up a little bit so tuning is slightly
-// off, we need to scale down to match values when not using USB
-#define FUDGE_FACTOR 0.95f
-
 // DMA buffers
 // APPS1, APPS2 from ADC3 (configured in adc.c)
 extern volatile uint16_t adc3_dma_buf[2];
@@ -95,22 +91,22 @@ static vcu_parameters_t s_params = {
     .apps =
         {
             .apps1_min_adc_v =
-                ((FUDGE_FACTOR * 1553.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+                ((1550.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
             .apps1_max_adc_v =
-                ((FUDGE_FACTOR * 1295.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+                ((1280.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
 
             .apps2_min_adc_v =
-                ((FUDGE_FACTOR * 1557.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+                ((1560.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
             .apps2_max_adc_v =
-                ((FUDGE_FACTOR * 1280.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+                ((1265.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
 
             .implaus_debounce_time_ms = 100u,
             .max_allowable_diff = 0.12f,
             // .min_travel_threshold = 0.10f,
             // .max_travel_restore_threshold = 0.05f,
 
-            .min_travel_deadzone = 0.08f,
-            .max_travel_deadzone = 0.95,
+            .min_travel_deadzone = 0.06f,
+            .max_travel_deadzone = 0.98,
             .pedal_ema_alpha = 0.35f,
         },
     .torque_map =
@@ -123,14 +119,14 @@ static vcu_parameters_t s_params = {
             .bse_off_psi = 30.0f,
             .bse_on_psi = 50.0f,
             .bse1_adc_at_min_psi_v =
-                ((FUDGE_FACTOR * 397.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
+                ((397.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
             .bse1_adc_at_max_psi_v =
-                ((FUDGE_FACTOR * 2267.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
+                ((2267.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
             .bse2_adc_at_min_psi_v =
-                ((FUDGE_FACTOR * 397.0f * ADC_BSE_SCALE_V) /
+                ((397.0f * ADC_BSE_SCALE_V) /
                  ADC_MAX_VAL), 
             .bse2_adc_at_max_psi_v =
-                ((FUDGE_FACTOR * 2017.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
+                ((2017.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
             .bse_max_psi = 3000.0f,
             .max_pedal_while_braking = 0.25f,
             .max_pedal_restore_threshold = 0.05f,
@@ -388,24 +384,31 @@ if (total > 1e-3f) {
 //     (unsigned)out.brake_pressed
 // );
     
-    // log_printf(LOG_WARNING,
-    // "PEDAL_OUT %.2f, TORQUE_OUT %.2f, APPS1 %.2f, APPS2 %.2f, adc1: %u, adc2: %u",
-    // out.accel_pedal_travel,
-    // out.torque_cmd,
-    // out.apps1_travel,
-    // out.apps2_travel,
-    // adc3_dma_buf[0],
-    // adc3_dma_buf[1]);           
+    log_printf(LOG_WARNING,
+    "PEDAL_OUT %.2f, TORQUE_OUT %.2f, APPS1 %.2f, APPS2 %.2f, adc1: %u, adc2: %u",
+    out.accel_pedal_travel,
+    out.torque_cmd,
+    out.apps1_travel,
+    out.apps2_travel,
+    adc3_dma_buf[0],
+    adc3_dma_buf[1]);           
 
-    log_printf(LOG_INFO,
-               "PED:%.3f TQ:%.1f | PRNDL:%u INV:%u | "
-               "DRV_IN:%u TR:%u | "
-               "APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
-               (double)out.accel_pedal_travel, (double)out.torque_cmd,
-               (unsigned)out.prndl_state, (unsigned)out.inverter_enable,
-               (unsigned)in.drive_switch, (unsigned)in.contactors_closed,
-               (unsigned)out.faults.apps_any_fault,
-               (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault);
+    // log_printf(LOG_INFO,
+    //            "PED:%.3f TQ:%.1f | PRNDL:%u INV:%u | "
+    //            "DRV_IN:%u TR:%u | "
+    //            "APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
+    //            (double)out.accel_pedal_travel, (double)out.torque_cmd,
+    //            (unsigned)out.prndl_state, (unsigned)out.inverter_enable,
+    //            (unsigned)in.drive_switch, (unsigned)in.contactors_closed,
+    //            (unsigned)out.faults.apps_any_fault,
+    //            (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault);
+
+    // log_printf(LOG_WARNING,
+    //        "R2D_RX:%u CONTACTORS:%u PRNDL:%u BRAKE:%u\n",
+    //        (unsigned)in.drive_switch,
+    //        (unsigned)in.contactors_closed,
+    //        (unsigned)out.prndl_state,
+    //        (unsigned)out.brake_pressed);
 
     
 
