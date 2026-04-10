@@ -34,6 +34,10 @@ static can_receive_message_t *contactor_status_mailbox_handle = NULL;
 static msg_dui_r2d_status_t dui_r2d_status_mailbox = {0};
 static can_receive_message_t *dui_r2d_status_mailbox_handle = NULL;
 
+#define DUI_R2D_STATUS_TIMEOUT_MS 1000u
+
+static bool dui_r2d_timed_out_logged = false;
+
 /** Sending */
 
 static msg_inverter_torque_command_t inverter_torque_command_mailbox = {0};
@@ -146,7 +150,7 @@ void vcu_can_set_model_outputs(vcu_outputs_t *out) {
   inverter_torque_command_mailbox.torque_limit = VCU_MAX_TORQUE_NM;
   inverter_torque_command_mailbox.direction = 1;
 
-  led_set(out->brake_pressed, dui_r2d_status_mailbox.r2d_status == 1,
+  led_set(out->brake_pressed, is_drive_switch_pressed(),
           out->accel_pedal_travel == 0);
 
   // log_printf(LOG_INFO, "DUI R2D: %d", dui_r2d_status_mailbox.r2d_status);
@@ -167,6 +171,23 @@ void vcu_can_set_model_outputs(vcu_outputs_t *out) {
 }
 
 bool is_drive_switch_pressed(void) {
+  if (message_timed_out(dui_r2d_status_mailbox_handle,
+                        DUI_R2D_STATUS_TIMEOUT_MS)) {
+    if (!dui_r2d_timed_out_logged) {
+      log_printf(LOG_WARNING,
+                 "[VCU] DUI R2D status timed out after %u ms; forcing drive "
+                 "switch low\n",
+                 DUI_R2D_STATUS_TIMEOUT_MS);
+      dui_r2d_timed_out_logged = true;
+    }
+    return false;
+  }
+
+  if (dui_r2d_timed_out_logged) {
+    log_printf(LOG_INFO, "[VCU] DUI R2D status restored\n");
+    dui_r2d_timed_out_logged = false;
+  }
+
   return dui_r2d_status_mailbox.r2d_status == 1;
 }
 
