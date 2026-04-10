@@ -1,5 +1,5 @@
 
-€&
+«&
 $nonhermetic/assets/can_packets.protoorion"ê
 OrionSensorData
 time (Rtime
@@ -9,38 +9,40 @@ $nonhermetic/assets/can_packets.protoorion"ê
 pack (2.orion.PackRpackA
 diagnostics_high (2.orion.DiagnosticsHighRdiagnosticsHigh>
 diagnostics_low (2.orion.DiagnosticsLowRdiagnosticsLow(
-thermal (2.orion.ThermalRthermal"®
-Dynamics,
-accel_pedal_travel (RaccelPedalTravel&
-steer_col_angle (RsteerColAngle&
-bl_sprung_accel (RblSprungAccel*
-bl_unsprung_accel (RblUnsprungAccel&
-br_sprung_accel (RbrSprungAccel*
-br_unsprung_accel (RbrUnsprungAccel&
-fl_sprung_accel (RflSprungAccel*
-fl_unsprung_accel (RflUnsprungAccel&
-fr_sprung_accel	 (RfrSprungAccel*
-fr_unsprung_accel
- (RfrUnsprungAccel$
-bl_ride_height (RblRideHeight)
-bl_strain_gauge_v (RblStrainGaugeV
-bl_sus_pot_v (R	blSusPotV
-	blw_speed (RblwSpeed$
-br_ride_height (RbrRideHeight)
-br_strain_gauge_v (RbrStrainGaugeV
-br_sus_pot_v (R	brSusPotV
-	brw_speed (RbrwSpeed$
-fl_ride_height (RflRideHeight)
-fl_strain_gauge_v (RflStrainGaugeV
-fl_sus_pot_v (R	flSusPotV
-	flw_speed (RflwSpeed$
-fr_ride_height (RfrRideHeight)
-fr_strain_gauge_v (RfrStrainGaugeV
-fr_sus_pot_v (R	frSusPotV
-	frw_speed (RfrwSpeed
-ride_height (R
+thermal (2.orion.ThermalRthermal"Ù
+Dynamics
+gps (Rgps
+gps_imu (RgpsImu,
+accel_pedal_travel (RaccelPedalTravel&
+steer_col_angle (RsteerColAngle&
+bl_sprung_accel (RblSprungAccel*
+bl_unsprung_accel (RblUnsprungAccel&
+br_sprung_accel (RbrSprungAccel*
+br_unsprung_accel (RbrUnsprungAccel&
+fl_sprung_accel	 (RflSprungAccel*
+fl_unsprung_accel
+ (RflUnsprungAccel&
+fr_sprung_accel (RfrSprungAccel*
+fr_unsprung_accel (RfrUnsprungAccel$
+bl_ride_height (RblRideHeight)
+bl_strain_gauge_v (RblStrainGaugeV
+bl_sus_pot_v (R	blSusPotV
+	blw_speed (RblwSpeed$
+br_ride_height (RbrRideHeight)
+br_strain_gauge_v (RbrStrainGaugeV
+br_sus_pot_v (R	brSusPotV
+	brw_speed (RbrwSpeed$
+fl_ride_height (RflRideHeight)
+fl_strain_gauge_v (RflStrainGaugeV
+fl_sus_pot_v (R	flSusPotV
+	flw_speed (RflwSpeed$
+fr_ride_height (RfrRideHeight)
+fr_strain_gauge_v (RfrStrainGaugeV
+fr_sus_pot_v (R	frSusPotV
+	frw_speed (RfrwSpeed
+ride_height (R
 rideHeight
-wheel_speed (R
+wheel_speed (R
 wheelSpeed"¼
 Controls
 motor_speed (R

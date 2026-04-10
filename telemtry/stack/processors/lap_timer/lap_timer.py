@@ -3,17 +3,15 @@ import os
 import logging
 from time import sleep
 import time
-import pandas as pd
-import numpy as np
-from paho.mqtt import client as mqtt_client
 import threading
-import math
 import requests
+from kafka import KafkaConsumer
+import json
 
-from analysis.sql_utils.db_session import get_db, DBTarget
+from analysis.sql_utils.db_session import get_db
 from analysis.sql_utils.query_builder import QueryBuilder
 from stack.ingest.mqtt_handler import MQTTHandler, MQTTTarget
-from analysis.sql_utils.models import Classifier, Dynamics, Packet, Event
+from analysis.sql_utils.models import Classifier, Event
 
 
 class LapTimerProcessor:
@@ -23,22 +21,17 @@ class LapTimerProcessor:
         self.gate: tuple[tuple[float], tuple[float]]  = None
         self.status: int = None
         
-        self.start_packet: int = 0
         self.table_specs = QueryBuilder("Nightwatch").get_table_column_specs()
-
-    def _track_lap(self, gate: tuple[tuple[float, float], tuple[float, float]], points: list) -> float | None:
-        """
-        Checks if a circuit loop has happened after a given packet
-        Args:
-            last_packet: checking after this value
-            gate: human-measured gate that represents the starting line
-        """        
-    
-        for i in range(len(points) - 1):
-            # print(f"TIME: {points[i][1]} | GPS: {points[i][0]}")
-            if(self._is_intersection(gate, [points[i][0], points[i + 1][0]])):
-                return round((points[i][1] + points[i + 1][1]) / 2)
         
+        # Initialize Kafka Consumer
+        self.consumer = KafkaConsumer(
+            'track-mapper',
+            bootstrap_servers='kafka:9092',
+            auto_offset_reset='latest',
+            value_deserializer=lambda x: json.loads(x.decode('utf-8'))
+        )
+        self.last_point = None
+
     def _is_intersection(self, line1: tuple[tuple[float, float], tuple[float, float]], line2: tuple[tuple[float, float], tuple[float, float]]) -> bool:
         """
         Check if a line intersects with another line segment 
@@ -94,60 +87,6 @@ class LapTimerProcessor:
             logging.error("Could not connect to Flask server")
         logging.info(f"Successfully recorded time {time}")    
     
-    def _latlon_to_ecef(self, lat: float, lon: float) -> tuple[float, float, float]:
-        # Constants
-        R = 6371000  # Earth radius in meters
-
-        # Convert latitude and longitude to radians
-        lat_rad = math.radians(lat)
-        lon_rad = math.radians(lon)
-
-        # Convert to Cartesian coordinates
-        x = R * math.cos(lat_rad) * math.cos(lon_rad)
-        y = R * math.cos(lat_rad) * math.sin(lon_rad)
-        z = R * math.sin(lat_rad)
-
-        return x, y, z
-
-    def _ecef_to_latlon(self, x: float, y: float, z: float) -> tuple[float, float]:
-        # Constants
-        R = 6371000  # Earth radius in meters
-
-        # Convert back to latitude and longitude
-        lat = math.degrees(math.asin(z / R))
-        lon = math.degrees(math.atan2(y, x))
-
-        return lat, lon
-
-    def _smooth_points(self, points: list[tuple[tuple[float, float], int]], order: int) -> None:
-        if order < 1 or len(points) <= order:
-            # If the order is less than 1 or not enough points, do nothing
-            return
-
-        # Extract timestamps and convert latitude, longitude to ECEF coordinates
-        timestamps = [point[1] for point in points]
-        ecef_coords = [self._latlon_to_ecef(point[0][0], point[0][1]) for point in points]
-        x_coords, y_coords, z_coords = zip(*ecef_coords)
-
-        # Fit an n-th order polynomial to each of the Cartesian coordinates
-        poly_x = np.polyfit(timestamps, x_coords, order)
-        poly_y = np.polyfit(timestamps, y_coords, order)
-        poly_z = np.polyfit(timestamps, z_coords, order)
-
-        # Evaluate the polynomial at each timestamp to get smoothed Cartesian coordinates
-        smoothed_points = []
-        for t in timestamps:
-            smoothed_x = np.polyval(poly_x, t)
-            smoothed_y = np.polyval(poly_y, t)
-            smoothed_z = np.polyval(poly_z, t)
-            # Convert smoothed Cartesian coordinates back to latitude and longitude
-            smoothed_lat, smoothed_lon = self._ecef_to_latlon(smoothed_x, smoothed_y, smoothed_z)
-            # Append smoothed point with the original timestamp
-            smoothed_points.append(((smoothed_lat, smoothed_lon), t))
-
-        # Modify the original list in place
-        points[:] = smoothed_points
-
     def _upload_gates_to_db(self, gates: tuple[tuple[float, float], tuple[float, float]]):
         retries = 5
         for i in range(retries):
@@ -171,61 +110,39 @@ class LapTimerProcessor:
         
         logging.info("Published gates to classifier", db_obj)
    
-    def run_thread(self, frequency: int, window_size: int):
-        """Sliding Window"""
-        while True:
+    def run_thread(self):
+        """Kafka Consumer Loop"""
+        logging.info("Listening to track-mapper topic...")
+        for message in self.consumer:
             # Event not properly set
             if not self.event_id or not self.gate:
-                sleep(1 / frequency)
                 continue
-            else:
-                logging.debug(f"Event ID: {self.event_id} | Gate: {self.gate} | Status: {self.status}")
+            
+            # message.value is [lat, lon, timestamp]
+            point_data = message.value
+            if not point_data or len(point_data) < 3:
+                continue
+            
+            current_point = (point_data[0], point_data[1])
+            current_time = point_data[2]
+            
+            if self.last_point:
+                segment = (self.last_point[0], current_point)
                 
-            points: list[tuple[str, int]] = self.session.query(Dynamics.f_gps, Packet.time).join(Packet, Packet.packet_id == Dynamics.packet_id).filter(Dynamics.packet_id >= self.start_packet).order_by(Dynamics.packet_id.desc()).limit(window_size).all()
-
-            # Not enough points
-            if len(points) < window_size:
-                logging.warning("Not enough points for computation. Trashing the instance")
-                sleep(1 / frequency)
-                continue
+                if self._is_intersection(self.gate, segment):
+                    lap_time = round((self.last_point[1] + current_time) / 2)
+                    logging.info(f"Lap detected! Time: {lap_time}")
+                    
+                    if self._is_valid(lap_time, 5000):
+                        logging.info(f"Lap Time is Valid")
+                        self._record_time(lap_time)
+                    else:
+                        logging.warning(f"Lap Time is Not Valid")
             
-            # Suspicious time deltas
-            MAX_TIME_DELTA = 5 * 1000
-            if abs(points[len(points) - 1][1] - points[0][1]) > MAX_TIME_DELTA:
-                logging.warning(f"Interval is suspicious: {points[len(points) - 1][1] - points[0][1]}ms. Trashing the instance")
-                sleep(1 / frequency)
-                continue
-            
-            # Parse points
-            df = pd.DataFrame(points, columns=['gps_str', 'timestamp'])
-            df['parsed_coordinates'] = df['gps_str'].apply(lambda gps_point: tuple(pd.Series(gps_point, dtype=float)))
-            points: list[tuple[tuple[float, float], int]] = list(zip(df['parsed_coordinates'], df['timestamp']))
-            
-            # logging.info("Data is parsed")
-            
-            # Smooth points
-            self._smooth_points(points=points, order=1)
-            
-            # logging.info("Data is smoothed")
-            
-            lap_time = self._track_lap(gate=self.gate, points=points)
-            # Get Time of intersect
-            # logging.info(f"LAP TIME: {lap_time}")
-            if lap_time:
-                # Is timestamp valid? 
-                if self._is_valid(time=lap_time, delta=5000):
-                    # Add time to classifier
-                    logging.info(f"Lap Time is Valid")
-                    self._record_time(time=lap_time)
-                else:
-                    logging.warning(f"Lap Time is Not Valid")
-            else:
-                pass
-            
-            sleep(1 / frequency)
+            self.last_point = (current_point, current_time)
         
         
-    def on_message(self, client: mqtt_client.Client, userdata, msg):
+    def on_message(self, client, userdata, msg):
         try:
             logging.info(f"MESSAGE HAS BEEN RECEIVED AT TOPIC {msg.topic}")
             if msg.topic == 'config/test':
@@ -238,8 +155,6 @@ class LapTimerProcessor:
                 self.event_id = data['event_id']
                 self.status = data['status']
                 self.gate = data['gate']
-                if self.start_packet < data['start_packet']:
-                    self.start_packet = data['start_packet']
 
                 if gate_changed:
                     self._upload_gates_to_db(gates=data['gate'])
@@ -247,7 +162,6 @@ class LapTimerProcessor:
             self.event_id = None
             self.gate = None
             self.status = None
-            self.start_packet = None
     
 
         
@@ -259,11 +173,8 @@ def run_processor():
             session = db_sessions["Nightwatch"]
             processor = LapTimerProcessor(session=session)
             
-            frequency = 100
-            window_size = 200
-            
             # Processing thread
-            t1 = threading.Thread(target=processor.run_thread, args=(frequency, window_size,))
+            t1 = threading.Thread(target=processor.run_thread)
             t1.start()
             
             mqtt.client.on_message = processor.on_message

@@ -249,7 +249,7 @@ def generate_sqlalchemy_from_proto(messages, root_msg_name, prefix=""):
                 if f['name'].endswith('_json'):
                     sa_type = 'JSONB'
                 elif f['name'] == 'gps' and f['type'] == 'float' and f['repeated']:
-                    sa_type = 'PointType()'
+                    sa_type = f"ARRAY({sa_type})"
                 elif f['repeated']:
                     sa_type = f"ARRAY({sa_type})"
                 
@@ -325,8 +325,8 @@ def generate_prisma_from_proto(messages, root_msg_name):
                 p_type = PROTO_TO_PRISMA_TYPES.get(f['type'], 'String')
                 if f['name'].endswith('_json'):
                     p_type = 'Json'
-                elif f['name'] == 'gps' and f['type'] == 'float' and f['repeated']:
-                    p_type = 'Unsupported("point")'
+                # elif f['name'] == 'gps' and f['type'] == 'float' and f['repeated']:
+                #     p_type = 'Unsupported("point")'
                 elif f['repeated']:
                     p_type += '[]'
                 

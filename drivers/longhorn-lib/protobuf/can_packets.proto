@@ -13,34 +13,36 @@ message OrionSensorData {
 }
 
 message Dynamics {
-    float accel_pedal_travel = 1;
-    float steer_col_angle = 2;
-    repeated float bl_sprung_accel = 3;
-    repeated float bl_unsprung_accel = 4;
-    repeated float br_sprung_accel = 5;
-    repeated float br_unsprung_accel = 6;
-    repeated float fl_sprung_accel = 7;
-    repeated float fl_unsprung_accel = 8;
-    repeated float fr_sprung_accel = 9;
-    repeated float fr_unsprung_accel = 10;
-    float bl_ride_height = 11;
-    float bl_strain_gauge_v = 12;
-    float bl_sus_pot_v = 13;
-    float blw_speed = 14;
-    float br_ride_height = 15;
-    float br_strain_gauge_v = 16;
-    float br_sus_pot_v = 17;
-    float brw_speed = 18;
-    float fl_ride_height = 19;
-    float fl_strain_gauge_v = 20;
-    float fl_sus_pot_v = 21;
-    float flw_speed = 22;
-    float fr_ride_height = 23;
-    float fr_strain_gauge_v = 24;
-    float fr_sus_pot_v = 25;
-    float frw_speed = 26;
-    float ride_height = 27;
-    float wheel_speed = 28;
+    repeated float gps = 1;
+    repeated float gps_imu = 2;
+    float accel_pedal_travel = 3;
+    float steer_col_angle = 4;
+    repeated float bl_sprung_accel = 5;
+    repeated float bl_unsprung_accel = 6;
+    repeated float br_sprung_accel = 7;
+    repeated float br_unsprung_accel = 8;
+    repeated float fl_sprung_accel = 9;
+    repeated float fl_unsprung_accel = 10;
+    repeated float fr_sprung_accel = 11;
+    repeated float fr_unsprung_accel = 12;
+    float bl_ride_height = 13;
+    float bl_strain_gauge_v = 14;
+    float bl_sus_pot_v = 15;
+    float blw_speed = 16;
+    float br_ride_height = 17;
+    float br_strain_gauge_v = 18;
+    float br_sus_pot_v = 19;
+    float brw_speed = 20;
+    float fl_ride_height = 21;
+    float fl_strain_gauge_v = 22;
+    float fl_sus_pot_v = 23;
+    float flw_speed = 24;
+    float fr_ride_height = 25;
+    float fr_strain_gauge_v = 26;
+    float fr_sus_pot_v = 27;
+    float frw_speed = 28;
+    float ride_height = 29;
+    float wheel_speed = 30;
 }
 
 message Controls {
