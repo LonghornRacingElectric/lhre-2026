@@ -9,7 +9,6 @@
 extern "C" {
 #endif
 
-#define VCU_MAX_TORQUE_NM 220.0f
 
 void vcu_can_init(void);
 
