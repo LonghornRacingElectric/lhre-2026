@@ -105,7 +105,7 @@ static vcu_parameters_t s_params = {
             // .min_travel_threshold = 0.10f,
             // .max_travel_restore_threshold = 0.05f,
 
-            .min_travel_deadzone = 0.06f,
+            .min_travel_deadzone = 0.11f,
             .max_travel_deadzone = 0.98,
             .pedal_ema_alpha = 0.35f,
         },

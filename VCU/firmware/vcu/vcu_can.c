@@ -143,7 +143,7 @@ void vcu_can_set_model_outputs(vcu_outputs_t *out) {
 
   inverter_torque_command_mailbox.torque_request = out->torque_cmd;
   inverter_torque_command_mailbox.enable = out->inverter_enable;
-  inverter_torque_command_mailbox.torque_limit = 200.0f;
+  inverter_torque_command_mailbox.torque_limit = VCU_MAX_TORQUE_NM;
   inverter_torque_command_mailbox.direction = 1;
 
   led_set(out->brake_pressed, dui_r2d_status_mailbox.r2d_status == 1,
