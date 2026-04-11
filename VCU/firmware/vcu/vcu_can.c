@@ -204,7 +204,6 @@ void vcu_can_set_model_inputs(const vcu_inputs_t *in) {
 }
 
 void vcu_can_set_model_outputs(const vcu_outputs_t *out) {
-  // TODO: use BPPS instead of BSE for this.
   brake_pedal_mailbox.brake_pedal_travel = out->bse_psi_filtered;
   brake_pedal_mailbox.brake_light_percent = out->brake_light_pct;
   brake_pedal_mailbox.bpps_faults = 0;
@@ -295,19 +294,7 @@ static uint8_t pack_bse_faults(const vcu_outputs_t *out) {
 }
 
 bool is_drive_switch_pressed(void) {
-  // if (message_timed_out(dui_r2d_status_mailbox_handle,
-  //                       DUI_R2D_STATUS_TIMEOUT_MS)) {
-  //   if (!dui_r2d_timed_out_logged) {
-  //     log_printf(LOG_WARNING,
-  //                "[VCU] DUI R2D status timed out after %u ms; forcing drive "
-  //                "switch low\n",
-  //                DUI_R2D_STATUS_TIMEOUT_MS);
-  //     dui_r2d_timed_out_logged = true;
-  //   }
-  //   return false;
-  // }
-
-  // if (dui_r2d_timed_out_logged) {
+  // if (message_timed_out(dui_r2d_status_mailbox_handle,wq
   //   log_printf(LOG_INFO, "[VCU] DUI R2D status restored\n");
   //   dui_r2d_timed_out_logged = false;
   // }
