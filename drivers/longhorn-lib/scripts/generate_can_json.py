@@ -4,7 +4,6 @@ import re
 import math
 import os
 import argparse
-import copy
 
 # --- Regex Definitions ---
 # Regex for CAN signal: (type, context/precision)
@@ -433,41 +432,12 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
                             "data_length": dlc,
                             "frequency_ms": frequency_ms,
                             "frequency": frequency_hz,
-                            "quantity": 1,
+                            "quantity": max(quantity, 1),
                             "bus": bus,
                             "bytes": bytes_list,
                         }
-
-                        repeated_fields = [
-                            byte_def
-                            for byte_def in bytes_list
-                            if byte_def.get("protobuf", {}).get("repeated")
-                            and byte_def.get("protobuf", {}).get("field_index") is not None
-                        ]
-                        if repeated_fields:
-                            series_width = max(
-                                byte_def["protobuf"]["field_index"] for byte_def in repeated_fields
-                            ) + 1
-                        else:
-                            series_width = 0
-
-                        if quantity > 1 and series_width > 0:
-                            for series_index in range(quantity):
-                                series_packet = copy.deepcopy(can_packet_json)
-                                series_packet["packet_id"] = packet_id + series_index
-                                for byte_def in series_packet["bytes"]:
-                                    protobuf_info = byte_def.get("protobuf")
-                                    if (
-                                        protobuf_info
-                                        and protobuf_info.get("repeated")
-                                        and protobuf_info.get("field_index") is not None
-                                    ):
-                                        protobuf_info["field_index"] += series_index * series_width
-                                can_packets.append(series_packet)
-                            processed_rows += quantity
-                        else:
-                            can_packets.append(can_packet_json)
-                            processed_rows += 1
+                        can_packets.append(can_packet_json)
+                        processed_rows += 1
 
                 except ValueError as ve:
                     print(
