@@ -7,4 +7,6 @@ void hvc_can_init(void);
 
 void hvc_set_contactor_status(int state, bool pos, bool neg);
 
+void hvc_set_cell_temperatures(const float cell_temps[90]);
+
 #endif

@@ -22,6 +22,9 @@ static msg_contactor_status_t contactor_status_tx;
 
 static msg_indicators_shutdown_status_t indicator_status_tx = {0};
 
+// Cell temperature messages (23 packets total: 22 with 4 temps, 1 with 2 temps)
+static msg_cell_temperatures_t cell_temps_tx[23] = {0};
+
 can_interface_t critical_can_bus = {
     .handle = &hfdcan1,
 };
@@ -75,6 +78,14 @@ void hvc_can_init(void) {
       (CAN_pack_message_fn)pack_indicators_shutdown_status);
   can_rtos_register_send_packet(&critical_can_bus, indicator_status_handle);
 
+  // TX: cell temperatures (23 packets with lower priority via 1000ms frequency)
+  for (uint8_t i = 0; i < 23; i++) {
+    can_message_t *cell_temp_handle = can_get_message_handle(
+        &cell_temps_tx[i], CELL_TEMPERATURES_ID, CELL_TEMPERATURES_FREQ,
+        CELL_TEMPERATURES_DLC, (CAN_pack_message_fn)pack_cell_temperatures);
+    can_rtos_register_send_packet(&critical_can_bus, cell_temp_handle);
+  }
+
   can_rtos_start_interface(&critical_can_bus);
 
   // Start tasks LAST
@@ -105,6 +116,38 @@ void hvc_set_indicator_status(bool bms_error, bool imd_error,
   indicator_status_tx.shutdown_leg_2 = shutdown_leg2 ? 1 : 0;
   indicator_status_tx.shutdown_leg_3 = shutdown_leg3 ? 1 : 0;
   indicator_status_tx.shutdown_leg_4 = shutdown_leg4 ? 1 : 0;
+
+  taskEXIT_CRITICAL();
+}
+
+/**
+ * hvc_set_cell_temperatures - Update cell temperature values for CAN transmission
+ * @cell_temps: Array of 90 cell temperature values (float)
+ *
+ * Distributes 90 temperatures across 23 CAN packets:
+ * - Packets 0-21: 4 temperatures each (88 total)
+ * - Packet 22: 2 temperatures (last remaining)
+ * 
+ * The RTOS CAN library handles periodic transmission at CELL_TEMPERATURES_FREQ (1000ms).
+ */
+void hvc_set_cell_temperatures(const float cell_temps[90]) {
+  taskENTER_CRITICAL();
+
+  uint16_t temp_idx = 0;
+
+  // Update 22 packets with 4 temperatures each
+  for (uint8_t packet = 0; packet < 22; packet++) {
+    cell_temps_tx[packet].temp_i = cell_temps[temp_idx++];
+    cell_temps_tx[packet].temp_i_1 = cell_temps[temp_idx++];
+    cell_temps_tx[packet].temp_i_2 = cell_temps[temp_idx++];
+    cell_temps_tx[packet].temp_i_3 = cell_temps[temp_idx++];
+  }
+
+  // Update final packet with 2 remaining temperatures
+  cell_temps_tx[22].temp_i = cell_temps[temp_idx++];
+  cell_temps_tx[22].temp_i_1 = cell_temps[temp_idx++];
+  cell_temps_tx[22].temp_i_2 = 0.0f;  // Unused, set to 0
+  cell_temps_tx[22].temp_i_3 = 0.0f;  // Unused, set to 0
 
   taskEXIT_CRITICAL();
 }
