@@ -341,6 +341,7 @@ void StartControlTask(void *argument) {
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
 
+    vcu_can_set_model_inputs(&in);
     vcu_can_set_model_outputs(&out);
 
     // log_printf(LOG_WARNING,
