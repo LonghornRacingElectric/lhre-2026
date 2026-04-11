@@ -71,8 +71,8 @@ extern SPI_HandleTypeDef hspi4;
 osThreadId_t bmsTaskHandle;
 const osThreadAttr_t bmsTask_attributes = {
     .name = "bms_Task",
-    .priority = (osPriority_t)osPriorityHigh2,
-    .stack_size = 256 * 8 * 2};
+    .priority = (osPriority_t)osPriorityNormal,
+    .stack_size = 256 * 8 * 2 * 4};
 osThreadId_t stateMachineTaskHandle;
 const osThreadAttr_t stateMachineTask_attributes = {
     .name = "stateMachine",
