@@ -127,17 +127,6 @@ bool vehicle_in_park(void) {
   return vcu_state_mailbox.prndl_state == 0;
 }
 
-/**
- * @brief Returns whether the VCU PRNDL state indicates the vehicle is in
- *        drive. Cooling should only be enabled when this returns true.
- *
- * @return true if the VCU reports PRNDL drive
- * @return false if the VCU reports PRNDL park
- */
-bool r2d_status_active(void) {
-  return vehicle_in_drive();
-}
-
 bool vehicle_in_drive(void) { return !vehicle_in_park(); }
 
 /**
