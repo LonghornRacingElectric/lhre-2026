@@ -71,8 +71,8 @@ extern SPI_HandleTypeDef hspi4;
 osThreadId_t bmsTaskHandle;
 const osThreadAttr_t bmsTask_attributes = {
     .name = "bms_Task",
-    .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 256 * 8 * 2 * 4};
+    .priority = (osPriority_t)osPriorityHigh2,
+    .stack_size = 256 * 8 * 2 * 2};
 osThreadId_t stateMachineTaskHandle;
 const osThreadAttr_t stateMachineTask_attributes = {
     .name = "stateMachine",
@@ -267,11 +267,11 @@ void StartStateMachineTask(void *argument) {
 
     log_printf(LOG_INFO,
                "Pack Voltage: %.2f, Tractive Voltage: %.2f V, Raw: %.2f, State "
-               "Machine: %d, Shutdown: %d\n",
+               "Machine: %d, Shutdown: %d, BMS Responsive: %d\n", 
                get_pack_voltage(), get_tractive_voltage(),
                hvc_adc_read_voltage_sense_v(), get_current_state(),
                // get_state_name(get_current_state()),
-               is_shutdown_closed());
+               is_shutdown_closed(), bms_get_num_responsive_ics());
     osDelay(task_period_ms);
   }
 }

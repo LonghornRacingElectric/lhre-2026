@@ -258,7 +258,7 @@ void bms_read_thermistors(void)
         }
     }
 
-    hvc_set_cell_temperatures(cell_temps);
+    hvc_set_cell_temperatures(&cell_temps[0]);
 }
 
 void bms_update(void)

@@ -75,7 +75,7 @@ void hvc_can_init(void) {
   // TX: cell temperatures (23 packets with lower priority via 1000ms frequency)
   for (uint8_t i = 0; i < 23; i++) {
     can_message_t *cell_temp_handle = can_get_message_handle(
-        &cell_temps_tx[i], CELL_TEMPERATURES_ID, CELL_TEMPERATURES_FREQ,
+        &cell_temps_tx[i], (CELL_TEMPERATURES_ID + i), CELL_TEMPERATURES_FREQ,
         CELL_TEMPERATURES_DLC, (CAN_pack_message_fn)pack_cell_temperatures);
     can_rtos_register_send_packet(&critical_can_bus, cell_temp_handle);
   }
@@ -124,7 +124,7 @@ void hvc_set_indicator_status(bool bms_error, bool imd_error,
  * 
  * The RTOS CAN library handles periodic transmission at CELL_TEMPERATURES_FREQ (1000ms).
  */
-void hvc_set_cell_temperatures(const float cell_temps[90]) {
+void hvc_set_cell_temperatures(float *cell_temps) {
   taskENTER_CRITICAL();
 
   uint16_t temp_idx = 0;
