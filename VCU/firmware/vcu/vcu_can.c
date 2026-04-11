@@ -42,6 +42,9 @@ static can_message_t *inverter_torque_command_mailbox_handle = NULL;
 static msg_brake_pedal_t brake_pedal_mailbox = {0};
 static can_message_t *brake_pedal_mailbox_handle = NULL;
 
+static msg_vcu_state_t vcu_state_mailbox = {0};
+static can_message_t *vcu_state_mailbox_handle = NULL;
+
 void vcu_can_add_receive_handlers(void);
 void vcu_can_add_send_handlers(void);
 void vcu_init_inverter(void);
@@ -123,6 +126,12 @@ void vcu_can_add_send_handlers(void) {
       (CAN_pack_message_fn)pack_brake_pedal);
   can_rtos_register_send_packet(&critical_bus, brake_pedal_mailbox_handle);
   log_printf(LOG_INFO, "[VCU] CAN send handler for brake pedal registered\n");
+
+  vcu_state_mailbox_handle =
+      can_get_message_handle(&vcu_state_mailbox, VCU_STATE_ID, VCU_STATE_FREQ,
+                             VCU_STATE_DLC, (CAN_pack_message_fn)pack_vcu_state);
+  can_rtos_register_send_packet(&critical_bus, vcu_state_mailbox_handle);
+  log_printf(LOG_INFO, "[VCU] CAN send handler for VCU state registered\n");
 }
 
 void vcu_init_inverter() {
@@ -146,7 +155,11 @@ void vcu_can_set_model_outputs(vcu_outputs_t *out) {
   inverter_torque_command_mailbox.torque_limit = 200.0f;
   inverter_torque_command_mailbox.direction = 1;
 
-  led_set(out->brake_pressed, dui_r2d_status_mailbox.r2d_status == 1,
+  vcu_state_mailbox.prndl_state = out->prndl_state;
+  vcu_state_mailbox.stomp_fault = out->faults.brake_latched;
+  vcu_state_mailbox.ready_to_drive_buzzer = out->buzzer_active;
+
+  led_set(out->brake_pressed, out->prndl_state == PRNDL_DRIVE,
           out->accel_pedal_travel == 0);
 
   // log_printf(LOG_INFO, "DUI R2D: %d", dui_r2d_status_mailbox.r2d_status);

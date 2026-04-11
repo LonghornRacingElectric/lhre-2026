@@ -53,12 +53,12 @@ bool hvc_imd_timeout(void);
 bool hvc_bms_timeout(void);
 
 /**
- * @brief Returns whether the DUI R2D status signal indicates R2D is active.
+ * @brief Returns whether the VCU PRNDL state indicates drive is active.
  *        Cooling (pumps, radiator fans, battery fans) should only be
  *        enabled when this returns true.
  *
- * @return true if DUI reports R2D is active
- * @return false if DUI reports R2D is not active
+ * @return true if the VCU reports PRNDL drive
+ * @return false if the VCU reports PRNDL park
  */
 bool r2d_status_active(void);
 
