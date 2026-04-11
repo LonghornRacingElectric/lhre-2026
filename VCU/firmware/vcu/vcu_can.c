@@ -34,7 +34,9 @@ static can_receive_message_t *contactor_status_mailbox_handle = NULL;
 static msg_dui_r2d_status_t dui_r2d_status_mailbox = {0};
 static can_receive_message_t *dui_r2d_status_mailbox_handle = NULL;
 
-static bool dui_r2d_timed_out_logged = false;
+// #define DUI_R2D_STATUS_TIMEOUT_MS 1000u
+
+// static bool dui_r2d_timed_out_logged = false;
 
 /** Sending */
 
@@ -293,22 +295,22 @@ static uint8_t pack_bse_faults(const vcu_outputs_t *out) {
 }
 
 bool is_drive_switch_pressed(void) {
-  if (message_timed_out(dui_r2d_status_mailbox_handle,
-                        DUI_R2D_STATUS_TIMEOUT_MS)) {
-    if (!dui_r2d_timed_out_logged) {
-      log_printf(LOG_WARNING,
-                 "[VCU] DUI R2D status timed out after %u ms; forcing drive "
-                 "switch low\n",
-                 DUI_R2D_STATUS_TIMEOUT_MS);
-      dui_r2d_timed_out_logged = true;
-    }
-    return false;
-  }
+  // if (message_timed_out(dui_r2d_status_mailbox_handle,
+  //                       DUI_R2D_STATUS_TIMEOUT_MS)) {
+  //   if (!dui_r2d_timed_out_logged) {
+  //     log_printf(LOG_WARNING,
+  //                "[VCU] DUI R2D status timed out after %u ms; forcing drive "
+  //                "switch low\n",
+  //                DUI_R2D_STATUS_TIMEOUT_MS);
+  //     dui_r2d_timed_out_logged = true;
+  //   }
+  //   return false;
+  // }
 
-  if (dui_r2d_timed_out_logged) {
-    log_printf(LOG_INFO, "[VCU] DUI R2D status restored\n");
-    dui_r2d_timed_out_logged = false;
-  }
+  // if (dui_r2d_timed_out_logged) {
+  //   log_printf(LOG_INFO, "[VCU] DUI R2D status restored\n");
+  //   dui_r2d_timed_out_logged = false;
+  // }
 
   return dui_r2d_status_mailbox.r2d_status == 1;
 }
