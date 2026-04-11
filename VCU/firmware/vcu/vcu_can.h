@@ -1,6 +1,7 @@
 #ifndef VCU_CAN_H
 #define VCU_CAN_H
 
+#include "vcu_inputs.h"
 #include "vcu_outputs.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -8,6 +9,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 
 void vcu_can_init(void);
 
@@ -20,7 +22,8 @@ void vcu_can_read_feedback(void);
 // Read contactor status from CAN messages
 void vcu_can_read_contactor_status(void);
 
-void vcu_can_set_model_outputs(vcu_outputs_t *out);
+void vcu_can_set_model_inputs(const vcu_inputs_t *in);
+void vcu_can_set_model_outputs(const vcu_outputs_t *out);
 
 bool is_drive_switch_pressed(void);
 

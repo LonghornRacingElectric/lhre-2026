@@ -9,6 +9,7 @@ echo -e "\tQ) Run Processor in background and start server"
 echo -e "\tW) Delete the existing server and processors images"
 echo -e "\tE) Delete the lap timer processors images"
 echo -e "\tF) Delete the gps classifier processors images"
+echo -e "\tH) Delete the track mapper processors images"
 echo
 
 
@@ -128,6 +129,13 @@ do
             cd ../processors/kafka_test || (echo "Failed to find processors" && exit)
             $SUDO docker compose down
             $SUDO docker rmi "$($SUDO docker image ls | grep kafka_test | awk '{print $3}')"
+            $SUDO docker compose up
+            break
+            ;;
+        h|H)
+            cd ../processors/track_mapper || (echo "Failed to find processors" && exit)
+            $SUDO docker compose down
+            $SUDO docker rmi "$($SUDO docker image ls | grep track_mapper | awk '{print $3}')"
             $SUDO docker compose up
             break
             ;;

@@ -77,7 +77,7 @@ async function initAppState() {
       currentPage: currentPage,
     };
   } catch (e) {
-    console.error("Database not available, running in offline mode.");
+    console.error("Database not available, running in offline mode.", e);
   }
 
   initialized = true;

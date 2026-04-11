@@ -140,6 +140,7 @@ export default function DrivedayPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        track_name: driveDayState.trackName,
         power_limit: driveDayState.powerLimit,
         air_temperature: driveDayState.airTemperature,
         relative_humidity: driveDayState.relativeHumidity,
@@ -166,6 +167,16 @@ export default function DrivedayPage() {
         <CardContent>
           <form>
             <div className="grid w-full items-center gap-4">
+              <div className="flex flex-col space-y-1.5">
+                <Label htmlFor="trackName">Track Name</Label>
+                <Input
+                  id="trackName"
+                  type="text"
+                  placeholder="Enter track name"
+                  value={driveDayState.trackName ?? ""}
+                  onChange={handleInputChange}
+                />
+              </div>
               <div className="flex flex-col space-y-1.5">
                 <Label htmlFor="powerLimit">Power Limit</Label>
                 <Input
