@@ -128,7 +128,7 @@ static vcu_parameters_t s_params = {
             .bse2_adc_at_max_psi_v =
                 ((2017.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
             .bse_max_psi = 3000.0f,
-            .max_pedal_while_braking = 0.25f,
+            .max_pedal_while_braking = 0.30f,
             .max_pedal_restore_threshold = 0.05f,
             .min_psi_deadzone = 0.4f,
             .max_psi_deadzone = 1.0f,
