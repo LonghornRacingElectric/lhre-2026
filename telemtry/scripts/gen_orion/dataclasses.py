@@ -91,10 +91,13 @@ class OrionPack:
 
 @dataclass
 class OrionDiagnosticsHigh:
+    prndl_state: Optional[float] = None
     shutdown_current: Optional[float] = None
     hvc_state_machine: Optional[float] = None
     post_faults: Optional[float] = None
     run_faults: Optional[float] = None
+    r2d_buzzer: Optional[bool] = None
+    stomp_fault: Optional[bool] = None
     neg_hv_contactor: Optional[bool] = None
     pos_hv_contactor: Optional[bool] = None
     precharge_contactor: Optional[bool] = None

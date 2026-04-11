@@ -432,7 +432,7 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
                             "data_length": dlc,
                             "frequency_ms": frequency_ms,
                             "frequency": frequency_hz,
-                            "quantity": quantity,
+                            "quantity": max(quantity, 1),
                             "bus": bus,
                             "bytes": bytes_list,
                         }

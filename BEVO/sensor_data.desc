@@ -1,5 +1,5 @@
 
-«&
+Œ'
 $nonhermetic/assets/can_packets.protoorion"ê
 OrionSensorData
 time (Rtime
@@ -102,17 +102,24 @@ cellsTemps$
 	lv_batt_v (RlvBattV&
 phase_a_current (RphaseACurrent&
 phase_b_current (RphaseBCurrent&
-phase_c_current (RphaseCCurrent"­
-DiagnosticsHigh)
-shutdown_current (RshutdownCurrent*
-hvc_state_machine (RhvcStateMachine
-post_faults (R
+phase_c_current (RphaseCCurrent"Ž
+DiagnosticsHigh
+prndl_state (R
+prndlState)
+shutdown_current (RshutdownCurrent*
+hvc_state_machine (RhvcStateMachine
+post_faults (R
 postFaults
 
-run_faults (R	runFaults(
-neg_hv_contactor (RnegHvContactor(
-pos_hv_contactor (RposHvContactor/
-precharge_contactor (RprechargeContactor"ñ
+run_faults (R	runFaults
+
+r2d_buzzer (R	r2dBuzzer
+stomp_fault (R
+stompFault(
+neg_hv_contactor (RnegHvContactor(
+pos_hv_contactor	 (RposHvContactor/
+precharge_contactor
+ (RprechargeContactor"ñ
 DiagnosticsLow(
 precharge_r_temp (RprechargeRTemp$
 bmb_comm_error (RbmbCommError5
