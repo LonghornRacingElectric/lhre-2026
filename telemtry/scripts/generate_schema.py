@@ -22,6 +22,7 @@ PG_TO_PRISMA_TYPES = {
     'boolean': 'Boolean',
     'date': 'DateTime',
     'timestamp': 'DateTime',
+    'timestamptz': 'DateTime',
     'jsonb': 'Json',
     'bytea': 'Bytes',
     'point': 'Unsupported("point")',
@@ -86,7 +87,7 @@ def parse_sql_schema(sql_content):
                 continue
             
             # Match: column_name type [constraints]
-            col_match = re.match(r'^"?(\w+)"?\s+([\w\s\[\]]+?)(?:,|$)', line, re.IGNORECASE)
+            col_match = re.match(r'^"?(\w+)"?\s+([^,]+)(?:,|$)', line, re.IGNORECASE)
             if col_match:
                 name = col_match.group(1)
                 full_type = col_match.group(2).strip().lower()
@@ -157,6 +158,7 @@ def generate_prisma_from_sql(tables):
     prisma_models = []
     for table in tables:
         model_lines = [f"model {table['name']} {{"]
+        model_attrs = []
         for col in table['columns']:
             prisma_type = PG_TO_PRISMA_TYPES.get(col['type'], 'String')
             if col['is_array']: prisma_type += "[]"
@@ -164,8 +166,53 @@ def generate_prisma_from_sql(tables):
             line = f"  {col['name']} {prisma_type}"
             if col['is_pk']: line += " @id"
             if col['is_autoincrement']: line += " @default(autoincrement())"
-            if col['is_nullable'] and not col['is_pk']: line += "?"
+
+            # Keep compatibility with existing Prisma expectations for common schema.
+            if table['name'] == 'partitions' and col['name'] == 'partition_name':
+                line += " @id"
+            if table['name'] == 'track' and col['name'] == 'name':
+                line += " @unique"
+            if table['name'] == 'track' and col['name'] == 'created_at':
+                line += " @default(now())"
+
+            # Prisma does not support optional scalar lists; keep arrays non-nullable in schema.
+            if col['is_nullable'] and not col['is_pk'] and not col['is_array']:
+                line += "?"
             model_lines.append(line)
+
+        # Add relation fields and model-level attributes used by viewer tool schemas.
+        if table['name'] == 'lut_location':
+            model_lines.append("")
+            model_lines.append("  tracks track[]")
+
+        if table['name'] == 'event':
+            model_lines.append("")
+            model_lines.append("  track_points track_point[]")
+
+        if table['name'] == 'classifier':
+            model_attrs.append("  @@id([event_id, type, start_time])")
+
+        if table['name'] == 'track_point':
+            model_lines.append("")
+            model_lines.append("  event event @relation(fields: [event_id], references: [event_id])")
+            model_attrs.append("  @@index([event_id])")
+
+        if table['name'] == 'track':
+            model_lines.append("")
+            model_lines.append("  location     lut_location?  @relation(fields: [location_id], references: [location_id])")
+            model_lines.append("  sector_gates sector_gate[]")
+            model_attrs.append("  @@index([location_id])")
+
+        if table['name'] == 'sector_gate':
+            model_lines.append("")
+            model_lines.append("  track track @relation(fields: [track_id], references: [track_id])")
+            model_attrs.append("  @@unique([track_id, gate_index])")
+            model_attrs.append("  @@index([track_id])")
+
+        if model_attrs:
+            model_lines.append("")
+            model_lines.extend(model_attrs)
+
         model_lines.append("}")
         prisma_models.append("\n".join(model_lines))
     return "\n\n".join(prisma_models)
@@ -325,12 +372,12 @@ def generate_prisma_from_proto(messages, root_msg_name):
                 p_type = PROTO_TO_PRISMA_TYPES.get(f['type'], 'String')
                 if f['name'].endswith('_json'):
                     p_type = 'Json'
-                # elif f['name'] == 'gps' and f['type'] == 'float' and f['repeated']:
-                #     p_type = 'Unsupported("point")'
                 elif f['repeated']:
                     p_type += '[]'
-                
-                prisma_lines.append(f"  {f['name']:20} {p_type}?")
+
+                # Prisma does not allow optional list fields (e.g. Float[]?).
+                optional_suffix = '' if f['repeated'] else '?'
+                prisma_lines.append(f"  {f['name']:20} {p_type}{optional_suffix}")
             
             prisma_lines.append("")
             prisma_lines.append("  packet packet @relation(fields: [packet_id], references: [packet_id])")
