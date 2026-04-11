@@ -7,6 +7,7 @@
 
 #include "hvc_bms.h"
 #include "hvc_thermistors.h"
+#include "can.h"
 #include "main.h"
 #include "cmsis_os2.h"
 #include "adBms6830Data.h"
@@ -44,6 +45,9 @@ static uint8_t discharge_active = 0;
 static uint8_t bms_error_bmb = 0;      // Which BMB has the error
 static uint8_t bms_error_cell = 0;     // Which cell/thermistor has the error
 static uint8_t bms_responsive_ics = 0;
+
+// Cell temperature buffer for CAN transmission
+static float cell_temps[90];
 
 // Returns pack voltage in millivolts by summing all cell voltages
 float getPackVoltage_v(void)
@@ -242,34 +246,19 @@ void bms_read_thermistors(void)
     // Read auxiliary voltages (GPIO pins)
     adBms6830_read_aux_voltages(TOTAL_IC, IC);
     
-    // Print thermistor readings for each BMB
+    // Collect and send cell temperatures via CAN
+    int temp_idx = 0;
+
     for (int i = 0; i < TOTAL_IC; i++) {
-        char therm_line[256];
-        int offset = 0;
-        
-        // log_printf(LOG_INFO, "BMB %d Thermistors:", i);
-        
-        // GPIO 2-9 correspond to aux channels 1-8 (GPIO1 is aux[0])
-        for (int j = 1; j < 9; j++) {  // Skip GPIO1 (j=0), read GPIO2-9 (j=1-8)
+        for (int j = 1; j < 10; j++) {  // GPIO 2-9 (8 thermistors per BMB)
             int16_t code = IC[i].aux.a_codes[j];
-            float voltage_v = ((code + 10000) * 0.000150f);  // Convert ADC code to voltage (ADBMS6830 format)
-            
-            // Convert voltage to temperature
+            float voltage_v = ((code + 10000) * 0.000150f);
             float temp_c = ntc_voltage_to_temp(voltage_v);
-            
-            if (!isnan(temp_c)) {
-                // offset += snprintf(therm_line + offset, sizeof(therm_line) - offset,
-                //                   "T%d: %.1f°C  ", j, temp_c);
-            } else {
-                // offset += snprintf(therm_line + offset, sizeof(therm_line) - offset,
-                //                   "T%d: INVALID  ", j);
-            }
+            cell_temps[temp_idx++] = isnan(temp_c) ? 0.0f : temp_c;
         }
-        
-        // Print the complete line
-        // log_printf(LOG_INFO, "%s\n", therm_line);
-        // osDelay(10);
     }
+
+    hvc_set_cell_temperatures(&cell_temps[0]);
 }
 
 void bms_update(void)
@@ -321,7 +310,6 @@ void bms_update(void)
     
     // Read thermistor values
     bms_read_thermistors();
-
 
     // check for connectivity
     bms_responsive_ics = 0;
