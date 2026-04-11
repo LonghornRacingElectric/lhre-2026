@@ -1,52 +1,395 @@
 {
-  "annotations": { "list": [{ "builtIn": 1, "datasource": { "type": "grafana", "uid": "-- Grafana --" }, "enable": true, "hide": true, "iconColor": "rgba(0, 211, 255, 1)", "name": "Annotations & Alerts", "type": "dashboard" }] },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": null,
+  "id": 83,
   "links": [],
   "panels": [
     {
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
-      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "id": 1,
-      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
-      "pluginVersion": "11.5.2",
-      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(pack.hv_pack_v) AS \"hvc/hv_pack_v [V]\", AVG(pack.hv_c) AS \"hvc/hv_c [A]\", AVG(pack.hv_soc) AS \"hvc/hv_soc [%]\" FROM pack JOIN packet ON packet.packet_id = pack.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;", "refId": "A" }],
+      "interval": "200ms",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(pack.hv_pack_v) AS \"hvc/hv_pack_v [V]\", AVG(pack.hv_c) AS \"hvc/hv_c [A]\", AVG(pack.hv_soc) AS \"hvc/hv_soc [%]\" FROM pack JOIN packet ON packet.packet_id = pack.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
       "title": "HV Pack Electrical State",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
-      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
       "id": 2,
-      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
-      "pluginVersion": "11.5.2",
-      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ), cell_v AS (SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, UNNEST(pack.cells_v) AS value FROM pack JOIN packet ON packet.packet_id = pack.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end) SELECT time, AVG(value) AS \"hvc/cells_v_avg [V]\", MIN(value) AS \"hvc/cells_v_min [V]\", MAX(value) AS \"hvc/cells_v_max [V]\" FROM cell_v GROUP BY time ORDER BY time;", "refId": "A" }],
+      "interval": "200ms",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ), cell_v AS (SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, UNNEST(pack.cells_v) AS value FROM pack JOIN packet ON packet.packet_id = pack.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end) SELECT time, AVG(value) AS \"hvc/cells_v_avg [V]\", MIN(value) AS \"hvc/cells_v_min [V]\", MAX(value) AS \"hvc/cells_v_max [V]\" FROM cell_v GROUP BY time ORDER BY time;",
+          "refId": "A"
+        }
+      ],
       "title": "Cell Voltages [V]",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
-      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
       "id": 3,
-      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
-      "pluginVersion": "11.5.2",
-      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ), cell_t AS (SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, UNNEST(pack.cells_temps) AS value FROM pack JOIN packet ON packet.packet_id = pack.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end), thermal_t AS (SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(thermal.cell_top_temp) AS cell_top_temp, AVG(thermal.cell_bottom_temp) AS cell_bottom_temp, AVG(thermal.bus_bar_temp1) AS bus_bar_temp1, AVG(thermal.bus_bar_temp2) AS bus_bar_temp2, AVG(thermal.bus_bar_temp3) AS bus_bar_temp3 FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1), diag_t AS (SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(diagnostics_low.precharge_r_temp) AS precharge_r_temp FROM diagnostics_low JOIN packet ON packet.packet_id = diagnostics_low.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1) SELECT cell_t.time, AVG(cell_t.value) AS \"hvc/cells_temp_avg [C]\", MIN(cell_t.value) AS \"hvc/cells_temp_min [C]\", MAX(cell_t.value) AS \"hvc/cells_temp_max [C]\", MAX(thermal_t.cell_top_temp) AS \"hvc/cell_top_temp [C]\", MAX(thermal_t.cell_bottom_temp) AS \"hvc/cell_bottom_temp [C]\", MAX(thermal_t.bus_bar_temp1) AS \"hvc/bus_bar_temp1 [C]\", MAX(thermal_t.bus_bar_temp2) AS \"hvc/bus_bar_temp2 [C]\", MAX(thermal_t.bus_bar_temp3) AS \"hvc/bus_bar_temp3 [C]\", MAX(diag_t.precharge_r_temp) AS \"hvc/precharge_r_temp [C]\" FROM cell_t LEFT JOIN thermal_t ON thermal_t.time = cell_t.time LEFT JOIN diag_t ON diag_t.time = cell_t.time GROUP BY cell_t.time ORDER BY cell_t.time;", "refId": "A" }],
+      "interval": "200ms",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ), cell_t AS (SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, UNNEST(pack.cells_temps) AS value FROM pack JOIN packet ON packet.packet_id = pack.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end), thermal_t AS (SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(thermal.cell_top_temp) AS cell_top_temp, AVG(thermal.cell_bottom_temp) AS cell_bottom_temp, AVG(thermal.bus_bar_temp1) AS bus_bar_temp1, AVG(thermal.bus_bar_temp2) AS bus_bar_temp2, AVG(thermal.bus_bar_temp3) AS bus_bar_temp3 FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1), diag_t AS (SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(diagnostics_low.precharge_r_temp) AS precharge_r_temp FROM diagnostics_low JOIN packet ON packet.packet_id = diagnostics_low.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1) SELECT cell_t.time, AVG(cell_t.value) AS \"hvc/cells_temp_avg [C]\", MIN(cell_t.value) AS \"hvc/cells_temp_min [C]\", MAX(cell_t.value) AS \"hvc/cells_temp_max [C]\", MAX(thermal_t.cell_top_temp) AS \"hvc/cell_top_temp [C]\", MAX(thermal_t.cell_bottom_temp) AS \"hvc/cell_bottom_temp [C]\", MAX(thermal_t.bus_bar_temp1) AS \"hvc/bus_bar_temp1 [C]\", MAX(thermal_t.bus_bar_temp2) AS \"hvc/bus_bar_temp2 [C]\", MAX(thermal_t.bus_bar_temp3) AS \"hvc/bus_bar_temp3 [C]\", MAX(diag_t.precharge_r_temp) AS \"hvc/precharge_r_temp [C]\" FROM cell_t LEFT JOIN thermal_t ON thermal_t.time = cell_t.time LEFT JOIN diag_t ON diag_t.time = cell_t.time GROUP BY cell_t.time ORDER BY cell_t.time;",
+          "refId": "A"
+        }
+      ],
       "title": "Cell and Bus Thermal Signals [C]",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
-      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
       "id": 4,
-      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
-      "pluginVersion": "11.5.2",
-      "targets": [{ "editorMode": "code", "format": "table", "rawQuery": true, "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(diagnostics_high.hvc_state_machine) AS \"hvc/hvc_state_machine [state]\", AVG(CASE WHEN diagnostics_high.pos_hv_contactor THEN 1 ELSE 0 END) AS \"hvc/pos_hv_contactor [bool]\", AVG(CASE WHEN diagnostics_high.neg_hv_contactor THEN 1 ELSE 0 END) AS \"hvc/neg_hv_contactor [bool]\", AVG(CASE WHEN diagnostics_high.precharge_contactor THEN 1 ELSE 0 END) AS \"hvc/precharge_contactor [bool]\", AVG(CASE WHEN diagnostics_low.bmb_comm_error THEN 1 ELSE 0 END) AS \"hvc/bmb_comm_error [bool]\", AVG(CASE WHEN diagnostics_low.imd_gnd_isolation_error THEN 1 ELSE 0 END) AS \"hvc/imd_gnd_isolation_error [bool]\", AVG(CASE WHEN diagnostics_low.shutdown_leg1 THEN 1 ELSE 0 END) AS \"hvc/shutdown_leg1 [bool]\", AVG(CASE WHEN diagnostics_low.shutdown_leg2 THEN 1 ELSE 0 END) AS \"hvc/shutdown_leg2 [bool]\", AVG(CASE WHEN diagnostics_low.shutdown_leg3 THEN 1 ELSE 0 END) AS \"hvc/shutdown_leg3 [bool]\", AVG(CASE WHEN diagnostics_low.shutdown_leg4 THEN 1 ELSE 0 END) AS \"hvc/shutdown_leg4 [bool]\" FROM diagnostics_high JOIN diagnostics_low ON diagnostics_low.packet_id = diagnostics_high.packet_id JOIN packet ON packet.packet_id = diagnostics_high.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;", "refId": "A" }],
+      "interval": "200ms",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(diagnostics_high.hvc_state_machine) AS \"hvc/hvc_state_machine [state]\", AVG(CASE WHEN diagnostics_high.pos_hv_contactor THEN 1 ELSE 0 END) AS \"hvc/pos_hv_contactor [bool]\", AVG(CASE WHEN diagnostics_high.neg_hv_contactor THEN 1 ELSE 0 END) AS \"hvc/neg_hv_contactor [bool]\", AVG(CASE WHEN diagnostics_high.precharge_contactor THEN 1 ELSE 0 END) AS \"hvc/precharge_contactor [bool]\", AVG(CASE WHEN diagnostics_low.bmb_comm_error THEN 1 ELSE 0 END) AS \"hvc/bmb_comm_error [bool]\", AVG(CASE WHEN diagnostics_low.imd_gnd_isolation_error THEN 1 ELSE 0 END) AS \"hvc/imd_gnd_isolation_error [bool]\", AVG(CASE WHEN diagnostics_low.shutdown_leg1 THEN 1 ELSE 0 END) AS \"hvc/shutdown_leg1 [bool]\", AVG(CASE WHEN diagnostics_low.shutdown_leg2 THEN 1 ELSE 0 END) AS \"hvc/shutdown_leg2 [bool]\", AVG(CASE WHEN diagnostics_low.shutdown_leg3 THEN 1 ELSE 0 END) AS \"hvc/shutdown_leg3 [bool]\", AVG(CASE WHEN diagnostics_low.shutdown_leg4 THEN 1 ELSE 0 END) AS \"hvc/shutdown_leg4 [bool]\" FROM packet JOIN bounds ON true JOIN granularity ON true LEFT JOIN diagnostics_high ON diagnostics_high.packet_id = packet.packet_id LEFT JOIN diagnostics_low ON diagnostics_low.packet_id = packet.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
       "title": "HV State, Contactors, and Shutdown Legs",
       "type": "timeseries"
     }
@@ -54,13 +397,48 @@
   "preload": false,
   "refresh": "",
   "schemaVersion": 40,
-  "tags": ["orion", "retrospective", "high-voltage"],
-  "templating": { "list": [{ "allowCustomValue": false, "current": { "text": "", "value": "" }, "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" }, "definition": "SELECT partition_name FROM partitions ORDER BY start_time;", "description": "Select partition generated from packet gaps", "label": "Zoom to partition", "name": "Zoom", "options": [], "query": "SELECT partition_name FROM partitions ORDER BY start_time;", "refresh": 1, "regex": "", "type": "query" }] },
-  "time": { "from": "now-6h", "to": "now" },
+  "tags": [
+    "orion",
+    "retrospective",
+    "high-voltage"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "orion"
+        },
+        "definition": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "description": "Select partition generated from packet gaps",
+        "includeAll": true,
+        "label": "Zoom to partition",
+        "multi": true,
+        "name": "Zoom",
+        "options": [],
+        "query": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "2026-03-11T00:23:00.000Z",
+    "to": "2026-03-12T07:17:00.000Z"
+  },
   "timepicker": {},
   "timezone": "browser",
   "title": "Orion High Voltage Battery",
-  "uid": "orion_hv_batt_retro_v2",
-  "version": 2,
+  "uid": "orion_hv_batt_ret_v1",
+  "version": 4,
   "weekStart": ""
 }

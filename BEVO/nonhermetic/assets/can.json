@@ -1703,7 +1703,7 @@
         "data_length": 0,
         "frequency_ms": null,
         "frequency": null,
-        "quantity": 0,
+        "quantity": 1,
         "bus": "Critical",
         "bytes": []
     },
@@ -2714,6 +2714,65 @@
         ]
     },
     {
+        "packet_id": 455,
+        "packet_name": "VCU State",
+        "from": [
+            "VCU"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 3,
+        "frequency_ms": 3,
+        "frequency": 333.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "PRNDL State",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "prndl_state",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 1,
+                "name": "STOMP Fault",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "bool",
+                    "field": "stomp_fault",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 2,
+                "name": "Ready To Drive Buzzer",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "bool",
+                    "field": "r2d_buzzer",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
         "packet_id": 1024,
         "packet_name": "Wheel Speeds",
         "from": [
@@ -3536,7 +3595,7 @@
         "data_length": 0,
         "frequency_ms": null,
         "frequency": null,
-        "quantity": 0,
+        "quantity": 1,
         "bus": "",
         "bytes": []
     }

@@ -3,7 +3,10 @@
     "list": [
       {
         "builtIn": 1,
-        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -15,22 +18,96 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": null,
+  "id": 86,
   "links": [],
   "panels": [
     {
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
-      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "id": 1,
-      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
-      "pluginVersion": "11.5.2",
+      "interval": "200ms",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.3.0",
       "targets": [
         {
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(thermal.ambient_temp) AS \"thermal/ambient_temp [C]\", AVG(thermal.coolant_temp) AS \"thermal/coolant_temp [C]\", AVG(thermal.motor_temp) AS \"thermal/motor_temp [C]\", AVG(thermal.inverter_temp) AS \"thermal/inverter_temp [C]\", AVG(thermal.batt_loop_batt_temp) AS \"thermal/batt_loop_batt_temp [C]\", AVG(thermal.motor_loop_motor_temp) AS \"thermal/motor_loop_motor_temp [C]\", AVG(thermal.motor_loop_inverter_temp) AS \"thermal/motor_loop_inverter_temp [C]\" FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(thermal.ambient_temp) AS \"thermal/ambient_temp [C]\", AVG(thermal.coolant_temp) AS \"thermal/coolant_temp [C]\", AVG(thermal.motor_temp) AS \"thermal/motor_temp [C]\", AVG(thermal.inverter_temp) AS \"thermal/inverter_temp [C]\", AVG(thermal.batt_loop_batt_temp) AS \"thermal/batt_loop_batt_temp [C]\", AVG(thermal.motor_loop_motor_temp) AS \"thermal/motor_loop_motor_temp [C]\", AVG(thermal.motor_loop_inverter_temp) AS \"thermal/motor_loop_inverter_temp [C]\" FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
           "refId": "A"
         }
       ],
@@ -38,18 +115,92 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
-      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
       "id": 2,
-      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
-      "pluginVersion": "11.5.2",
+      "interval": "200ms",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.3.0",
       "targets": [
         {
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(thermal.module_a_temp) AS \"thermal/module_a_temp [C]\", AVG(thermal.module_b_temp) AS \"thermal/module_b_temp [C]\", AVG(thermal.module_c_temp) AS \"thermal/module_c_temp [C]\", AVG(thermal.gate_driver_temp) AS \"thermal/gate_driver_temp [C]\", AVG(thermal.inverter_hotspot_temp) AS \"thermal/inverter_hotspot_temp [C]\", AVG(thermal.discharge_r_temp) AS \"thermal/discharge_r_temp [C]\", AVG(diagnostics_low.precharge_r_temp) AS \"thermal/precharge_r_temp [C]\" FROM thermal JOIN diagnostics_low ON diagnostics_low.packet_id = thermal.packet_id JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(thermal.module_a_temp) AS \"thermal/module_a_temp [C]\", AVG(thermal.module_b_temp) AS \"thermal/module_b_temp [C]\", AVG(thermal.module_c_temp) AS \"thermal/module_c_temp [C]\", AVG(thermal.gate_driver_temp) AS \"thermal/gate_driver_temp [C]\", AVG(thermal.inverter_hotspot_temp) AS \"thermal/inverter_hotspot_temp [C]\", AVG(thermal.discharge_r_temp) AS \"thermal/discharge_r_temp [C]\", AVG(diagnostics_low.precharge_r_temp) AS \"thermal/precharge_r_temp [C]\" FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true JOIN granularity ON true LEFT JOIN diagnostics_low ON diagnostics_low.packet_id = thermal.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
           "refId": "A"
         }
       ],
@@ -57,18 +208,92 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
-      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
       "id": 3,
-      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
-      "pluginVersion": "11.5.2",
+      "interval": "200ms",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.3.0",
       "targets": [
         {
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ) SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(thermal.batt_loop_rad_fan_speed) AS \"thermal/batt_loop_rad_fan_speed\", AVG(thermal.motor_loop_rad_fan_speed) AS \"thermal/motor_loop_rad_fan_speed\", AVG(thermal.batt_loop_rad_temp) AS \"thermal/batt_loop_rad_temp [C]\", AVG(thermal.motor_loop_rad_temp) AS \"thermal/motor_loop_rad_temp [C]\", AVG(thermal.batt_cooling_current) AS \"thermal/batt_cooling_current [A]\", AVG(thermal.motor_cooling_current) AS \"thermal/motor_cooling_current [A]\" FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(thermal.batt_loop_rad_fan_speed) AS \"thermal/batt_loop_rad_fan_speed\", AVG(thermal.motor_loop_rad_fan_speed) AS \"thermal/motor_loop_rad_fan_speed\", AVG(thermal.batt_loop_rad_temp) AS \"thermal/batt_loop_rad_temp [C]\", AVG(thermal.motor_loop_rad_temp) AS \"thermal/motor_loop_rad_temp [C]\", AVG(thermal.batt_cooling_current) AS \"thermal/batt_cooling_current [A]\", AVG(thermal.motor_cooling_current) AS \"thermal/motor_cooling_current [A]\" FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
           "refId": "A"
         }
       ],
@@ -76,18 +301,91 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
-      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
       "id": 4,
-      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
-      "pluginVersion": "11.5.2",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.3.0",
       "targets": [
         {
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT * FROM get_partition_bounds('$Zoom', $__timeFrom()::timestamptz, $__timeTo()::timestamptz) ), cell_t AS (SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, UNNEST(pack.cells_temps) AS value FROM pack JOIN packet ON packet.packet_id = pack.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end), thermal_t AS (SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(thermal.cell_top_temp) AS cell_top_temp, AVG(thermal.cell_bottom_temp) AS cell_bottom_temp, AVG(thermal.bus_bar_temp1) AS bus_bar_temp1, AVG(thermal.bus_bar_temp2) AS bus_bar_temp2, AVG(thermal.bus_bar_temp3) AS bus_bar_temp3 FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1), diag_t AS (SELECT to_timestamp(floor(packet.time / bounds.bucket_len) * bounds.bucket_len / 1000.0) AS time, AVG(diagnostics_low.precharge_r_temp) AS precharge_r_temp FROM diagnostics_low JOIN packet ON packet.packet_id = diagnostics_low.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1) SELECT cell_t.time, AVG(cell_t.value) AS \"hvc/cells_temp_avg [C]\", MIN(cell_t.value) AS \"hvc/cells_temp_min [C]\", MAX(cell_t.value) AS \"hvc/cells_temp_max [C]\", MAX(thermal_t.cell_top_temp) AS \"hvc/cell_top_temp [C]\", MAX(thermal_t.cell_bottom_temp) AS \"hvc/cell_bottom_temp [C]\", MAX(thermal_t.bus_bar_temp1) AS \"hvc/bus_bar_temp1 [C]\", MAX(thermal_t.bus_bar_temp2) AS \"hvc/bus_bar_temp2 [C]\", MAX(thermal_t.bus_bar_temp3) AS \"hvc/bus_bar_temp3 [C]\", MAX(diag_t.precharge_r_temp) AS \"hvc/precharge_r_temp [C]\" FROM cell_t LEFT JOIN thermal_t ON thermal_t.time = cell_t.time LEFT JOIN diag_t ON diag_t.time = cell_t.time GROUP BY cell_t.time ORDER BY cell_t.time;",
+          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ), cell_t AS (SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, UNNEST(pack.cells_temps) AS value FROM pack JOIN packet ON packet.packet_id = pack.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end), thermal_t AS (SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(thermal.cell_top_temp) AS cell_top_temp, AVG(thermal.cell_bottom_temp) AS cell_bottom_temp, AVG(thermal.bus_bar_temp1) AS bus_bar_temp1, AVG(thermal.bus_bar_temp2) AS bus_bar_temp2, AVG(thermal.bus_bar_temp3) AS bus_bar_temp3 FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1), diag_t AS (SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(diagnostics_low.precharge_r_temp) AS precharge_r_temp FROM diagnostics_low JOIN packet ON packet.packet_id = diagnostics_low.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1) SELECT cell_t.time, AVG(cell_t.value) AS \"hvc/cells_temp_avg [C]\", MIN(cell_t.value) AS \"hvc/cells_temp_min [C]\", MAX(cell_t.value) AS \"hvc/cells_temp_max [C]\", MAX(thermal_t.cell_top_temp) AS \"hvc/cell_top_temp [C]\", MAX(thermal_t.cell_bottom_temp) AS \"hvc/cell_bottom_temp [C]\", MAX(thermal_t.bus_bar_temp1) AS \"hvc/bus_bar_temp1 [C]\", MAX(thermal_t.bus_bar_temp2) AS \"hvc/bus_bar_temp2 [C]\", MAX(thermal_t.bus_bar_temp3) AS \"hvc/bus_bar_temp3 [C]\", MAX(diag_t.precharge_r_temp) AS \"hvc/precharge_r_temp [C]\" FROM cell_t LEFT JOIN thermal_t ON thermal_t.time = cell_t.time LEFT JOIN diag_t ON diag_t.time = cell_t.time GROUP BY cell_t.time ORDER BY cell_t.time;",
           "refId": "A"
         }
       ],
@@ -98,16 +396,31 @@
   "preload": false,
   "refresh": "",
   "schemaVersion": 40,
-  "tags": ["orion", "retrospective", "thermals"],
+  "tags": [
+    "orion",
+    "retrospective",
+    "thermals"
+  ],
   "templating": {
     "list": [
       {
-        "allowCustomValue": false,
-        "current": { "text": "", "value": "" },
-        "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "orion"
+        },
         "definition": "SELECT partition_name FROM partitions ORDER BY start_time;",
         "description": "Select partition generated from packet gaps",
+        "includeAll": true,
         "label": "Zoom to partition",
+        "multi": true,
         "name": "Zoom",
         "options": [],
         "query": "SELECT partition_name FROM partitions ORDER BY start_time;",
@@ -117,11 +430,14 @@
       }
     ]
   },
-  "time": { "from": "now-6h", "to": "now" },
+  "time": {
+    "from": "2026-03-11T02:50:14.016Z",
+    "to": "2026-03-11T11:39:07.864Z"
+  },
   "timepicker": {},
   "timezone": "browser",
   "title": "Orion Thermals - Retrospective",
-  "uid": "orion_thermals_retro_v1",
-  "version": 1,
+  "uid": "orion_thermals_ret_v1",
+  "version": 4,
   "weekStart": ""
 }

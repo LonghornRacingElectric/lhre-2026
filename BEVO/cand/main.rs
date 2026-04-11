@@ -27,8 +27,6 @@ const DEFAULT_PUBLISH_HZ: u64 = 100;
 const DEFAULT_NMEA_LISTEN_ADDR: &str = "0.0.0.0:2000";
 //const OTA_DOWNLOAD_START_ADDRESS: &str = "0x00000000";
 
-
-
 const DEFAULT_CAN_JSON_PATH: &str = "BEVO/nonhermetic/assets/can.json";
 
 #[derive(Debug)]
@@ -230,11 +228,30 @@ fn can_processing_loop(
     raw_rx: Receiver<RawCanMessage>,
 ) {
     while let Ok(message) = raw_rx.recv() {
-        if let Some(config) = packet_map.get(&message.id) {
+        if let Some((config, series_index)) = resolve_packet_config(&packet_map, message.id) {
             let mut locked = data_cache.lock().unwrap();
-            process_raw_data(&mut locked, &message.payload, config);
+            process_raw_data(&mut locked, &message.payload, config, series_index);
         }
     }
+}
+
+fn resolve_packet_config<'a>(
+    packet_map: &'a HashMap<u32, PacketConfig>,
+    message_id: u32,
+) -> Option<(&'a PacketConfig, usize)> {
+    if let Some(config) = packet_map.get(&message_id) {
+        return Some((config, 0));
+    }
+
+    packet_map.values().find_map(|config| {
+        let quantity = config.quantity.max(1);
+        let end_id = config.packet_id.saturating_add(quantity);
+        if message_id >= config.packet_id && message_id < end_id {
+            Some((config, (message_id - config.packet_id) as usize))
+        } else {
+            None
+        }
+    })
 }
 
 fn nmea_listener_loop(external_dynamics: Arc<Mutex<ExternalDynamicsData>>, listen_addr: String) -> Result<()> {
@@ -427,7 +444,29 @@ fn apply_external_dynamics(data: &mut OrionSensorData, external_dynamics: &Exter
 
 // takes raw CAN data + the JSON config for that CAN ID, updates the proto struct in-place with the new values
 
-fn process_raw_data(data: &mut OrionSensorData, payload: &[u8], config: &PacketConfig) {
+fn repeated_field_span(config: &PacketConfig) -> usize {
+    config
+        .bytes
+        .iter()
+        .filter_map(|signal| {
+            signal
+                .protobuf
+                .as_ref()
+                .filter(|protobuf| protobuf.repeated)
+                .and_then(|protobuf| protobuf.field_index)
+        })
+        .max()
+        .map(|index| index + 1)
+        .unwrap_or(0)
+}
+
+fn process_raw_data(
+    data: &mut OrionSensorData,
+    payload: &[u8],
+    config: &PacketConfig,
+    series_index: usize,
+) {
+    let repeated_span = repeated_field_span(config);
     for signal in &config.bytes {
         if signal.start_byte + signal.length > payload.len() { continue; }
         
@@ -455,8 +494,21 @@ fn process_raw_data(data: &mut OrionSensorData, payload: &[u8], config: &PacketC
             _ => continue,
         };
 
-        if let Some(pb) = &signal.protobuf { 
-            generated_mapping::update_proto_field_generated(data, &pb.field_name, val as f32, pb); 
+        if let Some(pb) = &signal.protobuf {
+            if pb.repeated {
+                if let Some(field_index) = pb.field_index {
+                    let mut adjusted_pb = pb.clone();
+                    adjusted_pb.field_index = Some(field_index + series_index.saturating_mul(repeated_span));
+                    generated_mapping::update_proto_field_generated(
+                        data,
+                        &adjusted_pb.field_name,
+                        val as f32,
+                        &adjusted_pb,
+                    );
+                }
+            } else {
+                generated_mapping::update_proto_field_generated(data, &pb.field_name, val as f32, pb);
+            }
         }
     }
 }

@@ -43,6 +43,7 @@ services:
     image: postgres:17
     container_name: db
     restart: unless-stopped
+    shm_size: 2gb
     env_file:
       - path: ../../.env
         required: true
