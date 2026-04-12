@@ -16,12 +16,16 @@ model drive_day {
   relative_humidity Float?
   track_temperature Float?
   track_name String?
+
+  events event[]
 }
 
 model lut_driver {
   driver_id Int @id
   driver_name String
   driver_weight Int?
+
+  events event[]
 }
 
 model lut_location {
@@ -30,16 +34,21 @@ model lut_location {
   track String
 
   tracks track[]
+  events event[]
 }
 
 model lut_car {
   car_id Int @id
   car_name String
+
+  events event[]
 }
 
 model lut_event_type {
   type_id Int @id
   event_type String
+
+  events event[]
 }
 
 model event {
@@ -111,6 +120,12 @@ model event {
   rear_corner_spring_rate Float?
   front_arb_setting String?
   rear_arb_setting String?
+
+  drive_day  drive_day      @relation(fields: [day_id],      references: [day_id])
+  car        lut_car        @relation(fields: [car_id],      references: [car_id])
+  driver     lut_driver     @relation(fields: [driver_id],   references: [driver_id])
+  location   lut_location   @relation(fields: [location_id], references: [location_id])
+  eventType  lut_event_type @relation(fields: [event_type],  references: [type_id])
 
   track_points track_point[]
 }
