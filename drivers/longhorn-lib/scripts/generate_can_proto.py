@@ -418,9 +418,14 @@ def parse_can_model_to_partitions(packets: list) -> Dict[str, List[ParsedField]]
 
 
 def _ensure_dynamics_gps_fields(fields: List[ParsedField]) -> List[ParsedField]:
-    forced_names = ["gps", "gps_imu"]
+    forced_names = ["gps", "gps_imu", "gps_speed"]
     forced: Dict[str, ParsedField] = {
-        name: ParsedField(proto_name=name, proto_type="float", repeated=True, weight=0.0)
+        name: ParsedField(
+            proto_name=name,
+            proto_type="float",
+            repeated=(name != "gps_speed"),
+            weight=0.0,
+        )
         for name in forced_names
     }
     existing: Dict[str, ParsedField] = {f.proto_name: f for f in fields}
@@ -429,7 +434,10 @@ def _ensure_dynamics_gps_fields(fields: List[ParsedField]) -> List[ParsedField]:
     for name in forced_names:
         if name in existing:
             existing_field = existing.pop(name)
-            result.append(ParsedField(proto_name=name, proto_type="float", repeated=True, weight=existing_field.weight))
+            if name != "gps_speed":
+                result.append(ParsedField(proto_name=name, proto_type="float", repeated=True, weight=existing_field.weight))
+            else:
+                result.append(ParsedField(proto_name=name, proto_type='float', repeated=False, weight=existing_field.weight))
         else:
             result.append(forced[name])
 
