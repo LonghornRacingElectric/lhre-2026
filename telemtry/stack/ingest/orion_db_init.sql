@@ -268,6 +268,7 @@ CREATE TABLE public.dynamics (
     packet_id           bigint   NOT NULL,
     gps                  real[],
     gps_imu              real[],
+    gps_speed            real,
     accel_pedal_travel   real,
     steer_col_angle      real,
     bl_sprung_accel      real[],
