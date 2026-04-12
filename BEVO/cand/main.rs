@@ -39,6 +39,7 @@ struct RawCanMessage {
 struct ExternalDynamicsData {
     gps: Vec<f32>,
     gps_imu: Vec<f32>,
+    gps_speed: f32,
 }
 
 fn main() -> Result<()> {
@@ -302,6 +303,12 @@ fn update_external_dynamics_from_sentence(external_dynamics: &Arc<Mutex<External
         locked.gps_imu.push(x);
         locked.gps_imu.push(y);
         locked.gps_imu.push(z);
+        return;
+    }
+
+    if let Some(speed) = parse_nmea_gps_speed(sentence) {
+        let mut locked = external_dynamics.lock().unwrap();
+        locked.gps_speed = speed;
     }
 }
 
@@ -364,12 +371,35 @@ fn parse_pimu_xyz(sentence: &str) -> Option<(f32, f32, f32)> {
     let y: f32 = parts.next()?.trim().parse().ok()?;
     let z: f32 = parts.next()?.trim().parse().ok()?;
     Some((x, y, z))
+
+fn parse_nmea_gps_speed(sentence: &str) -> Option<f32> {
+    if !sentence.starts_with('$') {
+        return None;
+    }
+    let payload = sentence.split('*').next()?;
+    let fields: Vec<&str> = payload.split(',').collect();
+    let msg = fields.first()?;
+
+    let speed_knots = if msg.ends_with("RMC") {
+        // RMC format: field[7] is speed in knots
+        *fields.get(7)?
+    } else if msg.ends_with("VTG") {
+        // VTG format: field[5] is speed in knots
+        *fields.get(5)?
+    } else {
+        return None;
+    };
+
+    let speed: f32 = speed_knots.trim().parse().ok()?;
+    Some(speed)
+}
 }
 
 fn apply_external_dynamics(data: &mut OrionSensorData, external_dynamics: &ExternalDynamicsData) {
     let dynamics = data.dynamics.get_or_insert_with(Default::default);
     dynamics.gps = external_dynamics.gps.clone();
     dynamics.gps_imu = external_dynamics.gps_imu.clone();
+    dynamics.gps_speed = external_dynamics.gps_speed;
 }
 
 // fn ota_processing_loop(device_id: u32, data_link: String) -> Result<std::path::PathBuf> {
