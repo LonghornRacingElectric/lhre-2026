@@ -34,14 +34,26 @@ export async function GET(
     const rows = await prisma.event.findMany({
       where: { day_id: dayId },
       orderBy: { event_id: "desc" },
-      include: {
-        driver: { select: { driver_name: true } },
-        location: { select: { area: true, track: true } },
-        eventType: { select: { event_type: true } },
-        car: { select: { car_name: true } },
-      },
       take: 500,
     });
+
+    // Batch-fetch lookup tables for the IDs present in this result set
+    const carIds = [...new Set(rows.map((e) => e.car_id))];
+    const driverIds = [...new Set(rows.map((e) => e.driver_id))];
+    const locationIds = [...new Set(rows.map((e) => e.location_id))];
+    const eventTypeIds = [...new Set(rows.map((e) => e.event_type))];
+
+    const [cars, drivers, locations, eventTypes] = await Promise.all([
+      prisma.lut_car.findMany({ where: { car_id: { in: carIds } }, select: { car_id: true, car_name: true } }),
+      prisma.lut_driver.findMany({ where: { driver_id: { in: driverIds } }, select: { driver_id: true, driver_name: true } }),
+      prisma.lut_location.findMany({ where: { location_id: { in: locationIds } }, select: { location_id: true, area: true, track: true } }),
+      prisma.lut_event_type.findMany({ where: { type_id: { in: eventTypeIds } }, select: { type_id: true, event_type: true } }),
+    ]);
+
+    const carMap = Object.fromEntries(cars.map((c) => [c.car_id, c.car_name]));
+    const driverMap = Object.fromEntries(drivers.map((d) => [d.driver_id, d.driver_name]));
+    const locationMap = Object.fromEntries(locations.map((l) => [l.location_id, { area: l.area, track: l.track }]));
+    const eventTypeMap = Object.fromEntries(eventTypes.map((et) => [et.type_id, et.event_type]));
 
     const events = rows.map((e) => ({
       event_id: e.event_id,
@@ -53,11 +65,11 @@ export async function GET(
       packet_start: e.packet_start != null ? e.packet_start.toString() : null,
       packet_end: e.packet_end != null ? e.packet_end.toString() : null,
       day_date: day.date.toISOString(),
-      driver_name: e.driver?.driver_name ?? null,
-      area: e.location?.area ?? null,
-      track: e.location?.track ?? null,
-      event_type: e.eventType?.event_type ?? null,
-      car_name: e.car?.car_name ?? null,
+      driver_name: driverMap[e.driver_id] ?? null,
+      area: locationMap[e.location_id]?.area ?? null,
+      track: locationMap[e.location_id]?.track ?? null,
+      event_type: eventTypeMap[e.event_type] ?? null,
+      car_name: carMap[e.car_id] ?? null,
     }));
 
     return NextResponse.json(

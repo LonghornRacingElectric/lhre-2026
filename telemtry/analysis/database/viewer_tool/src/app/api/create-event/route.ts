@@ -112,7 +112,23 @@ export async function POST(req: NextRequest) {
         ? parseFloat(v)
         : null;
 
-    const DEFAULT = 0;
+    const carIdInt = toInt(carId);
+    const driverIdInt = toInt(driverId);
+    const locationIdInt = toInt(locationId);
+    const eventTypeInt = toInt(eventType);
+
+    if (carIdInt == null) {
+      return NextResponse.json({ error: "Car is required" }, { status: 400 });
+    }
+    if (driverIdInt == null) {
+      return NextResponse.json({ error: "Driver is required" }, { status: 400 });
+    }
+    if (locationIdInt == null) {
+      return NextResponse.json({ error: "Location is required" }, { status: 400 });
+    }
+    if (eventTypeInt == null) {
+      return NextResponse.json({ error: "Event type is required" }, { status: 400 });
+    }
 
     const baseData: any = {
         day_id: currentDriveDay.day_id,
@@ -120,10 +136,10 @@ export async function POST(req: NextRequest) {
         creation_time,
         start_time: creation_time,
         packet_start,
-        car_id: toInt(carId) ?? DEFAULT,
-        driver_id: toInt(driverId) ?? DEFAULT,
-        location_id: toInt(locationId) ?? DEFAULT,
-        event_type: toInt(eventType) ?? DEFAULT,
+        car_id: carIdInt,
+        driver_id: driverIdInt,
+        location_id: locationIdInt,
+        event_type: eventTypeInt,
         car_weight: toInt(carWeight),
         tow_angle: toFloat(towAngle),
         // alignment

@@ -16,11 +16,14 @@ export async function GET() {
         air_temperature: true,
         relative_humidity: true,
         track_temperature: true,
-        _count: { select: { events: true } },
       },
     });
 
-    const drive_days = rows.map((d) => ({
+    const counts = await Promise.all(
+      rows.map((d) => prisma.event.count({ where: { day_id: d.day_id } }))
+    );
+
+    const drive_days = rows.map((d, i) => ({
       drive_day: {
         day_id: d.day_id,
         date: d.date.toISOString(),
@@ -29,7 +32,7 @@ export async function GET() {
         relative_humidity: d.relative_humidity ?? null,
         track_temperature: d.track_temperature ?? null,
       },
-      event_count: d._count.events,
+      event_count: counts[i],
     }));
 
     return NextResponse.json({ drive_days }, { status: 200 });

@@ -27,6 +27,7 @@ export default function NewEventPage() {
   const [clientId] = useState(() => crypto.randomUUID());
   const [appState, setAppState] = useState<AppState>({});
   const [newEventState, setNewEventState] = useState<NewEventState>({});
+  const [formError, setFormError] = useState<string | null>(null);
 
   const appStateRef = useRef(appState);
   appStateRef.current = appState;
@@ -188,13 +189,25 @@ export default function NewEventPage() {
   };
 
   const handleCreateEvent = async () => {
+    const missing: string[] = [];
+    if (newEventState.carId == null) missing.push("Car");
+    if (newEventState.driverId == null) missing.push("Driver");
+    if (newEventState.locationId == null) missing.push("Location");
+    if (newEventState.eventType == null) missing.push("Event Type");
+    if (missing.length > 0) {
+      setFormError(`Please select: ${missing.join(", ")}`);
+      return;
+    }
+    setFormError(null);
+
     const response = await fetch("/api/create-event", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newEventState),
     });
     if (response.status != 201) {
-      console.error("Failed to create new event");
+      const body = await response.json().catch(() => ({}));
+      setFormError(body.error ?? "Failed to create event");
       return;
     }
     sendStateUpdate({ currentPage: "/event/in-progress" });
@@ -906,7 +919,10 @@ export default function NewEventPage() {
                 <Label htmlFor="undertrayOn">Undertray On</Label>
               </div>
             </div>
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex flex-col items-end gap-2">
+              {formError && (
+                <p className="text-sm text-red-500">{formError}</p>
+              )}
               <Button type="button" onClick={handleCreateEvent}>
                 Create Event
               </Button>

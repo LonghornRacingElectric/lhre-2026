@@ -324,8 +324,8 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
     const y = yScale(points[index][0]);
 
     // Calculate tangent using neighbors
-    let prevIdx = index > 0 ? index - 1 : 0;
-    let nextIdx = index < points.length - 1 ? index + 1 : points.length - 1;
+    const prevIdx = index > 0 ? index - 1 : 0;
+    const nextIdx = index < points.length - 1 ? index + 1 : points.length - 1;
     
     // Fallback for single point
     if (prevIdx === nextIdx) return { x, y, angle: 0 };
@@ -470,7 +470,7 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
         const info = getPointScreenInfo(bestIdx);
         if (info) setHoverLine({ ...info, index: bestIdx });
     }
-  }, [isDefiningSectors, points, xScale, yScale, getPointScreenInfo]);
+  }, [isDefiningSectors, isSettingStartGate, points, xScale, yScale, getPointScreenInfo]);
 
   const handleMouseLeave = useCallback(() => {
     setHoverLine(null);

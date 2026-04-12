@@ -76,7 +76,6 @@ export async function GET(req: NextRequest) {
         driver_id: true,
         location_id: true,
         event_type: true,
-        event_index: true,
         car_weight: true,
         tow_angle: true,
         camber_front: true,
@@ -128,15 +127,19 @@ export async function GET(req: NextRequest) {
         front_heave_spring_rate: true,
         rear_roll_spring_rate: true,
         rear_heave_spring_rate: true,
-        drive_day: { select: { date: true } },
-        driver: { select: { driver_name: true } },
-        location: { select: { area: true, track: true } },
-        eventType: { select: { event_type: true } },
-        car: { select: { car_name: true } },
       },
     });
     if (!ev)
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
+
+    // Fetch lookup table values separately (no @relation in schema)
+    const [driveDay, car, driver, location, eventType] = await Promise.all([
+      prisma.drive_day.findUnique({ where: { day_id: ev.day_id }, select: { date: true } }),
+      prisma.lut_car.findUnique({ where: { car_id: ev.car_id }, select: { car_name: true } }),
+      prisma.lut_driver.findUnique({ where: { driver_id: ev.driver_id }, select: { driver_name: true } }),
+      prisma.lut_location.findUnique({ where: { location_id: ev.location_id }, select: { area: true, track: true } }),
+      prisma.lut_event_type.findUnique({ where: { type_id: ev.event_type }, select: { event_type: true } }),
+    ]);
     if (ev.packet_start == null || ev.packet_end == null) {
       return NextResponse.json(
         { error: "Event has no packet range" },
@@ -276,12 +279,12 @@ export async function GET(req: NextRequest) {
         packet_start: packetStart.toString(),
         packet_end: packetEnd.toString(),
         day_id: ev.day_id,
-        day_date: ev.drive_day?.date != null ? ev.drive_day.date.toISOString() : null,
-        driver_name: ev.driver?.driver_name ?? null,
-        area: ev.location?.area ?? null,
-        track: ev.location?.track ?? null,
-        event_type: ev.eventType?.event_type ?? null,
-        car_name: ev.car?.car_name ?? null,
+        day_date: driveDay?.date != null ? driveDay.date.toISOString() : null,
+        driver_name: driver?.driver_name ?? null,
+        area: location?.area ?? null,
+        track: location?.track ?? null,
+        event_type: eventType?.event_type ?? null,
+        car_name: car?.car_name ?? null,
         time_start: bigintToSafeNumber(startMs),
         time_end: bigintToSafeNumber(endMs),
         lap_times,
