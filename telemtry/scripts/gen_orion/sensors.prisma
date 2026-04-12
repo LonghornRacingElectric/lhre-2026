@@ -12,18 +12,18 @@ model packet {
 
 model dynamics {
   packet_id BigInt @id
-  gps                  Unsupported("point")?
-  gps_imu              Float[]?
+  gps                  Float[]
+  gps_imu              Float[]
   accel_pedal_travel   Float?
   steer_col_angle      Float?
-  bl_sprung_accel      Float[]?
-  bl_unsprung_accel    Float[]?
-  br_sprung_accel      Float[]?
-  br_unsprung_accel    Float[]?
-  fl_sprung_accel      Float[]?
-  fl_unsprung_accel    Float[]?
-  fr_sprung_accel      Float[]?
-  fr_unsprung_accel    Float[]?
+  bl_sprung_accel      Float[]
+  bl_unsprung_accel    Float[]
+  br_sprung_accel      Float[]
+  br_unsprung_accel    Float[]
+  fl_sprung_accel      Float[]
+  fl_unsprung_accel    Float[]
+  fr_sprung_accel      Float[]
+  fr_unsprung_accel    Float[]
   bl_ride_height       Float?
   bl_strain_gauge_v    Float?
   bl_sus_pot_v         Float?
@@ -84,7 +84,7 @@ model pack {
   packet_id BigInt @id
   bus_voltage          Float?
   lv_boards_current    Float?
-  cells_v              Float[]?
+  cells_v              Float[]
   dc_bus_v             Float?
   delta_resolver_angle Float?
   inverter_freq        Float?
@@ -92,7 +92,7 @@ model pack {
   time_since_on        Float?
   vab_vq_v             Float?
   vbc_vd_v             Float?
-  cells_temps          Float[]?
+  cells_temps          Float[]
   dc_bus_current       Float?
   hv_c                 Float?
   hv_pack_v            Float?
@@ -109,10 +109,13 @@ model pack {
 
 model diagnostics_high {
   packet_id BigInt @id
+  prndl_state          Float?
   shutdown_current     Float?
   hvc_state_machine    Float?
   post_faults          Float?
   run_faults           Float?
+  r2d_buzzer           Boolean?
+  stomp_fault          Boolean?
   neg_hv_contactor     Boolean?
   pos_hv_contactor     Boolean?
   precharge_contactor  Boolean?

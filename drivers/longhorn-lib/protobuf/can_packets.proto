@@ -101,13 +101,16 @@ message Pack {
 }
 
 message DiagnosticsHigh {
-    float shutdown_current = 1;
-    float hvc_state_machine = 2;
-    float post_faults = 3;
-    float run_faults = 4;
-    bool neg_hv_contactor = 5;
-    bool pos_hv_contactor = 6;
-    bool precharge_contactor = 7;
+    float prndl_state = 1;
+    float shutdown_current = 2;
+    float hvc_state_machine = 3;
+    float post_faults = 4;
+    float run_faults = 5;
+    bool r2d_buzzer = 6;
+    bool stomp_fault = 7;
+    bool neg_hv_contactor = 8;
+    bool pos_hv_contactor = 9;
+    bool precharge_contactor = 10;
 }
 
 message DiagnosticsLow {
