@@ -28,14 +28,15 @@ function bigintToSafeNumber(v: bigint | null): number | null {
 }
 
 async function buildReplayState(eventId: number, atTimeMs: bigint) {
-  const ev = await prisma.event.findUnique({
-    where: { event_id: eventId },
+  // eventId now maps to day_id since drive_day is the single session
+  const ev = await prisma.drive_day.findUnique({
+    where: { day_id: eventId },
     select: { packet_start: true, packet_end: true },
   });
 
-  if (!ev) return { status: 404 as const, body: { error: "Event not found" } };
+  if (!ev) return { status: 404 as const, body: { error: "Drive day not found" } };
   if (ev.packet_start == null || ev.packet_end == null) {
-    return { status: 409 as const, body: { error: "Event has no packet range" } };
+    return { status: 409 as const, body: { error: "Drive day has no packet range" } };
   }
 
   const packetStart = BigInt(ev.packet_start as any);

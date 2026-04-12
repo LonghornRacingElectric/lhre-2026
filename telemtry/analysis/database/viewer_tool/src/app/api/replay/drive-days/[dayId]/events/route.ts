@@ -17,13 +17,11 @@ export async function GET(
 
     const day = await prisma.drive_day.findUnique({
       where: { day_id: dayId },
-      select: {
-        day_id: true,
-        date: true,
-        power_limit: true,
-        air_temperature: true,
-        relative_humidity: true,
-        track_temperature: true,
+      include: {
+        car:       { select: { car_name: true } },
+        driver:    { select: { driver_name: true } },
+        location:  { select: { area: true, track: true } },
+        eventType: { select: { event_type: true } },
       },
     });
 
@@ -31,34 +29,25 @@ export async function GET(
       return NextResponse.json({ error: "Drive day not found" }, { status: 404 });
     }
 
-    const rows = await prisma.event.findMany({
-      where: { day_id: dayId },
-      orderBy: { event_id: "desc" },
-      include: {
-        car:       { select: { car_name: true } },
-        driver:    { select: { driver_name: true } },
-        location:  { select: { area: true, track: true } },
-        eventType: { select: { event_type: true } },
+    // Drive day is the single session — return it shaped like an event for replay compatibility
+    const events = [
+      {
+        event_id: day.day_id,
+        day_id: day.day_id,
+        status: day.status,
+        creation_time: day.creation_time?.toString() ?? null,
+        start_time: day.start_time != null ? day.start_time.toString() : null,
+        end_time: day.end_time != null ? day.end_time.toString() : null,
+        packet_start: day.packet_start != null ? day.packet_start.toString() : null,
+        packet_end: day.packet_end != null ? day.packet_end.toString() : null,
+        day_date: day.date.toISOString(),
+        driver_name: day.driver?.driver_name ?? null,
+        area: day.location?.area ?? null,
+        track: day.location?.track ?? null,
+        event_type: day.eventType?.event_type ?? null,
+        car_name: day.car?.car_name ?? null,
       },
-      take: 500,
-    });
-
-    const events = rows.map((e) => ({
-      event_id: e.event_id,
-      day_id: e.day_id,
-      status: e.status,
-      creation_time: e.creation_time.toString(),
-      start_time: e.start_time != null ? e.start_time.toString() : null,
-      end_time: e.end_time != null ? e.end_time.toString() : null,
-      packet_start: e.packet_start != null ? e.packet_start.toString() : null,
-      packet_end: e.packet_end != null ? e.packet_end.toString() : null,
-      day_date: day.date.toISOString(),
-      driver_name: e.driver?.driver_name ?? null,
-      area: e.location?.area ?? null,
-      track: e.location?.track ?? null,
-      event_type: e.eventType?.event_type ?? null,
-      car_name: e.car?.car_name ?? null,
-    }));
+    ];
 
     return NextResponse.json(
       {

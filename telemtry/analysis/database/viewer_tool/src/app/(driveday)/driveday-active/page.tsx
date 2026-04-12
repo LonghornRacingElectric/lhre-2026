@@ -6,7 +6,7 @@ import { AppState } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-const EventInProgressPage = () => {
+const DrivedayActivePage = () => {
   const router = useRouter();
   const [clientId] = useState(() => crypto.randomUUID());
   const [appState, setAppState] = useState<AppState>({});
@@ -35,26 +35,28 @@ const EventInProgressPage = () => {
     return () => eventSource.close();
   }, []);
 
-  const updateState = (updater: (prevState: AppState) => AppState) => {
-    const newState = updater(appState);
-    setAppState(newState);
-    sendStateUpdate(newState);
-  };
-
-  const handleEndEvent = async () => {
+  const handleEndDriveDay = async () => {
     await fetch('/api/end-event', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
-    updateState(s => ({ ...s, eventTracker: { isTimerRunning: false, timerStartTime: 0, timerBaseTime: 0, turns: [], accels: [], laps: [] }, newEvent: undefined, currentPage: '/event/new' }));
-    router.push('/event/new');
+    const reset: AppState = {
+      ...appStateRef.current,
+      eventTracker: { isTimerRunning: false, timerStartTime: 0, timerBaseTime: 0, turns: [], accels: [], laps: [] },
+      driveDay: undefined,
+      currentPage: '/driveday',
+      lastUpdatedBy: clientId,
+    };
+    setAppState(reset);
+    sendStateUpdate(reset);
+    router.push('/driveday');
   };
 
   return (
     <div className="container mx-auto p-8 flex flex-col items-center justify-center pt-20">
-      <h1 className="text-4xl font-bold mb-8">Event in Progress</h1>
+      <h1 className="text-4xl font-bold mb-8">Drive Day Active</h1>
       <div className="flex space-x-4">
-        <Button onClick={handleEndEvent} variant="destructive">End Event</Button>
+        <Button onClick={handleEndDriveDay} variant="destructive">End Drive Day</Button>
         <Link href="/live-viewer">
           <Button variant="default">Go to Live Viewer</Button>
         </Link>
@@ -63,4 +65,4 @@ const EventInProgressPage = () => {
   );
 };
 
-export default EventInProgressPage;
+export default DrivedayActivePage;

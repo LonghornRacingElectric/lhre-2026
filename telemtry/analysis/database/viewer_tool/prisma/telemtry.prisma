@@ -12,88 +12,50 @@ datasource db {
 // DRIVE DAY TABLE
 // ----------------------------------------------------
 model drive_day {
-  day_id      Int      @id @default(autoincrement())
-  date        DateTime
-  power_limit Int?
-  air_temperature Float?
+  day_id            Int      @id @default(autoincrement())
+  date              DateTime
+  track_name        String?
+  weather           String?
+  wind_speed        Float?
+  power_limit       Int?
+  air_temperature   Float?
   relative_humidity Float?
   track_temperature Float?
-
-  // Relations
-  events      event[]
-}
-
-// ----------------------------------------------------
-// LOOKUP TABLES
-// ----------------------------------------------------
-model lut_driver {
-  driver_id     Int     @id
-  driver_name   String
-  driver_weight Int?
-
-  events        event[]
-}
-
-model lut_location {
-  location_id Int    @id
-  area        String
-  track       String
-
-  events      event[]
-}
-
-model lut_car {
-  car_id   Int    @id
-  car_name String
-
-  events   event[]
-}
-
-model lut_event_type {
-  type_id    Int    @id
-  event_type String
-
-  events     event[]
-}
-
-// ----------------------------------------------------
-// EVENT TABLE
-// ----------------------------------------------------
-model event {
-  event_id            Int       @id @default(autoincrement())
-  day_id              Int
-  status              Int?
-  creation_time       BigInt
-  start_time          BigInt?
-  end_time            BigInt?
-  packet_start        BigInt?
-  packet_end          BigInt?
-  car_id              Int
-  driver_id           Int
-  location_id         Int
-  event_type          Int
-  event_index         Int?
+  // Status and timing
+  status            Int?
+  creation_time     BigInt?
+  start_time        BigInt?
+  end_time          BigInt?
+  packet_start      BigInt?
+  packet_end        BigInt?
+  // Driver, car, location, event type
+  car_id            Int?
+  driver_id         Int?
+  location_id       Int?
+  event_type        Int?
+  // Car setup
   car_weight          Int?
   tow_angle           Float?
-  // Alignment
   camber_front        Float?
   camber_rear         Float?
   toe_front           Float?
   toe_rear            Float?
-  // Ride height per axle
   ride_height_front   Float?
   ride_height_rear    Float?
-  // Keep legacy field for backward compatibility
   ride_height         Float?
   ackerman_adjustment Float?
   shock_dampening     Int?
-  power_limit         Int?
   torque_limit        Int?
-  // Tire cold pressures (retain existing columns)
+  // Tire cold pressures
   frw_pressure        Float?
   flw_pressure        Float?
   brw_pressure        Float?
   blw_pressure        Float?
+  // Tire hot pressures
+  frw_hot_pressure    Float?
+  flw_hot_pressure    Float?
+  brw_hot_pressure    Float?
+  blw_hot_pressure    Float?
   // Tire wear depth and durometer
   fr_wear_depth       Float?
   fl_wear_depth       Float?
@@ -120,36 +82,66 @@ model event {
   rl_lsr              Int?
   rl_hsc              Int?
   rl_hsr              Int?
-  front_wing_on       Boolean?
-  rear_wing_on        Boolean?
-  front_wing_pitch    Float?
-  rear_wing_pitch     Float?
-  regen_on            Boolean?
-  undertray_on        Boolean?
-  // Angelique-only fields
-  front_roll_spring_rate Float?
-  front_heave_spring_rate Float?
-  rear_roll_spring_rate  Float?
-  rear_heave_spring_rate Float?
-  // 2026 car-only fields (per axle)
+  // Aero
+  front_wing_on            Boolean?
+  rear_wing_on             Boolean?
+  front_wing_pitch         Float?
+  rear_wing_pitch          Float?
+  regen_on                 Boolean?
+  undertray_on             Boolean?
+  // Specialty springs
+  front_roll_spring_rate   Float?
+  front_heave_spring_rate  Float?
+  rear_roll_spring_rate    Float?
+  rear_heave_spring_rate   Float?
   front_corner_spring_rate Float?
   rear_corner_spring_rate  Float?
   front_arb_setting        String?
   rear_arb_setting         String?
 
   // Relations
-  drive_day   drive_day     @relation(fields: [day_id], references: [day_id])
-  car         lut_car       @relation(fields: [car_id], references: [car_id])
-  driver      lut_driver    @relation(fields: [driver_id], references: [driver_id])
-  location    lut_location  @relation(fields: [location_id], references: [location_id])
-  eventType   lut_event_type @relation(fields: [event_type], references: [type_id])
-  classifier  classifier?
+  car        lut_car?        @relation(fields: [car_id],      references: [car_id])
+  driver     lut_driver?     @relation(fields: [driver_id],   references: [driver_id])
+  location   lut_location?   @relation(fields: [location_id], references: [location_id])
+  eventType  lut_event_type? @relation(fields: [event_type],  references: [type_id])
 
-  @@index([day_id])
   @@index([car_id])
   @@index([driver_id])
   @@index([location_id])
   @@index([event_type])
+}
+
+// ----------------------------------------------------
+// LOOKUP TABLES
+// ----------------------------------------------------
+model lut_driver {
+  driver_id     Int     @id
+  driver_name   String
+  driver_weight Int?
+
+  drive_days    drive_day[]
+}
+
+model lut_location {
+  location_id Int    @id
+  area        String
+  track       String
+
+  drive_days  drive_day[]
+}
+
+model lut_car {
+  car_id   Int    @id
+  car_name String
+
+  drive_days drive_day[]
+}
+
+model lut_event_type {
+  type_id    Int    @id
+  event_type String
+
+  drive_days drive_day[]
 }
 
 // ----------------------------------------------------
@@ -211,8 +203,8 @@ model dynamics {
   br_spring_displace Float?
   dash_speed         Float?
   // Store as [lat, lng] numeric arrays (instead of Postgres point)
-  f_gps              Float[]?
-  b_gps              Float[]?
+  f_gps              Float[]
+  b_gps              Float[]
   f_gps_velocity     Float?
   b_gps_velocity     Float?
   f_gps_heading      Float?
@@ -378,11 +370,11 @@ model track_mapping {
 // CLASSIFIER TABLE
 // ----------------------------------------------------
 model classifier {
-  event_id   Int    @id
+  day_id     BigInt
   type       String
   start_time BigInt
   end_time   BigInt?
   notes      String?
 
-  event event @relation(fields: [event_id], references: [event_id])
+  @@id([day_id, type, start_time])
 }

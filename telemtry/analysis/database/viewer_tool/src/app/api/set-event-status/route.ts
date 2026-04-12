@@ -1,55 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma/telemtry'; // Make sure you export PrismaClient instance here
+import prisma from '@/lib/prisma/telemtry';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { event_id, status, start_time } = body;
+    const { day_id, status, start_time } = body;
 
-    if (event_id === undefined || status === undefined) {
-      return NextResponse.json({ error: 'Missing event_id or status' }, { status: 400 });
+    if (day_id === undefined || status === undefined) {
+      return NextResponse.json({ error: 'Missing day_id or status' }, { status: 400 });
     }
 
     const now = start_time ?? Date.now();
 
     if (status === 1) {
-      // Event is starting
-      await prisma.event.update({
-        where: { event_id },
+      await prisma.drive_day.update({
+        where: { day_id },
         data: {
-          start_time: now,
+          start_time: BigInt(now),
           status: 1,
         },
       });
     } else if (status === 0) {
-      // Event is ending: need last packet_id
       const lastPacket = await prisma.packet.findFirst({
         orderBy: { packet_id: 'desc' },
       });
 
-      const packet_end = lastPacket?.packet_id ?? body.packet_end ?? 0;
+      const packet_end = lastPacket?.packet_id ?? body.packet_end ?? BigInt(0);
 
-      await prisma.event.update({
-        where: { event_id },
+      await prisma.drive_day.update({
+        where: { day_id },
         data: {
-          end_time: now,
+          end_time: BigInt(now),
           status: 0,
           packet_end,
         },
       });
     } else {
-      // Other statuses
-      await prisma.event.update({
-        where: { event_id },
+      await prisma.drive_day.update({
+        where: { day_id },
         data: { status },
       });
     }
 
-    // TODO: Publish to MQTT separately
-
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error('Error updating event status:', error);
-    return NextResponse.json({ error: 'Failed to update event status' }, { status: 500 });
+    console.error('Error updating drive day status:', error);
+    return NextResponse.json({ error: 'Failed to update drive day status' }, { status: 500 });
   }
 }
