@@ -42,6 +42,7 @@ do
         2)
             cd ../kafka || (echo "Failed to find kafka" && exit)
             $SUDO docker compose down
+            $SUDO docker rmi "$($SUDO docker image ls | grep kafka-bridge | awk '{print $3}')"
             $SUDO docker compose up -d
             cd ../ingest || (echo "Failed to find ingest" && exit)
             $SUDO docker compose down
@@ -52,6 +53,7 @@ do
         3)
             cd ../kafka || (echo "Failed to find kafka" && exit)
             $SUDO docker compose down
+            $SUDO docker rmi "$($SUDO docker image ls | grep kafka-bridge | awk '{print $3}')"
             $SUDO docker compose up -d
             cd ../ingest || (echo "Failed to find ingest" && exit)
             $SUDO docker compose down
