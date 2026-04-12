@@ -1,0 +1,236 @@
+# Kafka Datasource for Grafana
+
+[![License](https://img.shields.io/github/license/hoptical/grafana-kafka-datasource)](LICENSE)
+[![CI](https://github.com/hoptical/grafana-kafka-datasource/actions/workflows/ci.yml/badge.svg)](https://github.com/hoptical/grafana-kafka-datasource/actions/workflows/ci.yml)
+[![Release](https://github.com/hoptical/grafana-kafka-datasource/actions/workflows/release.yml/badge.svg)](https://github.com/hoptical/grafana-kafka-datasource/actions/workflows/release.yml)
+[![Go Version](https://img.shields.io/badge/go-1.25.7-blue?logo=go)](https://golang.org/doc/go1.25)
+[![Grafana v10.2+](https://img.shields.io/badge/grafana-10.2%2B-orange?logo=grafana)](https://grafana.com)
+[![Go Report Card](https://goreportcard.com/badge/github.com/hoptical/grafana-kafka-datasource)](https://goreportcard.com/report/github.com/hoptical/grafana-kafka-datasource)
+
+---
+
+**Visualize real-time Kafka data in Grafana dashboards.**
+
+---
+
+## Why Kafka Datasource?
+
+- **Live streaming:** Monitor Kafka topics in real time.
+- **Flexible queries:** Select topics, partitions, offsets, and timestamp modes.
+- **Rich JSON support:** Handles flat, nested, and array data.
+- **Avro support:** Integrates with Schema Registry for Avro messages.
+- **Secure:** SASL authentication & SSL/TLS encryption.
+- **Easy setup:** Install and configure in minutes.
+
+## How It Works
+
+This plugin connects your Grafana instance directly to Kafka brokers, allowing you to query, visualize, and explore streaming data with powerful time-series panels and dashboards.
+
+## Requirements
+
+- Apache Kafka v0.9+
+- Grafana v10.2+
+
+> Note: This is a backend plugin, so the Grafana server should have access to the Kafka broker.
+
+## Features
+
+- Real-time monitoring of Kafka topics
+- Kafka authentication (SASL) & encryption (SSL/TLS)
+- Query all or specific partitions
+- Autocomplete for topic names
+- Flexible offset options (latest, last N, earliest)
+- Timestamp modes (Kafka event time, dashboard received time)
+- Advanced JSON support (flat, nested, arrays, mixed types)
+- Avro support with Schema Registry integration (inline schema or Schema Registry)
+- Protobuf support with Schema Registry integration (inline schema or Schema Registry)
+- Message key support (None, String, JSON, Base64 formats)
+- Configurable flattening depth (default: 5)
+- Configurable max fields per message (default: 1000)
+- Customizable query aliases with placeholders
+
+## Installation
+
+### Via grafana-cli
+
+```bash
+grafana-cli plugins install hamedkarbasi93-kafka-datasource
+```
+
+### Via zip file
+
+Download the [latest release](https://github.com/hoptical/grafana-kafka-datasource/releases/latest) and unpack it into your Grafana plugins directory (default: `/var/lib/grafana/plugins`).
+
+### Provisioning
+
+You can automatically configure the Kafka datasource using Grafana's provisioning feature. For a ready-to-use template and configuration options, refer to `provisioning/datasources/datasource.yaml` in this repository.
+
+## Usage
+
+### Configuration
+
+1. Add a new data source in Grafana and select "Kafka Datasource".
+2. Configure connection settings:
+   - **Broker address** (e.g. `localhost:9094` or `kafka:9092`)
+   - **Authentication** (SASL, SSL/TLS, optional)
+   - **Avro Schema Registry** (if using Avro format)
+   - **Timeout settings** (default: two seconds)
+
+### Build the Query
+
+1. Create a new dashboard panel in Grafana.
+2. Select your Kafka data source.
+3. Configure the query:
+   - **Topic**: Enter or select your Kafka topic (autocomplete available).
+   - **Fetch Partitions**: Click to retrieve available partitions.
+   - **Partition**: Choose a specific partition or "all" for all partitions.
+   - **Message Format**:
+     - `JSON`: For JSON messages
+     - `Avro`: For Avro messages (requires schema registry or inline schema)
+     - `Protobuf`: For Protobuf messages (requires schema registry or inline schema)
+   - **Offset Reset**:
+     - `latest`: Only new messages
+     - `last N messages`: Start from the most recent N messages (set N in the UI)
+     - `earliest`: Start from the oldest message
+   - **Timestamp Mode**: Choose between Kafka event time or dashboard received time.
+   - **Alias**: Optional custom name for the query series. Supports template placeholders:
+     - `{{topic}}`: The Kafka topic name
+     - `{{field}}`: The field name (for field display names)
+     - `{{partition}}`: The partition number
+     - `{{refid}}`: The query RefID (e.g., A, B)
+   - **Key Format**: Choose how to process Kafka message keys:
+     - `None`: Ignore keys (default, backward compatible)
+     - `String`: Single "key" column with UTF-8 decoded key
+     - `JSON`: Flatten JSON keys with "key." prefix (e.g., key.userId, key.region)
+     - `Base64`: Single "key" column with raw binary key encoded as a base64 string
+
+**Tip:** Numeric fields become time series, string fields are labels, arrays and nested objects are automatically flattened for visualization.
+
+## Supported JSON Structures
+
+- Flat objects
+- Nested objects (flattened)
+- Top-level arrays
+- Mixed types
+
+**Examples:**
+
+Simple flat object:
+
+```json
+{
+  "temperature": 23.5,
+  "humidity": 65.2,
+  "status": "active"
+}
+```
+
+Nested object (flattened as `user.name`, `user.age`, `settings.theme`):
+
+```json
+{
+  "user": {
+    "name": "John Doe",
+    "age": 30
+  },
+  "settings": {
+    "theme": "dark"
+  }
+}
+```
+
+Top-level array (flattened as `item_0.id`, `item_0.value`, `item_1.id`, etc.):
+
+```json
+[
+  { "id": 1, "value": 10.5 },
+  { "id": 2, "value": 20.3 }
+]
+```
+
+## Avro Support
+
+Avro messages are supported using either:
+
+- **Inline schema**: paste your Avro schema (JSON format) in the UI
+- **Schema Registry**: the plugin fetches the latest schema by subject from the configured Schema Registry
+
+**Example Avro schema:**
+
+```json
+{
+  "type": "record",
+  "name": "SensorReading",
+  "fields": [
+    { "name": "sensor_id", "type": "string" },
+    { "name": "temperature", "type": "double" },
+    { "name": "timestamp", "type": "long" }
+  ]
+}
+```
+
+Both flat and nested structures are supported. When using Schema Registry, messages are encoded in Confluent wire format with schema ID prefix for efficient deserialization.
+
+## Protobuf Support
+
+Protobuf messages are supported using either:
+
+- **Inline schema**: paste your `.proto` schema definition in the UI
+- **Schema Registry**: the plugin extracts the schema ID from the Confluent wire format header and fetches the schema from the configured Schema Registry
+
+**Example Protobuf schema:**
+
+```protobuf
+syntax = "proto3";
+
+message SensorReading {
+  string sensor_id = 1;
+  double temperature = 2;
+  int64 timestamp = 3;
+}
+```
+
+Both flat and nested structures are supported. Confluent wire format uses a magic byte (0x00) followed by a 4-byte schema ID, then a variable-length message-indexes array (varint-encoded), and finally the Protobuf payload. The message-indexes identify which message type in the schema the payload encodes.
+
+### Known Protobuf Limitations
+
+- **Inline schemas do not support imports**
+  - Well-known types like `google.protobuf.Timestamp` won't compile when provided inline
+  - Use inline schema for simple schemas, or provide the schema via Schema Registry if imports are needed
+- **Default message selection**: the first top-level message in the `.proto` file is used as the default
+- **Schema caching**: schemas are cached by ID/subject to avoid repeated registry requests
+
+If you encounter issues with complex Protobuf schemas, open an issue so we can prioritize improvements.
+
+## Live Demo
+
+![Kafka dashboard](https://raw.githubusercontent.com/hoptical/grafana-kafka-datasource/86ea8d360bfd67cfed41004f80adc39219983210/src/img/graph.gif)
+
+## Sample Data Generator
+
+Want to test the plugin with realistic Kafka messages? Use the included sample producers to generate JSON, Avro, or Protobuf messages with various structures and schema configurations. For detailed usage, see the [example README](https://github.com/hoptical/grafana-kafka-datasource/blob/main/example/README.md). The producers support flexible options for message format, structure, intervals, and schema registry integration.
+
+## FAQ & Troubleshooting
+
+- **Can I use this with any Kafka broker?** Yes, supports Apache Kafka v0.9+ and compatible brokers.
+- **Does it support secure connections?** Yes, SASL and SSL/TLS are supported.
+- **What JSON formats are supported?** Flat, nested, arrays, mixed types.
+- **How do I generate test data?** Use the included Go or Python producers.
+- **Where do I find more help?** See this README or open an issue.
+
+## Documentation & Links
+
+- [Sample Producers](https://github.com/hoptical/grafana-kafka-datasource/blob/main/example/README.md)
+- [Changelog](https://github.com/hoptical/grafana-kafka-datasource/blob/main/CHANGELOG.md)
+- [Contribution Guidelines](https://github.com/hoptical/grafana-kafka-datasource/blob/main/CONTRIBUTING.md)
+- [Code of Conduct](https://github.com/hoptical/grafana-kafka-datasource/blob/main/CODE_OF_CONDUCT.md)
+
+---
+
+## Support & Community
+
+If you find this plugin useful, please consider giving it a ⭐ on GitHub or supporting development:
+
+[![Buy Me a Coffee](https://img.shields.io/badge/buy%20me%20a%20coffee-donate-yellow?logo=buy-me-a-coffee&style=flat)](https://www.buymeacoffee.com/hoptical)
+
+For more information, see the documentation files above or open an issue/PR.

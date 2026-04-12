@@ -1,0 +1,168 @@
+import { DataQuery, DataSourceJsonData } from '@grafana/data';
+
+export enum AutoOffsetReset {
+  EARLIEST = 'earliest',
+  LATEST = 'latest',
+  LAST_N = 'lastN',
+}
+
+export enum TimestampMode {
+  Now = 'now',
+  Message = 'message',
+}
+
+export type AutoOffsetResetInterface = {
+  [key in AutoOffsetReset]: string;
+};
+
+export type TimestampModeInterface = {
+  [key in TimestampMode]: string;
+};
+
+export enum MessageFormat {
+  JSON = 'json',
+  AVRO = 'avro',
+  PROTOBUF = 'protobuf',
+}
+
+export enum AvroSchemaSource {
+  SCHEMA_REGISTRY = 'schemaRegistry',
+  INLINE_SCHEMA = 'inlineSchema',
+}
+
+export enum ProtobufSchemaSource {
+  SCHEMA_REGISTRY = 'schemaRegistry',
+  INLINE_SCHEMA = 'inlineSchema',
+}
+
+export type MessageFormatInterface = {
+  [key in MessageFormat]: string;
+};
+
+export type AvroSchemaSourceInterface = {
+  [key in AvroSchemaSource]: string;
+};
+
+export type ProtobufSchemaSourceInterface = {
+  [key in ProtobufSchemaSource]: string;
+};
+
+export interface KafkaDataSourceOptions extends DataSourceJsonData {
+  bootstrapServers: string;
+  clientId?: string;
+  securityProtocol: string;
+  saslMechanisms: string;
+  saslUsername: string;
+  logLevel: string;
+  healthcheckTimeout: number;
+  // TLS Configuration
+  tlsAuthWithCACert?: boolean;
+  tlsAuth?: boolean;
+  tlsSkipVerify?: boolean;
+  serverName?: string;
+  // Advanced HTTP settings
+  timeout?: number;
+  // Avro Configuration (moved to query level)
+  schemaRegistryUrl?: string;
+  schemaRegistryUsername?: string;
+  // Advanced Json flattening settings
+  flattenMaxDepth?: number;
+  flattenFieldCap?: number;
+}
+
+// Default options used when creating a new Kafka datasource
+export const defaultDataSourceOptions: Partial<KafkaDataSourceOptions> = {
+  bootstrapServers: '',
+  clientId: '',
+  securityProtocol: 'PLAINTEXT',
+  saslMechanisms: '',
+  saslUsername: '',
+  logLevel: '',
+  healthcheckTimeout: 2000,
+  tlsAuthWithCACert: false,
+  tlsAuth: false,
+  tlsSkipVerify: false,
+  serverName: '',
+  timeout: 0,
+  flattenMaxDepth: 5,
+  flattenFieldCap: 1000,
+};
+
+export interface KafkaSecureJsonData {
+  apiKey?: string; // Deprecated
+  saslPassword?: string;
+  // TLS Certificates
+  tlsCACert?: string;
+  tlsClientCert?: string;
+  tlsClientKey?: string;
+  // Schema Registry Authentication
+  schemaRegistryPassword?: string;
+}
+
+export enum KeyFormat {
+  NONE = 'none',
+  STRING = 'string',
+  JSON = 'json',
+  BASE64 = 'base64',
+}
+
+export interface FilterCondition {
+  field: string;
+  operator: FilterOperator;
+  value: string;
+}
+
+export enum FilterOperator {
+  EQUALS = 'eq',
+  NOT_EQUALS = 'neq',
+  GREATER_THAN = 'gt',
+  LESS_THAN = 'lt',
+  GREATER_THAN_OR_EQUAL = 'gte',
+  LESS_THAN_OR_EQUAL = 'lte',
+  CONTAINS = 'contains',
+  NOT_CONTAINS = 'not_contains',
+  REGEX = 'regex',
+}
+
+export interface KafkaQuery extends DataQuery {
+  topicName: string;
+  partition: number | 'all';
+  autoOffsetReset: AutoOffsetReset;
+  timestampMode: TimestampMode;
+  lastN?: number;
+  // Message Format Configuration
+  messageFormat: MessageFormat;
+  // Avro Configuration
+  avroSchemaSource?: AvroSchemaSource;
+  avroSchema?: string;
+  // Protobuf Configuration
+  protobufSchemaSource?: ProtobufSchemaSource;
+  protobufSchema?: string;
+  // Key Configuration
+  keyFormat?: KeyFormat;
+  // Optional alias for the query
+  alias?: string;
+  // Server-side field selection (only include these fields; empty = all fields)
+  selectedFields?: string[];
+  // Server-side filter conditions (messages not matching are dropped)
+  filterConditions?: FilterCondition[];
+  // Server-side sampling: minimum milliseconds between accepted messages per partition.
+  // 0 = no throttling. Default: 100ms (= 10Hz).
+  sampleIntervalMs?: number;
+  // Client-side Grafana Live buffer: rolling time window (seconds) of points kept in memory.
+  // Mapped to Grafana Live's buffer.maxDelta. 0 = no time cap. Default: 60s (= 1 minute).
+  bufferDurationSec?: number;
+}
+
+export const defaultQuery: Partial<KafkaQuery> = {
+  partition: 'all',
+  autoOffsetReset: AutoOffsetReset.LATEST,
+  timestampMode: TimestampMode.Message, // Kafka Event Time is now default
+  lastN: 100,
+  messageFormat: MessageFormat.JSON,
+  avroSchemaSource: AvroSchemaSource.SCHEMA_REGISTRY,
+  protobufSchemaSource: ProtobufSchemaSource.SCHEMA_REGISTRY,
+  keyFormat: KeyFormat.NONE,
+  sampleIntervalMs: 100, // 10 Hz default — keeps load low for high-volume topics
+  bufferDurationSec: 60, // 1 minute rolling window default
+};
