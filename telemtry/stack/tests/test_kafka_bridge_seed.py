@@ -49,7 +49,7 @@ class TestKafkaBridgeSeed(unittest.TestCase):
                         except Exception:
                             continue
 
-                        if payload.get("packet_id") == 0 and payload.get("car_type") == "init":
+                        if payload.get("packet_id") == 0 and payload.get("car_type") == car:
                             seed_found = True
                             break
                     if seed_found:
