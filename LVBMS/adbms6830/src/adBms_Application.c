@@ -210,22 +210,20 @@ void adBms6830_init_config(uint8_t tIC, cell_asic *ic)
 {
   for(uint8_t cic = 0; cic < tIC; cic++)
   {
-    /* Init config A */
+    /* Config A */
     ic[cic].tx_cfga.refon = PWR_UP;
-//    ic[cic].cfga.cth = CVT_8_1mV;
-//    ic[cic].cfga.flag_d = ConfigA_Flag(FLAG_D0, FLAG_SET) | ConfigA_Flag(FLAG_D1, FLAG_SET);
-//    ic[cic].cfga.gpo = ConfigA_Gpo(GPO2, GPO_SET) | ConfigA_Gpo(GPO10, GPO_SET);
-    ic[cic].tx_cfga.gpo = 0X3FE; /* only LED on */
-//    ic[cic].cfga.soakon = SOAKON_CLR;
-//    ic[cic].cfga.fc = IIR_FPA256;
+    ic[cic].tx_cfga.gpo   = 0x3FE;       /* only LED on */
+    ic[cic].tx_cfga.fc    = IIR_FPA256; /* Fast filter for cell voltages */
 
-    /* Init config B */
-//    ic[cic].cfgb.dtmen = DTMEN_ON;
-    //ic[cic].tx_cfgb.vov = SetOverVoltageThreshold(OV_THRESHOLD);
-    //ic[cic].tx_cfgb.vuv = SetUnderVoltageThreshold(UV_THRESHOLD);
-//    ic[cic].cfgb.dcc = ConfigB_DccBit(DCC16, DCC_BIT_SET);
-//    SetConfigB_DischargeTimeOutValue(tIC, &ic[cic], RANG_0_TO_63_MIN, TIME_1MIN_OR_0_26HR);
+    /* Config B */
+    ic[cic].tx_cfgb.vov   = SetOverVoltageThreshold(OV_THRESHOLD);
+    ic[cic].tx_cfgb.vuv   = SetUnderVoltageThreshold(UV_THRESHOLD);
+    ic[cic].tx_cfgb.dcc   = 0;           /* all discharge off at startup */
+    ic[cic].tx_cfgb.dtmen = DTMEN_ON;   /* FSM controls discharge, not timer */
+    ic[cic].tx_cfgb.dtrng = RANG_0_TO_63_MIN;
   }
+  SetConfigB_DischargeTimeOutValue(tIC, ic, RANG_0_TO_63_MIN, TIME_1MIN_OR_0_26HR);
+
   adBmsWakeupIc(tIC);
   adBmsWriteData(tIC, &ic[0], WRCFGA, Config, A);
   adBmsWriteData(tIC, &ic[0], WRCFGB, Config, B);
@@ -257,7 +255,7 @@ void adBms6830_write_config(uint8_t tIC, cell_asic *ic)
   adBmsWakeupIc(tIC);
   adBmsWriteData(tIC, &ic[0], WRCFGA, Config, A);
   adBmsWriteData(tIC, &ic[0], WRCFGB, Config, B);
-  printWriteConfig(tIC, &ic[0], Config, ALL_GRP);
+  //printWriteConfig(tIC, &ic[0], Config, ALL_GRP);
 }
 
 /**
@@ -270,7 +268,7 @@ void adBms6830_read_config(uint8_t tIC, cell_asic *ic)
   adBmsWakeupIc(tIC);
   adBmsReadData(tIC, &ic[0], RDCFGA, Config, A);
   adBmsReadData(tIC, &ic[0], RDCFGB, Config, B);
-  printReadConfig(tIC, &ic[0], Config, ALL_GRP);
+  //printReadConfig(tIC, &ic[0], Config, ALL_GRP);
 }
 
 /**
@@ -374,9 +372,9 @@ void adBms6830_read_avgcell_voltages(uint8_t tIC, cell_asic *ic)
   adBmsReadData(tIC, &ic[0], RDACA, AvgCell, A);
   adBmsReadData(tIC, &ic[0], RDACB, AvgCell, B);
   adBmsReadData(tIC, &ic[0], RDACC, AvgCell, C);
-  adBmsReadData(tIC, &ic[0], RDACD, AvgCell, D);
-  adBmsReadData(tIC, &ic[0], RDACE, AvgCell, E);
-  adBmsReadData(tIC, &ic[0], RDACF, AvgCell, F);
+  //adBmsReadData(tIC, &ic[0], RDACD, AvgCell, D);
+  //adBmsReadData(tIC, &ic[0], RDACE, AvgCell, E);
+  //adBmsReadData(tIC, &ic[0], RDACF, AvgCell, F);
   adBms6830_Unsnap();
   printVoltages(tIC, &ic[0], AvgCell);
 }

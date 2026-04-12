@@ -23,7 +23,7 @@ float ConvertToCelsius(uint32_t adcValue) {
 
 float ConvertToAmps(uint32_t adcValue) {
     float voltage = (adcValue / 4095.0f) * 3.3f;
-    float current = voltage / 0.001f;  // Convert voltage to current using the shunt resistor value (0.001Ω)
+    float current = voltage/0.12;  // Convert voltage to current using the shunt resistor value (0.001Ω)
 
     return current;
 }
@@ -49,9 +49,9 @@ void ReadTempAndCurrent(float *temperatures, float *current, ADC_HandleTypeDef *
     uint32_t currentValue = 0;
     HAL_ADC_Start(hadc3);
     if (HAL_ADC_PollForConversion(hadc3, 100) == HAL_OK) {
-        adcValue = HAL_ADC_GetValue(hadc3);
+        currentValue = HAL_ADC_GetValue(hadc3);
         if (HAL_ADC_PollForConversion(hadc3, 100) == HAL_OK) {
-            currentValue = HAL_ADC_GetValue(hadc3);
+            adcValue = HAL_ADC_GetValue(hadc3);
         }
     }
     HAL_ADC_Stop(hadc3);
