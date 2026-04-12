@@ -206,6 +206,7 @@ model dynamics {
   packet_id BigInt @id
   gps                  Float[]
   gps_imu              Float[]
+  gps_speed            Float?
   accel_pedal_travel   Float?
   steer_col_angle      Float?
   bl_sprung_accel      Float[]

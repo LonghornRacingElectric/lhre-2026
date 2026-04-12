@@ -16,6 +16,7 @@ class OrionDynamics(BaseOrion):
     packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
     gps = Column(ARRAY(Float))
     gps_imu = Column(ARRAY(Float))
+    gps_speed = Column(Float)
     accel_pedal_travel = Column(Float)
     steer_col_angle = Column(Float)
     bl_sprung_accel = Column(ARRAY(Float))
