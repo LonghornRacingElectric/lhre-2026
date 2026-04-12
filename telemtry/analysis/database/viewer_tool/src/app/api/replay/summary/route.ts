@@ -22,7 +22,6 @@ function addIfPresent(
     out[key] = value;
     return;
   }
-  // Fallback for unexpected Prisma types
   out[key] = String(value);
 }
 
@@ -33,12 +32,6 @@ function toBigInt(value: string | null): bigint | null {
   } catch {
     return null;
   }
-}
-
-function median(values: bigint[]): bigint | null {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-  return sorted[Math.floor(sorted.length / 2)] ?? null;
 }
 
 function bigintToSafeNumber(v: bigint | null): number | null {
@@ -61,85 +54,22 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const ev = await prisma.event.findUnique({
-      where: { event_id: eventId },
-      select: {
-        event_id: true,
-        day_id: true,
-        status: true,
-        creation_time: true,
-        start_time: true,
-        end_time: true,
-        packet_start: true,
-        packet_end: true,
-        car_id: true,
-        driver_id: true,
-        location_id: true,
-        event_type: true,
-        event_index: true,
-        car_weight: true,
-        tow_angle: true,
-        camber_front: true,
-        camber_rear: true,
-        toe_front: true,
-        toe_rear: true,
-        ride_height_front: true,
-        ride_height_rear: true,
-        ride_height: true,
-        ackerman_adjustment: true,
-        shock_dampening: true,
-        power_limit: true,
-        torque_limit: true,
-        frw_pressure: true,
-        flw_pressure: true,
-        brw_pressure: true,
-        blw_pressure: true,
-        fr_wear_depth: true,
-        fl_wear_depth: true,
-        rr_wear_depth: true,
-        rl_wear_depth: true,
-        fr_durometer: true,
-        fl_durometer: true,
-        rr_durometer: true,
-        rl_durometer: true,
-        fr_lsc: true,
-        fr_lsr: true,
-        fr_hsc: true,
-        fr_hsr: true,
-        fl_lsc: true,
-        fl_lsr: true,
-        fl_hsc: true,
-        fl_hsr: true,
-        rr_lsc: true,
-        rr_lsr: true,
-        rr_hsc: true,
-        rr_hsr: true,
-        rl_lsc: true,
-        rl_lsr: true,
-        rl_hsc: true,
-        rl_hsr: true,
-        front_wing_on: true,
-        rear_wing_on: true,
-        front_wing_pitch: true,
-        rear_wing_pitch: true,
-        regen_on: true,
-        undertray_on: true,
-        front_roll_spring_rate: true,
-        front_heave_spring_rate: true,
-        rear_roll_spring_rate: true,
-        rear_heave_spring_rate: true,
-        drive_day: { select: { date: true } },
-        driver: { select: { driver_name: true } },
-        location: { select: { area: true, track: true } },
+    // eventId maps to day_id since drive_day is now the single session record
+    const ev = await prisma.drive_day.findUnique({
+      where: { day_id: eventId },
+      include: {
+        car:       { select: { car_name: true } },
+        driver:    { select: { driver_name: true } },
+        location:  { select: { area: true, track: true } },
         eventType: { select: { event_type: true } },
-        car: { select: { car_name: true } },
       },
     });
+
     if (!ev)
-      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+      return NextResponse.json({ error: "Drive day not found" }, { status: 404 });
     if (ev.packet_start == null || ev.packet_end == null) {
       return NextResponse.json(
-        { error: "Event has no packet range" },
+        { error: "Drive day has no packet range" },
         { status: 409 },
       );
     }
@@ -163,7 +93,7 @@ export async function GET(req: NextRequest) {
 
     if (startMs == null || endMs == null) {
       return NextResponse.json(
-        { error: "Event has no time range" },
+        { error: "Drive day has no time range" },
         { status: 409 },
       );
     }
@@ -171,7 +101,7 @@ export async function GET(req: NextRequest) {
     const classifiers = await prisma.classifier.findMany({
       where: {
         AND: [
-          { event_id: eventId },
+          { day_id: BigInt(eventId) },
           { start_time: { gte: startMs } },
           {
             OR: [{ end_time: null }, { end_time: { lte: endMs } }],
@@ -272,11 +202,11 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(
       {
-        event_id: ev.event_id,
+        event_id: ev.day_id,
         packet_start: packetStart.toString(),
         packet_end: packetEnd.toString(),
         day_id: ev.day_id,
-        day_date: ev.drive_day?.date != null ? ev.drive_day.date.toISOString() : null,
+        day_date: ev.date.toISOString(),
         driver_name: ev.driver?.driver_name ?? null,
         area: ev.location?.area ?? null,
         track: ev.location?.track ?? null,

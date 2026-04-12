@@ -49,7 +49,7 @@ const LiveViewerBanner = () => {
 
     const loadEventActive = async () => {
       try {
-        const res = await fetch('/api/event-active', { cache: 'no-store' });
+        const res = await fetch('/api/driveday-active', { cache: 'no-store' });
         if (!res.ok) return;
         const data: { eventActive?: boolean } = await res.json();
         if (!cancelled) setEventInProgress(typeof data.eventActive === 'boolean' ? data.eventActive : undefined);
@@ -100,16 +100,16 @@ const LiveViewerBanner = () => {
         <button
           type="button"
           onClick={() => {
-            router.push('/driveday');
+            router.push(eventInProgress === true ? '/driveday-active' : '/driveday');
           }}
           className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-2 text-sm cursor-pointer hover:bg-gray-700"
           aria-disabled={false}
           title={
             eventInProgress === true
-              ? 'Event is currently active'
+              ? 'Drive day active — click to end'
               : eventInProgress === false
-              ? 'Event inactive — click to go to Driveday'
-              : 'Event status unavailable'
+              ? 'Drive day inactive — click to start'
+              : 'Drive day status unavailable'
           }
         >
           <span
@@ -123,10 +123,10 @@ const LiveViewerBanner = () => {
           />
           <span>
             {eventInProgress === true
-              ? 'Event Active'
+              ? 'Drive Day Active'
               : eventInProgress === false
-              ? 'Event Inactive'
-              : 'Event —'}
+              ? 'Drive Day Inactive'
+              : 'Drive Day —'}
           </span>
         </button>
         

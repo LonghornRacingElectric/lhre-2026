@@ -1,33 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma/telemtry'; // Make sure you export PrismaClient instance here
+import prisma from '@/lib/prisma/telemtry';
 
 export async function POST(req: NextRequest) {
   try {
     const now = Date.now();
 
-    // Find the latest active event (status 2)
-    const activeEvent = await prisma.event.findFirst({
+    // Find the latest active drive day (status 2)
+    const activeDay = await prisma.drive_day.findFirst({
       where: { status: 2 },
-      orderBy: { event_id: 'desc' },
+      orderBy: { day_id: 'desc' },
     });
 
-    if (!activeEvent) {
-      return NextResponse.json({ message: 'No active event found' }, { status: 204 });
+    if (!activeDay) {
+      return NextResponse.json({ message: 'No active drive day found' }, { status: 204 });
     }
 
-    const event_id = activeEvent.event_id;
+    const day_id = activeDay.day_id;
 
-    // Event is ending: need last packet_id
     const lastPacket = await prisma.packet.findFirst({
       orderBy: { packet_id: 'desc' },
     });
 
-    const packet_end = lastPacket?.packet_id ?? 1;
+    const packet_end = lastPacket?.packet_id ?? BigInt(1);
 
-    await prisma.event.update({
-      where: { event_id },
+    await prisma.drive_day.update({
+      where: { day_id },
       data: {
-        end_time: now,
+        end_time: BigInt(now),
         status: 0,
         packet_end,
       },
@@ -35,7 +34,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error('Error updating event status:', error);
-    return NextResponse.json({ error: 'Failed to update event status' }, { status: 500 });
+    console.error('Error ending drive day:', error);
+    return NextResponse.json({ error: 'Failed to end drive day' }, { status: 500 });
   }
 }

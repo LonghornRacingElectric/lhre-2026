@@ -5,20 +5,22 @@ export interface LapData {
 }
 
 export interface DriveDayState {
+  // Drive day record fields
   dayId?: number;
+  trackName?: string;
+  weather?: string;
+  windSpeed?: string;
   powerLimit?: number;
   airTemperature?: number;
   relativeHumidity?: number;
   trackTemperature?: number;
-  trackName?: string;
-}
 
-export interface NewEventState {
-  eventId?: number;
+  // Driver, car, event type
   driverId?: number;
-  locationId?: number;
-  eventType?: number;
   carId?: number;
+  eventType?: number;
+
+  // Car setup (collected on drive day page, applied to each event)
   carWeight?: string;
   towAngle?: string;
   // Alignment
@@ -29,7 +31,6 @@ export interface NewEventState {
   // Ride height
   rideHeightFront?: string;
   rideHeightRear?: string;
-  powerLimit?: string;
   // Shock damping per corner (LSC/LSR/HSC/HSR)
   frLSC?: string; frLSR?: string; frHSC?: string; frHSR?: string;
   flLSC?: string; flLSR?: string; flHSC?: string; flHSR?: string;
@@ -41,26 +42,31 @@ export interface NewEventState {
   flPressure?: string;
   rrPressure?: string;
   rlPressure?: string;
+  // Tire hot pressures (psi)
+  frHotPressure?: string;
+  flHotPressure?: string;
+  rrHotPressure?: string;
+  rlHotPressure?: string;
   // Tire wear depth and durometer
   frWearDepth?: string; flWearDepth?: string; rrWearDepth?: string; rlWearDepth?: string;
   frDurometer?: string; flDurometer?: string; rrDurometer?: string; rlDurometer?: string;
+  // Aero
   frontWingOn?: boolean;
   rearWingOn?: boolean;
   frontWingPitch?: string;
   rearWingPitch?: string;
   regenOn?: boolean;
   undertrayOn?: boolean;
-  // Optional specialty fields
-  // Angelique only
+  // Specialty springs (Angelique only)
   frontRollSpringRate?: string;
   frontHeaveSpringRate?: string;
   rearRollSpringRate?: string;
   rearHeaveSpringRate?: string;
-  // 2026 car only (per axle)
+  // 2026 car only
   frontCornerSpringRate?: string;
   rearCornerSpringRate?: string;
-  frontArbSetting?: string; // low | medium | stiff
-  rearArbSetting?: string;  // low | medium | stiff
+  frontArbSetting?: string;
+  rearArbSetting?: string;
 }
 
 export interface EventTrackerState {
@@ -80,6 +86,5 @@ export interface AppState {
   lastUpdatedBy?: string;
   currentPage?: string;
   driveDay?: DriveDayState;
-  newEvent?: NewEventState;
   eventTracker?: EventTrackerState;
 }
