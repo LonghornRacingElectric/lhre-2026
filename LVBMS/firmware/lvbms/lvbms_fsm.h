@@ -42,5 +42,7 @@ void bms_fsm_run(void);
 BmsState_t  bms_get_state(void);
 uint32_t    bms_get_faults(void);
 float       bms_get_cell_voltage(uint8_t cell_index);
+float       bms_get_temperature(uint8_t temp_index);
+float       bms_get_current(void);
 
 #endif /* BMS_TASK_H */

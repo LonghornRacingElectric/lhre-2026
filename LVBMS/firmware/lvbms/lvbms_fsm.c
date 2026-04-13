@@ -91,15 +91,15 @@ void bms_fsm_run(void)
         /* Keep reading so telemetry/logging still works.
            Stay here until power cycle or external reset.           */
         bms_read_measurements();
-        if (bms_faults & (BMS_FAULT_OC | BMS_FAULT_OV)) {
-            if (bms_faults & BMS_FAULT_OV) {
-                bms_update_balancing(); /* try to balance out of OV fault if possible */
-            }
+        if (bms_faults & BMS_FAULT_OC) {
             break;
         }
         bms_check_faults();
         if (bms_faults == BMS_FAULT_NONE) {
             bms_state = BMS_STATE_IDLE; /* allow restart if fault cleared */
+        }
+        if (bms_faults & BMS_FAULT_OV) {
+            bms_update_balancing(); /* try to balance out of OV fault if possible */
         }
         break;
 
@@ -113,6 +113,8 @@ void bms_fsm_run(void)
 BmsState_t bms_get_state(void)               { return bms_state;  }
 uint32_t   bms_get_faults(void)              { return bms_faults; }
 float      bms_get_cell_voltage(uint8_t i)   { return (i < NUM_CELLS) ? cell_v[i] : 0.0f; }
+float      bms_get_temperature(uint8_t i)    { return (i < 3) ? temperatures[i] : 0.0f; }
+float      bms_get_current(void)             { return current;    }
 
 /* ════════════════════════════════════════════════════════════════════
    Private helpers
@@ -130,8 +132,8 @@ static void bms_read_measurements(void)
 
     /* ── Temperature and current using your existing function ── */
     ReadTempAndCurrent(temperatures, &current, &hadc1, &hadc2, &hadc3);
-    printf("T1:%.2f T2:%.2f T3:%.2f\r\n", temperatures[0], temperatures[1], temperatures[2]);
-    printf("Current: %.5f A\r\n\n", current);
+    //printf("T1:%.2f T2:%.2f T3:%.2f\r\n", temperatures[0], temperatures[1], temperatures[2]);
+    //printf("Current: %.5f A\r\n\n", current);
 }
 
 static void bms_check_faults(void)
@@ -162,17 +164,19 @@ static void bms_update_balancing(void)
 
     ic[0].tx_cfgb.dcc = 0;
 
-    for(uint8_t i = 0; i < NUM_CELLS; i++)
-    {
-        if(cell_v[i] > (min_v + BALANCE_THRESHOLD_V))
+    if (min_v >= 4.0f) {
+        for(uint8_t i = 0; i < NUM_CELLS; i++)
         {
-            ic[0].tx_cfgb.dcc |= (1 << i); /* set DCC bit for this cell */
+            if(cell_v[i] > (min_v + BALANCE_THRESHOLD_V))
+            {
+                ic[0].tx_cfgb.dcc |= (1 << i); /* set DCC bit for this cell */
+            }
         }
     }
 
     adBms6830_read_config(total_ic, ic);
     adBms6830_write_config(total_ic, ic);
-    printReadConfig(total_ic, ic, Config, B);
+    //printReadConfig(total_ic, ic, Config, B);
 }
 
 static void bms_stop_balancing(void)

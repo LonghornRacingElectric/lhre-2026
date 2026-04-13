@@ -376,7 +376,7 @@ void adBms6830_read_avgcell_voltages(uint8_t tIC, cell_asic *ic)
   //adBmsReadData(tIC, &ic[0], RDACE, AvgCell, E);
   //adBmsReadData(tIC, &ic[0], RDACF, AvgCell, F);
   adBms6830_Unsnap();
-  printVoltages(tIC, &ic[0], AvgCell);
+  //printVoltages(tIC, &ic[0], AvgCell);
 }
 
 /**

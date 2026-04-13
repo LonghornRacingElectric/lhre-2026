@@ -1,6 +1,7 @@
 #include "lvbms_bluetooth.h"
 #include "usart.h"
 #include "stdint.h"
+#include "stdio.h"
 #include <string.h>
 
 static UART_HandleTypeDef *ble_uart;

@@ -70,15 +70,8 @@ static cell_asic IC[TOTAL_IC];
 osThreadId_t fsmTaskHandle;
 const osThreadAttr_t fsmTask_attributes = {
   .name = "fsmTask",
-  .priority = (osPriority_t) osPriorityAboveNormal,
-  .stack_size = 512 * 4
-};
-
-osThreadId_t bleTaskHandle;
-const osThreadAttr_t bleTask_attributes = {
-  .name = "bleTask",
-  .priority = (osPriority_t) osPriorityLow,
-  .stack_size = 512 * 4
+  .priority = (osPriority_t) osPriorityHigh,
+  .stack_size = 1024 * 4
 };
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
@@ -86,13 +79,12 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 256 * 4
+  .stack_size = 1024 * 4
 };
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 void StartFSMTask(void *argument);
-void StartBLETask(void *argument);
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
@@ -132,7 +124,6 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_THREADS */
     /* add threads, ... */
     fsmTaskHandle = osThreadNew(StartFSMTask, NULL, &fsmTask_attributes);
-    bleTaskHandle = osThreadNew(StartBLETask, NULL, &bleTask_attributes);
 
     rainbow_led_t led = {
         .ccr1 = &TIM2->CCR1,
@@ -173,22 +164,50 @@ void StartDefaultTask(void *argument)
     // osThreadTerminate(ledHandle);
   }
 
-  // Initialize DFU
-  dfu_config dfu = {
-      .delay_fn = (Delay_fn)osDelay,
-      .gpiox = GPIOB,
-      .pin = GPIO_PIN_7,
-      .pin_set_fn = (PinSet_fn)HAL_GPIO_WritePin,
-      .reset_fn = (SystemReset_fn)HAL_NVIC_SystemReset,
-  };
+  RN4781_Init(&huart3);
+  char buf[200];
 
-  init_dfu(dfu);
+  const char *state_names[] = {
+        "INIT",
+        "IDLE",
+        "MEASURING",
+        "BALANCING",
+        "FAULT",
+        "SHUTDOWN"
+    };
 
-  dfu_start_thread();
+    const char *fault_names[] = {
+        "NONE",
+        "OV",
+        "UV",
+        "",
+        "OT",
+        "",
+        "",
+        "",
+        "OC"
+    };
 
   /* Infinite loop */
 
   for (;;) {
+    snprintf(buf, sizeof(buf),
+            "State: %s Faults: %s\r\n"
+            "C1:%.2f C2:%.2f C3:%.2f C4:%.2f\r\n"
+            "C5:%.2f C6:%.2f C7:%.2f\r\n"
+            "T1:%.1f T2:%.1f T3:%.1f\r\n"
+            "Current:%.2f\r\n",
+            state_names[bms_get_state()], fault_names[bms_get_faults()],
+            bms_get_cell_voltage(0), bms_get_cell_voltage(1),
+            bms_get_cell_voltage(2), bms_get_cell_voltage(3),
+            bms_get_cell_voltage(4), bms_get_cell_voltage(5),
+            bms_get_cell_voltage(6),
+            bms_get_temperature(0), bms_get_temperature(1),
+            bms_get_temperature(2),
+            bms_get_current()
+    );
+    BLE_Send(buf);
+    osDelay(2000);
   }
   /* USER CODE END StartDefaultTask */
 }
@@ -202,34 +221,9 @@ void StartFSMTask(void *argument) {
 
   for(;;)
   {
-    printf("State: %d  Faults: 0x%02lX\r\n", bms_get_state(), bms_get_faults());
+    //printf("State: %d  Faults: 0x%02lX\r\n", bms_get_state(), bms_get_faults());
     bms_fsm_run();
     vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(BMS_TASK_PERIOD_MS));
-  }
-}
-
-void StartBLETask(void *argument) {
-  /* USER CODE BEGIN StartBLETask */
-  RN4781_Init(&huart3);
-
-  char buffer[100];
-
-  for(;;)
-  {
-    /* 2. Grab the live system data */
-    BmsState_t state = bms_get_state();
-    uint32_t faults = bms_get_faults();
-
-    /* 3. Format into a simple string 
-        State: %d    -> The FSM integer
-        Faults: 0x%X -> The hex representation of your fault bits */
-    snprintf(buffer, sizeof(buffer), "ST: %d | FLT: 0x%02X\r\n", (int)state, (unsigned int)faults);
-
-    /* 4. Send to the Bluetooth module */
-    BLE_Send(buffer);
-
-    /* 5. Update every 2 seconds for the test */
-    osDelay(2000);
   }
 }
 /* USER CODE END Application */
