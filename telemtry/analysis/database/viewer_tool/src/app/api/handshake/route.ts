@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prismaTelemtry from "@/lib/prisma/telemtry";
 import {
-  getCarPrisma,
+  findLatestPacketId,
   normalizeCar,
   resolveCarFromCarId,
 } from "@/lib/prisma/carPrisma";
@@ -43,14 +43,9 @@ export async function GET(req: NextRequest) {
         "angelique";
     }
 
-    const carPrisma = getCarPrisma(car);
-    const latest = await carPrisma.packet.findFirst({
-      orderBy: { packet_id: "desc" },
-      select: { packet_id: true },
-    });
-
+    const latestPacketId = await findLatestPacketId(car);
     const last_packet =
-      latest?.packet_id != null ? latest.packet_id.toString() : 0;
+      latestPacketId != null ? latestPacketId.toString() : 0;
     return NextResponse.json({ time, last_packet, car });
   } catch (e) {
     console.error("Error in handshake:", e);

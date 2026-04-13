@@ -42,6 +42,15 @@ function getMessageCarType(msg: any): "orion" | "angelique" | null {
   return null;
 }
 
+type HistoryMode = "none" | "latest" | "all";
+
+function parseHistoryMode(value: string | null): HistoryMode {
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === "none") return "none";
+  if (normalized === "all") return "all";
+  return "latest";
+}
+
 export async function GET(req: NextRequest) {
   await startKafkaConsumer();
 
@@ -49,6 +58,7 @@ export async function GET(req: NextRequest) {
   const topicsParam = url.searchParams.get("topics");
   const rawTopic = url.searchParams.get("topic");
   const requestedCar = normalizeCar(url.searchParams.get("car"));
+  const historyMode = parseHistoryMode(url.searchParams.get("history"));
 
   const topics: string[] = (topicsParam
     ? topicsParam.split(",")
@@ -76,13 +86,22 @@ export async function GET(req: NextRequest) {
 
 `));
 
-      // Send buffered history first
-      for (const t of topics) {
-        const history = getBufferedMessages(t);
-        for (const msg of history) {
-          const msgCar = getMessageCarType(msg);
-          if (requestedCar && msgCar && msgCar !== requestedCar) continue;
-          write(msg);
+      // Send buffered history first (latest sample by default to avoid replay backlogs)
+      if (historyMode !== "none") {
+        for (const t of topics) {
+          const history = getBufferedMessages(t);
+          const replay =
+            historyMode === "all"
+              ? history
+              : history.length
+                ? [history[history.length - 1]]
+                : [];
+
+          for (const msg of replay) {
+            const msgCar = getMessageCarType(msg);
+            if (requestedCar && msgCar && msgCar !== requestedCar) continue;
+            write(msg);
+          }
         }
       }
 

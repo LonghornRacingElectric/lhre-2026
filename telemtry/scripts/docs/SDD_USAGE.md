@@ -182,3 +182,37 @@ python3 scripts/generate_schema.py patch-models \
 - `telemtry/stack/ingest/common_schema.sql`: Source of truth for static infrastructure.
 - `telemtry/analysis/sql_utils/models.py`: SQLAlchemy models (Shared + Car-specific).
 - `telemtry/scripts/gen_angelique/dataclasses.py`: Generated Python type stubs.
+
+---
+
+## 6. Live-Viewer Validation (Schema-First)
+
+When validating live-viewer widgets, publish test packets from protobuf schema (not ORM reflection):
+
+```bash
+source telemtry/.venv/bin/activate
+python telemtry/analysis/database/paho_testing.py --car Orion --profile viewer --schema-source proto
+```
+
+`paho_testing.py` now supports `--schema-source`:
+- `proto` (default): uses compiled protobuf descriptors as the source of truth (SDD-aligned).
+- `orm`: uses SQLAlchemy/query-builder table specs (legacy behavior).
+
+For end-to-end validation (MQTT -> Kafka -> viewer topics), use:
+
+```bash
+source telemtry/.venv/bin/activate
+python telemtry/analysis/database/validate_live_viewer.py --car Both --rows 20 --delay 0.03
+```
+
+This checks:
+- `sensor_data` includes expected protobuf table payloads.
+- Live widget topics (`live_banner`, `dashboard_screen`, `driver_input_visualizer`, `car_visualization`,
+  `thermal_headroom`, `energy_budget`, `map`) receive fresh, changing values.
+- Optional ORM drift reporting against protobuf schema (`--strict-orm-sync` to fail on drift).
+
+Processor-backed topics are separate from the core ingest path:
+- `gg-plot` requires `telemtry/stack/processors/gg_plot`.
+- `track-mapper`/lap timing require `telemtry/stack/processors/track_mapper` and `telemtry/stack/processors/lap_timer`.
+
+`server_devtool.sh` option `3` only starts Kafka + ingest, so `gg-plot` and `track-mapper` will stay empty unless those processors are started.

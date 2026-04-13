@@ -1,10 +1,16 @@
 import json
 import logging
 import os
+import signal
+import time
 from collections import defaultdict
 
+from google.protobuf.json_format import MessageToDict
 from kafka import KafkaConsumer, KafkaProducer
-from stack.ingest.mqtt_handler import MQTTHandler
+from stack.ingest.protobuf import angelique_pb2, can_packets_pb2, template_pb2
+
+logging.basicConfig(level=os.getenv("LOGLEVEL", "INFO"))
+logging.getLogger("kafka").setLevel(logging.WARNING)
 
 CAR_NAME_MAP = {
     "angelique": "Angelique",
@@ -51,6 +57,22 @@ def _get_car_type_from_headers(headers: list[tuple[str, bytes]] | None) -> str |
         return None
 
     return None
+
+
+def _decode_sensor_payload(payload: bytes, car_type: str) -> dict:
+    if car_type == "Angelique":
+        row = angelique_pb2.AngeliqueSensorData()
+    elif car_type == "Orion":
+        row = can_packets_pb2.OrionSensorData()
+    else:
+        row = template_pb2.SensorData()
+
+    row.ParseFromString(payload)
+    return MessageToDict(
+        row,
+        preserving_proto_field_name=True,
+        always_print_fields_with_no_presence=True,
+    )
 
 
 def _extract_xy_accel(decoded_message: dict, car_type: str) -> tuple[float, float] | None:
@@ -116,14 +138,36 @@ logging.info("GG plot default car: %s, alpha: %s", DEFAULT_CAR, ALPHA)
 
 logging.debug("Polling...")
 filtered_values_by_car = defaultdict(lambda: {"x": 0.0, "y": 0.0})
+last_idle_log = time.monotonic()
+idle_log_interval_s = 10.0
+shutdown_requested = False
+
+
+def _request_shutdown(signum, _frame):
+    global shutdown_requested
+    if shutdown_requested:
+        return
+    shutdown_requested = True
+    logging.info("Shutdown signal received (%s); stopping gg-plot processor.", signum)
+
+
+signal.signal(signal.SIGTERM, _request_shutdown)
+signal.signal(signal.SIGINT, _request_shutdown)
 
 # Enhanced logging for debugging
 try:
-    while True:
+    while not shutdown_requested:
         batch = consumer.poll(timeout_ms=1000)
 
         if not batch:
-            logging.debug("No new messages, waiting...")
+            now = time.monotonic()
+            if now - last_idle_log >= idle_log_interval_s:
+                logging.info(
+                    "Waiting for Kafka messages on '%s' (group '%s').",
+                    INPUT_TOPIC,
+                    CONSUMER_GROUP_ID,
+                )
+                last_idle_log = now
             continue
 
         logging.debug(f"Received batch with {sum(len(records) for records in batch.values())} messages.")
@@ -135,7 +179,7 @@ try:
                 logging.debug(f"  Key: {record.key}, Value: {record.value}")
                 try:
                     car_type = _get_car_type_from_headers(record.headers) or DEFAULT_CAR
-                    decoded_message = MQTTHandler._proto_decode(payload=record.value, car=car_type)
+                    decoded_message = _decode_sensor_payload(payload=record.value, car_type=car_type)
                     logging.debug(f"  Decoded Message: {decoded_message}")
 
                     accel_pair = _extract_xy_accel(decoded_message, car_type)
@@ -174,10 +218,16 @@ try:
         consumer.commit()
         logging.debug("Offsets committed for the batch.")
 
+    logging.info("gg-plot processor shutdown requested; leaving consume loop.")
+
 except Exception as e:
     logging.error(f"An error occurred: {e}")
 
 finally:
+    try:
+        producer.flush(timeout=5)
+    except Exception:
+        pass
     consumer.close()
     producer.close()
     logging.info("Consumer and Producer closed.")

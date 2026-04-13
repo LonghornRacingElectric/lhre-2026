@@ -18,6 +18,12 @@ type RouteRule = {
 type ParsedRecord = Record<string, unknown>;
 
 const SENSOR_DATA_TOPIC = process.env.KAFKA_SENSOR_TOPIC || "sensor_data";
+const DEFAULT_MAX_MESSAGE_AGE_MS = 5000;
+const configuredMaxAgeMs = Number(process.env.KAFKA_MAX_MESSAGE_AGE_MS ?? DEFAULT_MAX_MESSAGE_AGE_MS);
+const MAX_MESSAGE_AGE_MS =
+  Number.isFinite(configuredMaxAgeMs) && configuredMaxAgeMs > 0
+    ? configuredMaxAgeMs
+    : 0;
 const NORMALIZED_SENSOR_TOPICS = new Set([
   "car_visualization",
   "driver_input_visualizer",
@@ -575,6 +581,13 @@ export async function startKafkaConsumer(): Promise<void> {
 
     await consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
+        if (MAX_MESSAGE_AGE_MS > 0) {
+          const timestampMs = Number(message.timestamp);
+          if (Number.isFinite(timestampMs) && Date.now() - timestampMs > MAX_MESSAGE_AGE_MS) {
+            return;
+          }
+        }
+
         let payload = message.value ? message.value.toString() : "";
         let parsed: unknown = parsePossiblyJson(payload);
 

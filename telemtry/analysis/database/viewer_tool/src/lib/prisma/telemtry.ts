@@ -1,4 +1,4 @@
-import { PrismaClient } from "../../../.prisma/orion-client";
+import { PrismaClient } from "../../../.prisma/telemetry-client";
 
 declare global {
   var telemtry_prisma: PrismaClient | undefined;

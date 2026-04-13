@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prismaTelemtry from "@/lib/prisma/telemtry";
 import {
-  getCarPrisma,
+  findPacketTimeById,
   normalizeCar,
   resolveCarFromCarId,
 } from "@/lib/prisma/carPrisma";
@@ -151,21 +151,13 @@ export async function GET(req: NextRequest) {
       normalizeCar(ev.car?.car_name) ??
       (await resolveCarFromCarId(ev.car_id)) ??
       "orion";
-    const packetPrisma = getCarPrisma(car);
-
     const [p0, p1] = await Promise.all([
-      packetPrisma.packet.findUnique({
-        where: { packet_id: packetStart },
-        select: { time: true },
-      }),
-      packetPrisma.packet.findUnique({
-        where: { packet_id: packetEnd },
-        select: { time: true },
-      }),
+      findPacketTimeById(car, packetStart),
+      findPacketTimeById(car, packetEnd),
     ]);
 
-    const startMs = p0?.time != null ? BigInt(p0.time as any) : null;
-    const endMs = p1?.time != null ? BigInt(p1.time as any) : null;
+    const startMs = p0 != null ? BigInt(p0 as any) : null;
+    const endMs = p1 != null ? BigInt(p1 as any) : null;
 
     if (startMs == null || endMs == null) {
       return NextResponse.json(

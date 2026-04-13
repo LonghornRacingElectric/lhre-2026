@@ -195,7 +195,7 @@ export function CarSelectionProvider({
       selectedCarLabel: liveCarLabel(selectedCar),
       multiCarEnabled: MULTI_CAR_ENABLED,
       setSelectedCar,
-      ssePath: `/api/kafka-stream?car=${selectedCar}`,
+      ssePath: `/api/kafka-stream?car=${selectedCar}&history=none`,
       matchesSelectedCar,
     }),
     [matchesSelectedCar, selectedCar, setSelectedCar],

@@ -31,6 +31,7 @@ const TimingDeltas = () => {
     ssePath,
     filter: matchesSelectedCar,
     staleAfterMs: 2000,
+    sampleMs: 80,
     merge: true,
     onMessage: (_evt, parsed) => {
       const speed = toFiniteNumber(parsed?.speed);

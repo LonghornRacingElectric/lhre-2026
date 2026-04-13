@@ -57,7 +57,7 @@ Run Orion and Angelique simultaneously through telemetry processors and the view
      - header preservation through processors
      - selected-car-only rendering across live widgets
 3. **Environment hardening**
-   - Resolve Prisma schema compatibility issues in `prisma/{telemtry,orion}.prisma` (optional list syntax) and make client generation reliable in CI/dev scripts.
+   - Resolve remaining Prisma schema compatibility issues in `prisma/orion.prisma` (optional list syntax) and make client generation reliable in CI/dev scripts.
    - Ensure protobuf generation toolchain (`protoc`) is installed in dev/CI images where needed.
 
 ## Reference files touched by the rollout

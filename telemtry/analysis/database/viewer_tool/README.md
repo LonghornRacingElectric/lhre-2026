@@ -57,7 +57,7 @@ npm run prisma-orion-generate
 npm run prisma-angelique-generate
 ```
 
-> Note: current Prisma schemas `prisma/{orion,telemtry}.prisma` include optional-list fields (`Float[]?`) that are rejected by Prisma 6.x. Resolve schema compatibility before relying on generated clients in fresh environments.
+> Note: `prisma/orion.prisma` still includes optional-list fields (`Float[]?`) that Prisma 6.x rejects. `prisma/telemtry.prisma` has been aligned for Prisma 6.x generation.
 
 Generate protobuf TS stubs (optional helper scripts):
 

@@ -31,6 +31,7 @@ const DashboardScreen = () => {
     ssePath,
     filter: matchesSelectedCar,
     staleAfterMs: 2000,
+    sampleMs: 120,
     merge: true,
   });
 

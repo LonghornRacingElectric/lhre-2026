@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import prismaTelemtry from "@/lib/prisma/telemtry";
 import {
-  getCarPrisma,
+  findNextPacketIdInRange,
+  findReplayPacketAtOrAfter,
   normalizeCar,
   SupportedCar,
   resolveCarFromCarId,
@@ -54,16 +55,12 @@ async function buildReplayState(
     normalizeCar(ev.car?.car_name) ??
     (await resolveCarFromCarId(ev.car_id)) ??
     "orion";
-  const packetPrisma = getCarPrisma(car);
-
-  const packet = await packetPrisma.packet.findFirst({
-    where: {
-      packet_id: { gte: packetStart, lte: packetEnd },
-      time: { gte: atTimeMs },
-    },
-    orderBy: { packet_id: "asc" },
-    include: { dynamics: true, controls: true },
-  });
+  const packet = await findReplayPacketAtOrAfter(
+    car,
+    packetStart,
+    packetEnd,
+    atTimeMs,
+  );
 
   if (!packet) {
     return { status: 404 as const, body: { error: "No packet found at/after time" } };
@@ -72,15 +69,8 @@ async function buildReplayState(
   const packetId = BigInt(packet.packet_id as any);
   const packetTimeMs = packet.time != null ? BigInt(packet.time as any) : null;
 
-  const nextPacket = await packetPrisma.packet.findFirst({
-    where: {
-      packet_id: { gt: packetId, lte: packetEnd },
-    },
-    orderBy: { packet_id: "asc" },
-    select: { packet_id: true },
-  });
-
-  const isEnd = nextPacket == null || packetId >= packetEnd;
+  const nextPacketId = await findNextPacketIdInRange(car, packetId, packetEnd);
+  const isEnd = nextPacketId == null || packetId >= packetEnd;
 
   const d: any = (packet as any).dynamics || {};
   const c: any = (packet as any).controls || {};

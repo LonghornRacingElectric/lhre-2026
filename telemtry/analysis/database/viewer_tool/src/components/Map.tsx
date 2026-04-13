@@ -58,6 +58,22 @@ const MapResizer = ({ resize }: { resize: any }) => {
 };
 
 const TRAIL_MAX_POINTS = 1000;
+const TRAIL_JUMP_RESET_METERS = 150;
+
+function distanceMeters(a: [number, number], b: [number, number]): number {
+  const [lat1, lon1] = a;
+  const [lat2, lon2] = b;
+  const toRad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * toRad;
+  const dLon = (lon2 - lon1) * toRad;
+  const lat1Rad = lat1 * toRad;
+  const lat2Rad = lat2 * toRad;
+  const x =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1Rad) * Math.cos(lat2Rad);
+  const y = 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+  return 6371000 * y;
+}
 
 const Map = ({ resize, data }: { resize?: any, data?: MapData | null; }) => {
   const { selectedCar, ssePath, matchesSelectedCar } = useCarSelection();
@@ -75,6 +91,7 @@ const Map = ({ resize, data }: { resize?: any, data?: MapData | null; }) => {
     filter: matchesSelectedCar,
     // Extend staleness so we keep last sample between slower updates
     staleAfterMs: 1000,
+    sampleMs: 80,
     merge: true,
     // No custom select: we want the whole object; default parser handles JSON
   });
@@ -102,6 +119,10 @@ const Map = ({ resize, data }: { resize?: any, data?: MapData | null; }) => {
         const last = prev[prev.length - 1];
         if (last && last[0] === nextPos[0] && last[1] === nextPos[1]) {
           return prev;
+        }
+
+        if (last && distanceMeters(last, nextPos) > TRAIL_JUMP_RESET_METERS) {
+          return [nextPos];
         }
 
         const next = [...prev, nextPos];

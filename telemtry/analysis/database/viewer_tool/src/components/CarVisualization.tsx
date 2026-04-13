@@ -43,6 +43,15 @@ type CarData = {
 
 export type CarVisualizationData = CarData;
 
+function toFiniteNumber(value: unknown): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function formatWheelSpeed(value: number): string {
+  return toFiniteNumber(value).toFixed(1);
+}
+
 export default function CarVisualization({
   data,
 }: {
@@ -56,6 +65,7 @@ export default function CarVisualization({
     filter: matchesSelectedCar,
     // Extend staleness so we keep last sample between slower updates
     staleAfterMs: 1000,
+    sampleMs: 80,
     merge: true,
   });
 
@@ -69,10 +79,10 @@ export default function CarVisualization({
   const blSpeedRaw = carData?.dynamics?.blwSpeed ?? 0;
   const brSpeedRaw = carData?.dynamics?.brwSpeed ?? 0;
 
-  const flSpeed = Number(flSpeedRaw) || 0;
-  const frSpeed = Number(frSpeedRaw) || 0;
-  const blSpeed = Number(blSpeedRaw) || 0;
-  const brSpeed = Number(brSpeedRaw) || 0;
+  const flSpeed = toFiniteNumber(flSpeedRaw);
+  const frSpeed = toFiniteNumber(frSpeedRaw);
+  const blSpeed = toFiniteNumber(blSpeedRaw);
+  const brSpeed = toFiniteNumber(brSpeedRaw);
   // Removed per-message onMessage and counters to avoid side-effects during streaming
 
   // const carData = {
@@ -103,19 +113,19 @@ export default function CarVisualization({
         {/* ...existing code for controls... */}
         <label>
           FR Wheel Speed
-          {frSpeed}
+          {formatWheelSpeed(frSpeed)}
         </label>
         <label>
           FL Wheel Speed
-          {flSpeed}
+          {formatWheelSpeed(flSpeed)}
         </label>
         <label>
           BR Wheel Speed
-          {brSpeed}
+          {formatWheelSpeed(brSpeed)}
         </label>
         <label>
           BL Wheel Speed
-          {blSpeed}
+          {formatWheelSpeed(blSpeed)}
         </label>
 
         <label>

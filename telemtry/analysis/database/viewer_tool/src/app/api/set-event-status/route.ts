@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prismaTelemtry from '@/lib/prisma/telemtry';
 import {
-  getCarPrisma,
+  findLatestPacketId,
   normalizeCar,
   resolveCarFromCarId,
 } from '@/lib/prisma/carPrisma';
@@ -39,12 +39,8 @@ export async function POST(req: NextRequest) {
       });
     } else if (status === 0) {
       // Event is ending: need last packet_id
-      const carPrisma = getCarPrisma(car);
-      const lastPacket = await carPrisma.packet.findFirst({
-        orderBy: { packet_id: 'desc' },
-        select: { packet_id: true },
-      });
-      const packet_end = lastPacket?.packet_id ?? body.packet_end ?? 0;
+      const lastPacketId = await findLatestPacketId(car);
+      const packet_end = lastPacketId ?? body.packet_end ?? 0;
 
       await prismaTelemtry.event.update({
         where: { event_id },

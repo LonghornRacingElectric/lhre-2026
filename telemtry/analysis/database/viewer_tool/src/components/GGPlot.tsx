@@ -1,94 +1,156 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useKafkaJSON } from '@/hooks/useKafkaStream';
 import { useCarSelection } from '@/lib/carSelection';
 import * as d3 from 'd3';
 
-const GGPlot = () => {
-  const [points, setPoints] = useState<{ x: number; y: number }[]>([]);
-  const { selectedCar, ssePath, matchesSelectedCar } = useCarSelection();
+type GGPoint = { id: number; x: number; y: number };
+type GGMessage = { data?: { x?: number; y?: number } };
 
-  // Live connection to Kafka "gg_plot_data" topic
-  useKafkaJSON<{
-    data: { x: number; y: number };
-  }>({
+const MAX_POINTS = 700;
+const PLOT_RANGE_G = 2.5;
+const TICK_STEP_G = 0.5;
+
+const GGPlot = () => {
+  const [points, setPoints] = useState<GGPoint[]>([]);
+  const { selectedCar, ssePath, matchesSelectedCar } = useCarSelection();
+  const nextPointIdRef = useRef(1);
+
+  useKafkaJSON<GGMessage>({
     topic: 'gg-plot',
     car: selectedCar,
     ssePath,
     filter: matchesSelectedCar,
     staleAfterMs: 2000,
-    onMessage: (evt, parsed) => {
-      if (parsed?.data) {
+    sampleMs: 80,
+    onMessage: (_evt, parsed) => {
+      const x = Number(parsed?.data?.x);
+      const y = Number(parsed?.data?.y);
+      if (Number.isFinite(x) && Number.isFinite(y)) {
         setPoints((prevPoints) => [
-          ...prevPoints.slice(-1499),
-          { x: parsed.data.x, y: parsed.data.y },
+          ...prevPoints.slice(-(MAX_POINTS - 1)),
+          { id: nextPointIdRef.current++, x, y },
         ]);
       }
     },
   });
 
   useEffect(() => {
+    nextPointIdRef.current = 1;
     setPoints([]);
   }, [selectedCar]);
 
-  const width = 500;
-  const height = 500;
+  const width = 560;
+  const height = 560;
+  const margin = { top: 20, right: 24, bottom: 42, left: 48 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
 
-  // Calculate dynamic range based on actual data with amplification
-  const amplificationFactor = 1000; // Amplify small differences
-  const padding = 0.1; // Add some padding around the data
-  
-  let xMin = -0.001, xMax = 0.001, yMin = -0.001, yMax = 0.001;
-  
-  if (points.length > 0) {
-    const xValues = points.map(p => p.x * amplificationFactor);
-    const yValues = points.map(p => p.y * amplificationFactor);
-    
-    xMin = Math.min(...xValues) - padding;
-    xMax = Math.max(...xValues) + padding;
-    yMin = Math.min(...yValues) - padding;
-    yMax = Math.max(...yValues) + padding;
-    
-    // Ensure minimum range for visibility
-    const minRange = 0.1;
-    if (xMax - xMin < minRange) {
-      const center = (xMax + xMin) / 2;
-      xMin = center - minRange / 2;
-      xMax = center + minRange / 2;
-    }
-    if (yMax - yMin < minRange) {
-      const center = (yMax + yMin) / 2;
-      yMin = center - minRange / 2;
-      yMax = center + minRange / 2;
-    }
-  }
+  const tickValues = useMemo(
+    () => d3.range(-PLOT_RANGE_G, PLOT_RANGE_G + 1e-6, TICK_STEP_G),
+    [],
+  );
 
-  const graphConfig = {
-    scale: {
-      x: d3.scaleLinear().domain([xMin, xMax]).range([0, width]),
-      y: d3.scaleLinear().domain([yMin, yMax]).range([height, 0]),
-    },
-  };
+  const xScale = useMemo(
+    () =>
+      d3
+        .scaleLinear()
+        .domain([-PLOT_RANGE_G, PLOT_RANGE_G])
+        .range([margin.left, margin.left + innerWidth]),
+    [innerWidth, margin.left],
+  );
+
+  const yScale = useMemo(
+    () =>
+      d3
+        .scaleLinear()
+        .domain([-PLOT_RANGE_G, PLOT_RANGE_G])
+        .range([margin.top + innerHeight, margin.top]),
+    [innerHeight, margin.top],
+  );
 
   return (
     <div className="bg-white rounded-lg shadow-md p-4 w-full h-full flex flex-col">
       <h2 className="text-lg font-bold mb-4">GG Plot</h2>
 
-      <div className="flex-grow">
-        {points.length > 0 ? (
-          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
-            {points.map((point, index) => (
-              <circle
-                key={index}
-                cx={graphConfig.scale.x(point.x * amplificationFactor)}
-                cy={graphConfig.scale.y(point.y * amplificationFactor)}
-                r="3"
-                fill="blue"
-              />
-            ))}
-          </svg>
-        ) : (
-          <p className="text-gray-500">No data available</p>
-        )}
+      <div className="relative flex-grow">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
+          <rect x={margin.left} y={margin.top} width={innerWidth} height={innerHeight} fill="#f8fafc" />
+
+          {tickValues.map((tick) => (
+            <line
+              key={`v-${tick}`}
+              x1={xScale(tick)}
+              y1={margin.top}
+              x2={xScale(tick)}
+              y2={margin.top + innerHeight}
+              stroke={tick === 0 ? '#64748b' : '#e2e8f0'}
+              strokeWidth={tick === 0 ? 1.5 : 1}
+            />
+          ))}
+          {tickValues.map((tick) => (
+            <line
+              key={`h-${tick}`}
+              x1={margin.left}
+              y1={yScale(tick)}
+              x2={margin.left + innerWidth}
+              y2={yScale(tick)}
+              stroke={tick === 0 ? '#64748b' : '#e2e8f0'}
+              strokeWidth={tick === 0 ? 1.5 : 1}
+            />
+          ))}
+
+          {tickValues.map((tick) => (
+            <text
+              key={`xt-${tick}`}
+              x={xScale(tick)}
+              y={height - 14}
+              textAnchor="middle"
+              className="fill-slate-500 text-[10px]"
+            >
+              {tick.toFixed(1)}
+            </text>
+          ))}
+          {tickValues.map((tick) => (
+            <text
+              key={`yt-${tick}`}
+              x={margin.left - 8}
+              y={yScale(tick) + 3}
+              textAnchor="end"
+              className="fill-slate-500 text-[10px]"
+            >
+              {tick.toFixed(1)}
+            </text>
+          ))}
+
+          {points.map((point) => (
+            <circle
+              key={point.id}
+              cx={xScale(point.x)}
+              cy={yScale(point.y)}
+              r={2}
+              fill="#2563eb"
+              opacity={0.8}
+            />
+          ))}
+
+          <text x={width / 2} y={height - 2} textAnchor="middle" className="fill-slate-600 text-[11px]">
+            Lateral Accel (g)
+          </text>
+          <text
+            x={14}
+            y={height / 2}
+            textAnchor="middle"
+            transform={`rotate(-90 14 ${height / 2})`}
+            className="fill-slate-600 text-[11px]"
+          >
+            Longitudinal Accel (g)
+          </text>
+        </svg>
+        {points.length === 0 ? (
+          <p className="absolute inset-0 flex items-center justify-center text-gray-500 pointer-events-none">
+            Waiting for gg-plot data...
+          </p>
+        ) : null}
       </div>
     </div>
   );

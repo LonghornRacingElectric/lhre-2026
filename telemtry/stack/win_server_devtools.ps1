@@ -8,11 +8,43 @@ Write-Host "`tQ) Run Processor in background and start server"
 Write-Host "`tW) Delete the existing server and processors images"
 Write-Host "`tE) Delete the lap timer processors images"
 Write-Host "`tF) Delete the gps classifier processors images"
+Write-Host "`tS) Stop everything currently running"
 Write-Host ""
+
+function Stop-TelemetryStack {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ScriptRoot
+    )
+
+    $composeTargets = @(
+        @{ Path = (Join-Path $ScriptRoot "ingest"); Label = "ingest services" },
+        @{ Path = (Join-Path $ScriptRoot "kafka"); Label = "kafka services" },
+        @{ Path = (Join-Path $ScriptRoot "processors"); Label = "processor services" },
+        @{ Path = (Join-Path $ScriptRoot "processors\lap_timer"); Label = "lap timer processor" },
+        @{ Path = (Join-Path $ScriptRoot "processors\gps_classifier"); Label = "gps classifier processor" },
+        @{ Path = (Join-Path $ScriptRoot "processors\track_mapper"); Label = "track mapper processor" },
+        @{ Path = (Join-Path $ScriptRoot "processors\kafka_test"); Label = "kafka test processor" }
+    )
+
+    foreach ($target in $composeTargets) {
+        $composeFile = Join-Path $target.Path "docker-compose.yml"
+        if (Test-Path $composeFile) {
+            Set-Location $target.Path
+            Write-Host "Stopping $($target.Label)..."
+            docker-compose down
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "Failed to stop $($target.Label)."
+            }
+        }
+    }
+
+    Write-Host "Stopped all telemetry stack services that were running."
+}
 
 # Infinite loop to process user input
 while ($true) {
-    $opt = Read-Host "Choose an option (1-4, Q, W, E, F)"
+    $opt = Read-Host "Choose an option (1-4, Q, W, E, F, S)"
     Write-Host ""
     Write-Host ""
 
@@ -214,6 +246,10 @@ while ($true) {
                     docker rmi $image
                 }
                 docker-compose up
+                break
+            }
+            "S" {
+                Stop-TelemetryStack -ScriptRoot $PSScriptRoot
                 break
             }
             default {

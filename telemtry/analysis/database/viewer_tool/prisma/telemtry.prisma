@@ -18,6 +18,7 @@ model drive_day {
   air_temperature Float?
   relative_humidity Float?
   track_temperature Float?
+  track_name String?
 
   // Relations
   events      event[]
@@ -211,8 +212,8 @@ model dynamics {
   br_spring_displace Float?
   dash_speed         Float?
   // Store as [lat, lng] numeric arrays (instead of Postgres point)
-  f_gps              Float[]?
-  b_gps              Float[]?
+  f_gps              Float[] @default([])
+  b_gps              Float[] @default([])
   f_gps_velocity     Float?
   b_gps_velocity     Float?
   f_gps_heading      Float?

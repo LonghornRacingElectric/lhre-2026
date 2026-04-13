@@ -34,7 +34,7 @@ const LiveViewerBanner = () => {
 
   // Live connection and status via Kafka "status" topic
   // Expecting messages like: { connected: boolean, battery?: number, odometer?: number }
-  const { data: status, connected: sseConnected, kafkaConnected } = useKafkaJSON<{
+  const { data: status, kafkaConnected, lastMessageAt } = useKafkaJSON<{
     battery?: number;
     odometer?: number;
     car_type?: string;
@@ -44,10 +44,15 @@ const LiveViewerBanner = () => {
     ssePath,
     filter: matchesSelectedCar,
     staleAfterMs: 2000,
+    sampleMs: 200,
     merge: true,
   });
 
-  const isConnected = sseConnected && kafkaConnected;
+  const isConnected = kafkaConnected;
+  const lastSeenSeconds =
+    typeof lastMessageAt === 'number'
+      ? Math.max(0, Math.floor((Date.now() - lastMessageAt) / 1000))
+      : undefined;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -202,7 +207,13 @@ const LiveViewerBanner = () => {
         <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-2 text-sm">
           <div 
               className={`w-4 h-4 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'} mr-2 pulse-size`}
-              title={isConnected ? `Receiving ${selectedCarLabel} data` : `No recent ${selectedCarLabel} Kafka data`}
+              title={
+                isConnected
+                  ? `Receiving ${selectedCarLabel} data`
+                  : lastSeenSeconds !== undefined
+                    ? `No recent ${selectedCarLabel} data (${lastSeenSeconds}s since last sample)`
+                    : `No recent ${selectedCarLabel} Kafka data`
+              }
           ></div>
           <span className="mr-2">{selectedCarLabel} Connection</span>
         </div>

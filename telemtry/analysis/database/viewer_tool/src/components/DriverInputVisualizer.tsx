@@ -20,6 +20,15 @@ export type DriverInputData = {
   };
 };
 
+function toFiniteNumber(value: unknown, fallback = 0): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function clampPercent(value: number): number {
+  return Math.min(100, Math.max(0, value));
+}
+
 const DriverInputVisualizer = ({
   data,
 }: {
@@ -34,6 +43,7 @@ const DriverInputVisualizer = ({
     filter: matchesSelectedCar,
     // Extend staleness so we keep last sample between slower updates
     staleAfterMs: 1000,
+    sampleMs: 80,
     merge: true,
     // No custom select: we want the whole object; default parser handles JSON
   });
@@ -41,9 +51,9 @@ const DriverInputVisualizer = ({
   const sensorData = data !== undefined ? data : liveData;
   
   // Default values if no data is available
-  const brakeInput = Number(sensorData?.controls?.brakePct ?? 0); // Percentage (0-100)
-  const throttleInput = Number(sensorData?.controls?.throttlePct ?? 0); // Percentage (0-100)
-  const steerVoltage = sensorData?.controls?.steerV ?? 0; // Voltage (0 to 2.5)
+  const brakeInput = clampPercent(toFiniteNumber(sensorData?.controls?.brakePct));
+  const throttleInput = clampPercent(toFiniteNumber(sensorData?.controls?.throttlePct));
+  const steerVoltage = toFiniteNumber(sensorData?.controls?.steerV); // Voltage (0 to 2.5)
   const steerColAngle = sensorData?.controls?.steerColAngle;
 
   const getStatus = () => {
@@ -62,10 +72,11 @@ const DriverInputVisualizer = ({
   const MAX_LEFT_DEGREE = -135; // Placeholder for exact value
   const MAX_RIGHT_DEGREE = 135; // Placeholder for exact value
 
-  const steeringAngle =
+  const steeringAngleRaw =
     typeof steerColAngle === "number"
       ? steerColAngle
       : (steerVoltage - 1.25) * ((MAX_RIGHT_DEGREE - MAX_LEFT_DEGREE) / 2.5); // Map 0-2.5V to MAX_LEFT_DEGREE to MAX_RIGHT_DEGREE
+  const steeringAngle = toFiniteNumber(steeringAngleRaw);
 
   return (
     <div className="bg-white rounded-lg shadow-md p-4 w-full h-full flex flex-col">
@@ -84,7 +95,7 @@ const DriverInputVisualizer = ({
                   style={{ height: `${brakeInput}%` }}
                 ></div>
               </div>
-              <span className="mt-2 text-sm font-semibold">{brakeInput}%</span>
+              <span className="mt-2 text-sm font-semibold">{brakeInput.toFixed(1)}%</span>
               <span className="text-xs text-gray-500">Brake</span>
             </div>
 
@@ -96,7 +107,7 @@ const DriverInputVisualizer = ({
                   style={{ height: `${throttleInput}%` }}
                 ></div>
               </div>
-              <span className="mt-2 text-sm font-semibold">{throttleInput}%</span>
+              <span className="mt-2 text-sm font-semibold">{throttleInput.toFixed(1)}%</span>
               <span className="text-xs text-gray-500">Throttle</span>
             </div>
           </div>
