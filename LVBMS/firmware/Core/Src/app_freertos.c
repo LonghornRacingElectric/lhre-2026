@@ -192,12 +192,12 @@ void StartDefaultTask(void *argument)
 
   for (;;) {
     snprintf(buf, sizeof(buf),
-            "State: %s Faults: %s\r\n"
+            "State: %s Faults: 0x%02lX\r\n"
             "C1:%.2f C2:%.2f C3:%.2f C4:%.2f\r\n"
             "C5:%.2f C6:%.2f C7:%.2f\r\n"
             "T1:%.1f T2:%.1f T3:%.1f\r\n"
             "Current:%.2f\r\n",
-            state_names[bms_get_state()], fault_names[bms_get_faults()],
+            state_names[bms_get_state()], bms_get_faults(),
             bms_get_cell_voltage(0), bms_get_cell_voltage(1),
             bms_get_cell_voltage(2), bms_get_cell_voltage(3),
             bms_get_cell_voltage(4), bms_get_cell_voltage(5),
