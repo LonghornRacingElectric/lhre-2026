@@ -33,8 +33,9 @@ async function buildReplayState(
   atTimeMs: bigint,
   preferredCar: SupportedCar | null,
 ) {
-  const ev = await prismaTelemtry.event.findUnique({
-    where: { event_id: eventId },
+  // eventId maps to day_id since drive_day is the single session record.
+  const ev = await prismaTelemtry.drive_day.findUnique({
+    where: { day_id: eventId },
     select: {
       packet_start: true,
       packet_end: true,
@@ -43,9 +44,9 @@ async function buildReplayState(
     },
   });
 
-  if (!ev) return { status: 404 as const, body: { error: "Event not found" } };
+  if (!ev) return { status: 404 as const, body: { error: "Drive day not found" } };
   if (ev.packet_start == null || ev.packet_end == null) {
-    return { status: 409 as const, body: { error: "Event has no packet range" } };
+    return { status: 409 as const, body: { error: "Drive day has no packet range" } };
   }
 
   const packetStart = BigInt(ev.packet_start as any);

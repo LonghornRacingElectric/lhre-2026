@@ -11,35 +11,34 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const now = Date.now();
 
-    // Find the latest active event (status 2)
-    const activeEvent = await prismaTelemtry.event.findFirst({
+    // Find the latest active drive day (status 2)
+    const activeDay = await prismaTelemtry.drive_day.findFirst({
       where: { status: 2 },
-      orderBy: { event_id: 'desc' },
+      orderBy: { day_id: 'desc' },
       select: {
-        event_id: true,
+        day_id: true,
         car_id: true,
         car: { select: { car_name: true } },
       },
     });
 
-    if (!activeEvent) {
-      return NextResponse.json({ message: 'No active event found' }, { status: 204 });
+    if (!activeDay) {
+      return NextResponse.json({ message: 'No active drive day found' }, { status: 204 });
     }
 
-    const event_id = activeEvent.event_id;
     const car =
       normalizeCar(body?.car) ??
-      normalizeCar(activeEvent.car?.car_name) ??
-      (await resolveCarFromCarId(activeEvent.car_id));
+      normalizeCar(activeDay.car?.car_name) ??
+      (await resolveCarFromCarId(activeDay.car_id));
 
-    // Event is ending: need last packet_id
+    // Capture packet end from the selected car stream when possible.
     const lastPacketId = await findLatestPacketId(car);
-    const packet_end = lastPacketId ?? 1;
+    const packet_end = lastPacketId ?? BigInt(1);
 
-    await prismaTelemtry.event.update({
-      where: { event_id },
+    await prismaTelemtry.drive_day.update({
+      where: { day_id: activeDay.day_id },
       data: {
-        end_time: now,
+        end_time: BigInt(now),
         status: 0,
         packet_end,
       },
@@ -47,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error('Error updating event status:', error);
-    return NextResponse.json({ error: 'Failed to update event status' }, { status: 500 });
+    console.error('Error ending drive day:', error);
+    return NextResponse.json({ error: 'Failed to end drive day' }, { status: 500 });
   }
 }

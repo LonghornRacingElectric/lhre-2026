@@ -5,6 +5,7 @@ from typing import List, Optional
 class OrionDynamics:
     gps: List[float] = field(default_factory=list)
     gps_imu: List[float] = field(default_factory=list)
+    gps_speed: Optional[float] = None
     accel_pedal_travel: Optional[float] = None
     steer_col_angle: Optional[float] = None
     bl_sprung_accel: List[float] = field(default_factory=list)
@@ -91,10 +92,13 @@ class OrionPack:
 
 @dataclass
 class OrionDiagnosticsHigh:
+    prndl_state: Optional[float] = None
     shutdown_current: Optional[float] = None
     hvc_state_machine: Optional[float] = None
     post_faults: Optional[float] = None
     run_faults: Optional[float] = None
+    r2d_buzzer: Optional[bool] = None
+    stomp_fault: Optional[bool] = None
     neg_hv_contactor: Optional[bool] = None
     pos_hv_contactor: Optional[bool] = None
     precharge_contactor: Optional[bool] = None

@@ -29,8 +29,8 @@ export async function GET(req: NextRequest) {
     let car = normalizeCar(searchParams.get("car"));
 
     if (!car) {
-      const latestEvent = await prismaTelemtry.event.findFirst({
-        orderBy: [{ creation_time: "desc" }, { event_id: "desc" }],
+      const latestDay = await prismaTelemtry.drive_day.findFirst({
+        orderBy: { day_id: "desc" },
         select: {
           car_id: true,
           car: { select: { car_name: true } },
@@ -38,8 +38,8 @@ export async function GET(req: NextRequest) {
       });
 
       car =
-        normalizeCar(latestEvent?.car?.car_name) ??
-        (await resolveCarFromCarId(latestEvent?.car_id)) ??
+        normalizeCar(latestDay?.car?.car_name) ??
+        (await resolveCarFromCarId(latestDay?.car_id)) ??
         "angelique";
     }
 

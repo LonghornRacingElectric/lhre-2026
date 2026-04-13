@@ -75,7 +75,7 @@ export function CarSelectionProvider({
     if (!MULTI_CAR_ENABLED) {
       const bootstrapFromEvent = async () => {
         try {
-          const res = await fetch("/api/event-active", { cache: "no-store" });
+          const res = await fetch("/api/driveday-active", { cache: "no-store" });
           if (!res.ok || cancelled) return;
           const payload: { carName?: string | null; car_name?: string | null } =
             await res.json();
@@ -110,7 +110,7 @@ export function CarSelectionProvider({
 
     const bootstrapFromEvent = async () => {
       try {
-        const res = await fetch("/api/event-active", { cache: "no-store" });
+        const res = await fetch("/api/driveday-active", { cache: "no-store" });
         if (!res.ok || cancelled) return;
         const payload: { carName?: string | null; car_name?: string | null } =
           await res.json();

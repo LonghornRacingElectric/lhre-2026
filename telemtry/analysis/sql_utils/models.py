@@ -456,6 +456,7 @@ class OrionDynamics(BaseOrion):
     packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
     gps = Column(ARRAY(Float))
     gps_imu = Column(ARRAY(Float))
+    gps_speed = Column(Float)
     accel_pedal_travel = Column(Float)
     steer_col_angle = Column(Float)
     bl_sprung_accel = Column(ARRAY(Float))
@@ -551,10 +552,13 @@ class OrionDiagnosticsHigh(BaseOrion):
     __tablename__ = 'diagnostics_high'
     __table_args__ = {'schema': 'public', 'extend_existing': True}
     packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
+    prndl_state = Column(Float)
     shutdown_current = Column(Float)
     hvc_state_machine = Column(Float)
     post_faults = Column(Float)
     run_faults = Column(Float)
+    r2d_buzzer = Column(Boolean)
+    stomp_fault = Column(Boolean)
     neg_hv_contactor = Column(Boolean)
     pos_hv_contactor = Column(Boolean)
     precharge_contactor = Column(Boolean)

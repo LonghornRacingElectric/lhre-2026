@@ -141,13 +141,13 @@ export async function resolveCarFromCarId(
 export async function resolveCarFromEvent(
   eventId: number,
 ): Promise<SupportedCar | null> {
-  const event = await prismaTelemtry.event.findUnique({
-    where: { event_id: eventId },
+  const driveDay = await prismaTelemtry.drive_day.findUnique({
+    where: { day_id: eventId },
     select: {
       car_id: true,
       car: { select: { car_name: true } },
     },
   });
-  if (!event) return null;
-  return normalizeCar(event.car?.car_name) ?? (await resolveCarFromCarId(event.car_id));
+  if (!driveDay) return null;
+  return normalizeCar(driveDay.car?.car_name) ?? (await resolveCarFromCarId(driveDay.car_id));
 }

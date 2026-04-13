@@ -16,7 +16,6 @@ export async function GET() {
         air_temperature: true,
         relative_humidity: true,
         track_temperature: true,
-        _count: { select: { events: true } },
       },
     });
 
@@ -29,7 +28,7 @@ export async function GET() {
         relative_humidity: d.relative_humidity ?? null,
         track_temperature: d.track_temperature ?? null,
       },
-      event_count: d._count.events,
+      event_count: 1,
     }));
 
     return NextResponse.json({ drive_days }, { status: 200 });

@@ -38,6 +38,15 @@ GEN_DIR="$SCRIPT_DIR/gen_${CAR_LOWER}"
 DB_INIT_FILE="$INGEST_DIR/${CAR_LOWER}_db_init.sql"
 PRISMA_OUT="$PRISMA_DIR/${CAR_LOWER}.prisma"
 
+if [ "$CAR_NAME" = "Orion" ] && [ "${REFRESH_COMMON_FROM_ORION:-0}" = "1" ]; then
+  echo "Step 0: Refreshing common schema from Orion base schema..."
+  awk '
+    /^-- Generated Packet Table/ { skip=1; next }
+    /^-- Track mapping tables/ { skip=0 }
+    skip != 1 { print }
+  ' "$INGEST_DIR/orion_db_init.sql" > "$COMMON_SQL"
+fi
+
 echo "Step 1: Generating common prisma..."
 python3 "$SCRIPT_DIR/generate_schema.py" sql-to-prisma \
     "$COMMON_SQL" \
