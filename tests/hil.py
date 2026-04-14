@@ -21,17 +21,29 @@ class bcolors:
     UNDERLINE = "\033[4m"
 
 
-# Map from board directory name to the bazel target name used for DFU flashing.
+# Boards that have location variants (FR, FL, RR, RL).
+# These generate per-location DFU targets like :dfu_FR instead of a plain :dfu.
+VARIANT_BOARDS = {
+    "CSM": ["FR", "FL", "RR", "RL"],
+    "USM": ["FR", "FL", "RR", "RL"],
+}
+
+# Map from target name to the bazel DFU target.
+# Variant boards use the format "BOARD_LOCATION" -> "//BOARD/firmware:dfu_LOCATION".
 BOARD_TO_DFU_TARGET = {
-    "CSM": "//CSM/firmware:dfu",
+    # Boards without variants
     "DUI": "//DUI/firmware:dfu",
     "HVC": "//HVC/firmware:dfu",
     "LVBMS": "//LVBMS/firmware:dfu",
     "PDU": "//PDU/firmware:dfu",
     "TSM": "//TSM/firmware:dfu",
-    "USM": "//USM/firmware:dfu",
     "VCU": "//VCU/firmware:dfu",
 }
+
+# Add variant board entries
+for board, locations in VARIANT_BOARDS.items():
+    for loc in locations:
+        BOARD_TO_DFU_TARGET[f"{board}_{loc}"] = f"//{board}/firmware:dfu_{loc}"
 
 # The USB VID:PID for STM32 CDC (application mode)
 APP_HWID = "0483:5740"
@@ -102,15 +114,11 @@ def flash_firmware(target):
         )
         return False
 
-    print(
-        bcolors.OKBLUE
-        + f"--- Flashing firmware via {dfu_target} ---"
-        + bcolors.ENDC
-    )
+    print(bcolors.OKBLUE + f"--- Flashing firmware via {dfu_target} ---" + bcolors.ENDC)
 
     try:
         result = subprocess.run(
-            ["bazel", "run", dfu_target],
+            ["bazel", "run", "--copt=-DHIL", dfu_target],
             timeout=120,
         )
         if result.returncode != 0:
@@ -287,8 +295,9 @@ def main():
         type=str,
         required=True,
         help=(
-            "Board target to test (e.g. DUI, VCU, CSM, ...) or 'dfu' for a "
-            "driver-only DFU test. This determines which firmware gets flashed."
+            "Board target to test (e.g. DUI, VCU, CSM_FR, USM_RL, ...) or "
+            "'dfu' for a driver-only DFU test. Boards with location variants "
+            "(CSM, USM) must specify the variant, e.g. CSM_FR."
         ),
     )
     parser.add_argument(
@@ -320,10 +329,21 @@ def main():
             + bcolors.ENDC
         )
 
+    # Check if the user passed a bare variant board name without a location
+    if target in VARIANT_BOARDS:
+        variants = VARIANT_BOARDS[target]
+        print(
+            f"{bcolors.FAIL}'{target}' has location variants. "
+            f"Please specify one: {', '.join(f'{target}_{v}' for v in variants)}"
+            f"{bcolors.ENDC}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     if target not in BOARD_TO_DFU_TARGET:
         print(
             f"{bcolors.FAIL}Unknown target '{args.target}'. "
-            f"Valid targets: {', '.join(BOARD_TO_DFU_TARGET.keys())}, dfu"
+            f"Valid targets: {', '.join(sorted(BOARD_TO_DFU_TARGET.keys()))}, dfu"
             f"{bcolors.ENDC}",
             file=sys.stderr,
         )

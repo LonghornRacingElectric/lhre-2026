@@ -59,16 +59,33 @@ jobs:
                     done
                   done
 
-                  # Build JSON array of changed boards
-                  BOARDS_JSON=$(printf '%s\n' "${CHANGED_BOARDS[@]}" | jq -R . | jq -sc .)
-                  if [ "$BOARDS_JSON" = '[""]' ] || [ "$BOARDS_JSON" = "[]" ]; then
-                    BOARDS_JSON="[]"
+                  # Expand boards with location variants into individual targets.
+                  # CSM and USM have FR, FL, RR, RL variants — each gets its own
+                  # HIL test job.
+                  EXPANDED_TARGETS=()
+                  for board in "${CHANGED_BOARDS[@]}"; do
+                    case "$board" in
+                      CSM|USM)
+                        for loc in FR FL RR RL; do
+                          EXPANDED_TARGETS+=("${board}_${loc}")
+                        done
+                        ;;
+                      *)
+                        EXPANDED_TARGETS+=("$board")
+                        ;;
+                    esac
+                  done
+
+                  # Build JSON array of targets
+                  TARGETS_JSON=$(printf '%s\n' "${EXPANDED_TARGETS[@]}" | jq -R . | jq -sc .)
+                  if [ "$TARGETS_JSON" = '[""]' ] || [ "$TARGETS_JSON" = "[]" ]; then
+                    TARGETS_JSON="[]"
                   fi
 
-                  echo "boards=$BOARDS_JSON" >> "$GITHUB_OUTPUT"
+                  echo "boards=$TARGETS_JSON" >> "$GITHUB_OUTPUT"
                   echo "drivers_changed=$DRIVERS_CHANGED" >> "$GITHUB_OUTPUT"
 
-                  echo "### Changed boards: $BOARDS_JSON"
+                  echo "### HIL targets: $TARGETS_JSON"
                   echo "### Drivers changed: $DRIVERS_CHANGED"
 
     hil-firmware:
@@ -88,7 +105,9 @@ jobs:
 
             - name: Build firmware for ${{ matrix.board }}
               run: |
-                  bazel build //${{ matrix.board }}/firmware:all \
+                  # Extract the board directory (everything before _VARIANT, or the whole thing)
+                  BOARD_DIR=$(echo "${{ matrix.board }}" | cut -d'_' -f1)
+                  bazel build //${BOARD_DIR}/firmware:all \
                     --config=ci \
                     --remote_header=x-buildbuddy-api-key=${{ secrets.BUILD_BUDDY_API_KEY }} \
                     --copt=-DHIL

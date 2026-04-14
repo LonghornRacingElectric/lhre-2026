@@ -240,6 +240,22 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t *pbuf, uint16_t length) {
   /* USER CODE END 5 */
 }
 
+#ifdef HIL
+uint8_t CDC_Transmit_FS_HIL(uint8_t *Buf, uint16_t Len) {
+  uint8_t result = USBD_OK;
+  /* USER CODE BEGIN 7 */
+  USBD_CDC_HandleTypeDef *hcdc =
+      (USBD_CDC_HandleTypeDef *)hUsbDeviceFS.pClassData;
+  if (hcdc->TxState != 0) {
+    return USBD_BUSY;
+  }
+  USBD_CDC_SetTxBuffer(&hUsbDeviceFS, Buf, Len);
+  result = USBD_CDC_TransmitPacket(&hUsbDeviceFS);
+  /* USER CODE END 7 */
+  return result;
+}
+#endif
+
 /**
  * @brief  Data received over USB OUT endpoint are sent over CDC interface
  *         through this function.
@@ -267,7 +283,7 @@ static int8_t CDC_Receive_FS(uint8_t *Buf, uint32_t *Len) {
 #ifdef HIL
   // send a heartbeat with the exact same message as received back on the USB
   // bus
-  CDC_Transmit_FS(Buf, *Len);
+  CDC_Transmit_FS_HIL(Buf, *Len);
 #endif
   return (USBD_OK);
   /* USER CODE END 6 */
@@ -285,6 +301,9 @@ static int8_t CDC_Receive_FS(uint8_t *Buf, uint32_t *Len) {
  * @retval USBD_OK if all operations are OK else USBD_FAIL or USBD_BUSY
  */
 uint8_t CDC_Transmit_FS(uint8_t *Buf, uint16_t Len) {
+#ifdef HIL
+  return USBD_OK;
+#endif
   uint8_t result = USBD_OK;
   /* USER CODE BEGIN 7 */
   USBD_CDC_HandleTypeDef *hcdc =
