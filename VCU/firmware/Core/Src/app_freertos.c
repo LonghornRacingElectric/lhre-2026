@@ -338,8 +338,7 @@ void StartControlTask(void *argument) {
     in.drive_switch = is_drive_switch_pressed();
 
     in.contactors_closed = hvc_tractive_ready();
-
-  in.motor_speed_rpm = fabsf(vcu_can_get_motor_speed_rpm());
+    in.motor_speed_rpm = fabsf(vcu_can_get_motor_speed_rpm());
 
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
@@ -354,80 +353,22 @@ void StartControlTask(void *argument) {
     //            out.faults.apps_any_fault, out.apps1_travel,
     //            out.apps2_travel);
 
-<<<<<<< HEAD
-    log_printf(LOG_INFO,
-               "PED:%.3f TQ:%.1f | PRNDL:%u INV:%u | "
-               "DRV_IN:%u TR:%u | "
-               "APPS_IMPL:%u BRAKE:%u ANYFLT:%u | TIME: %u\n", 
-               (float)out.accel_pedal_travel, (double)out.torque_cmd,
-               (unsigned)out.prndl_state, (unsigned)out.inverter_enable,
-               (unsigned)in.drive_switch, (unsigned)in.contactors_closed,
-               (unsigned)out.faults.apps_any_fault,
-               (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault, osKernelGetTickCount());
-=======
-float front_bias_pct = 0.0f;
-float total = out.bse1_psi + out.bse2_psi;
-
-if (total > 1e-3f) {
-    front_bias_pct = (out.bse1_psi / total) * 100.0f;
-}
-
-// log_printf(LOG_WARNING,
-//     "BSE_RAW adc1=%u adc2=%u | PSI1=%.2f PSI2=%.2f AVG=%.2f | FRONT_BIAS=%.1f%% | BRAKE=%u",
-//     (unsigned)adc2_dma_buf[0],
-//     (unsigned)adc2_dma_buf[1],
-//     out.bse1_psi,
-//     out.bse2_psi,
-//     out.bse_psi,
-//     front_bias_pct,
-//     (unsigned)out.brake_pressed
-// );
-
-//     log_printf(LOG_WARNING,
-//     "BSE_RAW adc1=%u adc2=%u | V1=%.4f V2=%.4f | CAL1 min=%.4f max=%.4f | CAL2 min=%.4f max=%.4f | PSI1=%.2f PSI2=%.2f AVG=%.2f | BRAKE=%u",
-//     (unsigned)adc2_dma_buf[0],
-//     (unsigned)adc2_dma_buf[1],
-//     in.bse1_raw,
-//     in.bse2_raw,
-//     s_params.bse.bse1_adc_at_min_psi_v,
-//     s_params.bse.bse1_adc_at_max_psi_v,
-//     s_params.bse.bse2_adc_at_min_psi_v,
-//     s_params.bse.bse2_adc_at_max_psi_v,
-//     out.bse1_psi,
-//     out.bse2_psi,
-//     out.bse_psi,
-//     (unsigned)out.brake_pressed
-// );
-    
-    // log_printf(LOG_WARNING,
-    // "PEDAL_OUT %.2f, TORQUE_OUT %.2f, APPS1 %.2f, APPS2 %.2f, adc1: %u, adc2: %u",
-    // out.accel_pedal_travel,
-    // out.torque_cmd,
-    // out.apps1_travel,
-    // out.apps2_travel,
-    // adc3_dma_buf[0],
-    // adc3_dma_buf[1]);           
-
-    log_printf(LOG_INFO,
-               "TICK:%lu | PED:%.3f TQ:%.1f | PRNDL:%u INV:%u | "
-               "DRV_IN:%u TR:%u | "
-               "APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
-               (unsigned long)current_tick, (double)out.accel_pedal_travel,
-               (double)out.torque_cmd, (unsigned)out.prndl_state,
-               (unsigned)out.inverter_enable, (unsigned)in.drive_switch,
-               (unsigned)in.contactors_closed,
-               (unsigned)out.faults.apps_any_fault,
-               (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault);
-
-    // log_printf(LOG_WARNING,
-    //        "R2D_RX:%u CONTACTORS:%u PRNDL:%u BRAKE:%u\n",
-    //        (unsigned)in.drive_switch,
-    //        (unsigned)in.contactors_closed,
-    //        (unsigned)out.prndl_state,
-    //        (unsigned)out.brake_pressed);
-
->>>>>>> origin/main
-    
+    if (++log_div >= 100u) {
+      float delta_resolver_angle_deg = vcu_can_get_delta_resolver_angle_deg();
+      float motor_angle_deg = vcu_can_get_motor_angle_deg();
+      log_div = 0u;
+      log_printf(LOG_INFO,
+                 "TICK:%lu | RPM:%.0f DRA:%.1f ANG:%.1f PED:%.3f TQ:%.1f | "
+                 "PRNDL:%u INV:%u | "
+                 "DRV_IN:%u TR:%u | APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
+                 (unsigned long)current_tick, (double)in.motor_speed_rpm,
+                 (double)delta_resolver_angle_deg, (double)motor_angle_deg,
+                 (double)out.accel_pedal_travel, (double)out.torque_cmd,
+                 (unsigned)out.prndl_state, (unsigned)out.inverter_enable,
+                 (unsigned)in.drive_switch, (unsigned)in.contactors_closed,
+                 (unsigned)out.faults.apps_any_fault,
+                 (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault);
+    }
 
     // 3 ms control loop (333 Hz)
     osDelay(pdMS_TO_TICKS(3));

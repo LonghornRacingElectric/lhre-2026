@@ -34,6 +34,9 @@ static can_receive_message_t *contactor_status_mailbox_handle = NULL;
 static msg_dui_r2d_status_t dui_r2d_status_mailbox = {0};
 static can_receive_message_t *dui_r2d_status_mailbox_handle = NULL;
 
+static msg_inverter_status_t inverter_status_mailbox = {0};
+static can_receive_message_t *inverter_status_mailbox_handle = NULL;
+
 static msg_inverter_speed_t inverter_speed_mailbox = {0};
 static can_receive_message_t *inverter_speed_mailbox_handle = NULL;
 // #define DUI_R2D_STATUS_TIMEOUT_MS 1000u
@@ -312,6 +315,14 @@ float vcu_can_get_motor_speed_rpm(void) {
   return (float)inverter_speed_mailbox.motor_speed;
 }
 
+float vcu_can_get_delta_resolver_angle_deg(void) {
+  return (float)inverter_status_mailbox.delta_resolver_angle;
+}
+
+float vcu_can_get_motor_angle_deg(void) {
+  return (float)inverter_status_mailbox.motor_angle;
+}
+
 /**
  * @brief Creates the CAN receive handlers and registers them with the CAN lib
  *
@@ -335,6 +346,14 @@ void vcu_can_add_receive_handlers(void) {
                                    dui_r2d_status_mailbox_handle);
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for DUI R2D status registered\n");
+
+  inverter_status_mailbox_handle = can_get_receive_message_handle(
+      &inverter_status_mailbox, INVERTER_STATUS_ID,
+      (CAN_unpack_message_fn)unpack_inverter_status);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   inverter_status_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for inverter status registered\n");
 
   inverter_speed_mailbox_handle = can_get_receive_message_handle(
       &inverter_speed_mailbox, INVERTER_SPEED_ID,
