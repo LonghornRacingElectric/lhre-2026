@@ -49,11 +49,11 @@ INSERT INTO public.lut_event_type (type_id, event_type) VALUES (1, 'Endurance');
 INSERT INTO public.lut_event_type (type_id, event_type) VALUES (2, 'Autocross');
 INSERT INTO public.lut_event_type (type_id, event_type) VALUES (3, 'Skidpad');
 INSERT INTO public.lut_event_type (type_id, event_type) VALUES (4, 'Straightline Acceleration');
-INSERT INTO public.lut_event_type (type_id, event_type) VALUES (5, 'Straightline Breaking');
+INSERT INTO public.lut_event_type (type_id, event_type) VALUES (5, 'Straightline Braking');
 
 -- Drive Day Table
 CREATE TABLE public.drive_day (
-    day_id                   smallserial NOT NULL,
+    day_id                   serial      NOT NULL,
     date                     date        NOT NULL,
     track_name               text,
     weather                  text,
@@ -64,16 +64,16 @@ CREATE TABLE public.drive_day (
     track_temperature        real,
     -- Status and timing
     status                   smallint,
-    creation_time            bigint,
+    creation_time            bigint      NOT NULL,
     start_time               bigint,
     end_time                 bigint,
     packet_start             bigint,
     packet_end               bigint,
     -- Driver, car, location, event type
-    car_id                   smallint,
-    driver_id                smallint,
-    location_id              smallint,
-    event_type               smallint,
+    car_id                   smallint    NOT NULL,
+    driver_id                smallint    NOT NULL,
+    location_id              smallint    NOT NULL,
+    event_type               smallint    NOT NULL,
     -- Car setup
     car_weight               smallint,
     tow_angle                real,
@@ -151,12 +151,13 @@ CREATE TABLE public.drive_day (
 
 -- Classifier table
 CREATE TABLE public.classifier (
-    day_id              bigint      NOT NULL,
+    day_id              integer     NOT NULL,
     type                text        NOT NULL,
     start_time          bigint      NOT NULL,
     end_time            bigint,
     notes               text,
-    CONSTRAINT fk_day_id FOREIGN KEY(day_id) REFERENCES drive_day(day_id)
+    CONSTRAINT classifier_pk PRIMARY KEY (day_id, type, start_time),
+    CONSTRAINT fk_day_id FOREIGN KEY (day_id) REFERENCES drive_day(day_id)
 );
 
 -- Partitions table
