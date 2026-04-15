@@ -262,15 +262,15 @@ void StartStateMachineTask(void *argument) {
 
     update_state_machine(any_faults);
     hvc_update_contactor_status();
-    // log_printf(LOG_INFO, "Responsive BMS ICs: %d\n",
-    // bms_get_num_responsive_ics());
 
     log_printf(LOG_INFO,
-               "Pack Voltage: %.2f, Tractive Voltage: %.2f V, Raw: %.2f, State "
-               "Machine: %d, Shutdown: %d, BMS Responsive: %d\n", 
+               "Pack: %.2f, Tractive: %.2f V, Raw: %.2f, "
+               "Faults: 0x%08lX, MinV: %.3f, MaxV: %.3f, MinT: %.1f, MaxT: %.1f, "
+               "State: %d, Shutdown: %d, BMS Responsive: %d\n",
                get_pack_voltage(), get_tractive_voltage(),
-               hvc_adc_read_voltage_sense_v(), get_current_state(),
-               // get_state_name(get_current_state()),
+               hvc_adc_read_voltage_sense_v(),
+               latched_fault_vector, bms_get_min_voltage(), bms_get_max_voltage(),
+               bms_get_min_temp(), bms_get_max_temp(), get_current_state(),
                is_shutdown_closed(), bms_get_num_responsive_ics());
     osDelay(task_period_ms);
   }

@@ -149,6 +149,64 @@ bool bms_check_disconnection(void) {
     return bms_responsive_ics < TOTAL_IC;
 }
 
+float bms_get_min_voltage(void) {
+    float min_v = 999.0f;
+    for (int i = 0; i < TOTAL_IC; i++) {
+        for (int j = 0; j < CELLS_PER_IC; j++) {
+            uint16_t code = IC[i].cell.c_codes[j];
+            float voltage_v = (code * 0.000150f) + 1.5f;
+            if (voltage_v < min_v && voltage_v > 0.0f) {
+                min_v = voltage_v;
+            }
+        }
+    }
+    return min_v;
+}
+
+float bms_get_max_voltage(void) {
+    float max_v = 0.0f;
+    for (int i = 0; i < TOTAL_IC; i++) {
+        for (int j = 0; j < CELLS_PER_IC; j++) {
+            uint16_t code = IC[i].cell.c_codes[j];
+            float voltage_v = (code * 0.000150f) + 1.5f;
+            if (voltage_v > max_v) {
+                max_v = voltage_v;
+            }
+        }
+    }
+    return max_v;
+}
+
+float bms_get_min_temp(void) {
+    float min_t = 999.0f;
+    for (int i = 0; i < TOTAL_IC; i++) {
+        for (int j = 1; j < 9; j++) {
+            int16_t code = IC[i].aux.a_codes[j];
+            float voltage_v = ((code + 10000) * 0.000150f);
+            float temp_c = ntc_voltage_to_temp(voltage_v);
+            if (!isnan(temp_c) && temp_c < min_t) {
+                min_t = temp_c;
+            }
+        }
+    }
+    return min_t;
+}
+
+float bms_get_max_temp(void) {
+    float max_t = -999.0f;
+    for (int i = 0; i < TOTAL_IC; i++) {
+        for (int j = 1; j < 9; j++) {
+            int16_t code = IC[i].aux.a_codes[j];
+            float voltage_v = ((code + 10000) * 0.000150f);
+            float temp_c = ntc_voltage_to_temp(voltage_v);
+            if (!isnan(temp_c) && temp_c > max_t) {
+                max_t = temp_c;
+            }
+        }
+    }
+    return max_t;
+}
+
 void bms_enable_discharge()
 {
     char msg[128];

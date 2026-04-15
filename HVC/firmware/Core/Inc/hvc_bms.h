@@ -43,6 +43,10 @@ bool bms_check_overvoltage(void);
 bool bms_check_overtemp(void);
 
 float getPackVoltage_v(void);
+float bms_get_min_voltage(void);
+float bms_get_max_voltage(void);
+float bms_get_min_temp(void);
+float bms_get_max_temp(void);
 
 void StartBmsTask(void *argument);
 
