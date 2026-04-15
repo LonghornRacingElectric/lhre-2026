@@ -6,5 +6,6 @@
 void hvc_can_init(void);
 
 void hvc_set_contactor_status(int state, bool pos, bool neg);
+void hvc_set_min_cell_voltage(float min_cell_voltage_v);
 
 #endif

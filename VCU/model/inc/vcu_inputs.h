@@ -19,6 +19,7 @@ typedef struct {
   bool contactors_closed;
 
   float motor_speed_rpm;
+  float min_cell_voltage_v;
 
   /*  can add more later:
    *  float dc_bus_voltage;

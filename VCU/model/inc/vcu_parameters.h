@@ -58,6 +58,8 @@ typedef struct {
 
   struct {
     float max_torque_nm; // maximum torque request allowed in Nm
+    float low_cell_derate_start_v;
+    float low_cell_cutoff_v;
   } torque_map;
 } vcu_parameters_t;
 

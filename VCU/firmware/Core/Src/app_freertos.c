@@ -113,6 +113,8 @@ static vcu_parameters_t s_params = {
     .torque_map =
         {
             .max_torque_nm = 220.0f,
+            .low_cell_derate_start_v = 3.1f,
+            .low_cell_cutoff_v = 3.0f,
         },
 
     .bse =
@@ -339,6 +341,10 @@ void StartControlTask(void *argument) {
 
     in.contactors_closed = hvc_tractive_ready();
     in.motor_speed_rpm = fabsf(vcu_can_get_motor_speed_rpm());
+    in.min_cell_voltage_v = vcu_can_get_min_cell_voltage_v();
+    if (in.min_cell_voltage_v <= 0.0f) {
+      in.min_cell_voltage_v = s_params.torque_map.low_cell_derate_start_v;
+    }
 
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);

@@ -30,6 +30,26 @@ bool any_fault_exists(vcu_outputs_t *out) {
   return out->faults.any_fault;
 }
 
+static float compute_low_cell_voltage_derate(const vcu_inputs_t *in,
+                                             const vcu_parameters_t *params) {
+  const float derate_start_v = params->torque_map.low_cell_derate_start_v;
+  const float cutoff_v = params->torque_map.low_cell_cutoff_v;
+
+  if (derate_start_v <= cutoff_v) {
+    return 1.0f;
+  }
+
+  if (in->min_cell_voltage_v >= derate_start_v) {
+    return 1.0f;
+  }
+
+  if (in->min_cell_voltage_v <= cutoff_v) {
+    return 0.0f;
+  }
+
+  return (in->min_cell_voltage_v - cutoff_v) / (derate_start_v - cutoff_v);
+}
+
 void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
                     vcu_outputs_t *out, uint32_t dt_ms) {
   // update time
@@ -46,6 +66,7 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
 
   // perform mapping from pedal to output
   torque_map_evaluate(in, out, &ctx->params, dt_ms);
+  out->torque_cmd *= compute_low_cell_voltage_derate(in, &ctx->params);
 
   // get the state for this step
   prndl_evaluate(&ctx->prndl_machine, in, out, ctx->time_ms);

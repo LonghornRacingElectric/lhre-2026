@@ -39,6 +39,9 @@ static can_receive_message_t *inverter_status_mailbox_handle = NULL;
 
 static msg_inverter_speed_t inverter_speed_mailbox = {0};
 static can_receive_message_t *inverter_speed_mailbox_handle = NULL;
+
+static msg_battery_cell_limits_t battery_cell_limits_mailbox = {0};
+static can_receive_message_t *battery_cell_limits_mailbox_handle = NULL;
 // #define DUI_R2D_STATUS_TIMEOUT_MS 1000u
 
 // static bool dui_r2d_timed_out_logged = false;
@@ -323,6 +326,10 @@ float vcu_can_get_motor_angle_deg(void) {
   return (float)inverter_status_mailbox.motor_angle;
 }
 
+float vcu_can_get_min_cell_voltage_v(void) {
+  return battery_cell_limits_mailbox.min_cell_voltage;
+}
+
 /**
  * @brief Creates the CAN receive handlers and registers them with the CAN lib
  *
@@ -363,4 +370,12 @@ void vcu_can_add_receive_handlers(void) {
 
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for inverter speed registered\n");
+
+  battery_cell_limits_mailbox_handle = can_get_receive_message_handle(
+      &battery_cell_limits_mailbox, BATTERY_CELL_LIMITS_ID,
+      (CAN_unpack_message_fn)unpack_battery_cell_limits);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   battery_cell_limits_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for battery cell limits registered\n");
 }

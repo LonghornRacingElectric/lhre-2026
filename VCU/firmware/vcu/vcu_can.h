@@ -32,6 +32,7 @@ bool hvc_tractive_ready(void);
 float vcu_can_get_motor_speed_rpm(void);
 float vcu_can_get_delta_resolver_angle_deg(void);
 float vcu_can_get_motor_angle_deg(void);
+float vcu_can_get_min_cell_voltage_v(void);
 
 // Inverter feedback variables (populated automatically)
 extern float inverter_torque_fb;   // Nm

@@ -21,6 +21,7 @@ static msg_contactor_status_t contactor_status_tx;
 // static msg_vcu_current_sense_t vcu_current_tx;
 
 static msg_indicators_shutdown_status_t indicator_status_tx = {0};
+static msg_battery_cell_limits_t battery_cell_limits_tx = {0};
 
 can_interface_t critical_can_bus = {
     .handle = &hfdcan1,
@@ -75,6 +76,12 @@ void hvc_can_init(void) {
       (CAN_pack_message_fn)pack_indicators_shutdown_status);
   can_rtos_register_send_packet(&critical_can_bus, indicator_status_handle);
 
+  can_message_t *battery_cell_limits_handle = can_get_message_handle(
+      &battery_cell_limits_tx, BATTERY_CELL_LIMITS_ID,
+      BATTERY_CELL_LIMITS_FREQ, BATTERY_CELL_LIMITS_DLC,
+      (CAN_pack_message_fn)pack_battery_cell_limits);
+  can_rtos_register_send_packet(&critical_can_bus, battery_cell_limits_handle);
+
   can_rtos_start_interface(&critical_can_bus);
 
   // Start tasks LAST
@@ -106,6 +113,12 @@ void hvc_set_indicator_status(bool bms_error, bool imd_error,
   indicator_status_tx.shutdown_leg_3 = shutdown_leg3 ? 1 : 0;
   indicator_status_tx.shutdown_leg_4 = shutdown_leg4 ? 1 : 0;
 
+  taskEXIT_CRITICAL();
+}
+
+void hvc_set_min_cell_voltage(float min_cell_voltage_v) {
+  taskENTER_CRITICAL();
+  battery_cell_limits_tx.min_cell_voltage = min_cell_voltage_v;
   taskEXIT_CRITICAL();
 }
 
