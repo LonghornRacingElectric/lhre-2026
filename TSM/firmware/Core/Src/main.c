@@ -176,7 +176,12 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   if (GPIO_Pin == GPIO_PIN_7) {
-    flow_pulses++;
+    static uint32_t last_flow_tick = 0;
+    uint32_t now = HAL_GetTick();
+    if (now - last_flow_tick > 5) {
+      flow_pulses++;
+      last_flow_tick = now;
+    }
   }
 
   if (GPIO_Pin == GPIO_PIN_5) {

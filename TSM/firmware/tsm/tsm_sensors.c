@@ -29,32 +29,39 @@ static inline uint8_t ds18b20_read_pin(void) {
 static uint8_t ds18b20_reset(void) {
   ds18b20_low();
   delay_us(480);
+  __disable_irq();
   ds18b20_release();
   delay_us(70);
   uint8_t presence = !ds18b20_read_pin();
+  __enable_irq();
   delay_us(410);
   return presence;
 }
 
 static void ds18b20_write_bit(uint8_t bit) {
+  __disable_irq();
   ds18b20_low();
   if (bit) {
     delay_us(1);
     ds18b20_release();
+    __enable_irq();
     delay_us(60);
   } else {
     delay_us(60);
     ds18b20_release();
+    __enable_irq();
     delay_us(1);
   }
 }
 
 static uint8_t ds18b20_read_bit(void) {
+  __disable_irq();
   ds18b20_low();
   delay_us(1);
   ds18b20_release();
   delay_us(10);
   uint8_t bit = ds18b20_read_pin();
+  __enable_irq();
   delay_us(55);
   return bit;
 }
@@ -66,6 +73,20 @@ static uint8_t ds18b20_read_byte(void) {
   return value;
 }
 
+static uint8_t ds18b20_crc8(uint8_t *data, uint8_t len) {
+  uint8_t crc = 0;
+  for (uint8_t i = 0; i < len; i++) {
+    uint8_t byte = data[i];
+    for (uint8_t j = 0; j < 8; j++) {
+      uint8_t mix = (crc ^ byte) & 0x01;
+      crc >>= 1;
+      if (mix) crc ^= 0x8C;
+      byte >>= 1;
+    }
+  }
+  return crc;
+}
+
 float ds18b20_read_temp(void) {
   if (!ds18b20_reset())
     return TEMP_ERR;
@@ -75,20 +96,26 @@ float ds18b20_read_temp(void) {
   for (int i = 0; i < 8; i++)
     ds18b20_write_bit((0x44 >> i) & 1);
   osDelay(750);
-  ds18b20_reset();
+
+  if (!ds18b20_reset())
+    return TEMP_ERR;
+
   for (int i = 0; i < 8; i++)
     ds18b20_write_bit((0xCC >> i) & 1);
   for (int i = 0; i < 8; i++)
     ds18b20_write_bit((0xBE >> i) & 1);
 
-  uint8_t l = ds18b20_read_byte();
-  uint8_t h = ds18b20_read_byte();
-  int16_t raw = (h << 8) | l;
+  uint8_t scratchpad[9];
+  for (int i = 0; i < 9; i++)
+    scratchpad[i] = ds18b20_read_byte();
 
+  if (ds18b20_crc8(scratchpad, 8) != scratchpad[8])
+    return TEMP_ERR;
+
+  int16_t raw = (scratchpad[1] << 8) | scratchpad[0];
   float temp = raw / 16.0f;
-  // log_printf(LOG_INFO, "%.1f", temp);
 
-  if (temp == 85.0f) // power-on default, likely means sensor is disconnected
+  if (temp == 85.0f)
     return TEMP_ERR;
 
   return temp;

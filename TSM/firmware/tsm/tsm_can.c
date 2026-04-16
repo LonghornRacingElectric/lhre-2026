@@ -16,7 +16,7 @@
 static can_interface_t data_acq_bus;
 
 /* ===============================
-   CAN Mailboxesy
+   CAN Mailboxes
    =============================== */
 
 /* Coolant loop temps (ID 416) */
