@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useKafkaJSON } from '@/hooks/useKafkaStream';
+import { useCarSelection } from '@/lib/carSelection';
 import * as d3 from 'd3';
 
 type LatLon = [number, number];
@@ -15,6 +16,7 @@ export interface TrackData {
 }
 
 const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: number }) => {
+  const { selectedCar, selectedCarLabel, ssePath, matchesSelectedCar } = useCarSelection();
   const [points, setPoints] = useState<LatLon[]>([]);
   const [isDefiningSectors, setIsDefiningSectors] = useState(false);
   const [sectors, setSectors] = useState<SectorGate[]>([]);
@@ -117,8 +119,11 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
 
   const kafkaOptions = useMemo(() => ({
     topic: 'track-mapper',
+    car: selectedCar,
+    ssePath,
+    filter: matchesSelectedCar,
     staleAfterMs: 5000, // consider disconnected if no message in 5 seconds
-  }), []);
+  }), [matchesSelectedCar, selectedCar, ssePath]);
 
   // Live connection to Kafka "track-mapper" topic
   const { data: kafkaMsg, connected: isReceivingData } = useKafkaJSON<any>(kafkaOptions);
@@ -530,7 +535,7 @@ const TrackMapper = ({ width = 600, height = 400 }: { width?: number; height?: n
           <div className={`w-3 h-3 rounded-full transition-colors ${isReceivingData ? 'bg-green-500' : 'bg-gray-400'}`} />
           <div className="text-sm font-medium text-gray-700">
             {isReceivingData 
-              ? (isRecording ? '🟢 Live (Recording)' : '🟡 Live (View Only)') 
+              ? (isRecording ? `🟢 Live ${selectedCarLabel} (Recording)` : `🟡 Live ${selectedCarLabel} (View Only)`) 
               : '⚫ Disconnected'}
           </div>
           <div className="text-xs text-gray-500">({pointCount} points, {sectors.length} sectors)</div>

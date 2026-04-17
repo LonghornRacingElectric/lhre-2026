@@ -33,6 +33,7 @@ from .models import (
     OrionDynamics,
     OrionControls,
     OrionPack,
+    OrionDiagnosticsHigh,
     OrionDiagnosticsLow,
     OrionThermal,
 )
@@ -81,6 +82,7 @@ class QueryBuilder:
             self._models["Dynamics"] = OrionDynamics
             self._models["Controls"] = OrionControls
             self._models["Pack"] = OrionPack
+            self._models["DiagnosticsHigh"] = OrionDiagnosticsHigh
             self._models["DiagnosticsLow"] = OrionDiagnosticsLow
             self._models["Thermal"] = OrionThermal
             self._models["Packet"] = OrionPacket
