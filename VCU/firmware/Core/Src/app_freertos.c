@@ -167,6 +167,7 @@ const osThreadAttr_t defaultTask_attributes = {
 void StartSystemTask(void *argument);
 void StartControlTask(void *argument);
 static float steering_adc_to_sensor_voltage(float adc_voltage_v);
+static float steering_sensor_voltage_to_percent(float sensor_voltage_v);
 static float steering_sensor_voltage_to_angle_deg(float sensor_voltage_v);
 
 /* USER CODE END FunctionPrototypes */
@@ -266,16 +267,19 @@ static float steering_adc_to_sensor_voltage(float adc_voltage_v) {
 static float steering_sensor_voltage_to_angle_deg(float sensor_voltage_v) {
   // Assumes the PIHER sensor output is ratiometric from 10% to 90% of the
   // 4.64 V supply across a 360 degree sweep.
+  const float angle_pct = steering_sensor_voltage_to_percent(sensor_voltage_v);
+  return (angle_pct * STEERING_SENSOR_ANGLE_RANGE_DEG) -
+         (0.5f * STEERING_SENSOR_ANGLE_RANGE_DEG);
+}
+
+static float steering_sensor_voltage_to_percent(float sensor_voltage_v) {
   const float sensor_min_v =
       STEERING_SENSOR_SUPPLY_V * STEERING_SENSOR_MIN_RATIO;
   const float sensor_max_v =
       STEERING_SENSOR_SUPPLY_V * STEERING_SENSOR_MAX_RATIO;
   const float clamped_sensor_v =
       fminf(fmaxf(sensor_voltage_v, sensor_min_v), sensor_max_v);
-  const float angle_pct =
-      (clamped_sensor_v - sensor_min_v) / (sensor_max_v - sensor_min_v);
-  return (angle_pct * STEERING_SENSOR_ANGLE_RANGE_DEG) -
-         (0.5f * STEERING_SENSOR_ANGLE_RANGE_DEG);
+  return (clamped_sensor_v - sensor_min_v) / (sensor_max_v - sensor_min_v);
 }
 
 // SystemTask: one-time initialization (USB, logging, DFU, ADC DMA, CAN) -----
@@ -334,6 +338,7 @@ void StartControlTask(void *argument) {
   uint32_t adc1_val = 0; // steering ADC1 read
   float steering_adc_voltage_v = 0.0f;
   float steering_sensor_voltage_v = 0.0f;
+  float steering_angle_pct = 0.0f;
   float steering_angle_deg = 0.0f;
 
   for (;;) {
@@ -368,6 +373,8 @@ void StartControlTask(void *argument) {
         ((float)adc1_val * ADC_STEERING_SCALE_V) / ADC_MAX_VAL;
     steering_sensor_voltage_v =
         steering_adc_to_sensor_voltage(steering_adc_voltage_v);
+    steering_angle_pct =
+        steering_sensor_voltage_to_percent(steering_sensor_voltage_v);
     steering_angle_deg =
         steering_sensor_voltage_to_angle_deg(steering_sensor_voltage_v);
 
@@ -391,13 +398,8 @@ void StartControlTask(void *argument) {
 
     vcu_can_set_model_inputs(&in);
     vcu_can_set_model_outputs(&out);
+    vcu_can_set_steering_angle_deg(steering_angle_deg);
 
-    // log_printf(LOG_WARNING,
-    //            "PEDAL OUT, %0.2f, TORQUE OUT %0.2f, FAULT %d, APPS1 %0.2f, "
-    //            "APPS2 %0.2f",
-    //            out.accel_pedal_travel, out.torque_cmd,
-    //            out.faults.apps_any_fault, out.apps1_travel,
-    //            out.apps2_travel);
 
     if (++log_div >= 100u) {
       float delta_resolver_angle_deg = vcu_can_get_delta_resolver_angle_deg();
@@ -415,15 +417,17 @@ void StartControlTask(void *argument) {
       log_div = 0u;
       log_printf(LOG_INFO,
                  "TICK:%lu | RPM:%.0f DRA:%.1f ANG:%.1f PED:%.3f TQ:%.1f | "
-                 "MIN:%.4f DRT:%.2f | STR:%.1f SV:%.3f | "
+                 "MIN:%.4f DRT:%.2f | STR_RAW:%lu AV:%.3f SV:%.3f SPCT:%.3f "
+                 "STR_DEG:%.1f | "
                  "PRNDL:%u INV:%u | "
                  "DRV_IN:%u TR:%u | APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
                  (unsigned long)current_tick, (double)in.motor_speed_rpm,
                  (double)delta_resolver_angle_deg, (double)motor_angle_deg,
                  (double)out.accel_pedal_travel, (double)out.torque_cmd,
                  (double)in.min_cell_voltage_v, (double)torque_derate_pct,
-                 (double)steering_angle_deg,
+                 (unsigned long)adc1_val, (double)steering_adc_voltage_v,
                  (double)steering_sensor_voltage_v,
+                 (double)steering_angle_pct, (double)steering_angle_deg,
                  (unsigned)out.prndl_state, (unsigned)out.inverter_enable,
                  (unsigned)in.drive_switch, (unsigned)in.contactors_closed,
                  (unsigned)out.faults.apps_any_fault,

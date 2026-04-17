@@ -66,6 +66,9 @@ static can_message_t *bse_voltages_mailbox_handle = NULL;
 static msg_brakes_t brakes_mailbox = {0};
 static can_message_t *brakes_mailbox_handle = NULL;
 
+static msg_steering_column_t steering_column_mailbox = {0};
+static can_message_t *steering_column_mailbox_handle = NULL;
+
 static msg_vcu_state_t vcu_state_mailbox = {0};
 static can_message_t *vcu_state_mailbox_handle = NULL;
 
@@ -183,6 +186,13 @@ void vcu_can_add_send_handlers(void) {
   can_rtos_register_send_packet(&critical_bus, brakes_mailbox_handle);
   log_printf(LOG_INFO, "[VCU] CAN send handler for brakes registered\n");
 
+  steering_column_mailbox_handle = can_get_message_handle(
+      &steering_column_mailbox, STEERING_COLUMN_ID, STEERING_COLUMN_FREQ,
+      STEERING_COLUMN_DLC, (CAN_pack_message_fn)pack_steering_column);
+  can_rtos_register_send_packet(&critical_bus, steering_column_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN send handler for steering column registered\n");
+
   vcu_state_mailbox_handle =
       can_get_message_handle(&vcu_state_mailbox, VCU_STATE_ID, VCU_STATE_FREQ,
                              VCU_STATE_DLC,
@@ -256,6 +266,10 @@ void vcu_can_set_model_outputs(const vcu_outputs_t *out) {
   } else {
     led_stop_thread();
   }
+}
+
+void vcu_can_set_steering_angle_deg(float steering_angle_deg) {
+  steering_column_mailbox.steer_col_angle = steering_angle_deg;
 }
 
 static float compute_brake_bias_pct(const vcu_outputs_t *out) {
