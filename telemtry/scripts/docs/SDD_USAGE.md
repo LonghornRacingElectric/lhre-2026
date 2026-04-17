@@ -17,9 +17,12 @@ The fastest way to update your local environment is to use the sync script:
 bash scripts/sync_schema.sh
 ```
 This script runs the generator for Angelique and automatically updates:
-- `stack/ingest/angelique_db_init.sql` (Database)
-- `analysis/database/viewer_tool/prisma/angelique.prisma` (Frontend)
+- `stack/ingest/{car}_db_init.sql` (Database)
+- `analysis/database/viewer_tool/prisma/{car}.prisma` (Frontend)
 - `analysis/sql_utils/models.py` (ORM)
+
+When run for `Orion` (the default), it also syncs:
+- `analysis/database/viewer_tool/protobuf/orion.proto` from `drivers/longhorn-lib/protobuf/can_packets.proto`.
 
 ---
 
@@ -179,6 +182,7 @@ python3 scripts/generate_schema.py patch-models \
 ## 5. Key Files
 - `telemtry/scripts/generate_schema.py`: The transformation engine.
 - `telemtry/scripts/sync_schema.sh`: Convenience script for local developers.
+- `drivers/longhorn-lib/protobuf/can_packets.proto`: Orion source-of-truth protobuf.
 - `telemtry/stack/ingest/common_schema.sql`: Source of truth for static infrastructure.
 - `telemtry/analysis/sql_utils/models.py`: SQLAlchemy models (Shared + Car-specific).
 - `telemtry/scripts/gen_angelique/dataclasses.py`: Generated Python type stubs.
