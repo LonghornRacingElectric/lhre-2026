@@ -40,15 +40,16 @@ const Banner = () => {
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem asChild><Link href="/">Home</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/driveday">Driveday Page</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/tune">Texas Tune</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/dashboards">Grafana</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/live-viewer">Live Viewer</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/replay">Replay</Link></DropdownMenuItem>
-            <DropdownMenuItem onClick={handleSignOut}>Logout</DropdownMenuItem>
-          </DropdownMenuContent>
+            <DropdownMenuContent>
+              <DropdownMenuItem asChild><Link href="/">Home</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/driveday">Driveday Page</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/tune">Texas Tune</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/dashboards">Grafana</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/live-viewer">Live Viewer</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/realtime-showcase">Realtime Showcase</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/replay">Replay</Link></DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSignOut}>Logout</DropdownMenuItem>
+            </DropdownMenuContent>
         </DropdownMenu>
         <Image src="/telem_logo.png" alt="Telemetry Logo" width={40} height={40} className="ml-2" />
         <span className="ml-2">Welcome, {session?.user?.name || session?.user?.username || 'Guest'}</span>

@@ -41,6 +41,7 @@ export default function SplashPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 flex-grow p-8">
         <SplashBox href={getDrivedayHref()} title="Driveday Page" imageUrl="/car.png" />
         <SplashBox href="/live-viewer" title="Live Viewer" imageUrl="/images/live.png" textColor="text-black" />
+        <SplashBox href="/realtime-showcase" title="Realtime Showcase" imageUrl="/images/live.png" textColor="text-black" />
         <SplashBox href="/replay" title="Replay Mode" imageUrl="/images/replay.png" textColor="text-black" />
         <SplashBox href="/tune" title="Texas Tune" imageUrl="/tune.png" textColor="text-black" />
         <SplashBox href="/dashboards" title="Grafana & Database" imageUrl="/graph.png" />
