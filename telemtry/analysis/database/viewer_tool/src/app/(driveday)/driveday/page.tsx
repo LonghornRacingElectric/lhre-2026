@@ -30,6 +30,7 @@ export default function DrivedayPage() {
   const [appState, setAppState] = useState<AppState>({});
   const [driveDayState, setDriveDayState] = useState<DriveDayState>({});
   const [submitError, setSubmitError] = useState<string>("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [date, setDate] = useState<string>(today);
 
   // Buffers for in-progress decimal input (e.g. "12." or ".5")
@@ -146,6 +147,7 @@ export default function DrivedayPage() {
     const updated = { ...driveDayState, [id]: parsedValue };
     setDriveDayState(updated);
     sendStateUpdate({ driveDay: updated });
+    setFieldErrors((prev) => { const next = { ...prev }; delete next[id]; return next; });
   };
 
   const handleCheckboxChange = (id: keyof DriveDayState, checked: boolean) => {
@@ -156,6 +158,15 @@ export default function DrivedayPage() {
 
   const handleCreate = async () => {
     setSubmitError("");
+    const errors: Record<string, string> = {};
+    if (driveDayState.carId == null) errors.carId = "Car is required.";
+    if (driveDayState.driverId == null) errors.driverId = "Driver is required.";
+    if (driveDayState.eventType == null) errors.eventType = "Event type is required.";
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+    setFieldErrors({});
     const response = await fetch("/api/new-drive-day", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -266,9 +277,9 @@ export default function DrivedayPage() {
                   <Input id="trackName" type="text" placeholder="Enter track name" value={driveDayState.trackName ?? ""} onChange={handleInputChange} />
                 </div>
                 <div className="flex flex-col space-y-1.5">
-                  <Label>Event Type</Label>
+                  <Label>Event Type <span className="text-red-500">*</span></Label>
                   <Select onValueChange={(v) => handleSelectChange("eventType", v)} value={driveDayState.eventType?.toString() ?? ""}>
-                    <SelectTrigger><SelectValue placeholder="Select event type" /></SelectTrigger>
+                    <SelectTrigger className={fieldErrors.eventType ? "border-red-500" : ""}><SelectValue placeholder="Select event type" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="0">Other</SelectItem>
                       <SelectItem value="1">Endurance</SelectItem>
@@ -278,11 +289,12 @@ export default function DrivedayPage() {
                       <SelectItem value="5">Straight Line Braking</SelectItem>
                     </SelectContent>
                   </Select>
+                  {fieldErrors.eventType && <p className="text-xs text-red-500">{fieldErrors.eventType}</p>}
                 </div>
                 <div className="flex flex-col space-y-1.5">
-                  <Label>Driver</Label>
+                  <Label>Driver <span className="text-red-500">*</span></Label>
                   <Select onValueChange={(v) => handleSelectChange("driverId", v)} value={driveDayState.driverId?.toString() ?? ""}>
-                    <SelectTrigger><SelectValue placeholder="Select driver" /></SelectTrigger>
+                    <SelectTrigger className={fieldErrors.driverId ? "border-red-500" : ""}><SelectValue placeholder="Select driver" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="0">Other</SelectItem>
                       <SelectItem value="4">Andrew Cloran</SelectItem>
@@ -291,11 +303,12 @@ export default function DrivedayPage() {
                       <SelectItem value="5">Ali Jensen</SelectItem>
                     </SelectContent>
                   </Select>
+                  {fieldErrors.driverId && <p className="text-xs text-red-500">{fieldErrors.driverId}</p>}
                 </div>
                 <div className="flex flex-col space-y-1.5">
-                  <Label>Car</Label>
+                  <Label>Car <span className="text-red-500">*</span></Label>
                   <Select onValueChange={(v) => handleSelectChange("carId", v)} value={driveDayState.carId?.toString() ?? ""}>
-                    <SelectTrigger><SelectValue placeholder="Select car" /></SelectTrigger>
+                    <SelectTrigger className={fieldErrors.carId ? "border-red-500" : ""}><SelectValue placeholder="Select car" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="1">Easy Driver</SelectItem>
                       <SelectItem value="2">Lady Luck</SelectItem>
@@ -304,6 +317,7 @@ export default function DrivedayPage() {
                       <SelectItem value="5">Orion</SelectItem>
                     </SelectContent>
                   </Select>
+                  {fieldErrors.carId && <p className="text-xs text-red-500">{fieldErrors.carId}</p>}
                 </div>
               </div>
 

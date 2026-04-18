@@ -185,17 +185,17 @@ def generate_prisma_from_sql(tables):
             model_lines.append("")
             model_lines.append("  tracks track[]")
 
-        if table['name'] == 'event':
+        if table['name'] == 'drive_day':
             model_lines.append("")
             model_lines.append("  track_points track_point[]")
 
         if table['name'] == 'classifier':
-            model_attrs.append("  @@id([event_id, type, start_time])")
+            model_attrs.append("  @@id([day_id, type, start_time])")
 
         if table['name'] == 'track_point':
             model_lines.append("")
-            model_lines.append("  event event @relation(fields: [event_id], references: [event_id])")
-            model_attrs.append("  @@index([event_id])")
+            model_lines.append("  drive_day drive_day @relation(fields: [day_id], references: [day_id])")
+            model_attrs.append("  @@index([day_id])")
 
         if table['name'] == 'track':
             model_lines.append("")
@@ -256,7 +256,8 @@ def generate_artifacts_from_proto(messages, root_msg_name):
                 #     sql_type += '[]'
                 
                 sql_lines.append(f"    {f['name']:20} {sql_type},")
-            
+
+            sql_lines.append(f"    CONSTRAINT {table_name}_pk PRIMARY KEY (packet_id),")
             sql_lines.append(f"    CONSTRAINT fk_{table_name}_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)")
             sql_lines.append(");\n")
             sensor_tables.append(table_name)

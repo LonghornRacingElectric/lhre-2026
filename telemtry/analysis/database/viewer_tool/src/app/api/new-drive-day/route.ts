@@ -62,6 +62,19 @@ export async function POST(req: NextRequest) {
       front_arb_setting, rear_arb_setting,
     } = body;
 
+    const parsedCarId = toInt(car_id);
+    const parsedDriverId = toInt(driver_id);
+    const parsedEventType = toInt(event_type);
+
+    const missing = [
+      parsedCarId == null && 'car_id',
+      parsedDriverId == null && 'driver_id',
+      parsedEventType == null && 'event_type',
+    ].filter(Boolean);
+    if (missing.length > 0) {
+      return NextResponse.json({ error: `Missing required fields: ${missing.join(', ')}` }, { status: 400 });
+    }
+
     const dayDate = date ? new Date(date) : new Date();
     const now = BigInt(Date.now());
 
@@ -86,10 +99,10 @@ export async function POST(req: NextRequest) {
         creation_time: now,
         start_time: now,
         packet_start,
-        car_id: toInt(car_id) ?? null,
-        driver_id: toInt(driver_id) ?? null,
+        car_id: parsedCarId!,
+        driver_id: parsedDriverId!,
         location_id: toInt(location_id) ?? 0,
-        event_type: toInt(event_type) ?? 0,
+        event_type: parsedEventType!,
         car_weight: toInt(car_weight) ?? null,
         tow_angle: toFloat(tow_angle) ?? null,
         camber_front: toFloat(camber_front) ?? null,

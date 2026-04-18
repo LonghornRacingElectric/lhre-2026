@@ -8,6 +8,30 @@ datasource db {
   url      = env("TELEMETRY_DATABASE_URL")
 }
 
+model lut_driver {
+  driver_id Int @id
+  driver_name String
+  driver_weight Int?
+}
+
+model lut_location {
+  location_id Int @id
+  area String
+  track String
+
+  tracks track[]
+}
+
+model lut_car {
+  car_id Int @id
+  car_name String
+}
+
+model lut_event_type {
+  type_id Int @id
+  event_type String
+}
+
 model drive_day {
   day_id Int @id @default(autoincrement())
   date DateTime
@@ -19,15 +43,15 @@ model drive_day {
   relative_humidity Float?
   track_temperature Float?
   status Int?
-  creation_time BigInt?
+  creation_time BigInt
   start_time BigInt?
   end_time BigInt?
   packet_start BigInt?
   packet_end BigInt?
-  car_id Int?
-  driver_id Int?
-  location_id Int?
-  event_type Int?
+  car_id Int
+  driver_id Int
+  location_id Int
+  event_type Int
   car_weight Int?
   tow_angle Float?
   camber_front Float?
@@ -86,30 +110,24 @@ model drive_day {
   rear_corner_spring_rate Float?
   front_arb_setting String?
   rear_arb_setting String?
+
+  track_points track_point[]
 }
 
-model lut_driver {
-  driver_id Int @id
-  driver_name String
-  driver_weight Int?
+model classifier {
+  day_id Int @id
+  type String @id
+  start_time BigInt @id
+  end_time BigInt?
+  notes String?
+
+  @@id([event_id, type, start_time])
 }
 
-model lut_location {
-  location_id Int @id
-  area String
-  track String
-
-  tracks track[]
-}
-
-model lut_car {
-  car_id Int @id
-  car_name String
-}
-
-model lut_event_type {
-  type_id Int @id
-  event_type String
+model partitions {
+  partition_name String @id @id
+  start_time BigInt
+  end_time BigInt
 }
 
 model track_mapping {
@@ -122,22 +140,6 @@ model track_mapping {
   start_gate_lon2 String
   points Json?
   sectors Json?
-}
-
-model classifier {
-  day_id BigInt
-  type String
-  start_time BigInt
-  end_time BigInt?
-  notes String?
-
-  @@id([event_id, type, start_time])
-}
-
-model partitions {
-  partition_name String @id
-  start_time BigInt
-  end_time BigInt
 }
 
 model track {
