@@ -18,19 +18,16 @@ model drive_day {
   air_temperature Float?
   relative_humidity Float?
   track_temperature Float?
-  // Status and timing
   status Int?
   creation_time BigInt?
   start_time BigInt?
   end_time BigInt?
   packet_start BigInt?
   packet_end BigInt?
-  // Driver, car, location, event type
   car_id Int?
   driver_id Int?
   location_id Int?
   event_type Int?
-  // Car setup
   car_weight Int?
   tow_angle Float?
   camber_front Float?
@@ -43,17 +40,14 @@ model drive_day {
   ackerman_adjustment Float?
   shock_dampening Int?
   torque_limit Int?
-  // Tire cold pressures
   frw_pressure Float?
   flw_pressure Float?
   brw_pressure Float?
   blw_pressure Float?
-  // Tire hot pressures
   frw_hot_pressure Float?
   flw_hot_pressure Float?
   brw_hot_pressure Float?
   blw_hot_pressure Float?
-  // Tire wear depth and durometer
   fr_wear_depth Float?
   fl_wear_depth Float?
   rr_wear_depth Float?
@@ -62,7 +56,6 @@ model drive_day {
   fl_durometer Float?
   rr_durometer Float?
   rl_durometer Float?
-  // Shock damping per corner (LSC/LSR/HSC/HSR)
   fr_lsc Int?
   fr_lsr Int?
   fr_hsc Int?
@@ -79,14 +72,12 @@ model drive_day {
   rl_lsr Int?
   rl_hsc Int?
   rl_hsr Int?
-  // Aero
   front_wing_on Boolean?
   rear_wing_on Boolean?
   front_wing_pitch Float?
   rear_wing_pitch Float?
   regen_on Boolean?
   undertray_on Boolean?
-  // Specialty springs
   front_roll_spring_rate Float?
   front_heave_spring_rate Float?
   rear_roll_spring_rate Float?
@@ -95,21 +86,12 @@ model drive_day {
   rear_corner_spring_rate Float?
   front_arb_setting String?
   rear_arb_setting String?
-
-  car        lut_car?        @relation(fields: [car_id],      references: [car_id])
-  driver     lut_driver?     @relation(fields: [driver_id],   references: [driver_id])
-  location   lut_location?   @relation(fields: [location_id], references: [location_id])
-  eventType  lut_event_type? @relation(fields: [event_type],  references: [type_id])
-
-  track_points track_point[]
 }
 
 model lut_driver {
   driver_id Int @id
   driver_name String
   driver_weight Int?
-
-  drive_days drive_day[]
 }
 
 model lut_location {
@@ -117,22 +99,29 @@ model lut_location {
   area String
   track String
 
-  tracks     track[]
-  drive_days drive_day[]
+  tracks track[]
 }
 
 model lut_car {
   car_id Int @id
   car_name String
-
-  drive_days drive_day[]
 }
 
 model lut_event_type {
   type_id Int @id
   event_type String
+}
 
-  drive_days drive_day[]
+model track_mapping {
+  track_mapping_id Int @id @default(autoincrement())
+  name String
+  created_at BigInt
+  start_gate_lat1 String
+  start_gate_lon1 String
+  start_gate_lat2 String
+  start_gate_lon2 String
+  points Json?
+  sectors Json?
 }
 
 model classifier {
@@ -142,7 +131,7 @@ model classifier {
   end_time BigInt?
   notes String?
 
-  @@id([day_id, type, start_time])
+  @@id([event_id, type, start_time])
 }
 
 model partitions {
@@ -185,9 +174,9 @@ model track_point {
   longitude Float
   timestamp_ms BigInt
 
-  drive_day drive_day @relation(fields: [day_id], references: [day_id])
+  event event @relation(fields: [event_id], references: [event_id])
 
-  @@index([day_id])
+  @@index([event_id])
 }
 
 model packet {

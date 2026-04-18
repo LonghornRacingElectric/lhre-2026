@@ -1,33 +1,100 @@
--- Functions
-CREATE OR REPLACE FUNCTION public.get_event_index (car smallint, day smallint)
-	RETURNS smallint
-	LANGUAGE plpgsql
-	IMMUTABLE
-	STRICT
-	AS
-$$
-DECLARE ind smallint;
-BEGIN
-	SELECT COUNT(event_id)
-	INTO ind
-	FROM event
-	WHERE car_id = car AND day_id = day;
-	RETURN ind + 1;
-END;
-$$;
-
-ALTER FUNCTION public.get_event_index(smallint,smallint) OWNER TO electric;
-
 -- Drive Day Table
 CREATE TABLE public.drive_day (
-	day_id              smallserial NOT NULL,
-	date                date        NOT NULL,
-	power_limit         integer,
-	air_temperature         real,
-    relative_humidity       real,
-    track_temperature       real,
-	track_name              text,
-	CONSTRAINT drive_day_pk PRIMARY KEY (day_id)
+    day_id                   smallserial NOT NULL,
+    date                     date        NOT NULL,
+    track_name               text,
+    weather                  text,
+    wind_speed               real,
+    power_limit              integer,
+    air_temperature          real,
+    relative_humidity        real,
+    track_temperature        real,
+    -- Status and timing
+    status                   smallint,
+    creation_time            bigint,
+    start_time               bigint,
+    end_time                 bigint,
+    packet_start             bigint,
+    packet_end               bigint,
+    -- Driver, car, location, event type
+    car_id                   smallint,
+    driver_id                smallint,
+    location_id              smallint,
+    event_type               smallint,
+    -- Car setup
+    car_weight               smallint,
+    tow_angle                real,
+    -- Alignment per axle
+    camber_front             real,
+    camber_rear              real,
+    toe_front                real,
+    toe_rear                 real,
+    -- Ride height per axle (+ legacy)
+    ride_height_front        real,
+    ride_height_rear         real,
+    ride_height              real,
+    ackerman_adjustment      real,
+    shock_dampening          smallint,
+    torque_limit             smallint,
+    -- Tire cold pressures
+    frw_pressure             real,
+    flw_pressure             real,
+    brw_pressure             real,
+    blw_pressure             real,
+    -- Tire hot pressures
+    frw_hot_pressure         real,
+    flw_hot_pressure         real,
+    brw_hot_pressure         real,
+    blw_hot_pressure         real,
+    -- Tire wear depth and durometer
+    fr_wear_depth            real,
+    fl_wear_depth            real,
+    rr_wear_depth            real,
+    rl_wear_depth            real,
+    fr_durometer             real,
+    fl_durometer             real,
+    rr_durometer             real,
+    rl_durometer             real,
+    -- Shock damping per corner (LSC/LSR/HSC/HSR)
+    fr_lsc                   smallint,
+    fr_lsr                   smallint,
+    fr_hsc                   smallint,
+    fr_hsr                   smallint,
+    fl_lsc                   smallint,
+    fl_lsr                   smallint,
+    fl_hsc                   smallint,
+    fl_hsr                   smallint,
+    rr_lsc                   smallint,
+    rr_lsr                   smallint,
+    rr_hsc                   smallint,
+    rr_hsr                   smallint,
+    rl_lsc                   smallint,
+    rl_lsr                   smallint,
+    rl_hsc                   smallint,
+    rl_hsr                   smallint,
+    -- Aero
+    front_wing_on            boolean,
+    rear_wing_on             boolean,
+    front_wing_pitch         real,
+    rear_wing_pitch          real,
+    regen_on                 boolean,
+    undertray_on             boolean,
+    -- Angelique-only specialty springs
+    front_roll_spring_rate   real,
+    front_heave_spring_rate  real,
+    rear_roll_spring_rate    real,
+    rear_heave_spring_rate   real,
+    -- 2026 car-only fields (per axle)
+    front_corner_spring_rate real,
+    rear_corner_spring_rate  real,
+    -- ARB settings (free text: low|medium|stiff)
+    front_arb_setting        text,
+    rear_arb_setting         text,
+    CONSTRAINT drive_day_pk  PRIMARY KEY (day_id),
+    CONSTRAINT fk_car_id     FOREIGN KEY(car_id)      REFERENCES lut_car(car_id),
+    CONSTRAINT fk_driver_id  FOREIGN KEY(driver_id)   REFERENCES lut_driver(driver_id),
+    CONSTRAINT fk_location_id FOREIGN KEY(location_id) REFERENCES lut_location(location_id),
+    CONSTRAINT fk_event_type FOREIGN KEY(event_type)  REFERENCES lut_event_type(type_id)
 );
 
 -- LUT for Driver IDs
@@ -85,101 +152,29 @@ INSERT INTO public.lut_event_type (type_id, event_type) VALUES (3, 'Skidpad');
 INSERT INTO public.lut_event_type (type_id, event_type) VALUES (4, 'Straightline Acceleration');
 INSERT INTO public.lut_event_type (type_id, event_type) VALUES (5, 'Straightline Breaking');
 
--- Event Table
-CREATE TABLE public.event (
-    event_id                 smallserial NOT NULL,
-    day_id                   smallint    NOT NULL,
-    status                   smallint,
-    creation_time            bigint      NOT NULL,
-    start_time               bigint,
-    end_time                 bigint,
-    packet_start             bigint,
-    packet_end               bigint,
-    car_id                   smallint    NOT NULL,
-    driver_id                smallint    NOT NULL,
-    location_id              smallint    NOT NULL,
-    event_type               smallint    NOT NULL,
-    event_index              smallint    GENERATED ALWAYS AS (public.get_event_index(car_id, day_id)) STORED,
-    car_weight               smallint,
-    tow_angle                real,
-    -- Alignment per axle
-    camber_front             real,
-    camber_rear              real,
-    toe_front                real,
-    toe_rear                 real,
-    -- Ride height per axle (+ legacy)
-    ride_height_front        real,
-    ride_height_rear         real,
-    ride_height              real,
-    ackerman_adjustment      real,
-    shock_dampening          smallint,
-    power_limit              integer,
-    torque_limit             smallint,
-    -- Tire cold pressures
-    frw_pressure             real,
-    flw_pressure             real,
-    brw_pressure             real,
-    blw_pressure             real,
-    -- Tire wear depth and durometer
-    fr_wear_depth            real,
-    fl_wear_depth            real,
-    rr_wear_depth            real,
-    rl_wear_depth            real,
-    fr_durometer             real,
-    fl_durometer             real,
-    rr_durometer             real,
-    rl_durometer             real,
-    -- Shock damping per corner (LSC/LSR/HSC/HSR)
-    fr_lsc                   smallint,
-    fr_lsr                   smallint,
-    fr_hsc                   smallint,
-    fr_hsr                   smallint,
-    fl_lsc                   smallint,
-    fl_lsr                   smallint,
-    fl_hsc                   smallint,
-    fl_hsr                   smallint,
-    rr_lsc                   smallint,
-    rr_lsr                   smallint,
-    rr_hsc                   smallint,
-    rr_hsr                   smallint,
-    rl_lsc                   smallint,
-    rl_lsr                   smallint,
-    rl_hsc                   smallint,
-    rl_hsr                   smallint,
-    -- Aero
-    front_wing_on            boolean,
-    rear_wing_on             boolean,
-    front_wing_pitch         real,
-    rear_wing_pitch          real,
-    regen_on                 boolean,
-    undertray_on             boolean,
-    -- Angelique-only specialty springs
-    front_roll_spring_rate   real,
-    front_heave_spring_rate  real,
-    rear_roll_spring_rate    real,
-    rear_heave_spring_rate   real,
-    -- 2026 car-only fields (per axle)
-    front_corner_spring_rate real,
-    rear_corner_spring_rate  real,
-    -- ARB settings (free text: low|medium|stiff)
-    front_arb_setting        text,
-    rear_arb_setting         text,
-    CONSTRAINT event_pk PRIMARY KEY (event_id),
-    CONSTRAINT fk_event_id FOREIGN KEY(day_id) REFERENCES drive_day(day_id),
-    CONSTRAINT fk_car_id FOREIGN KEY(car_id) REFERENCES lut_car(car_id),
-    CONSTRAINT fk_driver_id FOREIGN KEY(driver_id) REFERENCES lut_driver(driver_id),
-    CONSTRAINT fk_location_id FOREIGN KEY(location_id) REFERENCES lut_location(location_id),
-    CONSTRAINT fk_event_type FOREIGN KEY(event_type) REFERENCES lut_event_type(type_id)
+
+-- Track Mapping table
+CREATE TABLE public.track_mapping (
+    track_mapping_id    serial          NOT NULL,
+    name                text            NOT NULL,
+    created_at          bigint          NOT NULL,
+    start_gate_lat1     double precision NOT NULL,
+    start_gate_lon1     double precision NOT NULL,
+    start_gate_lat2     double precision NOT NULL,
+    start_gate_lon2     double precision NOT NULL,
+    points              jsonb,
+    sectors             jsonb,
+    CONSTRAINT track_mapping_pk PRIMARY KEY (track_mapping_id)
 );
 
 -- Classifier table
 CREATE TABLE public.classifier (
-    event_id            bigint      NOT NULL,
+    day_id              bigint      NOT NULL,
     type                text        NOT NULL,
     start_time          bigint      NOT NULL,
     end_time            bigint,
     notes               text,
-    CONSTRAINT fk_event_id FOREIGN KEY(event_id) REFERENCES event(event_id)
+    CONSTRAINT fk_day_id FOREIGN KEY(day_id) REFERENCES drive_day(day_id)
 );
 
 -- Partitions table
@@ -248,14 +243,14 @@ CREATE INDEX sector_gate_track_idx ON public.sector_gate (track_id);
 
 CREATE TABLE public.track_point (
     point_id     bigserial NOT NULL,
-    event_id     integer   NOT NULL,
+    day_id       integer   NOT NULL,
     latitude     real      NOT NULL,
     longitude    real      NOT NULL,
     timestamp_ms bigint    NOT NULL,
     CONSTRAINT track_point_pk PRIMARY KEY (point_id),
-    CONSTRAINT fk_event_id FOREIGN KEY (event_id) REFERENCES event(event_id)
+    CONSTRAINT fk_day_id FOREIGN KEY (day_id) REFERENCES drive_day(day_id)
 );
-CREATE INDEX track_point_event_idx ON public.track_point (event_id);
+CREATE INDEX track_point_day_idx ON public.track_point (day_id);
 -- Generated Packet Table
 CREATE TABLE public.packet (
     packet_id           bigint   NOT NULL,
