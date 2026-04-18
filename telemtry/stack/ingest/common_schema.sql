@@ -165,7 +165,8 @@ CREATE TABLE public.classifier (
 CREATE TABLE public.partitions(
     partition_name    text         NOT NULL,
     start_time        bigint       NOT NULL,
-    end_time          bigint       NOT NULL
+    end_time          bigint       NOT NULL,
+    CONSTRAINT partitions_pk PRIMARY KEY (partition_name)
 );
 
 CREATE OR REPLACE FUNCTION public.get_partition_bounds(

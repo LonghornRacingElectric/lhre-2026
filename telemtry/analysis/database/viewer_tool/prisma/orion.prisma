@@ -115,9 +115,9 @@ model drive_day {
 }
 
 model classifier {
-  day_id Int
-  type String
-  start_time BigInt
+  day_id Int @id
+  type String @id
+  start_time BigInt @id
   end_time BigInt?
   notes String?
 
@@ -125,7 +125,7 @@ model classifier {
 }
 
 model partitions {
-  partition_name String @id
+  partition_name String @id @id
   start_time BigInt
   end_time BigInt
 }
@@ -134,10 +134,10 @@ model track_mapping {
   track_mapping_id Int @id @default(autoincrement())
   name String
   created_at BigInt
-  start_gate_lat1 Float
-  start_gate_lon1 Float
-  start_gate_lat2 Float
-  start_gate_lon2 Float
+  start_gate_lat1 String
+  start_gate_lon1 String
+  start_gate_lat2 String
+  start_gate_lon2 String
   points Json?
   sectors Json?
 }
