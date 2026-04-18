@@ -143,7 +143,7 @@ pub fn update_proto_field_generated(data: &mut OrionSensorData, name: &str, val:
     }
 }
 
-pub fn update_proto_bool_generated(data: &mut OrionSensorData, name: &str, val: bool) {
+pub fn update_proto_bool_generated(_data: &mut OrionSensorData, name: &str, _val: bool) {
     match name {
         _ => (),
     }
