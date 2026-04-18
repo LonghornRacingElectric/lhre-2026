@@ -90,11 +90,7 @@ CREATE TABLE public.drive_day (
     -- ARB settings (free text: low|medium|stiff)
     front_arb_setting        text,
     rear_arb_setting         text,
-    CONSTRAINT drive_day_pk  PRIMARY KEY (day_id),
-    CONSTRAINT fk_car_id     FOREIGN KEY(car_id)      REFERENCES lut_car(car_id),
-    CONSTRAINT fk_driver_id  FOREIGN KEY(driver_id)   REFERENCES lut_driver(driver_id),
-    CONSTRAINT fk_location_id FOREIGN KEY(location_id) REFERENCES lut_location(location_id),
-    CONSTRAINT fk_event_type FOREIGN KEY(event_type)  REFERENCES lut_event_type(type_id)
+    CONSTRAINT drive_day_pk  PRIMARY KEY (day_id)
 );
 
 -- LUT for Driver IDs
@@ -151,6 +147,12 @@ INSERT INTO public.lut_event_type (type_id, event_type) VALUES (2, 'Autocross');
 INSERT INTO public.lut_event_type (type_id, event_type) VALUES (3, 'Skidpad');
 INSERT INTO public.lut_event_type (type_id, event_type) VALUES (4, 'Straightline Acceleration');
 INSERT INTO public.lut_event_type (type_id, event_type) VALUES (5, 'Straightline Breaking');
+
+ALTER TABLE public.drive_day
+    ADD CONSTRAINT fk_car_id FOREIGN KEY (car_id) REFERENCES public.lut_car(car_id),
+    ADD CONSTRAINT fk_driver_id FOREIGN KEY (driver_id) REFERENCES public.lut_driver(driver_id),
+    ADD CONSTRAINT fk_location_id FOREIGN KEY (location_id) REFERENCES public.lut_location(location_id),
+    ADD CONSTRAINT fk_event_type FOREIGN KEY (event_type) REFERENCES public.lut_event_type(type_id);
 
 
 -- Track Mapping table
