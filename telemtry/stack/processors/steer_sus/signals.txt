@@ -1,0 +1,114 @@
+// Double wishbone
+leftUpperFore_i[3]
+leftUpperAft_i[3]
+leftLowerFore_i[3]
+leftLowerAft_i[3]
+
+// Upright (outer)
+leftUpper_o[3]
+leftLower_o[3]
+
+// Steering
+leftTie_i[3]
+leftTie_o[3]
+
+// Wheel
+leftWheelCenter[3]
+leftTire_ex[3]
+leftTire_ey[3]
+
+// Contact patch and loads
+leftCP[3]
+leftCPForce[3]
+
+// Left axle
+leftBellcrankPivot[3]
+leftBellcrankPickup1[3]
+leftBellcrankPickup2[3]
+leftBellcrankPickup3[3]
+leftRodMount[3]
+leftShockMount[3]
+leftBarEnd[3]
+leftArmEnd[3]
+
+// Right vals
+// Wishbone (inner)
+rightUpperFore_i[3]
+rightUpperAft_i[3]
+rightLowerFore_i[3]
+rightLowerAft_i[3]
+
+// Upright (outer)
+rightUpper_o[3]
+rightLower_o[3]
+
+// Steering
+rightTie_i[3]
+rightTie_o[3]
+
+// Wheel
+rightWheelCenter[3]
+rightTire_ex[3]
+rightTire_ey[3]
+
+// Contact patch and loads
+rightCP[3]
+rightCPForce[3]
+
+// Right axle
+rightBellcrankPivot[3]
+rightBellcrankPickup1[3]
+rightBellcrankPickup2[3]
+rightBellcrankPickup3[3]
+rightRodMount[3]
+rightShockMount[3]
+rightBarEnd[3]
+rightArmEnd[3]
+
+// Rear left hardpoints
+rearLeftUpperFore_i[3]
+rearLeftUpperAft_i[3]
+rearLeftLowerFore_i[3]
+rearLeftLowerAft_i[3]
+rearLeftUpper_o[3]
+rearLeftLower_o[3]
+rearLeftTie_i[3]
+rearLeftTie_o[3]
+rearLeftWheelCenter[3]
+rearLeftTire_ex[3]
+rearLeftTire_ey[3]
+rearLeftCP[3]
+rearLeftCPForce[3]
+rearLeftBellcrankPivot[3]
+rearLeftBellcrankPickup1[3]
+rearLeftBellcrankPickup2[3]
+rearLeftBellcrankPickup3[3]
+rearLeftRodMount[3]
+rearLeftShockMount[3]
+rearLeftBarEnd[3]
+rearLeftArmEnd[3]
+
+// Rear right hardpoints
+rearRightUpperFore_i[3]
+rearRightUpperAft_i[3]
+rearRightLowerFore_i[3]
+rearRightLowerAft_i[3]
+rearRightUpper_o[3]
+rearRightLower_o[3]
+rearRightTie_i[3]
+rearRightTie_o[3]
+rearRightWheelCenter[3]
+rearRightTire_ex[3]
+rearRightTire_ey[3]
+rearRightCP[3]
+rearRightCPForce[3]
+rearRightBellcrankPivot[3]
+rearRightBellcrankPickup1[3]
+rearRightBellcrankPickup2[3]
+rearRightBellcrankPickup3[3]
+rearRightRodMount[3]
+rearRightShockMount[3]
+rearRightBarEnd[3]
+rearRightArmEnd[3]
+
+// Full four-corner hardpoints are also published under geometry.front.* and geometry.rear.*

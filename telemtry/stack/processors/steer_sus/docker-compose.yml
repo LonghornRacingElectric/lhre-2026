@@ -1,0 +1,32 @@
+services:
+  db_processor:
+    build:
+      # Build context set to the repository root so COPY can reference files under `stack/`.
+      context: ../../..
+      # Dockerfile path is relative to the build context. Point it to the actual Dockerfile
+      # location under the repo root.
+      dockerfile: stack/processors/steer_sus/Dockerfile
+    image: steer-sus-processor
+    container_name: steer_sus
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: 1
+      IN_DOCKER: 1
+      LOGLEVEL: INFO
+      KAFKA_DEFAULT_CAR: Orion
+      KAFKA_GROUP_ID: steer-sus-group
+      STEER_SUS_OUTPUT_FRAME: viewer
+      STEER_SUS_ROTATE_X_DEG: 0
+      STEER_SUS_ROTATE_Y_DEG: 0
+      STEER_SUS_ROTATE_Z_DEG: 0
+    volumes:
+      - ../../../analysis/sql_utils/DB_description.pkl:/DB_description.pkl
+      - ../../../analysis/database/viewer_tool/static/images:/kafka_processor_base/static/images
+      - ../../../net_configs.json:/net_configs.json
+      - ../../ingest/protobuf:/kafka_processor_base/protobuf
+    networks:
+      - telemetry_network
+
+networks:
+  telemetry_network:
+    external: true

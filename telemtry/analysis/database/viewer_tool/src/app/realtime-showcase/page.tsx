@@ -1,14 +1,17 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { CSSProperties, useEffect, useMemo, useState } from "react";
+import { CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 
 import { useKafkaJSON } from "@/hooks/useKafkaStream";
 import { useCarSelection } from "@/lib/carSelection";
 import { LiveCar, SUPPORTED_LIVE_CARS, liveCarLabel } from "@/lib/car";
 
 const LiveMap = dynamic(() => import("@/components/Map"), { ssr: false });
+const SteerSusHardpointViewer = dynamic(() => import("@/components/SteerSusHardpointViewer"), { ssr: false });
 const THEME_STORAGE_KEY = "realtimeShowcaseTheme";
+const DEFAULT_THEME_ID = "carbon-race";
+const SHOW_THEME_SELECTOR = false;
 
 type DashboardData = {
   packetId?: number | null;
@@ -45,6 +48,29 @@ type SensorData = {
   dynamics?: Record<string, unknown>;
   pack?: Record<string, unknown>;
   thermal?: Record<string, unknown>;
+};
+
+type SteerSusData = Record<string, unknown>;
+
+type BackupReplayFrame = {
+  timestampMs: number;
+  dashboard: DashboardData;
+  liveBanner: LiveBannerData;
+  energy: EnergyBudgetData;
+  map: MapData;
+  sensor: SensorData;
+};
+
+type BackupReplayMeta = {
+  source: string;
+  sampleMs: number;
+  trimStartMs: number;
+  trimEndMs: number;
+  durationMs: number;
+  frameCount: number;
+  cellTemps?: number[] | null;
+  outputHz?: number;
+  loop: boolean;
 };
 
 function toFiniteNumber(value: unknown): number | undefined {
@@ -260,6 +286,117 @@ function SuspensionPot({
   );
 }
 
+function SteeringWheelGauge({
+  steeringAngle,
+  theme,
+}: {
+  steeringAngle: number | undefined;
+  theme: ShowcaseTheme;
+}) {
+  const clampedAngle = typeof steeringAngle === "number" ? clamp(steeringAngle, -180, 180) : 0;
+
+  return (
+    <div
+      className="mt-4 rounded-xl border p-3"
+      style={{ background: theme.cardBackground, borderColor: theme.cardBorder }}
+    >
+      <div className="mb-3 flex items-center justify-between text-sm">
+        <span className="text-white/75">Steering Angle</span>
+        <span className="font-semibold text-white">{formatNumber(steeringAngle)}&deg;</span>
+      </div>
+      <div className="mx-auto flex w-full max-w-[280px] flex-col items-center">
+        <div className="relative h-44 w-60">
+          <div className="absolute left-1/2 top-1 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-white/90" />
+          <div
+            className="absolute inset-0 transition-transform duration-150 ease-out"
+            style={{ transform: `rotate(${clampedAngle}deg)` }}
+          >
+            <div
+              className="absolute left-1/2 top-5 h-[74px] w-[182px] -translate-x-1/2 rounded-t-[120px] border-[7px] border-b-0"
+              style={{
+                borderColor: `${theme.accentSoft}A8`,
+                background:
+                  "radial-gradient(ellipse at 50% 95%, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.0) 72%)",
+                boxShadow: "0 10px 16px rgba(0,0,0,0.32)",
+              }}
+            />
+            <div
+              className="absolute left-[14px] top-[44px] h-[92px] w-[48px] rounded-[30px] border"
+              style={{
+                borderColor: `${theme.accentSoft}8C`,
+                background:
+                  "linear-gradient(160deg, rgba(8,8,10,0.96) 0%, rgba(46,48,52,0.92) 52%, rgba(10,10,12,0.96) 100%)",
+                boxShadow: "inset 0 1px 3px rgba(255,255,255,0.15), 0 8px 16px rgba(0,0,0,0.34)",
+              }}
+            />
+            <div
+              className="absolute right-[14px] top-[44px] h-[92px] w-[48px] rounded-[30px] border"
+              style={{
+                borderColor: `${theme.accentSoft}8C`,
+                background:
+                  "linear-gradient(200deg, rgba(8,8,10,0.96) 0%, rgba(46,48,52,0.92) 52%, rgba(10,10,12,0.96) 100%)",
+                boxShadow: "inset 0 1px 3px rgba(255,255,255,0.15), 0 8px 16px rgba(0,0,0,0.34)",
+              }}
+            />
+            <div
+              className="absolute left-1/2 top-[104px] h-[14px] w-[124px] -translate-x-1/2 rounded-full border"
+              style={{
+                borderColor: `${theme.accentSoft}78`,
+                background: `linear-gradient(90deg, ${theme.accent} 0%, ${theme.accentSoft} 50%, ${theme.accent} 100%)`,
+                boxShadow: "0 5px 10px rgba(0,0,0,0.3)",
+              }}
+            />
+            <div
+              className="absolute left-1/2 top-[88px] h-[8px] w-[70px] -translate-x-[88%] -rotate-[24deg] rounded-full"
+              style={{
+                background: `linear-gradient(90deg, ${theme.accentSoft} 0%, rgba(245,245,245,0.85) 100%)`,
+                boxShadow: "0 3px 7px rgba(0,0,0,0.3)",
+              }}
+            />
+            <div
+              className="absolute left-1/2 top-[88px] h-[8px] w-[70px] -translate-x-[12%] rotate-[24deg] rounded-full"
+              style={{
+                background: `linear-gradient(90deg, rgba(245,245,245,0.85) 0%, ${theme.accentSoft} 100%)`,
+                boxShadow: "0 3px 7px rgba(0,0,0,0.3)",
+              }}
+            />
+            <div
+              className="absolute left-1/2 top-[88px] h-[78px] w-[108px] -translate-x-1/2 -translate-y-1/2 rounded-[24px] border"
+              style={{
+                borderColor: `${theme.accentSoft}B8`,
+                background:
+                  "radial-gradient(circle at 50% 22%, rgba(255,255,255,0.18) 0%, rgba(24,24,26,0.95) 60%, rgba(8,8,10,0.98) 100%)",
+                boxShadow: "0 10px 20px rgba(0,0,0,0.42)",
+              }}
+            />
+            <div
+              className="absolute left-1/2 top-[88px] h-[40px] w-[66px] -translate-x-1/2 -translate-y-1/2 rounded-xl border"
+              style={{
+                borderColor: `${theme.accentSoft}AA`,
+                background:
+                  "linear-gradient(180deg, rgba(6,10,14,0.96) 0%, rgba(8,14,20,0.88) 50%, rgba(3,7,11,0.96) 100%)",
+              }}
+            />
+            <div
+              className="absolute left-[24px] top-[68px] h-2 w-2 rounded-full"
+              style={{ background: theme.accentSoft, boxShadow: "0 0 10px rgba(248,197,125,0.65)" }}
+            />
+            <div
+              className="absolute right-[24px] top-[68px] h-2 w-2 rounded-full"
+              style={{ background: theme.accentSoft, boxShadow: "0 0 10px rgba(248,197,125,0.65)" }}
+            />
+          </div>
+        </div>
+        <div className="mt-2 flex w-full items-center justify-between text-[11px] text-white/60">
+          <span>-180°</span>
+          <span>Straight</span>
+          <span>+180°</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function heatColor(temp: number, min: number, max: number): string {
   const normalized = max > min ? clamp((temp - min) / (max - min), 0, 1) : 0.5;
   const hue = 220 - normalized * 220;
@@ -364,10 +501,22 @@ export default function RealtimeShowcasePage() {
     ssePath,
     matchesSelectedCar,
   } = useCarSelection();
-  const [themeId, setThemeId] = useState(SHOWCASE_THEMES[0].id);
+  const [themeId, setThemeId] = useState(DEFAULT_THEME_ID);
+  const [backupModeEnabled, setBackupModeEnabled] = useState(false);
+  const [backupFrame, setBackupFrame] = useState<BackupReplayFrame | null>(null);
+  const [backupMeta, setBackupMeta] = useState<BackupReplayMeta | null>(null);
+  const [backupConnected, setBackupConnected] = useState(false);
+  const [backupError, setBackupError] = useState<string | undefined>(undefined);
+  const [backupLastMessageAt, setBackupLastMessageAt] = useState<number | undefined>(undefined);
+  const pendingBackupFrameRef = useRef<BackupReplayFrame | null>(null);
+  const backupFrameRafRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (!SHOW_THEME_SELECTOR) {
+      setThemeId(DEFAULT_THEME_ID);
+      return;
+    }
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
     const exists = SHOWCASE_THEMES.some((theme) => theme.id === stored);
     if (stored && exists) setThemeId(stored);
@@ -375,8 +524,65 @@ export default function RealtimeShowcasePage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (!SHOW_THEME_SELECTOR) return;
     window.localStorage.setItem(THEME_STORAGE_KEY, themeId);
   }, [themeId]);
+
+  useEffect(() => {
+    if (!backupModeEnabled) {
+      setBackupConnected(false);
+      setBackupError(undefined);
+      setBackupLastMessageAt(undefined);
+      setBackupFrame(null);
+      setBackupMeta(null);
+      return;
+    }
+
+    const es = new EventSource("/api/realtime-showcase/orion-backup-stream?loop=1&tickMs=10");
+    es.onopen = () => {
+      setBackupConnected(true);
+      setBackupError(undefined);
+    };
+    es.addEventListener("meta", (evt) => {
+      try {
+        const payload = JSON.parse((evt as MessageEvent).data) as BackupReplayMeta;
+        setBackupMeta(payload);
+      } catch {
+        setBackupError("Failed to parse backup replay metadata.");
+      }
+    });
+    es.addEventListener("frame", (evt) => {
+      try {
+        const payload = JSON.parse((evt as MessageEvent).data) as BackupReplayFrame;
+        pendingBackupFrameRef.current = payload;
+        if (backupFrameRafRef.current === null) {
+          backupFrameRafRef.current = window.requestAnimationFrame(() => {
+            backupFrameRafRef.current = null;
+            if (pendingBackupFrameRef.current) {
+              setBackupFrame(pendingBackupFrameRef.current);
+            }
+          });
+        }
+        setBackupLastMessageAt(Date.now());
+        setBackupConnected(true);
+      } catch {
+        setBackupError("Failed to parse backup replay frame.");
+      }
+    });
+    es.onerror = () => {
+      setBackupConnected(false);
+      setBackupError("Backup replay stream disconnected.");
+    };
+
+    return () => {
+      es.close();
+      if (backupFrameRafRef.current !== null) {
+        window.cancelAnimationFrame(backupFrameRafRef.current);
+        backupFrameRafRef.current = null;
+      }
+      pendingBackupFrameRef.current = null;
+    };
+  }, [backupModeEnabled]);
 
   const streamOpts = useMemo(
     () => ({
@@ -390,10 +596,11 @@ export default function RealtimeShowcasePage() {
     [matchesSelectedCar, selectedCar, ssePath],
   );
 
-  const activeTheme = useMemo(
-    () => SHOWCASE_THEMES.find((theme) => theme.id === themeId) ?? SHOWCASE_THEMES[0],
-    [themeId],
-  );
+  const activeTheme = useMemo(() => {
+    const fallbackTheme =
+      SHOWCASE_THEMES.find((theme) => theme.id === DEFAULT_THEME_ID) ?? SHOWCASE_THEMES[0];
+    return SHOWCASE_THEMES.find((theme) => theme.id === themeId) ?? fallbackTheme;
+  }, [themeId]);
 
   const panelStyle = useMemo<CSSProperties>(
     () => ({
@@ -432,43 +639,64 @@ export default function RealtimeShowcasePage() {
     topic: "sensor_data",
     ...streamOpts,
   });
+  const {
+    data: steerSusData,
+    kafkaConnected: steerSusConnected,
+    lastMessageAt: steerSusLastMessageAt,
+  } = useKafkaJSON<SteerSusData>({
+    topic: "steer_sus",
+    ...streamOpts,
+  });
 
-  const batteryPct = firstFinite(dashboard?.batteryPct, liveBanner?.battery, energy?.batteryPct);
-  const hvPackV = firstFinite(dashboard?.hvPackV);
-  const hvCurrent = firstFinite(dashboard?.hvCurrent);
-  const powerKw = firstFinite(energy?.powerKw);
-  const lvV = firstFinite(dashboard?.lvV);
-  const speed = firstFinite(dashboard?.speed, dashboard?.wheelSpeedAvg);
-  const steering = firstFinite(dashboard?.steerColAngle);
-  const throttle = firstFinite(dashboard?.throttlePct);
-  const brake = firstFinite(dashboard?.brakePct);
-  const odometer = firstFinite(liveBanner?.odometer);
-  const packetId = firstFinite(dashboard?.packetId);
+  const effectiveDashboard = backupModeEnabled ? backupFrame?.dashboard : dashboard;
+  const effectiveLiveBanner = backupModeEnabled ? backupFrame?.liveBanner : liveBanner;
+  const effectiveMapData = backupModeEnabled ? backupFrame?.map : mapData;
+  const effectiveEnergy = backupModeEnabled ? backupFrame?.energy : energy;
+  const effectiveSensorData = backupModeEnabled ? backupFrame?.sensor : sensorData;
+  const effectiveConnection = backupModeEnabled ? backupConnected : kafkaConnected;
+  const effectiveLastMessageAt = backupModeEnabled ? backupLastMessageAt : lastMessageAt;
+  const effectiveSteerSusConnected = backupModeEnabled ? false : steerSusConnected;
+  const effectiveSteerSusLastMessageAt = backupModeEnabled ? undefined : steerSusLastMessageAt;
+  const effectiveSteerSusData = backupModeEnabled ? undefined : steerSusData;
 
-  const dynamics = sensorData?.dynamics;
-  const pack = sensorData?.pack;
-  const thermal = sensorData?.thermal;
+  const batteryPct = firstFinite(effectiveDashboard?.batteryPct, effectiveLiveBanner?.battery, effectiveEnergy?.batteryPct);
+  const hvPackV = firstFinite(effectiveDashboard?.hvPackV);
+  const hvCurrent = firstFinite(effectiveDashboard?.hvCurrent);
+  const powerKw = firstFinite(effectiveEnergy?.powerKw);
+  const lvV = firstFinite(effectiveDashboard?.lvV);
+  const speed = firstFinite(effectiveDashboard?.speed, effectiveDashboard?.wheelSpeedAvg);
+  const steering = firstFinite(effectiveDashboard?.steerColAngle);
+  const throttle = firstFinite(effectiveDashboard?.throttlePct);
+  const brake = firstFinite(effectiveDashboard?.brakePct);
+  const odometer = firstFinite(effectiveLiveBanner?.odometer);
+  const packetId = firstFinite(effectiveDashboard?.packetId);
+
+  const dynamics = effectiveSensorData?.dynamics;
+  const pack = effectiveSensorData?.pack;
+  const thermal = effectiveSensorData?.thermal;
   const flPot = findNumberByKeys(dynamics, ["flSusPotV", "fl_sus_pot_v"]);
   const frPot = findNumberByKeys(dynamics, ["frSusPotV", "fr_sus_pot_v"]);
   const blPot = findNumberByKeys(dynamics, ["blSusPotV", "bl_sus_pot_v"]);
   const brPot = findNumberByKeys(dynamics, ["brSusPotV", "br_sus_pot_v"]);
-  const gpsSpeed = findNumberByKeys(dynamics, ["gpsSpeed", "gps_speed"]);
-  const cellTemps =
+  const gpsSpeed = firstFinite(findNumberByKeys(dynamics, ["gpsSpeed", "gps_speed"]), speed);
+  const liveCellTemps =
     findNumberArrayByKeys(pack, ["cellsTemps", "cells_temps", "cellTemps"]) ??
     findNumberArrayByKeys(thermal, ["cellsTemp", "cellsTemps", "cells_temps"]);
+  const cellTemps = backupModeEnabled ? (liveCellTemps ?? backupMeta?.cellTemps ?? undefined) : liveCellTemps;
 
-  const gps = mapData?.dynamics?.gps;
+  const gps = effectiveMapData?.dynamics?.gps;
   const latitude = Array.isArray(gps) ? toFiniteNumber(gps[0]) : undefined;
   const longitude = Array.isArray(gps) ? toFiniteNumber(gps[1]) : undefined;
 
   const batteryFill = typeof batteryPct === "number" ? clamp(batteryPct, 0, 100) : 0;
-  const steerPct =
-    typeof steering === "number"
-      ? clamp(((clamp(steering, -180, 180) + 180) / 360) * 100, 0, 100)
-      : 50;
-
   const lastSeenSeconds =
-    typeof lastMessageAt === "number" ? Math.max(0, Math.floor((Date.now() - lastMessageAt) / 1000)) : undefined;
+    typeof effectiveLastMessageAt === "number"
+      ? Math.max(0, Math.floor((Date.now() - effectiveLastMessageAt) / 1000))
+      : undefined;
+  const steerSusLastSeenSeconds =
+    typeof effectiveSteerSusLastMessageAt === "number"
+      ? Math.max(0, Math.floor((Date.now() - effectiveSteerSusLastMessageAt) / 1000))
+      : undefined;
 
   return (
     <div
@@ -512,31 +740,56 @@ export default function RealtimeShowcasePage() {
                 </div>
               )}
 
-              <div className="rounded-xl border p-3" style={{ background: activeTheme.chipBackground, borderColor: activeTheme.chipBorder }}>
-                <label className="mb-2 block text-xs uppercase tracking-wide text-white/70">Theme Style</label>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {SHOWCASE_THEMES.map((theme) => {
-                    const selected = theme.id === activeTheme.id;
-                    return (
-                      <button
-                        key={theme.id}
-                        type="button"
-                        onClick={() => setThemeId(theme.id)}
-                        className="rounded-lg border px-3 py-2 text-left transition hover:brightness-110"
-                        style={{
-                          borderColor: selected ? theme.accentSoft : "rgba(255,255,255,0.2)",
-                          background: selected ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.25)",
-                        }}
-                      >
-                        <div className="flex items-center gap-2 text-sm font-semibold">
-                          <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: theme.accent }} />
-                          {theme.label}
-                        </div>
-                        <div className="mt-1 text-[11px] text-white/70">{theme.description}</div>
-                      </button>
-                    );
-                  })}
+              {SHOW_THEME_SELECTOR && (
+                <div className="rounded-xl border p-3" style={{ background: activeTheme.chipBackground, borderColor: activeTheme.chipBorder }}>
+                  <label className="mb-2 block text-xs uppercase tracking-wide text-white/70">Theme Style</label>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {SHOWCASE_THEMES.map((theme) => {
+                      const selected = theme.id === activeTheme.id;
+                      return (
+                        <button
+                          key={theme.id}
+                          type="button"
+                          onClick={() => setThemeId(theme.id)}
+                          className="rounded-lg border px-3 py-2 text-left transition hover:brightness-110"
+                          style={{
+                            borderColor: selected ? theme.accentSoft : "rgba(255,255,255,0.2)",
+                            background: selected ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.25)",
+                          }}
+                        >
+                          <div className="flex items-center gap-2 text-sm font-semibold">
+                            <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: theme.accent }} />
+                            {theme.label}
+                          </div>
+                          <div className="mt-1 text-[11px] text-white/70">{theme.description}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
+              )}
+
+              <div className="rounded-xl border p-3" style={{ background: activeTheme.chipBackground, borderColor: activeTheme.chipBorder }}>
+                <div className="mb-2 text-xs uppercase tracking-wide text-white/70">Demo Feed Mode</div>
+                <button
+                  type="button"
+                  onClick={() => setBackupModeEnabled((current) => !current)}
+                  className="w-full rounded-md border px-3 py-2 text-left text-sm font-medium transition hover:brightness-110"
+                  style={{
+                    borderColor: backupModeEnabled ? activeTheme.accentSoft : activeTheme.accent,
+                    background: backupModeEnabled ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.35)",
+                  }}
+                >
+                  {backupModeEnabled ? "Disable Backup (Use Live Kafka)" : "Enable Backup Orion CSV Loop"}
+                </button>
+                <div className="mt-2 text-[11px] text-white/70">
+                  {backupModeEnabled
+                    ? `Trimmed driving segment loop${backupMeta ? ` • ${backupMeta.source} • ${backupMeta.outputHz ?? 100} Hz` : ""}`
+                    : "Switch to fallback loop if live car telemetry is unavailable."}
+                </div>
+                {backupModeEnabled && backupError && (
+                  <div className="mt-1 text-[11px] text-rose-300">{backupError}</div>
+                )}
               </div>
             </div>
           </div>
@@ -545,13 +798,15 @@ export default function RealtimeShowcasePage() {
             <div className="rounded-xl border p-3" style={cardStyle}>
               <div className="text-xs uppercase tracking-wide text-white/65">Connection</div>
               <div className="mt-1 flex items-center gap-2">
-                <span className={`h-2.5 w-2.5 rounded-full ${kafkaConnected ? "bg-emerald-400" : "bg-rose-400"}`} />
-                <span className="text-sm font-semibold">{kafkaConnected ? "Live Feed" : "Stale / Offline"}</span>
+                <span className={`h-2.5 w-2.5 rounded-full ${effectiveConnection ? "bg-emerald-400" : "bg-rose-400"}`} />
+                <span className="text-sm font-semibold">
+                  {backupModeEnabled ? (effectiveConnection ? "Backup Looping" : "Loading Backup") : effectiveConnection ? "Live Feed" : "Stale / Offline"}
+                </span>
               </div>
             </div>
             <div className="rounded-xl border p-3" style={cardStyle}>
               <div className="text-xs uppercase tracking-wide text-white/65">Selected Car</div>
-              <div className="mt-1 text-sm font-semibold">{selectedCarLabel}</div>
+              <div className="mt-1 text-sm font-semibold">{backupModeEnabled ? "Orion (Backup CSV)" : selectedCarLabel}</div>
             </div>
             <div className="rounded-xl border p-3" style={cardStyle}>
               <div className="text-xs uppercase tracking-wide text-white/65">Packet ID</div>
@@ -608,21 +863,7 @@ export default function RealtimeShowcasePage() {
 
           <div className="rounded-3xl border p-5 lg:col-span-4" style={panelStyle}>
             <h2 className="text-lg font-semibold">Driver Inputs</h2>
-            <div className="mt-4 rounded-xl border p-3" style={cardStyle}>
-              <div className="mb-2 flex items-center justify-between text-sm">
-                <span className="text-white/75">Steering Angle</span>
-                <span className="font-semibold">{formatNumber(steering)}&deg;</span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-white/15">
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${steerPct}%`,
-                    background: `linear-gradient(90deg, ${activeTheme.accent} 0%, ${activeTheme.accentSoft} 100%)`,
-                  }}
-                />
-              </div>
-            </div>
+            <SteeringWheelGauge steeringAngle={steering} theme={activeTheme} />
 
             <div className="mt-4 space-y-4">
               <BarMetric
@@ -664,11 +905,11 @@ export default function RealtimeShowcasePage() {
         </section>
 
         <section className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          <div className="overflow-hidden rounded-3xl border p-2 lg:col-span-7" style={panelStyle}>
-            <div className="h-[420px] overflow-hidden rounded-2xl">
-              <LiveMap />
+            <div className="overflow-hidden rounded-3xl border p-2 lg:col-span-7" style={panelStyle}>
+              <div className="h-[420px] overflow-hidden rounded-2xl">
+                <LiveMap data={backupModeEnabled ? (effectiveMapData ?? null) : undefined} />
+              </div>
             </div>
-          </div>
 
           <div className="rounded-3xl border p-5 lg:col-span-5" style={panelStyle}>
             <h2 className="text-lg font-semibold">Battery Cell Temperature Map</h2>
@@ -677,6 +918,41 @@ export default function RealtimeShowcasePage() {
             </p>
             <div className="mt-4">
               <CellHeatmap values={cellTemps} theme={activeTheme} />
+            </div>
+          </div>
+        </section>
+
+        <section className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          <div className="rounded-3xl border p-5 lg:col-span-12" style={panelStyle}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">Suspension Hardpoint Viewer</h2>
+                <p className="mt-1 text-xs text-white/60">
+                  3D steer_sus geometry using hardpoint vectors from the processor output (Modelica-style linkage view).
+                </p>
+              </div>
+              <div className="rounded-xl border px-3 py-2 text-xs" style={cardStyle}>
+                <div className="flex items-center gap-2">
+                  <span className={`h-2.5 w-2.5 rounded-full ${effectiveSteerSusConnected ? "bg-emerald-400" : "bg-amber-300"}`} />
+                  <span className="font-semibold">
+                    {backupModeEnabled
+                      ? "Backup mode (reference hardpoints)"
+                      : effectiveSteerSusConnected
+                        ? "steer_sus live"
+                        : "Awaiting steer_sus"}
+                  </span>
+                </div>
+                <div className="mt-1 text-white/70">
+                  {typeof steerSusLastSeenSeconds === "number" ? `${steerSusLastSeenSeconds}s ago` : "No samples"}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 h-[460px] overflow-hidden rounded-2xl border" style={cardStyle}>
+              <SteerSusHardpointViewer
+                data={effectiveSteerSusData}
+                accentColor={activeTheme.accent}
+                accentSoftColor={activeTheme.accentSoft}
+              />
             </div>
           </div>
         </section>
@@ -696,21 +972,21 @@ export default function RealtimeShowcasePage() {
                 </div>
                 <div className="rounded-xl border p-3" style={cardStyle}>
                   <div className="text-white/65">Time Since On</div>
-                  <div className="mt-1 text-base font-semibold">{formatNumber(firstFinite(energy?.timeSinceOnS), 0)} s</div>
+                  <div className="mt-1 text-base font-semibold">{formatNumber(firstFinite(effectiveEnergy?.timeSinceOnS), 0)} s</div>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <div className="rounded-xl border p-3" style={cardStyle}>
                   <div className="text-white/65">Ambient</div>
-                  <div className="mt-1 text-base font-semibold">{formatNumber(firstFinite(dashboard?.ambientTempC))}&deg;C</div>
+                  <div className="mt-1 text-base font-semibold">{formatNumber(firstFinite(effectiveDashboard?.ambientTempC))}&deg;C</div>
                 </div>
                 <div className="rounded-xl border p-3" style={cardStyle}>
                   <div className="text-white/65">Inverter</div>
-                  <div className="mt-1 text-base font-semibold">{formatNumber(firstFinite(dashboard?.inverterTempC))}&deg;C</div>
+                  <div className="mt-1 text-base font-semibold">{formatNumber(firstFinite(effectiveDashboard?.inverterTempC))}&deg;C</div>
                 </div>
                 <div className="rounded-xl border p-3" style={cardStyle}>
                   <div className="text-white/65">Motor</div>
-                  <div className="mt-1 text-base font-semibold">{formatNumber(firstFinite(dashboard?.motorTempC))}&deg;C</div>
+                  <div className="mt-1 text-base font-semibold">{formatNumber(firstFinite(effectiveDashboard?.motorTempC))}&deg;C</div>
                 </div>
               </div>
               <div className="rounded-xl border p-3" style={cardStyle}>

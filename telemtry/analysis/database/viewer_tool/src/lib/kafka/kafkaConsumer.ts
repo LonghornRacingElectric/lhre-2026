@@ -35,6 +35,8 @@ const NORMALIZED_SENSOR_TOPICS = new Set([
   "thermal_headroom",
   "energy_budget",
 ]);
+const ALL_TOPICS_REGEX = /.*/;
+const ALL_TOPICS_REGEX_KEY = ALL_TOPICS_REGEX.toString();
 
 let routeConfig: Record<string, RouteRule[]> = {};
 let started = false;
@@ -45,6 +47,7 @@ let consumer: import("kafkajs").Consumer | null = null;
 let kafkaInstance: Kafka | null = null;
 let adminPromise: Promise<Admin> | null = null;
 let orionTypePromise: Promise<protobuf.Type | null> | null = null;
+let consumerRunning = false;
 
 function normalizeRouteConfig(raw: unknown): Record<string, RouteRule[]> {
   if (!raw || typeof raw !== "object") return {};
@@ -578,7 +581,11 @@ export async function startKafkaConsumer(): Promise<void> {
     for (const t of defaultTopics) {
       await ensureSubscribe(t);
     }
+    // KafkaJS disallows adding subscriptions after run() starts. Subscribing with a
+    // wildcard upfront allows new topics (like steer_sus) to be consumed when they appear.
+    await ensureSubscribe(ALL_TOPICS_REGEX);
 
+    consumerRunning = true;
     await consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
         if (MAX_MESSAGE_AGE_MS > 0) {
@@ -709,6 +716,16 @@ export async function ensureSubscribe(topic: string | RegExp): Promise<void> {
   if (typeof topic === "string") {
     if (subscribedTopics.has(topic)) return;
     await ensureTopicExists(topic);
+    if (subscribedRegex.has(ALL_TOPICS_REGEX_KEY)) {
+      subscribedTopics.add(topic);
+      return;
+    }
+    if (consumerRunning) {
+      // The consumer is already running; treat as covered to avoid hard failures.
+      subscribedTopics.add(topic);
+      console.log("Consumer already running; skipping late topic subscribe:", topic);
+      return;
+    }
     try {
       await consumer.subscribe({ topic, fromBeginning: false });
       subscribedTopics.add(topic);
@@ -729,6 +746,15 @@ export async function ensureSubscribe(topic: string | RegExp): Promise<void> {
 
   const key = topic.toString();
   if (subscribedRegex.has(key)) return;
+  if (consumerRunning) {
+    if (subscribedRegex.has(ALL_TOPICS_REGEX_KEY)) {
+      subscribedRegex.add(key);
+      return;
+    }
+    subscribedRegex.add(key);
+    console.log("Consumer already running; skipping late regex subscribe:", key);
+    return;
+  }
   await consumer.subscribe({ topic, fromBeginning: false });
   subscribedRegex.add(key);
   console.log("Subscribed (regex):", key);
