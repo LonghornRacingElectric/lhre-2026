@@ -359,10 +359,13 @@ CREATE TABLE public.pack (
 -- Generated Diagnostics_high Table
 CREATE TABLE public.diagnostics_high (
     packet_id           bigint   NOT NULL,
+    prndl_state          real,
     shutdown_current     real,
     hvc_state_machine    real,
     post_faults          real,
     run_faults           real,
+    r2d_buzzer           boolean,
+    stomp_fault          boolean,
     neg_hv_contactor     boolean,
     pos_hv_contactor     boolean,
     precharge_contactor  boolean,
