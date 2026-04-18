@@ -110,13 +110,10 @@ model pack {
 
 model diagnostics_high {
   packet_id BigInt @id
-  prndl_state          Float?
   shutdown_current     Float?
   hvc_state_machine    Float?
   post_faults          Float?
   run_faults           Float?
-  r2d_buzzer           Boolean?
-  stomp_fault          Boolean?
   neg_hv_contactor     Boolean?
   pos_hv_contactor     Boolean?
   precharge_contactor  Boolean?
