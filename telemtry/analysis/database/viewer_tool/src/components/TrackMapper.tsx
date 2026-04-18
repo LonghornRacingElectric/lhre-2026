@@ -234,7 +234,7 @@ const TrackMapper = ({ width = 600, height = 400, isFullscreen = false }: { widt
     }
   }, [points, sectors, trackName]);
 
-  const lastValidPoint = [...points].reverse().find((p): p is LatLon => p !== null);
+  const lastValidPoint = points.findLast((p): p is LatLon => p !== null);
   const lastPointText = lastValidPoint
     ? `lat=${lastValidPoint[0].toFixed(6)}, lon=${lastValidPoint[1].toFixed(6)}`
     : 'no data';
