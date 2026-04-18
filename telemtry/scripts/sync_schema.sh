@@ -14,6 +14,7 @@ CAR_LOWER="$(echo "$CAR_NAME" | tr '[:upper:]' '[:lower:]')"
 SCRIPT_DIR="$TELEMTRY_ROOT/scripts"
 INGEST_DIR="$TELEMTRY_ROOT/stack/ingest"
 PRISMA_DIR="$TELEMTRY_ROOT/analysis/database/viewer_tool/prisma"
+VIEWER_PROTO_DIR="$TELEMTRY_ROOT/analysis/database/viewer_tool/protobuf"
 MODELS_FILE="$TELEMTRY_ROOT/analysis/sql_utils/models.py"
 
 COMMON_SQL="$INGEST_DIR/common_schema.sql"
@@ -37,6 +38,7 @@ esac
 GEN_DIR="$SCRIPT_DIR/gen_${CAR_LOWER}"
 DB_INIT_FILE="$INGEST_DIR/${CAR_LOWER}_db_init.sql"
 PRISMA_OUT="$PRISMA_DIR/${CAR_LOWER}.prisma"
+VIEWER_ORION_PROTO_OUT="$VIEWER_PROTO_DIR/orion.proto"
 
 if [ "$CAR_NAME" = "Orion" ] && [ "${REFRESH_COMMON_FROM_ORION:-0}" = "1" ]; then
   echo "Step 0: Refreshing common schema from Orion base schema..."
@@ -76,6 +78,13 @@ python3 "$SCRIPT_DIR/generate_schema.py" patch-models \
     "$MODELS_FILE" \
     "$GEN_DIR/models.py" \
     "$CAR_NAME"
+
+# Keep viewer runtime protobuf in sync with Orion source-of-truth proto.
+if [ "$CAR_NAME" = "Orion" ]; then
+  mkdir -p "$VIEWER_PROTO_DIR"
+  cp "$PROTO_FILE" "$VIEWER_ORION_PROTO_OUT"
+  echo "Synced viewer runtime proto: $VIEWER_ORION_PROTO_OUT"
+fi
 
 echo "Step 4: Cleaning up..."
 rm "$COMMON_PRISMA"

@@ -15,6 +15,7 @@ export type KafkaEvent = {
 export type UseKafkaStreamOptions<TData = unknown, TSelected = TData> = {
   topic: string;            // e.g., "telemetry" or "telemetry/*"
   prefix?: boolean;         // treat topic as a prefix (also implied by trailing /*)
+  car?: string;             // optional car filter passed to SSE endpoint
   parse?: (payload: string) => TData; // defaults to JSON.parse fallback to string
   select?: (data: TData, evt: KafkaEvent) => TSelected; // pick specific data from message
   filter?: (evt: KafkaEvent) => boolean; // additional filter besides topic
@@ -23,6 +24,7 @@ export type UseKafkaStreamOptions<TData = unknown, TSelected = TData> = {
   onError?: (err: Event) => void;
   ssePath?: string;         // override SSE route, default "/api/kafka-stream"
   staleAfterMs?: number;    // consider data flow stale if no message for this duration (default 5000)
+  sampleMs?: number;        // coalesce high-rate updates to at most one UI update every N ms
   merge?: boolean;          // if true, shallow merge new data with existing data (reset if new data is empty object)
 };
 
@@ -81,15 +83,16 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
 ): UseKafkaStreamState<TSelected> {
   const {
     topic,
-    prefix,
     parse = defaultParse,
     select,
     filter,
+    car,
     initial,
     onMessage,
     onError,
     ssePath = getSSEPath(),
-    staleAfterMs = 100,
+    staleAfterMs = 5000,
+    sampleMs = 50,
     merge = false,
   } = opts;
 
@@ -103,19 +106,36 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
   const [kafkaConnected, setKafkaConnected] = useState<boolean>(false); // message freshness state
 
   const restartRef = useRef<() => void>(() => {});
+  const parseRef = useRef(parse);
+  const selectRef = useRef(select);
+  const filterRef = useRef(filter);
+  const onMessageRef = useRef(onMessage);
+  const onErrorRef = useRef(onError);
+  const mergeRef = useRef(merge);
+  const sampleMsRef = useRef(sampleMs);
+  const lastUiEmitAtRef = useRef<number>(0);
+  const pendingEventRef = useRef<KafkaEvent | undefined>(undefined);
+  const flushTimerRef = useRef<number | undefined>(undefined);
 
-  const { url, isPrefix } = useMemo(() => {
-    const hasWildcard = topic.endsWith("/*");
-    const base = hasWildcard ? topic.slice(0, -2) : topic;
-    const usePrefix = !!prefix || hasWildcard;
+  const effectiveSsePath = useMemo(() => {
+    if (!car) return ssePath;
     const u = new URL(
       ssePath,
       typeof window !== "undefined" ? window.location.origin : "http://localhost"
     );
-    u.searchParams.set("topic", base + (hasWildcard ? "/*" : ""));
-    if (!hasWildcard && usePrefix) u.searchParams.set("prefix", "true");
-    return { url: u.toString(), isPrefix: usePrefix };
-  }, [topic, prefix, ssePath]);
+    u.searchParams.set("car", car);
+    return `${u.pathname}${u.search}`;
+  }, [car, ssePath]);
+
+  useEffect(() => {
+    parseRef.current = parse;
+    selectRef.current = select;
+    filterRef.current = filter;
+    onMessageRef.current = onMessage;
+    onErrorRef.current = onError;
+    mergeRef.current = merge;
+    sampleMsRef.current = Math.max(0, sampleMs);
+  }, [filter, merge, onError, onMessage, parse, sampleMs, select]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -126,14 +146,18 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
     setConnected(st.connected);
     if (st.lastMessageAt) setLastMessageAt(st.lastMessageAt);
 
-    const unsub = subscribeSSE(topic, (evt) => {
+    const processEvent = (evt: KafkaEvent) => {
       try {
-        if (filter && !filter(evt)) return;
-        const parsed: TData = parse(evt.payload);
-        const selected: TSelected = (select ? select(parsed, evt) : (parsed as unknown as TSelected));
+        const runtimeFilter = filterRef.current;
+        if (runtimeFilter && !runtimeFilter(evt)) return;
+
+        const runtimeParse = parseRef.current;
+        const runtimeSelect = selectRef.current;
+        const parsed: TData = runtimeParse(evt.payload);
+        const selected: TSelected = (runtimeSelect ? runtimeSelect(parsed, evt) : (parsed as unknown as TSelected));
         setLastEvent(evt);
         
-        if (merge) {
+        if (mergeRef.current) {
           setData((prev) => {
             // If selected is an empty object, treat as reset
             if (selected && typeof selected === "object" && !Array.isArray(selected) && Object.keys(selected).length === 0) {
@@ -151,17 +175,49 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
         }
 
         const now = Date.now();
+        lastUiEmitAtRef.current = now;
         setLastMessageAt(now);
         setKafkaConnected(true);
-        onMessage?.(evt, parsed, selected);
+        onMessageRef.current?.(evt, parsed, selected);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
+        onErrorRef.current?.(new Event("kafka-stream-error"));
       }
-    }, { ssePath });
+    };
+
+    const unsub = subscribeSSE(topic, (evt) => {
+      const minSampleMs = sampleMsRef.current;
+      if (minSampleMs > 0) {
+        const now = Date.now();
+        const elapsed = now - lastUiEmitAtRef.current;
+        if (lastUiEmitAtRef.current > 0 && elapsed < minSampleMs) {
+          pendingEventRef.current = evt;
+          if (flushTimerRef.current === undefined) {
+            flushTimerRef.current = window.setTimeout(() => {
+              flushTimerRef.current = undefined;
+              const pending = pendingEventRef.current;
+              pendingEventRef.current = undefined;
+              if (pending) processEvent(pending);
+            }, minSampleMs - elapsed);
+          }
+          return;
+        }
+      }
+
+      processEvent(evt);
+    }, { ssePath: effectiveSsePath });
 
     restartRef.current = () => restartSSE();
-    return () => { offConn(); unsub(); };
-  }, [topic, ssePath, filter, parse, select, onMessage, merge]);
+    return () => {
+      offConn();
+      unsub();
+      if (flushTimerRef.current !== undefined) {
+        clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = undefined;
+      }
+      pendingEventRef.current = undefined;
+    };
+  }, [topic, effectiveSsePath]);
 
   // Freshness monitoring: mark kafkaConnected false if stale
   useEffect(() => {
@@ -190,7 +246,13 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
     setLastEvent(undefined);
     setLastMessageAt(undefined);
     setKafkaConnected(false);
-  }, [topic, initial]);
+    lastUiEmitAtRef.current = 0;
+    pendingEventRef.current = undefined;
+    if (flushTimerRef.current !== undefined) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = undefined;
+    }
+  }, [topic, initial, car]);
 
   return {
     data,
@@ -207,5 +269,5 @@ export function useKafkaStream<TData = unknown, TSelected = TData>(
 
 /** Convenience helper for JSON payloads with a simple selector. */
 export function useKafkaJSON<TSelected = unknown>(opts: Omit<UseKafkaStreamOptions<any, TSelected>, "parse">) {
-  return useKafkaStream<any, TSelected>({ ...opts, parse: defaultParse, staleAfterMs: 100 });
+  return useKafkaStream<any, TSelected>({ ...opts, parse: defaultParse });
 }

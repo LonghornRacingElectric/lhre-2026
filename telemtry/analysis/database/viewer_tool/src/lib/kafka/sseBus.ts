@@ -46,8 +46,21 @@ function notifyConnection(state: boolean) {
   for (const fn of connListeners) fn(state);
 }
 
+function closeEventSource() {
+  try {
+    es?.close();
+  } catch {}
+  es = null;
+  currentUrl = "";
+  notifyConnection(false);
+}
+
 function openIfNeeded() {
   if (typeof window === "undefined") return;
+  if (listeners.size === 0) {
+    closeEventSource();
+    return;
+  }
   const url = buildUrl();
   if (es && currentUrl === url) return; // already correct
   // Recreate
@@ -122,8 +135,5 @@ export function restartSSE() {
 }
 
 export function stopSSE() {
-  try { es?.close(); } catch {}
-  es = null;
-  currentUrl = "";
-  notifyConnection(false);
+  closeEventSource();
 }

@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma/telemtry";
+import prismaTelemtry from "@/lib/prisma/telemtry";
+import {
+  findNextPacketIdInRange,
+  findReplayPacketAtOrAfter,
+  normalizeCar,
+  SupportedCar,
+  resolveCarFromCarId,
+} from "@/lib/prisma/carPrisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,12 +20,6 @@ function toBigInt(value: string | null): bigint | null {
   }
 }
 
-function median(values: bigint[]): bigint | null {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-  return sorted[Math.floor(sorted.length / 2)] ?? null;
-}
-
 function bigintToSafeNumber(v: bigint | null): number | null {
   if (v == null) return null;
   const n = Number(v);
@@ -27,11 +28,20 @@ function bigintToSafeNumber(v: bigint | null): number | null {
   return n;
 }
 
-async function buildReplayState(eventId: number, atTimeMs: bigint) {
-  // eventId now maps to day_id since drive_day is the single session
-  const ev = await prisma.drive_day.findUnique({
+async function buildReplayState(
+  eventId: number,
+  atTimeMs: bigint,
+  preferredCar: SupportedCar | null,
+) {
+  // eventId maps to day_id since drive_day is the single session record.
+  const ev = await prismaTelemtry.drive_day.findUnique({
     where: { day_id: eventId },
-    select: { packet_start: true, packet_end: true },
+    select: {
+      packet_start: true,
+      packet_end: true,
+      car_id: true,
+      car: { select: { car_name: true } },
+    },
   });
 
   if (!ev) return { status: 404 as const, body: { error: "Drive day not found" } };
@@ -41,15 +51,17 @@ async function buildReplayState(eventId: number, atTimeMs: bigint) {
 
   const packetStart = BigInt(ev.packet_start as any);
   const packetEnd = BigInt(ev.packet_end as any);
-
-  const packet = await prisma.packet.findFirst({
-    where: {
-      packet_id: { gte: packetStart, lte: packetEnd },
-      time: { gte: atTimeMs },
-    },
-    orderBy: { packet_id: "asc" },
-    include: { dynamics: true, controls: true },
-  });
+  const car =
+    preferredCar ??
+    normalizeCar(ev.car?.car_name) ??
+    (await resolveCarFromCarId(ev.car_id)) ??
+    "orion";
+  const packet = await findReplayPacketAtOrAfter(
+    car,
+    packetStart,
+    packetEnd,
+    atTimeMs,
+  );
 
   if (!packet) {
     return { status: 404 as const, body: { error: "No packet found at/after time" } };
@@ -58,15 +70,8 @@ async function buildReplayState(eventId: number, atTimeMs: bigint) {
   const packetId = BigInt(packet.packet_id as any);
   const packetTimeMs = packet.time != null ? BigInt(packet.time as any) : null;
 
-  const nextPacket = await prisma.packet.findFirst({
-    where: {
-      packet_id: { gt: packetId, lte: packetEnd },
-    },
-    orderBy: { packet_id: "asc" },
-    select: { packet_id: true },
-  });
-
-  const isEnd = nextPacket == null || packetId >= packetEnd;
+  const nextPacketId = await findNextPacketIdInRange(car, packetId, packetEnd);
+  const isEnd = nextPacketId == null || packetId >= packetEnd;
 
   const d: any = (packet as any).dynamics || {};
   const c: any = (packet as any).controls || {};
@@ -77,23 +82,37 @@ async function buildReplayState(eventId: number, atTimeMs: bigint) {
       cursor_ms: bigintToSafeNumber(packetTimeMs),
       packet_id: packetId.toString(),
       time_ms: bigintToSafeNumber(packetTimeMs),
+      car_type: car,
       is_end: isEnd,
       car_visualization: {
         dynamics: {
-          flwSpeed: d.flw_speed ?? null,
-          frwSpeed: d.frw_speed ?? null,
-          blwSpeed: d.blw_speed ?? null,
-          brwSpeed: d.brw_speed ?? null,
+          flwSpeed: d.flw_speed ?? d.flwSpeed ?? null,
+          frwSpeed: d.frw_speed ?? d.frwSpeed ?? null,
+          blwSpeed: d.blw_speed ?? d.blwSpeed ?? null,
+          brwSpeed: d.brw_speed ?? d.brwSpeed ?? null,
         },
       },
       map_data: {
         dynamics: {
-          gps: d.gps ?? null,
+          gps: d.gps ?? d.f_gps ?? d.fGps ?? null,
         },
       },
       driver_input_visualizer: {
         controls: {
-          steerV: c.steer_v ?? null,
+          steerV: c.steer_v ?? c.steerV ?? null,
+          steerColAngle: d.steer_col_angle ?? d.steerColAngle ?? null,
+          throttlePct:
+            d.accel_pedal_travel ??
+            d.accelPedalTravel ??
+            c.apps1_t ??
+            c.apps1Travel ??
+            null,
+          brakePct:
+            c.brake_pressure_f ??
+            c.brakePressureF ??
+            c.bse1_v ??
+            c.bse1V ??
+            null,
         },
       },
     },
@@ -122,6 +141,7 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const eventIdRaw = url.searchParams.get("eventId");
     const startAtMs = toBigInt(url.searchParams.get("startAtTimeMs"));
+    const requestedCar = normalizeCar(url.searchParams.get("car"));
     const playingRaw = url.searchParams.get("playing");
     const tickMsRaw = url.searchParams.get("tickMs");
 
@@ -142,7 +162,7 @@ export async function GET(req: NextRequest) {
 
     // If not playing, just send a single snapshot and end.
     if (!playing) {
-      const state = await buildReplayState(eventId, startAtMs);
+      const state = await buildReplayState(eventId, startAtMs, requestedCar);
       if (state.status !== 200) {
         return NextResponse.json(state.body, { status: state.status });
       }
@@ -183,7 +203,7 @@ export async function GET(req: NextRequest) {
           const elapsed = Date.now() - wallStart;
           const at = replayStartMs + BigInt(Math.max(0, elapsed));
 
-          const state = await buildReplayState(eventId, at);
+          const state = await buildReplayState(eventId, at, requestedCar);
           if (state.status !== 200) {
             controller.enqueue(encodeSseEvent({ ...state.body, is_end: true }));
             stop();
