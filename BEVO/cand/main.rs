@@ -371,6 +371,7 @@ fn parse_pimu_xyz(sentence: &str) -> Option<(f32, f32, f32)> {
     let y: f32 = parts.next()?.trim().parse().ok()?;
     let z: f32 = parts.next()?.trim().parse().ok()?;
     Some((x, y, z))
+}
 
 fn parse_nmea_gps_speed(sentence: &str) -> Option<f32> {
     if !sentence.starts_with('$') {
@@ -392,7 +393,6 @@ fn parse_nmea_gps_speed(sentence: &str) -> Option<f32> {
 
     let speed: f32 = speed_knots.trim().parse().ok()?;
     Some(speed)
-}
 }
 
 fn apply_external_dynamics(data: &mut OrionSensorData, external_dynamics: &ExternalDynamicsData) {
