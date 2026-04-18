@@ -12,6 +12,7 @@ from stack.ingest.mqtt_handler import MQTTHandler
 MAX_SPEED_MPS = 85.0
 MIN_DISTANCE_METERS = 1
 TRACK_END_PROXIMITY_METERS = 50.0  # Distance threshold to detect return to start gate
+MIN_LAP_DISTANCE_METERS = 200.0    # Must travel this far before proximity check can fire
 
 CAR_NAME_MAP = {
     "angelique": "Angelique",
@@ -142,8 +143,9 @@ def _new_car_state() -> dict[str, Any]:
         "initialized": False,
         "all_points": [],
         "last_timestamp": time.time(),
-        "track_started": False,  # Tracks if we've crossed the start gate
+        "track_started": False,    # Tracks if we've crossed the start gate
         "track_completed": False,  # Tracks if we've returned to start gate area
+        "distance_traveled": 0.0,  # Accumulated distance since track started
     }
 
 
@@ -228,7 +230,7 @@ try:
                     decoded_message = handler._proto_decode(payload=record.value, car=car_type)
 
                     car_state = car_states[car_type]
-                    if car_state["lap_completed"]:
+                    if car_state["track_completed"]:
                         continue
 
                     gps_raw = decoded_message.get("dynamics", {}).get("gps", [0, 0])
@@ -307,9 +309,13 @@ try:
                             all_points.append(current_point)
                             _send_track_point(car_type, current_point, timestamp_ms)
                             car_state["last_timestamp"] = current_time
-                            
-                            # Check for return to start gate by proximity
-                            if is_close_to_gate(current_point, START_GATE, TRACK_END_PROXIMITY_METERS):
+                            car_state["distance_traveled"] += dist
+
+                            # Only check for lap completion after minimum distance traveled
+                            if (
+                                car_state["distance_traveled"] > MIN_LAP_DISTANCE_METERS
+                                and is_close_to_gate(current_point, START_GATE, TRACK_END_PROXIMITY_METERS)
+                            ):
                                 logging.info(
                                     "Track completed for %s - returned to start gate area at (%.6f, %.6f)",
                                     car_type,

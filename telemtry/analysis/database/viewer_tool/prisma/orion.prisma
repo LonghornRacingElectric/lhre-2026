@@ -110,16 +110,18 @@ model drive_day {
   rear_corner_spring_rate Float?
   front_arb_setting String?
   rear_arb_setting String?
+
+  track_points track_point[]
 }
 
 model classifier {
-  day_id Int @id
-  type String @id
-  start_time BigInt @id
+  day_id Int
+  type String
+  start_time BigInt
   end_time BigInt?
   notes String?
 
-  @@id([event_id, type, start_time])
+  @@id([day_id, type, start_time])
 }
 
 model partitions {
@@ -132,10 +134,10 @@ model track_mapping {
   track_mapping_id Int @id @default(autoincrement())
   name String
   created_at BigInt
-  start_gate_lat1 String
-  start_gate_lon1 String
-  start_gate_lat2 String
-  start_gate_lon2 String
+  start_gate_lat1 Float
+  start_gate_lon1 Float
+  start_gate_lat2 Float
+  start_gate_lon2 Float
   points Json?
   sectors Json?
 }
@@ -174,9 +176,9 @@ model track_point {
   longitude Float
   timestamp_ms BigInt
 
-  event event @relation(fields: [event_id], references: [event_id])
+  drive_day drive_day @relation(fields: [day_id], references: [day_id])
 
-  @@index([event_id])
+  @@index([day_id])
 }
 
 model packet {
