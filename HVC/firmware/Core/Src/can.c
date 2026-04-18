@@ -146,4 +146,23 @@ void hvc_set_cell_temperatures(float *cell_temps) {
   taskEXIT_CRITICAL();
 }
 
+void hvc_set_cell_voltages(float *cell_voltages) {
+  taskENTER_CRITICAL();
+
+  uint16_t volt_idx = 0;
+
+  for(uint8_t packet = 0; packet < 32; packet++) {
+    cell_voltages_tx[packet].volt_i = cell_voltages[volt_idx++];
+    cell_voltages_tx[packet].volt_i_1 = cell_voltages[volt_idx++];
+    cell_voltages_tx[packet].volt_i_2 = cell_voltages[volt_idx++];
+    cell_voltages_tx[packet].volt_i_3 = cell_voltages[volt_idx++];
+  }
+
+  cell_voltages_tx[32].volt_i = cell_voltages[volt_idx++];
+  cell_voltages_tx[32].volt_i_1 = cell_voltages[volt_idx++];
+  cell_voltages_tx[32].volt_i_2 = 0.0f; // Unused, set to 0
+  cell_voltages_tx[32].volt_i_3 = 0.0f; // Unused, set to 0
+
+  taskEXIT_CRITICAL();    
+}
 /* USER CODE END 0 */

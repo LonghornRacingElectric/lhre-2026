@@ -48,35 +48,39 @@ static uint8_t bms_responsive_ics = 0;
 
 // Cell temperature buffer for CAN transmission
 static float cell_temps[90];
+static float cell_voltages[130];
 
-// Returns pack voltage in millivolts by summing all cell voltages
-float getPackVoltage_v(void)
+
+void bms_init(void)
 {
+    // Initialize driver structures
+    adBms6830_init_config(TOTAL_IC, IC);
+}
+
+float bms_get_pack_voltage(void)
+{
+    // Returns pack voltage in millivolts by summing all cell voltages
     float pack_v = 0;
     uint16_t code;
     int i;
-
     for (int i = 0; i < TOTAL_IC; i++) {
         for (int j = 0; j < CELLS_PER_IC; j++) {
             code = IC[i].cell.c_codes[j];
-            // pack_mv += (code * 8) / 30;
             pack_v += (code * 0.000150f) + 1.5f;
         }
     }
-
     return pack_v;
 }
 
-// Return BMS status: 1 if discharging active, 0 otherwise
-uint8_t getbmsStatus(void)
+uint8_t get_balance_status(void)
 {
+    // Return BMS status: 1 if discharging active, 0 otherwise
     return discharge_active ? 1 : 0;
 }
 
 uint32_t bms_get_num_responsive_ics(void) {
     return bms_responsive_ics;
 }
-
 
 bool bms_check_undervoltage(void)
 {
@@ -98,7 +102,6 @@ bool bms_check_undervoltage(void)
 
     return any_fail;
 }
-
     
 bool bms_check_overvoltage(void)
 {
@@ -121,12 +124,11 @@ bool bms_check_overvoltage(void)
     return any_fail;
 }
 
-
 bool bms_check_overtemp(void) {
     bool any_fail = false;
 
     for (int i = 0; i < TOTAL_IC; i++) {
-        for (int j = 1; j < 9; j++) {  // GPIO 2-9 (aux channels 1-8)
+        for (int j = 1; j < 10; j++) {
             int16_t code = IC[i].aux.a_codes[j];
             float voltage_v = ((code + 10000) * 0.000150f);
             float temp_c = ntc_voltage_to_temp(voltage_v);
@@ -150,157 +152,69 @@ bool bms_check_disconnection(void) {
 }
 
 float bms_get_min_voltage(void) {
-    float min_v = 999.0f;
-    for (int i = 0; i < TOTAL_IC; i++) {
-        for (int j = 0; j < CELLS_PER_IC; j++) {
-            uint16_t code = IC[i].cell.c_codes[j];
-            float voltage_v = (code * 0.000150f) + 1.5f;
-            if (voltage_v < min_v && voltage_v > 0.0f) {
-                min_v = voltage_v;
-            }
+    float min_v = cell_voltages[0];
+    for (int i = 1; i < TOTAL_IC * CELLS_PER_IC; i++) {
+        if (cell_voltages[i] < min_v && cell_voltages[i] > 0.0f) {
+            min_v = cell_voltages[i];
         }
     }
     return min_v;
 }
 
 float bms_get_max_voltage(void) {
-    float max_v = 0.0f;
-    for (int i = 0; i < TOTAL_IC; i++) {
-        for (int j = 0; j < CELLS_PER_IC; j++) {
-            uint16_t code = IC[i].cell.c_codes[j];
-            float voltage_v = (code * 0.000150f) + 1.5f;
-            if (voltage_v > max_v) {
-                max_v = voltage_v;
-            }
+    float max_v = cell_voltages[0];
+    for (int i = 1; i < TOTAL_IC * CELLS_PER_IC; i++) {
+        if (cell_voltages[i] > max_v) {
+            max_v = cell_voltages[i];
         }
     }
     return max_v;
 }
 
 float bms_get_min_temp(void) {
-    float min_t = 999.0f;
-    for (int i = 0; i < TOTAL_IC; i++) {
-        for (int j = 1; j < 9; j++) {
-            int16_t code = IC[i].aux.a_codes[j];
-            float voltage_v = ((code + 10000) * 0.000150f);
-            float temp_c = ntc_voltage_to_temp(voltage_v);
-            if (!isnan(temp_c) && temp_c < min_t) {
-                min_t = temp_c;
-            }
+    float min_t = cell_temps[0];
+    for (int i = 1; i < TOTAL_IC * 9; i++) {
+        if (cell_temps[i] < min_t) {
+            min_t = cell_temps[i];
         }
     }
     return min_t;
 }
 
 float bms_get_max_temp(void) {
-    float max_t = -999.0f;
-    for (int i = 0; i < TOTAL_IC; i++) {
-        for (int j = 1; j < 9; j++) {
-            int16_t code = IC[i].aux.a_codes[j];
-            float voltage_v = ((code + 10000) * 0.000150f);
-            float temp_c = ntc_voltage_to_temp(voltage_v);
-            if (!isnan(temp_c) && temp_c > max_t) {
-                max_t = temp_c;
-            }
+    float max_t = cell_temps[0];
+    for (int i = 1; i < TOTAL_IC * 9; i++) {
+        if (cell_temps[i] > max_t) {
+            max_t = cell_temps[i];
         }
     }
     return max_t;
 }
 
-void bms_enable_discharge()
+/**
+ * @brief Immediately disable all cell discharge and reset balancing state.
+ *        Only sends SPI commands if balancing was previously active.
+ */
+static void bms_disable_discharge(void)
 {
-    char msg[128];
-    
-    // Set discharge bit for specified cell in Config B register
-    // Enable discharge on all cells
-    IC[0].tx_cfgb.dcc = (uint16_t)ALL_DISCHARGE_MASK;
-    
-    // Write configuration with discharge enabled
-    adBmsWakeupIc(TOTAL_IC);
-    adBms6830_write_config(TOTAL_IC, IC);
-    
-    // snprintf(msg, sizeof(msg), "Discharge enabled on ALL CELLS (DCC=0x%04X)\r\n", 
-    //          IC[0].tx_cfgb.dcc);
-    // CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
-
-    log_printf(LOG_INFO, "Discharge enabled on ALL CELLS (DCC=0x%04X)", IC[0].tx_cfgb.dcc);
-
-    
-    
-    discharge_active = 1;
-}
-
-void bms_disable_discharge(void)
-{
-    // Clear all discharge bits
-    IC[0].tx_cfgb.dcc = 0;
-    
-    // Write configuration with discharge disabled
-    adBmsWakeupIc(TOTAL_IC);
-    adBms6830_write_config(TOTAL_IC, IC);
-    
-    // CDC_Transmit_FS((uint8_t*)"Discharge disabled\r\n", 20);
-    log_printf(LOG_INFO, "Discharge disabled");
+    for (int ic = 0; ic < TOTAL_IC; ic++) {
+        IC[ic].tx_cfgb.dcc = 0;
+        for (int cell = 0; cell < CELLS_PER_IC; cell++) {
+            bal_cell_active[ic][cell] = 0;
+        }
+    }
+    // Only write to hardware if we were previously active (avoid redundant SPI traffic)
+    if (bal_was_active) {
+        adBmsWakeupIc(TOTAL_IC);
+        adBms6830_write_config(TOTAL_IC, IC);
+        bal_was_active = 0;
+    }
     discharge_active = 0;
 }
-
-void bms_init(void)
-{
-    char msg[128];
-    
-    // CDC_Transmit_FS((uint8_t*)"=== BMS Discharge Test ===\r\n", 29);
-    // log_printf(LOG_WARNING, "=== BMS Discharge Test ===");
-    
-    // Initialize driver structures
-    adBms6830_init_config(TOTAL_IC, IC);
-    
-    // Configure discharge timeout: 63 minutes (maximum in 0-63 minute range)
-    // This allows long discharge tests
-    // SetConfigB_DischargeTimeOutValue(TOTAL_IC, IC, RANG_0_TO_63_MIN, 63);
-    
-    // Set PWM duty cycle to 100%
-    // SetPwmDutyCycle(TOTAL_IC, IC, PWM_100_0_PCT);
-    
-    // Initialize Config B with discharge disabled
-    // IC[0].tx_cfgb.dcc = 0;
-    
-    // Wake up chip and write initial configuration
-    // adBmsWakeupIc(TOTAL_IC);
-    // adBms6830_write_config(TOTAL_IC, IC);
-    // Delay_ms(2);
-    
-    // Write PWM registers to apply duty cycle settings
-    // adBmsWakeupIc(TOTAL_IC);
-    // adBmsWriteData(TOTAL_IC, IC, WRPWM1, Pwm, A);
-    // adBmsWriteData(TOTAL_IC, IC, WRPWM2, Pwm, B);
-    // Delay_ms(2);
-    
-    // Read initial configuration
-    // adBms6830_read_config(TOTAL_IC, IC);
-    
-    // snprintf(msg, sizeof(msg), "Initial CFGA: %02X %02X %02X %02X %02X %02X\r\n", 
-    //          IC[0].configa.rx_data[0], IC[0].configa.rx_data[1], 
-    //          IC[0].configa.rx_data[2], IC[0].configa.rx_data[3],
-    //          IC[0].configa.rx_data[4], IC[0].configa.rx_data[5]);
-
-    // log_printf(LOG_INFO, 
-    //          "Initial CFGA: %02X %02X %02X %02X %02X %02X",
-    //          IC[0].configa.rx_data[0], IC[0].configa.rx_data[1],
-    //          IC[0].configa.rx_data[2], IC[0].configa.rx_data[3],
-    //          IC[0].configa.rx_data[4], IC[0].configa.rx_data[5]);
-             
-    // log_printf(LOG_INFO, "Reading baseline voltages...");
-}
+   
 
 void bms_read_thermistors(void)
 {
-    // Wake up IC and start auxiliary ADC conversion for GPIO 2-9 (thermistors)
-    adBmsWakeupIc(TOTAL_IC);
-    adBms6830_Adax(RD_OFF, PUP_DOWN, AUX_ALL);  // Read all auxiliary channels
-    
-    // Wait for conversion to complete
-    osDelay(5);
-    
     // Read auxiliary voltages (GPIO pins)
     adBms6830_read_aux_voltages(TOTAL_IC, IC);
     
@@ -319,53 +233,29 @@ void bms_read_thermistors(void)
     hvc_set_cell_temperatures(&cell_temps[0]);
 }
 
+void bms_read_cell_voltages(void)
+{
+    // Read cell voltages
+    adBms6830_read_fcell_voltages(TOTAL_IC, IC);
+
+    // Collect and send cell voltages via CAN
+    int volt_idx = 0;   
+
+    for (int i = 0; i < TOTAL_IC; i++) {
+        for (int j = 0; j < CELLS_PER_IC; j++) {
+            int16_t code = IC[i].fcell.fc_codes[j];
+            float voltage_v = (code * 0.000150f) + 1.5f;
+            cell_voltages[volt_idx++] = voltage_v;
+        }
+    }
+
+    hvc_set_cell_voltages(&cell_voltages[0]);
+}
 void bms_update(void)
 {
-    char msg[128];
-    uint16_t code;
-    float voltage_v;
 
-    // adBms6830_init_config(TOTAL_IC, IC);
-    
-    // Wake and start ADC conversion
-    // Use DCP_ON to keep discharge active during measurement
-    adBmsWakeupIc(TOTAL_IC);
-    adBms6830_Adcv(RD_ON, CONTINUOUS, DCP_ON, RSTF_OFF, OW_OFF_ALL_CH);
-    
-    // Wait for conversion
-    Delay_ms(5);
-    
-    // Read cell voltages
-    adBms6830_read_cell_voltages(TOTAL_IC, IC);
-    
-    // Print all cell voltages
-    for (int i = 0; i < TOTAL_IC; i++) {
-        char cell_line[256];
-        int offset = 0;
-        
-        // log_printf(LOG_INFO, "BMB %d Cell Voltages:", i);
-        
-        // Print cells in groups to fit on lines
-        for (int j = 0; j < CELLS_PER_IC; j++) {
-            code = IC[i].cell.c_codes[j];
-            voltage_v = (code * 0.000150f) + 1.5f;
-            
-            // Add to line buffer
-            // offset += snprintf(cell_line + offset, sizeof(cell_line) - offset, 
-            //                   "Cell %d: %.4fV  ", j, voltage_v);
-        }
-        
-        // Print the complete line
-        // if (discharge_active) {
-        //     log_printf(LOG_WARNING, "%s [DISCHARGING]", cell_line);
-        // } else {
-        //     log_printf(LOG_INFO, "%s\n", cell_line);
-        // }
-        
-        // osDelay(10);
-    }
-    // log_printf(LOG_INFO, "Pack Voltage: %.3f V\n", getPackVoltage_v());
-    
+    bms_read_cell_voltages();
+
     // Read thermistor values
     bms_read_thermistors();
 
@@ -374,10 +264,6 @@ void bms_update(void)
     for(int i = 0; i < TOTAL_IC; i++) {
         bms_responsive_ics += (IC[i].cccrc.cell_pec == 0) && (IC[i].cccrc.aux_pec == 0);
     }
-    // for(int i = 0; i < TOTAL_IC; i++) {
-    //     memset(IC[i].sid.sid, 0, 6);
-    // }
-    // adBms6830_read_device_sid(TOTAL_IC, IC);
 }
 
 void StartBmsTask(void *argument)

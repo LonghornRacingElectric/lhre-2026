@@ -9,4 +9,5 @@ void hvc_set_contactor_status(int state, bool pos, bool neg);
 
 void hvc_set_cell_temperatures(float *cell_temps);
 
+void hvc_set_cell_voltages(float *cell_voltages);
 #endif
