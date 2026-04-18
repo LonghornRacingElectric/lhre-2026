@@ -143,11 +143,83 @@ CREATE TABLE public.drive_day (
     -- ARB settings (free text: low|medium|stiff)
     front_arb_setting        text,
     rear_arb_setting         text,
-    CONSTRAINT drive_day_pk   PRIMARY KEY (day_id),
-    CONSTRAINT fk_car_id      FOREIGN KEY (car_id)       REFERENCES lut_car(car_id),
-    CONSTRAINT fk_driver_id   FOREIGN KEY (driver_id)    REFERENCES lut_driver(driver_id),
-    CONSTRAINT fk_location_id FOREIGN KEY (location_id)  REFERENCES lut_location(location_id),
-    CONSTRAINT fk_event_type  FOREIGN KEY (event_type)   REFERENCES lut_event_type(type_id)
+    CONSTRAINT drive_day_pk  PRIMARY KEY (day_id)
+);
+
+-- LUT for Driver IDs
+CREATE TABLE public.lut_driver (
+	driver_id           smallint    NOT NULL,
+	driver_name         text        NOT NULL,
+	driver_weight       smallint,
+	CONSTRAINT lut_driver_pk PRIMARY KEY (driver_id)
+);
+INSERT INTO public.lut_driver (driver_id, driver_name, driver_weight) VALUES (0, 'Other', DEFAULT);
+INSERT INTO public.lut_driver (driver_id, driver_name, driver_weight) VALUES (4, 'Andrew Cloran', DEFAULT);
+INSERT INTO public.lut_driver (driver_id, driver_name, driver_weight) VALUES (5, 'Ali Jensen', DEFAULT);
+INSERT INTO public.lut_driver (driver_id, driver_name, driver_weight) VALUES (7, 'Viraj Bhalla', DEFAULT);
+INSERT INTO public.lut_driver (driver_id, driver_name, driver_weight) VALUES (8, 'Luke Ballengee', DEFAULT);
+
+-- LUT for Location IDs
+CREATE TABLE public.lut_location (
+	location_id         smallint    NOT NULL,
+	area                text        NOT NULL,
+	track               text        NOT NULL,
+	CONSTRAINT lut_location_pk PRIMARY KEY (location_id)
+);
+INSERT INTO public.lut_location (location_id, area, track) VALUES (0, 'Other', 'Other');
+INSERT INTO public.lut_location (location_id, area, track) VALUES (1, 'Pickle', 'Innovation Blvd');
+INSERT INTO public.lut_location (location_id, area, track) VALUES (2, 'Pickle', 'North Lot');
+INSERT INTO public.lut_location (location_id, area, track) VALUES (3, 'Pickle', 'South Lot');
+INSERT INTO public.lut_location (location_id, area, track) VALUES (4, 'COTA', 'Lot J');
+INSERT INTO public.lut_location (location_id, area, track) VALUES (5, 'COTA', 'Lot H');
+INSERT INTO public.lut_location (location_id, area, track) VALUES (6, 'COTA', 'Go Kart Track');
+
+
+-- LUT for Car IDs
+CREATE TABLE public.lut_car (
+	car_id              smallint    NOT NULL,
+	car_name            text        NOT NULL,
+	CONSTRAINT lut_car_pk PRIMARY KEY (car_id)
+);
+INSERT INTO public.lut_car (car_id, car_name) VALUES (1, 'Easy Driver');
+INSERT INTO public.lut_car (car_id, car_name) VALUES (2, 'Lady Luck');
+INSERT INTO public.lut_car (car_id, car_name) VALUES (3, 'Angelique');
+INSERT INTO public.lut_car (car_id, car_name) VALUES (4, 'Nightwatch');
+INSERT INTO public.lut_car (car_id, car_name) VALUES (5, 'Orion');
+
+
+-- LUT for Event Types
+CREATE TABLE public.lut_event_type (
+	type_id             smallint    NOT NULL,
+	event_type          text        NOT NULL,
+	CONSTRAINT lut_event_type_pk PRIMARY KEY (type_id)
+);
+INSERT INTO public.lut_event_type (type_id, event_type) VALUES (0, 'Other');
+INSERT INTO public.lut_event_type (type_id, event_type) VALUES (1, 'Endurance');
+INSERT INTO public.lut_event_type (type_id, event_type) VALUES (2, 'Autocross');
+INSERT INTO public.lut_event_type (type_id, event_type) VALUES (3, 'Skidpad');
+INSERT INTO public.lut_event_type (type_id, event_type) VALUES (4, 'Straightline Acceleration');
+INSERT INTO public.lut_event_type (type_id, event_type) VALUES (5, 'Straightline Breaking');
+
+ALTER TABLE public.drive_day
+    ADD CONSTRAINT fk_car_id FOREIGN KEY (car_id) REFERENCES public.lut_car(car_id),
+    ADD CONSTRAINT fk_driver_id FOREIGN KEY (driver_id) REFERENCES public.lut_driver(driver_id),
+    ADD CONSTRAINT fk_location_id FOREIGN KEY (location_id) REFERENCES public.lut_location(location_id),
+    ADD CONSTRAINT fk_event_type FOREIGN KEY (event_type) REFERENCES public.lut_event_type(type_id);
+
+
+-- Track Mapping table
+CREATE TABLE public.track_mapping (
+    track_mapping_id    serial          NOT NULL,
+    name                text            NOT NULL,
+    created_at          bigint          NOT NULL,
+    start_gate_lat1     double precision NOT NULL,
+    start_gate_lon1     double precision NOT NULL,
+    start_gate_lat2     double precision NOT NULL,
+    start_gate_lon2     double precision NOT NULL,
+    points              jsonb,
+    sectors             jsonb,
+    CONSTRAINT track_mapping_pk PRIMARY KEY (track_mapping_id)
 );
 
 -- Classifier table
