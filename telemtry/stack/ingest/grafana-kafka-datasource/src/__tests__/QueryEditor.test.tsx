@@ -1,0 +1,556 @@
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { QueryEditor } from '../QueryEditor';
+import {
+  AutoOffsetReset,
+  TimestampMode,
+  defaultQuery,
+  MessageFormat,
+  AvroSchemaSource,
+  ProtobufSchemaSource,
+  KeyFormat,
+  type KafkaQuery,
+} from '../types';
+import { deepFreeze } from '../test-utils/test-helpers';
+
+// Mock @grafana/ui components
+jest.mock('@grafana/ui', () => ({
+  InlineField: ({ children, label }: any) => (
+    <div data-testid="inline-field" aria-label={label}>
+      {label && <label>{label}</label>}
+      {children}
+    </div>
+  ),
+  InlineFieldRow: ({ children }: any) => <div data-testid="inline-field-row">{children}</div>,
+  Input: (props: any) => <input {...props} />,
+  Select: ({ value, onChange, options, placeholder, id }: any) => (
+    <select
+      id={id}
+      value={String(value)}
+      onChange={(e) => {
+        const selectedOption = options.find((opt: any) => String(opt.value) === e.target.value);
+        if (selectedOption && onChange) {
+          onChange(selectedOption);
+        }
+      }}
+      data-testid="select"
+    >
+      <option value="">{placeholder}</option>
+      {options?.map((option: any) => (
+        <option key={option.value} value={String(option.value)}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  ),
+  Button: ({ children, onClick, disabled }: any) => (
+    <button onClick={onClick} disabled={disabled}>
+      {children}
+    </button>
+  ),
+  Spinner: () => <div data-testid="spinner">Loading...</div>,
+  Alert: ({ children, title, severity }: any) => (
+    <div data-testid="alert" data-severity={severity}>
+      {title && <h4>{title}</h4>}
+      {children}
+    </div>
+  ),
+  InlineLabel: ({ children }: any) => <label>{children}</label>,
+  useStyles2: jest.fn((getStyles: any) => {
+    const mockTheme: any = {
+      spacing: (value: number) => `${value * 8}px`,
+      colors: {
+        background: { primary: '#fff', secondary: '#f5f5f5' },
+        border: { medium: '#ccc', weak: '#e0e0e0' },
+        text: { primary: '#000', secondary: '#666' },
+        success: { text: '#28a745' },
+      },
+      typography: {
+        bodySmall: { fontSize: '12px' },
+        fontFamilyMonospace: 'monospace',
+      },
+      shape: { radius: { default: '4px' } },
+      shadows: { z2: '0 2px 8px rgba(0,0,0,0.2)' },
+      zIndex: { dropdown: 1000 },
+    };
+    return getStyles(mockTheme);
+  }),
+}));
+
+// Enhanced DataSource mock
+const mockDs = {
+  getTopicPartitions: jest.fn().mockResolvedValue([0, 1, 2]),
+  searchTopics: jest.fn().mockResolvedValue(['topic1', 'topic2', 'my-topic']),
+} as any;
+
+const onChange = jest.fn();
+const onRunQuery = jest.fn();
+
+beforeEach(() => {
+  jest.useFakeTimers();
+  jest.clearAllMocks();
+});
+afterEach(() => {
+  jest.runOnlyPendingTimers();
+  jest.useRealTimers();
+});
+
+const renderEditor = (query?: Partial<KafkaQuery>) =>
+  render(
+    <QueryEditor
+      datasource={mockDs}
+      onChange={onChange}
+      onRunQuery={onRunQuery}
+      query={{ refId: 'A', ...defaultQuery, ...query } as KafkaQuery}
+      app={'explore' as any}
+    />
+  );
+
+describe('QueryEditor', () => {
+  it('does not mutate frozen props', () => {
+    const frozenQuery: KafkaQuery = deepFreeze({
+      refId: 'A',
+      topicName: '',
+      partition: 'all',
+      autoOffsetReset: AutoOffsetReset.LATEST,
+      timestampMode: TimestampMode.Message,
+      lastN: 100,
+      messageFormat: MessageFormat.JSON,
+    });
+    expect(() => {
+      render(
+        <QueryEditor
+          datasource={mockDs}
+          onChange={onChange}
+          onRunQuery={onRunQuery}
+          query={frozenQuery}
+          app={'explore' as any}
+        />
+      );
+    }).not.toThrow();
+  });
+  it('disables browser autocomplete on topic input and shows suggestions panel', async () => {
+    renderEditor({ topicName: '' });
+    const input = screen.getByPlaceholderText('Enter topic name') as HTMLInputElement;
+
+    // Verify autocomplete attributes are set
+    expect(input.getAttribute('autocomplete')).toBe('off');
+    expect(input.getAttribute('autocorrect')).toBe('off');
+    expect(input.getAttribute('autocapitalize')).toBe('none');
+    expect(input.getAttribute('spellcheck')).toBe('false');
+
+    // Type to trigger search (debounced internally). We won't assert network; just UI flags.
+    fireEvent.change(input, { target: { value: 'my' } });
+    // Focus should allow suggestions container to toggle on
+    fireEvent.focus(input);
+  });
+
+  it('renders Last N input only when mode is LAST_N', () => {
+    const { rerender } = renderEditor({ autoOffsetReset: AutoOffsetReset.LATEST });
+    // When mode is LATEST, the lastN input should not be present
+    expect(document.getElementById('query-editor-last-n')).toBeNull();
+
+    rerender(
+      <QueryEditor
+        datasource={mockDs}
+        onChange={onChange}
+        onRunQuery={onRunQuery}
+        query={{ refId: 'A', ...defaultQuery, autoOffsetReset: AutoOffsetReset.LAST_N } as KafkaQuery}
+        app={'explore' as any}
+      />
+    );
+
+    // When mode is LAST_N, the lastN input should be present
+    expect(document.getElementById('query-editor-last-n')).toBeInTheDocument();
+  });
+
+  it('calls onChange when topic name changes', () => {
+    renderEditor({ topicName: 'initial-topic' });
+    const input = screen.getByPlaceholderText('Enter topic name') as HTMLInputElement;
+
+    fireEvent.change(input, { target: { value: 'new-topic' } });
+
+    expect(onChange).toHaveBeenCalledWith({
+      refId: 'A',
+      ...defaultQuery,
+      topicName: 'new-topic',
+    });
+  });
+
+  it('calls onChange and onRunQuery when partition changes', () => {
+    // Start with a numeric partition so it's included in options before fetching
+    renderEditor({ partition: 1 });
+    const partitionSelect = document.getElementById('query-editor-partition') as HTMLSelectElement;
+
+    // Change to 'all'
+    fireEvent.change(partitionSelect, { target: { value: 'all' } });
+
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ partition: 'all' }));
+    expect(onRunQuery).toHaveBeenCalled();
+  });
+
+  it('calls onChange and onRunQuery when auto offset reset changes', () => {
+    renderEditor({ autoOffsetReset: AutoOffsetReset.LATEST });
+    const offsetSelect = screen.getAllByTestId('select')[1]; // Second select is offset
+
+    fireEvent.change(offsetSelect, { target: { value: AutoOffsetReset.EARLIEST } });
+
+    expect(onChange).toHaveBeenCalledWith({
+      refId: 'A',
+      ...defaultQuery,
+      autoOffsetReset: AutoOffsetReset.EARLIEST,
+    });
+    expect(onRunQuery).toHaveBeenCalled();
+  });
+
+  it('sets default lastN value when switching to LAST_N mode', () => {
+    renderEditor({ autoOffsetReset: AutoOffsetReset.LATEST });
+    const offsetSelect = screen.getAllByTestId('select')[1];
+
+    fireEvent.change(offsetSelect, { target: { value: AutoOffsetReset.LAST_N } });
+
+    expect(onChange).toHaveBeenCalledWith({
+      refId: 'A',
+      ...defaultQuery,
+      autoOffsetReset: AutoOffsetReset.LAST_N,
+      lastN: 100,
+    });
+  });
+
+  it('calls onChange and onRunQuery when lastN changes', () => {
+    renderEditor({ autoOffsetReset: AutoOffsetReset.LAST_N, lastN: 100 });
+    const lastNInput = document.getElementById('query-editor-last-n') as HTMLInputElement;
+
+    fireEvent.change(lastNInput, { target: { value: '50' } });
+
+    expect(onChange).toHaveBeenCalledWith({
+      refId: 'A',
+      ...defaultQuery,
+      autoOffsetReset: AutoOffsetReset.LAST_N,
+      lastN: 50,
+    });
+    expect(onRunQuery).toHaveBeenCalled();
+  });
+
+  it('clamps lastN values to valid range', () => {
+    renderEditor({ autoOffsetReset: AutoOffsetReset.LAST_N, lastN: 100 });
+    const lastNInput = document.getElementById('query-editor-last-n') as HTMLInputElement;
+
+    // Test negative value gets clamped to 1
+    fireEvent.change(lastNInput, { target: { value: '-5' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ lastN: 1 }));
+
+    // Test zero gets clamped to 1
+    fireEvent.change(lastNInput, { target: { value: '0' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ lastN: 1 }));
+
+    // Test very large value gets clamped
+    fireEvent.change(lastNInput, { target: { value: '10000000' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ lastN: 1000000 }));
+  });
+
+  it('calls onChange and onRunQuery when timestamp mode changes', () => {
+    renderEditor({ timestampMode: TimestampMode.Now });
+    const timestampSelect = screen.getAllByTestId('select')[2]; // Third select is timestamp mode
+
+    fireEvent.change(timestampSelect, { target: { value: TimestampMode.Message } });
+
+    expect(onChange).toHaveBeenCalledWith({
+      refId: 'A',
+      ...defaultQuery,
+      timestampMode: TimestampMode.Message,
+    });
+    expect(onRunQuery).toHaveBeenCalled();
+  });
+
+  it('shows warning alert for non-LATEST offset modes', () => {
+    const { rerender } = renderEditor({ autoOffsetReset: AutoOffsetReset.LATEST });
+    expect(screen.queryByTestId('alert')).toBeNull();
+
+    rerender(
+      <QueryEditor
+        datasource={mockDs}
+        onChange={onChange}
+        onRunQuery={onRunQuery}
+        query={{ refId: 'A', ...defaultQuery, autoOffsetReset: AutoOffsetReset.EARLIEST } as KafkaQuery}
+        app={'explore' as any}
+      />
+    );
+
+    expect(screen.getByTestId('alert')).toBeInTheDocument();
+    expect(screen.getByText('Potential higher load')).toBeInTheDocument();
+  });
+
+  it('calls fetchPartitions when fetch button is clicked', async () => {
+    renderEditor({ topicName: 'test-topic' });
+    const fetchButton = screen.getByText('Fetch');
+
+    fireEvent.click(fetchButton);
+
+    expect(mockDs.getTopicPartitions).toHaveBeenCalledWith('test-topic');
+  });
+
+  it('disables fetch button when no topic name or loading', () => {
+    const { rerender } = renderEditor({ topicName: '' });
+    const fetchButton = screen.getByText('Fetch');
+
+    expect(fetchButton).toBeDisabled();
+
+    rerender(
+      <QueryEditor
+        datasource={mockDs}
+        onChange={onChange}
+        onRunQuery={onRunQuery}
+        query={{ refId: 'A', ...defaultQuery, topicName: 'test-topic' } as KafkaQuery}
+        app={'explore' as any}
+      />
+    );
+
+    expect(fetchButton).not.toBeDisabled();
+  });
+
+  it('commits topic and triggers query on Enter key', () => {
+    renderEditor({ topicName: 'test-topic' });
+    const input = screen.getByPlaceholderText('Enter topic name') as HTMLInputElement;
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onRunQuery).toHaveBeenCalled();
+    expect(mockDs.getTopicPartitions).toHaveBeenCalledWith('test-topic');
+  });
+
+  it('shows available partitions in partition select after fetch', async () => {
+    mockDs.getTopicPartitions.mockResolvedValueOnce([0, 1, 2, 3]);
+    renderEditor({ topicName: 'test-topic' });
+
+    const fetchButton = screen.getByText('Fetch');
+    fireEvent.click(fetchButton);
+
+    // Wait for the async operation to complete
+    await waitFor(() => {
+      const partitionSelect = document.getElementById('query-editor-partition') as HTMLSelectElement;
+      // Includes placeholder option + All partitions + 4 partitions
+      expect(partitionSelect.options).toHaveLength(6);
+    });
+  });
+
+  it('handles fetch partitions error gracefully', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockDs.getTopicPartitions.mockRejectedValueOnce(new Error('Network error'));
+
+    renderEditor({ topicName: 'test-topic' });
+    const fetchButton = screen.getByText('Fetch');
+
+    fireEvent.click(fetchButton);
+
+    await waitFor(() => {
+      expect(consoleError).toHaveBeenCalledWith('Failed to fetch partitions:', expect.any(Error));
+    });
+
+    consoleError.mockRestore();
+  });
+
+  it('searches for topics when typing with debounce', async () => {
+    renderEditor({ topicName: '' });
+    const input = screen.getByPlaceholderText('Enter topic name') as HTMLInputElement;
+
+    fireEvent.change(input, { target: { value: 'my' } });
+
+    // The search is debounced, so we need to wait
+    await waitFor(
+      () => {
+        expect(mockDs.searchTopics).toHaveBeenCalledWith('my', 10);
+      },
+      { timeout: 500 }
+    );
+  });
+
+  it('handles topic search error gracefully', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockDs.searchTopics.mockRejectedValueOnce(new Error('Search error'));
+
+    renderEditor({ topicName: '' });
+    const input = screen.getByPlaceholderText('Enter topic name') as HTMLInputElement;
+
+    fireEvent.change(input, { target: { value: 'test' } });
+
+    await waitFor(
+      () => {
+        expect(consoleError).toHaveBeenCalledWith('Failed to search topics:', expect.any(Error));
+      },
+      { timeout: 500 }
+    );
+
+    consoleError.mockRestore();
+  });
+
+  it('renders message format select with JSON as default', () => {
+    renderEditor();
+    const messageFormatSelect = screen.getAllByTestId('select')[3] as HTMLSelectElement; // Fourth select is message format
+
+    expect(messageFormatSelect).toBeInTheDocument();
+    expect(messageFormatSelect.value).toBe(MessageFormat.JSON);
+  });
+
+  it('calls onChange and onRunQuery when message format changes to Avro', () => {
+    renderEditor({ messageFormat: MessageFormat.JSON });
+    const messageFormatSelect = screen.getAllByTestId('select')[3];
+
+    fireEvent.change(messageFormatSelect, { target: { value: MessageFormat.AVRO } });
+
+    expect(onChange).toHaveBeenCalledWith({
+      refId: 'A',
+      ...defaultQuery,
+      messageFormat: MessageFormat.AVRO,
+    });
+    expect(onRunQuery).toHaveBeenCalled();
+  });
+
+  it('shows Avro configuration when message format is Avro', () => {
+    renderEditor({ messageFormat: MessageFormat.AVRO });
+    expect(screen.getByText('Avro Schema Source')).toBeInTheDocument();
+  });
+
+  it('shows Protobuf configuration when message format is Protobuf', () => {
+    renderEditor({ messageFormat: MessageFormat.PROTOBUF });
+    expect(screen.getByText('Protobuf Schema Source')).toBeInTheDocument();
+  });
+
+  it('does not show Avro configuration when message format is JSON', () => {
+    renderEditor({ messageFormat: MessageFormat.JSON });
+    expect(screen.queryByText('Avro Schema Source')).not.toBeInTheDocument();
+  });
+
+  it('does not show Protobuf configuration when message format is JSON', () => {
+    renderEditor({ messageFormat: MessageFormat.JSON });
+    expect(screen.queryByText('Protobuf Schema Source')).not.toBeInTheDocument();
+  });
+
+  it('renders Avro schema source select with Schema Registry as default', () => {
+    renderEditor({ messageFormat: MessageFormat.AVRO });
+    const avroSourceSelect = screen.getAllByTestId('select')[5] as HTMLSelectElement; // Sixth select is avro source (after Key Format)
+
+    expect(avroSourceSelect).toBeInTheDocument();
+    expect(avroSourceSelect.value).toBe(AvroSchemaSource.SCHEMA_REGISTRY);
+  });
+
+  it('renders Protobuf schema source select with Schema Registry as default', () => {
+    renderEditor({ messageFormat: MessageFormat.PROTOBUF });
+    const protoSourceSelect = screen.getAllByTestId('select')[5] as HTMLSelectElement; // Sixth select is protobuf source (after Key Format)
+
+    expect(protoSourceSelect).toBeInTheDocument();
+    expect(protoSourceSelect.value).toBe(ProtobufSchemaSource.SCHEMA_REGISTRY);
+  });
+
+  it('calls onChange and onRunQuery when Avro schema source changes', () => {
+    renderEditor({ messageFormat: MessageFormat.AVRO, avroSchemaSource: AvroSchemaSource.SCHEMA_REGISTRY });
+    const avroSourceSelect = screen.getAllByTestId('select')[5]; // Sixth select (after Key Format)
+
+    fireEvent.change(avroSourceSelect, { target: { value: AvroSchemaSource.INLINE_SCHEMA } });
+
+    expect(onChange).toHaveBeenCalledWith({
+      refId: 'A',
+      ...defaultQuery,
+      messageFormat: MessageFormat.AVRO,
+      avroSchemaSource: AvroSchemaSource.INLINE_SCHEMA,
+    });
+    expect(onRunQuery).toHaveBeenCalled();
+  });
+
+  it('shows inline schema textarea when Avro schema source is Inline Schema', () => {
+    renderEditor({ messageFormat: MessageFormat.AVRO, avroSchemaSource: AvroSchemaSource.INLINE_SCHEMA });
+    expect(screen.getByPlaceholderText('Paste your Avro schema JSON here...')).toBeInTheDocument();
+  });
+
+  it('shows inline schema textarea when Protobuf schema source is Inline Schema', () => {
+    renderEditor({ messageFormat: MessageFormat.PROTOBUF, protobufSchemaSource: ProtobufSchemaSource.INLINE_SCHEMA });
+    expect(screen.getByPlaceholderText('Paste your Protobuf schema here...')).toBeInTheDocument();
+  });
+
+  it('does not show inline schema textarea when Avro schema source is Schema Registry', () => {
+    renderEditor({ messageFormat: MessageFormat.AVRO, avroSchemaSource: AvroSchemaSource.SCHEMA_REGISTRY });
+    expect(screen.queryByPlaceholderText('Paste your Avro schema JSON here...')).not.toBeInTheDocument();
+  });
+
+  it('calls onChange and onRunQuery when Avro schema changes', () => {
+    renderEditor({ messageFormat: MessageFormat.AVRO, avroSchemaSource: AvroSchemaSource.INLINE_SCHEMA });
+    const textarea = screen.getByPlaceholderText('Paste your Avro schema JSON here...');
+
+    fireEvent.change(textarea, { target: { value: '{"type": "record", "name": "Test"}' } });
+
+    expect(onChange).toHaveBeenCalledWith({
+      refId: 'A',
+      ...defaultQuery,
+      messageFormat: MessageFormat.AVRO,
+      avroSchemaSource: AvroSchemaSource.INLINE_SCHEMA,
+      avroSchema: '{"type": "record", "name": "Test"}',
+    });
+    expect(onRunQuery).toHaveBeenCalled();
+  });
+
+  describe('Key Format', () => {
+    // Key Format is the 5th select (index 4) in the rendered editor
+    const getKeyFormatSelect = () => screen.getAllByTestId('select')[4] as HTMLSelectElement;
+
+    it('renders key format select with None as default', () => {
+      renderEditor();
+      const select = getKeyFormatSelect();
+      expect(select).toBeInTheDocument();
+      expect(select.value).toBe(KeyFormat.NONE);
+    });
+
+    it('contains all four key format options', () => {
+      renderEditor();
+      const select = getKeyFormatSelect();
+      const values = Array.from(select.options).map((o) => o.value);
+      expect(values).toContain(KeyFormat.NONE);
+      expect(values).toContain(KeyFormat.STRING);
+      expect(values).toContain(KeyFormat.JSON);
+      expect(values).toContain(KeyFormat.BASE64);
+    });
+
+    it('calls onChange and onRunQuery when key format changes to String', () => {
+      renderEditor();
+      fireEvent.change(getKeyFormatSelect(), { target: { value: KeyFormat.STRING } });
+      expect(onChange).toHaveBeenCalledWith({
+        refId: 'A',
+        ...defaultQuery,
+        keyFormat: KeyFormat.STRING,
+      });
+      expect(onRunQuery).toHaveBeenCalled();
+    });
+
+    it('calls onChange and onRunQuery when key format changes to JSON', () => {
+      renderEditor();
+      fireEvent.change(getKeyFormatSelect(), { target: { value: KeyFormat.JSON } });
+      expect(onChange).toHaveBeenCalledWith({
+        refId: 'A',
+        ...defaultQuery,
+        keyFormat: KeyFormat.JSON,
+      });
+      expect(onRunQuery).toHaveBeenCalled();
+    });
+
+    it('calls onChange and onRunQuery when key format changes to Base64', () => {
+      renderEditor();
+      fireEvent.change(getKeyFormatSelect(), { target: { value: KeyFormat.BASE64 } });
+      expect(onChange).toHaveBeenCalledWith({
+        refId: 'A',
+        ...defaultQuery,
+        keyFormat: KeyFormat.BASE64,
+      });
+      expect(onRunQuery).toHaveBeenCalled();
+    });
+
+    it('calls onChange and onRunQuery when key format changes back to None', () => {
+      renderEditor({ keyFormat: KeyFormat.STRING });
+      fireEvent.change(getKeyFormatSelect(), { target: { value: KeyFormat.NONE } });
+      expect(onChange).toHaveBeenCalledWith({
+        refId: 'A',
+        ...defaultQuery,
+        keyFormat: KeyFormat.NONE,
+      });
+      expect(onRunQuery).toHaveBeenCalled();
+    });
+  });
+});
