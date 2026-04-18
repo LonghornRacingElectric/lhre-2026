@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import Image from "next/image";
 import dynamic from "next/dynamic";
 import {
   DndContext,
@@ -21,7 +20,6 @@ import screenfull from "screenfull";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { AppState } from "@/lib/types";
 import TimingDeltas from "@/components/TimingDeltas";
 import LiveViewerBanner from "@/components/LiveViewerBanner";
@@ -39,7 +37,11 @@ const DynamicMap = dynamic(() => import("@/components/Map"), {
   ssr: false,
 });
 
-const Tile = ({ feature, appState, note, setNote, isDragging }) => {
+const DynamicTrackMapper = dynamic(() => import("@/components/TrackMapper"), {
+  ssr: false,
+});
+
+const Tile = ({ feature, note, setNote, isDragging }) => {
   const { attributes, listeners, setNodeRef, style } = useSortableTile(
     feature.id
   );
@@ -131,6 +133,12 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
             <EnergyBudget />
           </div>
         );
+      case "track-mapper":
+        return (
+          <div className="w-full h-full">
+            <DynamicTrackMapper isFullscreen={isFullscreen} />
+          </div>
+        );
       default:
         return null;
     }
@@ -182,7 +190,7 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="flex-grow">
+        <CardContent className="flex-grow p-0 overflow-hidden">
           {renderFeature(feature)}
         </CardContent>
       </Card>
@@ -191,7 +199,7 @@ const Tile = ({ feature, appState, note, setNote, isDragging }) => {
 };
 
 const LiveViewerPage = () => {
-  const [appState, setAppState] = useState<AppState>({});
+  const [, setAppState] = useState<AppState>({});
   const [note, setNote] = useState("");
   const [features, setFeatures] = useState([
     { id: "lap-timer", name: "Timing & Deltas" },
@@ -204,6 +212,7 @@ const LiveViewerPage = () => {
     { id: "energy-budget", name: "Energy Budget & Predictive SOC" },
     { id: "car-dashboard", name: "Car Dashboard" },
     { id: "shutdown-screen", name: "Shutdown Circuit Status" },
+    { id: "track-mapper", name: "Track Mapper" },
   ]);
   const [isDragging, setIsDragging] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -274,7 +283,6 @@ const LiveViewerPage = () => {
                 <Tile
                   key={feature.id}
                   feature={feature}
-                  appState={appState}
                   note={note}
                   setNote={setNote}
                   isDragging={isDragging}
