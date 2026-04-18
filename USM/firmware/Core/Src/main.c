@@ -249,7 +249,7 @@ static void MX_FDCAN2_Init(void)
   hfdcan2.Instance = FDCAN2;
   hfdcan2.Init.ClockDivider = FDCAN_CLOCK_DIV1;
   hfdcan2.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
-  hfdcan2.Init.Mode = FDCAN_MODE_EXTERNAL_LOOPBACK;
+  hfdcan2.Init.Mode = FDCAN_MODE_NORMAL;
   hfdcan2.Init.AutoRetransmission = DISABLE;
   hfdcan2.Init.TransmitPause = DISABLE;
   hfdcan2.Init.ProtocolException = DISABLE;
@@ -438,10 +438,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5|GPIO_PIN_6, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5|GPIO_PIN_6, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_12|GPIO_PIN_9, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_12|GPIO_PIN_9, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PC13 PC14 */
   GPIO_InitStruct.Pin = GPIO_PIN_13|GPIO_PIN_14;
@@ -469,19 +469,8 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-/* USER CODE END 4 */
-
-/* USER CODE BEGIN Header_StartWheelSpeedTask */
-/**
-  * @brief Function implementing the wheelSpeedTask thread.
-  * @param argument: Not used
-  * @retval None
-  */
-/* USER CODE END Header_StartWheelSpeedTask */
 void StartWheelSpeedTask(void *argument)
 {
-  /* USER CODE BEGIN StartWheelSpeedTask */
   osDelay(2000);  // wait for USB CDC to enumerate
   WheelSpeed_Init(&hspi2);
   IMU_Init(&hspi2);
@@ -491,13 +480,11 @@ void StartWheelSpeedTask(void *argument)
   {
     WheelSpeed_Update();
 
-    // Convert RPM to rad/s and send over CAN
     float rpm = WheelSpeed_GetRPM();
     float rads = rpm * 2.0f * 3.14159f / 60.0f;
     float mph = WheelSpeed_GetMPH();
     usm_can_update_wheel_speed(rads);
 
-    // Read IMU and send over CAN
     IMU_Read(&imu);
     usm_can_update_accel(imu.accel_x, imu.accel_y, imu.accel_z);
 
@@ -506,8 +493,8 @@ void StartWheelSpeedTask(void *argument)
     CDC_Transmit_FS((uint8_t *)buf, (uint16_t)len);
     osDelay(200);
   }
-  /* USER CODE END StartWheelSpeedTask */
 }
+/* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
 /**

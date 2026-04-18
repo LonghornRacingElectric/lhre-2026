@@ -27,6 +27,7 @@
 #include "usm_can.h"
 #include "imu.h"
 #include "longhorn/rtos/led.h"
+#include "longhorn/rtos/logger.h"
 #include "usbd_cdc_if.h"
 #include <stdio.h>
 /* USER CODE END Includes */
@@ -60,7 +61,7 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 128 * 4
+  .stack_size = 512 * 4
 };
 /* USER CODE BEGIN PV */
 osThreadId_t wheelSpeedTaskHandle;
@@ -248,13 +249,13 @@ static void MX_FDCAN2_Init(void)
   hfdcan2.Instance = FDCAN2;
   hfdcan2.Init.ClockDivider = FDCAN_CLOCK_DIV1;
   hfdcan2.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
-  hfdcan2.Init.Mode = FDCAN_MODE_NORMAL;
+  hfdcan2.Init.Mode = FDCAN_MODE_EXTERNAL_LOOPBACK;
   hfdcan2.Init.AutoRetransmission = DISABLE;
   hfdcan2.Init.TransmitPause = DISABLE;
   hfdcan2.Init.ProtocolException = DISABLE;
-  hfdcan2.Init.NominalPrescaler = 16;
+  hfdcan2.Init.NominalPrescaler = 12;
   hfdcan2.Init.NominalSyncJumpWidth = 1;
-  hfdcan2.Init.NominalTimeSeg1 = 1;
+  hfdcan2.Init.NominalTimeSeg1 = 2;
   hfdcan2.Init.NominalTimeSeg2 = 1;
   hfdcan2.Init.DataPrescaler = 1;
   hfdcan2.Init.DataSyncJumpWidth = 1;
@@ -350,7 +351,7 @@ static void MX_TIM2_Init(void)
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
   sConfigOC.Pulse = 0;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
@@ -521,11 +522,13 @@ void StartDefaultTask(void *argument)
   MX_USB_Device_Init();
   /* USER CODE BEGIN 5 */
   osDelay(500);
+  init_logging(CDC_Transmit_FS);
   usm_can_init();
 
   /* Infinite loop */
   for(;;)
   {
+    usm_can_debug();
     osDelay(1000);
   }
   /* USER CODE END 5 */
