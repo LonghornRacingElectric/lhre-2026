@@ -80,7 +80,7 @@ export function useDemoData(enabled: boolean): DashMessage | null {
 
             // Accumulate derived values
             a.charge = Math.max(0, a.charge - (newPower > 0 ? 0.05 : -0.01));
-            a.temp = Math.min(100, Math.max(20, a.temp + (newPower > 50 ? 0.05 : -0.02)));
+            a.temp = Math.min(75, Math.max(20, a.temp + (newPower > 50 ? 0.05 : -0.02)));
             a.odometer += s.speed / 3600 / 10;
 
             // Signal strength: occasional random changes
@@ -88,14 +88,8 @@ export function useDemoData(enabled: boolean): DashMessage | null {
                 a.signalStrength = Math.floor(Math.random() * 5);
             }
 
-            // Shutdown circuit: occasional random flips
-            if (Math.random() > 0.8) {
-                const idx = Math.floor(Math.random() * 16);
-                a.shutdown[idx] = !a.shutdown[idx];
-            } else {
-                const idx = Math.floor(Math.random() * 16);
-                a.shutdown[idx] = true;
-            }
+            // Shutdown circuit: all OK in demo mode
+            a.shutdown.fill(true);
 
             // MQTT-like derived values
             const lapDelta = parseFloat((Math.sin(Date.now() / 1000) * 2).toFixed(2));

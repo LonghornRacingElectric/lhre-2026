@@ -121,7 +121,7 @@ model classifier {
   end_time BigInt?
   notes String?
 
-  @@id([day_id, type, start_time])
+  @@id([event_id, type, start_time])
 }
 
 model partitions {
@@ -176,9 +176,9 @@ model track_point {
   longitude Float
   timestamp_ms BigInt
 
-  drive_day drive_day @relation(fields: [day_id], references: [day_id])
+  event event @relation(fields: [event_id], references: [event_id])
 
-  @@index([day_id])
+  @@index([event_id])
 }
 
 model packet {

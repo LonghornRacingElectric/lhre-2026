@@ -64,7 +64,7 @@ CREATE TABLE public.drive_day (
     track_temperature        real,
     -- Status and timing
     status                   smallint,
-    creation_time            bigint      NOT NULL,
+    creation_time            bigint,
     start_time               bigint,
     end_time                 bigint,
     packet_start             bigint,

@@ -3083,7 +3083,7 @@
     },
     {
         "packet_id": 1280,
-        "packet_name": "Acceleration Vector Sprung + Ride Height FL",
+        "packet_name": "FL Accel + Ride Height",
         "from": [
             "CSM"
         ],
@@ -3156,7 +3156,52 @@
     },
     {
         "packet_id": 1281,
-        "packet_name": "Acceleration Vector Sprung + Ride Height FR",
+        "packet_name": "FL Strain Gauge + Sus Pot.",
+        "from": [
+            "CSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 4,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Front Left Strain Gauge Voltage",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.0002,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_strain_gauge_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Front Left Suspension Potentiometer",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_sus_pot_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1282,
+        "packet_name": "FR Accel + Ride Height",
         "from": [
             "CSM"
         ],
@@ -3228,8 +3273,53 @@
         ]
     },
     {
-        "packet_id": 1282,
-        "packet_name": "Acceleration Vector Sprung + Ride Height RL",
+        "packet_id": 1283,
+        "packet_name": "FR Strain Gauge + Sus Pot.",
+        "from": [
+            "CSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 4,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Front Right Strain Gauge Voltage",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.0002,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_strain_gauge_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Front Right Suspension Potentiometer",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_sus_pot_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1284,
+        "packet_name": "RL Accel + Ride Height",
         "from": [
             "CSM"
         ],
@@ -3301,8 +3391,53 @@
         ]
     },
     {
-        "packet_id": 1283,
-        "packet_name": "Acceleration Vector Sprung + Ride Height RR",
+        "packet_id": 1285,
+        "packet_name": "RL Strain Gauge + Sus Pot.",
+        "from": [
+            "CSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 4,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Back Left Strain Gauge Voltage",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.0002,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_strain_gauge_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Back Left Suspension Potentiometer",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_sus_pot_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1286,
+        "packet_name": "RR Accel + Ride Height",
         "from": [
             "CSM"
         ],
@@ -3374,15 +3509,15 @@
         ]
     },
     {
-        "packet_id": 1284,
-        "packet_name": "Front Strain Gauge + Sus Pot.",
+        "packet_id": 1287,
+        "packet_name": "RR Strain Gauge + Sus Pot.",
         "from": [
             "CSM"
         ],
         "to": [
             "Pi"
         ],
-        "data_length": 8,
+        "data_length": 4,
         "frequency_ms": 10,
         "frequency": 100.0,
         "quantity": 1,
@@ -3391,93 +3526,6 @@
             {
                 "index": 0,
                 "start_byte": 0,
-                "name": "Front Left Strain Gauge Voltage",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.0002,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fl_strain_gauge_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Front Right Strain Gauge Voltage",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.0002,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fr_strain_gauge_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Front Left Suspension Potentiometer",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fl_sus_pot_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 6,
-                "name": "Front Right Suspension Potentiometer",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fr_sus_pot_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1285,
-        "packet_name": "Back Strain Gauge + Sus Pot.",
-        "from": [
-            "CSM"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 8,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bus": "Data Acq",
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Back Left Strain Gauge Voltage",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.0002,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bl_strain_gauge_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
                 "name": "Back Right Strain Gauge Voltage",
                 "length": 2,
                 "conv_type": "int16",
@@ -3490,22 +3538,8 @@
                 }
             },
             {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Back Left Suspension Potentiometer",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bl_sus_pot_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 6,
+                "index": 1,
+                "start_byte": 2,
                 "name": "Back Right Suspension Potentiometer",
                 "length": 2,
                 "conv_type": "int16",
