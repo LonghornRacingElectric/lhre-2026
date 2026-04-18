@@ -38,6 +38,7 @@ pub fn update_proto_field_generated(data: &mut OrionSensorData, name: &str, val:
             "batt_loop_batt_temp" => _t.batt_loop_batt_temp = val,
             "batt_loop_rad_fan_speed" => _t.batt_loop_rad_fan_speed = val,
             "batt_loop_rad_temp" => _t.batt_loop_rad_temp = val,
+            "battery_fan_rpm" => _t.battery_fan_rpm = val,
             "bl_ride_height" => _d.bl_ride_height = val,
             "bl_strain_gauge_v" => _d.bl_strain_gauge_v = val,
             "bl_sus_pot_v" => _d.bl_sus_pot_v = val,
@@ -66,6 +67,7 @@ pub fn update_proto_field_generated(data: &mut OrionSensorData, name: &str, val:
             "cell_bottom_temp" => _t.cell_bottom_temp = val,
             "cell_top_temp" => _t.cell_top_temp = val,
             "commanded_torque" => _c.commanded_torque = val,
+            "coolant_flow_lpm" => _t.coolant_flow_lpm = val,
             "coolant_temp" => _t.coolant_temp = val,
             "dc_bus_current" => _p.dc_bus_current = val,
             "dc_bus_v" => _p.dc_bus_v = val,
@@ -73,6 +75,7 @@ pub fn update_proto_field_generated(data: &mut OrionSensorData, name: &str, val:
             "direction" => _c.direction = val != 0.0,
             "discharge_r_temp" => _t.discharge_r_temp = val,
             "enable" => _c.enable = val != 0.0,
+            "fan_rpm" => _t.fan_rpm = val,
             "fl_ride_height" => _d.fl_ride_height = val,
             "fl_strain_gauge_v" => _d.fl_strain_gauge_v = val,
             "fl_sus_pot_v" => _d.fl_sus_pot_v = val,
@@ -102,7 +105,6 @@ pub fn update_proto_field_generated(data: &mut OrionSensorData, name: &str, val:
             "motor_cooling_current" => _t.motor_cooling_current = val,
             "motor_loop_inverter_temp" => _t.motor_loop_inverter_temp = val,
             "motor_loop_motor_temp" => _t.motor_loop_motor_temp = val,
-            "motor_loop_rad_fan_speed" => _t.motor_loop_rad_fan_speed = val,
             "motor_loop_rad_temp" => _t.motor_loop_rad_temp = val,
             "motor_speed" => _c.motor_speed = val,
             "motor_temp" => _t.motor_temp = val,
@@ -143,7 +145,7 @@ pub fn update_proto_field_generated(data: &mut OrionSensorData, name: &str, val:
     }
 }
 
-pub fn update_proto_bool_generated(_data: &mut OrionSensorData, name: &str, _val: bool) {
+pub fn update_proto_bool_generated(data: &mut OrionSensorData, name: &str, val: bool) {
     match name {
         _ => (),
     }

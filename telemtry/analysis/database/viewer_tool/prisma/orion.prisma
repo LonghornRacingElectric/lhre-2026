@@ -324,18 +324,21 @@ model thermal {
   packet_id BigInt @id
   batt_cooling_current Float?
   motor_cooling_current Float?
-  motor_temp           Float?
   ambient_temp         Float?
+  motor_temp           Float?
   batt_loop_batt_temp  Float?
   batt_loop_rad_fan_speed Float?
   batt_loop_rad_temp   Float?
+  battery_fan_rpm      Float?
   bus_bar_temp1        Float?
   bus_bar_temp2        Float?
   bus_bar_temp3        Float?
   cell_bottom_temp     Float?
   cell_top_temp        Float?
+  coolant_flow_lpm     Float?
   coolant_temp         Float?
   discharge_r_temp     Float?
+  fan_rpm              Float?
   gate_driver_temp     Float?
   inverter_hotspot_temp Float?
   inverter_temp        Float?
@@ -344,7 +347,6 @@ model thermal {
   module_c_temp        Float?
   motor_loop_inverter_temp Float?
   motor_loop_motor_temp Float?
-  motor_loop_rad_fan_speed Float?
   motor_loop_rad_temp  Float?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])

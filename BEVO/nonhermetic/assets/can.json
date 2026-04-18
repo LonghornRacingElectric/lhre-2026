@@ -2173,18 +2173,18 @@
     },
     {
         "packet_id": 416,
-        "packet_name": "Motor Cooling",
+        "packet_name": "Coolant Loop Temps",
         "from": [
             "TSM"
         ],
         "to": [
-            "PDU"
+            "Pi"
         ],
         "data_length": 8,
         "frequency_ms": 100,
         "frequency": 10.0,
         "quantity": 1,
-        "bus": "Critical",
+        "bus": "Data Acq",
         "bytes": [
             {
                 "index": 0,
@@ -2227,17 +2227,76 @@
                     "repeated": false,
                     "field_index": null
                 }
+            }
+        ]
+    },
+    {
+        "packet_id": 418,
+        "packet_name": "Fan/Flow Speeds",
+        "from": [
+            "TSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 8,
+        "frequency_ms": 100,
+        "frequency": 10.0,
+        "quantity": 1,
+        "bus": "",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Radiator Fan Speed",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fan_rpm",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Battery Fan Speed",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "battery_fan_rpm",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Coolant Flow",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "coolant_flow_lpm",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 3,
                 "start_byte": 6,
-                "name": "Radiator Fan Speed",
+                "name": "Ambient Temp",
                 "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.2,
+                "conv_type": "int16",
+                "precision": 0.01,
                 "protobuf": {
                     "type": "float",
-                    "field": "motor_loop_rad_fan_speed",
+                    "field": "ambient_temp",
                     "repeated": false,
                     "field_index": null
                 }
