@@ -13,34 +13,37 @@ message OrionSensorData {
 }
 
 message Dynamics {
-    float accel_pedal_travel = 1;
-    float steer_col_angle = 2;
-    repeated float bl_sprung_accel = 3;
-    repeated float bl_unsprung_accel = 4;
-    repeated float br_sprung_accel = 5;
-    repeated float br_unsprung_accel = 6;
-    repeated float fl_sprung_accel = 7;
-    repeated float fl_unsprung_accel = 8;
-    repeated float fr_sprung_accel = 9;
-    repeated float fr_unsprung_accel = 10;
-    float bl_ride_height = 11;
-    float bl_strain_gauge_v = 12;
-    float bl_sus_pot_v = 13;
-    float blw_speed = 14;
-    float br_ride_height = 15;
-    float br_strain_gauge_v = 16;
-    float br_sus_pot_v = 17;
-    float brw_speed = 18;
-    float fl_ride_height = 19;
-    float fl_strain_gauge_v = 20;
-    float fl_sus_pot_v = 21;
-    float flw_speed = 22;
-    float fr_ride_height = 23;
-    float fr_strain_gauge_v = 24;
-    float fr_sus_pot_v = 25;
-    float frw_speed = 26;
-    float ride_height = 27;
-    float wheel_speed = 28;
+    repeated float gps = 1;
+    repeated float gps_imu = 2;
+    float gps_speed = 3;
+    float accel_pedal_travel = 4;
+    float steer_col_angle = 5;
+    repeated float bl_sprung_accel = 6;
+    repeated float bl_unsprung_accel = 7;
+    repeated float br_sprung_accel = 8;
+    repeated float br_unsprung_accel = 9;
+    repeated float fl_sprung_accel = 10;
+    repeated float fl_unsprung_accel = 11;
+    repeated float fr_sprung_accel = 12;
+    repeated float fr_unsprung_accel = 13;
+    float bl_ride_height = 14;
+    float bl_strain_gauge_v = 15;
+    float bl_sus_pot_v = 16;
+    float blw_speed = 17;
+    float br_ride_height = 18;
+    float br_strain_gauge_v = 19;
+    float br_sus_pot_v = 20;
+    float brw_speed = 21;
+    float fl_ride_height = 22;
+    float fl_strain_gauge_v = 23;
+    float fl_sus_pot_v = 24;
+    float flw_speed = 25;
+    float fr_ride_height = 26;
+    float fr_strain_gauge_v = 27;
+    float fr_sus_pot_v = 28;
+    float frw_speed = 29;
+    float ride_height = 30;
+    float wheel_speed = 31;
 }
 
 message Controls {
@@ -99,13 +102,16 @@ message Pack {
 }
 
 message DiagnosticsHigh {
-    float shutdown_current = 1;
-    float hvc_state_machine = 2;
-    float post_faults = 3;
-    float run_faults = 4;
-    bool neg_hv_contactor = 5;
-    bool pos_hv_contactor = 6;
-    bool precharge_contactor = 7;
+    float prndl_state = 1;
+    float shutdown_current = 2;
+    float hvc_state_machine = 3;
+    float post_faults = 4;
+    float run_faults = 5;
+    bool r2d_buzzer = 6;
+    bool stomp_fault = 7;
+    bool neg_hv_contactor = 8;
+    bool pos_hv_contactor = 9;
+    bool precharge_contactor = 10;
 }
 
 message DiagnosticsLow {

@@ -2,10 +2,10 @@ use anyhow::Result;
 use prost::Message;
 use socketcan::{CanSocket, Socket, EmbeddedFrame, Id};
 use std::collections::HashMap;
-use std::io::Write;
-use std::net::UdpSocket;
+use std::io::{BufRead, BufReader, Write};
+use std::net::{TcpListener, UdpSocket};
 use std::os::unix::net::{UnixListener, UnixStream};
-//use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::fs;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -24,6 +24,7 @@ const STARTUP_SEMAPHORE_PATH: &str = "/tmp/BEVO_publishd_ready";
 //const OTA_SEMAPHORE_PATH: &str = "/tmp/BEVO_ota_request"; 
 const CAN_INTERFACE: &str = "can0";
 const DEFAULT_PUBLISH_HZ: u64 = 100;
+const DEFAULT_NMEA_LISTEN_ADDR: &str = "0.0.0.0:2000";
 //const OTA_DOWNLOAD_START_ADDRESS: &str = "0x00000000";
 
 const DEFAULT_CAN_JSON_PATH: &str = "BEVO/nonhermetic/assets/can.json";
@@ -32,6 +33,13 @@ const DEFAULT_CAN_JSON_PATH: &str = "BEVO/nonhermetic/assets/can.json";
 struct RawCanMessage {
     id: u32,
     payload: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct ExternalDynamicsData {
+    gps: Vec<f32>,
+    gps_imu: Vec<f32>,
+    gps_speed: f32,
 }
 
 fn main() -> Result<()> {
@@ -66,6 +74,7 @@ fn main() -> Result<()> {
     );
 
     let sensor_data_cache = Arc::new(Mutex::new(OrionSensorData::default()));
+    let external_dynamics = Arc::new(Mutex::new(ExternalDynamicsData::default()));
     let (raw_tx, raw_rx) = mpsc::channel::<RawCanMessage>();
 
     let can_packet_map = Arc::clone(&packet_map);
@@ -82,9 +91,19 @@ fn main() -> Result<()> {
         can_processing_loop(processing_sensor_data, can_packet_map, raw_rx);
     });
 
-    let ipc_sensor_data = Arc::clone(&sensor_data_cache);
+    let nmea_external_dynamics = Arc::clone(&external_dynamics);
+    let nmea_listen_addr = std::env::var("CAND_NMEA_LISTEN_ADDR")
+        .unwrap_or_else(|_| DEFAULT_NMEA_LISTEN_ADDR.to_string());
     thread::spawn(move || {
-        if let Err(e) = ipc_server_loop(ipc_sensor_data, publish_hz, initial_packet_id) {
+        if let Err(e) = nmea_listener_loop(nmea_external_dynamics, nmea_listen_addr) {
+            eprintln!("[CAND-NMEA] Error: {:?}", e);
+        }
+    });
+
+    let ipc_sensor_data = Arc::clone(&sensor_data_cache);
+    let ipc_external_dynamics = Arc::clone(&external_dynamics);
+    thread::spawn(move || {
+        if let Err(e) = ipc_server_loop(ipc_sensor_data, ipc_external_dynamics, publish_hz, initial_packet_id) {
             eprintln!("[CAND-IPC] Error: {:?}", e);
         }
     });
@@ -210,11 +229,177 @@ fn can_processing_loop(
     raw_rx: Receiver<RawCanMessage>,
 ) {
     while let Ok(message) = raw_rx.recv() {
-        if let Some(config) = packet_map.get(&message.id) {
+        if let Some((config, series_index)) = resolve_packet_config(&packet_map, message.id) {
             let mut locked = data_cache.lock().unwrap();
-            process_raw_data(&mut locked, &message.payload, config);
+            process_raw_data(&mut locked, &message.payload, config, series_index);
         }
     }
+}
+
+fn resolve_packet_config<'a>(
+    packet_map: &'a HashMap<u32, PacketConfig>,
+    message_id: u32,
+) -> Option<(&'a PacketConfig, usize)> {
+    if let Some(config) = packet_map.get(&message_id) {
+        return Some((config, 0));
+    }
+
+    packet_map.values().find_map(|config| {
+        let quantity = config.quantity.max(1);
+        let end_id = config.packet_id.saturating_add(quantity);
+        if message_id >= config.packet_id && message_id < end_id {
+            Some((config, (message_id - config.packet_id) as usize))
+        } else {
+            None
+        }
+    })
+}
+
+fn nmea_listener_loop(external_dynamics: Arc<Mutex<ExternalDynamicsData>>, listen_addr: String) -> Result<()> {
+    let listener = TcpListener::bind(&listen_addr)?;
+    println!("[CAND-NMEA] Listening on {}", listen_addr);
+
+    for incoming in listener.incoming() {
+        match incoming {
+            Ok(stream) => {
+                let peer = stream.peer_addr().ok();
+                println!("[CAND-NMEA] Client connected: {:?}", peer);
+                let reader = BufReader::new(stream);
+                for line in reader.lines() {
+                    let sentence = match line {
+                        Ok(v) => v,
+                        Err(e) => {
+                            eprintln!("[CAND-NMEA] Read error: {:?}", e);
+                            break;
+                        }
+                    };
+                    update_external_dynamics_from_sentence(&external_dynamics, sentence.trim());
+                }
+            }
+            Err(e) => {
+                eprintln!("[CAND-NMEA] Accept error: {:?}", e);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn update_external_dynamics_from_sentence(external_dynamics: &Arc<Mutex<ExternalDynamicsData>>, sentence: &str) {
+    if sentence.is_empty() {
+        return;
+    }
+
+    if let Some((lat, lon)) = parse_nmea_gps(sentence) {
+        let mut locked = external_dynamics.lock().unwrap();
+        locked.gps.clear();
+        locked.gps.push(lat);
+        locked.gps.push(lon);
+        return;
+    }
+
+    if let Some((x, y, z)) = parse_pimu_xyz(sentence) {
+        let mut locked = external_dynamics.lock().unwrap();
+        locked.gps_imu.clear();
+        locked.gps_imu.push(x);
+        locked.gps_imu.push(y);
+        locked.gps_imu.push(z);
+        return;
+    }
+
+    if let Some(speed) = parse_nmea_gps_speed(sentence) {
+        let mut locked = external_dynamics.lock().unwrap();
+        locked.gps_speed = speed;
+    }
+}
+
+fn parse_nmea_gps(sentence: &str) -> Option<(f32, f32)> {
+    if !sentence.starts_with('$') {
+        return None;
+    }
+    let payload = sentence.split('*').next()?;
+    let fields: Vec<&str> = payload.split(',').collect();
+    let msg = fields.first()?;
+
+    let (lat_raw, lat_hemi, lon_raw, lon_hemi) = if msg.ends_with("GGA") {
+        (
+            *fields.get(2)?,
+            *fields.get(3)?,
+            *fields.get(4)?,
+            *fields.get(5)?,
+        )
+    } else if msg.ends_with("RMC") {
+        (
+            *fields.get(3)?,
+            *fields.get(4)?,
+            *fields.get(5)?,
+            *fields.get(6)?,
+        )
+    } else {
+        return None;
+    };
+
+    let lat = nmea_coord_to_decimal(lat_raw, lat_hemi)?;
+    let lon = nmea_coord_to_decimal(lon_raw, lon_hemi)?;
+    Some((lat, lon))
+}
+
+fn nmea_coord_to_decimal(raw: &str, hemi: &str) -> Option<f32> {
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    let value: f64 = raw.parse().ok()?;
+    let degrees = (value / 100.0).floor();
+    let minutes = value - (degrees * 100.0);
+    let mut decimal = degrees + minutes / 60.0;
+
+    let hemi_upper = hemi.trim().to_ascii_uppercase();
+    if hemi_upper == "S" || hemi_upper == "W" {
+        decimal *= -1.0;
+    }
+    Some(decimal as f32)
+}
+
+fn parse_pimu_xyz(sentence: &str) -> Option<(f32, f32, f32)> {
+    if !sentence.starts_with("$PIMU") {
+        return None;
+    }
+    let payload = sentence.split('*').next()?;
+    let mut parts = payload.split(',');
+    parts.next()?;
+    let x: f32 = parts.next()?.trim().parse().ok()?;
+    let y: f32 = parts.next()?.trim().parse().ok()?;
+    let z: f32 = parts.next()?.trim().parse().ok()?;
+    Some((x, y, z))
+
+fn parse_nmea_gps_speed(sentence: &str) -> Option<f32> {
+    if !sentence.starts_with('$') {
+        return None;
+    }
+    let payload = sentence.split('*').next()?;
+    let fields: Vec<&str> = payload.split(',').collect();
+    let msg = fields.first()?;
+
+    let speed_knots = if msg.ends_with("RMC") {
+        // RMC format: field[7] is speed in knots
+        *fields.get(7)?
+    } else if msg.ends_with("VTG") {
+        // VTG format: field[5] is speed in knots
+        *fields.get(5)?
+    } else {
+        return None;
+    };
+
+    let speed: f32 = speed_knots.trim().parse().ok()?;
+    Some(speed)
+}
+}
+
+fn apply_external_dynamics(data: &mut OrionSensorData, external_dynamics: &ExternalDynamicsData) {
+    let dynamics = data.dynamics.get_or_insert_with(Default::default);
+    dynamics.gps = external_dynamics.gps.clone();
+    dynamics.gps_imu = external_dynamics.gps_imu.clone();
+    dynamics.gps_speed = external_dynamics.gps_speed;
 }
 
 // fn ota_processing_loop(device_id: u32, data_link: String) -> Result<std::path::PathBuf> {
@@ -289,7 +474,29 @@ fn can_processing_loop(
 
 // takes raw CAN data + the JSON config for that CAN ID, updates the proto struct in-place with the new values
 
-fn process_raw_data(data: &mut OrionSensorData, payload: &[u8], config: &PacketConfig) {
+fn repeated_field_span(config: &PacketConfig) -> usize {
+    config
+        .bytes
+        .iter()
+        .filter_map(|signal| {
+            signal
+                .protobuf
+                .as_ref()
+                .filter(|protobuf| protobuf.repeated)
+                .and_then(|protobuf| protobuf.field_index)
+        })
+        .max()
+        .map(|index| index + 1)
+        .unwrap_or(0)
+}
+
+fn process_raw_data(
+    data: &mut OrionSensorData,
+    payload: &[u8],
+    config: &PacketConfig,
+    series_index: usize,
+) {
+    let repeated_span = repeated_field_span(config);
     for signal in &config.bytes {
         if signal.start_byte + signal.length > payload.len() { continue; }
         
@@ -317,15 +524,33 @@ fn process_raw_data(data: &mut OrionSensorData, payload: &[u8], config: &PacketC
             _ => continue,
         };
 
-        if let Some(pb) = &signal.protobuf { 
-            generated_mapping::update_proto_field_generated(data, &pb.field_name, val as f32, pb); 
+        if let Some(pb) = &signal.protobuf {
+            if pb.repeated {
+                if let Some(field_index) = pb.field_index {
+                    let mut adjusted_pb = pb.clone();
+                    adjusted_pb.field_index = Some(field_index + series_index.saturating_mul(repeated_span));
+                    generated_mapping::update_proto_field_generated(
+                        data,
+                        &adjusted_pb.field_name,
+                        val as f32,
+                        &adjusted_pb,
+                    );
+                }
+            } else {
+                generated_mapping::update_proto_field_generated(data, &pb.field_name, val as f32, pb);
+            }
         }
     }
 }
 
 /// send them jawns to dashd and publishd over a unix socket, at the specified publish_hz rate
 
-fn ipc_server_loop(sensor_data: Arc<Mutex<OrionSensorData>>, publish_hz: u64, initial_packet_id: u64) -> Result<()> {
+fn ipc_server_loop(
+    sensor_data: Arc<Mutex<OrionSensorData>>,
+    external_dynamics: Arc<Mutex<ExternalDynamicsData>>,
+    publish_hz: u64,
+    initial_packet_id: u64,
+) -> Result<()> {
     let _ = std::fs::remove_file(SOCKET_PATH); 
     let listener = UnixListener::bind(SOCKET_PATH)?;
     let clients = Arc::new(Mutex::new(Vec::<UnixStream>::new()));
@@ -368,6 +593,8 @@ fn ipc_server_loop(sensor_data: Arc<Mutex<OrionSensorData>>, publish_hz: u64, in
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_millis() as i64;
+            let external_snapshot = external_dynamics.lock().unwrap().clone();
+            apply_external_dynamics(&mut data, &external_snapshot);
         }
 
         let cycle_start = Instant::now();

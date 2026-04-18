@@ -28,8 +28,8 @@ static can_interface_t data_acq_bus = {
 static msg_indicators_shutdown_status_t indicator_status_mailbox = {0};
 static can_receive_message_t *indicator_status_mailbox_handle = NULL;
 
-static msg_dui_r2d_authorization_t r2d_authorization_mailbox = {0};
-static can_receive_message_t *r2d_authorization_mailbox_handle = NULL;
+static msg_vcu_state_t vcu_state_mailbox = {0};
+static can_receive_message_t *vcu_state_mailbox_handle = NULL;
 
 static msg_brake_pedal_t brake_pedal_mailbox = {0};
 static can_receive_message_t *brake_pedal_mailbox_handle = NULL;
@@ -103,15 +103,14 @@ void pdu_can_add_receive_handlers(void) {
 
   log_printf(LOG_INFO, "[PDU] CAN IMD + BMS handlers registered\n");
 
-  // DUI R2D Authorization
-  r2d_authorization_mailbox_handle = can_get_receive_message_handle(
-      &r2d_authorization_mailbox, DUI_R2D_AUTHORIZATION_ID,
-      (CAN_unpack_message_fn)unpack_dui_r2d_authorization);
+  // VCU State
+  vcu_state_mailbox_handle = can_get_receive_message_handle(
+      &vcu_state_mailbox, VCU_STATE_ID,
+      (CAN_unpack_message_fn)unpack_vcu_state);
 
-  can_rtos_register_receive_packet(&critical_bus,
-                                   r2d_authorization_mailbox_handle);
+  can_rtos_register_receive_packet(&critical_bus, vcu_state_mailbox_handle);
 
-  log_printf(LOG_INFO, "[PDU] CAN R2D Authorization handler registered\n");
+  log_printf(LOG_INFO, "[PDU] CAN VCU State handler registered\n");
 
   // Brake Pedal
   brake_pedal_mailbox_handle =
@@ -124,8 +123,8 @@ void pdu_can_add_receive_handlers(void) {
 }
 
 bool vehicle_in_park(void) {
-  // 0 indicates VCU has NOT authorized R2D, so vehicle is in Park.
-  return r2d_authorization_mailbox.r2d_authorized == 0;
+  // VCU State packet encodes PRNDL as 0=Park, 1=Drive.
+  return vcu_state_mailbox.prndl_state == 0;
 }
 
 bool vehicle_in_drive(void) { return !vehicle_in_park(); }

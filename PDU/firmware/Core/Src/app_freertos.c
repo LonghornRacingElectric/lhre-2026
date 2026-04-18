@@ -169,11 +169,11 @@ void StartDefaultTask(void *argument) {
   // Enable board power
   HAL_GPIO_WritePin(SW_BOARDS_GPIO_Port, SW_BOARDS_Pin, GPIO_PIN_SET);
 
-  // Enable cooling stuff
-  HAL_GPIO_WritePin(SW_FANS_GPIO_Port, SW_FANS_Pin, GPIO_PIN_SET);
+  // Leave cooling outputs off at LV boot until runtime logic enables them.
+  HAL_GPIO_WritePin(SW_FANS_GPIO_Port, SW_FANS_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(SW_BATT_FANS1_GPIO_Port, SW_BATT_FANS1_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(SW_BATT_FANS2_GPIO_Port, SW_BATT_FANS2_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(SW_PUMPS_GPIO_Port, SW_PUMPS_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(SW_PUMPS_GPIO_Port, SW_PUMPS_Pin, GPIO_PIN_RESET);
 
   // Enable shutdown
   HAL_GPIO_WritePin(EN_SDWN_GPIO_Port, EN_SDWN_Pin, GPIO_PIN_SET);

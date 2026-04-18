@@ -1,7 +1,12 @@
 import { KafkaEvent } from "./bus";
 
 const g = globalThis as any;
-const BUFFER_SIZE = 1000; // Keep last 1000 messages per topic by default
+const DEFAULT_BUFFER_SIZE = 200;
+const configuredSize = Number(process.env.KAFKA_BUFFER_SIZE ?? DEFAULT_BUFFER_SIZE);
+const BUFFER_SIZE =
+  Number.isFinite(configuredSize) && configuredSize > 0
+    ? Math.floor(configuredSize)
+    : DEFAULT_BUFFER_SIZE;
 
 // Map topic -> array of events
 const buffers = g.__kafkaBuffers || new Map<string, KafkaEvent[]>();
@@ -15,7 +20,7 @@ export function bufferMessage(topic: string, event: KafkaEvent) {
   arr.push(event);
   
   if (arr.length > BUFFER_SIZE) {
-    arr.shift();
+    arr.splice(0, arr.length - BUFFER_SIZE);
   }
 }
 

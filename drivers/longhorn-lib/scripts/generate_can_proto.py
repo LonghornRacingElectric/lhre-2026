@@ -416,6 +416,35 @@ def parse_can_model_to_partitions(packets: list) -> Dict[str, List[ParsedField]]
 
     return out
 
+
+def _ensure_dynamics_gps_fields(fields: List[ParsedField]) -> List[ParsedField]:
+    forced_names = ["gps", "gps_imu", "gps_speed"]
+    forced: Dict[str, ParsedField] = {
+        name: ParsedField(
+            proto_name=name,
+            proto_type="float",
+            repeated=(name != "gps_speed"),
+            weight=0.0,
+        )
+        for name in forced_names
+    }
+    existing: Dict[str, ParsedField] = {f.proto_name: f for f in fields}
+
+    result: List[ParsedField] = []
+    for name in forced_names:
+        if name in existing:
+            existing_field = existing.pop(name)
+            if name != "gps_speed":
+                result.append(ParsedField(proto_name=name, proto_type="float", repeated=True, weight=existing_field.weight))
+            else:
+                result.append(ParsedField(proto_name=name, proto_type='float', repeated=False, weight=existing_field.weight))
+        else:
+            result.append(forced[name])
+
+    result.extend([f for f in fields if f.proto_name not in forced_names])
+    return result
+
+
 def _emit_message(name: str, fields: List[ParsedField]) -> str:
     lines: List[str] = []
     lines.append(f"message {name} {{")
@@ -438,12 +467,14 @@ def generate_proto_text(partitions: Dict[str, List[ParsedField]], car_name:str) 
     lines.append("")
 
     # Top-level message
+    dynamics_fields = _ensure_dynamics_gps_fields(partitions.get("Dynamics", []))
+
     lines.append(f"message {car_name}SensorData {{")
     lines.append("    int64 time = 1;")
     lines.append("    int64 packet_id = 2;")
 
     # Match template.proto tag conventions (stable external schema expectations)
-    if partitions.get("Dynamics"):
+    if dynamics_fields:
         lines.append("    Dynamics dynamics = 3;")
     if partitions.get("Controls"):
         lines.append("    Controls controls = 4;")
@@ -461,6 +492,8 @@ def generate_proto_text(partitions: Dict[str, List[ParsedField]], car_name:str) 
     # Partition messages
     for part in partition_order:
         fields = partitions.get(part, [])
+        if part == "Dynamics":
+            fields = _ensure_dynamics_gps_fields(fields)
         if not fields:
             continue
         lines.append(_emit_message(part, fields))

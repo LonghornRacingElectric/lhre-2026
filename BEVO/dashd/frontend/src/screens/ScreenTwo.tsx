@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { useDash } from '../context/DashContext';
 import './ScreenTwo.css';
 
 // Screen Two: Shutdown Circuit Status
@@ -8,7 +9,7 @@ import './ScreenTwo.css';
 interface ShutdownItem {
     id: number;
     name: string;
-    description?: string; // Optional longer description if needed
+    description?: string;
 }
 
 const ITEMS: ShutdownItem[] = [
@@ -31,42 +32,18 @@ const ITEMS: ShutdownItem[] = [
 ];
 
 const ScreenTwo: React.FC = () => {
-    // -------------------------------------------------------------------------
-    // DATA HOOKS & SIMULATION
-    // -------------------------------------------------------------------------
-    // In a real app, this would be an array of booleans from telemetry
-    // index 0 -> item 1, etc.
-    const [statuses, setStatuses] = useState<boolean[]>(Array(16).fill(true));
+    const { data } = useDash();
 
-    useEffect(() => {
-        // Simulation: Randomly trip a sensor every few seconds to show UI state
-        const interval = setInterval(() => {
-            setStatuses(prev => {
-                const newStatuses = [...prev];
-                // 10% chance to flip a random bit to false (bad), 90% chance to reset to true
-                if (Math.random() > 0.8) {
-                    const idx = Math.floor(Math.random() * 16);
-                    newStatuses[idx] = !newStatuses[idx]; 
-                } else {
-                     // Heal randomly
-                     const idx = Math.floor(Math.random() * 16);
-                     newStatuses[idx] = true;
-                }
-                return newStatuses;
-            });
-        }, 2000);
-        return () => clearInterval(interval);
-    }, []);
-
-    // -------------------------------------------------------------------------
+    // Get shutdown array from context, default to all-null if no data
+    const shutdown = data?.can.shutdown;
 
     return (
         <div className="shutdown-container">
             <div className="shutdown-grid">
                 {ITEMS.map((item, index) => {
-                    const isGood = statuses[index];
-                    const statusClass = isGood ? 'status-good' : 'status-bad';
-                    
+                    const status = shutdown ? shutdown[index] : null;
+                    const statusClass = status === null ? 'status-unknown' : status ? 'status-good' : 'status-bad';
+
                     return (
                         <div key={item.id} className={`shutdown-item ${statusClass}`}>
                             <div className="item-number">{item.id}</div>
@@ -79,7 +56,6 @@ const ScreenTwo: React.FC = () => {
                                 )}
                             </div>
                             <div className="status-indicator"></div>
-                            {/* Optional Text: <div className="status-text">{isGood ? "OK" : "FAULT"}</div> */}
                         </div>
                     );
                 })}

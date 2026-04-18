@@ -23,6 +23,7 @@ compile_pip_requirements(
 # Export configuration files
 exports_files([
     "docker-compose.yml",
+    "README.md",
     "requirements.txt",
     "requirements_lock.txt",
 ])

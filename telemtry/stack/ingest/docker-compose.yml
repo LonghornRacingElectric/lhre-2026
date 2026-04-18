@@ -43,6 +43,7 @@ services:
     image: postgres:17
     container_name: db
     restart: unless-stopped
+    shm_size: 2gb
     env_file:
       - path: ../../.env
         required: true
@@ -72,10 +73,11 @@ services:
       GF_SERVER_ROOT_URL: 'http://localhost:3000'  # Adjust if using a different host or port
       GF_SERVER_SERVE_FROM_SUB_PATH: 'false'
       GF_SERVER_PROTOCOL: 'http'
-      GF_INSTALL_PLUGINS: 'hamedkarbasi93-kafka-datasource'
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: 'lhre-kafka-datasource'
     volumes:
       - grafana_storage:/var/lib/grafana
       - ./grafana-provisioning:/etc/grafana/provisioning/datasources:ro
+      - ./grafana-kafka-datasource/dist:/var/lib/grafana/plugins/lhre-kafka-datasource:ro
     networks:
       - telemetry_network
     ports:
