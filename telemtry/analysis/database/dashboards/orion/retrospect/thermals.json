@@ -19,7 +19,9 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": 86,
-  "links": [],
+  "links": [
+
+  ],
   "panels": [
     {
       "datasource": {
@@ -64,7 +66,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -79,7 +83,9 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -91,7 +97,9 @@
       "interval": "200ms",
       "options": {
         "legend": {
-          "calcs": [],
+          "calcs": [
+
+          ],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -107,7 +115,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(thermal.ambient_temp) AS \"thermal/ambient_temp [C]\", AVG(thermal.coolant_temp) AS \"thermal/coolant_temp [C]\", AVG(thermal.motor_temp) AS \"thermal/motor_temp [C]\", AVG(thermal.inverter_temp) AS \"thermal/inverter_temp [C]\", AVG(thermal.batt_loop_batt_temp) AS \"thermal/batt_loop_batt_temp [C]\", AVG(thermal.motor_loop_motor_temp) AS \"thermal/motor_loop_motor_temp [C]\", AVG(thermal.motor_loop_inverter_temp) AS \"thermal/motor_loop_inverter_temp [C]\" FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "SELECT\n    $__timeGroup(ts, $__interval),\n    AVG(ambient_temp) AS \"thermal/ambient_temp [C]\", AVG(coolant_temp) AS \"thermal/coolant_temp [C]\", AVG(motor_temp) AS \"thermal/motor_temp [C]\", AVG(inverter_temp) AS \"thermal/inverter_temp [C]\", AVG(batt_loop_batt_temp) AS \"thermal/batt_loop_batt_temp [C]\", AVG(motor_loop_motor_temp) AS \"thermal/motor_loop_motor_temp [C]\", AVG(motor_loop_inverter_temp) AS \"thermal/motor_loop_inverter_temp [C]\"\nFROM (\n    SELECT\n        to_timestamp(packet.time / 1000.0) AS ts,\n        thermal.ambient_temp, thermal.coolant_temp, thermal.motor_temp, thermal.inverter_temp, thermal.batt_loop_batt_temp, thermal.motor_loop_motor_temp, thermal.motor_loop_inverter_temp\n    FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id\n) t\nWHERE $__timeFilter(ts)\nGROUP BY 1\nORDER BY 1",
           "refId": "A"
         }
       ],
@@ -157,7 +165,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -172,7 +182,9 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -184,7 +196,9 @@
       "interval": "200ms",
       "options": {
         "legend": {
-          "calcs": [],
+          "calcs": [
+
+          ],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -200,7 +214,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(thermal.module_a_temp) AS \"thermal/module_a_temp [C]\", AVG(thermal.module_b_temp) AS \"thermal/module_b_temp [C]\", AVG(thermal.module_c_temp) AS \"thermal/module_c_temp [C]\", AVG(thermal.gate_driver_temp) AS \"thermal/gate_driver_temp [C]\", AVG(thermal.inverter_hotspot_temp) AS \"thermal/inverter_hotspot_temp [C]\", AVG(thermal.discharge_r_temp) AS \"thermal/discharge_r_temp [C]\", AVG(diagnostics_low.precharge_r_temp) AS \"thermal/precharge_r_temp [C]\" FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true JOIN granularity ON true LEFT JOIN diagnostics_low ON diagnostics_low.packet_id = thermal.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "SELECT\n    $__timeGroup(ts, $__interval),\n    AVG(module_a_temp) AS \"thermal/module_a_temp [C]\", AVG(module_b_temp) AS \"thermal/module_b_temp [C]\", AVG(module_c_temp) AS \"thermal/module_c_temp [C]\", AVG(gate_driver_temp) AS \"thermal/gate_driver_temp [C]\", AVG(inverter_hotspot_temp) AS \"thermal/inverter_hotspot_temp [C]\", AVG(discharge_r_temp) AS \"thermal/discharge_r_temp [C]\", AVG(precharge_r_temp) AS \"thermal/precharge_r_temp [C]\"\nFROM (\n    SELECT\n        to_timestamp(packet.time / 1000.0) AS ts,\n        thermal.module_a_temp, thermal.module_b_temp, thermal.module_c_temp, thermal.gate_driver_temp, thermal.inverter_hotspot_temp, thermal.discharge_r_temp, diagnostics_low.precharge_r_temp\n    FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id LEFT JOIN diagnostics_low ON diagnostics_low.packet_id = thermal.packet_id\n) t\nWHERE $__timeFilter(ts)\nGROUP BY 1\nORDER BY 1",
           "refId": "A"
         }
       ],
@@ -250,7 +264,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -265,7 +281,9 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -277,7 +295,9 @@
       "interval": "200ms",
       "options": {
         "legend": {
-          "calcs": [],
+          "calcs": [
+
+          ],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -293,7 +313,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(thermal.batt_loop_rad_fan_speed) AS \"thermal/batt_loop_rad_fan_speed\", AVG(thermal.motor_loop_rad_fan_speed) AS \"thermal/motor_loop_rad_fan_speed\", AVG(thermal.batt_loop_rad_temp) AS \"thermal/batt_loop_rad_temp [C]\", AVG(thermal.motor_loop_rad_temp) AS \"thermal/motor_loop_rad_temp [C]\", AVG(thermal.batt_cooling_current) AS \"thermal/batt_cooling_current [A]\", AVG(thermal.motor_cooling_current) AS \"thermal/motor_cooling_current [A]\" FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "SELECT\n    $__timeGroup(ts, $__interval),\n    AVG(batt_loop_rad_fan_speed) AS \"thermal/batt_loop_rad_fan_speed\", AVG(motor_loop_rad_fan_speed) AS \"thermal/motor_loop_rad_fan_speed\", AVG(batt_loop_rad_temp) AS \"thermal/batt_loop_rad_temp [C]\", AVG(motor_loop_rad_temp) AS \"thermal/motor_loop_rad_temp [C]\", AVG(batt_cooling_current) AS \"thermal/batt_cooling_current [A]\", AVG(motor_cooling_current) AS \"thermal/motor_cooling_current [A]\"\nFROM (\n    SELECT\n        to_timestamp(packet.time / 1000.0) AS ts,\n        thermal.batt_loop_rad_fan_speed, thermal.motor_loop_rad_fan_speed, thermal.batt_loop_rad_temp, thermal.motor_loop_rad_temp, thermal.batt_cooling_current, thermal.motor_cooling_current\n    FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id\n) t\nWHERE $__timeFilter(ts)\nGROUP BY 1\nORDER BY 1",
           "refId": "A"
         }
       ],
@@ -343,7 +363,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -358,7 +380,9 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -369,7 +393,9 @@
       "id": 4,
       "options": {
         "legend": {
-          "calcs": [],
+          "calcs": [
+
+          ],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -385,7 +411,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ), cell_t AS (SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, UNNEST(pack.cells_temps) AS value FROM pack JOIN packet ON packet.packet_id = pack.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end), thermal_t AS (SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(thermal.cell_top_temp) AS cell_top_temp, AVG(thermal.cell_bottom_temp) AS cell_bottom_temp, AVG(thermal.bus_bar_temp1) AS bus_bar_temp1, AVG(thermal.bus_bar_temp2) AS bus_bar_temp2, AVG(thermal.bus_bar_temp3) AS bus_bar_temp3 FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1), diag_t AS (SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(diagnostics_low.precharge_r_temp) AS precharge_r_temp FROM diagnostics_low JOIN packet ON packet.packet_id = diagnostics_low.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1) SELECT cell_t.time, AVG(cell_t.value) AS \"hvc/cells_temp_avg [C]\", MIN(cell_t.value) AS \"hvc/cells_temp_min [C]\", MAX(cell_t.value) AS \"hvc/cells_temp_max [C]\", MAX(thermal_t.cell_top_temp) AS \"hvc/cell_top_temp [C]\", MAX(thermal_t.cell_bottom_temp) AS \"hvc/cell_bottom_temp [C]\", MAX(thermal_t.bus_bar_temp1) AS \"hvc/bus_bar_temp1 [C]\", MAX(thermal_t.bus_bar_temp2) AS \"hvc/bus_bar_temp2 [C]\", MAX(thermal_t.bus_bar_temp3) AS \"hvc/bus_bar_temp3 [C]\", MAX(diag_t.precharge_r_temp) AS \"hvc/precharge_r_temp [C]\" FROM cell_t LEFT JOIN thermal_t ON thermal_t.time = cell_t.time LEFT JOIN diag_t ON diag_t.time = cell_t.time GROUP BY cell_t.time ORDER BY cell_t.time;",
+          "rawSql": "AS step_ms ), cell_t AS (SELECT to_timestamp(packet.time / 1000.0) AS ts, UNNEST(pack.cells_temps) AS value FROM pack JOIN packet ON packet.packet_id = pack.packet_id WHERE $__timeFilter(to_timestamp(packet.time / 1000.0))), thermal_t AS (SELECT to_timestamp(packet.time / 1000.0) AS ts, AVG(thermal.cell_top_temp) AS cell_top_temp, AVG(thermal.cell_bottom_temp) AS cell_bottom_temp, AVG(thermal.bus_bar_temp1) AS bus_bar_temp1, AVG(thermal.bus_bar_temp2) AS bus_bar_temp2, AVG(thermal.bus_bar_temp3) AS bus_bar_temp3 FROM thermal JOIN packet ON packet.packet_id = thermal.packet_id WHERE $__timeFilter(to_timestamp(packet.time / 1000.0)) GROUP BY 1), diag_t AS (SELECT to_timestamp(packet.time / 1000.0) AS ts, AVG(diagnostics_low.precharge_r_temp) AS precharge_r_temp FROM diagnostics_low JOIN packet ON packet.packet_id = diagnostics_low.packet_id WHERE $__timeFilter(to_timestamp(packet.time / 1000.0)) GROUP BY 1) SELECT cell_t.time, AVG(cell_t.value) AS \"hvc/cells_temp_avg [C]\", MIN(cell_t.value) AS \"hvc/cells_temp_min [C]\", MAX(cell_t.value) AS \"hvc/cells_temp_max [C]\", MAX(thermal_t.cell_top_temp) AS \"hvc/cell_top_temp [C]\", MAX(thermal_t.cell_bottom_temp) AS \"hvc/cell_bottom_temp [C]\", MAX(thermal_t.bus_bar_temp1) AS \"hvc/bus_bar_temp1 [C]\", MAX(thermal_t.bus_bar_temp2) AS \"hvc/bus_bar_temp2 [C]\", MAX(thermal_t.bus_bar_temp3) AS \"hvc/bus_bar_temp3 [C]\", MAX(diag_t.precharge_r_temp) AS \"hvc/precharge_r_temp [C]\" FROM cell_t LEFT JOIN thermal_t ON thermal_t.time = cell_t.time LEFT JOIN diag_t ON diag_t.time = cell_t.time GROUP BY cell_t.time ORDER BY cell_t.time;",
           "refId": "A"
         }
       ],
@@ -403,38 +429,15 @@
   ],
   "templating": {
     "list": [
-      {
-        "current": {
-          "text": [
-            "All"
-          ],
-          "value": [
-            "$__all"
-          ]
-        },
-        "datasource": {
-          "type": "grafana-postgresql-datasource",
-          "uid": "orion"
-        },
-        "definition": "SELECT partition_name FROM partitions ORDER BY start_time;",
-        "description": "Select partition generated from packet gaps",
-        "includeAll": true,
-        "label": "Zoom to partition",
-        "multi": true,
-        "name": "Zoom",
-        "options": [],
-        "query": "SELECT partition_name FROM partitions ORDER BY start_time;",
-        "refresh": 1,
-        "regex": "",
-        "type": "query"
-      }
+
     ]
   },
   "time": {
     "from": "2026-03-11T02:50:14.016Z",
     "to": "2026-03-11T11:39:07.864Z"
   },
-  "timepicker": {},
+  "timepicker": {
+  },
   "timezone": "browser",
   "title": "Orion Thermals - Retrospective",
   "uid": "orion_thermals_ret_v1",

@@ -19,7 +19,9 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": 81,
-  "links": [],
+  "links": [
+
+  ],
   "panels": [
     {
       "datasource": {
@@ -64,7 +66,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -79,7 +83,9 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -91,7 +97,9 @@
       "interval": "200ms",
       "options": {
         "legend": {
-          "calcs": [],
+          "calcs": [
+
+          ],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -107,7 +115,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(controls.apps1_v) AS \"vcu/apps1_v [V]\", AVG(controls.apps2_v) AS \"vcu/apps2_v [V]\", AVG(controls.bpps1_v) AS \"vcu/bpps1_v [V]\", AVG(controls.bpps2_v) AS \"vcu/bpps2_v [V]\", AVG(controls.bse1_v) AS \"vcu/bse1_v [V]\", AVG(controls.bse2_v) AS \"vcu/bse2_v [V]\", AVG(controls.bse3_v) AS \"vcu/bse3_v [V]\" FROM controls JOIN packet ON packet.packet_id = controls.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "SELECT\n    $__timeGroup(ts, $__interval),\n    AVG(apps1_v) AS \"vcu/apps1_v [V]\", AVG(apps2_v) AS \"vcu/apps2_v [V]\", AVG(bpps1_v) AS \"vcu/bpps1_v [V]\", AVG(bpps2_v) AS \"vcu/bpps2_v [V]\", AVG(bse1_v) AS \"vcu/bse1_v [V]\", AVG(bse2_v) AS \"vcu/bse2_v [V]\", AVG(bse3_v) AS \"vcu/bse3_v [V]\"\nFROM (\n    SELECT\n        to_timestamp(packet.time / 1000.0) AS ts,\n        controls.apps1_v, controls.apps2_v, controls.bpps1_v, controls.bpps2_v, controls.bse1_v, controls.bse2_v, controls.bse3_v\n    FROM controls JOIN packet ON packet.packet_id = controls.packet_id\n) t\nWHERE $__timeFilter(ts)\nGROUP BY 1\nORDER BY 1",
           "refId": "A"
         }
       ],
@@ -157,7 +165,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -172,7 +182,9 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -184,7 +196,9 @@
       "interval": "200ms",
       "options": {
         "legend": {
-          "calcs": [],
+          "calcs": [
+
+          ],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -200,7 +214,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(controls.apps1_travel) AS \"vcu/apps1_travel [%]\", AVG(controls.apps2_travel) AS \"vcu/apps2_travel [%]\", AVG(controls.bpps1_travel) AS \"vcu/bpps1_travel [%]\", AVG(controls.bpps2_travel) AS \"vcu/bpps2_travel [%]\", AVG(controls.brake_light_pct) AS \"vcu/brake_light_pct [%]\", AVG(controls.brake_bias) AS \"vcu/brake_bias [%]\" FROM controls JOIN packet ON packet.packet_id = controls.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "SELECT\n    $__timeGroup(ts, $__interval),\n    AVG(apps1_travel) AS \"vcu/apps1_travel [%]\", AVG(apps2_travel) AS \"vcu/apps2_travel [%]\", AVG(bpps1_travel) AS \"vcu/bpps1_travel [%]\", AVG(bpps2_travel) AS \"vcu/bpps2_travel [%]\", AVG(brake_light_pct) AS \"vcu/brake_light_pct [%]\", AVG(brake_bias) AS \"vcu/brake_bias [%]\"\nFROM (\n    SELECT\n        to_timestamp(packet.time / 1000.0) AS ts,\n        controls.apps1_travel, controls.apps2_travel, controls.bpps1_travel, controls.bpps2_travel, controls.brake_light_pct, controls.brake_bias\n    FROM controls JOIN packet ON packet.packet_id = controls.packet_id\n) t\nWHERE $__timeFilter(ts)\nGROUP BY 1\nORDER BY 1",
           "refId": "A"
         }
       ],
@@ -250,7 +264,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -265,7 +281,9 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -277,7 +295,9 @@
       "interval": "200ms",
       "options": {
         "legend": {
-          "calcs": [],
+          "calcs": [
+
+          ],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -293,7 +313,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(controls.brake_pressure_f) AS \"vcu/brake_pressure_f [psi]\", AVG(controls.brake_pressure_rbll) AS \"vcu/brake_pressure_rbll [psi]\", AVG(controls.brake_pressure_rall) AS \"vcu/brake_pressure_rall [psi]\" FROM controls JOIN packet ON packet.packet_id = controls.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "SELECT\n    $__timeGroup(ts, $__interval),\n    AVG(brake_pressure_f) AS \"vcu/brake_pressure_f [psi]\", AVG(brake_pressure_rbll) AS \"vcu/brake_pressure_rbll [psi]\", AVG(brake_pressure_rall) AS \"vcu/brake_pressure_rall [psi]\"\nFROM (\n    SELECT\n        to_timestamp(packet.time / 1000.0) AS ts,\n        controls.brake_pressure_f, controls.brake_pressure_rbll, controls.brake_pressure_rall\n    FROM controls JOIN packet ON packet.packet_id = controls.packet_id\n) t\nWHERE $__timeFilter(ts)\nGROUP BY 1\nORDER BY 1",
           "refId": "A"
         }
       ],
@@ -343,7 +363,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -358,7 +380,9 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -370,7 +394,9 @@
       "interval": "200ms",
       "options": {
         "legend": {
-          "calcs": [],
+          "calcs": [
+
+          ],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -386,7 +412,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(dynamics.steer_col_angle) AS \"vcu/steer_col_angle [deg]\" FROM dynamics JOIN packet ON packet.packet_id = dynamics.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "SELECT\n    $__timeGroup(ts, $__interval),\n    AVG(steer_col_angle) AS \"vcu/steer_col_angle [deg]\"\nFROM (\n    SELECT\n        to_timestamp(packet.time / 1000.0) AS ts,\n        dynamics.steer_col_angle\n    FROM dynamics JOIN packet ON packet.packet_id = dynamics.packet_id\n) t\nWHERE $__timeFilter(ts)\nGROUP BY 1\nORDER BY 1",
           "refId": "A"
         }
       ],
@@ -404,38 +430,15 @@
   ],
   "templating": {
     "list": [
-      {
-        "current": {
-          "text": [
-            "All"
-          ],
-          "value": [
-            "$__all"
-          ]
-        },
-        "datasource": {
-          "type": "grafana-postgresql-datasource",
-          "uid": "orion"
-        },
-        "definition": "SELECT partition_name FROM partitions ORDER BY start_time;",
-        "description": "Select partition generated from packet gaps",
-        "includeAll": true,
-        "label": "Zoom to partition",
-        "multi": true,
-        "name": "Zoom",
-        "options": [],
-        "query": "SELECT partition_name FROM partitions ORDER BY start_time;",
-        "refresh": 1,
-        "regex": "",
-        "type": "query"
-      }
+
     ]
   },
   "time": {
     "from": "2026-03-11T00:23:00.000Z",
     "to": "2026-03-12T07:17:00.000Z"
   },
-  "timepicker": {},
+  "timepicker": {
+  },
   "timezone": "browser",
   "title": "Orion Controls - Retrospective",
   "uid": "orion_controls_ret_v1",

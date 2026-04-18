@@ -19,7 +19,9 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": 80,
-  "links": [],
+  "links": [
+
+  ],
   "panels": [
     {
       "datasource": {
@@ -64,7 +66,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -79,7 +83,9 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -92,7 +98,9 @@
       "maxDataPoints": 20000,
       "options": {
         "legend": {
-          "calcs": [],
+          "calcs": [
+
+          ],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -108,12 +116,14 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS (\n  SELECT \n    p.start_time AS effective_start, \n    p.end_time AS effective_end\n  FROM partitions p\n  WHERE (\n    COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 \n    OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n  )\n),\ngranularity AS (\n  SELECT \n    $__interval_ms::double precision AS step_ms\n)\n\nSELECT \n  to_timestamp(\n    floor(packet.time::double precision / granularity.step_ms) \n    * granularity.step_ms / 1000.0\n  ) AS time,\n\n  AVG(thermal.module_a_temp) AS \"inv/module_a_temp [C]\",\n  AVG(thermal.module_b_temp) AS \"inv/module_b_temp [C]\",\n  AVG(thermal.module_c_temp) AS \"inv/module_c_temp [C]\",\n  AVG(thermal.gate_driver_temp) AS \"inv/gate_driver_temp [C]\",\n  AVG(thermal.coolant_temp) AS \"inv/coolant_temp [C]\",\n  AVG(thermal.inverter_hotspot_temp) AS \"inv/inverter_hotspot_temp [C]\",\n  AVG(thermal.motor_temp) AS \"inv/motor_temp [C]\"\n\nFROM thermal\nJOIN packet \n  ON packet.packet_id = thermal.packet_id\nJOIN bounds \n  ON TRUE\nJOIN granularity \n  ON TRUE\n\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\n\nGROUP BY 1\nORDER BY time;",
+          "rawSql": "SELECT\n    $__timeGroup(ts, $__interval),\n    AVG(module_a_temp) AS \"inv/module_a_temp [C]\",\n  AVG(module_b_temp) AS \"inv/module_b_temp [C]\",\n  AVG(module_c_temp) AS \"inv/module_c_temp [C]\",\n  AVG(gate_driver_temp) AS \"inv/gate_driver_temp [C]\",\n  AVG(coolant_temp) AS \"inv/coolant_temp [C]\",\n  AVG(inverter_hotspot_temp) AS \"inv/inverter_hotspot_temp [C]\",\n  AVG(motor_temp) AS \"inv/motor_temp [C]\"\nFROM (\n    SELECT\n        to_timestamp(packet.time / 1000.0) AS ts,\n        thermal.module_a_temp, thermal.module_b_temp, thermal.module_c_temp, thermal.gate_driver_temp, thermal.coolant_temp, thermal.inverter_hotspot_temp, thermal.motor_temp\n    FROM thermal\nJOIN packet \n  ON packet.packet_id = thermal.packet_id\n) t\nWHERE $__timeFilter(ts)\nGROUP BY 1\nORDER BY 1",
           "refId": "A",
           "sql": {
             "columns": [
               {
-                "parameters": [],
+                "parameters": [
+
+                ],
                 "type": "function"
               }
             ],
@@ -175,7 +185,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -190,7 +202,9 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -202,7 +216,9 @@
       "interval": "200ms",
       "options": {
         "legend": {
-          "calcs": [],
+          "calcs": [
+
+          ],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -218,7 +234,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(pack.phase_a_current) AS \"inv/phase_a_current [A]\", AVG(pack.phase_b_current) AS \"inv/phase_b_current [A]\", AVG(pack.phase_c_current) AS \"inv/phase_c_current [A]\", AVG(pack.dc_bus_current) AS \"inv/dc_bus_current [A]\", AVG(pack.dc_bus_v) AS \"inv/dc_bus_v [V]\", AVG(pack.neutral_output_v) AS \"inv/neutral_output_v [V]\", AVG(pack.vab_vq_v) AS \"inv/vab_vq_v [V]\", AVG(pack.vbc_vd_v) AS \"inv/vbc_vd_v [V]\", AVG(pack.bus_voltage) AS \"inv/bus_voltage [V]\" FROM pack JOIN packet ON packet.packet_id = pack.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "SELECT\n    $__timeGroup(ts, $__interval),\n    AVG(phase_a_current) AS \"inv/phase_a_current [A]\", AVG(phase_b_current) AS \"inv/phase_b_current [A]\", AVG(phase_c_current) AS \"inv/phase_c_current [A]\", AVG(dc_bus_current) AS \"inv/dc_bus_current [A]\", AVG(dc_bus_v) AS \"inv/dc_bus_v [V]\", AVG(neutral_output_v) AS \"inv/neutral_output_v [V]\", AVG(vab_vq_v) AS \"inv/vab_vq_v [V]\", AVG(vbc_vd_v) AS \"inv/vbc_vd_v [V]\", AVG(bus_voltage) AS \"inv/bus_voltage [V]\"\nFROM (\n    SELECT\n        to_timestamp(packet.time / 1000.0) AS ts,\n        pack.phase_a_current, pack.phase_b_current, pack.phase_c_current, pack.dc_bus_current, pack.dc_bus_v, pack.neutral_output_v, pack.vab_vq_v, pack.vbc_vd_v, pack.bus_voltage\n    FROM pack JOIN packet ON packet.packet_id = pack.packet_id\n) t\nWHERE $__timeFilter(ts)\nGROUP BY 1\nORDER BY 1",
           "refId": "A"
         }
       ],
@@ -268,7 +284,9 @@
               "mode": "off"
             }
           },
-          "mappings": [],
+          "mappings": [
+
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -283,7 +301,9 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -295,7 +315,9 @@
       "interval": "200ms",
       "options": {
         "legend": {
-          "calcs": [],
+          "calcs": [
+
+          ],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -311,12 +333,14 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(controls.commanded_torque) AS \"inv/commanded_torque [Nm]\", AVG(controls.torque_feedback) AS \"inv/torque_feedback [Nm]\", AVG(controls.torque_command) AS \"inv/torque_command [Nm]\", AVG(controls.torque_request) AS \"vcu/torque_request [Nm]\" FROM packet JOIN bounds ON true JOIN granularity ON true LEFT JOIN controls ON controls.packet_id = packet.packet_id LEFT JOIN pack ON pack.packet_id = packet.packet_id LEFT JOIN diagnostics_high ON diagnostics_high.packet_id = packet.packet_id WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "SELECT\n    $__timeGroup(ts, $__interval),\n    AVG(commanded_torque) AS \"inv/commanded_torque [Nm]\", AVG(torque_feedback) AS \"inv/torque_feedback [Nm]\", AVG(torque_command) AS \"inv/torque_command [Nm]\", AVG(torque_request) AS \"vcu/torque_request [Nm]\"\nFROM (\n    SELECT\n        to_timestamp(packet.time / 1000.0) AS ts,\n        controls.commanded_torque, controls.torque_feedback, controls.torque_command, controls.torque_request\n    FROM packet LEFT JOIN controls ON controls.packet_id = packet.packet_id LEFT JOIN pack ON pack.packet_id = packet.packet_id LEFT JOIN diagnostics_high ON diagnostics_high.packet_id = packet.packet_id\n) t\nWHERE $__timeFilter(ts)\nGROUP BY 1\nORDER BY 1",
           "refId": "A",
           "sql": {
             "columns": [
               {
-                "parameters": [],
+                "parameters": [
+
+                ],
                 "type": "function"
               }
             ],
@@ -346,38 +370,15 @@
   ],
   "templating": {
     "list": [
-      {
-        "current": {
-          "text": [
-            "All"
-          ],
-          "value": [
-            "$__all"
-          ]
-        },
-        "datasource": {
-          "type": "grafana-postgresql-datasource",
-          "uid": "orion"
-        },
-        "definition": "SELECT partition_name FROM partitions ORDER BY start_time;",
-        "description": "Select partition generated from packet gaps",
-        "includeAll": true,
-        "label": "Zoom to partition",
-        "multi": true,
-        "name": "Zoom",
-        "options": [],
-        "query": "SELECT partition_name FROM partitions ORDER BY start_time;",
-        "refresh": 1,
-        "regex": "",
-        "type": "query"
-      }
+
     ]
   },
   "time": {
     "from": "2026-03-11T03:29:11.109Z",
     "to": "2026-03-11T04:22:04.248Z"
   },
-  "timepicker": {},
+  "timepicker": {
+  },
   "timezone": "browser",
   "title": "Orion Inverter - Retrospective",
   "uid": "orion_inverter_retrosp_v1",
