@@ -88,7 +88,7 @@ const TrackMapper = ({ width = 600, height = 400, isFullscreen = false }: { widt
         const validCount = savedPoints.filter(p => p !== null).length;
         countRef.current = validCount;
         setPointCount(validCount);
-        lastPointRef.current = [...savedPoints].reverse().find((p): p is LatLon => p !== null) ?? null;
+        lastPointRef.current = savedPoints.findLast((p): p is LatLon => p !== null) ?? null;
         lastSavedNameRef.current = data.name;
         localStorage.setItem('track_mapper_last_active', data.name);
       }
