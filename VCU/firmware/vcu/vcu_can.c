@@ -269,7 +269,7 @@ void vcu_can_set_model_outputs(const vcu_outputs_t *out) {
 }
 
 void vcu_can_set_steering_angle_deg(float steering_angle_deg) {
-  steering_column_mailbox.steer_col_angle = steering_angle_deg;
+  steering_column_mailbox.steering_column_angle = steering_angle_deg;
 }
 
 static float compute_brake_bias_pct(const vcu_outputs_t *out) {

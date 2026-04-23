@@ -89,6 +89,7 @@ const osThreadAttr_t controlTask_attributes = {
 #define STEERING_SENSOR_MIN_RATIO 0.10f
 #define STEERING_SENSOR_MAX_RATIO 0.90f
 #define STEERING_SENSOR_ANGLE_RANGE_DEG 360.0f
+#define CONTROL_LOOP_PERIOD_MS 3u
 
 /* USER CODE END PM */
 
@@ -334,7 +335,6 @@ void StartControlTask(void *argument) {
 
   vcu_model_init(&ctx, &s_params);
 
-  uint32_t log_div = 0;  // for slower logging
   uint32_t adc1_val = 0; // steering ADC1 read
   float steering_adc_voltage_v = 0.0f;
   float steering_sensor_voltage_v = 0.0f;
@@ -400,8 +400,7 @@ void StartControlTask(void *argument) {
     vcu_can_set_model_outputs(&out);
     vcu_can_set_steering_angle_deg(steering_angle_deg);
 
-
-    if (++log_div >= 100u) {
+    {
       float delta_resolver_angle_deg = vcu_can_get_delta_resolver_angle_deg();
       float motor_angle_deg = vcu_can_get_motor_angle_deg();
       float torque_derate_pct = 1.0f;
@@ -414,7 +413,6 @@ void StartControlTask(void *argument) {
             (s_params.torque_map.low_cell_derate_start_v -
              s_params.torque_map.low_cell_cutoff_v);
       }
-      log_div = 0u;
       log_printf(LOG_INFO,
                  "TICK:%lu | RPM:%.0f DRA:%.1f ANG:%.1f PED:%.3f TQ:%.1f | "
                  "MIN:%.4f DRT:%.2f | STR_RAW:%lu AV:%.3f SV:%.3f SPCT:%.3f "
@@ -435,7 +433,7 @@ void StartControlTask(void *argument) {
     }
 
     // 3 ms control loop (333 Hz)
-    osDelay(pdMS_TO_TICKS(3));
+    osDelay(pdMS_TO_TICKS(CONTROL_LOOP_PERIOD_MS));
   }
 }
 
