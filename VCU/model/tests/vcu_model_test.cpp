@@ -9,6 +9,7 @@ protected:
   vcu_model_context_t ctx;
 
   void SetUp() override {
+    params = {};
     // Basic apps params
     params.apps.apps1_min_adc_v = 1000;
     params.apps.apps1_max_adc_v = 4000;
@@ -46,6 +47,11 @@ protected:
     params.buzzer_duration_ms = 3000;
 
     in = {0};
+    in.battery_voltage_v = 500.0f;
+    in.battery_current_a = 0.0f;
+    in.battery_status_valid = true;
+    in.motor_speed_rpm = 0.0f;
+    in.inverter_speed_valid = true;
     out = {0};
     ctx = {};
 

@@ -54,6 +54,11 @@ typedef struct {
     bool brake_latched;
     bool brake_any_fault;
 
+    bool power_limit_input_fault;
+    bool current_safety_cut;
+    bool power_safety_cut;
+    bool tc_input_fault;
+
     bool any_fault;
   } faults;
 
@@ -63,6 +68,30 @@ typedef struct {
     float apps_diff;          // difference between apps1 and apps2
     float apps1_travel;
     float apps2_travel;
+    float ocv_estimate_v;
+    float active_power_limit_w;
+    float measured_power_w;
+    float power_limit_feedback_p_nm;
+    float power_limit_feedback_i_nm;
+    float power_limit_feedback_d_nm;
+    float power_limit_feedback_torque_nm;
+    float motor_efficiency;
+    bool tc_active;
+    float tc_vehicle_speed_mps;
+    float tc_driven_speed_mps;
+    float tc_slip_ratio;
+    float tc_target_slip_ratio;
+    float tc_slip_error;
+    float tc_torque_reduction_nm;
+    float tc_torque_limit_nm;
+    float tc_lateral_usage;
+    float tc_lateral_accel_limit_mps2;
+    float tc_longitudinal_accel_mps2;
+    float tc_lateral_accel_mps2;
+    float tc_front_disagreement_mps;
+    float tc_rear_disagreement_mps;
+    float tc_motor_rear_disagreement_mps;
+    uint32_t tc_sensor_fault_flags;
   } debug;
 
 } vcu_outputs_t;

@@ -18,11 +18,28 @@ typedef struct {
   bool drive_switch;
   bool contactors_closed;
 
-  /*  can add more later:
-   *  float dc_bus_voltage;
-   *  float motor_speed_rpm;
-   *  bool inverter_enabled;
-   */
+  /* Powertrain inputs from CAN */
+  float battery_voltage_v;
+  float battery_current_a;
+  float battery_soc_pct;
+  float motor_speed_rpm;
+  bool battery_status_valid;
+  bool inverter_speed_valid;
+
+  /* Traction-control inputs from CAN */
+  float wheel_speed_fl_rad_s;
+  float wheel_speed_fr_rad_s;
+  float wheel_speed_rl_rad_s;
+  float wheel_speed_rr_rad_s;
+  bool wheel_speeds_valid;
+
+  float longitudinal_accel_mps2;
+  float lateral_accel_mps2;
+  bool accel_valid;
+
+  float tc_longitudinal_adjust;
+  float tc_lateral_adjust;
+  bool tc_driver_adjust_valid;
 } vcu_inputs_t;
 
 #ifdef __cplusplus

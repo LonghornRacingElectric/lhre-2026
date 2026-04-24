@@ -42,8 +42,9 @@ message Dynamics {
     float fr_strain_gauge_v = 27;
     float fr_sus_pot_v = 28;
     float frw_speed = 29;
-    float ride_height = 30;
-    float wheel_speed = 31;
+    float tc_lateral_accel_limit = 30;
+    float ride_height = 31;
+    float wheel_speed = 32;
 }
 
 message Controls {
@@ -72,9 +73,19 @@ message Controls {
     float torque_request = 23;
     float commanded_torque = 24;
     float motor_angle = 25;
-    bool direction = 26;
-    bool enable = 27;
-    float torque_shudder = 28;
+    float tc_driven_speed = 26;
+    float tc_front_disagreement = 27;
+    float tc_lateral_usage = 28;
+    float tc_rear_disagreement = 29;
+    float tc_slip_ratio = 30;
+    float tc_target_slip_ratio = 31;
+    float tc_torque_limit = 32;
+    float tc_torque_reduction = 33;
+    float tc_vehicle_speed = 34;
+    bool direction = 35;
+    bool enable = 36;
+    bool tc_active = 37;
+    float torque_shudder = 38;
 }
 
 message Pack {
@@ -107,11 +118,13 @@ message DiagnosticsHigh {
     float hvc_state_machine = 3;
     float post_faults = 4;
     float run_faults = 5;
-    bool r2d_buzzer = 6;
-    bool stomp_fault = 7;
-    bool neg_hv_contactor = 8;
-    bool pos_hv_contactor = 9;
-    bool precharge_contactor = 10;
+    float tc_sensor_fault_flags = 6;
+    bool r2d_buzzer = 7;
+    bool stomp_fault = 8;
+    bool neg_hv_contactor = 9;
+    bool pos_hv_contactor = 10;
+    bool precharge_contactor = 11;
+    bool tc_input_fault = 12;
 }
 
 message DiagnosticsLow {

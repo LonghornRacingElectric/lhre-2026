@@ -112,6 +112,62 @@ static vcu_parameters_t s_params = {
     .torque_map =
         {
             .max_torque_nm = 220.0f,
+            .pedal_exponential_factor = 2.0f,
+            .power_limit_w = 80000.0f,
+            .current_limit_a = 200.0f,
+            .hard_current_cut_a = 240.0f,
+            .hard_power_cut_w = 85000.0f,
+            .ocv_cell_count = 128.0f,
+            .ocv_lpf_time_constant_s = 1.0f,
+            .current_lpf_time_constant_s = 0.2f,
+            .measured_power_lpf_time_constant_s = 0.010f,
+            .power_limit_min_rpm = 100.0f,
+            .power_limit_trim_limit_nm = 20.0f,
+            .power_limit_kp = 0.002f,
+            .power_limit_ki = 0.0f,
+            .power_limit_kd = 0.0f,
+            .power_limit_motor_efficiency =
+                {
+                    0.86f, 0.89f, 0.92f, 0.94f, 0.95f, 0.955f,
+                    0.955f, 0.95f, 0.945f, 0.93f, 0.90f,
+                },
+        },
+
+    .traction_control =
+        {
+            .tc_disable = true,
+            .tc_use_accel = false,
+            .tc_aero_lateral_limit_enable = false,
+            .tc_wheel_radius_m = 0.2286f,
+            .tc_final_drive_ratio = 4.0f,
+            .tc_longitudinal_adjust = 0.0f,
+            .tc_lateral_adjust = 0.0f,
+            .tc_base_target_slip = 0.08f,
+            .tc_min_target_slip = 0.03f,
+            .tc_max_target_slip = 0.16f,
+            .tc_slip_hysteresis = 0.01f,
+            .tc_lateral_accel_limit_mps2 = 11.0f,
+            .tc_aero_lateral_accel_gain_per_mps2 = 0.0025f,
+            .tc_lateral_slip_reduction_gain = 1.0f,
+            .tc_min_vehicle_speed_mps = 3.0f,
+            .tc_min_torque_nm = 5.0f,
+            .tc_max_wheel_speed_mps = 90.0f,
+            .tc_max_reference_accel_mps2 = 35.0f,
+            .tc_front_disagreement_mps = 3.0f,
+            .tc_rear_disagreement_mps = 8.0f,
+            .tc_motor_rear_disagreement_mps = 8.0f,
+            .tc_speed_lpf_time_constant_s = 0.035f,
+            .tc_slip_lpf_time_constant_s = 0.020f,
+            .tc_feedback_lpf_time_constant_s = 0.025f,
+            .tc_reference_accel_blend = 0.20f,
+            .tc_kp_nm_per_slip = 900.0f,
+            .tc_ki_nm_per_slip_s = 80.0f,
+            .tc_kd_nm_per_slip_rate = 25.0f,
+            .tc_driven_accel_gain_nm_per_mps2 = 2.0f,
+            .tc_integral_limit_nm = 40.0f,
+            .tc_max_torque_reduction_nm = 220.0f,
+            .tc_cut_slew_nm_per_s = 2500.0f,
+            .tc_recovery_slew_nm_per_s = 350.0f,
         },
 
     .bse =
@@ -337,6 +393,7 @@ void StartControlTask(void *argument) {
     in.drive_switch = is_drive_switch_pressed();
 
     in.contactors_closed = hvc_tractive_ready();
+    vcu_can_set_powertrain_inputs(&in);
 
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
@@ -396,14 +453,17 @@ if (total > 1e-3f) {
 
     log_printf(LOG_INFO,
                "TICK:%lu | PED:%.3f TQ:%.1f | PRNDL:%u INV:%u | "
-               "DRV_IN:%u TR:%u | "
-               "APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
+               "DRV_IN:%u TR:%u | PWR:%.0f LIM:%.0f OCV:%.1f | "
+               "APPS_IMPL:%u BRAKE:%u ANYFLT:%u PLFLT:%u\n",
                (unsigned long)current_tick, (double)out.accel_pedal_travel,
                (double)out.torque_cmd, (unsigned)out.prndl_state,
                (unsigned)out.inverter_enable, (unsigned)in.drive_switch,
-               (unsigned)in.contactors_closed,
+               (unsigned)in.contactors_closed, (double)out.debug.measured_power_w,
+               (double)out.debug.active_power_limit_w,
+               (double)out.debug.ocv_estimate_v,
                (unsigned)out.faults.apps_any_fault,
-               (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault);
+               (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault,
+               (unsigned)out.faults.power_limit_input_fault);
 
     // log_printf(LOG_WARNING,
     //        "R2D_RX:%u CONTACTORS:%u PRNDL:%u BRAKE:%u\n",

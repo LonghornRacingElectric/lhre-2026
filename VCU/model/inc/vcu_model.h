@@ -13,6 +13,8 @@ extern "C" {
 #include "BSE.h"
 #include "Cooling.h"
 #include "PRNDL.h"
+#include "TorqueMap.h"
+#include "TractionControl.h"
 
 typedef struct {
   prndl_machine_t prndl_machine;
@@ -21,6 +23,8 @@ typedef struct {
   apps_state_t apps_state;
   bse_state_t bse_state;
   cooling_state_t cooling_state;
+  torque_map_state_t torque_map_state;
+  traction_control_state_t traction_control_state;
 } vcu_model_context_t;
 
 /* Initialize internal model state (call once at startup) */

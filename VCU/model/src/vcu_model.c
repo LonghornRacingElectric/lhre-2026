@@ -1,5 +1,6 @@
 #include "vcu_model.h"
 #include "TorqueMap.h"
+#include "TractionControl.h"
 #include "string.h"
 #include "util.h"
 #include <math.h>
@@ -20,13 +21,17 @@ void vcu_model_init(vcu_model_context_t *ctx, const vcu_parameters_t *params) {
   apps_init(&ctx->apps_state);
   bse_init(&ctx->bse_state);
   cooling_init(&ctx->cooling_state, &ctx->params);
+  torque_map_init(&ctx->torque_map_state);
+  traction_control_init(&ctx->traction_control_state);
 }
 
 bool can_timed_out() { return false; }
 
 bool any_fault_exists(vcu_outputs_t *out) {
   out->faults.any_fault =
-      out->faults.apps_any_fault || out->faults.brake_any_fault;
+      out->faults.apps_any_fault || out->faults.brake_any_fault ||
+      out->faults.power_limit_input_fault || out->faults.current_safety_cut ||
+      out->faults.power_safety_cut;
   return out->faults.any_fault;
 }
 
@@ -45,7 +50,11 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
   bse_evaluate(in, out, &ctx->bse_state, &ctx->params, dt_ms);
 
   // perform mapping from pedal to output
-  torque_map_evaluate(in, out, &ctx->params, dt_ms);
+  torque_map_evaluate(in, out, &ctx->torque_map_state, &ctx->params, dt_ms);
+
+  // reduce torque for driven-wheel slip when traction control is enabled
+  traction_control_evaluate(in, out, &ctx->traction_control_state,
+                            &ctx->params, dt_ms);
 
   // get the state for this step
   prndl_evaluate(&ctx->prndl_machine, in, out, ctx->time_ms);

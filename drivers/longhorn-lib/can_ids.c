@@ -1788,6 +1788,198 @@ int unpack_steering_column(const uint8_t* rx_buf, msg_steering_column_t* msg) {
     return 0;
 }
 
+// Packet: VCU State
+int pack_vcu_state(const msg_vcu_state_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, VCU_STATE_DLC);
+
+    // Pack: PRNDL State
+    tx_buf[0] = (uint8_t)msg->prndl_state;
+
+    // Pack: STOMP Fault
+    tx_buf[1] = (uint8_t)msg->stomp_fault;
+
+    // Pack: Ready To Drive Buzzer
+    tx_buf[2] = (uint8_t)msg->ready_to_drive_buzzer;
+
+    return 0;
+}
+
+int unpack_vcu_state(const uint8_t* rx_buf, msg_vcu_state_t* msg) {
+    // Unpack: PRNDL State
+    msg->prndl_state = (uint8_t)rx_buf[0];
+
+    // Unpack: STOMP Fault
+    msg->stomp_fault = (uint8_t)rx_buf[1];
+
+    // Unpack: Ready To Drive Buzzer
+    msg->ready_to_drive_buzzer = (uint8_t)rx_buf[2];
+
+    return 0;
+}
+
+// Packet: TC Debug 1
+int pack_tc_debug_1(const msg_tc_debug_1_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, TC_DEBUG_1_DLC);
+
+    // Pack: TC Slip Ratio
+    int16_t raw_tc_slip_ratio = (int16_t)(msg->tc_slip_ratio / 0.0001f);
+    tx_buf[0 + 0] = (uint8_t)(raw_tc_slip_ratio & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_tc_slip_ratio >> 8) & 0xFF);
+
+    // Pack: TC Target Slip Ratio
+    int16_t raw_tc_target_slip_ratio = (int16_t)(msg->tc_target_slip_ratio / 0.0001f);
+    tx_buf[2 + 0] = (uint8_t)(raw_tc_target_slip_ratio & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((raw_tc_target_slip_ratio >> 8) & 0xFF);
+
+    // Pack: TC Torque Reduction
+    int16_t raw_tc_torque_reduction = (int16_t)(msg->tc_torque_reduction / 0.1f);
+    tx_buf[4 + 0] = (uint8_t)(raw_tc_torque_reduction & 0xFF);
+    tx_buf[4 + 1] = (uint8_t)((raw_tc_torque_reduction >> 8) & 0xFF);
+
+    // Pack: TC Torque Limit
+    int16_t raw_tc_torque_limit = (int16_t)(msg->tc_torque_limit / 0.1f);
+    tx_buf[6 + 0] = (uint8_t)(raw_tc_torque_limit & 0xFF);
+    tx_buf[6 + 1] = (uint8_t)((raw_tc_torque_limit >> 8) & 0xFF);
+
+    return 0;
+}
+
+int unpack_tc_debug_1(const uint8_t* rx_buf, msg_tc_debug_1_t* msg) {
+    // Unpack: TC Slip Ratio
+    int16_t raw_tc_slip_ratio = 0;
+    raw_tc_slip_ratio = (int16_t)rx_buf[0 + 0];
+    raw_tc_slip_ratio |= (int16_t)(rx_buf[0 + 1] << 8);
+    msg->tc_slip_ratio = (float)raw_tc_slip_ratio * 0.0001f;
+
+    // Unpack: TC Target Slip Ratio
+    int16_t raw_tc_target_slip_ratio = 0;
+    raw_tc_target_slip_ratio = (int16_t)rx_buf[2 + 0];
+    raw_tc_target_slip_ratio |= (int16_t)(rx_buf[2 + 1] << 8);
+    msg->tc_target_slip_ratio = (float)raw_tc_target_slip_ratio * 0.0001f;
+
+    // Unpack: TC Torque Reduction
+    int16_t raw_tc_torque_reduction = 0;
+    raw_tc_torque_reduction = (int16_t)rx_buf[4 + 0];
+    raw_tc_torque_reduction |= (int16_t)(rx_buf[4 + 1] << 8);
+    msg->tc_torque_reduction = (float)raw_tc_torque_reduction * 0.1f;
+
+    // Unpack: TC Torque Limit
+    int16_t raw_tc_torque_limit = 0;
+    raw_tc_torque_limit = (int16_t)rx_buf[6 + 0];
+    raw_tc_torque_limit |= (int16_t)(rx_buf[6 + 1] << 8);
+    msg->tc_torque_limit = (float)raw_tc_torque_limit * 0.1f;
+
+    return 0;
+}
+
+// Packet: TC Debug 2
+int pack_tc_debug_2(const msg_tc_debug_2_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, TC_DEBUG_2_DLC);
+
+    // Pack: TC Vehicle Speed
+    uint16_t raw_tc_vehicle_speed = (uint16_t)(msg->tc_vehicle_speed / 0.01f);
+    tx_buf[0 + 0] = (uint8_t)(raw_tc_vehicle_speed & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_tc_vehicle_speed >> 8) & 0xFF);
+
+    // Pack: TC Driven Speed
+    uint16_t raw_tc_driven_speed = (uint16_t)(msg->tc_driven_speed / 0.01f);
+    tx_buf[2 + 0] = (uint8_t)(raw_tc_driven_speed & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((raw_tc_driven_speed >> 8) & 0xFF);
+
+    // Pack: TC Lateral Usage
+    uint16_t raw_tc_lateral_usage = (uint16_t)(msg->tc_lateral_usage / 0.0001f);
+    tx_buf[4 + 0] = (uint8_t)(raw_tc_lateral_usage & 0xFF);
+    tx_buf[4 + 1] = (uint8_t)((raw_tc_lateral_usage >> 8) & 0xFF);
+
+    // Pack: TC Sensor Fault Flags
+    tx_buf[6 + 0] = (uint8_t)(msg->tc_sensor_fault_flags & 0xFF);
+    tx_buf[6 + 1] = (uint8_t)((msg->tc_sensor_fault_flags >> 8) & 0xFF);
+
+    return 0;
+}
+
+int unpack_tc_debug_2(const uint8_t* rx_buf, msg_tc_debug_2_t* msg) {
+    // Unpack: TC Vehicle Speed
+    uint16_t raw_tc_vehicle_speed = 0;
+    raw_tc_vehicle_speed = (uint16_t)rx_buf[0 + 0];
+    raw_tc_vehicle_speed |= (uint16_t)(rx_buf[0 + 1] << 8);
+    msg->tc_vehicle_speed = (float)raw_tc_vehicle_speed * 0.01f;
+
+    // Unpack: TC Driven Speed
+    uint16_t raw_tc_driven_speed = 0;
+    raw_tc_driven_speed = (uint16_t)rx_buf[2 + 0];
+    raw_tc_driven_speed |= (uint16_t)(rx_buf[2 + 1] << 8);
+    msg->tc_driven_speed = (float)raw_tc_driven_speed * 0.01f;
+
+    // Unpack: TC Lateral Usage
+    uint16_t raw_tc_lateral_usage = 0;
+    raw_tc_lateral_usage = (uint16_t)rx_buf[4 + 0];
+    raw_tc_lateral_usage |= (uint16_t)(rx_buf[4 + 1] << 8);
+    msg->tc_lateral_usage = (float)raw_tc_lateral_usage * 0.0001f;
+
+    // Unpack: TC Sensor Fault Flags
+    msg->tc_sensor_fault_flags = (uint16_t)rx_buf[6 + 0];
+    msg->tc_sensor_fault_flags |= (uint16_t)(rx_buf[6 + 1] << 8);
+
+    return 0;
+}
+
+// Packet: TC Debug 3
+int pack_tc_debug_3(const msg_tc_debug_3_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, TC_DEBUG_3_DLC);
+
+    // Pack: TC Lateral Accel Limit
+    uint16_t raw_tc_lateral_accel_limit = (uint16_t)(msg->tc_lateral_accel_limit / 0.01f);
+    tx_buf[0 + 0] = (uint8_t)(raw_tc_lateral_accel_limit & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_tc_lateral_accel_limit >> 8) & 0xFF);
+
+    // Pack: TC Front Disagreement
+    uint16_t raw_tc_front_disagreement = (uint16_t)(msg->tc_front_disagreement / 0.01f);
+    tx_buf[2 + 0] = (uint8_t)(raw_tc_front_disagreement & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((raw_tc_front_disagreement >> 8) & 0xFF);
+
+    // Pack: TC Rear Disagreement
+    uint16_t raw_tc_rear_disagreement = (uint16_t)(msg->tc_rear_disagreement / 0.01f);
+    tx_buf[4 + 0] = (uint8_t)(raw_tc_rear_disagreement & 0xFF);
+    tx_buf[4 + 1] = (uint8_t)((raw_tc_rear_disagreement >> 8) & 0xFF);
+
+    // Pack: TC Active
+    tx_buf[6] = (uint8_t)msg->tc_active;
+
+    // Pack: TC Input Fault
+    tx_buf[7] = (uint8_t)msg->tc_input_fault;
+
+    return 0;
+}
+
+int unpack_tc_debug_3(const uint8_t* rx_buf, msg_tc_debug_3_t* msg) {
+    // Unpack: TC Lateral Accel Limit
+    uint16_t raw_tc_lateral_accel_limit = 0;
+    raw_tc_lateral_accel_limit = (uint16_t)rx_buf[0 + 0];
+    raw_tc_lateral_accel_limit |= (uint16_t)(rx_buf[0 + 1] << 8);
+    msg->tc_lateral_accel_limit = (float)raw_tc_lateral_accel_limit * 0.01f;
+
+    // Unpack: TC Front Disagreement
+    uint16_t raw_tc_front_disagreement = 0;
+    raw_tc_front_disagreement = (uint16_t)rx_buf[2 + 0];
+    raw_tc_front_disagreement |= (uint16_t)(rx_buf[2 + 1] << 8);
+    msg->tc_front_disagreement = (float)raw_tc_front_disagreement * 0.01f;
+
+    // Unpack: TC Rear Disagreement
+    uint16_t raw_tc_rear_disagreement = 0;
+    raw_tc_rear_disagreement = (uint16_t)rx_buf[4 + 0];
+    raw_tc_rear_disagreement |= (uint16_t)(rx_buf[4 + 1] << 8);
+    msg->tc_rear_disagreement = (float)raw_tc_rear_disagreement * 0.01f;
+
+    // Unpack: TC Active
+    msg->tc_active = (uint8_t)rx_buf[6];
+
+    // Unpack: TC Input Fault
+    msg->tc_input_fault = (uint8_t)rx_buf[7];
+
+    return 0;
+}
+
 // Packet: Wheel Speeds
 int pack_wheel_speeds(const msg_wheel_speeds_t* msg, uint8_t* tx_buf) {
     memset(tx_buf, 0, WHEEL_SPEEDS_DLC);
@@ -2019,9 +2211,9 @@ int unpack_acceleration_vector_unsprung_rr(const uint8_t* rx_buf, msg_accelerati
     return 0;
 }
 
-// Packet: Acceleration Vector Sprung + Ride Height FL
-int pack_acceleration_vector_sprung_ride_height_fl(const msg_acceleration_vector_sprung_ride_height_fl_t* msg, uint8_t* tx_buf) {
-    memset(tx_buf, 0, ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_FL_DLC);
+// Packet: FL Accel + Ride Height
+int pack_fl_accel_ride_height(const msg_fl_accel_ride_height_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, FL_ACCEL_RIDE_HEIGHT_DLC);
 
     // Pack: X
     int16_t raw_x = (int16_t)(msg->x / 0.001f);
@@ -2046,7 +2238,7 @@ int pack_acceleration_vector_sprung_ride_height_fl(const msg_acceleration_vector
     return 0;
 }
 
-int unpack_acceleration_vector_sprung_ride_height_fl(const uint8_t* rx_buf, msg_acceleration_vector_sprung_ride_height_fl_t* msg) {
+int unpack_fl_accel_ride_height(const uint8_t* rx_buf, msg_fl_accel_ride_height_t* msg) {
     // Unpack: X
     int16_t raw_x = 0;
     raw_x = (int16_t)rx_buf[0 + 0];
@@ -2074,276 +2266,298 @@ int unpack_acceleration_vector_sprung_ride_height_fl(const uint8_t* rx_buf, msg_
     return 0;
 }
 
-// Packet: Acceleration Vector Sprung + Ride Height FR
-int pack_acceleration_vector_sprung_ride_height_fr(const msg_acceleration_vector_sprung_ride_height_fr_t* msg, uint8_t* tx_buf) {
-    memset(tx_buf, 0, ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_FR_DLC);
-
-    // Pack: X
-    int16_t raw_x = (int16_t)(msg->x / 0.001f);
-    tx_buf[0 + 0] = (uint8_t)(raw_x & 0xFF);
-    tx_buf[0 + 1] = (uint8_t)((raw_x >> 8) & 0xFF);
-
-    // Pack: Y
-    int16_t raw_y = (int16_t)(msg->y / 0.001f);
-    tx_buf[2 + 0] = (uint8_t)(raw_y & 0xFF);
-    tx_buf[2 + 1] = (uint8_t)((raw_y >> 8) & 0xFF);
-
-    // Pack: Z
-    int16_t raw_z = (int16_t)(msg->z / 0.001f);
-    tx_buf[4 + 0] = (uint8_t)(raw_z & 0xFF);
-    tx_buf[4 + 1] = (uint8_t)((raw_z >> 8) & 0xFF);
-
-    // Pack: Ride Height
-    uint16_t raw_ride_height = (uint16_t)(msg->ride_height / 0.002f);
-    tx_buf[6 + 0] = (uint8_t)(raw_ride_height & 0xFF);
-    tx_buf[6 + 1] = (uint8_t)((raw_ride_height >> 8) & 0xFF);
-
-    return 0;
-}
-
-int unpack_acceleration_vector_sprung_ride_height_fr(const uint8_t* rx_buf, msg_acceleration_vector_sprung_ride_height_fr_t* msg) {
-    // Unpack: X
-    int16_t raw_x = 0;
-    raw_x = (int16_t)rx_buf[0 + 0];
-    raw_x |= (int16_t)(rx_buf[0 + 1] << 8);
-    msg->x = (float)raw_x * 0.001f;
-
-    // Unpack: Y
-    int16_t raw_y = 0;
-    raw_y = (int16_t)rx_buf[2 + 0];
-    raw_y |= (int16_t)(rx_buf[2 + 1] << 8);
-    msg->y = (float)raw_y * 0.001f;
-
-    // Unpack: Z
-    int16_t raw_z = 0;
-    raw_z = (int16_t)rx_buf[4 + 0];
-    raw_z |= (int16_t)(rx_buf[4 + 1] << 8);
-    msg->z = (float)raw_z * 0.001f;
-
-    // Unpack: Ride Height
-    uint16_t raw_ride_height = 0;
-    raw_ride_height = (uint16_t)rx_buf[6 + 0];
-    raw_ride_height |= (uint16_t)(rx_buf[6 + 1] << 8);
-    msg->ride_height = (float)raw_ride_height * 0.002f;
-
-    return 0;
-}
-
-// Packet: Acceleration Vector Sprung + Ride Height RL
-int pack_acceleration_vector_sprung_ride_height_rl(const msg_acceleration_vector_sprung_ride_height_rl_t* msg, uint8_t* tx_buf) {
-    memset(tx_buf, 0, ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_RL_DLC);
-
-    // Pack: X
-    int16_t raw_x = (int16_t)(msg->x / 0.001f);
-    tx_buf[0 + 0] = (uint8_t)(raw_x & 0xFF);
-    tx_buf[0 + 1] = (uint8_t)((raw_x >> 8) & 0xFF);
-
-    // Pack: Y
-    int16_t raw_y = (int16_t)(msg->y / 0.001f);
-    tx_buf[2 + 0] = (uint8_t)(raw_y & 0xFF);
-    tx_buf[2 + 1] = (uint8_t)((raw_y >> 8) & 0xFF);
-
-    // Pack: Z
-    int16_t raw_z = (int16_t)(msg->z / 0.001f);
-    tx_buf[4 + 0] = (uint8_t)(raw_z & 0xFF);
-    tx_buf[4 + 1] = (uint8_t)((raw_z >> 8) & 0xFF);
-
-    // Pack: Ride Height
-    uint16_t raw_ride_height = (uint16_t)(msg->ride_height / 0.002f);
-    tx_buf[6 + 0] = (uint8_t)(raw_ride_height & 0xFF);
-    tx_buf[6 + 1] = (uint8_t)((raw_ride_height >> 8) & 0xFF);
-
-    return 0;
-}
-
-int unpack_acceleration_vector_sprung_ride_height_rl(const uint8_t* rx_buf, msg_acceleration_vector_sprung_ride_height_rl_t* msg) {
-    // Unpack: X
-    int16_t raw_x = 0;
-    raw_x = (int16_t)rx_buf[0 + 0];
-    raw_x |= (int16_t)(rx_buf[0 + 1] << 8);
-    msg->x = (float)raw_x * 0.001f;
-
-    // Unpack: Y
-    int16_t raw_y = 0;
-    raw_y = (int16_t)rx_buf[2 + 0];
-    raw_y |= (int16_t)(rx_buf[2 + 1] << 8);
-    msg->y = (float)raw_y * 0.001f;
-
-    // Unpack: Z
-    int16_t raw_z = 0;
-    raw_z = (int16_t)rx_buf[4 + 0];
-    raw_z |= (int16_t)(rx_buf[4 + 1] << 8);
-    msg->z = (float)raw_z * 0.001f;
-
-    // Unpack: Ride Height
-    uint16_t raw_ride_height = 0;
-    raw_ride_height = (uint16_t)rx_buf[6 + 0];
-    raw_ride_height |= (uint16_t)(rx_buf[6 + 1] << 8);
-    msg->ride_height = (float)raw_ride_height * 0.002f;
-
-    return 0;
-}
-
-// Packet: Acceleration Vector Sprung + Ride Height RR
-int pack_acceleration_vector_sprung_ride_height_rr(const msg_acceleration_vector_sprung_ride_height_rr_t* msg, uint8_t* tx_buf) {
-    memset(tx_buf, 0, ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_RR_DLC);
-
-    // Pack: X
-    int16_t raw_x = (int16_t)(msg->x / 0.001f);
-    tx_buf[0 + 0] = (uint8_t)(raw_x & 0xFF);
-    tx_buf[0 + 1] = (uint8_t)((raw_x >> 8) & 0xFF);
-
-    // Pack: Y
-    int16_t raw_y = (int16_t)(msg->y / 0.001f);
-    tx_buf[2 + 0] = (uint8_t)(raw_y & 0xFF);
-    tx_buf[2 + 1] = (uint8_t)((raw_y >> 8) & 0xFF);
-
-    // Pack: Z
-    int16_t raw_z = (int16_t)(msg->z / 0.001f);
-    tx_buf[4 + 0] = (uint8_t)(raw_z & 0xFF);
-    tx_buf[4 + 1] = (uint8_t)((raw_z >> 8) & 0xFF);
-
-    // Pack: Ride Height
-    uint16_t raw_ride_height = (uint16_t)(msg->ride_height / 0.002f);
-    tx_buf[6 + 0] = (uint8_t)(raw_ride_height & 0xFF);
-    tx_buf[6 + 1] = (uint8_t)((raw_ride_height >> 8) & 0xFF);
-
-    return 0;
-}
-
-int unpack_acceleration_vector_sprung_ride_height_rr(const uint8_t* rx_buf, msg_acceleration_vector_sprung_ride_height_rr_t* msg) {
-    // Unpack: X
-    int16_t raw_x = 0;
-    raw_x = (int16_t)rx_buf[0 + 0];
-    raw_x |= (int16_t)(rx_buf[0 + 1] << 8);
-    msg->x = (float)raw_x * 0.001f;
-
-    // Unpack: Y
-    int16_t raw_y = 0;
-    raw_y = (int16_t)rx_buf[2 + 0];
-    raw_y |= (int16_t)(rx_buf[2 + 1] << 8);
-    msg->y = (float)raw_y * 0.001f;
-
-    // Unpack: Z
-    int16_t raw_z = 0;
-    raw_z = (int16_t)rx_buf[4 + 0];
-    raw_z |= (int16_t)(rx_buf[4 + 1] << 8);
-    msg->z = (float)raw_z * 0.001f;
-
-    // Unpack: Ride Height
-    uint16_t raw_ride_height = 0;
-    raw_ride_height = (uint16_t)rx_buf[6 + 0];
-    raw_ride_height |= (uint16_t)(rx_buf[6 + 1] << 8);
-    msg->ride_height = (float)raw_ride_height * 0.002f;
-
-    return 0;
-}
-
-// Packet: Front Strain Gauge + Sus Pot.
-int pack_front_strain_gauge_sus_pot(const msg_front_strain_gauge_sus_pot_t* msg, uint8_t* tx_buf) {
-    memset(tx_buf, 0, FRONT_STRAIN_GAUGE_SUS_POT_DLC);
+// Packet: FL Strain Gauge + Sus Pot.
+int pack_fl_strain_gauge_sus_pot(const msg_fl_strain_gauge_sus_pot_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, FL_STRAIN_GAUGE_SUS_POT_DLC);
 
     // Pack: Front Left Strain Gauge Voltage
     int16_t raw_front_left_strain_gauge_voltage = (int16_t)(msg->front_left_strain_gauge_voltage / 0.0002f);
     tx_buf[0 + 0] = (uint8_t)(raw_front_left_strain_gauge_voltage & 0xFF);
     tx_buf[0 + 1] = (uint8_t)((raw_front_left_strain_gauge_voltage >> 8) & 0xFF);
 
-    // Pack: Front Right Strain Gauge Voltage
-    int16_t raw_front_right_strain_gauge_voltage = (int16_t)(msg->front_right_strain_gauge_voltage / 0.0002f);
-    tx_buf[2 + 0] = (uint8_t)(raw_front_right_strain_gauge_voltage & 0xFF);
-    tx_buf[2 + 1] = (uint8_t)((raw_front_right_strain_gauge_voltage >> 8) & 0xFF);
-
     // Pack: Front Left Suspension Potentiometer
     int16_t raw_front_left_suspension_potentiometer = (int16_t)(msg->front_left_suspension_potentiometer / 0.001f);
-    tx_buf[4 + 0] = (uint8_t)(raw_front_left_suspension_potentiometer & 0xFF);
-    tx_buf[4 + 1] = (uint8_t)((raw_front_left_suspension_potentiometer >> 8) & 0xFF);
-
-    // Pack: Front Right Suspension Potentiometer
-    int16_t raw_front_right_suspension_potentiometer = (int16_t)(msg->front_right_suspension_potentiometer / 0.001f);
-    tx_buf[6 + 0] = (uint8_t)(raw_front_right_suspension_potentiometer & 0xFF);
-    tx_buf[6 + 1] = (uint8_t)((raw_front_right_suspension_potentiometer >> 8) & 0xFF);
+    tx_buf[2 + 0] = (uint8_t)(raw_front_left_suspension_potentiometer & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((raw_front_left_suspension_potentiometer >> 8) & 0xFF);
 
     return 0;
 }
 
-int unpack_front_strain_gauge_sus_pot(const uint8_t* rx_buf, msg_front_strain_gauge_sus_pot_t* msg) {
+int unpack_fl_strain_gauge_sus_pot(const uint8_t* rx_buf, msg_fl_strain_gauge_sus_pot_t* msg) {
     // Unpack: Front Left Strain Gauge Voltage
     int16_t raw_front_left_strain_gauge_voltage = 0;
     raw_front_left_strain_gauge_voltage = (int16_t)rx_buf[0 + 0];
     raw_front_left_strain_gauge_voltage |= (int16_t)(rx_buf[0 + 1] << 8);
     msg->front_left_strain_gauge_voltage = (float)raw_front_left_strain_gauge_voltage * 0.0002f;
 
-    // Unpack: Front Right Strain Gauge Voltage
-    int16_t raw_front_right_strain_gauge_voltage = 0;
-    raw_front_right_strain_gauge_voltage = (int16_t)rx_buf[2 + 0];
-    raw_front_right_strain_gauge_voltage |= (int16_t)(rx_buf[2 + 1] << 8);
-    msg->front_right_strain_gauge_voltage = (float)raw_front_right_strain_gauge_voltage * 0.0002f;
-
     // Unpack: Front Left Suspension Potentiometer
     int16_t raw_front_left_suspension_potentiometer = 0;
-    raw_front_left_suspension_potentiometer = (int16_t)rx_buf[4 + 0];
-    raw_front_left_suspension_potentiometer |= (int16_t)(rx_buf[4 + 1] << 8);
+    raw_front_left_suspension_potentiometer = (int16_t)rx_buf[2 + 0];
+    raw_front_left_suspension_potentiometer |= (int16_t)(rx_buf[2 + 1] << 8);
     msg->front_left_suspension_potentiometer = (float)raw_front_left_suspension_potentiometer * 0.001f;
+
+    return 0;
+}
+
+// Packet: FR Accel + Ride Height
+int pack_fr_accel_ride_height(const msg_fr_accel_ride_height_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, FR_ACCEL_RIDE_HEIGHT_DLC);
+
+    // Pack: X
+    int16_t raw_x = (int16_t)(msg->x / 0.001f);
+    tx_buf[0 + 0] = (uint8_t)(raw_x & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_x >> 8) & 0xFF);
+
+    // Pack: Y
+    int16_t raw_y = (int16_t)(msg->y / 0.001f);
+    tx_buf[2 + 0] = (uint8_t)(raw_y & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((raw_y >> 8) & 0xFF);
+
+    // Pack: Z
+    int16_t raw_z = (int16_t)(msg->z / 0.001f);
+    tx_buf[4 + 0] = (uint8_t)(raw_z & 0xFF);
+    tx_buf[4 + 1] = (uint8_t)((raw_z >> 8) & 0xFF);
+
+    // Pack: Ride Height
+    uint16_t raw_ride_height = (uint16_t)(msg->ride_height / 0.002f);
+    tx_buf[6 + 0] = (uint8_t)(raw_ride_height & 0xFF);
+    tx_buf[6 + 1] = (uint8_t)((raw_ride_height >> 8) & 0xFF);
+
+    return 0;
+}
+
+int unpack_fr_accel_ride_height(const uint8_t* rx_buf, msg_fr_accel_ride_height_t* msg) {
+    // Unpack: X
+    int16_t raw_x = 0;
+    raw_x = (int16_t)rx_buf[0 + 0];
+    raw_x |= (int16_t)(rx_buf[0 + 1] << 8);
+    msg->x = (float)raw_x * 0.001f;
+
+    // Unpack: Y
+    int16_t raw_y = 0;
+    raw_y = (int16_t)rx_buf[2 + 0];
+    raw_y |= (int16_t)(rx_buf[2 + 1] << 8);
+    msg->y = (float)raw_y * 0.001f;
+
+    // Unpack: Z
+    int16_t raw_z = 0;
+    raw_z = (int16_t)rx_buf[4 + 0];
+    raw_z |= (int16_t)(rx_buf[4 + 1] << 8);
+    msg->z = (float)raw_z * 0.001f;
+
+    // Unpack: Ride Height
+    uint16_t raw_ride_height = 0;
+    raw_ride_height = (uint16_t)rx_buf[6 + 0];
+    raw_ride_height |= (uint16_t)(rx_buf[6 + 1] << 8);
+    msg->ride_height = (float)raw_ride_height * 0.002f;
+
+    return 0;
+}
+
+// Packet: FR Strain Gauge + Sus Pot.
+int pack_fr_strain_gauge_sus_pot(const msg_fr_strain_gauge_sus_pot_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, FR_STRAIN_GAUGE_SUS_POT_DLC);
+
+    // Pack: Front Right Strain Gauge Voltage
+    int16_t raw_front_right_strain_gauge_voltage = (int16_t)(msg->front_right_strain_gauge_voltage / 0.0002f);
+    tx_buf[0 + 0] = (uint8_t)(raw_front_right_strain_gauge_voltage & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_front_right_strain_gauge_voltage >> 8) & 0xFF);
+
+    // Pack: Front Right Suspension Potentiometer
+    int16_t raw_front_right_suspension_potentiometer = (int16_t)(msg->front_right_suspension_potentiometer / 0.001f);
+    tx_buf[2 + 0] = (uint8_t)(raw_front_right_suspension_potentiometer & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((raw_front_right_suspension_potentiometer >> 8) & 0xFF);
+
+    return 0;
+}
+
+int unpack_fr_strain_gauge_sus_pot(const uint8_t* rx_buf, msg_fr_strain_gauge_sus_pot_t* msg) {
+    // Unpack: Front Right Strain Gauge Voltage
+    int16_t raw_front_right_strain_gauge_voltage = 0;
+    raw_front_right_strain_gauge_voltage = (int16_t)rx_buf[0 + 0];
+    raw_front_right_strain_gauge_voltage |= (int16_t)(rx_buf[0 + 1] << 8);
+    msg->front_right_strain_gauge_voltage = (float)raw_front_right_strain_gauge_voltage * 0.0002f;
 
     // Unpack: Front Right Suspension Potentiometer
     int16_t raw_front_right_suspension_potentiometer = 0;
-    raw_front_right_suspension_potentiometer = (int16_t)rx_buf[6 + 0];
-    raw_front_right_suspension_potentiometer |= (int16_t)(rx_buf[6 + 1] << 8);
+    raw_front_right_suspension_potentiometer = (int16_t)rx_buf[2 + 0];
+    raw_front_right_suspension_potentiometer |= (int16_t)(rx_buf[2 + 1] << 8);
     msg->front_right_suspension_potentiometer = (float)raw_front_right_suspension_potentiometer * 0.001f;
 
     return 0;
 }
 
-// Packet: Back Strain Gauge + Sus Pot.
-int pack_back_strain_gauge_sus_pot(const msg_back_strain_gauge_sus_pot_t* msg, uint8_t* tx_buf) {
-    memset(tx_buf, 0, BACK_STRAIN_GAUGE_SUS_POT_DLC);
+// Packet: RL Accel + Ride Height
+int pack_rl_accel_ride_height(const msg_rl_accel_ride_height_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, RL_ACCEL_RIDE_HEIGHT_DLC);
+
+    // Pack: X
+    int16_t raw_x = (int16_t)(msg->x / 0.001f);
+    tx_buf[0 + 0] = (uint8_t)(raw_x & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_x >> 8) & 0xFF);
+
+    // Pack: Y
+    int16_t raw_y = (int16_t)(msg->y / 0.001f);
+    tx_buf[2 + 0] = (uint8_t)(raw_y & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((raw_y >> 8) & 0xFF);
+
+    // Pack: Z
+    int16_t raw_z = (int16_t)(msg->z / 0.001f);
+    tx_buf[4 + 0] = (uint8_t)(raw_z & 0xFF);
+    tx_buf[4 + 1] = (uint8_t)((raw_z >> 8) & 0xFF);
+
+    // Pack: Ride Height
+    uint16_t raw_ride_height = (uint16_t)(msg->ride_height / 0.002f);
+    tx_buf[6 + 0] = (uint8_t)(raw_ride_height & 0xFF);
+    tx_buf[6 + 1] = (uint8_t)((raw_ride_height >> 8) & 0xFF);
+
+    return 0;
+}
+
+int unpack_rl_accel_ride_height(const uint8_t* rx_buf, msg_rl_accel_ride_height_t* msg) {
+    // Unpack: X
+    int16_t raw_x = 0;
+    raw_x = (int16_t)rx_buf[0 + 0];
+    raw_x |= (int16_t)(rx_buf[0 + 1] << 8);
+    msg->x = (float)raw_x * 0.001f;
+
+    // Unpack: Y
+    int16_t raw_y = 0;
+    raw_y = (int16_t)rx_buf[2 + 0];
+    raw_y |= (int16_t)(rx_buf[2 + 1] << 8);
+    msg->y = (float)raw_y * 0.001f;
+
+    // Unpack: Z
+    int16_t raw_z = 0;
+    raw_z = (int16_t)rx_buf[4 + 0];
+    raw_z |= (int16_t)(rx_buf[4 + 1] << 8);
+    msg->z = (float)raw_z * 0.001f;
+
+    // Unpack: Ride Height
+    uint16_t raw_ride_height = 0;
+    raw_ride_height = (uint16_t)rx_buf[6 + 0];
+    raw_ride_height |= (uint16_t)(rx_buf[6 + 1] << 8);
+    msg->ride_height = (float)raw_ride_height * 0.002f;
+
+    return 0;
+}
+
+// Packet: RL Strain Gauge + Sus Pot.
+int pack_rl_strain_gauge_sus_pot(const msg_rl_strain_gauge_sus_pot_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, RL_STRAIN_GAUGE_SUS_POT_DLC);
 
     // Pack: Back Left Strain Gauge Voltage
     int16_t raw_back_left_strain_gauge_voltage = (int16_t)(msg->back_left_strain_gauge_voltage / 0.0002f);
     tx_buf[0 + 0] = (uint8_t)(raw_back_left_strain_gauge_voltage & 0xFF);
     tx_buf[0 + 1] = (uint8_t)((raw_back_left_strain_gauge_voltage >> 8) & 0xFF);
 
-    // Pack: Back Right Strain Gauge Voltage
-    int16_t raw_back_right_strain_gauge_voltage = (int16_t)(msg->back_right_strain_gauge_voltage / 0.0002f);
-    tx_buf[2 + 0] = (uint8_t)(raw_back_right_strain_gauge_voltage & 0xFF);
-    tx_buf[2 + 1] = (uint8_t)((raw_back_right_strain_gauge_voltage >> 8) & 0xFF);
-
     // Pack: Back Left Suspension Potentiometer
     int16_t raw_back_left_suspension_potentiometer = (int16_t)(msg->back_left_suspension_potentiometer / 0.001f);
-    tx_buf[4 + 0] = (uint8_t)(raw_back_left_suspension_potentiometer & 0xFF);
-    tx_buf[4 + 1] = (uint8_t)((raw_back_left_suspension_potentiometer >> 8) & 0xFF);
-
-    // Pack: Back Right Suspension Potentiometer
-    int16_t raw_back_right_suspension_potentiometer = (int16_t)(msg->back_right_suspension_potentiometer / 0.001f);
-    tx_buf[6 + 0] = (uint8_t)(raw_back_right_suspension_potentiometer & 0xFF);
-    tx_buf[6 + 1] = (uint8_t)((raw_back_right_suspension_potentiometer >> 8) & 0xFF);
+    tx_buf[2 + 0] = (uint8_t)(raw_back_left_suspension_potentiometer & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((raw_back_left_suspension_potentiometer >> 8) & 0xFF);
 
     return 0;
 }
 
-int unpack_back_strain_gauge_sus_pot(const uint8_t* rx_buf, msg_back_strain_gauge_sus_pot_t* msg) {
+int unpack_rl_strain_gauge_sus_pot(const uint8_t* rx_buf, msg_rl_strain_gauge_sus_pot_t* msg) {
     // Unpack: Back Left Strain Gauge Voltage
     int16_t raw_back_left_strain_gauge_voltage = 0;
     raw_back_left_strain_gauge_voltage = (int16_t)rx_buf[0 + 0];
     raw_back_left_strain_gauge_voltage |= (int16_t)(rx_buf[0 + 1] << 8);
     msg->back_left_strain_gauge_voltage = (float)raw_back_left_strain_gauge_voltage * 0.0002f;
 
-    // Unpack: Back Right Strain Gauge Voltage
-    int16_t raw_back_right_strain_gauge_voltage = 0;
-    raw_back_right_strain_gauge_voltage = (int16_t)rx_buf[2 + 0];
-    raw_back_right_strain_gauge_voltage |= (int16_t)(rx_buf[2 + 1] << 8);
-    msg->back_right_strain_gauge_voltage = (float)raw_back_right_strain_gauge_voltage * 0.0002f;
-
     // Unpack: Back Left Suspension Potentiometer
     int16_t raw_back_left_suspension_potentiometer = 0;
-    raw_back_left_suspension_potentiometer = (int16_t)rx_buf[4 + 0];
-    raw_back_left_suspension_potentiometer |= (int16_t)(rx_buf[4 + 1] << 8);
+    raw_back_left_suspension_potentiometer = (int16_t)rx_buf[2 + 0];
+    raw_back_left_suspension_potentiometer |= (int16_t)(rx_buf[2 + 1] << 8);
     msg->back_left_suspension_potentiometer = (float)raw_back_left_suspension_potentiometer * 0.001f;
+
+    return 0;
+}
+
+// Packet: RR Accel + Ride Height
+int pack_rr_accel_ride_height(const msg_rr_accel_ride_height_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, RR_ACCEL_RIDE_HEIGHT_DLC);
+
+    // Pack: X
+    int16_t raw_x = (int16_t)(msg->x / 0.001f);
+    tx_buf[0 + 0] = (uint8_t)(raw_x & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_x >> 8) & 0xFF);
+
+    // Pack: Y
+    int16_t raw_y = (int16_t)(msg->y / 0.001f);
+    tx_buf[2 + 0] = (uint8_t)(raw_y & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((raw_y >> 8) & 0xFF);
+
+    // Pack: Z
+    int16_t raw_z = (int16_t)(msg->z / 0.001f);
+    tx_buf[4 + 0] = (uint8_t)(raw_z & 0xFF);
+    tx_buf[4 + 1] = (uint8_t)((raw_z >> 8) & 0xFF);
+
+    // Pack: Ride Height
+    uint16_t raw_ride_height = (uint16_t)(msg->ride_height / 0.002f);
+    tx_buf[6 + 0] = (uint8_t)(raw_ride_height & 0xFF);
+    tx_buf[6 + 1] = (uint8_t)((raw_ride_height >> 8) & 0xFF);
+
+    return 0;
+}
+
+int unpack_rr_accel_ride_height(const uint8_t* rx_buf, msg_rr_accel_ride_height_t* msg) {
+    // Unpack: X
+    int16_t raw_x = 0;
+    raw_x = (int16_t)rx_buf[0 + 0];
+    raw_x |= (int16_t)(rx_buf[0 + 1] << 8);
+    msg->x = (float)raw_x * 0.001f;
+
+    // Unpack: Y
+    int16_t raw_y = 0;
+    raw_y = (int16_t)rx_buf[2 + 0];
+    raw_y |= (int16_t)(rx_buf[2 + 1] << 8);
+    msg->y = (float)raw_y * 0.001f;
+
+    // Unpack: Z
+    int16_t raw_z = 0;
+    raw_z = (int16_t)rx_buf[4 + 0];
+    raw_z |= (int16_t)(rx_buf[4 + 1] << 8);
+    msg->z = (float)raw_z * 0.001f;
+
+    // Unpack: Ride Height
+    uint16_t raw_ride_height = 0;
+    raw_ride_height = (uint16_t)rx_buf[6 + 0];
+    raw_ride_height |= (uint16_t)(rx_buf[6 + 1] << 8);
+    msg->ride_height = (float)raw_ride_height * 0.002f;
+
+    return 0;
+}
+
+// Packet: RR Strain Gauge + Sus Pot.
+int pack_rr_strain_gauge_sus_pot(const msg_rr_strain_gauge_sus_pot_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, RR_STRAIN_GAUGE_SUS_POT_DLC);
+
+    // Pack: Back Right Strain Gauge Voltage
+    int16_t raw_back_right_strain_gauge_voltage = (int16_t)(msg->back_right_strain_gauge_voltage / 0.0002f);
+    tx_buf[0 + 0] = (uint8_t)(raw_back_right_strain_gauge_voltage & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_back_right_strain_gauge_voltage >> 8) & 0xFF);
+
+    // Pack: Back Right Suspension Potentiometer
+    int16_t raw_back_right_suspension_potentiometer = (int16_t)(msg->back_right_suspension_potentiometer / 0.001f);
+    tx_buf[2 + 0] = (uint8_t)(raw_back_right_suspension_potentiometer & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((raw_back_right_suspension_potentiometer >> 8) & 0xFF);
+
+    return 0;
+}
+
+int unpack_rr_strain_gauge_sus_pot(const uint8_t* rx_buf, msg_rr_strain_gauge_sus_pot_t* msg) {
+    // Unpack: Back Right Strain Gauge Voltage
+    int16_t raw_back_right_strain_gauge_voltage = 0;
+    raw_back_right_strain_gauge_voltage = (int16_t)rx_buf[0 + 0];
+    raw_back_right_strain_gauge_voltage |= (int16_t)(rx_buf[0 + 1] << 8);
+    msg->back_right_strain_gauge_voltage = (float)raw_back_right_strain_gauge_voltage * 0.0002f;
 
     // Unpack: Back Right Suspension Potentiometer
     int16_t raw_back_right_suspension_potentiometer = 0;
-    raw_back_right_suspension_potentiometer = (int16_t)rx_buf[6 + 0];
-    raw_back_right_suspension_potentiometer |= (int16_t)(rx_buf[6 + 1] << 8);
+    raw_back_right_suspension_potentiometer = (int16_t)rx_buf[2 + 0];
+    raw_back_right_suspension_potentiometer |= (int16_t)(rx_buf[2 + 1] << 8);
     msg->back_right_suspension_potentiometer = (float)raw_back_right_suspension_potentiometer * 0.001f;
 
     return 0;

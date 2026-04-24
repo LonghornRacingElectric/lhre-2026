@@ -2,7 +2,7 @@
 #define CAN_IDS_H
 
 // Auto-generated CAN packet definition header file
-// Generated from: can.json
+// Generated from: /tmp/lhre_can.json
 // DO NOT EDIT MANUALLY
 
 #include <stdint.h>
@@ -1318,6 +1318,134 @@ int pack_steering_column(const msg_steering_column_t* msg, uint8_t* tx_buf);
 int unpack_steering_column(const uint8_t* rx_buf, msg_steering_column_t* msg);
 
 // ==========================================================================
+// Packet: VCU State (455)
+// ==========================================================================
+// From: VCU
+// To:   Pi
+#define VCU_STATE_ID 455
+#define VCU_STATE_DLC 3
+#define VCU_STATE_FREQ 3
+#define VCU_STATE_TIMEOUT_MS 6
+
+typedef struct {
+    uint8_t prndl_state;
+    uint8_t stomp_fault;
+    uint8_t ready_to_drive_buzzer;
+} msg_vcu_state_t;
+
+// Signal: PRNDL State
+#define VCU_STATE_PRNDL_STATE_PREC 1.0f
+
+// Signal: STOMP Fault
+#define VCU_STATE_STOMP_FAULT_PREC 1.0f
+
+// Signal: Ready To Drive Buzzer
+#define VCU_STATE_READY_TO_DRIVE_BUZZER_PREC 1.0f
+
+int pack_vcu_state(const msg_vcu_state_t* msg, uint8_t* tx_buf);
+int unpack_vcu_state(const uint8_t* rx_buf, msg_vcu_state_t* msg);
+
+// ==========================================================================
+// Packet: TC Debug 1 (456)
+// ==========================================================================
+// From: VCU
+// To:   Pi
+#define TC_DEBUG_1_ID 456
+#define TC_DEBUG_1_DLC 8
+#define TC_DEBUG_1_FREQ 10
+#define TC_DEBUG_1_TIMEOUT_MS 20
+
+typedef struct {
+    float tc_slip_ratio;
+    float tc_target_slip_ratio;
+    float tc_torque_reduction;
+    float tc_torque_limit;
+} msg_tc_debug_1_t;
+
+// Signal: TC Slip Ratio
+#define TC_DEBUG_1_TC_SLIP_RATIO_PREC 0.0001f
+
+// Signal: TC Target Slip Ratio
+#define TC_DEBUG_1_TC_TARGET_SLIP_RATIO_PREC 0.0001f
+
+// Signal: TC Torque Reduction
+#define TC_DEBUG_1_TC_TORQUE_REDUCTION_PREC 0.1f
+
+// Signal: TC Torque Limit
+#define TC_DEBUG_1_TC_TORQUE_LIMIT_PREC 0.1f
+
+int pack_tc_debug_1(const msg_tc_debug_1_t* msg, uint8_t* tx_buf);
+int unpack_tc_debug_1(const uint8_t* rx_buf, msg_tc_debug_1_t* msg);
+
+// ==========================================================================
+// Packet: TC Debug 2 (457)
+// ==========================================================================
+// From: VCU
+// To:   Pi
+#define TC_DEBUG_2_ID 457
+#define TC_DEBUG_2_DLC 8
+#define TC_DEBUG_2_FREQ 10
+#define TC_DEBUG_2_TIMEOUT_MS 20
+
+typedef struct {
+    float tc_vehicle_speed;
+    float tc_driven_speed;
+    float tc_lateral_usage;
+    uint16_t tc_sensor_fault_flags;
+} msg_tc_debug_2_t;
+
+// Signal: TC Vehicle Speed
+#define TC_DEBUG_2_TC_VEHICLE_SPEED_PREC 0.01f
+
+// Signal: TC Driven Speed
+#define TC_DEBUG_2_TC_DRIVEN_SPEED_PREC 0.01f
+
+// Signal: TC Lateral Usage
+#define TC_DEBUG_2_TC_LATERAL_USAGE_PREC 0.0001f
+
+// Signal: TC Sensor Fault Flags
+#define TC_DEBUG_2_TC_SENSOR_FAULT_FLAGS_PREC 1.0f
+
+int pack_tc_debug_2(const msg_tc_debug_2_t* msg, uint8_t* tx_buf);
+int unpack_tc_debug_2(const uint8_t* rx_buf, msg_tc_debug_2_t* msg);
+
+// ==========================================================================
+// Packet: TC Debug 3 (458)
+// ==========================================================================
+// From: VCU
+// To:   Pi
+#define TC_DEBUG_3_ID 458
+#define TC_DEBUG_3_DLC 8
+#define TC_DEBUG_3_FREQ 10
+#define TC_DEBUG_3_TIMEOUT_MS 20
+
+typedef struct {
+    float tc_lateral_accel_limit;
+    float tc_front_disagreement;
+    float tc_rear_disagreement;
+    uint8_t tc_active;
+    uint8_t tc_input_fault;
+} msg_tc_debug_3_t;
+
+// Signal: TC Lateral Accel Limit
+#define TC_DEBUG_3_TC_LATERAL_ACCEL_LIMIT_PREC 0.01f
+
+// Signal: TC Front Disagreement
+#define TC_DEBUG_3_TC_FRONT_DISAGREEMENT_PREC 0.01f
+
+// Signal: TC Rear Disagreement
+#define TC_DEBUG_3_TC_REAR_DISAGREEMENT_PREC 0.01f
+
+// Signal: TC Active
+#define TC_DEBUG_3_TC_ACTIVE_PREC 1.0f
+
+// Signal: TC Input Fault
+#define TC_DEBUG_3_TC_INPUT_FAULT_PREC 1.0f
+
+int pack_tc_debug_3(const msg_tc_debug_3_t* msg, uint8_t* tx_buf);
+int unpack_tc_debug_3(const uint8_t* rx_buf, msg_tc_debug_3_t* msg);
+
+// ==========================================================================
 // Packet: Wheel Speeds (1024)
 // ==========================================================================
 // From: USM
@@ -1462,196 +1590,228 @@ int pack_acceleration_vector_unsprung_rr(const msg_acceleration_vector_unsprung_
 int unpack_acceleration_vector_unsprung_rr(const uint8_t* rx_buf, msg_acceleration_vector_unsprung_rr_t* msg);
 
 // ==========================================================================
-// Packet: Acceleration Vector Sprung + Ride Height FL (1280)
+// Packet: FL Accel + Ride Height (1280)
 // ==========================================================================
 // From: CSM
 // To:   Pi
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_FL_ID 1280
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_FL_DLC 8
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_FL_FREQ 10
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_FL_TIMEOUT_MS 20
+#define FL_ACCEL_RIDE_HEIGHT_ID 1280
+#define FL_ACCEL_RIDE_HEIGHT_DLC 8
+#define FL_ACCEL_RIDE_HEIGHT_FREQ 10
+#define FL_ACCEL_RIDE_HEIGHT_TIMEOUT_MS 20
 
 typedef struct {
     float x;
     float y;
     float z;
     float ride_height;
-} msg_acceleration_vector_sprung_ride_height_fl_t;
+} msg_fl_accel_ride_height_t;
 
 // Signal: X
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_FL_X_PREC 0.001f
+#define FL_ACCEL_RIDE_HEIGHT_X_PREC 0.001f
 
 // Signal: Y
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_FL_Y_PREC 0.001f
+#define FL_ACCEL_RIDE_HEIGHT_Y_PREC 0.001f
 
 // Signal: Z
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_FL_Z_PREC 0.001f
+#define FL_ACCEL_RIDE_HEIGHT_Z_PREC 0.001f
 
 // Signal: Ride Height
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_FL_RIDE_HEIGHT_PREC 0.002f
+#define FL_ACCEL_RIDE_HEIGHT_RIDE_HEIGHT_PREC 0.002f
 
-int pack_acceleration_vector_sprung_ride_height_fl(const msg_acceleration_vector_sprung_ride_height_fl_t* msg, uint8_t* tx_buf);
-int unpack_acceleration_vector_sprung_ride_height_fl(const uint8_t* rx_buf, msg_acceleration_vector_sprung_ride_height_fl_t* msg);
+int pack_fl_accel_ride_height(const msg_fl_accel_ride_height_t* msg, uint8_t* tx_buf);
+int unpack_fl_accel_ride_height(const uint8_t* rx_buf, msg_fl_accel_ride_height_t* msg);
 
 // ==========================================================================
-// Packet: Acceleration Vector Sprung + Ride Height FR (1281)
+// Packet: FL Strain Gauge + Sus Pot. (1281)
 // ==========================================================================
 // From: CSM
 // To:   Pi
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_FR_ID 1281
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_FR_DLC 8
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_FR_FREQ 10
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_FR_TIMEOUT_MS 20
-
-typedef struct {
-    float x;
-    float y;
-    float z;
-    float ride_height;
-} msg_acceleration_vector_sprung_ride_height_fr_t;
-
-// Signal: X
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_FR_X_PREC 0.001f
-
-// Signal: Y
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_FR_Y_PREC 0.001f
-
-// Signal: Z
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_FR_Z_PREC 0.001f
-
-// Signal: Ride Height
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_FR_RIDE_HEIGHT_PREC 0.002f
-
-int pack_acceleration_vector_sprung_ride_height_fr(const msg_acceleration_vector_sprung_ride_height_fr_t* msg, uint8_t* tx_buf);
-int unpack_acceleration_vector_sprung_ride_height_fr(const uint8_t* rx_buf, msg_acceleration_vector_sprung_ride_height_fr_t* msg);
-
-// ==========================================================================
-// Packet: Acceleration Vector Sprung + Ride Height RL (1282)
-// ==========================================================================
-// From: CSM
-// To:   Pi
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_RL_ID 1282
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_RL_DLC 8
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_RL_FREQ 10
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_RL_TIMEOUT_MS 20
-
-typedef struct {
-    float x;
-    float y;
-    float z;
-    float ride_height;
-} msg_acceleration_vector_sprung_ride_height_rl_t;
-
-// Signal: X
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_RL_X_PREC 0.001f
-
-// Signal: Y
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_RL_Y_PREC 0.001f
-
-// Signal: Z
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_RL_Z_PREC 0.001f
-
-// Signal: Ride Height
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_RL_RIDE_HEIGHT_PREC 0.002f
-
-int pack_acceleration_vector_sprung_ride_height_rl(const msg_acceleration_vector_sprung_ride_height_rl_t* msg, uint8_t* tx_buf);
-int unpack_acceleration_vector_sprung_ride_height_rl(const uint8_t* rx_buf, msg_acceleration_vector_sprung_ride_height_rl_t* msg);
-
-// ==========================================================================
-// Packet: Acceleration Vector Sprung + Ride Height RR (1283)
-// ==========================================================================
-// From: CSM
-// To:   Pi
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_RR_ID 1283
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_RR_DLC 8
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_RR_FREQ 10
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_RR_TIMEOUT_MS 20
-
-typedef struct {
-    float x;
-    float y;
-    float z;
-    float ride_height;
-} msg_acceleration_vector_sprung_ride_height_rr_t;
-
-// Signal: X
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_RR_X_PREC 0.001f
-
-// Signal: Y
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_RR_Y_PREC 0.001f
-
-// Signal: Z
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_RR_Z_PREC 0.001f
-
-// Signal: Ride Height
-#define ACCELERATION_VECTOR_SPRUNG_RIDE_HEIGHT_RR_RIDE_HEIGHT_PREC 0.002f
-
-int pack_acceleration_vector_sprung_ride_height_rr(const msg_acceleration_vector_sprung_ride_height_rr_t* msg, uint8_t* tx_buf);
-int unpack_acceleration_vector_sprung_ride_height_rr(const uint8_t* rx_buf, msg_acceleration_vector_sprung_ride_height_rr_t* msg);
-
-// ==========================================================================
-// Packet: Front Strain Gauge + Sus Pot. (1284)
-// ==========================================================================
-// From: CSM
-// To:   Pi
-#define FRONT_STRAIN_GAUGE_SUS_POT_ID 1284
-#define FRONT_STRAIN_GAUGE_SUS_POT_DLC 8
-#define FRONT_STRAIN_GAUGE_SUS_POT_FREQ 10
-#define FRONT_STRAIN_GAUGE_SUS_POT_TIMEOUT_MS 20
+#define FL_STRAIN_GAUGE_SUS_POT_ID 1281
+#define FL_STRAIN_GAUGE_SUS_POT_DLC 4
+#define FL_STRAIN_GAUGE_SUS_POT_FREQ 10
+#define FL_STRAIN_GAUGE_SUS_POT_TIMEOUT_MS 20
 
 typedef struct {
     float front_left_strain_gauge_voltage;
-    float front_right_strain_gauge_voltage;
     float front_left_suspension_potentiometer;
-    float front_right_suspension_potentiometer;
-} msg_front_strain_gauge_sus_pot_t;
+} msg_fl_strain_gauge_sus_pot_t;
 
 // Signal: Front Left Strain Gauge Voltage
-#define FRONT_STRAIN_GAUGE_SUS_POT_FRONT_LEFT_STRAIN_GAUGE_VOLTAGE_PREC 0.0002f
-
-// Signal: Front Right Strain Gauge Voltage
-#define FRONT_STRAIN_GAUGE_SUS_POT_FRONT_RIGHT_STRAIN_GAUGE_VOLTAGE_PREC 0.0002f
+#define FL_STRAIN_GAUGE_SUS_POT_FRONT_LEFT_STRAIN_GAUGE_VOLTAGE_PREC 0.0002f
 
 // Signal: Front Left Suspension Potentiometer
-#define FRONT_STRAIN_GAUGE_SUS_POT_FRONT_LEFT_SUSPENSION_POTENTIOMETER_PREC 0.001f
+#define FL_STRAIN_GAUGE_SUS_POT_FRONT_LEFT_SUSPENSION_POTENTIOMETER_PREC 0.001f
 
-// Signal: Front Right Suspension Potentiometer
-#define FRONT_STRAIN_GAUGE_SUS_POT_FRONT_RIGHT_SUSPENSION_POTENTIOMETER_PREC 0.001f
-
-int pack_front_strain_gauge_sus_pot(const msg_front_strain_gauge_sus_pot_t* msg, uint8_t* tx_buf);
-int unpack_front_strain_gauge_sus_pot(const uint8_t* rx_buf, msg_front_strain_gauge_sus_pot_t* msg);
+int pack_fl_strain_gauge_sus_pot(const msg_fl_strain_gauge_sus_pot_t* msg, uint8_t* tx_buf);
+int unpack_fl_strain_gauge_sus_pot(const uint8_t* rx_buf, msg_fl_strain_gauge_sus_pot_t* msg);
 
 // ==========================================================================
-// Packet: Back Strain Gauge + Sus Pot. (1285)
+// Packet: FR Accel + Ride Height (1282)
 // ==========================================================================
 // From: CSM
 // To:   Pi
-#define BACK_STRAIN_GAUGE_SUS_POT_ID 1285
-#define BACK_STRAIN_GAUGE_SUS_POT_DLC 8
-#define BACK_STRAIN_GAUGE_SUS_POT_FREQ 10
-#define BACK_STRAIN_GAUGE_SUS_POT_TIMEOUT_MS 20
+#define FR_ACCEL_RIDE_HEIGHT_ID 1282
+#define FR_ACCEL_RIDE_HEIGHT_DLC 8
+#define FR_ACCEL_RIDE_HEIGHT_FREQ 10
+#define FR_ACCEL_RIDE_HEIGHT_TIMEOUT_MS 20
+
+typedef struct {
+    float x;
+    float y;
+    float z;
+    float ride_height;
+} msg_fr_accel_ride_height_t;
+
+// Signal: X
+#define FR_ACCEL_RIDE_HEIGHT_X_PREC 0.001f
+
+// Signal: Y
+#define FR_ACCEL_RIDE_HEIGHT_Y_PREC 0.001f
+
+// Signal: Z
+#define FR_ACCEL_RIDE_HEIGHT_Z_PREC 0.001f
+
+// Signal: Ride Height
+#define FR_ACCEL_RIDE_HEIGHT_RIDE_HEIGHT_PREC 0.002f
+
+int pack_fr_accel_ride_height(const msg_fr_accel_ride_height_t* msg, uint8_t* tx_buf);
+int unpack_fr_accel_ride_height(const uint8_t* rx_buf, msg_fr_accel_ride_height_t* msg);
+
+// ==========================================================================
+// Packet: FR Strain Gauge + Sus Pot. (1283)
+// ==========================================================================
+// From: CSM
+// To:   Pi
+#define FR_STRAIN_GAUGE_SUS_POT_ID 1283
+#define FR_STRAIN_GAUGE_SUS_POT_DLC 4
+#define FR_STRAIN_GAUGE_SUS_POT_FREQ 10
+#define FR_STRAIN_GAUGE_SUS_POT_TIMEOUT_MS 20
+
+typedef struct {
+    float front_right_strain_gauge_voltage;
+    float front_right_suspension_potentiometer;
+} msg_fr_strain_gauge_sus_pot_t;
+
+// Signal: Front Right Strain Gauge Voltage
+#define FR_STRAIN_GAUGE_SUS_POT_FRONT_RIGHT_STRAIN_GAUGE_VOLTAGE_PREC 0.0002f
+
+// Signal: Front Right Suspension Potentiometer
+#define FR_STRAIN_GAUGE_SUS_POT_FRONT_RIGHT_SUSPENSION_POTENTIOMETER_PREC 0.001f
+
+int pack_fr_strain_gauge_sus_pot(const msg_fr_strain_gauge_sus_pot_t* msg, uint8_t* tx_buf);
+int unpack_fr_strain_gauge_sus_pot(const uint8_t* rx_buf, msg_fr_strain_gauge_sus_pot_t* msg);
+
+// ==========================================================================
+// Packet: RL Accel + Ride Height (1284)
+// ==========================================================================
+// From: CSM
+// To:   Pi
+#define RL_ACCEL_RIDE_HEIGHT_ID 1284
+#define RL_ACCEL_RIDE_HEIGHT_DLC 8
+#define RL_ACCEL_RIDE_HEIGHT_FREQ 10
+#define RL_ACCEL_RIDE_HEIGHT_TIMEOUT_MS 20
+
+typedef struct {
+    float x;
+    float y;
+    float z;
+    float ride_height;
+} msg_rl_accel_ride_height_t;
+
+// Signal: X
+#define RL_ACCEL_RIDE_HEIGHT_X_PREC 0.001f
+
+// Signal: Y
+#define RL_ACCEL_RIDE_HEIGHT_Y_PREC 0.001f
+
+// Signal: Z
+#define RL_ACCEL_RIDE_HEIGHT_Z_PREC 0.001f
+
+// Signal: Ride Height
+#define RL_ACCEL_RIDE_HEIGHT_RIDE_HEIGHT_PREC 0.002f
+
+int pack_rl_accel_ride_height(const msg_rl_accel_ride_height_t* msg, uint8_t* tx_buf);
+int unpack_rl_accel_ride_height(const uint8_t* rx_buf, msg_rl_accel_ride_height_t* msg);
+
+// ==========================================================================
+// Packet: RL Strain Gauge + Sus Pot. (1285)
+// ==========================================================================
+// From: CSM
+// To:   Pi
+#define RL_STRAIN_GAUGE_SUS_POT_ID 1285
+#define RL_STRAIN_GAUGE_SUS_POT_DLC 4
+#define RL_STRAIN_GAUGE_SUS_POT_FREQ 10
+#define RL_STRAIN_GAUGE_SUS_POT_TIMEOUT_MS 20
 
 typedef struct {
     float back_left_strain_gauge_voltage;
-    float back_right_strain_gauge_voltage;
     float back_left_suspension_potentiometer;
-    float back_right_suspension_potentiometer;
-} msg_back_strain_gauge_sus_pot_t;
+} msg_rl_strain_gauge_sus_pot_t;
 
 // Signal: Back Left Strain Gauge Voltage
-#define BACK_STRAIN_GAUGE_SUS_POT_BACK_LEFT_STRAIN_GAUGE_VOLTAGE_PREC 0.0002f
-
-// Signal: Back Right Strain Gauge Voltage
-#define BACK_STRAIN_GAUGE_SUS_POT_BACK_RIGHT_STRAIN_GAUGE_VOLTAGE_PREC 0.0002f
+#define RL_STRAIN_GAUGE_SUS_POT_BACK_LEFT_STRAIN_GAUGE_VOLTAGE_PREC 0.0002f
 
 // Signal: Back Left Suspension Potentiometer
-#define BACK_STRAIN_GAUGE_SUS_POT_BACK_LEFT_SUSPENSION_POTENTIOMETER_PREC 0.001f
+#define RL_STRAIN_GAUGE_SUS_POT_BACK_LEFT_SUSPENSION_POTENTIOMETER_PREC 0.001f
+
+int pack_rl_strain_gauge_sus_pot(const msg_rl_strain_gauge_sus_pot_t* msg, uint8_t* tx_buf);
+int unpack_rl_strain_gauge_sus_pot(const uint8_t* rx_buf, msg_rl_strain_gauge_sus_pot_t* msg);
+
+// ==========================================================================
+// Packet: RR Accel + Ride Height (1286)
+// ==========================================================================
+// From: CSM
+// To:   Pi
+#define RR_ACCEL_RIDE_HEIGHT_ID 1286
+#define RR_ACCEL_RIDE_HEIGHT_DLC 8
+#define RR_ACCEL_RIDE_HEIGHT_FREQ 10
+#define RR_ACCEL_RIDE_HEIGHT_TIMEOUT_MS 20
+
+typedef struct {
+    float x;
+    float y;
+    float z;
+    float ride_height;
+} msg_rr_accel_ride_height_t;
+
+// Signal: X
+#define RR_ACCEL_RIDE_HEIGHT_X_PREC 0.001f
+
+// Signal: Y
+#define RR_ACCEL_RIDE_HEIGHT_Y_PREC 0.001f
+
+// Signal: Z
+#define RR_ACCEL_RIDE_HEIGHT_Z_PREC 0.001f
+
+// Signal: Ride Height
+#define RR_ACCEL_RIDE_HEIGHT_RIDE_HEIGHT_PREC 0.002f
+
+int pack_rr_accel_ride_height(const msg_rr_accel_ride_height_t* msg, uint8_t* tx_buf);
+int unpack_rr_accel_ride_height(const uint8_t* rx_buf, msg_rr_accel_ride_height_t* msg);
+
+// ==========================================================================
+// Packet: RR Strain Gauge + Sus Pot. (1287)
+// ==========================================================================
+// From: CSM
+// To:   Pi
+#define RR_STRAIN_GAUGE_SUS_POT_ID 1287
+#define RR_STRAIN_GAUGE_SUS_POT_DLC 4
+#define RR_STRAIN_GAUGE_SUS_POT_FREQ 10
+#define RR_STRAIN_GAUGE_SUS_POT_TIMEOUT_MS 20
+
+typedef struct {
+    float back_right_strain_gauge_voltage;
+    float back_right_suspension_potentiometer;
+} msg_rr_strain_gauge_sus_pot_t;
+
+// Signal: Back Right Strain Gauge Voltage
+#define RR_STRAIN_GAUGE_SUS_POT_BACK_RIGHT_STRAIN_GAUGE_VOLTAGE_PREC 0.0002f
 
 // Signal: Back Right Suspension Potentiometer
-#define BACK_STRAIN_GAUGE_SUS_POT_BACK_RIGHT_SUSPENSION_POTENTIOMETER_PREC 0.001f
+#define RR_STRAIN_GAUGE_SUS_POT_BACK_RIGHT_SUSPENSION_POTENTIOMETER_PREC 0.001f
 
-int pack_back_strain_gauge_sus_pot(const msg_back_strain_gauge_sus_pot_t* msg, uint8_t* tx_buf);
-int unpack_back_strain_gauge_sus_pot(const uint8_t* rx_buf, msg_back_strain_gauge_sus_pot_t* msg);
+int pack_rr_strain_gauge_sus_pot(const msg_rr_strain_gauge_sus_pot_t* msg, uint8_t* tx_buf);
+int unpack_rr_strain_gauge_sus_pot(const uint8_t* rx_buf, msg_rr_strain_gauge_sus_pot_t* msg);
 
 // ==========================================================================
 // Packet: VCU Enter Bootloader (37)

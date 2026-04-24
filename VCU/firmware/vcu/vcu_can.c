@@ -34,6 +34,27 @@ static can_receive_message_t *contactor_status_mailbox_handle = NULL;
 static msg_dui_r2d_status_t dui_r2d_status_mailbox = {0};
 static can_receive_message_t *dui_r2d_status_mailbox_handle = NULL;
 
+static msg_inverter_speed_t inverter_speed_mailbox = {0};
+static can_receive_message_t *inverter_speed_mailbox_handle = NULL;
+
+static msg_battery_pack_status_t battery_pack_status_mailbox = {0};
+static can_receive_message_t *battery_pack_status_mailbox_handle = NULL;
+
+static msg_wheel_speeds_t wheel_speeds_mailbox = {0};
+static can_receive_message_t *wheel_speeds_mailbox_handle = NULL;
+
+static msg_acceleration_vector_unsprung_fl_t unsprung_accel_fl_mailbox = {0};
+static can_receive_message_t *unsprung_accel_fl_mailbox_handle = NULL;
+
+static msg_acceleration_vector_unsprung_fr_t unsprung_accel_fr_mailbox = {0};
+static can_receive_message_t *unsprung_accel_fr_mailbox_handle = NULL;
+
+static msg_acceleration_vector_unsprung_rl_t unsprung_accel_rl_mailbox = {0};
+static can_receive_message_t *unsprung_accel_rl_mailbox_handle = NULL;
+
+static msg_acceleration_vector_unsprung_rr_t unsprung_accel_rr_mailbox = {0};
+static can_receive_message_t *unsprung_accel_rr_mailbox_handle = NULL;
+
 // #define DUI_R2D_STATUS_TIMEOUT_MS 1000u
 
 // static bool dui_r2d_timed_out_logged = false;
@@ -60,6 +81,15 @@ static can_message_t *brakes_mailbox_handle = NULL;
 
 static msg_vcu_state_t vcu_state_mailbox = {0};
 static can_message_t *vcu_state_mailbox_handle = NULL;
+
+static msg_tc_debug_1_t tc_debug_1_mailbox = {0};
+static can_message_t *tc_debug_1_mailbox_handle = NULL;
+
+static msg_tc_debug_2_t tc_debug_2_mailbox = {0};
+static can_message_t *tc_debug_2_mailbox_handle = NULL;
+
+static msg_tc_debug_3_t tc_debug_3_mailbox = {0};
+static can_message_t *tc_debug_3_mailbox_handle = NULL;
 
 void vcu_can_add_receive_handlers(void);
 void vcu_can_add_send_handlers(void);
@@ -181,6 +211,27 @@ void vcu_can_add_send_handlers(void) {
                              (CAN_pack_message_fn)pack_vcu_state);
   can_rtos_register_send_packet(&critical_bus, vcu_state_mailbox_handle);
   log_printf(LOG_INFO, "[VCU] CAN send handler for VCU state registered\n");
+
+  tc_debug_1_mailbox_handle =
+      can_get_message_handle(&tc_debug_1_mailbox, TC_DEBUG_1_ID,
+                             TC_DEBUG_1_FREQ, TC_DEBUG_1_DLC,
+                             (CAN_pack_message_fn)pack_tc_debug_1);
+  can_rtos_register_send_packet(&data_acq_bus, tc_debug_1_mailbox_handle);
+  log_printf(LOG_INFO, "[VCU] CAN send handler for TC debug 1 registered\n");
+
+  tc_debug_2_mailbox_handle =
+      can_get_message_handle(&tc_debug_2_mailbox, TC_DEBUG_2_ID,
+                             TC_DEBUG_2_FREQ, TC_DEBUG_2_DLC,
+                             (CAN_pack_message_fn)pack_tc_debug_2);
+  can_rtos_register_send_packet(&data_acq_bus, tc_debug_2_mailbox_handle);
+  log_printf(LOG_INFO, "[VCU] CAN send handler for TC debug 2 registered\n");
+
+  tc_debug_3_mailbox_handle =
+      can_get_message_handle(&tc_debug_3_mailbox, TC_DEBUG_3_ID,
+                             TC_DEBUG_3_FREQ, TC_DEBUG_3_DLC,
+                             (CAN_pack_message_fn)pack_tc_debug_3);
+  can_rtos_register_send_packet(&data_acq_bus, tc_debug_3_mailbox_handle);
+  log_printf(LOG_INFO, "[VCU] CAN send handler for TC debug 3 registered\n");
 }
 
 void vcu_init_inverter() {
@@ -201,6 +252,56 @@ void vcu_can_set_model_inputs(const vcu_inputs_t *in) {
   bse_voltages_mailbox.bse_front_voltage = in->bse1_raw;
   bse_voltages_mailbox.bse_rear_voltage = in->bse2_raw;
   bse_voltages_mailbox.bse_line_lock_voltage = 0.0f;
+}
+
+void vcu_can_set_powertrain_inputs(vcu_inputs_t *in) {
+  bool battery_status_valid =
+      battery_pack_status_mailbox_handle != NULL &&
+      !message_timed_out(battery_pack_status_mailbox_handle,
+                         BATTERY_PACK_STATUS_TIMEOUT_MS);
+  bool inverter_speed_valid =
+      inverter_speed_mailbox_handle != NULL &&
+      !message_timed_out(inverter_speed_mailbox_handle,
+                         INVERTER_SPEED_TIMEOUT_MS);
+
+  in->battery_voltage_v = battery_pack_status_mailbox.pack_voltage;
+  in->battery_current_a = battery_pack_status_mailbox.tractive_current;
+  in->battery_soc_pct = battery_pack_status_mailbox.state_of_charge;
+  in->battery_status_valid = battery_status_valid;
+
+  in->motor_speed_rpm = (float)inverter_speed_mailbox.motor_speed;
+  in->inverter_speed_valid = inverter_speed_valid;
+
+  bool wheel_speeds_valid =
+      wheel_speeds_mailbox_handle != NULL &&
+      !message_timed_out(wheel_speeds_mailbox_handle,
+                         WHEEL_SPEEDS_TIMEOUT_MS);
+  in->wheel_speed_fl_rad_s = wheel_speeds_mailbox.front_left_speed;
+  in->wheel_speed_fr_rad_s = wheel_speeds_mailbox.front_right_speed;
+  in->wheel_speed_rl_rad_s = wheel_speeds_mailbox.back_left_speed;
+  in->wheel_speed_rr_rad_s = wheel_speeds_mailbox.back_right_speed;
+  in->wheel_speeds_valid = wheel_speeds_valid;
+
+  bool unsprung_accel_valid =
+      unsprung_accel_fl_mailbox_handle != NULL &&
+      unsprung_accel_fr_mailbox_handle != NULL &&
+      unsprung_accel_rl_mailbox_handle != NULL &&
+      unsprung_accel_rr_mailbox_handle != NULL &&
+      !message_timed_out(unsprung_accel_fl_mailbox_handle,
+                         ACCELERATION_VECTOR_UNSPRUNG_FL_TIMEOUT_MS) &&
+      !message_timed_out(unsprung_accel_fr_mailbox_handle,
+                         ACCELERATION_VECTOR_UNSPRUNG_FR_TIMEOUT_MS) &&
+      !message_timed_out(unsprung_accel_rl_mailbox_handle,
+                         ACCELERATION_VECTOR_UNSPRUNG_RL_TIMEOUT_MS) &&
+      !message_timed_out(unsprung_accel_rr_mailbox_handle,
+                         ACCELERATION_VECTOR_UNSPRUNG_RR_TIMEOUT_MS);
+  in->longitudinal_accel_mps2 =
+      0.25f * (unsprung_accel_fl_mailbox.x + unsprung_accel_fr_mailbox.x +
+               unsprung_accel_rl_mailbox.x + unsprung_accel_rr_mailbox.x);
+  in->lateral_accel_mps2 =
+      0.25f * (unsprung_accel_fl_mailbox.y + unsprung_accel_fr_mailbox.y +
+               unsprung_accel_rl_mailbox.y + unsprung_accel_rr_mailbox.y);
+  in->accel_valid = unsprung_accel_valid;
 }
 
 void vcu_can_set_model_outputs(const vcu_outputs_t *out) {
@@ -229,6 +330,28 @@ void vcu_can_set_model_outputs(const vcu_outputs_t *out) {
   vcu_state_mailbox.prndl_state = out->prndl_state;
   vcu_state_mailbox.stomp_fault = out->faults.brake_latched;
   vcu_state_mailbox.ready_to_drive_buzzer = out->buzzer_active;
+
+  tc_debug_1_mailbox.tc_slip_ratio = out->debug.tc_slip_ratio;
+  tc_debug_1_mailbox.tc_target_slip_ratio =
+      out->debug.tc_target_slip_ratio;
+  tc_debug_1_mailbox.tc_torque_reduction =
+      out->debug.tc_torque_reduction_nm;
+  tc_debug_1_mailbox.tc_torque_limit = out->debug.tc_torque_limit_nm;
+
+  tc_debug_2_mailbox.tc_vehicle_speed = out->debug.tc_vehicle_speed_mps;
+  tc_debug_2_mailbox.tc_driven_speed = out->debug.tc_driven_speed_mps;
+  tc_debug_2_mailbox.tc_lateral_usage = out->debug.tc_lateral_usage;
+  tc_debug_2_mailbox.tc_sensor_fault_flags =
+      (uint16_t)out->debug.tc_sensor_fault_flags;
+
+  tc_debug_3_mailbox.tc_lateral_accel_limit =
+      out->debug.tc_lateral_accel_limit_mps2;
+  tc_debug_3_mailbox.tc_front_disagreement =
+      out->debug.tc_front_disagreement_mps;
+  tc_debug_3_mailbox.tc_rear_disagreement =
+      out->debug.tc_rear_disagreement_mps;
+  tc_debug_3_mailbox.tc_active = out->debug.tc_active;
+  tc_debug_3_mailbox.tc_input_fault = out->faults.tc_input_fault;
 
   led_set(out->brake_pressed, is_drive_switch_pressed(),
           out->accel_pedal_travel == 0);
@@ -329,4 +452,52 @@ void vcu_can_add_receive_handlers(void) {
                                    dui_r2d_status_mailbox_handle);
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for DUI R2D status registered\n");
+
+  inverter_speed_mailbox_handle = can_get_receive_message_handle(
+      &inverter_speed_mailbox, INVERTER_SPEED_ID,
+      (CAN_unpack_message_fn)unpack_inverter_speed);
+  can_rtos_register_receive_packet(&critical_bus, inverter_speed_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for inverter speed registered\n");
+
+  battery_pack_status_mailbox_handle = can_get_receive_message_handle(
+      &battery_pack_status_mailbox, BATTERY_PACK_STATUS_ID,
+      (CAN_unpack_message_fn)unpack_battery_pack_status);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   battery_pack_status_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for battery pack status registered\n");
+
+  wheel_speeds_mailbox_handle = can_get_receive_message_handle(
+      &wheel_speeds_mailbox, WHEEL_SPEEDS_ID,
+      (CAN_unpack_message_fn)unpack_wheel_speeds);
+  can_rtos_register_receive_packet(&data_acq_bus, wheel_speeds_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for wheel speeds registered\n");
+
+  unsprung_accel_fl_mailbox_handle = can_get_receive_message_handle(
+      &unsprung_accel_fl_mailbox, ACCELERATION_VECTOR_UNSPRUNG_FL_ID,
+      (CAN_unpack_message_fn)unpack_acceleration_vector_unsprung_fl);
+  can_rtos_register_receive_packet(&data_acq_bus,
+                                   unsprung_accel_fl_mailbox_handle);
+
+  unsprung_accel_fr_mailbox_handle = can_get_receive_message_handle(
+      &unsprung_accel_fr_mailbox, ACCELERATION_VECTOR_UNSPRUNG_FR_ID,
+      (CAN_unpack_message_fn)unpack_acceleration_vector_unsprung_fr);
+  can_rtos_register_receive_packet(&data_acq_bus,
+                                   unsprung_accel_fr_mailbox_handle);
+
+  unsprung_accel_rl_mailbox_handle = can_get_receive_message_handle(
+      &unsprung_accel_rl_mailbox, ACCELERATION_VECTOR_UNSPRUNG_RL_ID,
+      (CAN_unpack_message_fn)unpack_acceleration_vector_unsprung_rl);
+  can_rtos_register_receive_packet(&data_acq_bus,
+                                   unsprung_accel_rl_mailbox_handle);
+
+  unsprung_accel_rr_mailbox_handle = can_get_receive_message_handle(
+      &unsprung_accel_rr_mailbox, ACCELERATION_VECTOR_UNSPRUNG_RR_ID,
+      (CAN_unpack_message_fn)unpack_acceleration_vector_unsprung_rr);
+  can_rtos_register_receive_packet(&data_acq_bus,
+                                   unsprung_accel_rr_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handlers for unsprung accel registered\n");
 }
