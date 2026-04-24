@@ -3,8 +3,61 @@
 #include <math.h>
 #include <string.h>
 
-static float param_or_default(float value, float default_value) {
-  return value > 0.0f ? value : default_value;
+static bool traction_control_params_are_valid(
+    const vcu_traction_control_parameters_t *tc) {
+  return isfinite(tc->tc_wheel_radius_m) && tc->tc_wheel_radius_m > 0.0f &&
+         isfinite(tc->tc_final_drive_ratio) &&
+         tc->tc_final_drive_ratio > 0.0f &&
+         isfinite(tc->tc_base_target_slip) &&
+         tc->tc_base_target_slip >= tc->tc_min_target_slip &&
+         isfinite(tc->tc_min_target_slip) && tc->tc_min_target_slip > 0.0f &&
+         isfinite(tc->tc_max_target_slip) &&
+         tc->tc_max_target_slip >= tc->tc_base_target_slip &&
+         isfinite(tc->tc_slip_hysteresis) &&
+         tc->tc_slip_hysteresis >= 0.0f &&
+         isfinite(tc->tc_lateral_accel_limit_mps2) &&
+         tc->tc_lateral_accel_limit_mps2 > 0.0f &&
+         isfinite(tc->tc_aero_lateral_accel_gain_per_mps2) &&
+         tc->tc_aero_lateral_accel_gain_per_mps2 >= 0.0f &&
+         isfinite(tc->tc_lateral_slip_reduction_gain) &&
+         tc->tc_lateral_slip_reduction_gain >= 0.0f &&
+         isfinite(tc->tc_min_vehicle_speed_mps) &&
+         tc->tc_min_vehicle_speed_mps > 0.0f &&
+         isfinite(tc->tc_min_torque_nm) && tc->tc_min_torque_nm >= 0.0f &&
+         isfinite(tc->tc_max_wheel_speed_mps) &&
+         tc->tc_max_wheel_speed_mps > 0.0f &&
+         isfinite(tc->tc_max_reference_accel_mps2) &&
+         tc->tc_max_reference_accel_mps2 > 0.0f &&
+         isfinite(tc->tc_front_disagreement_mps) &&
+         tc->tc_front_disagreement_mps > 0.0f &&
+         isfinite(tc->tc_rear_disagreement_mps) &&
+         tc->tc_rear_disagreement_mps > 0.0f &&
+         isfinite(tc->tc_motor_rear_disagreement_mps) &&
+         tc->tc_motor_rear_disagreement_mps > 0.0f &&
+         isfinite(tc->tc_speed_lpf_time_constant_s) &&
+         tc->tc_speed_lpf_time_constant_s >= 0.0f &&
+         isfinite(tc->tc_slip_lpf_time_constant_s) &&
+         tc->tc_slip_lpf_time_constant_s >= 0.0f &&
+         isfinite(tc->tc_feedback_lpf_time_constant_s) &&
+         tc->tc_feedback_lpf_time_constant_s >= 0.0f &&
+         isfinite(tc->tc_reference_accel_blend) &&
+         tc->tc_reference_accel_blend >= 0.0f &&
+         tc->tc_reference_accel_blend <= 1.0f &&
+         isfinite(tc->tc_kp_nm_per_slip) && tc->tc_kp_nm_per_slip >= 0.0f &&
+         isfinite(tc->tc_ki_nm_per_slip_s) &&
+         tc->tc_ki_nm_per_slip_s >= 0.0f &&
+         isfinite(tc->tc_kd_nm_per_slip_rate) &&
+         tc->tc_kd_nm_per_slip_rate >= 0.0f &&
+         isfinite(tc->tc_driven_accel_gain_nm_per_mps2) &&
+         tc->tc_driven_accel_gain_nm_per_mps2 >= 0.0f &&
+         isfinite(tc->tc_integral_limit_nm) &&
+         tc->tc_integral_limit_nm >= 0.0f &&
+         isfinite(tc->tc_max_torque_reduction_nm) &&
+         tc->tc_max_torque_reduction_nm >= 0.0f &&
+         isfinite(tc->tc_cut_slew_nm_per_s) &&
+         tc->tc_cut_slew_nm_per_s > 0.0f &&
+         isfinite(tc->tc_recovery_slew_nm_per_s) &&
+         tc->tc_recovery_slew_nm_per_s > 0.0f;
 }
 
 static float lpf_alpha_from_tau(float dt_s, float tau_s) {
@@ -74,9 +127,8 @@ static tc_speed_estimate_t estimate_speeds(const vcu_inputs_t *in,
 
   float wheel_radius_m = tc->tc_wheel_radius_m;
   float final_drive_ratio = tc->tc_final_drive_ratio;
-  float max_speed_mps = param_or_default(tc->tc_max_wheel_speed_mps, 90.0f);
-  float max_reference_accel_mps2 =
-      param_or_default(tc->tc_max_reference_accel_mps2, 35.0f);
+  float max_speed_mps = tc->tc_max_wheel_speed_mps;
+  float max_reference_accel_mps2 = tc->tc_max_reference_accel_mps2;
 
   float fl = fabsf(in->wheel_speed_fl_rad_s) * wheel_radius_m;
   float fr = fabsf(in->wheel_speed_fr_rad_s) * wheel_radius_m;
@@ -126,8 +178,7 @@ static tc_speed_estimate_t estimate_speeds(const vcu_inputs_t *in,
     estimate.sensor_fault_flags |= TC_SENSOR_MOTOR_SPEED_INVALID;
   }
 
-  float front_disagreement_limit =
-      param_or_default(tc->tc_front_disagreement_mps, 3.0f);
+  float front_disagreement_limit = tc->tc_front_disagreement_mps;
   float prediction_mps = state->vehicle_speed_initialized
                              ? state->filtered_vehicle_speed_mps
                              : 0.5f * (fl + fr);
@@ -153,10 +204,8 @@ static tc_speed_estimate_t estimate_speeds(const vcu_inputs_t *in,
 
   float rear_from_wheels = 0.0f;
   bool rear_from_wheels_valid = false;
-  float rear_disagreement_limit =
-      param_or_default(tc->tc_rear_disagreement_mps, 8.0f);
-  float motor_rear_disagreement_limit =
-      param_or_default(tc->tc_motor_rear_disagreement_mps, 8.0f);
+  float rear_disagreement_limit = tc->tc_rear_disagreement_mps;
+  float motor_rear_disagreement_limit = tc->tc_motor_rear_disagreement_mps;
 
   if (rl_valid && rr_valid) {
     estimate.rear_disagreement_mps = fabsf(rl - rr);
@@ -233,9 +282,9 @@ static float compute_target_slip(const vcu_inputs_t *in,
                                  float *effective_lateral_accel_out) {
   const vcu_traction_control_parameters_t *tc = &params->traction_control;
 
-  float base_target = param_or_default(tc->tc_base_target_slip, 0.08f);
-  float min_target = param_or_default(tc->tc_min_target_slip, 0.03f);
-  float max_target = param_or_default(tc->tc_max_target_slip, 0.16f);
+  float base_target = tc->tc_base_target_slip;
+  float min_target = tc->tc_min_target_slip;
+  float max_target = tc->tc_max_target_slip;
   if (max_target < min_target) {
     max_target = min_target;
   }
@@ -257,11 +306,9 @@ static float compute_target_slip(const vcu_inputs_t *in,
   if (in->accel_valid && tc->tc_use_accel) {
     lateral_accel_mps2 = in->lateral_accel_mps2;
   }
-  float lateral_limit =
-      param_or_default(tc->tc_lateral_accel_limit_mps2, 11.0f);
+  float lateral_limit = tc->tc_lateral_accel_limit_mps2;
   if (tc->tc_aero_lateral_limit_enable) {
-    float aero_gain =
-        param_or_default(tc->tc_aero_lateral_accel_gain_per_mps2, 0.0f);
+    float aero_gain = tc->tc_aero_lateral_accel_gain_per_mps2;
     lateral_limit += fmaxf(aero_gain, 0.0f) * vehicle_speed_mps *
                      vehicle_speed_mps;
   }
@@ -276,8 +323,7 @@ static float compute_target_slip(const vcu_inputs_t *in,
                              1.0f);
   }
 
-  float lateral_gain =
-      param_or_default(tc->tc_lateral_slip_reduction_gain, 1.0f);
+  float lateral_gain = tc->tc_lateral_slip_reduction_gain;
   lateral_gain *= (1.0f + lateral_adjust);
   lateral_gain = clamp_f(lateral_gain, 0.0f, 2.0f);
 
@@ -312,6 +358,14 @@ void traction_control_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
 
   if (tc->tc_disable || tc->tc_wheel_radius_m <= 0.0f ||
       tc->tc_final_drive_ratio <= 0.0f) {
+    state->torque_limit_nm = unregulated_torque_nm;
+    state->torque_limit_initialized = true;
+    return;
+  }
+
+  if (!traction_control_params_are_valid(tc)) {
+    out->faults.tc_input_fault = true;
+    state->slip_integral = 0.0f;
     state->torque_limit_nm = unregulated_torque_nm;
     state->torque_limit_initialized = true;
     return;
@@ -353,8 +407,8 @@ void traction_control_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
 
   float raw_driven_speed_mps = speed_estimate.driven_speed_mps;
 
-  float speed_alpha = lpf_alpha_from_tau(
-      dt_s, param_or_default(tc->tc_speed_lpf_time_constant_s, 0.035f));
+  float speed_alpha =
+      lpf_alpha_from_tau(dt_s, tc->tc_speed_lpf_time_constant_s);
   if (!state->vehicle_speed_initialized) {
     state->filtered_vehicle_speed_mps = raw_vehicle_speed_mps;
     state->vehicle_speed_initialized = true;
@@ -373,8 +427,7 @@ void traction_control_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
                  speed_alpha);
   }
 
-  float min_slip_speed_mps =
-      param_or_default(tc->tc_min_vehicle_speed_mps, 3.0f);
+  float min_slip_speed_mps = tc->tc_min_vehicle_speed_mps;
   float slip_denominator =
       fmaxf(state->filtered_vehicle_speed_mps, min_slip_speed_mps);
   float slip_ratio = (state->filtered_driven_speed_mps -
@@ -382,8 +435,8 @@ void traction_control_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
                      slip_denominator;
   slip_ratio = fmaxf(slip_ratio, 0.0f);
 
-  float slip_alpha = lpf_alpha_from_tau(
-      dt_s, param_or_default(tc->tc_slip_lpf_time_constant_s, 0.020f));
+  float slip_alpha =
+      lpf_alpha_from_tau(dt_s, tc->tc_slip_lpf_time_constant_s);
   if (!state->slip_initialized) {
     state->filtered_slip_ratio = slip_ratio;
     state->slip_initialized = true;
@@ -400,16 +453,15 @@ void traction_control_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
                           &lateral_usage, &lateral_accel_limit_mps2,
                           &effective_lateral_accel_mps2);
   float slip_error = state->filtered_slip_ratio - target_slip;
-  float slip_hysteresis =
-      param_or_default(tc->tc_slip_hysteresis, 0.01f);
+  float slip_hysteresis = tc->tc_slip_hysteresis;
   if (slip_error < slip_hysteresis) {
     slip_error = 0.0f;
   } else {
     slip_error -= slip_hysteresis;
   }
 
-  float feedback_alpha = lpf_alpha_from_tau(
-      dt_s, param_or_default(tc->tc_feedback_lpf_time_constant_s, 0.025f));
+  float feedback_alpha =
+      lpf_alpha_from_tau(dt_s, tc->tc_feedback_lpf_time_constant_s);
   if (!state->slip_error_initialized) {
     state->filtered_slip_error = slip_error;
     state->slip_error_initialized = true;
@@ -447,7 +499,7 @@ void traction_control_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   state->previous_driven_speed_mps = state->filtered_driven_speed_mps;
   state->has_vehicle_speed_history = true;
 
-  float min_torque_nm = param_or_default(tc->tc_min_torque_nm, 5.0f);
+  float min_torque_nm = tc->tc_min_torque_nm;
   bool above_enable_speed =
       state->filtered_vehicle_speed_mps >= min_slip_speed_mps;
   bool enough_torque = unregulated_torque_nm >= min_torque_nm;
@@ -455,8 +507,7 @@ void traction_control_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
 
   float torque_reduction_nm = 0.0f;
   if (should_control) {
-    float integral_limit_nm =
-        param_or_default(tc->tc_integral_limit_nm, 40.0f);
+    float integral_limit_nm = tc->tc_integral_limit_nm;
     if (dt_s > 0.0f) {
       state->slip_integral += state->filtered_slip_error * dt_s;
     }
@@ -478,8 +529,7 @@ void traction_control_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
     state->slip_integral = 0.0f;
   }
 
-  float max_reduction_nm =
-      param_or_default(tc->tc_max_torque_reduction_nm, unregulated_torque_nm);
+  float max_reduction_nm = tc->tc_max_torque_reduction_nm;
   torque_reduction_nm =
       clamp_f(torque_reduction_nm, 0.0f,
               fminf(max_reduction_nm, unregulated_torque_nm));
@@ -490,9 +540,8 @@ void traction_control_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
     state->torque_limit_initialized = true;
   }
 
-  float cut_rate_nm_s = param_or_default(tc->tc_cut_slew_nm_per_s, 2500.0f);
-  float recovery_rate_nm_s =
-      param_or_default(tc->tc_recovery_slew_nm_per_s, 350.0f);
+  float cut_rate_nm_s = tc->tc_cut_slew_nm_per_s;
+  float recovery_rate_nm_s = tc->tc_recovery_slew_nm_per_s;
   state->torque_limit_nm =
       rate_limit(state->torque_limit_nm, target_torque_limit_nm,
                  recovery_rate_nm_s, cut_rate_nm_s, dt_s);

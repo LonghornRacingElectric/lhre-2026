@@ -1,6 +1,35 @@
 #include "vcu_model/inc/vcu_model.h"
 #include <gtest/gtest.h>
 
+namespace {
+
+void set_valid_torque_map_params(vcu_parameters_t *params) {
+  params->torque_map.max_torque_nm = 100.0f;
+  params->torque_map.pedal_exponential_factor = 0.0f;
+  params->torque_map.power_limit_w = 80000.0f;
+  params->torque_map.current_limit_a = 200.0f;
+  params->torque_map.hard_current_cut_a = 240.0f;
+  params->torque_map.hard_power_cut_w = 85000.0f;
+  params->torque_map.ocv_cell_count = 128.0f;
+  params->torque_map.ocv_lpf_time_constant_s = 1.0f;
+  params->torque_map.current_lpf_time_constant_s = 0.2f;
+  params->torque_map.measured_power_lpf_time_constant_s = 0.010f;
+  params->torque_map.power_limit_min_rpm = 100.0f;
+  params->torque_map.power_limit_trim_limit_nm = 20.0f;
+  params->torque_map.power_limit_kp = 0.002f;
+  params->torque_map.power_limit_ki = 0.0f;
+  params->torque_map.power_limit_kd = 0.0f;
+  const float efficiency_map[11] = {
+      0.86f, 0.89f, 0.92f, 0.94f, 0.95f, 0.955f,
+      0.955f, 0.95f, 0.945f, 0.93f, 0.90f,
+  };
+  for (int i = 0; i < 11; ++i) {
+    params->torque_map.power_limit_motor_efficiency[i] = efficiency_map[i];
+  }
+}
+
+} // namespace
+
 class VCUModelTest : public ::testing::Test {
 protected:
   vcu_parameters_t params;
@@ -41,7 +70,10 @@ protected:
     params.bse.max_pedal_restore_threshold = 0.05f;
 
     // Basic torque map
-    params.torque_map.max_torque_nm = 100.0f;
+    set_valid_torque_map_params(&params);
+
+    // Traction control is not under test here.
+    params.traction_control.tc_disable = true;
 
     // Buzzer
     params.buzzer_duration_ms = 3000;

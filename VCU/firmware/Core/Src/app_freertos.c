@@ -82,12 +82,70 @@ const osThreadAttr_t controlTask_attributes = {
 #define ADC_APPS_SCALE_V 3.3f
 #define ADC_BSE_SCALE_V 3.2837f
 
+#define VCU_TORQUE_MAP_MAX_TORQUE_NM 220.0f
+#define VCU_TORQUE_MAP_PEDAL_EXPONENTIAL_FACTOR 2.0f
+#define VCU_TORQUE_MAP_POWER_LIMIT_W 80000.0f
+#define VCU_TORQUE_MAP_CURRENT_LIMIT_A 200.0f
+#define VCU_TORQUE_MAP_HARD_CURRENT_CUT_A 240.0f
+#define VCU_TORQUE_MAP_HARD_POWER_CUT_W 85000.0f
+#define VCU_TORQUE_MAP_OCV_CELL_COUNT 128.0f
+#define VCU_TORQUE_MAP_OCV_LPF_TIME_CONSTANT_S 1.0f
+#define VCU_TORQUE_MAP_CURRENT_LPF_TIME_CONSTANT_S 0.2f
+#define VCU_TORQUE_MAP_MEASURED_POWER_LPF_TIME_CONSTANT_S 0.010f
+#define VCU_TORQUE_MAP_POWER_LIMIT_MIN_RPM 100.0f
+#define VCU_TORQUE_MAP_POWER_LIMIT_TRIM_LIMIT_NM 20.0f
+#define VCU_TORQUE_MAP_POWER_LIMIT_KP 0.002f
+#define VCU_TORQUE_MAP_POWER_LIMIT_KI 0.0f
+#define VCU_TORQUE_MAP_POWER_LIMIT_KD 0.0f
+#define VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_0 0.86f
+#define VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_1 0.89f
+#define VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_2 0.92f
+#define VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_3 0.94f
+#define VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_4 0.95f
+#define VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_5 0.955f
+#define VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_6 0.955f
+#define VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_7 0.95f
+#define VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_8 0.945f
+#define VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_9 0.93f
+#define VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_10 0.90f
+
+#define VCU_TC_WHEEL_RADIUS_M 0.2286f
+#define VCU_TC_FINAL_DRIVE_RATIO 4.0f
+#define VCU_TC_LONGITUDINAL_ADJUST 0.0f
+#define VCU_TC_LATERAL_ADJUST 0.0f
+#define VCU_TC_BASE_TARGET_SLIP 0.08f
+#define VCU_TC_MIN_TARGET_SLIP 0.03f
+#define VCU_TC_MAX_TARGET_SLIP 0.16f
+#define VCU_TC_SLIP_HYSTERESIS 0.01f
+#define VCU_TC_LATERAL_ACCEL_LIMIT_MPS2 11.0f
+#define VCU_TC_AERO_LATERAL_ACCEL_GAIN_PER_MPS2 0.0025f
+#define VCU_TC_LATERAL_SLIP_REDUCTION_GAIN 1.0f
+#define VCU_TC_MIN_VEHICLE_SPEED_MPS 3.0f
+#define VCU_TC_MIN_TORQUE_NM 5.0f
+#define VCU_TC_MAX_WHEEL_SPEED_MPS 90.0f
+#define VCU_TC_MAX_REFERENCE_ACCEL_MPS2 35.0f
+#define VCU_TC_FRONT_DISAGREEMENT_MPS 3.0f
+#define VCU_TC_REAR_DISAGREEMENT_MPS 8.0f
+#define VCU_TC_MOTOR_REAR_DISAGREEMENT_MPS 8.0f
+#define VCU_TC_SPEED_LPF_TIME_CONSTANT_S 0.035f
+#define VCU_TC_SLIP_LPF_TIME_CONSTANT_S 0.020f
+#define VCU_TC_FEEDBACK_LPF_TIME_CONSTANT_S 0.025f
+#define VCU_TC_REFERENCE_ACCEL_BLEND 0.20f
+#define VCU_TC_KP_NM_PER_SLIP 900.0f
+#define VCU_TC_KI_NM_PER_SLIP_S 80.0f
+#define VCU_TC_KD_NM_PER_SLIP_RATE 25.0f
+#define VCU_TC_DRIVEN_ACCEL_GAIN_NM_PER_MPS2 2.0f
+#define VCU_TC_INTEGRAL_LIMIT_NM 40.0f
+#define VCU_TC_MAX_TORQUE_REDUCTION_NM 220.0f
+#define VCU_TC_CUT_SLEW_NM_PER_S 2500.0f
+#define VCU_TC_RECOVERY_SLEW_NM_PER_S 350.0f
+
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
 
-static vcu_parameters_t s_params = {
+static const vcu_parameters_t s_params = {
     .apps =
         {
             .apps1_min_adc_v =
@@ -111,25 +169,39 @@ static vcu_parameters_t s_params = {
         },
     .torque_map =
         {
-            .max_torque_nm = 220.0f,
-            .pedal_exponential_factor = 2.0f,
-            .power_limit_w = 80000.0f,
-            .current_limit_a = 200.0f,
-            .hard_current_cut_a = 240.0f,
-            .hard_power_cut_w = 85000.0f,
-            .ocv_cell_count = 128.0f,
-            .ocv_lpf_time_constant_s = 1.0f,
-            .current_lpf_time_constant_s = 0.2f,
-            .measured_power_lpf_time_constant_s = 0.010f,
-            .power_limit_min_rpm = 100.0f,
-            .power_limit_trim_limit_nm = 20.0f,
-            .power_limit_kp = 0.002f,
-            .power_limit_ki = 0.0f,
-            .power_limit_kd = 0.0f,
+            .max_torque_nm = VCU_TORQUE_MAP_MAX_TORQUE_NM,
+            .pedal_exponential_factor =
+                VCU_TORQUE_MAP_PEDAL_EXPONENTIAL_FACTOR,
+            .power_limit_w = VCU_TORQUE_MAP_POWER_LIMIT_W,
+            .current_limit_a = VCU_TORQUE_MAP_CURRENT_LIMIT_A,
+            .hard_current_cut_a = VCU_TORQUE_MAP_HARD_CURRENT_CUT_A,
+            .hard_power_cut_w = VCU_TORQUE_MAP_HARD_POWER_CUT_W,
+            .ocv_cell_count = VCU_TORQUE_MAP_OCV_CELL_COUNT,
+            .ocv_lpf_time_constant_s =
+                VCU_TORQUE_MAP_OCV_LPF_TIME_CONSTANT_S,
+            .current_lpf_time_constant_s =
+                VCU_TORQUE_MAP_CURRENT_LPF_TIME_CONSTANT_S,
+            .measured_power_lpf_time_constant_s =
+                VCU_TORQUE_MAP_MEASURED_POWER_LPF_TIME_CONSTANT_S,
+            .power_limit_min_rpm = VCU_TORQUE_MAP_POWER_LIMIT_MIN_RPM,
+            .power_limit_trim_limit_nm =
+                VCU_TORQUE_MAP_POWER_LIMIT_TRIM_LIMIT_NM,
+            .power_limit_kp = VCU_TORQUE_MAP_POWER_LIMIT_KP,
+            .power_limit_ki = VCU_TORQUE_MAP_POWER_LIMIT_KI,
+            .power_limit_kd = VCU_TORQUE_MAP_POWER_LIMIT_KD,
             .power_limit_motor_efficiency =
                 {
-                    0.86f, 0.89f, 0.92f, 0.94f, 0.95f, 0.955f,
-                    0.955f, 0.95f, 0.945f, 0.93f, 0.90f,
+                    VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_0,
+                    VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_1,
+                    VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_2,
+                    VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_3,
+                    VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_4,
+                    VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_5,
+                    VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_6,
+                    VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_7,
+                    VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_8,
+                    VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_9,
+                    VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_10,
                 },
         },
 
@@ -138,36 +210,41 @@ static vcu_parameters_t s_params = {
             .tc_disable = true,
             .tc_use_accel = false,
             .tc_aero_lateral_limit_enable = false,
-            .tc_wheel_radius_m = 0.2286f,
-            .tc_final_drive_ratio = 4.0f,
-            .tc_longitudinal_adjust = 0.0f,
-            .tc_lateral_adjust = 0.0f,
-            .tc_base_target_slip = 0.08f,
-            .tc_min_target_slip = 0.03f,
-            .tc_max_target_slip = 0.16f,
-            .tc_slip_hysteresis = 0.01f,
-            .tc_lateral_accel_limit_mps2 = 11.0f,
-            .tc_aero_lateral_accel_gain_per_mps2 = 0.0025f,
-            .tc_lateral_slip_reduction_gain = 1.0f,
-            .tc_min_vehicle_speed_mps = 3.0f,
-            .tc_min_torque_nm = 5.0f,
-            .tc_max_wheel_speed_mps = 90.0f,
-            .tc_max_reference_accel_mps2 = 35.0f,
-            .tc_front_disagreement_mps = 3.0f,
-            .tc_rear_disagreement_mps = 8.0f,
-            .tc_motor_rear_disagreement_mps = 8.0f,
-            .tc_speed_lpf_time_constant_s = 0.035f,
-            .tc_slip_lpf_time_constant_s = 0.020f,
-            .tc_feedback_lpf_time_constant_s = 0.025f,
-            .tc_reference_accel_blend = 0.20f,
-            .tc_kp_nm_per_slip = 900.0f,
-            .tc_ki_nm_per_slip_s = 80.0f,
-            .tc_kd_nm_per_slip_rate = 25.0f,
-            .tc_driven_accel_gain_nm_per_mps2 = 2.0f,
-            .tc_integral_limit_nm = 40.0f,
-            .tc_max_torque_reduction_nm = 220.0f,
-            .tc_cut_slew_nm_per_s = 2500.0f,
-            .tc_recovery_slew_nm_per_s = 350.0f,
+            .tc_wheel_radius_m = VCU_TC_WHEEL_RADIUS_M,
+            .tc_final_drive_ratio = VCU_TC_FINAL_DRIVE_RATIO,
+            .tc_longitudinal_adjust = VCU_TC_LONGITUDINAL_ADJUST,
+            .tc_lateral_adjust = VCU_TC_LATERAL_ADJUST,
+            .tc_base_target_slip = VCU_TC_BASE_TARGET_SLIP,
+            .tc_min_target_slip = VCU_TC_MIN_TARGET_SLIP,
+            .tc_max_target_slip = VCU_TC_MAX_TARGET_SLIP,
+            .tc_slip_hysteresis = VCU_TC_SLIP_HYSTERESIS,
+            .tc_lateral_accel_limit_mps2 = VCU_TC_LATERAL_ACCEL_LIMIT_MPS2,
+            .tc_aero_lateral_accel_gain_per_mps2 =
+                VCU_TC_AERO_LATERAL_ACCEL_GAIN_PER_MPS2,
+            .tc_lateral_slip_reduction_gain =
+                VCU_TC_LATERAL_SLIP_REDUCTION_GAIN,
+            .tc_min_vehicle_speed_mps = VCU_TC_MIN_VEHICLE_SPEED_MPS,
+            .tc_min_torque_nm = VCU_TC_MIN_TORQUE_NM,
+            .tc_max_wheel_speed_mps = VCU_TC_MAX_WHEEL_SPEED_MPS,
+            .tc_max_reference_accel_mps2 = VCU_TC_MAX_REFERENCE_ACCEL_MPS2,
+            .tc_front_disagreement_mps = VCU_TC_FRONT_DISAGREEMENT_MPS,
+            .tc_rear_disagreement_mps = VCU_TC_REAR_DISAGREEMENT_MPS,
+            .tc_motor_rear_disagreement_mps =
+                VCU_TC_MOTOR_REAR_DISAGREEMENT_MPS,
+            .tc_speed_lpf_time_constant_s = VCU_TC_SPEED_LPF_TIME_CONSTANT_S,
+            .tc_slip_lpf_time_constant_s = VCU_TC_SLIP_LPF_TIME_CONSTANT_S,
+            .tc_feedback_lpf_time_constant_s =
+                VCU_TC_FEEDBACK_LPF_TIME_CONSTANT_S,
+            .tc_reference_accel_blend = VCU_TC_REFERENCE_ACCEL_BLEND,
+            .tc_kp_nm_per_slip = VCU_TC_KP_NM_PER_SLIP,
+            .tc_ki_nm_per_slip_s = VCU_TC_KI_NM_PER_SLIP_S,
+            .tc_kd_nm_per_slip_rate = VCU_TC_KD_NM_PER_SLIP_RATE,
+            .tc_driven_accel_gain_nm_per_mps2 =
+                VCU_TC_DRIVEN_ACCEL_GAIN_NM_PER_MPS2,
+            .tc_integral_limit_nm = VCU_TC_INTEGRAL_LIMIT_NM,
+            .tc_max_torque_reduction_nm = VCU_TC_MAX_TORQUE_REDUCTION_NM,
+            .tc_cut_slew_nm_per_s = VCU_TC_CUT_SLEW_NM_PER_S,
+            .tc_recovery_slew_nm_per_s = VCU_TC_RECOVERY_SLEW_NM_PER_S,
         },
 
     .bse =
@@ -195,6 +272,119 @@ static vcu_parameters_t s_params = {
     .buzzer_duration_ms = 1800u,
     .brake_enable_threshold = 0.1f,
 };
+
+_Static_assert(VCU_TORQUE_MAP_MAX_TORQUE_NM > 0.0f,
+               "VCU torque_map.max_torque_nm must be positive");
+_Static_assert(VCU_TORQUE_MAP_PEDAL_EXPONENTIAL_FACTOR >= 0.0f,
+               "VCU torque_map.pedal_exponential_factor cannot be negative");
+_Static_assert(VCU_TORQUE_MAP_POWER_LIMIT_W > 0.0f,
+               "VCU torque_map.power_limit_w must be positive");
+_Static_assert(VCU_TORQUE_MAP_CURRENT_LIMIT_A > 0.0f,
+               "VCU torque_map.current_limit_a must be positive");
+_Static_assert(VCU_TORQUE_MAP_HARD_CURRENT_CUT_A >=
+                   VCU_TORQUE_MAP_CURRENT_LIMIT_A,
+               "VCU torque_map.hard_current_cut_a must be >= current_limit_a");
+_Static_assert(VCU_TORQUE_MAP_HARD_POWER_CUT_W >=
+                   VCU_TORQUE_MAP_POWER_LIMIT_W,
+               "VCU torque_map.hard_power_cut_w must be >= power_limit_w");
+_Static_assert(VCU_TORQUE_MAP_OCV_CELL_COUNT > 0.0f,
+               "VCU torque_map.ocv_cell_count must be positive");
+_Static_assert(VCU_TORQUE_MAP_OCV_LPF_TIME_CONSTANT_S >= 0.0f,
+               "VCU torque_map.ocv_lpf_time_constant_s cannot be negative");
+_Static_assert(VCU_TORQUE_MAP_CURRENT_LPF_TIME_CONSTANT_S >= 0.0f,
+               "VCU torque_map.current_lpf_time_constant_s cannot be negative");
+_Static_assert(VCU_TORQUE_MAP_MEASURED_POWER_LPF_TIME_CONSTANT_S >= 0.0f,
+               "VCU torque_map.measured_power_lpf_time_constant_s cannot be negative");
+_Static_assert(VCU_TORQUE_MAP_POWER_LIMIT_MIN_RPM > 0.0f,
+               "VCU torque_map.power_limit_min_rpm must be positive");
+_Static_assert(VCU_TORQUE_MAP_POWER_LIMIT_TRIM_LIMIT_NM >= 0.0f,
+               "VCU torque_map.power_limit_trim_limit_nm cannot be negative");
+_Static_assert(VCU_TORQUE_MAP_POWER_LIMIT_KP >= 0.0f,
+               "VCU torque_map.power_limit_kp cannot be negative");
+_Static_assert(VCU_TORQUE_MAP_POWER_LIMIT_KI >= 0.0f,
+               "VCU torque_map.power_limit_ki cannot be negative");
+_Static_assert(VCU_TORQUE_MAP_POWER_LIMIT_KD >= 0.0f,
+               "VCU torque_map.power_limit_kd cannot be negative");
+_Static_assert(VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_0 > 0.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_0 <= 1.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_1 > 0.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_1 <= 1.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_2 > 0.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_2 <= 1.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_3 > 0.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_3 <= 1.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_4 > 0.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_4 <= 1.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_5 > 0.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_5 <= 1.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_6 > 0.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_6 <= 1.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_7 > 0.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_7 <= 1.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_8 > 0.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_8 <= 1.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_9 > 0.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_9 <= 1.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_10 > 0.0f &&
+                   VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_10 <= 1.0f,
+               "VCU torque_map.power_limit_motor_efficiency entries must be in (0, 1]");
+_Static_assert(VCU_TC_WHEEL_RADIUS_M > 0.0f,
+               "VCU traction_control.tc_wheel_radius_m must be positive");
+_Static_assert(VCU_TC_FINAL_DRIVE_RATIO > 0.0f,
+               "VCU traction_control.tc_final_drive_ratio must be positive");
+_Static_assert(VCU_TC_MIN_TARGET_SLIP > 0.0f,
+               "VCU traction_control.tc_min_target_slip must be positive");
+_Static_assert(VCU_TC_BASE_TARGET_SLIP >= VCU_TC_MIN_TARGET_SLIP,
+               "VCU traction_control.tc_base_target_slip must be >= tc_min_target_slip");
+_Static_assert(VCU_TC_MAX_TARGET_SLIP >= VCU_TC_BASE_TARGET_SLIP,
+               "VCU traction_control.tc_max_target_slip must be >= tc_base_target_slip");
+_Static_assert(VCU_TC_SLIP_HYSTERESIS >= 0.0f,
+               "VCU traction_control.tc_slip_hysteresis cannot be negative");
+_Static_assert(VCU_TC_LATERAL_ACCEL_LIMIT_MPS2 > 0.0f,
+               "VCU traction_control.tc_lateral_accel_limit_mps2 must be positive");
+_Static_assert(VCU_TC_AERO_LATERAL_ACCEL_GAIN_PER_MPS2 >= 0.0f,
+               "VCU traction_control.tc_aero_lateral_accel_gain_per_mps2 cannot be negative");
+_Static_assert(VCU_TC_LATERAL_SLIP_REDUCTION_GAIN >= 0.0f,
+               "VCU traction_control.tc_lateral_slip_reduction_gain cannot be negative");
+_Static_assert(VCU_TC_MIN_VEHICLE_SPEED_MPS > 0.0f,
+               "VCU traction_control.tc_min_vehicle_speed_mps must be positive");
+_Static_assert(VCU_TC_MIN_TORQUE_NM >= 0.0f,
+               "VCU traction_control.tc_min_torque_nm cannot be negative");
+_Static_assert(VCU_TC_MAX_WHEEL_SPEED_MPS > 0.0f,
+               "VCU traction_control.tc_max_wheel_speed_mps must be positive");
+_Static_assert(VCU_TC_MAX_REFERENCE_ACCEL_MPS2 > 0.0f,
+               "VCU traction_control.tc_max_reference_accel_mps2 must be positive");
+_Static_assert(VCU_TC_FRONT_DISAGREEMENT_MPS > 0.0f,
+               "VCU traction_control.tc_front_disagreement_mps must be positive");
+_Static_assert(VCU_TC_REAR_DISAGREEMENT_MPS > 0.0f,
+               "VCU traction_control.tc_rear_disagreement_mps must be positive");
+_Static_assert(VCU_TC_MOTOR_REAR_DISAGREEMENT_MPS > 0.0f,
+               "VCU traction_control.tc_motor_rear_disagreement_mps must be positive");
+_Static_assert(VCU_TC_SPEED_LPF_TIME_CONSTANT_S >= 0.0f,
+               "VCU traction_control.tc_speed_lpf_time_constant_s cannot be negative");
+_Static_assert(VCU_TC_SLIP_LPF_TIME_CONSTANT_S >= 0.0f,
+               "VCU traction_control.tc_slip_lpf_time_constant_s cannot be negative");
+_Static_assert(VCU_TC_FEEDBACK_LPF_TIME_CONSTANT_S >= 0.0f,
+               "VCU traction_control.tc_feedback_lpf_time_constant_s cannot be negative");
+_Static_assert(VCU_TC_REFERENCE_ACCEL_BLEND >= 0.0f &&
+                   VCU_TC_REFERENCE_ACCEL_BLEND <= 1.0f,
+               "VCU traction_control.tc_reference_accel_blend must be within [0, 1]");
+_Static_assert(VCU_TC_KP_NM_PER_SLIP >= 0.0f,
+               "VCU traction_control.tc_kp_nm_per_slip cannot be negative");
+_Static_assert(VCU_TC_KI_NM_PER_SLIP_S >= 0.0f,
+               "VCU traction_control.tc_ki_nm_per_slip_s cannot be negative");
+_Static_assert(VCU_TC_KD_NM_PER_SLIP_RATE >= 0.0f,
+               "VCU traction_control.tc_kd_nm_per_slip_rate cannot be negative");
+_Static_assert(VCU_TC_DRIVEN_ACCEL_GAIN_NM_PER_MPS2 >= 0.0f,
+               "VCU traction_control.tc_driven_accel_gain_nm_per_mps2 cannot be negative");
+_Static_assert(VCU_TC_INTEGRAL_LIMIT_NM >= 0.0f,
+               "VCU traction_control.tc_integral_limit_nm cannot be negative");
+_Static_assert(VCU_TC_MAX_TORQUE_REDUCTION_NM >= 0.0f,
+               "VCU traction_control.tc_max_torque_reduction_nm cannot be negative");
+_Static_assert(VCU_TC_CUT_SLEW_NM_PER_S > 0.0f,
+               "VCU traction_control.tc_cut_slew_nm_per_s must be positive");
+_Static_assert(VCU_TC_RECOVERY_SLEW_NM_PER_S > 0.0f,
+               "VCU traction_control.tc_recovery_slew_nm_per_s must be positive");
 
 static vcu_model_context_t ctx = {0};
 

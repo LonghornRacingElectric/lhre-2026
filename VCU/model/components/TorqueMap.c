@@ -3,15 +3,6 @@
 #include <math.h>
 #include <string.h>
 
-static const float k_default_efficiency_map[11] = {
-    0.86f, 0.89f, 0.92f, 0.94f, 0.95f, 0.955f,
-    0.955f, 0.95f, 0.945f, 0.93f, 0.90f,
-};
-
-static float param_or_default(float value, float default_value) {
-  return value > 0.0f ? value : default_value;
-}
-
 static float lpf_alpha_from_tau(float dt_s, float tau_s) {
   if (tau_s <= 0.0f) {
     return 1.0f;
@@ -23,21 +14,54 @@ static float lpf_step(float previous, float input, float alpha) {
   return alpha * input + (1.0f - alpha) * previous;
 }
 
-static bool has_custom_efficiency_map(const float map[11]) {
+static bool torque_map_efficiency_map_is_valid(const float map[11]) {
   for (int i = 0; i < 11; i++) {
-    if (map[i] > 0.0f) {
-      return true;
+    if (!isfinite(map[i]) || map[i] <= 0.0f || map[i] > 1.0f) {
+      return false;
     }
   }
-  return false;
+  return true;
+}
+
+static bool torque_map_params_are_valid(const vcu_parameters_t *params) {
+  return isfinite(params->torque_map.max_torque_nm) &&
+         params->torque_map.max_torque_nm > 0.0f &&
+         isfinite(params->torque_map.pedal_exponential_factor) &&
+         params->torque_map.pedal_exponential_factor >= 0.0f &&
+         isfinite(params->torque_map.power_limit_w) &&
+         params->torque_map.power_limit_w > 0.0f &&
+         isfinite(params->torque_map.current_limit_a) &&
+         params->torque_map.current_limit_a > 0.0f &&
+         isfinite(params->torque_map.hard_current_cut_a) &&
+         params->torque_map.hard_current_cut_a >=
+             params->torque_map.current_limit_a &&
+         isfinite(params->torque_map.hard_power_cut_w) &&
+         params->torque_map.hard_power_cut_w >= params->torque_map.power_limit_w &&
+         isfinite(params->torque_map.ocv_cell_count) &&
+         params->torque_map.ocv_cell_count > 0.0f &&
+         isfinite(params->torque_map.ocv_lpf_time_constant_s) &&
+         params->torque_map.ocv_lpf_time_constant_s >= 0.0f &&
+         isfinite(params->torque_map.current_lpf_time_constant_s) &&
+         params->torque_map.current_lpf_time_constant_s >= 0.0f &&
+         isfinite(params->torque_map.measured_power_lpf_time_constant_s) &&
+         params->torque_map.measured_power_lpf_time_constant_s >= 0.0f &&
+         isfinite(params->torque_map.power_limit_min_rpm) &&
+         params->torque_map.power_limit_min_rpm > 0.0f &&
+         isfinite(params->torque_map.power_limit_trim_limit_nm) &&
+         params->torque_map.power_limit_trim_limit_nm >= 0.0f &&
+         isfinite(params->torque_map.power_limit_kp) &&
+         params->torque_map.power_limit_kp >= 0.0f &&
+         isfinite(params->torque_map.power_limit_ki) &&
+         params->torque_map.power_limit_ki >= 0.0f &&
+         isfinite(params->torque_map.power_limit_kd) &&
+         params->torque_map.power_limit_kd >= 0.0f &&
+         torque_map_efficiency_map_is_valid(
+             params->torque_map.power_limit_motor_efficiency);
 }
 
 static float motor_efficiency_at_rpm(const vcu_parameters_t *params,
                                      float motor_rpm) {
-  const float *map = has_custom_efficiency_map(
-                         params->torque_map.power_limit_motor_efficiency)
-                         ? params->torque_map.power_limit_motor_efficiency
-                         : k_default_efficiency_map;
+  const float *map = params->torque_map.power_limit_motor_efficiency;
 
   float rpm = clamp_f(motor_rpm, 0.0f, 5500.0f);
   float position = rpm / 550.0f;
@@ -77,8 +101,13 @@ void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   const float dt_s = (float)dt_ms / 1000.0f;
   const float two_pi = 6.28318530718f;
 
-  float max_torque_nm =
-      fmaxf(param_or_default(params->torque_map.max_torque_nm, 220.0f), 0.0f);
+  if (!torque_map_params_are_valid(params)) {
+    out->torque_cmd = 0.0f;
+    out->faults.power_limit_input_fault = true;
+    return;
+  }
+
+  float max_torque_nm = params->torque_map.max_torque_nm;
   float mapped_pedal_torque =
       clamp_f(linear_interp(0.0f, max_torque_nm, out->accel_pedal_travel),
               0.0f, max_torque_nm);
@@ -99,12 +128,10 @@ void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
     return;
   }
 
-  float ocv_tau_s =
-      param_or_default(params->torque_map.ocv_lpf_time_constant_s, 1.0f);
-  float current_tau_s =
-      param_or_default(params->torque_map.current_lpf_time_constant_s, 0.2f);
-  float measured_power_tau_s = param_or_default(
-      params->torque_map.measured_power_lpf_time_constant_s, 0.010f);
+  float ocv_tau_s = params->torque_map.ocv_lpf_time_constant_s;
+  float current_tau_s = params->torque_map.current_lpf_time_constant_s;
+  float measured_power_tau_s =
+      params->torque_map.measured_power_lpf_time_constant_s;
 
   if (!state->current_initialized) {
     state->filtered_current_a = in->battery_current_a;
@@ -124,20 +151,13 @@ void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
                  lpf_alpha_from_tau(dt_s, ocv_tau_s));
   }
 
-  float power_limit_w =
-      param_or_default(params->torque_map.power_limit_w, 80000.0f);
-  float current_limit_a =
-      param_or_default(params->torque_map.current_limit_a, 200.0f);
-  float hard_current_cut_a =
-      param_or_default(params->torque_map.hard_current_cut_a, 240.0f);
-  float hard_power_cut_w =
-      param_or_default(params->torque_map.hard_power_cut_w, 85000.0f);
-  float ocv_cell_count =
-      param_or_default(params->torque_map.ocv_cell_count, 128.0f);
-  float min_rpm =
-      param_or_default(params->torque_map.power_limit_min_rpm, 100.0f);
-  float trim_limit_nm =
-      param_or_default(params->torque_map.power_limit_trim_limit_nm, 20.0f);
+  float power_limit_w = params->torque_map.power_limit_w;
+  float current_limit_a = params->torque_map.current_limit_a;
+  float hard_current_cut_a = params->torque_map.hard_current_cut_a;
+  float hard_power_cut_w = params->torque_map.hard_power_cut_w;
+  float ocv_cell_count = params->torque_map.ocv_cell_count;
+  float min_rpm = params->torque_map.power_limit_min_rpm;
+  float trim_limit_nm = params->torque_map.power_limit_trim_limit_nm;
 
   float discharge_voltage_v = state->ocv_estimate_v;
   if (in->battery_current_a > 2.0f) {

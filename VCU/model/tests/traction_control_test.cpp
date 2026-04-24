@@ -5,6 +5,42 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 
+namespace {
+
+void set_valid_traction_control_params(vcu_parameters_t *params) {
+  params->traction_control.tc_disable = false;
+  params->traction_control.tc_wheel_radius_m = 0.30f;
+  params->traction_control.tc_final_drive_ratio = 4.0f;
+  params->traction_control.tc_base_target_slip = 0.08f;
+  params->traction_control.tc_min_target_slip = 0.03f;
+  params->traction_control.tc_max_target_slip = 0.16f;
+  params->traction_control.tc_slip_hysteresis = 0.0f;
+  params->traction_control.tc_lateral_accel_limit_mps2 = 11.0f;
+  params->traction_control.tc_aero_lateral_accel_gain_per_mps2 = 0.0f;
+  params->traction_control.tc_lateral_slip_reduction_gain = 1.0f;
+  params->traction_control.tc_min_vehicle_speed_mps = 2.0f;
+  params->traction_control.tc_min_torque_nm = 1.0f;
+  params->traction_control.tc_max_wheel_speed_mps = 90.0f;
+  params->traction_control.tc_max_reference_accel_mps2 = 1000.0f;
+  params->traction_control.tc_front_disagreement_mps = 3.0f;
+  params->traction_control.tc_rear_disagreement_mps = 8.0f;
+  params->traction_control.tc_motor_rear_disagreement_mps = 8.0f;
+  params->traction_control.tc_speed_lpf_time_constant_s = 0.0f;
+  params->traction_control.tc_slip_lpf_time_constant_s = 0.0f;
+  params->traction_control.tc_feedback_lpf_time_constant_s = 0.0f;
+  params->traction_control.tc_reference_accel_blend = 0.0f;
+  params->traction_control.tc_kp_nm_per_slip = 1000.0f;
+  params->traction_control.tc_ki_nm_per_slip_s = 0.0f;
+  params->traction_control.tc_kd_nm_per_slip_rate = 0.0f;
+  params->traction_control.tc_driven_accel_gain_nm_per_mps2 = 0.0f;
+  params->traction_control.tc_integral_limit_nm = 40.0f;
+  params->traction_control.tc_max_torque_reduction_nm = 220.0f;
+  params->traction_control.tc_cut_slew_nm_per_s = 100000.0f;
+  params->traction_control.tc_recovery_slew_nm_per_s = 100000.0f;
+}
+
+} // namespace
+
 class TractionControlTest : public ::testing::Test {
 protected:
   vcu_parameters_t params;
@@ -14,30 +50,7 @@ protected:
 
   void SetUp() override {
     params = {};
-    params.traction_control.tc_disable = false;
-    params.traction_control.tc_wheel_radius_m = 0.30f;
-    params.traction_control.tc_final_drive_ratio = 4.0f;
-    params.traction_control.tc_base_target_slip = 0.08f;
-    params.traction_control.tc_min_target_slip = 0.03f;
-    params.traction_control.tc_max_target_slip = 0.16f;
-    params.traction_control.tc_slip_hysteresis = 0.0f;
-    params.traction_control.tc_min_vehicle_speed_mps = 2.0f;
-    params.traction_control.tc_min_torque_nm = 1.0f;
-    params.traction_control.tc_max_wheel_speed_mps = 90.0f;
-    params.traction_control.tc_max_reference_accel_mps2 = 1000.0f;
-    params.traction_control.tc_front_disagreement_mps = 3.0f;
-    params.traction_control.tc_rear_disagreement_mps = 8.0f;
-    params.traction_control.tc_motor_rear_disagreement_mps = 8.0f;
-    params.traction_control.tc_speed_lpf_time_constant_s = 0.0f;
-    params.traction_control.tc_slip_lpf_time_constant_s = 0.0f;
-    params.traction_control.tc_feedback_lpf_time_constant_s = 0.0f;
-    params.traction_control.tc_kp_nm_per_slip = 1000.0f;
-    params.traction_control.tc_ki_nm_per_slip_s = 0.0f;
-    params.traction_control.tc_kd_nm_per_slip_rate = 0.0f;
-    params.traction_control.tc_driven_accel_gain_nm_per_mps2 = 0.0f;
-    params.traction_control.tc_max_torque_reduction_nm = 220.0f;
-    params.traction_control.tc_cut_slew_nm_per_s = 100000.0f;
-    params.traction_control.tc_recovery_slew_nm_per_s = 100000.0f;
+    set_valid_traction_control_params(&params);
 
     in = {};
     in.wheel_speeds_valid = true;
