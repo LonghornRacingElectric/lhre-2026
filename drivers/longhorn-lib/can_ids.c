@@ -1980,6 +1980,23 @@ int unpack_tc_debug_3(const uint8_t* rx_buf, msg_tc_debug_3_t* msg) {
     return 0;
 }
 
+// Packet: VCU Power Limit
+int pack_vcu_power_limit(const msg_vcu_power_limit_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, VCU_POWER_LIMIT_DLC);
+
+    // Pack: Low Voltage Derate Percent
+    tx_buf[0] = (uint8_t)msg->low_voltage_derate_percent;
+
+    return 0;
+}
+
+int unpack_vcu_power_limit(const uint8_t* rx_buf, msg_vcu_power_limit_t* msg) {
+    // Unpack: Low Voltage Derate Percent
+    msg->low_voltage_derate_percent = (uint8_t)rx_buf[0];
+
+    return 0;
+}
+
 // Packet: Wheel Speeds
 int pack_wheel_speeds(const msg_wheel_speeds_t* msg, uint8_t* tx_buf) {
     memset(tx_buf, 0, WHEEL_SPEEDS_DLC);

@@ -19,7 +19,21 @@ PYBIND11_MODULE(vcu_model_sim, m) {
       .def_readwrite("bse1_raw", &vcu_inputs_t::bse1_raw)
       .def_readwrite("bse2_raw", &vcu_inputs_t::bse2_raw)
       .def_readwrite("drive_switch", &vcu_inputs_t::drive_switch)
-      .def_readwrite("contactors_closed", &vcu_inputs_t::contactors_closed);
+      .def_readwrite("contactors_closed", &vcu_inputs_t::contactors_closed)
+      .def_readwrite("battery_voltage_v", &vcu_inputs_t::battery_voltage_v)
+      .def_readwrite("battery_current_a", &vcu_inputs_t::battery_current_a)
+      .def_readwrite("battery_soc_pct", &vcu_inputs_t::battery_soc_pct)
+      .def_readwrite("inverter_dc_bus_voltage_v",
+                     &vcu_inputs_t::inverter_dc_bus_voltage_v)
+      .def_readwrite("inverter_dc_bus_current_a",
+                     &vcu_inputs_t::inverter_dc_bus_current_a)
+      .def_readwrite("motor_speed_rpm", &vcu_inputs_t::motor_speed_rpm)
+      .def_readwrite("battery_status_valid",
+                     &vcu_inputs_t::battery_status_valid)
+      .def_readwrite("inverter_power_valid",
+                     &vcu_inputs_t::inverter_power_valid)
+      .def_readwrite("inverter_speed_valid",
+                     &vcu_inputs_t::inverter_speed_valid);
 
   // ── vcu_outputs_t (nested faults / debug) ─────────────────────────────
   py::class_<vcu_outputs_t> outputs(m, "VcuOutputs");

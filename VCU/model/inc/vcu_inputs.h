@@ -22,8 +22,11 @@ typedef struct {
   float battery_voltage_v;
   float battery_current_a;
   float battery_soc_pct;
+  float inverter_dc_bus_voltage_v;
+  float inverter_dc_bus_current_a;
   float motor_speed_rpm;
   bool battery_status_valid;
+  bool inverter_power_valid;
   bool inverter_speed_valid;
 
   /* Traction-control inputs from CAN */

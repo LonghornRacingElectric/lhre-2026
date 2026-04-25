@@ -71,6 +71,7 @@ typedef struct {
     float ocv_estimate_v;
     float active_power_limit_w;
     float measured_power_w;
+    float low_voltage_derate_pct;
     float power_limit_feedback_p_nm;
     float power_limit_feedback_i_nm;
     float power_limit_feedback_d_nm;

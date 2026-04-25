@@ -8,6 +8,8 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 
+#define VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS 11
+
 typedef struct {
   // Master kill switch for traction control. Keep true for bring-up.
   bool tc_disable;
@@ -132,8 +134,9 @@ typedef struct {
     float power_limit_ki;
     float power_limit_kd;
 
-    // 11-point motor efficiency map over 0..5500 rpm.
-    float power_limit_motor_efficiency[11];
+    // Motor efficiency map as rpm/efficiency pairs.
+    float power_limit_motor_efficiency_rpm[VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS];
+    float power_limit_motor_efficiency[VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS];
   } torque_map;
 
   vcu_traction_control_parameters_t traction_control;

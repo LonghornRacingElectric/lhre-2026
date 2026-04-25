@@ -37,6 +37,12 @@ static can_receive_message_t *dui_r2d_status_mailbox_handle = NULL;
 static msg_inverter_speed_t inverter_speed_mailbox = {0};
 static can_receive_message_t *inverter_speed_mailbox_handle = NULL;
 
+static msg_inverter_voltage_t inverter_voltage_mailbox = {0};
+static can_receive_message_t *inverter_voltage_mailbox_handle = NULL;
+
+static msg_inverter_current_t inverter_current_mailbox = {0};
+static can_receive_message_t *inverter_current_mailbox_handle = NULL;
+
 static msg_battery_pack_status_t battery_pack_status_mailbox = {0};
 static can_receive_message_t *battery_pack_status_mailbox_handle = NULL;
 
@@ -82,6 +88,9 @@ static can_message_t *brakes_mailbox_handle = NULL;
 static msg_vcu_state_t vcu_state_mailbox = {0};
 static can_message_t *vcu_state_mailbox_handle = NULL;
 
+static msg_vcu_power_limit_t vcu_power_limit_mailbox = {0};
+static can_message_t *vcu_power_limit_mailbox_handle = NULL;
+
 static msg_tc_debug_1_t tc_debug_1_mailbox = {0};
 static can_message_t *tc_debug_1_mailbox_handle = NULL;
 
@@ -95,6 +104,7 @@ void vcu_can_add_receive_handlers(void);
 void vcu_can_add_send_handlers(void);
 void vcu_init_inverter(void);
 static float compute_brake_bias_pct(const vcu_outputs_t *out);
+static uint8_t clamp_percent_u8(float percent);
 static uint8_t pack_apps_faults(const vcu_outputs_t *out);
 static uint8_t pack_bse_faults(const vcu_outputs_t *out);
 
@@ -212,6 +222,14 @@ void vcu_can_add_send_handlers(void) {
   can_rtos_register_send_packet(&critical_bus, vcu_state_mailbox_handle);
   log_printf(LOG_INFO, "[VCU] CAN send handler for VCU state registered\n");
 
+  vcu_power_limit_mailbox_handle =
+      can_get_message_handle(&vcu_power_limit_mailbox, VCU_POWER_LIMIT_ID,
+                             VCU_POWER_LIMIT_FREQ, VCU_POWER_LIMIT_DLC,
+                             (CAN_pack_message_fn)pack_vcu_power_limit);
+  can_rtos_register_send_packet(&data_acq_bus, vcu_power_limit_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN send handler for VCU power limit registered\n");
+
   tc_debug_1_mailbox_handle =
       can_get_message_handle(&tc_debug_1_mailbox, TC_DEBUG_1_ID,
                              TC_DEBUG_1_FREQ, TC_DEBUG_1_DLC,
@@ -263,11 +281,22 @@ void vcu_can_set_powertrain_inputs(vcu_inputs_t *in) {
       inverter_speed_mailbox_handle != NULL &&
       !message_timed_out(inverter_speed_mailbox_handle,
                          INVERTER_SPEED_TIMEOUT_MS);
+  bool inverter_power_valid =
+      inverter_voltage_mailbox_handle != NULL &&
+      inverter_current_mailbox_handle != NULL &&
+      !message_timed_out(inverter_voltage_mailbox_handle,
+                         INVERTER_VOLTAGE_TIMEOUT_MS) &&
+      !message_timed_out(inverter_current_mailbox_handle,
+                         INVERTER_CURRENT_TIMEOUT_MS);
 
   in->battery_voltage_v = battery_pack_status_mailbox.pack_voltage;
   in->battery_current_a = battery_pack_status_mailbox.tractive_current;
   in->battery_soc_pct = battery_pack_status_mailbox.state_of_charge;
   in->battery_status_valid = battery_status_valid;
+
+  in->inverter_dc_bus_voltage_v = inverter_voltage_mailbox.dc_bus_voltage;
+  in->inverter_dc_bus_current_a = inverter_current_mailbox.dc_bus_current;
+  in->inverter_power_valid = inverter_power_valid;
 
   in->motor_speed_rpm = (float)inverter_speed_mailbox.motor_speed;
   in->inverter_speed_valid = inverter_speed_valid;
@@ -330,6 +359,8 @@ void vcu_can_set_model_outputs(const vcu_outputs_t *out) {
   vcu_state_mailbox.prndl_state = out->prndl_state;
   vcu_state_mailbox.stomp_fault = out->faults.brake_latched;
   vcu_state_mailbox.ready_to_drive_buzzer = out->buzzer_active;
+  vcu_power_limit_mailbox.low_voltage_derate_percent =
+      clamp_percent_u8(out->debug.low_voltage_derate_pct);
 
   tc_debug_1_mailbox.tc_slip_ratio = out->debug.tc_slip_ratio;
   tc_debug_1_mailbox.tc_target_slip_ratio =
@@ -381,6 +412,18 @@ static float compute_brake_bias_pct(const vcu_outputs_t *out) {
   }
 
   return (out->bse1_psi / total) * 100.0f;
+}
+
+static uint8_t clamp_percent_u8(float percent) {
+  if (percent <= 0.0f) {
+    return 0u;
+  }
+
+  if (percent >= 100.0f) {
+    return 100u;
+  }
+
+  return (uint8_t)(percent + 0.5f);
 }
 
 static uint8_t pack_apps_faults(const vcu_outputs_t *out) {
@@ -459,6 +502,22 @@ void vcu_can_add_receive_handlers(void) {
   can_rtos_register_receive_packet(&critical_bus, inverter_speed_mailbox_handle);
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for inverter speed registered\n");
+
+  inverter_voltage_mailbox_handle = can_get_receive_message_handle(
+      &inverter_voltage_mailbox, INVERTER_VOLTAGE_ID,
+      (CAN_unpack_message_fn)unpack_inverter_voltage);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   inverter_voltage_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for inverter voltage registered\n");
+
+  inverter_current_mailbox_handle = can_get_receive_message_handle(
+      &inverter_current_mailbox, INVERTER_CURRENT_ID,
+      (CAN_unpack_message_fn)unpack_inverter_current);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   inverter_current_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for inverter current registered\n");
 
   battery_pack_status_mailbox_handle = can_get_receive_message_handle(
       &battery_pack_status_mailbox, BATTERY_PACK_STATUS_ID,

@@ -1446,6 +1446,26 @@ int pack_tc_debug_3(const msg_tc_debug_3_t* msg, uint8_t* tx_buf);
 int unpack_tc_debug_3(const uint8_t* rx_buf, msg_tc_debug_3_t* msg);
 
 // ==========================================================================
+// Packet: VCU Power Limit (459)
+// ==========================================================================
+// From: VCU
+// To:   Pi
+#define VCU_POWER_LIMIT_ID 459
+#define VCU_POWER_LIMIT_DLC 1
+#define VCU_POWER_LIMIT_FREQ 100
+#define VCU_POWER_LIMIT_TIMEOUT_MS 200
+
+typedef struct {
+    uint8_t low_voltage_derate_percent;
+} msg_vcu_power_limit_t;
+
+// Signal: Low Voltage Derate Percent
+#define VCU_POWER_LIMIT_LOW_VOLTAGE_DERATE_PERCENT_PREC 1.0f
+
+int pack_vcu_power_limit(const msg_vcu_power_limit_t* msg, uint8_t* tx_buf);
+int unpack_vcu_power_limit(const uint8_t* rx_buf, msg_vcu_power_limit_t* msg);
+
+// ==========================================================================
 // Packet: Wheel Speeds (1024)
 // ==========================================================================
 // From: USM

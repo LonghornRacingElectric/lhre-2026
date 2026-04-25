@@ -19,11 +19,16 @@ void set_valid_torque_map_params(vcu_parameters_t *params) {
   params->torque_map.power_limit_kp = 0.002f;
   params->torque_map.power_limit_ki = 0.0f;
   params->torque_map.power_limit_kd = 0.0f;
-  const float efficiency_map[11] = {
+  const float rpm_map[VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS] = {
+      0.0f,    550.0f,  1100.0f, 1650.0f, 2200.0f, 2750.0f,
+      3300.0f, 3850.0f, 4400.0f, 4950.0f, 5500.0f,
+  };
+  const float efficiency_map[VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS] = {
       0.86f, 0.89f, 0.92f, 0.94f, 0.95f, 0.955f,
       0.955f, 0.95f, 0.945f, 0.93f, 0.90f,
   };
-  for (int i = 0; i < 11; ++i) {
+  for (int i = 0; i < VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS; ++i) {
+    params->torque_map.power_limit_motor_efficiency_rpm[i] = rpm_map[i];
     params->torque_map.power_limit_motor_efficiency[i] = efficiency_map[i];
   }
 }
@@ -82,6 +87,9 @@ protected:
     in.battery_voltage_v = 500.0f;
     in.battery_current_a = 0.0f;
     in.battery_status_valid = true;
+    in.inverter_dc_bus_voltage_v = 500.0f;
+    in.inverter_dc_bus_current_a = 0.0f;
+    in.inverter_power_valid = true;
     in.motor_speed_rpm = 0.0f;
     in.inverter_speed_valid = true;
     out = {0};

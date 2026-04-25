@@ -22,11 +22,16 @@ void set_valid_torque_map_params(vcu_parameters_t *params, float max_torque_nm) 
   params->torque_map.power_limit_kp = 0.002f;
   params->torque_map.power_limit_ki = 0.0f;
   params->torque_map.power_limit_kd = 0.0f;
-  const float efficiency_map[11] = {
+  const float rpm_map[VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS] = {
+      0.0f,    550.0f,  1100.0f, 1650.0f, 2200.0f, 2750.0f,
+      3300.0f, 3850.0f, 4400.0f, 4950.0f, 5500.0f,
+  };
+  const float efficiency_map[VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS] = {
       0.86f, 0.89f, 0.92f, 0.94f, 0.95f, 0.955f,
       0.955f, 0.95f, 0.945f, 0.93f, 0.90f,
   };
-  for (int i = 0; i < 11; ++i) {
+  for (int i = 0; i < VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS; ++i) {
+    params->torque_map.power_limit_motor_efficiency_rpm[i] = rpm_map[i];
     params->torque_map.power_limit_motor_efficiency[i] = efficiency_map[i];
   }
 }
@@ -47,6 +52,9 @@ protected:
     in.battery_voltage_v = 500.0f;
     in.battery_current_a = 0.0f;
     in.battery_status_valid = true;
+    in.inverter_dc_bus_voltage_v = 500.0f;
+    in.inverter_dc_bus_current_a = 0.0f;
+    in.inverter_power_valid = true;
     in.motor_speed_rpm = 0.0f;
     in.inverter_speed_valid = true;
     out = {0};
@@ -90,7 +98,28 @@ TEST_F(TorqueMapTest, UsesEfficiencyMapForPowerLimitAtHighSpeed) {
   EXPECT_NEAR(out.torque_cmd, 212.8f, 0.6f);
 }
 
-TEST_F(TorqueMapTest, PedalRequestsTorqueUntilPowerLimit) {
+TEST_F(TorqueMapTest, InterpolatesEfficiencyUsingConfiguredRpmBreakpoints) {
+  params.torque_map.max_torque_nm = 230.0f;
+  params.torque_map.power_limit_w = 70000.0f;
+  params.torque_map.power_limit_kp = 0.0f;
+  params.torque_map.power_limit_ki = 0.0f;
+  params.torque_map.power_limit_kd = 0.0f;
+  params.torque_map.power_limit_motor_efficiency_rpm[5] = 2500.0f;
+  params.torque_map.power_limit_motor_efficiency_rpm[6] = 3500.0f;
+  params.torque_map.power_limit_motor_efficiency[5] = 0.90f;
+  params.torque_map.power_limit_motor_efficiency[6] = 1.00f;
+
+  out.accel_pedal_travel = 1.0f;
+  in.battery_voltage_v = 520.0f;
+  in.inverter_dc_bus_voltage_v = 520.0f;
+  in.motor_speed_rpm = 3000.0f;
+
+  torque_map_evaluate(&in, &out, &state, &params, 10);
+
+  EXPECT_NEAR(out.debug.motor_efficiency, 0.95f, 0.001f);
+}
+
+TEST_F(TorqueMapTest, PedalScalesAcrossPowerLimitedAvailableTorque) {
   params.torque_map.max_torque_nm = 230.0f;
   params.torque_map.power_limit_w = 70000.0f;
   params.torque_map.power_limit_kp = 0.0f;
@@ -103,9 +132,38 @@ TEST_F(TorqueMapTest, PedalRequestsTorqueUntilPowerLimit) {
 
   torque_map_evaluate(&in, &out, &state, &params, 10);
 
-  // The pedal maps to an actual torque request. It should not become 50% of
-  // the available power-limited torque, which would make the pedal feel dead.
-  EXPECT_NEAR(out.torque_cmd, 115.0f, 0.5f);
+  // The pedal scales across the available power-limited torque so the full
+  // pedal range stays responsive under derate.
+  EXPECT_NEAR(out.torque_cmd, 106.4f, 0.6f);
+}
+
+TEST_F(TorqueMapTest, CurrentPowerLimitUsesInverterDcBusVoltageInput) {
+  params.torque_map.max_torque_nm = 300.0f;
+  params.torque_map.power_limit_w = 100000.0f;
+  params.torque_map.current_limit_a = 100.0f;
+  params.torque_map.hard_power_cut_w = 120000.0f;
+  params.torque_map.power_limit_kp = 0.0f;
+  params.torque_map.power_limit_ki = 0.0f;
+  params.torque_map.power_limit_kd = 0.0f;
+
+  out.accel_pedal_travel = 0.0f;
+  in.battery_voltage_v = 500.0f;
+  in.battery_current_a = 0.0f;
+  in.inverter_dc_bus_voltage_v = 500.0f;
+  in.inverter_dc_bus_current_a = 0.0f;
+  in.motor_speed_rpm = 3000.0f;
+  torque_map_evaluate(&in, &out, &state, &params, 10);
+
+  out.accel_pedal_travel = 1.0f;
+  in.battery_voltage_v = 500.0f;
+  in.battery_current_a = 0.0f;
+  in.inverter_dc_bus_voltage_v = 300.0f;
+  in.inverter_dc_bus_current_a = 1.0f;
+  torque_map_evaluate(&in, &out, &state, &params, 10);
+
+  EXPECT_NEAR(out.debug.active_power_limit_w, 30000.0f, 0.5f);
+  EXPECT_NEAR(out.debug.measured_power_w, 300.0f, 0.5f);
+  EXPECT_NEAR(out.torque_cmd, 91.2f, 0.6f);
 }
 
 TEST_F(TorqueMapTest, ExponentialPedalSoftensLowPedalTorque) {
@@ -126,6 +184,8 @@ TEST_F(TorqueMapTest, HardCurrentCutDisablesTorque) {
   out.accel_pedal_travel = 1.0f;
   in.battery_voltage_v = 300.0f;
   in.battery_current_a = 250.0f;
+  in.inverter_dc_bus_voltage_v = 300.0f;
+  in.inverter_dc_bus_current_a = 250.0f;
 
   torque_map_evaluate(&in, &out, &state, &params, 10);
 
@@ -137,6 +197,8 @@ TEST_F(TorqueMapTest, HardPowerCutDisablesTorque) {
   out.accel_pedal_travel = 1.0f;
   in.battery_voltage_v = 500.0f;
   in.battery_current_a = 180.0f;
+  in.inverter_dc_bus_voltage_v = 500.0f;
+  in.inverter_dc_bus_current_a = 180.0f;
 
   torque_map_evaluate(&in, &out, &state, &params, 10);
 
@@ -146,7 +208,7 @@ TEST_F(TorqueMapTest, HardPowerCutDisablesTorque) {
 
 TEST_F(TorqueMapTest, MissingPowertrainInputsDisablesTorque) {
   out.accel_pedal_travel = 1.0f;
-  in.battery_status_valid = false;
+  in.inverter_power_valid = false;
 
   torque_map_evaluate(&in, &out, &state, &params, 10);
 
