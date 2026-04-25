@@ -47,6 +47,7 @@
 #include "main.h"
 #include "spi.h"
 #include "board_config.h"
+#include "spi_mutex.h"
 
 /*******************************************************************************
  * Definitions
@@ -178,6 +179,13 @@ static inline void S2PI_InitPins()
 {
     /* Initializes ports and pins: PWRx, CSx, IRQx */
     MX_GPIO_Init();
+
+    /* Override PB15 (RH_IRQ) to add internal pull-up */
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin = GPIO_PIN_15;
+    GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);  // ← this line was missing
 
     /* Initializes Pins: MOSI/MISO/CLK */
     S2PI_SetGPIOMode(true);
@@ -503,13 +511,9 @@ status_t S2PI_CycleCsPin(s2pi_slave_t slave)
     return status;
 }
 
-status_t S2PI_TransferFrame(s2pi_slave_t slave,
-                            uint8_t const * txData,
-                            uint8_t * rxData,
-                            size_t frameSize,
-                            s2pi_callback_t callback,
-                            void * callbackData)
+status_t S2PI_TransferFrame(s2pi_slave_t slave, uint8_t const * txData, uint8_t * rxData, size_t frameSize, s2pi_callback_t callback, void * callbackData)
 {
+
     /* Verify arguments. */
     if (!txData || frameSize == 0 || frameSize > UINT16_MAX)
         return ERROR_INVALID_ARGUMENT;
@@ -565,6 +569,7 @@ status_t S2PI_TransferFrame(s2pi_slave_t slave,
  ****************************************************************************/
 static inline status_t S2PI_CompleteTransfer(status_t status)
 {
+
     myS2PIHnd.Status = STATUS_IDLE;
 
     /* Deactivate CS (set high), as we use GPIO pin */

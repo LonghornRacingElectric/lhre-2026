@@ -2,6 +2,7 @@
 #include "main.h"
 #include "cmsis_os.h"
 #include "usbd_cdc_if.h"
+#include "spi_mutex.h"
 
 /*******************************************************************************
  * LSM6DSV32XTR Register Definitions
@@ -51,10 +52,14 @@ static void IMU_PULL_CS_HIGH() { // deselect IMU by pulling CS high
  * @param  val    Value to write
  */
 static void imu_write(uint8_t reg, uint8_t val) {
-    uint8_t tx[2] = { reg & 0x7F, val };  // bit7=0 means write
-    IMU_PULL_CS_LOW(); // select IMU
+    osMutexAcquire(spi1_mutex, osWaitForever);
+
+    uint8_t tx[2] = { reg & 0x7F, val };
+    IMU_PULL_CS_LOW();
     HAL_StatusTypeDef status = HAL_SPI_Transmit(_hspi, tx, 2, IMU_TIMEOUT);
-    IMU_PULL_CS_HIGH(); // deselect IMU
+    IMU_PULL_CS_HIGH();
+
+    osMutexRelease(spi1_mutex);
     if (status != HAL_OK) Error_Handler();
 }
 
@@ -64,12 +69,16 @@ static void imu_write(uint8_t reg, uint8_t val) {
  * @retval Register value
  */
 uint8_t imu_read(uint8_t reg) {
-    uint8_t transmit = reg | 0x80;  // bit7=1 means read
+    osMutexAcquire(spi1_mutex, osWaitForever);
+
+    uint8_t transmit = reg | 0x80;
     uint8_t data = 0;
     IMU_PULL_CS_LOW();
     HAL_SPI_Transmit(_hspi, &transmit, 1, IMU_TIMEOUT);
     HAL_SPI_Receive(_hspi, &data, 1, IMU_TIMEOUT);
     IMU_PULL_CS_HIGH();
+
+    osMutexRelease(spi1_mutex);
     return data;
 }
 

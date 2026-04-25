@@ -1,7 +1,11 @@
 #include "argus_timer.h"
-#include "tim.h"
+#include "stm32g4xx_hal.h"
 #include "assert.h"
 #include <stdint.h>
+#include "tim.h"
+// Forward declarations to avoid tim.h include conflict
+extern TIM_HandleTypeDef htim6;
+void MX_TIM6_Init(void);
 
 // #include "usb_vcp.h"
 
@@ -18,17 +22,26 @@ static uint32_t seconds;
  * @brief Initializes the timer hardware.
  * @return -
  *****************************************************************************/
+// void Timer_Init(void) {
+// 	/* Initialize the timers, see generated main.c */
+// 	// MX_TIM6_Init();
+// 	// MX_TIM4_Init();
+// 	// MX_TIM5_Init();
+// 	/* Start the timers relevant for the LTC */
+// 	//  HAL_TIM_Base_Start_IT(&htim2);
+// 	__HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
+//     __HAL_TIM_ENABLE(&htim2);
+// 	// HAL_TIM_Base_Start(&htim5);
+// 	seconds = 0;
+// }
 void Timer_Init(void) {
-	/* Initialize the timers, see generated main.c */
-	// MX_TIM6_Init();
-	// MX_TIM4_Init();
-	// MX_TIM5_Init();
-	/* Start the timers relevant for the LTC */
-	//  HAL_TIM_Base_Start_IT(&htim2);
-	__HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
-    __HAL_TIM_ENABLE(&htim2);
-	// HAL_TIM_Base_Start(&htim5);
-	seconds = 0;
+    MX_TIM6_Init();  // ensure TIM6 is initialized
+    seconds = 0;
+    // Configure TIM6 as free-running microsecond counter
+    __HAL_TIM_SET_PRESCALER(&htim6, (SystemCoreClock / 1000000U) - 1);
+    __HAL_TIM_SET_AUTORELOAD(&htim6, 0xFFFF);
+    __HAL_TIM_ENABLE_IT(&htim6, TIM_IT_UPDATE);
+    __HAL_TIM_ENABLE(&htim6);
 }
 /*!***************************************************************************
  * @brief Obtains the lifetime counter value from the timers.
@@ -47,12 +60,10 @@ void Timer_Init(void) {
  * @return -
  *****************************************************************************/
 void Timer_GetCounterValue(uint32_t *hct, uint32_t *lct) {
-	/* The loop makes sure that there are no glitches
-	when the counter wraps between htim2 and htm2 reads. */
-	do {
-		*lct = __HAL_TIM_GET_COUNTER(&htim2);
-		*hct = seconds;
-	} while (*lct > __HAL_TIM_GET_COUNTER(&htim2));
+    do {
+        *lct = __HAL_TIM_GET_COUNTER(&htim6);
+        *hct = seconds;
+    } while (*lct > __HAL_TIM_GET_COUNTER(&htim6));
 }
 
 
@@ -96,7 +107,7 @@ status_t Timer_SetCallback(timer_cb_t f) {
 
 void Argus_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    if (htim->Instance == TIM2)
+    if (htim->Instance == TIM6)
     {
         seconds += 1;
         if (timer_callback_) { timer_callback_(callback_param_); }
@@ -126,11 +137,11 @@ status_t Timer_Start(uint32_t period, void *param) {
 	}
 	assert(prescaler <= 0x10000U);
 	/* Set prescaler and period values */
-	__HAL_TIM_SET_PRESCALER(&htim2, prescaler - 1);
-	__HAL_TIM_SET_AUTORELOAD(&htim2, period - 1);
+	__HAL_TIM_SET_PRESCALER(&htim6, prescaler - 1);
+	__HAL_TIM_SET_AUTORELOAD(&htim6, period - 1);
 	/* Enable interrupt and timer */
-	__HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE);
-	__HAL_TIM_ENABLE(&htim2);
+	__HAL_TIM_ENABLE_IT(&htim6, TIM_IT_UPDATE);
+	__HAL_TIM_ENABLE(&htim6);
 	return STATUS_OK;
 }
 
@@ -144,8 +155,8 @@ status_t Timer_Stop(void *param) {
 	period_us_ = 0;
 	callback_param_ = 0;
 	/* Disable interrupt and timer */
-	__HAL_TIM_DISABLE_IT(&htim2, TIM_IT_UPDATE);
-	__HAL_TIM_DISABLE(&htim2);;
+	__HAL_TIM_DISABLE_IT(&htim6, TIM_IT_UPDATE);
+	__HAL_TIM_DISABLE(&htim6);;
 	return STATUS_OK;
 }
 
@@ -166,8 +177,8 @@ status_t Timer_SetInterval(uint32_t dt_microseconds, void *param) {
 
 	/* Disable interrupt and timer */
 	callback_param_ = 0;
-	HAL_TIM_Base_Stop_IT(&htim2);
-	__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
+	HAL_TIM_Base_Stop_IT(&htim6);
+	__HAL_TIM_CLEAR_IT(&htim6, TIM_IT_UPDATE);
 
 	if (dt_microseconds)
 	{
@@ -185,21 +196,21 @@ status_t Timer_SetInterval(uint32_t dt_microseconds, void *param) {
 		assert(prescaler < 0x10000U);
 
 		/* Set prescaler and period values and reset counter. */
-		__HAL_TIM_SET_PRESCALER(&htim2, prescaler - 1);
-		__HAL_TIM_SET_AUTORELOAD(&htim2, period - 1);
-		__HAL_TIM_SET_COUNTER(&htim2, period - 1);
+		__HAL_TIM_SET_PRESCALER(&htim6, prescaler - 1);
+		__HAL_TIM_SET_AUTORELOAD(&htim6, period - 1);
+		__HAL_TIM_SET_COUNTER(&htim6, period - 1);
 
 		/* The following generates an update event that triggers and update
 		 * of the auto-reload into the internal shadow registers. This is
 		 * required to update the timer configuration before the next update
 		 * event (i.e. under/overflow). Unfortunately this also generates
 		 * and immediate interrupt which is cleared in the next statement. */
-		HAL_TIM_GenerateEvent(&htim2, TIM_EVENTSOURCE_UPDATE);
-		__HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE); // clear interrupt
+		HAL_TIM_GenerateEvent(&htim6, TIM_EVENTSOURCE_UPDATE);
+		__HAL_TIM_CLEAR_IT(&htim6, TIM_IT_UPDATE); // clear interrupt
 
 		/* Enable interrupt and timer */
 		callback_param_ = param;
-		HAL_TIM_Base_Start_IT(&htim2);
+		HAL_TIM_Base_Start_IT(&htim6);
 	}
 
 	return STATUS_OK;

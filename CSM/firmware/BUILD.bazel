@@ -12,13 +12,14 @@ firmware_project_g4(
     enable_usb = True,
     usb_device_name = "Corner Sensor Module",
     extra_includes = [
+        "Core/Inc",
         "Libs/AFBR-S50/Include",
         "Libs/AFBR-S50/Include/platform",
-        #"Libs/AFBR-S50/Test",
+        "Libs/AFBR-S50/Test",
     ],
     extra_srcs = glob([
         "Libs/AFBR-S50/Include/platform/*.c",
-        #"Libs/AFBR-S50/Test/*.c",
+        "Libs/AFBR-S50/Test/*.c",
     ]),
     extra_deps = [
         "//CSM/firmware/Libs/AFBR-S50/Lib:afbrs50",

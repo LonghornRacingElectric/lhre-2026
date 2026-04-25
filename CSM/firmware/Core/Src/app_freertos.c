@@ -47,6 +47,7 @@
 #include "longhorn/usb_base.h"
 #include "ota/ota_flash.h"
 #include "csm_can.h"
+#include "spi_mutex.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -73,12 +74,12 @@ const osThreadAttr_t IMUTask_attributes = {
     .stack_size = 2048 * 4
 };
 
-// osThreadId_t rideHeightTaskHandle;
-// const osThreadAttr_t rideHeightTask_attributes = {
-//     .name = "rideHeightTask",
-//     .priority = (osPriority_t) osPriorityNormal,
-//     .stack_size = 2048 * 4
-// };
+osThreadId_t rideHeightTaskHandle;
+const osThreadAttr_t rideHeightTask_attributes = {
+    .name = "rideHeightTask",
+    .priority = (osPriority_t) osPriorityNormal,
+    .stack_size = 4096 * 4
+};
 
 osThreadId_t susPotTaskHandle;
 const osThreadAttr_t susPotTask_attributes = {
@@ -104,7 +105,7 @@ const osThreadAttr_t defaultTask_attributes = {
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 void StartIMUTask(void *argument);
-// void StartRideHeightTask(void *argument);
+void StartRideHeightTask(void *argument);
 void StartSusPotTask(void *argument);
 void StartStrainGaugeTask(void *argument);
 /* USER CODE END FunctionPrototypes */
@@ -160,9 +161,9 @@ void MX_FREERTOS_Init(void) {
     led_init(&led);
     led_start_thread();
 
-    IMUTaskHandle = osThreadNew(StartIMUTask, NULL, &IMUTask_attributes);
-    susPotTaskHandle = osThreadNew(StartSusPotTask, NULL, &susPotTask_attributes);
-    // rideHeightTaskHandle = osThreadNew(StartRideHeightTask, NULL, &rideHeightTask_attributes);
+    // IMUTaskHandle = osThreadNew(StartIMUTask, NULL, &IMUTask_attributes);
+    // susPotTaskHandle = osThreadNew(StartSusPotTask, NULL, &susPotTask_attributes);
+    rideHeightTaskHandle = osThreadNew(StartRideHeightTask, NULL, &rideHeightTask_attributes);
     // strainGaugeTaskHandle = osThreadNew(StartStrainGaugeTask, NULL, &strainGaugeTask_attributes);
   /* USER CODE END RTOS_THREADS */
 
@@ -186,6 +187,8 @@ void StartDefaultTask(void *argument)
   /* USER CODE BEGIN StartDefaultTask */
     /* Infinite loop */
     osDelay(500);
+    spi_mutex_init();
+    csm_can_init();
 
     dfu_config dfu = {
       .delay_fn = (Delay_fn)osDelay,
@@ -215,7 +218,7 @@ void StartDefaultTask(void *argument)
 /* USER CODE BEGIN Application */
 void StartIMUTask(void *argument)
 {
-    osDelay(5000);
+    osDelay(8000);
 
     int result = IMU_Init(&hspi1);
     if (result != 0) {
@@ -279,43 +282,68 @@ void StartSusPotTask(void *argument)
     for (;;)
     {
         value = susPotGetVal(&hadc2, ADC_CHANNEL_12);
-        float percent = ((float)value / 4095.0f) * 100.0f;
-        float inches = (percent / 100.0f) * 0.04f; // Assuming 0.04 inches per percent
+        float voltage = ((float)value / 4095.0f) * 5000.0f; //adjusted for telem scaling
+        // float inches = (percent / 100.0f) * 0.04f; // Assuming 0.04 inches per percent
         char buf[64];
-        int len = snprintf(buf, sizeof(buf), "SUSPOT Travel: %.2f\r\n", inches);
+        int len = snprintf(buf, sizeof(buf), "SUSPOT Travel: %.2f\r\n", voltage);
         // int len = snprintf(buf, sizeof(buf), "SUSPOT Travel: %.2f%%\r\n", percent);
         // int len = snprintf(buf, sizeof(buf), "ADC output: %lu\r\n", value);
 
         if (len > 0) {
           CDC_Transmit_FS((uint8_t*)buf, (uint16_t)len);
-          csm_can_update_strain_gauge_sus_pot(inches, 0.0f); // TODO: pass actual strain voltage
+          csm_can_update_strain_gauge_sus_pot(voltage, 0.0f); // TODO: pass actual strain voltage
         }
 
-        osDelay(1000); // 1 Hz sampling
+        osDelay(1000); // 333 Hz sampling
     }
 }
 
-// void StartRideHeightTask(void *argument)
-// {
-//     osDelay(10000);
-
-//     ride_height_init();
-
-//     char buf[64];
-//     for (;;)
-//     {
-//         float distance_mm = ride_height_get_distance_mm();
-//         int len = snprintf(buf, sizeof(buf), "Distance: %.2f mm\r\n", distance_mm);
-//         if (len > 0)
-//         {
-//             CDC_Transmit_FS((uint8_t *)buf, (uint16_t)len);
-//         }
-//         osDelay(100);
-//     }
+// void StartCANTask(void *argument) {
+//   osDelay(500);
+//   csm_can_update_strain_gauge_sus_pot(0.0f, 0.0f); // TODO: pass actual strain voltage and suspot travel
 // }
+
+void StartRideHeightTask(void *argument)
+{
+    osDelay(5000);
+    CDC_Transmit_FS((uint8_t*)"RH task started\r\n", 17);
+    osDelay(500);
+    ride_height_init();
+
+    led_disable(); // stops the rainbow thread
+
+
+
+    char buf[64];
+    for (;;)
+    {
+        float distance_mm = ride_height_get_distance_mm();
+        uint8_t quality = ride_height_get_quality();
+
+        // maps distance from red to blue, <20.0mm is full red, >100.0mm is full blue, with linear in between
+        float t = (distance_mm - 20.0f) / (200.0f - 20.0f);
+        if (t < 0.0f) {
+          t = 0.0f;
+        }
+        if (t > 1.0f) {
+          t = 1.0f;
+        }
+        float red = (1.0f - t) * 0.5f;
+        float blue = t * 0.5f;
+        led_set(red, 0.0f, blue);
+
+        int len = snprintf(buf, sizeof(buf), "Distance: %.2f mm  Quality: %d\r\n", distance_mm, quality);
+        if (len > 0)
+            CDC_Transmit_FS((uint8_t*)buf, (uint16_t)len);
+        osDelay(10);
+    }
+}
 // void StartRideHeightTask(void *argument)
 // {
-//     osDelay(3000);
+//     osDelay(5000);
+
+//     CDC_Transmit_FS((uint8_t*)"RH task started\r\n", 17);
+//     osDelay(500);  // give USB time to send
 
 //     ride_height_init();
 
