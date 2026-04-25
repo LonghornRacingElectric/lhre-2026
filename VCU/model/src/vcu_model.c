@@ -52,9 +52,13 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
   // perform mapping from pedal to output
   torque_map_evaluate(in, out, &ctx->torque_map_state, &ctx->params, dt_ms);
 
-  // reduce torque for driven-wheel slip when traction control is enabled
-  traction_control_evaluate(in, out, &ctx->traction_control_state,
-                            &ctx->params, dt_ms);
+  // When traction control is disabled for bring-up or verification, bypass the
+  // entire control stage so torque is sourced only from the pedal/torque map
+  // path and TC status stays fully inactive.
+  if (!ctx->params.traction_control.tc_disable) {
+    traction_control_evaluate(in, out, &ctx->traction_control_state,
+                              &ctx->params, dt_ms);
+  }
 
   // get the state for this step
   prndl_evaluate(&ctx->prndl_machine, in, out, ctx->time_ms);

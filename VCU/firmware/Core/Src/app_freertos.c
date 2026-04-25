@@ -97,6 +97,16 @@ const osThreadAttr_t controlTask_attributes = {
 #define VCU_TORQUE_MAP_POWER_LIMIT_KP 0.002f
 #define VCU_TORQUE_MAP_POWER_LIMIT_KI 0.0f
 #define VCU_TORQUE_MAP_POWER_LIMIT_KD 0.0f
+#define VCU_TORQUE_MAP_LAUNCH_COMPENSATION_DISABLE true
+#define VCU_TORQUE_MAP_LAUNCH_START_RPM 10.0f
+#define VCU_TORQUE_MAP_LAUNCH_EXIT_RPM 75.0f
+#define VCU_TORQUE_MAP_LAUNCH_PRELOAD_TORQUE_NM 5.0f
+#define VCU_TORQUE_MAP_LAUNCH_PRELOAD_TIMEOUT_MS 250.0f
+#define VCU_TORQUE_MAP_LAUNCH_RPM_LPF_TIME_CONSTANT_S 0.015f
+#define VCU_TORQUE_MAP_LAUNCH_CONTACT_POSITIVE_ACCEL_RPM_PER_S 75.0f
+#define VCU_TORQUE_MAP_LAUNCH_CONTACT_DECEL_RPM_PER_S 50.0f
+#define VCU_TORQUE_MAP_LAUNCH_CONTACT_DECEL_CONFIRM_MS 9.0f
+#define VCU_TORQUE_MAP_LAUNCH_RAMP_RATE_NM_PER_S 350.0f
 #define VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_RPM_0 0.0f
 #define VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_RPM_1 550.0f
 #define VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_RPM_2 1100.0f
@@ -200,6 +210,24 @@ static const vcu_parameters_t s_params = {
             .power_limit_kp = VCU_TORQUE_MAP_POWER_LIMIT_KP,
             .power_limit_ki = VCU_TORQUE_MAP_POWER_LIMIT_KI,
             .power_limit_kd = VCU_TORQUE_MAP_POWER_LIMIT_KD,
+            .launch_compensation_disable =
+                VCU_TORQUE_MAP_LAUNCH_COMPENSATION_DISABLE,
+            .launch_start_rpm = VCU_TORQUE_MAP_LAUNCH_START_RPM,
+            .launch_exit_rpm = VCU_TORQUE_MAP_LAUNCH_EXIT_RPM,
+            .launch_preload_torque_nm =
+                VCU_TORQUE_MAP_LAUNCH_PRELOAD_TORQUE_NM,
+            .launch_preload_timeout_ms =
+                VCU_TORQUE_MAP_LAUNCH_PRELOAD_TIMEOUT_MS,
+            .launch_rpm_lpf_time_constant_s =
+                VCU_TORQUE_MAP_LAUNCH_RPM_LPF_TIME_CONSTANT_S,
+            .launch_contact_positive_accel_rpm_per_s =
+                VCU_TORQUE_MAP_LAUNCH_CONTACT_POSITIVE_ACCEL_RPM_PER_S,
+            .launch_contact_decel_rpm_per_s =
+                VCU_TORQUE_MAP_LAUNCH_CONTACT_DECEL_RPM_PER_S,
+            .launch_contact_decel_confirm_ms =
+                VCU_TORQUE_MAP_LAUNCH_CONTACT_DECEL_CONFIRM_MS,
+            .launch_ramp_rate_nm_per_s =
+                VCU_TORQUE_MAP_LAUNCH_RAMP_RATE_NM_PER_S,
             .power_limit_motor_efficiency_rpm =
                 {
                     VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_RPM_0,
@@ -330,6 +358,26 @@ _Static_assert(VCU_TORQUE_MAP_POWER_LIMIT_KI >= 0.0f,
                "VCU torque_map.power_limit_ki cannot be negative");
 _Static_assert(VCU_TORQUE_MAP_POWER_LIMIT_KD >= 0.0f,
                "VCU torque_map.power_limit_kd cannot be negative");
+_Static_assert(VCU_TORQUE_MAP_LAUNCH_START_RPM >= 0.0f,
+               "VCU torque_map.launch_start_rpm cannot be negative");
+_Static_assert(VCU_TORQUE_MAP_LAUNCH_EXIT_RPM >
+                   VCU_TORQUE_MAP_LAUNCH_START_RPM,
+               "VCU torque_map.launch_exit_rpm must be > launch_start_rpm");
+_Static_assert(VCU_TORQUE_MAP_LAUNCH_PRELOAD_TORQUE_NM >= 0.0f,
+               "VCU torque_map.launch_preload_torque_nm cannot be negative");
+_Static_assert(VCU_TORQUE_MAP_LAUNCH_PRELOAD_TIMEOUT_MS >= 0.0f,
+               "VCU torque_map.launch_preload_timeout_ms cannot be negative");
+_Static_assert(VCU_TORQUE_MAP_LAUNCH_RPM_LPF_TIME_CONSTANT_S >= 0.0f,
+               "VCU torque_map.launch_rpm_lpf_time_constant_s cannot be negative");
+_Static_assert(VCU_TORQUE_MAP_LAUNCH_CONTACT_POSITIVE_ACCEL_RPM_PER_S >=
+                   0.0f,
+               "VCU torque_map.launch_contact_positive_accel_rpm_per_s cannot be negative");
+_Static_assert(VCU_TORQUE_MAP_LAUNCH_CONTACT_DECEL_RPM_PER_S >= 0.0f,
+               "VCU torque_map.launch_contact_decel_rpm_per_s cannot be negative");
+_Static_assert(VCU_TORQUE_MAP_LAUNCH_CONTACT_DECEL_CONFIRM_MS >= 0.0f,
+               "VCU torque_map.launch_contact_decel_confirm_ms cannot be negative");
+_Static_assert(VCU_TORQUE_MAP_LAUNCH_RAMP_RATE_NM_PER_S > 0.0f,
+               "VCU torque_map.launch_ramp_rate_nm_per_s must be positive");
 _Static_assert(VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_RPM_0 >= 0.0f &&
                    VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_RPM_1 >
                        VCU_TORQUE_MAP_POWER_LIMIT_MOTOR_EFFICIENCY_RPM_0 &&
@@ -691,6 +739,7 @@ if (total > 1e-3f) {
     log_printf(LOG_INFO,
                "TICK:%lu | PED:%.3f TQ:%.1f | PRNDL:%u INV:%u | "
                "DRV_IN:%u TR:%u | PWR:%.0f LIM:%.0f OCV:%.1f | "
+               "LST:%u LRAW:%.1f LRPM:%.1f LACC:%.0f LTQ:%.1f | "
                "APPS_IMPL:%u BRAKE:%u ANYFLT:%u PLFLT:%u\n",
                (unsigned long)current_tick, (double)out.accel_pedal_travel,
                (double)out.torque_cmd, (unsigned)out.prndl_state,
@@ -698,6 +747,11 @@ if (total > 1e-3f) {
                (unsigned)in.contactors_closed, (double)out.debug.measured_power_w,
                (double)out.debug.active_power_limit_w,
                (double)out.debug.ocv_estimate_v,
+               (unsigned)out.debug.launch_comp_state,
+               (double)out.debug.launch_raw_torque_cmd_nm,
+               (double)out.debug.launch_filtered_motor_rpm,
+               (double)out.debug.launch_motor_accel_rpm_per_s,
+               (double)out.debug.launch_torque_limit_nm,
                (unsigned)out.faults.apps_any_fault,
                (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault,
                (unsigned)out.faults.power_limit_input_fault);

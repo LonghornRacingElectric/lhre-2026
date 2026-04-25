@@ -19,6 +19,7 @@ void set_valid_torque_map_params(vcu_parameters_t *params) {
   params->torque_map.power_limit_kp = 0.002f;
   params->torque_map.power_limit_ki = 0.0f;
   params->torque_map.power_limit_kd = 0.0f;
+  params->torque_map.launch_compensation_disable = true;
   const float rpm_map[VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS] = {
       0.0f,    550.0f,  1100.0f, 1650.0f, 2200.0f, 2750.0f,
       3300.0f, 3850.0f, 4400.0f, 4950.0f, 5500.0f,
@@ -147,6 +148,28 @@ TEST_F(VCUModelTest, TransitionToDriveAndNormalOperation) {
   EXPECT_FLOAT_EQ(out.torque_cmd, 50.0f);
   EXPECT_FALSE(out.faults.apps_implaus);
   EXPECT_FALSE(out.faults.brake_latched);
+}
+
+TEST_F(VCUModelTest, DisabledTractionControlLeavesTorqueUntouched) {
+  TransitionToDrive();
+
+  in.bse1_raw = 100;
+  in.bse2_raw = 150;
+  in.apps1_raw = 2500;
+  in.apps2_raw = 1250;
+
+  // Feed obviously bad wheel-speed inputs; with TC disabled this should not
+  // matter as long as the powertrain inputs required by the torque map remain
+  // valid.
+  in.wheel_speeds_valid = false;
+
+  vcu_model_step(&ctx, &in, &out, 10);
+
+  EXPECT_FLOAT_EQ(out.torque_cmd, 50.0f);
+  EXPECT_FALSE(out.faults.tc_input_fault);
+  EXPECT_FALSE(out.debug.tc_active);
+  EXPECT_FLOAT_EQ(out.debug.tc_torque_reduction_nm, 0.0f);
+  EXPECT_FLOAT_EQ(out.debug.tc_torque_limit_nm, 0.0f);
 }
 
 TEST_F(VCUModelTest, AppsImplausibilityDisablesTorque) {
