@@ -2,6 +2,7 @@ import React from 'react';
 import { Container, Row, Col } from 'react-bootstrap';
 import RadialGauge from '../components/RadialGauge';
 import VerticalGauge from '../components/VerticalGauge';
+import ConnectivityIndicator from '../components/ConnectivityIndicator';
 import { useDash } from '../context/DashContext';
 import './ScreenOne.css';
 
@@ -17,14 +18,10 @@ const ScreenOne: React.FC = () => {
     const charge = data?.can.soc;
     const temp = data?.can.temperature;
     const odometer = data?.can.odometer;
-    const signalStrength = data?.can.signalStrength;
     const shutdown = data?.can.shutdown;
     const lapDelta = data?.mqtt.lapDelta;
     const energyDelta = data?.mqtt.energyDelta;
     const lapsRemaining = data?.mqtt.lapsRemaining;
-
-    // Derived: telemetry status (all mqtt null = disconnected)
-    const telemetryStatus = lapDelta !== null || energyDelta !== null || lapsRemaining !== null;
 
     // Derived: system status from shutdown circuit (any false = FAULT)
     const systemOk = shutdown ? shutdown.every(Boolean) : null;
@@ -61,7 +58,6 @@ const ScreenOne: React.FC = () => {
     const safePower = power ?? 0;
     const safeCharge = charge ?? 0;
     const safeTemp = temp ?? 0;
-    const safeSignal = signalStrength ?? 0;
 
     return (
         <div className="modern-dash-container" style={{ width: '100vw', height: '100vh', position: 'relative' }}>
@@ -92,26 +88,8 @@ const ScreenOne: React.FC = () => {
                 boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
             }}>
                 {/* Left: Connectivity */}
-                <div style={{ position: 'absolute', left: '30px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {/* Telemetry Status Light */}
-                    <div style={{
-                        width: '10px',
-                        height: '10px',
-                        borderRadius: '50%',
-                        backgroundColor: telemetryStatus ? '#00FF66' : '#FF3333',
-                        boxShadow: telemetryStatus ? '0 0 8px #00FF66' : '0 0 8px #FF3333'
-                    }} />
-                    <div className="label-small" style={{ fontSize: '0.8rem', marginBottom: 0, color: '#aaa' }}>5G</div>
-                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height: '14px' }}>
-                        {[1, 2, 3, 4].map(bar => (
-                            <div key={bar} style={{
-                                width: '4px',
-                                height: `${bar * 25}%`,
-                                backgroundColor: bar <= safeSignal ? '#fff' : 'rgba(255,255,255,0.2)',
-                                borderRadius: '1px'
-                            }} />
-                        ))}
-                    </div>
+                <div style={{ position: 'absolute', left: '30px', top: '50%', transform: 'translateY(-50%)' }}>
+                    <ConnectivityIndicator />
                 </div>
 
                 {/* Center: Lap Delta */}
