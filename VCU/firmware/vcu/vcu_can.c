@@ -329,7 +329,12 @@ bool hvc_tractive_ready(void) {
 }
 
 float vcu_can_get_motor_speed_rpm(void) {
-  return (float)inverter_speed_mailbox.motor_speed;
+  if (!message_timed_out(inverter_speed_mailbox_handle,
+                         INVERTER_SPEED_TIMEOUT_MS)) {
+    return (float)inverter_speed_mailbox.motor_speed;
+  }
+
+  return (float)inverter_status_mailbox.motor_speed;
 }
 
 float vcu_can_get_delta_resolver_angle_deg(void) {
