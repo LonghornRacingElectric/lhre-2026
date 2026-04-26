@@ -7,7 +7,7 @@
 
 #define MAX_MOTOR_RPM         6000.0f
 #define BATTERY_POWER_W       80000.0f
-#define EFFICIENCY 0.90f
+#define EFFICIENCY 0.96f
 #define PI_F                  3.14159265f
 
 static float torque_table[LOOKUP2D_POINTS_Y][LOOKUP2D_POINTS_X];
