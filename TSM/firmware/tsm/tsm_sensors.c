@@ -97,28 +97,32 @@ float ds18b20_read_temp(void) {
     ds18b20_write_bit((0x44 >> i) & 1);
   osDelay(750);
 
-  if (!ds18b20_reset())
-    return TEMP_ERR;
+  for (int attempt = 0; attempt < 3; attempt++) {
+    if (!ds18b20_reset())
+      continue;
 
-  for (int i = 0; i < 8; i++)
-    ds18b20_write_bit((0xCC >> i) & 1);
-  for (int i = 0; i < 8; i++)
-    ds18b20_write_bit((0xBE >> i) & 1);
+    for (int i = 0; i < 8; i++)
+      ds18b20_write_bit((0xCC >> i) & 1);
+    for (int i = 0; i < 8; i++)
+      ds18b20_write_bit((0xBE >> i) & 1);
 
-  uint8_t scratchpad[9];
-  for (int i = 0; i < 9; i++)
-    scratchpad[i] = ds18b20_read_byte();
+    uint8_t scratchpad[9];
+    for (int i = 0; i < 9; i++)
+      scratchpad[i] = ds18b20_read_byte();
 
-  if (ds18b20_crc8(scratchpad, 8) != scratchpad[8])
-    return TEMP_ERR;
+    if (ds18b20_crc8(scratchpad, 8) != scratchpad[8])
+      continue;
 
-  int16_t raw = (scratchpad[1] << 8) | scratchpad[0];
-  float temp = raw / 16.0f;
+    int16_t raw = (scratchpad[1] << 8) | scratchpad[0];
+    float temp = raw / 16.0f;
 
-  if (temp == 85.0f)
-    return TEMP_ERR;
+    if (temp == 85.0f)
+      continue;
 
-  return temp;
+    return temp;
+  }
+
+  return TEMP_ERR;
 }
 
 float thermistor_adc_to_temp(uint16_t adc) {
