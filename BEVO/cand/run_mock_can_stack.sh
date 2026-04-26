@@ -10,6 +10,7 @@ CAN_JSON_PATH="$RUNFILES_ROOT/_main/drivers/longhorn-lib/can.json"
 
 STARTUP_SEMAPHORE_PATH="/tmp/BEVO_publishd_ready"
 IPC_SOCKET_PATH="/tmp/BEVO_cand.sock"
+PUBLISHD_IPC_SOCKET_PATH="/tmp/BEVO_cand_publishd.sock"
 
 for bin in "$CAND_BIN" "$MOCK_BIN" "$DASHD_BIN" "$LOGGERD_BIN"; do
   if [[ ! -x "$bin" ]]; then
@@ -25,11 +26,11 @@ fi
 
 cleanup() {
   kill "${MOCK_PID:-}" "${CAND_PID:-}" "${DASHD_PID:-}" "${LOGGERD_PID:-}" >/dev/null 2>&1 || true
-  rm -f "$STARTUP_SEMAPHORE_PATH" "$IPC_SOCKET_PATH"
+  rm -f "$STARTUP_SEMAPHORE_PATH" "$IPC_SOCKET_PATH" "$PUBLISHD_IPC_SOCKET_PATH"
 }
 trap cleanup EXIT INT TERM
 
-rm -f "$STARTUP_SEMAPHORE_PATH" "$IPC_SOCKET_PATH"
+rm -f "$STARTUP_SEMAPHORE_PATH" "$IPC_SOCKET_PATH" "$PUBLISHD_IPC_SOCKET_PATH"
 
 "$DASHD_BIN" &
 DASHD_PID=$!
