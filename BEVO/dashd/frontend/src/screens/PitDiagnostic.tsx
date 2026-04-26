@@ -57,6 +57,8 @@ const PitDiagnostic: React.FC = () => {
     const coolantTemp: number | null = null;
     // BACKEND TODO: CanData.cellTempMax   (currently only cell_top_temp is forwarded)
     const cellTempMax: number | null = cellTopTemp;
+    // BACKEND TODO: CanData.cellTempAvg   (segment-averaged or pack-averaged cell temp)
+    const cellTempAvg: number | null = null;
     // BACKEND TODO: CanData.cellTempMin
     const cellTempMin: number | null = null;
 
@@ -156,6 +158,7 @@ const PitDiagnostic: React.FC = () => {
                     {renderRow('Inv', inverterTemp, '°C', 0, tempClass(inverterTemp))}
                     {renderRow('Cool', coolantTemp, '°C', 0, tempClass(coolantTemp))}
                     {renderRow('Cell↑', cellTempMax, '°C', 0, tempClass(cellTempMax))}
+                    {renderRow('Cell μ', cellTempAvg, '°C', 0, tempClass(cellTempAvg))}
                     {renderRow('Cell↓', cellTempMin, '°C', 0)}
                 </div>
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useDash } from '../context/DashContext';
+import TopTray from '../components/TopTray';
 import './ScreenTwo.css';
 
 // Screen Two: Shutdown Circuit Status
@@ -39,6 +40,7 @@ const ScreenTwo: React.FC = () => {
 
     return (
         <div className="shutdown-container">
+            <TopTray screenLabel="Shutdown" />
             <div className="shutdown-grid">
                 {ITEMS.map((item, index) => {
                     const status = shutdown ? shutdown[index] : null;

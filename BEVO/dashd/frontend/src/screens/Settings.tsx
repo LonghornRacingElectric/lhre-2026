@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { DRIVERS, useSettings } from '../context/SettingsContext';
+import TopTray from '../components/TopTray';
 import './ScreenOne.css';
 import './Settings.css';
 
@@ -47,7 +48,7 @@ const Settings: React.FC = () => {
 
     return (
         <div className="modern-dash-container settings-screen">
-            <div className="label-small settings-title">Settings</div>
+            <TopTray screenLabel="Settings" />
 
             <div className="settings-grid">
                 {settingsList.map((s, i) => {

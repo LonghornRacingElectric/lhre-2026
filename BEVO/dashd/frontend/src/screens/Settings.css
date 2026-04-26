@@ -2,20 +2,14 @@
    inherited from ScreenOne.css via dash-card / value-display / label-small. */
 
 .settings-screen {
+    position: relative;
     width: 100vw;
     height: 100vh;
-    padding: 14px 18px;
+    padding: 70px 18px 14px 18px;  /* 60 tray + 10 gap on top */
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     gap: 10px;
-}
-
-.settings-title {
-    font-size: 1rem;
-    letter-spacing: 3px;
-    color: #aaa;
-    margin: 0;
 }
 
 .settings-grid {
