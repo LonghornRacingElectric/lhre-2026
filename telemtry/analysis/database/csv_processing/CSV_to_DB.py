@@ -8,6 +8,7 @@ import datetime
 import os
 import sys
 import json
+import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed, wait
@@ -585,13 +586,13 @@ class CSVToDB():
 
 def is_csv_valid_for_insert(csv_path, df, table_desc, car):
     if df.empty:
-        print("Skipping %s: empty CSV", csv_path)
+        logging.warning("Skipping %s: empty CSV", csv_path)
         return False
 
     # Build expected DB column set from schema as table.field names
     expected_cols = set()
     for table_name, columns in table_desc.items():
-        if table_name in {"controls", "dynamics", "pack", "packet", "diagnostics_high", "diagnostics_low", "thermal", "board_status"}:
+        if table_name in {"controls", "dynamics", "pack", "packet", "diagnostics_high", "diagnostics_low", "thermal"}:
             if isinstance(columns, dict):
                 for col in columns.keys():
                     expected_cols.add(f"{table_name}.{col}")
@@ -602,7 +603,8 @@ def is_csv_valid_for_insert(csv_path, df, table_desc, car):
     missing_expected = expected_cols - df_cols
 
     if missing_expected:
-        print (missing_expected)
+        logging.warning("Missing expected columns in %s: %s", csv_path, missing_expected)
+        return False
 
     return True
 
@@ -637,19 +639,26 @@ def find_resume_point(csv_files, starting_packet_id: int, most_recent_packet_id:
 
 if __name__ == '__main__':
 
+    parser = argparse.ArgumentParser(description="CSV Data Ingestion Script")
+    parser.add_argument("--car", type=str, default="Orion", help="Target car for ingestion")
+    parser.add_argument("--run_mode", type=str, choices=["insert", "playback"], default="playback", help="Run mode: insert or playback")
+    parser.add_argument("--resume", action="store_true", help="Enable resume for interrupted ingestion")
+    parser.add_argument("--most_recent_packet_id", type=int, default=0, help="Most recent packet_id for resuming")
+    parser.add_argument("--starting_packet_id", type=int, default=1, help="Starting packet_id for the current batch")
+    parser.add_argument("--log_dir", type=str, default=str(Path(__file__).parents[3].joinpath("logs", "orion")), help="Directory containing CSV logs")
+
+    args = parser.parse_args()
+
     logging.basicConfig(level=logging.CRITICAL)
     
-    # Angelique CSV ingestion for testing
-    car = "Orion"
-    #csv_file = Path(__file__).parent.joinpath("csv_data", "angelique", "Log__2024_10_13__14_26_10.csv")
-    csv_directory = Path(__file__).parents[3].joinpath("logs", "orion")
-    run_mode = "playback"  # insert or playback
+    car = args.car
+    csv_directory = Path(args.log_dir)
+    run_mode = args.run_mode
 
     # Resume settings for interrupted ingestion.
-    resume_enabled = True
-    most_recent_packet_id = 3718846
-    # Set this to the packet_id that corresponded to the FIRST data row in the FIRST CSV of this batch.
-    starting_packet_id_for_batch = 1
+    resume_enabled = args.resume
+    most_recent_packet_id = args.most_recent_packet_id
+    starting_packet_id_for_batch = args.starting_packet_id
 
     if not csv_directory.exists() or not any(csv_directory.glob("*.csv")):
         raise FileNotFoundError(f"No CSV files found in directory: {csv_directory}")
