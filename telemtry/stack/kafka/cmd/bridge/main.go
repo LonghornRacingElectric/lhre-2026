@@ -166,6 +166,7 @@ func defaultSeedMap(carType string) map[string]interface{} {
 			DiagnosticsHigh: &sensor.OrionDiagnosticsHigh{},
 			DiagnosticsLow:  &sensor.OrionDiagnosticsLow{},
 			Thermal:         &sensor.OrionThermal{},
+			BoardStatus:     &sensor.OrionBoardStatus{},
 		})
 	default:
 		m = nightwatchToMap(&sensor.SensorData{
@@ -782,6 +783,17 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["motor_loop_motor_temp"] = t.MotorLoopMotorTemp
 		m["motor_loop_rad_fan_speed"] = t.MotorLoopRadFanSpeed
 		m["motor_loop_rad_temp"] = t.MotorLoopRadTemp
+	}
+
+	if bs := msg.BoardStatus; bs != nil {
+		m["csm_last_seen_s"] = bs.CsmLastSeenS
+		m["dui_last_seen_s"] = bs.DuiLastSeenS
+		m["hvc_last_seen_s"] = bs.HvcLastSeenS
+		m["inverter_last_seen_s"] = bs.InverterLastSeenS
+		m["pdu_last_seen_s"] = bs.PduLastSeenS
+		m["tsm_last_seen_s"] = bs.TsmLastSeenS
+		m["usm_last_seen_s"] = bs.UsmLastSeenS
+		m["vcu_last_seen_s"] = bs.VcuLastSeenS
 	}
 
 	return m

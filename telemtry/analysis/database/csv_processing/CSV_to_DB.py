@@ -177,6 +177,12 @@ class CSVToDB():
         self.last_packet += len(df.index)
         return pack_id
 
+    def set_last_packet_id(self, last_packet_id: int):
+        """
+        Manually sets the last inserted packet_id so the next insert starts at last_packet_id + 1.
+        """
+        self.last_packet = int(last_packet_id)
+
     def dataConvert(self, df, table_desc):
         """
         Converts data to the csv to a format that can be added into the database
@@ -208,7 +214,15 @@ class CSVToDB():
                         convert[table][column] = [[lat, lon] for lat, lon in zip(lat_vals, lon_vals)]
                         continue
 
-                if column not in {"time", "packet_id", "gps", "f_gps", "b_gps"} and column in pg_to_csv:
+                # Construct CSV column name (for Orion: table.column, others: from mapping)
+                if self.car == "Orion":
+                    csv_col_name = f"{table}.{column}"
+                    col_exists = csv_col_name in df.columns
+                else:
+                    col_exists = column in pg_to_csv
+                    csv_col_name = pg_to_csv.get(column, column)
+
+                if column not in {"time", "packet_id", "f_gps", "b_gps"} and col_exists:
                     if ndim:
                         # Handle array columns
                         if self.car == "Orion":
@@ -216,16 +230,17 @@ class CSVToDB():
                             import ast
                             convert[table][column] = [
                                 ast.literal_eval(str(val)) if isinstance(val, str) else val 
-                                for val in df[pg_to_csv[column]]
+                                for val in df[csv_col_name]
                             ]
                         else:
-                            convert[table][column] = df[pg_to_csv[column]].astype(dtype).to_numpy().tolist()
+                            convert[table][column] = df[csv_col_name].astype(dtype).to_numpy().tolist()
                     else:
-                        convert[table][column] = df[pg_to_csv[column]].astype(dtype)
+                        convert[table][column] = df[csv_col_name].astype(dtype)
                 elif (column == "time"):
                     if self.car == "Orion":
-                        # Orion CSV already has 'time' column with millisecond timestamps
-                        convert[table][column] = df["time"].astype(int)
+                        # Orion CSV columns are named as 'table.field'
+                        csv_col_name = f"{table}.{column}"
+                        convert[table][column] = df[csv_col_name].astype(int)
                     else:
                         df.Year += 2000
                         first_dt = df.iloc[0]
@@ -354,7 +369,7 @@ class CSVToDB():
         elif (self.car == "Angelique"):
             tables = ['packet', 'dynamics', 'controls', 'pack', 'diagnostics', 'thermal']
         elif (self.car == "Orion"):
-            tables = ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_low', 'thermal']
+            tables = ['packet', 'dynamics', 'controls', 'pack', 'diagnostics_high', 'diagnostics_low', 'thermal', 'board_status']
         else:
             raise Exception("DBTarget not specified")
         
@@ -567,17 +582,80 @@ class CSVToDB():
         with get_db(self.car) as session:
             self._rebuild_partitions_in_session(session, time_threshold=time_threshold)
 
+
+def is_csv_valid_for_insert(csv_path, df, table_desc, car):
+    if df.empty:
+        print("Skipping %s: empty CSV", csv_path)
+        return False
+
+    # Build expected DB column set from schema as table.field names
+    expected_cols = set()
+    for table_name, columns in table_desc.items():
+        if table_name in {"controls", "dynamics", "pack", "packet", "diagnostics_high", "diagnostics_low", "thermal", "board_status"}:
+            if isinstance(columns, dict):
+                for col in columns.keys():
+                    expected_cols.add(f"{table_name}.{col}")
+
+    df_cols = set(df.columns)
+    csv_fields = set(df.columns)
+
+    missing_expected = expected_cols - df_cols
+
+    if missing_expected:
+        print (missing_expected)
+
+    return True
+
+
+def count_csv_data_rows(csv_file: Path) -> int:
+    """
+    Counts data rows in a CSV file (excluding header).
+    """
+    with open(csv_file, "r") as f:
+        return max(sum(1 for _ in f) - 1, 0)
+
+
+def find_resume_point(csv_files, starting_packet_id: int, most_recent_packet_id: int):
+    """
+    Maps a packet_id checkpoint to (csv_index, row_offset_in_csv).
+
+    Assumes the first data row of csv_files[0] was inserted with starting_packet_id.
+    """
+    if most_recent_packet_id < starting_packet_id:
+        return 0, 0
+
+    rows_already_inserted = most_recent_packet_id - starting_packet_id + 1
+
+    for i, csv_file in enumerate(csv_files):
+        rows_in_file = count_csv_data_rows(csv_file)
+        if rows_already_inserted < rows_in_file:
+            return i, rows_already_inserted
+        rows_already_inserted -= rows_in_file
+
+    return len(csv_files), 0
+
+
 if __name__ == '__main__':
 
     logging.basicConfig(level=logging.CRITICAL)
     
     # Angelique CSV ingestion for testing
-    car = "Angelique"
-    csv_file = Path(__file__).parent.joinpath("csv_data", "angelique", "Log__2024_10_13__14_26_10.csv")
+    car = "Orion"
+    #csv_file = Path(__file__).parent.joinpath("csv_data", "angelique", "Log__2024_10_13__14_26_10.csv")
+    csv_directory = Path(__file__).parents[3].joinpath("logs", "orion")
     run_mode = "playback"  # insert or playback
 
-    if not csv_file.exists():
-        raise FileNotFoundError(f"CSV file not found: {csv_file}")
+    # Resume settings for interrupted ingestion.
+    resume_enabled = True
+    most_recent_packet_id = 3718846
+    # Set this to the packet_id that corresponded to the FIRST data row in the FIRST CSV of this batch.
+    starting_packet_id_for_batch = 1
+
+    if not csv_directory.exists() or not any(csv_directory.glob("*.csv")):
+        raise FileNotFoundError(f"No CSV files found in directory: {csv_directory}")
+
+    # if not csv_file.exists():
+    #     raise FileNotFoundError(f"CSV file not found: {csv_file}")
 
     with get_db(car) as session:
         with MQTTHandler(name ='event_playback_test', target = MQTTTarget.get()) as mqtt:
@@ -585,8 +663,47 @@ if __name__ == '__main__':
 
             table_desc = QueryBuilder(car).get_table_column_specs()
 
+            all_csv_files = sorted(csv_directory.glob("*.csv"))
+
             if run_mode == "playback":
-                # dataSender.handle_event_start()
-                dataSender.event_playback(csv_file, table_desc=table_desc, protobuf=True)
+                for csv_file in all_csv_files:
+                    logging.info("Starting playback for CSV %s", csv_file)
+                    dataSender.event_playback(csv_file, table_desc=table_desc, protobuf=True)
             elif run_mode == "insert":
-                dataSender.insert_multi_row_from_csv(df=pd.read_csv(csv_file), table_desc=table_desc, amt=500)
+                start_csv_index = 0
+                start_row_offset = 0
+
+                if resume_enabled:
+                    start_csv_index, start_row_offset = find_resume_point(
+                        all_csv_files,
+                        starting_packet_id=starting_packet_id_for_batch,
+                        most_recent_packet_id=most_recent_packet_id,
+                    )
+                    dataSender.set_last_packet_id(most_recent_packet_id)
+                    print(
+                        f"Resume enabled: starting at csv index {start_csv_index}, "
+                        f"row offset {start_row_offset}, next packet_id {most_recent_packet_id + 1}"
+                    )
+
+                if start_csv_index >= len(all_csv_files):
+                    print("All CSV rows appear to have already been inserted for the configured packet range.")
+                    sys.exit(0)
+
+                for idx, csv_file in enumerate(all_csv_files[start_csv_index:], start=start_csv_index):
+                    print(f"Inserting data from {csv_file} into the database...")
+
+                    logging.info("Validating CSV %s for insertion", csv_file)
+                    try:
+                        if idx == start_csv_index and start_row_offset > 0:
+                            # Keep header row, skip already-inserted data rows.
+                            df = pd.read_csv(csv_file, skiprows=range(1, start_row_offset + 1))
+                        else:
+                            df = pd.read_csv(csv_file)
+                    except Exception as e:
+                        logging.warning("Skipping %s: could not read CSV (%s)", csv_file, e)
+                        continue
+
+                    if not is_csv_valid_for_insert(csv_file, df, table_desc, car):
+                        continue
+                    dataSender.insert_multi_row_from_csv(df=df, table_desc=table_desc, amt=500)
+

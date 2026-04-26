@@ -10,6 +10,7 @@ message OrionSensorData {
     DiagnosticsHigh diagnostics_high = 6;
     DiagnosticsLow diagnostics_low = 7;
     Thermal thermal = 8;
+    BoardStatus board_status = 9;
 }
 
 message Dynamics {
@@ -153,4 +154,15 @@ message Thermal {
     float motor_loop_inverter_temp = 24;
     float motor_loop_motor_temp = 25;
     float motor_loop_rad_temp = 26;
+}
+
+message BoardStatus {
+    float csm_last_seen_s = 1;
+    float dui_last_seen_s = 2;
+    float hvc_last_seen_s = 3;
+    float inverter_last_seen_s = 4;
+    float pdu_last_seen_s = 5;
+    float tsm_last_seen_s = 6;
+    float usm_last_seen_s = 7;
+    float vcu_last_seen_s = 8;
 }
