@@ -87,8 +87,6 @@ const PitDiagnostic: React.FC = () => {
         ? shutdown.map((ok, i) => (ok ? -1 : i)).filter(i => i >= 0)
         : null;
     const faultCount = faultIndices ? faultIndices.length : null;
-    const firstFaultName =
-        faultIndices && faultIndices.length > 0 ? SHUTDOWN_NAMES[faultIndices[0]] : null;
 
     // ----- Render helpers -----
 
@@ -130,14 +128,9 @@ const PitDiagnostic: React.FC = () => {
                     ) : faultCount === 0 ? (
                         <span className="fault-summary-status ok">SYSTEM OK</span>
                     ) : (
-                        <>
-                            <span className="fault-summary-status bad">
-                                {faultCount} ACTIVE
-                            </span>
-                            {firstFaultName && (
-                                <span className="fault-summary-name">{firstFaultName}</span>
-                            )}
-                        </>
+                        <span className="fault-summary-status bad">
+                            {faultCount} ACTIVE
+                        </span>
                     )}
                 </div>
 

@@ -51,13 +51,6 @@ class DataTester:
         self.csv_data = None
         self.mapping = None
         self.csv_index = 0
-
-        # Demo fault scheduler — see create_row(). Tracks the last time a
-        # shutdown fault was injected so faults stay rare and bursty
-        # (one fault per ~minute, held briefly so it's visible on the dash)
-        # rather than firing on every packet.
-        self._last_shutdown_fault_time = 0.0
-        self._fault_active_until = 0.0
         
         if csv_path:
             self.load_csv(csv_path)
@@ -233,74 +226,82 @@ class DataTester:
 
         :return: a row of data in dict {col_name: random_data, col2_name: ...} format
         """
-        # Demo behaviour: keep the dash in a mostly-happy state. Shutdown faults
-        # fire on a clock (one per minute, held briefly so they're visible at
-        # any packet rate) rather than as a per-packet probability — that way
-        # raising the publish rate doesn't multiply the fault rate. Tighter
-        # TEMP_RANGE keeps temperatures under the 80C warning threshold.
-        SHUTDOWN_FAULT_INTERVAL_S = 60.0   # ~one shutdown fault per minute
-        FAULT_HOLD_S = 1.5                  # keep one bool False this long
+        # Demo behaviour: dash stays in a fully-happy state. Bool fields are
+        # always True (no shutdown faults injected) and temp-named fields are
+        # clamped to a safe range so the >80C banner never fires.
         TEMP_RANGE = (25, 60)
 
-        now = time.time()
-        if (now - self._last_shutdown_fault_time) >= SHUTDOWN_FAULT_INTERVAL_S:
-            self._last_shutdown_fault_time = now
-            self._fault_active_until = now + FAULT_HOLD_S
-        fault_active = now < self._fault_active_until
-        fault_assigned = False  # only one bool per row goes False during a fault
+        # Robust dtype kind: works for Python types (bool, int, float),
+        # numpy types (np.bool_, np.int32, ...) and np.dtype instances. We
+        # need this because `dtype is bool` misses numpy bool aliases — when
+        # that happens bools fall through to the integer random path and
+        # produce a tiny but constant stream of False values that the dash
+        # reads as shutdown faults.
+        def _kind(dt):
+            try:
+                return np.dtype(dt).kind
+            except (TypeError, ValueError):
+                return None
 
         row = {}
         for col, (dtype, ndims) in table_desc.items():
             if col == 'time':
                 row[col] = time.time() * 1000
-            elif col == 'packet_id':
+                continue
+            if col == 'packet_id':
                 row[col] = packet
-            elif col == 'cells_temp':
+                continue
+            if col == 'cells_temp':
                 row[col] = np.random.randint(TEMP_RANGE[0], TEMP_RANGE[1], size=140).tolist()
-            elif dtype is datetime.datetime:
+                continue
+            if dtype is datetime.datetime:
                 row[col] = datetime.date.today()
-            elif dtype is dict:
+                continue
+            if dtype is dict:
                 row[col] = {'fake_jsonb_data': self.get_random_data(int, 3)}
-            elif dtype == 'point' or dtype == "POINT" or (isinstance(dtype, str) and dtype.lower() == 'point') or (isinstance(dtype, str) and dtype.lower() == 'POINT'):
-                point = random.choice([(30.289464, -97.735303), (30.389670, -97.728152)])
-                row[col] = point
-            elif dtype is bytearray or dtype is bytes:
+                continue
+            if dtype == 'point' or dtype == "POINT" or (isinstance(dtype, str) and dtype.lower() in ('point',)):
+                row[col] = random.choice([(30.289464, -97.735303), (30.389670, -97.728152)])
+                continue
+            if dtype is bytearray or dtype is bytes:
                 row[col] = secrets.token_bytes(16)
-            elif dtype is bool:
-                # Bools default True. During a scheduled fault window, the
-                # first bool encountered in this row goes False so the dash
-                # sees a transient shutdown trip.
+                continue
+
+            kind = _kind(dtype)
+
+            if kind == 'b':
+                # Bool field. Always True in the demo so the dash never shows
+                # a shutdown fault.
                 if ndims == 0:
-                    if fault_active and not fault_assigned:
-                        row[col] = False
-                        fault_assigned = True
-                    else:
-                        row[col] = True
+                    row[col] = True
                 elif ndims == 1:
                     row[col] = [True, True, True]
-                    if fault_active and not fault_assigned:
-                        row[col][int(self.rng.integers(0, 3))] = False
-                        fault_assigned = True
                 else:
                     raise ValueError(f'Invalid number of dimensions for bool: {ndims}')
-            elif np.issubdtype(dtype, np.floating) and 'temp' in col.lower():
-                # Keep any temp-named float in a safe range so the >80C banner
-                # stays off most of the time.
+                continue
+
+            if kind in ('f', 'i', 'u') and 'temp' in col.lower():
+                # Any temp-named numeric field — keep in safe range so the
+                # >80C banner doesn't fire from random data.
                 if ndims == 0:
-                    row[col] = float(self.rng.uniform(TEMP_RANGE[0], TEMP_RANGE[1]))
+                    val = self.rng.uniform(TEMP_RANGE[0], TEMP_RANGE[1])
+                    row[col] = int(val) if kind in ('i', 'u') else float(val)
                 elif ndims == 1:
-                    row[col] = self.rng.uniform(TEMP_RANGE[0], TEMP_RANGE[1], size=3).tolist()
+                    vals = self.rng.uniform(TEMP_RANGE[0], TEMP_RANGE[1], size=3)
+                    row[col] = vals.astype(int).tolist() if kind in ('i', 'u') else vals.tolist()
                 else:
-                    raise ValueError(f'Invalid number of dimensions for temp float: {ndims}')
+                    raise ValueError(f'Invalid number of dimensions for temp: {ndims}')
+                continue
+
+            # Default path: random data per dtype/ndims.
+            if ndims == 0:
+                row[col] = self.get_random_data(dtype, size=1, as_scalar=True)
+            elif ndims == 1:
+                row[col] = self.get_random_data(dtype, size=3)
+            elif ndims == 2:
+                row[col] = self.get_random_data(dtype, size=(3, 3))
             else:
-                if ndims == 0:
-                    row[col] = self.get_random_data(dtype, size=1, as_scalar=True)
-                elif ndims == 1:
-                    row[col] = self.get_random_data(dtype, size=3)
-                elif ndims == 2:
-                    row[col] = self.get_random_data(dtype, size=(3, 3))
-                else:
-                    raise ValueError(f'Invalid number of dimensions: {ndims}')
+                raise ValueError(f'Invalid number of dimensions: {ndims}')
         return row
 
     def single_table_test(self, table: str, num_rows: int, delay: float, rm_cols=None, use_csv=False, **kwargs):

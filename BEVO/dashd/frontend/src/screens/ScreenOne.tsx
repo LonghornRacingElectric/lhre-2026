@@ -1,5 +1,4 @@
 import React from 'react';
-import { Container, Row, Col } from 'react-bootstrap';
 import ConnectivityIndicator from '../components/ConnectivityIndicator';
 import { useDash } from '../context/DashContext';
 import './ScreenOne.css';
@@ -19,6 +18,22 @@ const ScreenOne: React.FC = () => {
     const lapDelta = data?.mqtt.lapDelta;
     const energyDelta = data?.mqtt.energyDelta;
     const lapsRemaining = data?.mqtt.lapsRemaining;
+
+    // ----- Driver-thread proposals: stubbed null until backend wires up -----
+    // (Cast through `as number | null` so TS doesn't collapse `!== null`
+    // checks to `never` on the literal-null assignment.)
+    // BACKEND TODO: needs MqttData.lapsRemainingEnergy (off-car prediction
+    // from SOC + average consumption — see BEVO/dashd/MQTT_CONTRACT.md).
+    const lapsRemainingEnergy = null as number | null;
+    // BACKEND TODO: needs MqttData.bestLapTime / .lastLapTime (off-car
+    // computed) and on-car timer for currentLapTime (driven by lap signal).
+    const bestLapTime = null as number | null;
+    const lastLapTime = null as number | null;
+    const currentLapTime = null as number | null;
+    // BACKEND TODO: needs CanData.brakeBias derived from front/rear brake
+    // pressures. Bouncy on Angelique — needs low-pass filter and should
+    // probably gate display by brake pressure > threshold.
+    const brakeBias = null as number | null;
 
     // Derived: system status from shutdown circuit (any false = FAULT)
     const systemOk = shutdown ? shutdown.every(Boolean) : null;
@@ -48,12 +63,29 @@ const ScreenOne: React.FC = () => {
         return decimals > 0 ? val.toFixed(decimals) : Math.round(val).toString();
     };
 
+    // Format seconds as M:SS.ss (e.g. 83.45 -> "1:23.45"). Returns "--:--.--"
+    // when null so the slot is visibly waiting for data.
+    const fmtLapTime = (secs: number | null | undefined): string => {
+        if (secs === null || secs === undefined) return "--:--.--";
+        const m = Math.floor(secs / 60);
+        const s = secs - m * 60;
+        return `${m}:${s.toFixed(2).padStart(5, '0')}`;
+    };
+
     const BRAND_COLOR = "#BF5700"; // Burnt Orange
 
     // Safe numeric values for gauges (default to 0 when null)
     const safePower = power ?? 0;
     const safeCharge = charge ?? 0;
     const safeTemp = temp ?? 0;
+
+    // Power bar split: regen takes the leftmost 20%, drive takes the
+    // remaining 80%. Max-out values for each side are scaled so the bar
+    // fill is linear within each half.
+    const REGEN_PCT = 20;
+    const DRIVE_PCT = 100 - REGEN_PCT;
+    const REGEN_MAX_KW = 20;
+    const DRIVE_MAX_KW = 80;
 
     return (
         <div className="modern-dash-container" style={{ width: '100vw', height: '100vh', position: 'relative' }}>
@@ -167,12 +199,12 @@ const ScreenOne: React.FC = () => {
                     )}
                 </div>
 
-                {/* Right: Laps Remaining */}
-                <div style={{ position: 'absolute', right: '30px', top: '50%', transform: 'translateY(-50%)', textAlign: 'right' }}>
-                    <div className="label-small" style={{ marginBottom: 0 }}>Laps Rem.</div>
-                    <div className="value-display" style={{ fontSize: '1.5rem', fontWeight: 'bold', lineHeight: 1 }}>
-                        {lapsRemaining !== null && lapsRemaining !== undefined ? lapsRemaining.toFixed(1) : "--"}
-                    </div>
+                {/* Right: Brake Bias — label sits left of the (larger) number */}
+                <div style={{ position: 'absolute', right: '30px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+                    <span className="label-small" style={{ marginBottom: 0 }}>BB</span>
+                    <span className="value-display" style={{ fontSize: '2.2rem', fontWeight: 'bold', lineHeight: 1 }}>
+                        {brakeBias !== null && brakeBias !== undefined ? `${brakeBias.toFixed(0)}%` : '--'}
+                    </span>
                 </div>
             </div>
 
@@ -295,47 +327,113 @@ const ScreenOne: React.FC = () => {
                 </div>
             </div>
 
-            {/* Center Cluster: Speed (huge) + Power bar + kW readout */}
-            <Container fluid style={{ height: '100%' }}>
-                <Row style={{ height: '100%' }}>
-                    <Col xs={12} className="h-100-flex" style={{ paddingTop: '60px', paddingBottom: '80px' }}>
-                        <Row className="h-100">
-                            <Col xs={12} className="d-flex flex-column align-items-center justify-content-center">
-                                {/* Speed digit + MPH label */}
-                                <div className="text-center" style={{ marginBottom: '24px' }}>
-                                    <div className="value-display" style={{ fontSize: '8rem', fontWeight: 'bold', lineHeight: 1 }}>
-                                        {fmt(speed)}
-                                    </div>
-                                    <div className="label-small" style={{ fontSize: '1rem', letterSpacing: '3px', marginTop: '4px' }}>MPH</div>
-                                </div>
+            {/* Inner square: 2-row grid spanning between sidebars and trays.
+                Top row splits into Speed (left) + Lap-stuff table (right).
+                Bottom row hosts the big bidirectional power bar + readouts. */}
+            <div style={{
+                position: 'absolute',
+                top: '60px',
+                bottom: '80px',
+                left: '90px',
+                right: '90px',
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gridTemplateRows: '3fr 2fr',
+                padding: '14px 20px'
+            }}>
+                {/* TL: Speed (huge), left-aligned */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center' }}>
+                    <div className="value-display" style={{ fontSize: '11rem', fontWeight: 'bold', lineHeight: 0.85 }}>
+                        {fmt(speed)}
+                    </div>
+                    <div className="label-small" style={{ fontSize: '1.2rem', letterSpacing: '4px', marginTop: '4px' }}>MPH</div>
+                </div>
 
-                                {/* Bidirectional power bar (regen left, drive right) */}
-                                <div style={{ width: '260px', marginBottom: '12px' }}>
-                                    <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', position: 'relative', overflow: 'hidden' }}>
-                                        <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '2px', background: 'rgba(255,255,255,0.3)', transform: 'translateX(-50%)', zIndex: 2 }} />
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: 0, bottom: 0,
-                                            left: safePower < 0 ? `${50 - (Math.min(Math.abs(safePower), 80)/80)*50}%` : '50%',
-                                            width: `${(Math.min(Math.abs(safePower), 80)/80)*50}%`,
-                                            background: safePower < 0 ? 'linear-gradient(to right, #00CC00, #00FF66)' : 'linear-gradient(to left, #FF0000, #BF5700)',
-                                            transition: 'all 0.1s linear'
-                                        }} />
-                                    </div>
-                                </div>
+                {/* TR: Lap-stuff table (2x2): BEST | LAST / CURR | NRG */}
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gridTemplateRows: '1fr 1fr',
+                    gap: '8px',
+                    padding: '4px'
+                }}>
+                    {[
+                        { label: 'BEST', value: fmtLapTime(bestLapTime) },
+                        { label: 'LAST', value: fmtLapTime(lastLapTime) },
+                        { label: 'CURR', value: fmtLapTime(currentLapTime), highlight: true },
+                        { label: 'SES', value: fmt(lapsRemaining, 1), suffix: 'laps' },
+                    ].map((cell) => (
+                        <div key={cell.label} style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            alignItems: 'flex-start',
+                            paddingLeft: '12px',
+                            borderLeft: '2px solid rgba(255, 255, 255, 0.08)'
+                        }}>
+                            <div className="label-small" style={{
+                                fontSize: '0.7rem',
+                                letterSpacing: '2px',
+                                marginBottom: '2px',
+                                color: cell.highlight ? '#FFD700' : '#888'
+                            }}>{cell.label}</div>
+                            <div className="value-display" style={{
+                                fontSize: '1.4rem',
+                                fontWeight: 'bold',
+                                lineHeight: 1,
+                                color: cell.highlight ? '#FFD700' : '#fff'
+                            }}>
+                                {cell.value}
+                                {cell.suffix && (
+                                    <span style={{ fontSize: '0.7rem', marginLeft: '4px', color: '#888' }}>{cell.suffix}</span>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
 
-                                {/* kW digital readout */}
-                                <div className="text-center">
-                                    <div className="value-display" style={{ fontSize: '2.5rem', fontWeight: 'bold', lineHeight: 1, color: '#FFF' }}>
-                                        {fmt(power)}
-                                    </div>
-                                    <div className="label-small" style={{ fontSize: '0.9rem' }}>kW</div>
-                                </div>
-                            </Col>
-                        </Row>
-                    </Col>
-                </Row>
-            </Container>
+                {/* Bottom row: kW + NRG row on top, big power bar underneath */}
+                <div style={{
+                    gridColumn: '1 / -1',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px'
+                }}>
+                    {/* Power readout (left) + Energy laps remaining (right) */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', width: '95%' }}>
+                        <div className="value-display" style={{ fontSize: '2.5rem', fontWeight: 'bold', lineHeight: 1 }}>
+                            {fmt(power)}
+                            <span className="label-small" style={{ fontSize: '0.9rem', marginLeft: '6px' }}>kW</span>
+                        </div>
+                        <div className="value-display" style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#aaa' }}>
+                            <span className="label-small" style={{ fontSize: '0.7rem', marginRight: '6px' }}>NRG</span>
+                            {fmt(lapsRemainingEnergy, 1)}
+                            <span className="label-small" style={{ fontSize: '0.7rem', marginLeft: '6px' }}>laps</span>
+                        </div>
+                    </div>
+
+                    {/* Big power bar — 20% regen on the left, 80% drive on the right */}
+                    <div style={{ width: '95%', height: '22px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', position: 'relative', overflow: 'hidden' }}>
+                        {/* Zero marker (where regen meets drive) */}
+                        <div style={{ position: 'absolute', left: `${REGEN_PCT}%`, top: 0, bottom: 0, width: '2px', background: 'rgba(255,255,255,0.3)', transform: 'translateX(-50%)', zIndex: 2 }} />
+                        {/* Fill */}
+                        <div style={{
+                            position: 'absolute',
+                            top: 0, bottom: 0,
+                            left: safePower < 0
+                                ? `${REGEN_PCT - (Math.min(Math.abs(safePower), REGEN_MAX_KW) / REGEN_MAX_KW) * REGEN_PCT}%`
+                                : `${REGEN_PCT}%`,
+                            width: safePower < 0
+                                ? `${(Math.min(Math.abs(safePower), REGEN_MAX_KW) / REGEN_MAX_KW) * REGEN_PCT}%`
+                                : `${(Math.min(safePower, DRIVE_MAX_KW) / DRIVE_MAX_KW) * DRIVE_PCT}%`,
+                            background: safePower < 0 ? 'linear-gradient(to right, #00CC00, #00FF66)' : 'linear-gradient(to left, #FF0000, #BF5700)',
+                            transition: 'all 0.1s linear'
+                        }} />
+                    </div>
+                </div>
+            </div>
 
             {/* Bottom Panel - Energy Delta & Odometer */}
             <div className="dash-card" style={{

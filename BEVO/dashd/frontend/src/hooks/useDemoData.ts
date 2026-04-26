@@ -88,14 +88,9 @@ export function useDemoData(enabled: boolean): DashMessage | null {
                 a.signalStrength = Math.floor(Math.random() * 5);
             }
 
-            // Shutdown circuit: occasional random flips
-            if (Math.random() > 0.8) {
-                const idx = Math.floor(Math.random() * 16);
-                a.shutdown[idx] = !a.shutdown[idx];
-            } else {
-                const idx = Math.floor(Math.random() * 16);
-                a.shutdown[idx] = true;
-            }
+            // Shutdown circuit stays fully OK in demo mode — no random
+            // flips, otherwise the dash trips constantly.
+            for (let i = 0; i < 16; i++) a.shutdown[i] = true;
 
             // MQTT-like derived values
             const lapDelta = parseFloat((Math.sin(Date.now() / 1000) * 2).toFixed(2));
