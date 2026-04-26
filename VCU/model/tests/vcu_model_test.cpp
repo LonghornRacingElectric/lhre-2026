@@ -19,7 +19,7 @@ void set_valid_torque_map_params(vcu_parameters_t *params) {
   params->torque_map.power_limit_kp = 0.002f;
   params->torque_map.power_limit_ki = 0.0f;
   params->torque_map.power_limit_kd = 0.0f;
-  params->torque_map.launch_compensation_disable = true;
+  params->torque_map.launch_mode_disable = true;
   const float rpm_map[VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS] = {
       0.0f,    550.0f,  1100.0f, 1650.0f, 2200.0f, 2750.0f,
       3300.0f, 3850.0f, 4400.0f, 4950.0f, 5500.0f,
@@ -110,6 +110,18 @@ protected:
     in.drive_switch = true; // Rising edge
     vcu_model_step(&ctx, &in, &out, 10);
   }
+
+  void EnableLaunchMode() {
+    ctx.params.torque_map.launch_mode_disable = false;
+    ctx.params.torque_map.launch_enter_rpm = 10.0f;
+    ctx.params.torque_map.launch_exit_rpm = 75.0f;
+    ctx.params.torque_map.launch_pedal_min = 0.05f;
+    ctx.params.torque_map.launch_pedal_max = 0.80f;
+    ctx.params.torque_map.launch_brake_min_psi = 50.0f;
+    ctx.params.torque_map.launch_preload_torque_nm = 5.0f;
+    ctx.params.torque_map.launch_preload_ramp_rate_nm_per_s = 100.0f;
+    ctx.params.torque_map.launch_release_ramp_rate_nm_per_s = 200.0f;
+  }
 };
 
 TEST_F(VCUModelTest, InitialStateIsPark) {
@@ -170,6 +182,24 @@ TEST_F(VCUModelTest, DisabledTractionControlLeavesTorqueUntouched) {
   EXPECT_FALSE(out.debug.tc_active);
   EXPECT_FLOAT_EQ(out.debug.tc_torque_reduction_nm, 0.0f);
   EXPECT_FLOAT_EQ(out.debug.tc_torque_limit_nm, 0.0f);
+}
+
+TEST_F(VCUModelTest, LaunchModeAllowsBrakePreloadWithoutBrakeLatch) {
+  TransitionToDrive();
+  EnableLaunchMode();
+
+  in.bse1_raw = 600;
+  in.bse2_raw = 650;
+  in.apps1_raw = 2500;
+  in.apps2_raw = 1250;
+  in.motor_speed_rpm = 0.0f;
+
+  vcu_model_step(&ctx, &in, &out, 10);
+
+  EXPECT_FALSE(out.faults.brake_latched);
+  EXPECT_EQ(out.debug.launch_state, TORQUE_MAP_LAUNCH_STATE_PRELOAD);
+  EXPECT_GT(out.torque_cmd, 0.0f);
+  EXPECT_LE(out.torque_cmd, 5.0f);
 }
 
 TEST_F(VCUModelTest, AppsImplausibilityDisablesTorque) {

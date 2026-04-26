@@ -1,0 +1,1340 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "orion"
+        },
+        "enable": true,
+        "hide": false,
+        "iconColor": "#ffd166",
+        "name": "Lap and event markers",
+        "rawQuery": "SELECT to_timestamp(start_time / 1000.0) AS time, COALESCE(type, 'event') AS text, COALESCE(notes, type, '') AS tags FROM classifier WHERE start_time BETWEEN $__from AND $__to ORDER BY start_time;",
+        "target": {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT to_timestamp(start_time / 1000.0) AS time, COALESCE(type, 'event') AS text, COALESCE(notes, type, '') AS tags FROM classifier WHERE start_time BETWEEN $__from AND $__to ORDER BY start_time;"
+        },
+        "type": "tags"
+      }
+    ]
+  },
+  "description": "Pit-wall style dashboard backed by Orion Postgres only.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": true,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [
+        "andrew",
+        "orion"
+      ],
+      "targetBlank": false,
+      "title": "Switch Orion Workbook",
+      "tooltip": "Jump between Andrew Orion dashboards while keeping time range and variables.",
+      "type": "dashboards"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Postgres Pit Wall",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<div style='font-size:24px;font-weight:800;color:#f8fafc'>ORION PIT WALL - POSTGRES</div><div style='color:#94a3b8'>Race-session scan view using only the Orion Postgres datasource. Pick a Run, then scrub the Grafana time range for recent or retrospective analysis.</div>",
+        "mode": "markdown"
+      },
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Speed",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 35
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "unit": "mph",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS effective_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS effective_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT d.gps_speed * 2.23694 AS speed FROM dynamics d JOIN packet p ON p.packet_id = d.packet_id JOIN bounds ON true WHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end ORDER BY p.time DESC LIMIT 1;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "SOC",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 2,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 20
+              },
+              {
+                "color": "green",
+                "value": 45
+              }
+            ]
+          },
+          "unit": "percent",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS effective_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS effective_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT pk.hv_soc AS soc FROM pack pk JOIN packet p ON p.packet_id = pk.packet_id JOIN bounds ON true WHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end ORDER BY p.time DESC LIMIT 1;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Pack V",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 2,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "volt",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS effective_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS effective_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT pk.hv_pack_v AS pack_v FROM pack pk JOIN packet p ON p.packet_id = pk.packet_id JOIN bounds ON true WHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end ORDER BY p.time DESC LIMIT 1;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "HV Current",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 2,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 180
+              },
+              {
+                "color": "red",
+                "value": 260
+              }
+            ]
+          },
+          "unit": "amp",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS effective_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS effective_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT pk.hv_c AS hv_current FROM pack pk JOIN packet p ON p.packet_id = pk.packet_id JOIN bounds ON true WHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end ORDER BY p.time DESC LIMIT 1;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Motor Temp",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 2,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 55
+              },
+              {
+                "color": "red",
+                "value": 70
+              }
+            ]
+          },
+          "unit": "celsius",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS effective_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS effective_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT th.motor_temp AS motor_temp FROM thermal th JOIN packet p ON p.packet_id = th.packet_id JOIN bounds ON true WHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end ORDER BY p.time DESC LIMIT 1;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Inverter Temp",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 2,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 55
+              },
+              {
+                "color": "red",
+                "value": 70
+              }
+            ]
+          },
+          "unit": "celsius",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS effective_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS effective_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT COALESCE(th.inverter_hotspot_temp, th.inverter_temp) AS inverter_temp FROM thermal th JOIN packet p ON p.packet_id = th.packet_id JOIN bounds ON true WHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end ORDER BY p.time DESC LIMIT 1;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Driver Inputs",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 6,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/accel|apps/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#2fd17c"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/brake/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ff4d5a"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/steer/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ffd166"
+                }
+              },
+              {
+                "id": "custom.axisCenteredZero",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS effective_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS effective_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT to_timestamp(floor(p.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n       AVG(d.accel_pedal_travel) AS \"accel pedal [%]\", AVG(c.apps1_travel) AS \"apps1 [%]\", AVG(c.apps2_travel) AS \"apps2 [%]\",\n       AVG(c.brake_pressure_f) AS \"brake front [psi]\", AVG(c.brake_pressure_rall) AS \"brake rear left [psi]\", AVG(c.brake_pressure_rbll) AS \"brake rear right [psi]\", AVG(d.steer_col_angle) AS \"steer [deg]\"\nFROM packet p JOIN dynamics d ON d.packet_id = p.packet_id LEFT JOIN controls c ON c.packet_id = p.packet_id JOIN bounds ON true JOIN granularity ON true\nWHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Wheel Speeds / Slip Clues",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 6,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 6,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/slip/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ffd166"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.axisCenteredZero",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS effective_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS effective_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT to_timestamp(floor(p.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n       AVG(d.flw_speed) AS \"FL [rad/s]\", AVG(d.frw_speed) AS \"FR [rad/s]\", AVG(d.blw_speed) AS \"RL [rad/s]\", AVG(d.brw_speed) AS \"RR [rad/s]\",\n       AVG((d.flw_speed + d.frw_speed) / 2.0) AS \"front avg [rad/s]\", AVG((d.blw_speed + d.brw_speed) / 2.0) AS \"rear avg [rad/s]\",\n       AVG(100.0 * (((d.blw_speed + d.brw_speed) / 2.0) - ((d.flw_speed + d.frw_speed) / 2.0)) / NULLIF(((d.flw_speed + d.frw_speed) / 2.0), 0)) AS \"rear slip [%]\"\nFROM packet p JOIN dynamics d ON d.packet_id = p.packet_id JOIN bounds ON true JOIN granularity ON true\nWHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Powertrain Command Chain",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 6,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/motor speed/"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#b197fc"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS effective_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS effective_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT to_timestamp(floor(p.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n       AVG(c.torque_request) AS \"torque request [Nm]\", AVG(c.torque_command) AS \"torque command [Nm]\", AVG(c.commanded_torque) AS \"commanded torque [Nm]\", AVG(c.torque_feedback) AS \"torque feedback [Nm]\", AVG(c.torque_limit) AS \"torque limit [Nm]\", AVG(c.motor_speed) AS \"motor speed [rpm]\"\nFROM packet p JOIN controls c ON c.packet_id = p.packet_id JOIN bounds ON true JOIN granularity ON true\nWHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Thermal Race Margin",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 6,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "celsius"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS effective_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS effective_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT to_timestamp(floor(p.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n       AVG(th.motor_temp) AS \"motor [C]\", AVG(th.inverter_temp) AS \"inverter [C]\", AVG(th.inverter_hotspot_temp) AS \"hotspot [C]\", AVG(th.batt_loop_batt_temp) AS \"battery [C]\", AVG(th.coolant_temp) AS \"coolant [C]\", AVG(th.cell_top_temp) AS \"cell top [C]\", AVG(th.cell_bottom_temp) AS \"cell bottom [C]\"\nFROM packet p JOIN thermal th ON th.packet_id = p.packet_id JOIN bounds ON true JOIN granularity ON true\nWHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Energy And LV",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 6,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS effective_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS effective_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT to_timestamp(floor(p.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n       AVG(pk.hv_soc) AS \"SOC [%]\", AVG(pk.hv_pack_v) AS \"HV pack [V]\", AVG(pk.hv_c) AS \"HV current [A]\", AVG(pk.dc_bus_v) AS \"DC bus [V]\", AVG(pk.lv_batt_v) AS \"LV battery [V]\", AVG(pk.lv_batt_c) AS \"LV current [A]\"\nFROM packet p JOIN pack pk ON pk.packet_id = p.packet_id JOIN bounds ON true JOIN granularity ON true\nWHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 13,
+      "type": "state-timeline",
+      "title": "Fault / Shutdown Flags",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 22,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 82,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 0
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/.*/"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "0": {
+                        "color": "green",
+                        "index": 0,
+                        "text": "OK"
+                      },
+                      "1": {
+                        "color": "red",
+                        "index": 1,
+                        "text": "ON/FAULT"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "alignValue": "center",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "mergeValues": true,
+        "rowHeight": 0.9,
+        "showValue": "always",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS effective_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS effective_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT to_timestamp(floor(p.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n       MAX(CASE WHEN dh.stomp_fault THEN 1 ELSE 0 END) AS stomp_fault, MAX(CASE WHEN dl.bmb_comm_error THEN 1 ELSE 0 END) AS bmb_comm_error, MAX(CASE WHEN dl.imd_gnd_isolation_error THEN 1 ELSE 0 END) AS imd_gnd_isolation_error,\n       MAX(CASE WHEN dl.r2d_authorized THEN 1 ELSE 0 END) AS r2d_authorized, MAX(CASE WHEN dl.r2d_status THEN 1 ELSE 0 END) AS r2d_status,\n       MAX(CASE WHEN dl.shutdown_leg1 THEN 1 ELSE 0 END) AS shutdown_leg1, MAX(CASE WHEN dl.shutdown_leg2 THEN 1 ELSE 0 END) AS shutdown_leg2, MAX(CASE WHEN dl.shutdown_leg3 THEN 1 ELSE 0 END) AS shutdown_leg3, MAX(CASE WHEN dl.shutdown_leg4 THEN 1 ELSE 0 END) AS shutdown_leg4,\n       MAX(CASE WHEN dh.pos_hv_contactor THEN 1 ELSE 0 END) AS pos_hv_contactor, MAX(CASE WHEN dh.neg_hv_contactor THEN 1 ELSE 0 END) AS neg_hv_contactor, MAX(CASE WHEN dh.precharge_contactor THEN 1 ELSE 0 END) AS precharge_contactor\nFROM packet p LEFT JOIN diagnostics_high dh ON dh.packet_id = p.packet_id LEFT JOIN diagnostics_low dl ON dl.packet_id = p.packet_id JOIN bounds ON true JOIN granularity ON true\nWHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 40,
+  "style": "dark",
+  "tags": [
+    "andrew",
+    "orion",
+    "pit-wall",
+    "postgres"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "orion"
+        },
+        "definition": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "description": "Select one or more continuous runs split by packet gaps.",
+        "includeAll": true,
+        "label": "Run",
+        "multi": true,
+        "name": "Zoom",
+        "options": [],
+        "query": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "1x",
+          "value": "1"
+        },
+        "description": "Extra SQL stride for map/scatter panels.",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Plot stride",
+        "multi": false,
+        "name": "Stride",
+        "options": [
+          {
+            "selected": true,
+            "text": "1x",
+            "value": "1"
+          },
+          {
+            "selected": false,
+            "text": "5x",
+            "value": "5"
+          },
+          {
+            "selected": false,
+            "text": "10x",
+            "value": "10"
+          },
+          {
+            "selected": false,
+            "text": "25x",
+            "value": "25"
+          },
+          {
+            "selected": false,
+            "text": "50x",
+            "value": "50"
+          }
+        ],
+        "query": "1,5,10,25,50",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-2h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m"
+    ]
+  },
+  "timezone": "browser",
+  "title": "Andrew / Orion Postgres Pit Wall",
+  "uid": "andrew_orion_postgres_pit_wall",
+  "version": 1,
+  "weekStart": ""
+}

@@ -10,10 +10,9 @@ extern "C" {
 #endif
 
 typedef enum {
-  TORQUE_MAP_LAUNCH_STATE_IDLE = 0,
+  TORQUE_MAP_LAUNCH_STATE_INACTIVE = 0,
   TORQUE_MAP_LAUNCH_STATE_PRELOAD = 1,
-  TORQUE_MAP_LAUNCH_STATE_RAMP = 2,
-  TORQUE_MAP_LAUNCH_STATE_COMPLETE = 3,
+  TORQUE_MAP_LAUNCH_STATE_RELEASE = 2,
 } torque_map_launch_state_t;
 
 typedef struct {
@@ -31,15 +30,6 @@ typedef struct {
   bool has_power_history;
 
   torque_map_launch_state_t launch_state;
-  float launch_preload_elapsed_ms;
-  float launch_decel_elapsed_ms;
-  float launch_filtered_motor_rpm;
-  float launch_previous_filtered_motor_rpm;
-  bool launch_rpm_initialized;
-  bool launch_has_rpm_history;
-  float launch_motor_accel_rpm_per_s;
-  bool launch_saw_positive_accel;
-  bool launch_contact_detected;
   float launch_output_torque_nm;
 } torque_map_state_t;
 

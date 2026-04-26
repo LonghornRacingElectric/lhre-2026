@@ -1,0 +1,869 @@
+[
+  {
+    "file": "orion_distance_lap_compare.json",
+    "uid": "andrew_orion_distance_lap_compare",
+    "panel": "Compare Lap Slots",
+    "panelId": 2,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 0,
+    "fields": [],
+    "error": null
+  },
+  {
+    "file": "orion_distance_lap_compare.json",
+    "uid": "andrew_orion_distance_lap_compare",
+    "panel": "Lap Time Delta Context",
+    "panelId": 3,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 0,
+    "fields": [],
+    "error": null
+  },
+  {
+    "file": "orion_distance_lap_compare.json",
+    "uid": "andrew_orion_distance_lap_compare",
+    "panel": "Speed vs Distance",
+    "panelId": 4,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 0,
+    "fields": [],
+    "error": null
+  },
+  {
+    "file": "orion_distance_lap_compare.json",
+    "uid": "andrew_orion_distance_lap_compare",
+    "panel": "Throttle vs Distance",
+    "panelId": 5,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 0,
+    "fields": [],
+    "error": null
+  },
+  {
+    "file": "orion_distance_lap_compare.json",
+    "uid": "andrew_orion_distance_lap_compare",
+    "panel": "Brake Front vs Distance",
+    "panelId": 6,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 0,
+    "fields": [],
+    "error": null
+  },
+  {
+    "file": "orion_distance_lap_compare.json",
+    "uid": "andrew_orion_distance_lap_compare",
+    "panel": "Steering vs Distance",
+    "panelId": 7,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 0,
+    "fields": [],
+    "error": null
+  },
+  {
+    "file": "orion_driver_analysis_workbook.json",
+    "uid": "andrew_orion_driver_workbook",
+    "panel": "Lap Sheet - Click Lap To Select",
+    "panelId": 11,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 0,
+    "fields": [],
+    "error": null
+  },
+  {
+    "file": "orion_driver_analysis_workbook.json",
+    "uid": "andrew_orion_driver_workbook",
+    "panel": "Speed",
+    "panelId": 2,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 4289,
+    "fields": [
+      "time",
+      "speed [mph]"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_driver_analysis_workbook.json",
+    "uid": "andrew_orion_driver_workbook",
+    "panel": "Throttle / Brake",
+    "panelId": 3,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 4289,
+    "fields": [
+      "time",
+      "throttle [%]",
+      "brake front [psi]",
+      "brake rear [psi]"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_driver_analysis_workbook.json",
+    "uid": "andrew_orion_driver_workbook",
+    "panel": "Steer / G",
+    "panelId": 4,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 4289,
+    "fields": [
+      "time",
+      "steer column [deg]",
+      "lat accel [g]",
+      "long accel [g]"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_driver_analysis_workbook.json",
+    "uid": "andrew_orion_driver_workbook",
+    "panel": "Torque Delivery",
+    "panelId": 5,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 4289,
+    "fields": [
+      "time",
+      "torque request [Nm]",
+      "torque feedback [Nm]",
+      "torque command [Nm]",
+      "torque limit [Nm]",
+      "motor speed [rpm]"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_driver_analysis_workbook.json",
+    "uid": "andrew_orion_driver_workbook",
+    "panel": "Wheel Slip",
+    "panelId": 6,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 4289,
+    "fields": [
+      "time",
+      "front wheel avg [rad/s]",
+      "rear wheel avg [rad/s]",
+      "rear slip [%]",
+      "front delta [rad/s]",
+      "rear delta [rad/s]"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_driver_analysis_workbook.json",
+    "uid": "andrew_orion_driver_workbook",
+    "panel": "Brake Pressure vs Speed",
+    "panelId": 7,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 41738,
+    "fields": [
+      "speed_mph",
+      "brake_f_psi",
+      "throttle_pct"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_driver_analysis_workbook.json",
+    "uid": "andrew_orion_driver_workbook",
+    "panel": "Steering vs Lateral G",
+    "panelId": 8,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 41738,
+    "fields": [
+      "steer_deg",
+      "lat_g",
+      "speed_mph"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_driver_analysis_workbook.json",
+    "uid": "andrew_orion_driver_workbook",
+    "panel": "Pedal Overlap",
+    "panelId": 9,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 41738,
+    "fields": [
+      "throttle_pct",
+      "brake_f_psi",
+      "speed_mph"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_driver_analysis_workbook.json",
+    "uid": "andrew_orion_driver_workbook",
+    "panel": "Speed Distribution",
+    "panelId": 10,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 1,
+    "fields": [
+      "speed_bin_mph",
+      "samples"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_gps_lap_builder.json",
+    "uid": "andrew_orion_gps_lap_builder",
+    "panel": "Generated Lap Sheet - Click Lap To Analyze",
+    "panelId": 2,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 20,
+    "fields": [
+      "lap",
+      "start",
+      "lap time [s]",
+      "delta [s]",
+      "max [mph]",
+      "avg throttle [%]",
+      "peak brake F [psi]",
+      "lap_value",
+      "start_ms",
+      "end_ms"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_gps_lap_builder.json",
+    "uid": "andrew_orion_gps_lap_builder",
+    "panel": "Gate Status",
+    "panelId": 3,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 1,
+    "fields": [
+      "gate",
+      "mode",
+      "lat1",
+      "lon1",
+      "lat2",
+      "lon2",
+      "generated laps",
+      "raw crossings"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_gps_lap_builder.json",
+    "uid": "andrew_orion_gps_lap_builder",
+    "panel": "GPS Trace And Start/Finish Gate",
+    "panelId": 5,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 21269,
+    "fields": [
+      "time",
+      "lat",
+      "lon",
+      "speed_mph",
+      "point_size",
+      "point_type"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_gps_lap_builder.json",
+    "uid": "andrew_orion_gps_lap_builder",
+    "panel": "Generated Lap Count",
+    "panelId": 4,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 1,
+    "fields": [
+      "laps"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_gps_lap_builder.json",
+    "uid": "andrew_orion_gps_lap_builder",
+    "panel": "Speed / Inputs With GPS Lap Crossings",
+    "panelId": 6,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 4289,
+    "fields": [
+      "time",
+      "speed [mph]",
+      "throttle [%]",
+      "brake front [psi]",
+      "GPS lap crossing"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_gps_lap_builder.json",
+    "uid": "andrew_orion_gps_lap_builder",
+    "panel": "Generated Lap Times",
+    "panelId": 7,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 20,
+    "fields": [
+      "lap",
+      "lap time [s]"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_gps_lap_builder.json",
+    "uid": "andrew_orion_gps_lap_builder",
+    "panel": "Generated GPS Laps - Speed vs Distance",
+    "panelId": 10,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 8,
+    "fields": [
+      "distance_m",
+      "Compare 1 speed [mph]",
+      "Compare 2 speed [mph]",
+      "Compare 3 speed [mph]",
+      "Compare 4 speed [mph]",
+      "Compare 5 speed [mph]",
+      "Compare 6 speed [mph]"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_gps_lap_builder.json",
+    "uid": "andrew_orion_gps_lap_builder",
+    "panel": "Saved Track Mappings",
+    "panelId": 8,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 0,
+    "fields": [],
+    "error": null
+  },
+  {
+    "file": "orion_postgres_pit_wall.json",
+    "uid": "andrew_orion_postgres_pit_wall",
+    "panel": "Speed",
+    "panelId": 2,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 1,
+    "fields": [
+      "speed"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_postgres_pit_wall.json",
+    "uid": "andrew_orion_postgres_pit_wall",
+    "panel": "SOC",
+    "panelId": 3,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 1,
+    "fields": [
+      "soc"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_postgres_pit_wall.json",
+    "uid": "andrew_orion_postgres_pit_wall",
+    "panel": "Pack V",
+    "panelId": 4,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 1,
+    "fields": [
+      "pack_v"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_postgres_pit_wall.json",
+    "uid": "andrew_orion_postgres_pit_wall",
+    "panel": "HV Current",
+    "panelId": 5,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 1,
+    "fields": [
+      "hv_current"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_postgres_pit_wall.json",
+    "uid": "andrew_orion_postgres_pit_wall",
+    "panel": "Motor Temp",
+    "panelId": 6,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 1,
+    "fields": [
+      "motor_temp"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_postgres_pit_wall.json",
+    "uid": "andrew_orion_postgres_pit_wall",
+    "panel": "Inverter Temp",
+    "panelId": 7,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 1,
+    "fields": [
+      "inverter_temp"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_postgres_pit_wall.json",
+    "uid": "andrew_orion_postgres_pit_wall",
+    "panel": "Driver Inputs",
+    "panelId": 8,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 4289,
+    "fields": [
+      "time",
+      "accel pedal [%]",
+      "apps1 [%]",
+      "apps2 [%]",
+      "brake front [psi]",
+      "brake rear left [psi]",
+      "brake rear right [psi]",
+      "steer [deg]"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_postgres_pit_wall.json",
+    "uid": "andrew_orion_postgres_pit_wall",
+    "panel": "Wheel Speeds / Slip Clues",
+    "panelId": 9,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 4289,
+    "fields": [
+      "time",
+      "FL [rad/s]",
+      "FR [rad/s]",
+      "RL [rad/s]",
+      "RR [rad/s]",
+      "front avg [rad/s]",
+      "rear avg [rad/s]",
+      "rear slip [%]"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_postgres_pit_wall.json",
+    "uid": "andrew_orion_postgres_pit_wall",
+    "panel": "Powertrain Command Chain",
+    "panelId": 10,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 4289,
+    "fields": [
+      "time",
+      "torque request [Nm]",
+      "torque command [Nm]",
+      "commanded torque [Nm]",
+      "torque feedback [Nm]",
+      "torque limit [Nm]",
+      "motor speed [rpm]"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_postgres_pit_wall.json",
+    "uid": "andrew_orion_postgres_pit_wall",
+    "panel": "Thermal Race Margin",
+    "panelId": 11,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 4289,
+    "fields": [
+      "time",
+      "motor [C]",
+      "inverter [C]",
+      "hotspot [C]",
+      "battery [C]",
+      "coolant [C]",
+      "cell top [C]",
+      "cell bottom [C]"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_postgres_pit_wall.json",
+    "uid": "andrew_orion_postgres_pit_wall",
+    "panel": "Energy And LV",
+    "panelId": 12,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 4289,
+    "fields": [
+      "time",
+      "SOC [%]",
+      "HV pack [V]",
+      "HV current [A]",
+      "DC bus [V]",
+      "LV battery [V]",
+      "LV current [A]"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_postgres_pit_wall.json",
+    "uid": "andrew_orion_postgres_pit_wall",
+    "panel": "Fault / Shutdown Flags",
+    "panelId": 13,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 4289,
+    "fields": [
+      "time",
+      "stomp_fault",
+      "bmb_comm_error",
+      "imd_gnd_isolation_error",
+      "r2d_authorized",
+      "r2d_status",
+      "shutdown_leg1",
+      "shutdown_leg2",
+      "shutdown_leg3",
+      "shutdown_leg4",
+      "pos_hv_contactor",
+      "neg_hv_contactor",
+      "precharge_contactor"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_race_engineering_overview.json",
+    "uid": "andrew_orion_race_engineering",
+    "panel": "Lap Sheet - Click Lap To Select",
+    "panelId": 11,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 0,
+    "fields": [],
+    "error": null
+  },
+  {
+    "file": "orion_race_engineering_overview.json",
+    "uid": "andrew_orion_race_engineering",
+    "panel": "Max Speed",
+    "panelId": 2,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 1,
+    "fields": [
+      "max speed"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_race_engineering_overview.json",
+    "uid": "andrew_orion_race_engineering",
+    "panel": "Best Lap",
+    "panelId": 3,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 1,
+    "fields": [
+      "best lap"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_race_engineering_overview.json",
+    "uid": "andrew_orion_race_engineering",
+    "panel": "Run Length",
+    "panelId": 4,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 1,
+    "fields": [
+      "duration"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_race_engineering_overview.json",
+    "uid": "andrew_orion_race_engineering",
+    "panel": "Net Energy",
+    "panelId": 5,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 1,
+    "fields": [
+      "net energy"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_race_engineering_overview.json",
+    "uid": "andrew_orion_race_engineering",
+    "panel": "Min Cell",
+    "panelId": 6,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 1,
+    "fields": [
+      "min cell"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_race_engineering_overview.json",
+    "uid": "andrew_orion_race_engineering",
+    "panel": "Hot Cell",
+    "panelId": 7,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 1,
+    "fields": [
+      "hot cell"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_race_engineering_overview.json",
+    "uid": "andrew_orion_race_engineering",
+    "panel": "Driver Trace Overlay",
+    "panelId": 8,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 4289,
+    "fields": [
+      "time",
+      "speed [mph]",
+      "throttle [%]",
+      "brake front [psi]",
+      "brake rear [psi]",
+      "steer [deg]",
+      "torque request [Nm]"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_race_engineering_overview.json",
+    "uid": "andrew_orion_race_engineering",
+    "panel": "Track Map Colored By Speed",
+    "panelId": 9,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 21267,
+    "fields": [
+      "time",
+      "lat",
+      "lon",
+      "speed_mph",
+      "throttle",
+      "brake_f",
+      "id"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_race_engineering_overview.json",
+    "uid": "andrew_orion_race_engineering",
+    "panel": "GG Diagram",
+    "panelId": 10,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 21864,
+    "fields": [
+      "lat_g",
+      "long_g",
+      "speed_mph"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_race_engineering_overview.json",
+    "uid": "andrew_orion_race_engineering",
+    "panel": "Selected Lap / Window Summary",
+    "panelId": 14,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 9,
+    "fields": [
+      "metric",
+      "value"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_race_engineering_overview.json",
+    "uid": "andrew_orion_race_engineering",
+    "panel": "Platform, Rake, Roll",
+    "panelId": 12,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 4289,
+    "fields": [
+      "time",
+      "front platform [mm]",
+      "rear platform [mm]",
+      "left platform [mm]",
+      "right platform [mm]",
+      "rake proxy [mm]",
+      "roll proxy [mm]"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_race_engineering_overview.json",
+    "uid": "andrew_orion_race_engineering",
+    "panel": "Wheel Speed And Slip",
+    "panelId": 13,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 4289,
+    "fields": [
+      "time",
+      "front wheel avg [rad/s]",
+      "rear wheel avg [rad/s]",
+      "rear slip [%]",
+      "front delta [rad/s]",
+      "rear delta [rad/s]"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_systems_reliability_matrix.json",
+    "uid": "andrew_orion_systems_reliability",
+    "panel": "Latest Electrical Snapshot",
+    "panelId": 2,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 1,
+    "fields": [
+      "SOC",
+      "HV V",
+      "HV A",
+      "LV V"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_systems_reliability_matrix.json",
+    "uid": "andrew_orion_systems_reliability",
+    "panel": "Latest Temperatures",
+    "panelId": 3,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 1,
+    "fields": [
+      "motor",
+      "inverter",
+      "hotspot",
+      "battery",
+      "max"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_systems_reliability_matrix.json",
+    "uid": "andrew_orion_systems_reliability",
+    "panel": "Worst Case Summary",
+    "panelId": 4,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 8,
+    "fields": [
+      "metric",
+      "value",
+      "unit"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_systems_reliability_matrix.json",
+    "uid": "andrew_orion_systems_reliability",
+    "panel": "HV Powertrain Electrical",
+    "panelId": 5,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 4289,
+    "fields": [
+      "time",
+      "pack voltage [V]",
+      "pack current [A]",
+      "SOC [%]",
+      "pack power [kW]",
+      "DC bus [V]"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_systems_reliability_matrix.json",
+    "uid": "andrew_orion_systems_reliability",
+    "panel": "Thermal Envelope",
+    "panelId": 6,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 4289,
+    "fields": [
+      "time",
+      "motor [C]",
+      "inverter [C]",
+      "inverter hotspot [C]",
+      "battery loop [C]",
+      "coolant [C]",
+      "cell min [C]",
+      "cell avg [C]",
+      "cell max [C]"
+    ],
+    "error": null
+  },
+  {
+    "file": "orion_systems_reliability_matrix.json",
+    "uid": "andrew_orion_systems_reliability",
+    "panel": "Cell Voltage Spread",
+    "panelId": 7,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 0,
+    "fields": [],
+    "error": null
+  },
+  {
+    "file": "orion_systems_reliability_matrix.json",
+    "uid": "andrew_orion_systems_reliability",
+    "panel": "Faults, Contactors, Shutdown Chain",
+    "panelId": 8,
+    "statusCode": 200,
+    "ok": true,
+    "rows": 4289,
+    "fields": [
+      "time",
+      "stomp_fault",
+      "bmb_comm_error",
+      "imd_gnd_isolation_error",
+      "shutdown_leg1",
+      "shutdown_leg2",
+      "shutdown_leg3",
+      "shutdown_leg4",
+      "neg_hv_contactor",
+      "pos_hv_contactor",
+      "precharge_contactor"
+    ],
+    "error": null
+  }
+]

@@ -32,27 +32,28 @@ static bool torque_map_efficiency_map_is_valid(const vcu_parameters_t *params) {
 
 static bool torque_map_params_are_valid(const vcu_parameters_t *params) {
   bool launch_params_valid = true;
-  if (!params->torque_map.launch_compensation_disable) {
+  if (!params->torque_map.launch_mode_disable) {
     launch_params_valid =
-        isfinite(params->torque_map.launch_start_rpm) &&
-        params->torque_map.launch_start_rpm >= 0.0f &&
+        isfinite(params->torque_map.launch_enter_rpm) &&
+        params->torque_map.launch_enter_rpm >= 0.0f &&
         isfinite(params->torque_map.launch_exit_rpm) &&
         params->torque_map.launch_exit_rpm >
-            params->torque_map.launch_start_rpm &&
+            params->torque_map.launch_enter_rpm &&
+        isfinite(params->torque_map.launch_pedal_min) &&
+        params->torque_map.launch_pedal_min >= 0.0f &&
+        params->torque_map.launch_pedal_min <= 1.0f &&
+        isfinite(params->torque_map.launch_pedal_max) &&
+        params->torque_map.launch_pedal_max >=
+            params->torque_map.launch_pedal_min &&
+        params->torque_map.launch_pedal_max <= 1.0f &&
+        isfinite(params->torque_map.launch_brake_min_psi) &&
+        params->torque_map.launch_brake_min_psi >= 0.0f &&
         isfinite(params->torque_map.launch_preload_torque_nm) &&
         params->torque_map.launch_preload_torque_nm >= 0.0f &&
-        isfinite(params->torque_map.launch_preload_timeout_ms) &&
-        params->torque_map.launch_preload_timeout_ms >= 0.0f &&
-        isfinite(params->torque_map.launch_rpm_lpf_time_constant_s) &&
-        params->torque_map.launch_rpm_lpf_time_constant_s >= 0.0f &&
-        isfinite(params->torque_map.launch_contact_positive_accel_rpm_per_s) &&
-        params->torque_map.launch_contact_positive_accel_rpm_per_s >= 0.0f &&
-        isfinite(params->torque_map.launch_contact_decel_rpm_per_s) &&
-        params->torque_map.launch_contact_decel_rpm_per_s >= 0.0f &&
-        isfinite(params->torque_map.launch_contact_decel_confirm_ms) &&
-        params->torque_map.launch_contact_decel_confirm_ms >= 0.0f &&
-        isfinite(params->torque_map.launch_ramp_rate_nm_per_s) &&
-        params->torque_map.launch_ramp_rate_nm_per_s > 0.0f;
+        isfinite(params->torque_map.launch_preload_ramp_rate_nm_per_s) &&
+        params->torque_map.launch_preload_ramp_rate_nm_per_s > 0.0f &&
+        isfinite(params->torque_map.launch_release_ramp_rate_nm_per_s) &&
+        params->torque_map.launch_release_ramp_rate_nm_per_s > 0.0f;
   }
 
   return isfinite(params->torque_map.max_torque_nm) &&
@@ -140,49 +141,9 @@ static float torque_from_power(float power_w, float motor_rpm,
   return power_w / motor_angular_velocity_rad_s;
 }
 
-static void launch_compensation_reset(torque_map_state_t *state) {
-  state->launch_state = TORQUE_MAP_LAUNCH_STATE_IDLE;
-  state->launch_preload_elapsed_ms = 0.0f;
-  state->launch_decel_elapsed_ms = 0.0f;
-  state->launch_rpm_initialized = false;
-  state->launch_has_rpm_history = false;
-  state->launch_motor_accel_rpm_per_s = 0.0f;
-  state->launch_saw_positive_accel = false;
-  state->launch_contact_detected = false;
+static void launch_mode_reset(torque_map_state_t *state) {
+  state->launch_state = TORQUE_MAP_LAUNCH_STATE_INACTIVE;
   state->launch_output_torque_nm = 0.0f;
-}
-
-static void update_launch_rpm_estimate(const vcu_inputs_t *in,
-                                       torque_map_state_t *state,
-                                       const vcu_parameters_t *params,
-                                       float dt_s) {
-  float motor_rpm = in->motor_speed_rpm;
-  float alpha = lpf_alpha_from_tau(
-      dt_s, params->torque_map.launch_rpm_lpf_time_constant_s);
-
-  if (!state->launch_rpm_initialized) {
-    state->launch_filtered_motor_rpm = motor_rpm;
-    state->launch_previous_filtered_motor_rpm = motor_rpm;
-    state->launch_rpm_initialized = true;
-    state->launch_has_rpm_history = true;
-    state->launch_motor_accel_rpm_per_s = 0.0f;
-    return;
-  }
-
-  state->launch_previous_filtered_motor_rpm =
-      state->launch_filtered_motor_rpm;
-  state->launch_filtered_motor_rpm =
-      lpf_step(state->launch_filtered_motor_rpm, motor_rpm, alpha);
-
-  if (dt_s > 0.0f && state->launch_has_rpm_history) {
-    state->launch_motor_accel_rpm_per_s =
-        (state->launch_filtered_motor_rpm -
-         state->launch_previous_filtered_motor_rpm) /
-        dt_s;
-  } else {
-    state->launch_motor_accel_rpm_per_s = 0.0f;
-    state->launch_has_rpm_history = true;
-  }
 }
 
 static float rate_limit_rising(float previous, float target, float rate,
@@ -195,108 +156,81 @@ static float rate_limit_rising(float previous, float target, float rate,
   return previous + clamp_f(target - previous, 0.0f, max_step);
 }
 
-static float apply_launch_compensation(const vcu_inputs_t *in,
-                                       vcu_outputs_t *out,
-                                       torque_map_state_t *state,
-                                       const vcu_parameters_t *params,
-                                       float requested_torque_nm,
-                                       float raw_pedal_fraction,
-                                       float dt_s, uint32_t dt_ms) {
-  const float pedal_release_threshold = 0.01f;
+static float apply_launch_mode(const vcu_inputs_t *in, vcu_outputs_t *out,
+                               torque_map_state_t *state,
+                               const vcu_parameters_t *params,
+                               float requested_torque_nm,
+                               float raw_pedal_fraction, float dt_s) {
   float abs_motor_rpm = fabsf(in->motor_speed_rpm);
+  bool pedal_in_launch_window =
+      raw_pedal_fraction >= params->torque_map.launch_pedal_min &&
+      raw_pedal_fraction <= params->torque_map.launch_pedal_max;
+  bool brake_ready = out->brake_pressed &&
+                     out->bse_psi >= params->torque_map.launch_brake_min_psi;
+  bool low_speed_entry = abs_motor_rpm <= params->torque_map.launch_enter_rpm;
+  bool low_speed_continue = abs_motor_rpm < params->torque_map.launch_exit_rpm;
+  bool launch_requested = brake_ready && pedal_in_launch_window &&
+                          low_speed_entry && requested_torque_nm > 0.0f;
 
   out->debug.launch_raw_torque_cmd_nm = requested_torque_nm;
 
-  if (params->torque_map.launch_compensation_disable) {
-    launch_compensation_reset(state);
-    out->debug.launch_comp_state = (uint8_t)state->launch_state;
+  if (params->torque_map.launch_mode_disable) {
+    launch_mode_reset(state);
+    out->debug.launch_state = (uint8_t)state->launch_state;
+    out->debug.launch_torque_cmd_nm = requested_torque_nm;
     return requested_torque_nm;
   }
 
-  update_launch_rpm_estimate(in, state, params, dt_s);
-
-  if (raw_pedal_fraction < pedal_release_threshold ||
-      requested_torque_nm <= 0.0f ||
-      abs_motor_rpm >= params->torque_map.launch_exit_rpm) {
-    launch_compensation_reset(state);
-    out->debug.launch_filtered_motor_rpm = state->launch_filtered_motor_rpm;
-    out->debug.launch_motor_accel_rpm_per_s =
-        state->launch_motor_accel_rpm_per_s;
-    out->debug.launch_comp_state = (uint8_t)state->launch_state;
+  if (raw_pedal_fraction < 0.01f || requested_torque_nm <= 0.0f ||
+      !low_speed_continue) {
+    launch_mode_reset(state);
+    out->debug.launch_state = (uint8_t)state->launch_state;
+    out->debug.launch_torque_cmd_nm = requested_torque_nm;
     return requested_torque_nm;
   }
 
-  if (state->launch_state == TORQUE_MAP_LAUNCH_STATE_IDLE &&
-      abs_motor_rpm <= params->torque_map.launch_start_rpm) {
+  if (state->launch_state == TORQUE_MAP_LAUNCH_STATE_INACTIVE &&
+      launch_requested) {
     state->launch_state = TORQUE_MAP_LAUNCH_STATE_PRELOAD;
-    state->launch_preload_elapsed_ms = 0.0f;
-    state->launch_decel_elapsed_ms = 0.0f;
-    state->launch_saw_positive_accel = false;
-    state->launch_contact_detected = false;
-    state->launch_output_torque_nm =
-        fminf(requested_torque_nm, params->torque_map.launch_preload_torque_nm);
+    state->launch_output_torque_nm = 0.0f;
   }
 
   if (state->launch_state == TORQUE_MAP_LAUNCH_STATE_PRELOAD) {
-    state->launch_preload_elapsed_ms += (float)dt_ms;
-
-    if (state->launch_motor_accel_rpm_per_s >=
-        params->torque_map.launch_contact_positive_accel_rpm_per_s) {
-      state->launch_saw_positive_accel = true;
-    }
-
-    bool decel_detected =
-        state->launch_saw_positive_accel &&
-        state->launch_motor_accel_rpm_per_s <=
-            -params->torque_map.launch_contact_decel_rpm_per_s;
-    if (decel_detected) {
-      state->launch_decel_elapsed_ms += (float)dt_ms;
+    if (brake_ready && pedal_in_launch_window) {
+      float preload_target_nm =
+          fminf(requested_torque_nm, params->torque_map.launch_preload_torque_nm);
+      state->launch_output_torque_nm =
+          rate_limit_rising(state->launch_output_torque_nm, preload_target_nm,
+                            params->torque_map.launch_preload_ramp_rate_nm_per_s,
+                            dt_s);
     } else {
-      state->launch_decel_elapsed_ms = 0.0f;
-    }
-
-    bool contact_detected =
-        decel_detected &&
-        state->launch_decel_elapsed_ms >=
-            params->torque_map.launch_contact_decel_confirm_ms;
-    bool timed_out = state->launch_preload_elapsed_ms >=
-                     params->torque_map.launch_preload_timeout_ms;
-    state->launch_output_torque_nm =
-        fminf(requested_torque_nm, params->torque_map.launch_preload_torque_nm);
-
-    if (contact_detected || timed_out) {
-      state->launch_contact_detected = contact_detected;
-      state->launch_state = TORQUE_MAP_LAUNCH_STATE_RAMP;
+      state->launch_state = TORQUE_MAP_LAUNCH_STATE_RELEASE;
     }
   }
 
-  if (state->launch_state == TORQUE_MAP_LAUNCH_STATE_RAMP) {
+  if (state->launch_state == TORQUE_MAP_LAUNCH_STATE_RELEASE) {
     state->launch_output_torque_nm =
         rate_limit_rising(state->launch_output_torque_nm, requested_torque_nm,
-                          params->torque_map.launch_ramp_rate_nm_per_s, dt_s);
+                          params->torque_map.launch_release_ramp_rate_nm_per_s,
+                          dt_s);
     if (fabsf(state->launch_output_torque_nm - requested_torque_nm) < 0.05f) {
-      state->launch_state = TORQUE_MAP_LAUNCH_STATE_COMPLETE;
-      state->launch_output_torque_nm = requested_torque_nm;
+      launch_mode_reset(state);
+      out->debug.launch_state = (uint8_t)state->launch_state;
+      out->debug.launch_torque_cmd_nm = requested_torque_nm;
+      return requested_torque_nm;
     }
-  } else if (state->launch_state == TORQUE_MAP_LAUNCH_STATE_COMPLETE) {
-    state->launch_output_torque_nm = requested_torque_nm;
   }
 
   float output_torque_nm = requested_torque_nm;
-  if (state->launch_state != TORQUE_MAP_LAUNCH_STATE_IDLE) {
+  if (state->launch_state != TORQUE_MAP_LAUNCH_STATE_INACTIVE) {
     output_torque_nm = clamp_f(state->launch_output_torque_nm, 0.0f,
                                requested_torque_nm);
   }
 
-  out->debug.launch_comp_active =
-      state->launch_state == TORQUE_MAP_LAUNCH_STATE_PRELOAD ||
-      state->launch_state == TORQUE_MAP_LAUNCH_STATE_RAMP;
-  out->debug.launch_comp_state = (uint8_t)state->launch_state;
-  out->debug.launch_contact_detected = state->launch_contact_detected;
-  out->debug.launch_filtered_motor_rpm = state->launch_filtered_motor_rpm;
-  out->debug.launch_motor_accel_rpm_per_s =
-      state->launch_motor_accel_rpm_per_s;
-  out->debug.launch_torque_limit_nm = output_torque_nm;
+  out->debug.launch_active =
+      state->launch_state != TORQUE_MAP_LAUNCH_STATE_INACTIVE;
+  out->debug.launch_state = (uint8_t)state->launch_state;
+  out->debug.launch_torque_cmd_nm = output_torque_nm;
 
   return output_torque_nm;
 }
@@ -462,9 +396,9 @@ void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   float requested_torque_nm =
       clamp_f(shaped_pedal_fraction * available_torque_nm, 0.0f,
               available_torque_nm);
-  out->torque_cmd =
-      apply_launch_compensation(in, out, state, params, requested_torque_nm,
-                                raw_pedal_fraction, dt_s, dt_ms);
+  out->torque_cmd = apply_launch_mode(in, out, state, params,
+                                      requested_torque_nm, raw_pedal_fraction,
+                                      dt_s);
   out->debug.power_limit_feedback_p_nm = proportional_nm;
   out->debug.power_limit_feedback_i_nm = integral_trim_nm;
   out->debug.power_limit_feedback_d_nm = derivative_nm;

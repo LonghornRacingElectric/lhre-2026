@@ -91,18 +91,12 @@ PYBIND11_MODULE(vcu_model_sim, m) {
       .def_readwrite("apps_diff", &debug_t::apps_diff)
       .def_readwrite("apps1_travel", &debug_t::apps1_travel)
       .def_readwrite("apps2_travel", &debug_t::apps2_travel)
-      .def_readwrite("launch_comp_active", &debug_t::launch_comp_active)
-      .def_readwrite("launch_comp_state", &debug_t::launch_comp_state)
-      .def_readwrite("launch_contact_detected",
-                     &debug_t::launch_contact_detected)
+      .def_readwrite("launch_active", &debug_t::launch_active)
+      .def_readwrite("launch_state", &debug_t::launch_state)
       .def_readwrite("launch_raw_torque_cmd_nm",
                      &debug_t::launch_raw_torque_cmd_nm)
-      .def_readwrite("launch_filtered_motor_rpm",
-                     &debug_t::launch_filtered_motor_rpm)
-      .def_readwrite("launch_motor_accel_rpm_per_s",
-                     &debug_t::launch_motor_accel_rpm_per_s)
-      .def_readwrite("launch_torque_limit_nm",
-                     &debug_t::launch_torque_limit_nm);
+      .def_readwrite("launch_torque_cmd_nm",
+                     &debug_t::launch_torque_cmd_nm);
 
   // ── vcu_parameters_t (nested apps / bse / torque_map) ─────────────────
   py::class_<vcu_parameters_t> params(m, "VcuParameters");
@@ -161,26 +155,23 @@ PYBIND11_MODULE(vcu_model_sim, m) {
   py::class_<torque_map_params_t>(params, "TorqueMapParams")
       .def(py::init<>())
       .def_readwrite("max_torque_nm", &torque_map_params_t::max_torque_nm)
-      .def_readwrite("launch_compensation_disable",
-                     &torque_map_params_t::launch_compensation_disable)
-      .def_readwrite("launch_start_rpm",
-                     &torque_map_params_t::launch_start_rpm)
+      .def_readwrite("launch_mode_disable",
+                     &torque_map_params_t::launch_mode_disable)
+      .def_readwrite("launch_enter_rpm",
+                     &torque_map_params_t::launch_enter_rpm)
       .def_readwrite("launch_exit_rpm", &torque_map_params_t::launch_exit_rpm)
+      .def_readwrite("launch_pedal_min",
+                     &torque_map_params_t::launch_pedal_min)
+      .def_readwrite("launch_pedal_max",
+                     &torque_map_params_t::launch_pedal_max)
+      .def_readwrite("launch_brake_min_psi",
+                     &torque_map_params_t::launch_brake_min_psi)
       .def_readwrite("launch_preload_torque_nm",
                      &torque_map_params_t::launch_preload_torque_nm)
-      .def_readwrite("launch_preload_timeout_ms",
-                     &torque_map_params_t::launch_preload_timeout_ms)
-      .def_readwrite("launch_rpm_lpf_time_constant_s",
-                     &torque_map_params_t::launch_rpm_lpf_time_constant_s)
-      .def_readwrite("launch_contact_positive_accel_rpm_per_s",
-                     &torque_map_params_t::
-                         launch_contact_positive_accel_rpm_per_s)
-      .def_readwrite("launch_contact_decel_rpm_per_s",
-                     &torque_map_params_t::launch_contact_decel_rpm_per_s)
-      .def_readwrite("launch_contact_decel_confirm_ms",
-                     &torque_map_params_t::launch_contact_decel_confirm_ms)
-      .def_readwrite("launch_ramp_rate_nm_per_s",
-                     &torque_map_params_t::launch_ramp_rate_nm_per_s);
+      .def_readwrite("launch_preload_ramp_rate_nm_per_s",
+                     &torque_map_params_t::launch_preload_ramp_rate_nm_per_s)
+      .def_readwrite("launch_release_ramp_rate_nm_per_s",
+                     &torque_map_params_t::launch_release_ramp_rate_nm_per_s);
 
   // ── vcu_model_context_t ───────────────────────────────────────────────
   py::class_<vcu_model_context_t>(m, "VcuModelContext")

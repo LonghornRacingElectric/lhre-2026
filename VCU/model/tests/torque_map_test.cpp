@@ -22,7 +22,7 @@ void set_valid_torque_map_params(vcu_parameters_t *params, float max_torque_nm) 
   params->torque_map.power_limit_kp = 0.002f;
   params->torque_map.power_limit_ki = 0.0f;
   params->torque_map.power_limit_kd = 0.0f;
-  params->torque_map.launch_compensation_disable = true;
+  params->torque_map.launch_mode_disable = true;
   const float rpm_map[VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS] = {
       0.0f,    550.0f,  1100.0f, 1650.0f, 2200.0f, 2750.0f,
       3300.0f, 3850.0f, 4400.0f, 4950.0f, 5500.0f,
@@ -63,17 +63,16 @@ protected:
   }
 };
 
-static void enable_launch_compensation(vcu_parameters_t *params) {
-  params->torque_map.launch_compensation_disable = false;
-  params->torque_map.launch_start_rpm = 10.0f;
+static void enable_launch_mode(vcu_parameters_t *params) {
+  params->torque_map.launch_mode_disable = false;
+  params->torque_map.launch_enter_rpm = 10.0f;
   params->torque_map.launch_exit_rpm = 75.0f;
+  params->torque_map.launch_pedal_min = 0.05f;
+  params->torque_map.launch_pedal_max = 0.80f;
+  params->torque_map.launch_brake_min_psi = 50.0f;
   params->torque_map.launch_preload_torque_nm = 5.0f;
-  params->torque_map.launch_preload_timeout_ms = 250.0f;
-  params->torque_map.launch_rpm_lpf_time_constant_s = 0.0f;
-  params->torque_map.launch_contact_positive_accel_rpm_per_s = 50.0f;
-  params->torque_map.launch_contact_decel_rpm_per_s = 25.0f;
-  params->torque_map.launch_contact_decel_confirm_ms = 0.0f;
-  params->torque_map.launch_ramp_rate_nm_per_s = 100.0f;
+  params->torque_map.launch_preload_ramp_rate_nm_per_s = 100.0f;
+  params->torque_map.launch_release_ramp_rate_nm_per_s = 200.0f;
 }
 
 TEST_F(TorqueMapTest, BasicMapping) {
@@ -194,66 +193,69 @@ TEST_F(TorqueMapTest, ExponentialPedalSoftensLowPedalTorque) {
   EXPECT_NEAR(out.torque_cmd, 61.9f, 0.5f);
 }
 
-TEST_F(TorqueMapTest, LaunchCompensationPreloadsAtLowSpeedStart) {
-  enable_launch_compensation(&params);
+TEST_F(TorqueMapTest, LaunchModePreloadsOnBrake) {
+  enable_launch_mode(&params);
   out.accel_pedal_travel = 0.5f;
+  out.brake_pressed = true;
+  out.bse_psi = 100.0f;
   in.motor_speed_rpm = 0.0f;
 
   torque_map_evaluate(&in, &out, &state, &params, 10);
 
-  EXPECT_FLOAT_EQ(out.torque_cmd, 5.0f);
-  EXPECT_TRUE(out.debug.launch_comp_active);
-  EXPECT_EQ(out.debug.launch_comp_state, TORQUE_MAP_LAUNCH_STATE_PRELOAD);
+  EXPECT_FLOAT_EQ(out.torque_cmd, 1.0f);
+  EXPECT_TRUE(out.debug.launch_active);
+  EXPECT_EQ(out.debug.launch_state, TORQUE_MAP_LAUNCH_STATE_PRELOAD);
   EXPECT_NEAR(out.debug.launch_raw_torque_cmd_nm, 50.0f, 0.001f);
 }
 
-TEST_F(TorqueMapTest, LaunchCompensationRampsAfterBacklashContact) {
-  enable_launch_compensation(&params);
+TEST_F(TorqueMapTest, LaunchModeCapsPreloadTorqueWhileBrakeHeld) {
+  enable_launch_mode(&params);
   out.accel_pedal_travel = 0.5f;
-
+  out.brake_pressed = true;
+  out.bse_psi = 100.0f;
   in.motor_speed_rpm = 0.0f;
-  torque_map_evaluate(&in, &out, &state, &params, 10);
-  EXPECT_FLOAT_EQ(out.torque_cmd, 5.0f);
 
-  in.motor_speed_rpm = 2.0f;
-  torque_map_evaluate(&in, &out, &state, &params, 10);
-  EXPECT_FLOAT_EQ(out.torque_cmd, 5.0f);
-
-  in.motor_speed_rpm = 1.0f;
-  torque_map_evaluate(&in, &out, &state, &params, 10);
-
-  EXPECT_GT(out.torque_cmd, 5.0f);
-  EXPECT_LT(out.torque_cmd, 50.0f);
-  EXPECT_EQ(out.debug.launch_comp_state, TORQUE_MAP_LAUNCH_STATE_RAMP);
-  EXPECT_TRUE(out.debug.launch_contact_detected);
-}
-
-TEST_F(TorqueMapTest, LaunchCompensationTimesOutToRampWithoutContact) {
-  enable_launch_compensation(&params);
-  params.torque_map.launch_preload_timeout_ms = 20.0f;
-  out.accel_pedal_travel = 0.5f;
-
-  for (int i = 0; i < 3; ++i) {
-    in.motor_speed_rpm = 0.0f;
+  for (int i = 0; i < 10; ++i) {
     torque_map_evaluate(&in, &out, &state, &params, 10);
   }
 
-  EXPECT_GT(out.torque_cmd, 5.0f);
-  EXPECT_LT(out.torque_cmd, 50.0f);
-  EXPECT_EQ(out.debug.launch_comp_state, TORQUE_MAP_LAUNCH_STATE_RAMP);
-  EXPECT_FALSE(out.debug.launch_contact_detected);
+  EXPECT_FLOAT_EQ(out.torque_cmd, 5.0f);
+  EXPECT_EQ(out.debug.launch_state, TORQUE_MAP_LAUNCH_STATE_PRELOAD);
 }
 
-TEST_F(TorqueMapTest, LaunchCompensationBypassesAboveExitSpeed) {
-  enable_launch_compensation(&params);
+TEST_F(TorqueMapTest, LaunchModeRampsTorqueWhenBrakeDrops) {
+  enable_launch_mode(&params);
   out.accel_pedal_travel = 0.5f;
+  out.brake_pressed = true;
+  out.bse_psi = 100.0f;
+  in.motor_speed_rpm = 0.0f;
+
+  for (int i = 0; i < 10; ++i) {
+    torque_map_evaluate(&in, &out, &state, &params, 10);
+  }
+  EXPECT_FLOAT_EQ(out.torque_cmd, 5.0f);
+
+  out.brake_pressed = false;
+  out.bse_psi = 0.0f;
+  torque_map_evaluate(&in, &out, &state, &params, 10);
+
+  EXPECT_GT(out.torque_cmd, 5.0f);
+  EXPECT_LT(out.torque_cmd, 50.0f);
+  EXPECT_EQ(out.debug.launch_state, TORQUE_MAP_LAUNCH_STATE_RELEASE);
+}
+
+TEST_F(TorqueMapTest, LaunchModeBypassesAboveExitSpeed) {
+  enable_launch_mode(&params);
+  out.accel_pedal_travel = 0.5f;
+  out.brake_pressed = true;
+  out.bse_psi = 100.0f;
   in.motor_speed_rpm = 80.0f;
 
   torque_map_evaluate(&in, &out, &state, &params, 10);
 
   EXPECT_FLOAT_EQ(out.torque_cmd, 50.0f);
-  EXPECT_FALSE(out.debug.launch_comp_active);
-  EXPECT_EQ(out.debug.launch_comp_state, TORQUE_MAP_LAUNCH_STATE_IDLE);
+  EXPECT_FALSE(out.debug.launch_active);
+  EXPECT_EQ(out.debug.launch_state, TORQUE_MAP_LAUNCH_STATE_INACTIVE);
 }
 
 TEST_F(TorqueMapTest, HardCurrentCutDisablesTorque) {

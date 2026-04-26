@@ -1,0 +1,1377 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "orion"
+        },
+        "enable": true,
+        "hide": false,
+        "iconColor": "#ffd166",
+        "name": "Lap and event markers",
+        "rawQuery": "SELECT to_timestamp(start_time / 1000.0) AS time, COALESCE(type, 'event') AS text, COALESCE(notes, type, '') AS tags FROM classifier WHERE start_time BETWEEN $__from AND $__to ORDER BY start_time;",
+        "target": {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT to_timestamp(start_time / 1000.0) AS time, COALESCE(type, 'event') AS text, COALESCE(notes, type, '') AS tags FROM classifier WHERE start_time BETWEEN $__from AND $__to ORDER BY start_time;"
+        },
+        "type": "tags"
+      }
+    ]
+  },
+  "description": "Motec-style channel strips and technique scatter plots for Orion.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": true,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [
+        "andrew",
+        "orion"
+      ],
+      "targetBlank": false,
+      "title": "Switch Orion Workbook",
+      "tooltip": "Jump between Andrew Orion dashboards while keeping time range and variables.",
+      "type": "dashboards"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Driver Analysis Workbook",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<div style='font-size:22px;font-weight:700;color:#f8fafc'>ORION DRIVER WORKBOOK</div><div style='color:#94a3b8'>Select a lap from the left sheet or top Lap dropdown. Channel strips stay aligned for quick corner-by-corner driver review.</div>",
+        "mode": "markdown"
+      },
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Lap Sheet - Click Lap To Select",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 6,
+        "h": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "lap"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Select lap",
+                    "url": "?from=${__data.fields.start_ms}&to=${__data.fields.end_ms}&var-Lap=${__data.fields.lap_value}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "lap_value"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "start_ms"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "end_ms"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), selected_lap AS (\n  SELECT NULLIF('${Lap:raw}', '$__all') AS lap_value\n), bounds AS (\n  SELECT\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_start ELSE split_part(selected_lap.lap_value, ':', 1)::bigint END AS effective_start,\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_end ELSE split_part(selected_lap.lap_value, ':', 2)::bigint END AS effective_end\n  FROM run_bounds CROSS JOIN selected_lap\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\n, run_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY start_time) AS lap,\n         start_time,\n         LEAD(start_time) OVER (ORDER BY start_time) AS next_time,\n         notes\n  FROM classifier, run_bounds\n  WHERE type = 'lap' AND start_time BETWEEN run_bounds.run_start AND run_bounds.run_end\n), lap_metrics AS (\n  SELECT run_laps.lap, run_laps.start_time, run_laps.next_time, (run_laps.next_time - run_laps.start_time) / 1000.0 AS lap_s,\n         MAX(d.gps_speed * 2.23694) AS max_mph,\n         AVG(c.apps1_travel) AS avg_throttle,\n         MAX(c.brake_pressure_f) AS peak_brake_f\n  FROM run_laps\n  LEFT JOIN packet p ON p.time >= run_laps.start_time AND p.time < COALESCE(run_laps.next_time, run_laps.start_time + 120000)\n  LEFT JOIN dynamics d ON d.packet_id = p.packet_id\n  LEFT JOIN controls c ON c.packet_id = p.packet_id\n  WHERE run_laps.next_time IS NOT NULL\n  GROUP BY run_laps.lap, run_laps.start_time, run_laps.next_time\n), ranked AS (\n  SELECT *, MIN(lap_s) OVER () AS best_lap_s\n  FROM lap_metrics\n)\nSELECT lap AS \"lap\",\n       to_char(to_timestamp(start_time / 1000.0), 'HH24:MI:SS.MS') AS \"start\",\n       ROUND(lap_s::numeric, 3) AS \"lap time [s]\",\n       ROUND((lap_s - best_lap_s)::numeric, 3) AS \"delta [s]\",\n       ROUND(max_mph::numeric, 1) AS \"max [mph]\",\n       ROUND(avg_throttle::numeric, 1) AS \"avg throttle [%]\",\n       ROUND(peak_brake_f::numeric, 1) AS \"peak brake F [psi]\",\n       CONCAT(start_time, ':', next_time) AS lap_value,\n       start_time AS start_ms,\n       next_time AS end_ms\nFROM ranked\nORDER BY lap;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0",
+      "description": "Classifier lap list. Use the Lap dropdown or click a lap number to focus the workbook time range."
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Speed",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 2,
+        "w": 18,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "mph"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/speed/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#2ec4ff"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), selected_lap AS (\n  SELECT NULLIF('${Lap:raw}', '$__all') AS lap_value\n), bounds AS (\n  SELECT\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_start ELSE split_part(selected_lap.lap_value, ':', 1)::bigint END AS effective_start,\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_end ELSE split_part(selected_lap.lap_value, ':', 2)::bigint END AS effective_end\n  FROM run_bounds CROSS JOIN selected_lap\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT to_timestamp(floor(p.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n       AVG(d.gps_speed * 2.23694) AS \"speed [mph]\"\nFROM dynamics d JOIN packet p ON p.packet_id = d.packet_id JOIN bounds ON true JOIN granularity ON true\nWHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Throttle / Brake",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 6,
+        "w": 18,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 18,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/throttle/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#2fd17c"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 28
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/brake/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ff4d5a"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 22
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), selected_lap AS (\n  SELECT NULLIF('${Lap:raw}', '$__all') AS lap_value\n), bounds AS (\n  SELECT\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_start ELSE split_part(selected_lap.lap_value, ':', 1)::bigint END AS effective_start,\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_end ELSE split_part(selected_lap.lap_value, ':', 2)::bigint END AS effective_end\n  FROM run_bounds CROSS JOIN selected_lap\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT to_timestamp(floor(p.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n       AVG(c.apps1_travel) AS \"throttle [%]\",\n       AVG(c.brake_pressure_f) AS \"brake front [psi]\",\n       AVG((c.brake_pressure_rall + c.brake_pressure_rbll) / 2.0) AS \"brake rear [psi]\"\nFROM controls c JOIN packet p ON p.packet_id = c.packet_id JOIN bounds ON true JOIN granularity ON true\nWHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Steer / G",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 10,
+        "w": 18,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 6,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/steer/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ffd166"
+                }
+              },
+              {
+                "id": "custom.axisCenteredZero",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/accel/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.axisCenteredZero",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), selected_lap AS (\n  SELECT NULLIF('${Lap:raw}', '$__all') AS lap_value\n), bounds AS (\n  SELECT\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_start ELSE split_part(selected_lap.lap_value, ':', 1)::bigint END AS effective_start,\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_end ELSE split_part(selected_lap.lap_value, ':', 2)::bigint END AS effective_end\n  FROM run_bounds CROSS JOIN selected_lap\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT to_timestamp(floor(p.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n       AVG(d.steer_col_angle) AS \"steer column [deg]\",\n       AVG(d.gps_imu[1] / 9.80665) AS \"lat accel [g]\",\n       AVG(-d.gps_imu[2] / 9.80665) AS \"long accel [g]\"\nFROM dynamics d JOIN packet p ON p.packet_id = d.packet_id JOIN bounds ON true JOIN granularity ON true\nWHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Torque Delivery",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 24,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/motor speed/"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#b197fc"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), selected_lap AS (\n  SELECT NULLIF('${Lap:raw}', '$__all') AS lap_value\n), bounds AS (\n  SELECT\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_start ELSE split_part(selected_lap.lap_value, ':', 1)::bigint END AS effective_start,\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_end ELSE split_part(selected_lap.lap_value, ':', 2)::bigint END AS effective_end\n  FROM run_bounds CROSS JOIN selected_lap\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT to_timestamp(floor(p.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n       AVG(c.torque_request) AS \"torque request [Nm]\",\n       AVG(c.torque_feedback) AS \"torque feedback [Nm]\",\n       AVG(c.torque_command) AS \"torque command [Nm]\",\n       AVG(c.torque_limit) AS \"torque limit [Nm]\",\n       AVG(c.motor_speed) AS \"motor speed [rpm]\"\nFROM controls c JOIN packet p ON p.packet_id = c.packet_id JOIN bounds ON true JOIN granularity ON true\nWHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Wheel Slip",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/slip/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ffd166"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.axisCenteredZero",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), selected_lap AS (\n  SELECT NULLIF('${Lap:raw}', '$__all') AS lap_value\n), bounds AS (\n  SELECT\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_start ELSE split_part(selected_lap.lap_value, ':', 1)::bigint END AS effective_start,\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_end ELSE split_part(selected_lap.lap_value, ':', 2)::bigint END AS effective_end\n  FROM run_bounds CROSS JOIN selected_lap\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT to_timestamp(floor(p.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n       AVG((d.flw_speed + d.frw_speed) / 2.0) AS \"front wheel avg [rad/s]\",\n       AVG((d.blw_speed + d.brw_speed) / 2.0) AS \"rear wheel avg [rad/s]\",\n       AVG(100.0 * (((d.blw_speed + d.brw_speed) / 2.0) - ((d.flw_speed + d.frw_speed) / 2.0)) / NULLIF(((d.flw_speed + d.frw_speed) / 2.0), 0)) AS \"rear slip [%]\",\n       AVG(d.frw_speed - d.flw_speed) AS \"front delta [rad/s]\",\n       AVG(d.brw_speed - d.blw_speed) AS \"rear delta [rad/s]\"\nFROM dynamics d JOIN packet p ON p.packet_id = d.packet_id JOIN bounds ON true JOIN granularity ON true\nWHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end\nGROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 7,
+      "type": "xychart",
+      "title": "Brake Pressure vs Speed",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 8,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": true,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "fillOpacity": 40,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "pointShape": "circle",
+            "pointSize": {
+              "fixed": 3
+            },
+            "pointStrokeWidth": 0,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "show": "points"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "dims": {
+          "x": "speed_mph",
+          "y": "brake_f_psi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "series": [
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "speed_mph",
+            "y": "brake_f_psi"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), selected_lap AS (\n  SELECT NULLIF('${Lap:raw}', '$__all') AS lap_value\n), bounds AS (\n  SELECT\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_start ELSE split_part(selected_lap.lap_value, ':', 1)::bigint END AS effective_start,\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_end ELSE split_part(selected_lap.lap_value, ':', 2)::bigint END AS effective_end\n  FROM run_bounds CROSS JOIN selected_lap\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT d.gps_speed * 2.23694 AS speed_mph, c.brake_pressure_f AS brake_f_psi, c.apps1_travel AS throttle_pct\nFROM dynamics d JOIN controls c ON c.packet_id = d.packet_id JOIN packet p ON p.packet_id = d.packet_id JOIN bounds ON true\nWHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end AND p.packet_id % GREATEST(${Stride}::int, 1) = 0\nORDER BY p.time;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 8,
+      "type": "xychart",
+      "title": "Steering vs Lateral G",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 25,
+        "w": 8,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": true,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "fillOpacity": 40,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "pointShape": "circle",
+            "pointSize": {
+              "fixed": 3
+            },
+            "pointStrokeWidth": 0,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "show": "points"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "dims": {
+          "x": "steer_deg",
+          "y": "lat_g"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "series": [
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "steer_deg",
+            "y": "lat_g"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), selected_lap AS (\n  SELECT NULLIF('${Lap:raw}', '$__all') AS lap_value\n), bounds AS (\n  SELECT\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_start ELSE split_part(selected_lap.lap_value, ':', 1)::bigint END AS effective_start,\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_end ELSE split_part(selected_lap.lap_value, ':', 2)::bigint END AS effective_end\n  FROM run_bounds CROSS JOIN selected_lap\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT d.steer_col_angle AS steer_deg, d.gps_imu[1] / 9.80665 AS lat_g, d.gps_speed * 2.23694 AS speed_mph\nFROM dynamics d JOIN packet p ON p.packet_id = d.packet_id JOIN bounds ON true\nWHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end AND d.gps_imu IS NOT NULL AND p.packet_id % GREATEST(${Stride}::int, 1) = 0\nORDER BY p.time;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 9,
+      "type": "xychart",
+      "title": "Pedal Overlap",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 25,
+        "w": 8,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": true,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "fillOpacity": 40,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "pointShape": "circle",
+            "pointSize": {
+              "fixed": 3
+            },
+            "pointStrokeWidth": 0,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "show": "points"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "dims": {
+          "x": "throttle_pct",
+          "y": "brake_f_psi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "series": [
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "throttle_pct",
+            "y": "brake_f_psi"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), selected_lap AS (\n  SELECT NULLIF('${Lap:raw}', '$__all') AS lap_value\n), bounds AS (\n  SELECT\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_start ELSE split_part(selected_lap.lap_value, ':', 1)::bigint END AS effective_start,\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_end ELSE split_part(selected_lap.lap_value, ':', 2)::bigint END AS effective_end\n  FROM run_bounds CROSS JOIN selected_lap\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT c.apps1_travel AS throttle_pct, c.brake_pressure_f AS brake_f_psi, d.gps_speed * 2.23694 AS speed_mph\nFROM controls c JOIN dynamics d ON d.packet_id = c.packet_id JOIN packet p ON p.packet_id = c.packet_id JOIN bounds ON true\nWHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end AND p.packet_id % GREATEST(${Stride}::int, 1) = 0\nORDER BY p.time;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 10,
+      "type": "barchart",
+      "title": "Speed Distribution",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 24,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisGridShow": true,
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 78,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "barRadius": 0.08,
+        "barWidth": 0.92,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "orientation": "auto",
+        "showValue": "never",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "speed_bin_mph"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), selected_lap AS (\n  SELECT NULLIF('${Lap:raw}', '$__all') AS lap_value\n), bounds AS (\n  SELECT\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_start ELSE split_part(selected_lap.lap_value, ':', 1)::bigint END AS effective_start,\n    CASE WHEN selected_lap.lap_value IS NULL OR selected_lap.lap_value !~ '^[0-9]+:[0-9]+$'\n      THEN run_bounds.run_end ELSE split_part(selected_lap.lap_value, ':', 2)::bigint END AS effective_end\n  FROM run_bounds CROSS JOIN selected_lap\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT (floor((d.gps_speed * 2.23694) / 5.0) * 5)::int AS speed_bin_mph,\n       COUNT(*) AS samples\nFROM dynamics d JOIN packet p ON p.packet_id = d.packet_id JOIN bounds ON true\nWHERE p.time BETWEEN bounds.effective_start AND bounds.effective_end AND d.gps_speed IS NOT NULL\nGROUP BY 1 ORDER BY 1;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 40,
+  "style": "dark",
+  "tags": [
+    "andrew",
+    "orion",
+    "driver",
+    "retrospective"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "orion"
+        },
+        "definition": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "description": "Select one or more continuous runs split by packet gaps.",
+        "includeAll": true,
+        "label": "Run",
+        "multi": true,
+        "name": "Zoom",
+        "options": [],
+        "query": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "orion"
+        },
+        "definition": "WITH selected_partitions AS ( SELECT p.start_time, p.end_time FROM partitions p WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[] OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[]) ), bounds AS ( SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS effective_start, LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS effective_end FROM selected_partitions ), laps AS ( SELECT ROW_NUMBER() OVER (ORDER BY start_time) AS lap, start_time, LEAD(start_time) OVER (ORDER BY start_time) AS next_time FROM classifier, bounds WHERE type = 'lap' AND start_time BETWEEN bounds.effective_start AND bounds.effective_end ) SELECT CONCAT('Lap ', lap, ' | ', ROUND(((next_time - start_time) / 1000.0)::numeric, 3), ' s') AS __text, CONCAT(start_time, ':', next_time) AS __value FROM laps WHERE next_time IS NOT NULL ORDER BY lap;",
+        "description": "Select a classifier lap. All keeps the full selected run.",
+        "includeAll": true,
+        "label": "Lap",
+        "multi": false,
+        "name": "Lap",
+        "options": [],
+        "query": "WITH selected_partitions AS ( SELECT p.start_time, p.end_time FROM partitions p WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[] OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[]) ), bounds AS ( SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS effective_start, LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS effective_end FROM selected_partitions ), laps AS ( SELECT ROW_NUMBER() OVER (ORDER BY start_time) AS lap, start_time, LEAD(start_time) OVER (ORDER BY start_time) AS next_time FROM classifier, bounds WHERE type = 'lap' AND start_time BETWEEN bounds.effective_start AND bounds.effective_end ) SELECT CONCAT('Lap ', lap, ' | ', ROUND(((next_time - start_time) / 1000.0)::numeric, 3), ' s') AS __text, CONCAT(start_time, ':', next_time) AS __value FROM laps WHERE next_time IS NOT NULL ORDER BY lap;",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "1x",
+          "value": "1"
+        },
+        "description": "Extra SQL stride for expensive maps/scatters.",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Plot stride",
+        "multi": false,
+        "name": "Stride",
+        "options": [
+          {
+            "selected": true,
+            "text": "1x",
+            "value": "1"
+          },
+          {
+            "selected": false,
+            "text": "5x",
+            "value": "5"
+          },
+          {
+            "selected": false,
+            "text": "10x",
+            "value": "10"
+          },
+          {
+            "selected": false,
+            "text": "25x",
+            "value": "25"
+          },
+          {
+            "selected": false,
+            "text": "50x",
+            "value": "50"
+          }
+        ],
+        "query": "1,5,10,25,50",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "250ms",
+      "500ms",
+      "1s",
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m"
+    ]
+  },
+  "timezone": "browser",
+  "title": "Andrew / Orion Driver Analysis Workbook",
+  "uid": "andrew_orion_driver_workbook",
+  "version": 1,
+  "weekStart": ""
+}

@@ -1,0 +1,1417 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Distance-normalized Orion lap comparison workbook.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": true,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [
+        "andrew",
+        "orion"
+      ],
+      "targetBlank": false,
+      "title": "Switch Orion Workbook",
+      "tooltip": "Jump between Andrew Orion dashboards while keeping time range and variables.",
+      "type": "dashboards"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Distance-Synced Lap Compare",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<div style='font-size:22px;font-weight:800;color:#f8fafc'>ORION DISTANCE-SYNCED LAP COMPARE</div><div style='color:#94a3b8'>Select multiple laps and compare channels against cumulative GPS distance from lap start, like an i2 overlay. If Compare laps is All, the first N laps are loaded automatically.</div>",
+        "mode": "markdown"
+      },
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Compare Lap Slots",
+      "description": "Maps Compare 1..6 traces to real lap numbers.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 7,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "compare"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open this lap in overview",
+                    "url": "/d/andrew_orion_race_engineering/orion-race-engineering-overview?from=${__data.fields.start_ms}&to=${__data.fields.end_ms}&var-Lap=${__data.fields.start_ms}:${__data.fields.end_ms}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "lap_value"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "start_ms"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "end_ms"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), all_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY start_time) AS lap,\n         start_time,\n         LEAD(start_time) OVER (ORDER BY start_time) AS next_time\n  FROM classifier, run_bounds\n  WHERE type = 'lap' AND start_time BETWEEN run_bounds.run_start AND run_bounds.run_end\n), selected_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY lap) AS compare_slot,\n         lap, start_time, next_time, (next_time - start_time) / 1000.0 AS lap_s,\n         CONCAT(start_time, ':', next_time, ':', lap) AS lap_value\n  FROM all_laps\n  WHERE next_time IS NOT NULL\n    AND (\n      (ARRAY[${CompareLaps:singlequote}]::text[] @> ARRAY['$__all']::text[] AND lap <= ${AutoCompareCount:raw}::int)\n      OR CONCAT(start_time, ':', next_time, ':', lap) = ANY(ARRAY[${CompareLaps:singlequote}]::text[])\n    )\n), samples AS (\n  SELECT sl.compare_slot, sl.lap, sl.start_time, sl.next_time, sl.lap_s,\n         p.time, d.gps[1]::double precision AS lat, d.gps[2]::double precision AS lon,\n         d.gps_speed * 2.23694 AS speed_mph,\n         c.apps1_travel AS throttle_pct,\n         c.brake_pressure_f AS brake_f_psi,\n         d.steer_col_angle AS steer_deg,\n         LAG(d.gps[1]::double precision) OVER (PARTITION BY sl.compare_slot ORDER BY p.time) AS prev_lat,\n         LAG(d.gps[2]::double precision) OVER (PARTITION BY sl.compare_slot ORDER BY p.time) AS prev_lon\n  FROM selected_laps sl\n  JOIN packet p ON p.time >= sl.start_time AND p.time < sl.next_time\n  JOIN dynamics d ON d.packet_id = p.packet_id\n  LEFT JOIN controls c ON c.packet_id = p.packet_id\n  WHERE d.gps IS NOT NULL AND array_length(d.gps, 1) >= 2\n), distance_samples AS (\n  SELECT *,\n         SUM(CASE WHEN prev_lat IS NULL OR prev_lon IS NULL THEN 0 ELSE\n           2 * 6371000 * ASIN(LEAST(1.0, SQRT(\n             POWER(SIN(RADIANS(lat - prev_lat) / 2), 2) +\n             COS(RADIANS(prev_lat)) * COS(RADIANS(lat)) * POWER(SIN(RADIANS(lon - prev_lon) / 2), 2)\n           ))) END) OVER (PARTITION BY compare_slot ORDER BY time ROWS UNBOUNDED PRECEDING) AS distance_m\n  FROM samples\n), binned AS (\n  SELECT (FLOOR(distance_m / GREATEST(${DistanceStep:raw}::numeric, 1)) * GREATEST(${DistanceStep:raw}::numeric, 1))::double precision AS distance_m,\n         compare_slot,\n         AVG(speed_mph) AS speed_mph,\n         AVG(throttle_pct) AS throttle_pct,\n         AVG(brake_f_psi) AS brake_f_psi,\n         AVG(steer_deg) AS steer_deg\n  FROM distance_samples\n  GROUP BY 1, compare_slot\n)\nSELECT compare_slot AS compare,\n       lap,\n       to_char(to_timestamp(start_time / 1000.0), 'HH24:MI:SS.MS') AS start,\n       ROUND(lap_s::numeric, 3) AS \"lap time [s]\",\n       ROUND((lap_s - MIN(lap_s) OVER ())::numeric, 3) AS \"delta [s]\",\n       lap_value,\n       start_time AS start_ms,\n       next_time AS end_ms\nFROM selected_laps\nORDER BY compare_slot;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 3,
+      "type": "barchart",
+      "title": "Lap Time Delta Context",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 7,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisGridShow": true,
+            "axisPlacement": "auto",
+            "fillOpacity": 72,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "barRadius": 0.04,
+        "barWidth": 0.86,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "compare"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), all_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY start_time) AS lap,\n         start_time,\n         LEAD(start_time) OVER (ORDER BY start_time) AS next_time\n  FROM classifier, run_bounds\n  WHERE type = 'lap' AND start_time BETWEEN run_bounds.run_start AND run_bounds.run_end\n), selected_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY lap) AS compare_slot,\n         lap, start_time, next_time, (next_time - start_time) / 1000.0 AS lap_s,\n         CONCAT(start_time, ':', next_time, ':', lap) AS lap_value\n  FROM all_laps\n  WHERE next_time IS NOT NULL\n    AND (\n      (ARRAY[${CompareLaps:singlequote}]::text[] @> ARRAY['$__all']::text[] AND lap <= ${AutoCompareCount:raw}::int)\n      OR CONCAT(start_time, ':', next_time, ':', lap) = ANY(ARRAY[${CompareLaps:singlequote}]::text[])\n    )\n), samples AS (\n  SELECT sl.compare_slot, sl.lap, sl.start_time, sl.next_time, sl.lap_s,\n         p.time, d.gps[1]::double precision AS lat, d.gps[2]::double precision AS lon,\n         d.gps_speed * 2.23694 AS speed_mph,\n         c.apps1_travel AS throttle_pct,\n         c.brake_pressure_f AS brake_f_psi,\n         d.steer_col_angle AS steer_deg,\n         LAG(d.gps[1]::double precision) OVER (PARTITION BY sl.compare_slot ORDER BY p.time) AS prev_lat,\n         LAG(d.gps[2]::double precision) OVER (PARTITION BY sl.compare_slot ORDER BY p.time) AS prev_lon\n  FROM selected_laps sl\n  JOIN packet p ON p.time >= sl.start_time AND p.time < sl.next_time\n  JOIN dynamics d ON d.packet_id = p.packet_id\n  LEFT JOIN controls c ON c.packet_id = p.packet_id\n  WHERE d.gps IS NOT NULL AND array_length(d.gps, 1) >= 2\n), distance_samples AS (\n  SELECT *,\n         SUM(CASE WHEN prev_lat IS NULL OR prev_lon IS NULL THEN 0 ELSE\n           2 * 6371000 * ASIN(LEAST(1.0, SQRT(\n             POWER(SIN(RADIANS(lat - prev_lat) / 2), 2) +\n             COS(RADIANS(prev_lat)) * COS(RADIANS(lat)) * POWER(SIN(RADIANS(lon - prev_lon) / 2), 2)\n           ))) END) OVER (PARTITION BY compare_slot ORDER BY time ROWS UNBOUNDED PRECEDING) AS distance_m\n  FROM samples\n), binned AS (\n  SELECT (FLOOR(distance_m / GREATEST(${DistanceStep:raw}::numeric, 1)) * GREATEST(${DistanceStep:raw}::numeric, 1))::double precision AS distance_m,\n         compare_slot,\n         AVG(speed_mph) AS speed_mph,\n         AVG(throttle_pct) AS throttle_pct,\n         AVG(brake_f_psi) AS brake_f_psi,\n         AVG(steer_deg) AS steer_deg\n  FROM distance_samples\n  GROUP BY 1, compare_slot\n)\nSELECT CONCAT('C', compare_slot, ' L', lap) AS compare, ROUND(lap_s::numeric, 3) AS \"lap time [s]\"\nFROM selected_laps\nORDER BY compare_slot;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 4,
+      "type": "xychart",
+      "title": "Speed vs Distance",
+      "description": "Primary i2-style speed overlay. X axis is cumulative GPS distance from lap start.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 7,
+        "y": 2,
+        "w": 17,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "fillOpacity": 28,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "pointShape": "circle",
+            "pointSize": {
+              "fixed": 2
+            },
+            "pointStrokeWidth": 0,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "show": "lines"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "mph"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 1 speed [mph]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#2ec4ff"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 2 speed [mph]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ff4d5a"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 3 speed [mph]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ffd166"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 4 speed [mph]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#2fd17c"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 5 speed [mph]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#b197fc"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 6 speed [mph]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#4dabf7"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "dims": {
+          "x": "distance_m"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "series": [
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 1 speed [mph]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 2 speed [mph]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 3 speed [mph]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 4 speed [mph]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 5 speed [mph]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 6 speed [mph]"
+          }
+        ],
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), all_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY start_time) AS lap,\n         start_time,\n         LEAD(start_time) OVER (ORDER BY start_time) AS next_time\n  FROM classifier, run_bounds\n  WHERE type = 'lap' AND start_time BETWEEN run_bounds.run_start AND run_bounds.run_end\n), selected_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY lap) AS compare_slot,\n         lap, start_time, next_time, (next_time - start_time) / 1000.0 AS lap_s,\n         CONCAT(start_time, ':', next_time, ':', lap) AS lap_value\n  FROM all_laps\n  WHERE next_time IS NOT NULL\n    AND (\n      (ARRAY[${CompareLaps:singlequote}]::text[] @> ARRAY['$__all']::text[] AND lap <= ${AutoCompareCount:raw}::int)\n      OR CONCAT(start_time, ':', next_time, ':', lap) = ANY(ARRAY[${CompareLaps:singlequote}]::text[])\n    )\n), samples AS (\n  SELECT sl.compare_slot, sl.lap, sl.start_time, sl.next_time, sl.lap_s,\n         p.time, d.gps[1]::double precision AS lat, d.gps[2]::double precision AS lon,\n         d.gps_speed * 2.23694 AS speed_mph,\n         c.apps1_travel AS throttle_pct,\n         c.brake_pressure_f AS brake_f_psi,\n         d.steer_col_angle AS steer_deg,\n         LAG(d.gps[1]::double precision) OVER (PARTITION BY sl.compare_slot ORDER BY p.time) AS prev_lat,\n         LAG(d.gps[2]::double precision) OVER (PARTITION BY sl.compare_slot ORDER BY p.time) AS prev_lon\n  FROM selected_laps sl\n  JOIN packet p ON p.time >= sl.start_time AND p.time < sl.next_time\n  JOIN dynamics d ON d.packet_id = p.packet_id\n  LEFT JOIN controls c ON c.packet_id = p.packet_id\n  WHERE d.gps IS NOT NULL AND array_length(d.gps, 1) >= 2\n), distance_samples AS (\n  SELECT *,\n         SUM(CASE WHEN prev_lat IS NULL OR prev_lon IS NULL THEN 0 ELSE\n           2 * 6371000 * ASIN(LEAST(1.0, SQRT(\n             POWER(SIN(RADIANS(lat - prev_lat) / 2), 2) +\n             COS(RADIANS(prev_lat)) * COS(RADIANS(lat)) * POWER(SIN(RADIANS(lon - prev_lon) / 2), 2)\n           ))) END) OVER (PARTITION BY compare_slot ORDER BY time ROWS UNBOUNDED PRECEDING) AS distance_m\n  FROM samples\n), binned AS (\n  SELECT (FLOOR(distance_m / GREATEST(${DistanceStep:raw}::numeric, 1)) * GREATEST(${DistanceStep:raw}::numeric, 1))::double precision AS distance_m,\n         compare_slot,\n         AVG(speed_mph) AS speed_mph,\n         AVG(throttle_pct) AS throttle_pct,\n         AVG(brake_f_psi) AS brake_f_psi,\n         AVG(steer_deg) AS steer_deg\n  FROM distance_samples\n  GROUP BY 1, compare_slot\n)\nSELECT distance_m,\n       AVG(speed_mph) FILTER (WHERE compare_slot = 1) AS \"Compare 1 speed [mph]\",\n       AVG(speed_mph) FILTER (WHERE compare_slot = 2) AS \"Compare 2 speed [mph]\",\n       AVG(speed_mph) FILTER (WHERE compare_slot = 3) AS \"Compare 3 speed [mph]\",\n       AVG(speed_mph) FILTER (WHERE compare_slot = 4) AS \"Compare 4 speed [mph]\",\n       AVG(speed_mph) FILTER (WHERE compare_slot = 5) AS \"Compare 5 speed [mph]\",\n       AVG(speed_mph) FILTER (WHERE compare_slot = 6) AS \"Compare 6 speed [mph]\"\nFROM binned\nGROUP BY distance_m\nORDER BY distance_m;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 5,
+      "type": "xychart",
+      "title": "Throttle vs Distance",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 7,
+        "y": 10,
+        "w": 17,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "fillOpacity": 28,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "pointShape": "circle",
+            "pointSize": {
+              "fixed": 2
+            },
+            "pointStrokeWidth": 0,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "show": "lines"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 1 throttle [%]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#2ec4ff"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 2 throttle [%]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ff4d5a"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 3 throttle [%]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ffd166"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 4 throttle [%]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#2fd17c"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 5 throttle [%]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#b197fc"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 6 throttle [%]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#4dabf7"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "dims": {
+          "x": "distance_m"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "series": [
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 1 throttle [%]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 2 throttle [%]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 3 throttle [%]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 4 throttle [%]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 5 throttle [%]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 6 throttle [%]"
+          }
+        ],
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), all_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY start_time) AS lap,\n         start_time,\n         LEAD(start_time) OVER (ORDER BY start_time) AS next_time\n  FROM classifier, run_bounds\n  WHERE type = 'lap' AND start_time BETWEEN run_bounds.run_start AND run_bounds.run_end\n), selected_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY lap) AS compare_slot,\n         lap, start_time, next_time, (next_time - start_time) / 1000.0 AS lap_s,\n         CONCAT(start_time, ':', next_time, ':', lap) AS lap_value\n  FROM all_laps\n  WHERE next_time IS NOT NULL\n    AND (\n      (ARRAY[${CompareLaps:singlequote}]::text[] @> ARRAY['$__all']::text[] AND lap <= ${AutoCompareCount:raw}::int)\n      OR CONCAT(start_time, ':', next_time, ':', lap) = ANY(ARRAY[${CompareLaps:singlequote}]::text[])\n    )\n), samples AS (\n  SELECT sl.compare_slot, sl.lap, sl.start_time, sl.next_time, sl.lap_s,\n         p.time, d.gps[1]::double precision AS lat, d.gps[2]::double precision AS lon,\n         d.gps_speed * 2.23694 AS speed_mph,\n         c.apps1_travel AS throttle_pct,\n         c.brake_pressure_f AS brake_f_psi,\n         d.steer_col_angle AS steer_deg,\n         LAG(d.gps[1]::double precision) OVER (PARTITION BY sl.compare_slot ORDER BY p.time) AS prev_lat,\n         LAG(d.gps[2]::double precision) OVER (PARTITION BY sl.compare_slot ORDER BY p.time) AS prev_lon\n  FROM selected_laps sl\n  JOIN packet p ON p.time >= sl.start_time AND p.time < sl.next_time\n  JOIN dynamics d ON d.packet_id = p.packet_id\n  LEFT JOIN controls c ON c.packet_id = p.packet_id\n  WHERE d.gps IS NOT NULL AND array_length(d.gps, 1) >= 2\n), distance_samples AS (\n  SELECT *,\n         SUM(CASE WHEN prev_lat IS NULL OR prev_lon IS NULL THEN 0 ELSE\n           2 * 6371000 * ASIN(LEAST(1.0, SQRT(\n             POWER(SIN(RADIANS(lat - prev_lat) / 2), 2) +\n             COS(RADIANS(prev_lat)) * COS(RADIANS(lat)) * POWER(SIN(RADIANS(lon - prev_lon) / 2), 2)\n           ))) END) OVER (PARTITION BY compare_slot ORDER BY time ROWS UNBOUNDED PRECEDING) AS distance_m\n  FROM samples\n), binned AS (\n  SELECT (FLOOR(distance_m / GREATEST(${DistanceStep:raw}::numeric, 1)) * GREATEST(${DistanceStep:raw}::numeric, 1))::double precision AS distance_m,\n         compare_slot,\n         AVG(speed_mph) AS speed_mph,\n         AVG(throttle_pct) AS throttle_pct,\n         AVG(brake_f_psi) AS brake_f_psi,\n         AVG(steer_deg) AS steer_deg\n  FROM distance_samples\n  GROUP BY 1, compare_slot\n)\nSELECT distance_m,\n       AVG(throttle_pct) FILTER (WHERE compare_slot = 1) AS \"Compare 1 throttle [%]\",\n       AVG(throttle_pct) FILTER (WHERE compare_slot = 2) AS \"Compare 2 throttle [%]\",\n       AVG(throttle_pct) FILTER (WHERE compare_slot = 3) AS \"Compare 3 throttle [%]\",\n       AVG(throttle_pct) FILTER (WHERE compare_slot = 4) AS \"Compare 4 throttle [%]\",\n       AVG(throttle_pct) FILTER (WHERE compare_slot = 5) AS \"Compare 5 throttle [%]\",\n       AVG(throttle_pct) FILTER (WHERE compare_slot = 6) AS \"Compare 6 throttle [%]\"\nFROM binned\nGROUP BY distance_m\nORDER BY distance_m;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 6,
+      "type": "xychart",
+      "title": "Brake Front vs Distance",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "fillOpacity": 28,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "pointShape": "circle",
+            "pointSize": {
+              "fixed": 2
+            },
+            "pointStrokeWidth": 0,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "show": "lines"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 1 brake front [psi]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#2ec4ff"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 2 brake front [psi]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ff4d5a"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 3 brake front [psi]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ffd166"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 4 brake front [psi]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#2fd17c"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 5 brake front [psi]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#b197fc"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 6 brake front [psi]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#4dabf7"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "dims": {
+          "x": "distance_m"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "series": [
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 1 brake front [psi]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 2 brake front [psi]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 3 brake front [psi]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 4 brake front [psi]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 5 brake front [psi]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 6 brake front [psi]"
+          }
+        ],
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), all_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY start_time) AS lap,\n         start_time,\n         LEAD(start_time) OVER (ORDER BY start_time) AS next_time\n  FROM classifier, run_bounds\n  WHERE type = 'lap' AND start_time BETWEEN run_bounds.run_start AND run_bounds.run_end\n), selected_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY lap) AS compare_slot,\n         lap, start_time, next_time, (next_time - start_time) / 1000.0 AS lap_s,\n         CONCAT(start_time, ':', next_time, ':', lap) AS lap_value\n  FROM all_laps\n  WHERE next_time IS NOT NULL\n    AND (\n      (ARRAY[${CompareLaps:singlequote}]::text[] @> ARRAY['$__all']::text[] AND lap <= ${AutoCompareCount:raw}::int)\n      OR CONCAT(start_time, ':', next_time, ':', lap) = ANY(ARRAY[${CompareLaps:singlequote}]::text[])\n    )\n), samples AS (\n  SELECT sl.compare_slot, sl.lap, sl.start_time, sl.next_time, sl.lap_s,\n         p.time, d.gps[1]::double precision AS lat, d.gps[2]::double precision AS lon,\n         d.gps_speed * 2.23694 AS speed_mph,\n         c.apps1_travel AS throttle_pct,\n         c.brake_pressure_f AS brake_f_psi,\n         d.steer_col_angle AS steer_deg,\n         LAG(d.gps[1]::double precision) OVER (PARTITION BY sl.compare_slot ORDER BY p.time) AS prev_lat,\n         LAG(d.gps[2]::double precision) OVER (PARTITION BY sl.compare_slot ORDER BY p.time) AS prev_lon\n  FROM selected_laps sl\n  JOIN packet p ON p.time >= sl.start_time AND p.time < sl.next_time\n  JOIN dynamics d ON d.packet_id = p.packet_id\n  LEFT JOIN controls c ON c.packet_id = p.packet_id\n  WHERE d.gps IS NOT NULL AND array_length(d.gps, 1) >= 2\n), distance_samples AS (\n  SELECT *,\n         SUM(CASE WHEN prev_lat IS NULL OR prev_lon IS NULL THEN 0 ELSE\n           2 * 6371000 * ASIN(LEAST(1.0, SQRT(\n             POWER(SIN(RADIANS(lat - prev_lat) / 2), 2) +\n             COS(RADIANS(prev_lat)) * COS(RADIANS(lat)) * POWER(SIN(RADIANS(lon - prev_lon) / 2), 2)\n           ))) END) OVER (PARTITION BY compare_slot ORDER BY time ROWS UNBOUNDED PRECEDING) AS distance_m\n  FROM samples\n), binned AS (\n  SELECT (FLOOR(distance_m / GREATEST(${DistanceStep:raw}::numeric, 1)) * GREATEST(${DistanceStep:raw}::numeric, 1))::double precision AS distance_m,\n         compare_slot,\n         AVG(speed_mph) AS speed_mph,\n         AVG(throttle_pct) AS throttle_pct,\n         AVG(brake_f_psi) AS brake_f_psi,\n         AVG(steer_deg) AS steer_deg\n  FROM distance_samples\n  GROUP BY 1, compare_slot\n)\nSELECT distance_m,\n       AVG(brake_f_psi) FILTER (WHERE compare_slot = 1) AS \"Compare 1 brake front [psi]\",\n       AVG(brake_f_psi) FILTER (WHERE compare_slot = 2) AS \"Compare 2 brake front [psi]\",\n       AVG(brake_f_psi) FILTER (WHERE compare_slot = 3) AS \"Compare 3 brake front [psi]\",\n       AVG(brake_f_psi) FILTER (WHERE compare_slot = 4) AS \"Compare 4 brake front [psi]\",\n       AVG(brake_f_psi) FILTER (WHERE compare_slot = 5) AS \"Compare 5 brake front [psi]\",\n       AVG(brake_f_psi) FILTER (WHERE compare_slot = 6) AS \"Compare 6 brake front [psi]\"\nFROM binned\nGROUP BY distance_m\nORDER BY distance_m;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 7,
+      "type": "xychart",
+      "title": "Steering vs Distance",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 18,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "fillOpacity": 28,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "pointShape": "circle",
+            "pointSize": {
+              "fixed": 2
+            },
+            "pointStrokeWidth": 0,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "show": "lines"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "degree"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 1 steer [deg]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#2ec4ff"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 2 steer [deg]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ff4d5a"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 3 steer [deg]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ffd166"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 4 steer [deg]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#2fd17c"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 5 steer [deg]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#b197fc"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 6 steer [deg]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#4dabf7"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "dims": {
+          "x": "distance_m"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "series": [
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 1 steer [deg]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 2 steer [deg]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 3 steer [deg]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 4 steer [deg]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 5 steer [deg]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 6 steer [deg]"
+          }
+        ],
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), all_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY start_time) AS lap,\n         start_time,\n         LEAD(start_time) OVER (ORDER BY start_time) AS next_time\n  FROM classifier, run_bounds\n  WHERE type = 'lap' AND start_time BETWEEN run_bounds.run_start AND run_bounds.run_end\n), selected_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY lap) AS compare_slot,\n         lap, start_time, next_time, (next_time - start_time) / 1000.0 AS lap_s,\n         CONCAT(start_time, ':', next_time, ':', lap) AS lap_value\n  FROM all_laps\n  WHERE next_time IS NOT NULL\n    AND (\n      (ARRAY[${CompareLaps:singlequote}]::text[] @> ARRAY['$__all']::text[] AND lap <= ${AutoCompareCount:raw}::int)\n      OR CONCAT(start_time, ':', next_time, ':', lap) = ANY(ARRAY[${CompareLaps:singlequote}]::text[])\n    )\n), samples AS (\n  SELECT sl.compare_slot, sl.lap, sl.start_time, sl.next_time, sl.lap_s,\n         p.time, d.gps[1]::double precision AS lat, d.gps[2]::double precision AS lon,\n         d.gps_speed * 2.23694 AS speed_mph,\n         c.apps1_travel AS throttle_pct,\n         c.brake_pressure_f AS brake_f_psi,\n         d.steer_col_angle AS steer_deg,\n         LAG(d.gps[1]::double precision) OVER (PARTITION BY sl.compare_slot ORDER BY p.time) AS prev_lat,\n         LAG(d.gps[2]::double precision) OVER (PARTITION BY sl.compare_slot ORDER BY p.time) AS prev_lon\n  FROM selected_laps sl\n  JOIN packet p ON p.time >= sl.start_time AND p.time < sl.next_time\n  JOIN dynamics d ON d.packet_id = p.packet_id\n  LEFT JOIN controls c ON c.packet_id = p.packet_id\n  WHERE d.gps IS NOT NULL AND array_length(d.gps, 1) >= 2\n), distance_samples AS (\n  SELECT *,\n         SUM(CASE WHEN prev_lat IS NULL OR prev_lon IS NULL THEN 0 ELSE\n           2 * 6371000 * ASIN(LEAST(1.0, SQRT(\n             POWER(SIN(RADIANS(lat - prev_lat) / 2), 2) +\n             COS(RADIANS(prev_lat)) * COS(RADIANS(lat)) * POWER(SIN(RADIANS(lon - prev_lon) / 2), 2)\n           ))) END) OVER (PARTITION BY compare_slot ORDER BY time ROWS UNBOUNDED PRECEDING) AS distance_m\n  FROM samples\n), binned AS (\n  SELECT (FLOOR(distance_m / GREATEST(${DistanceStep:raw}::numeric, 1)) * GREATEST(${DistanceStep:raw}::numeric, 1))::double precision AS distance_m,\n         compare_slot,\n         AVG(speed_mph) AS speed_mph,\n         AVG(throttle_pct) AS throttle_pct,\n         AVG(brake_f_psi) AS brake_f_psi,\n         AVG(steer_deg) AS steer_deg\n  FROM distance_samples\n  GROUP BY 1, compare_slot\n)\nSELECT distance_m,\n       AVG(steer_deg) FILTER (WHERE compare_slot = 1) AS \"Compare 1 steer [deg]\",\n       AVG(steer_deg) FILTER (WHERE compare_slot = 2) AS \"Compare 2 steer [deg]\",\n       AVG(steer_deg) FILTER (WHERE compare_slot = 3) AS \"Compare 3 steer [deg]\",\n       AVG(steer_deg) FILTER (WHERE compare_slot = 4) AS \"Compare 4 steer [deg]\",\n       AVG(steer_deg) FILTER (WHERE compare_slot = 5) AS \"Compare 5 steer [deg]\",\n       AVG(steer_deg) FILTER (WHERE compare_slot = 6) AS \"Compare 6 steer [deg]\"\nFROM binned\nGROUP BY distance_m\nORDER BY distance_m;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 40,
+  "style": "dark",
+  "tags": [
+    "andrew",
+    "orion",
+    "laps",
+    "distance-sync",
+    "race-engineering"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "orion"
+        },
+        "definition": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "description": "Select one or more continuous runs split by packet gaps.",
+        "includeAll": true,
+        "label": "Run",
+        "multi": true,
+        "name": "Zoom",
+        "options": [],
+        "query": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "orion"
+        },
+        "definition": "WITH selected_partitions AS ( SELECT p.start_time, p.end_time FROM partitions p WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[] OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[]) ), bounds AS ( SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS effective_start, LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS effective_end FROM selected_partitions ), laps AS ( SELECT ROW_NUMBER() OVER (ORDER BY start_time) AS lap, start_time, LEAD(start_time) OVER (ORDER BY start_time) AS next_time FROM classifier, bounds WHERE type = 'lap' AND start_time BETWEEN bounds.effective_start AND bounds.effective_end ) SELECT CONCAT('Lap ', lap, ' | ', ROUND(((next_time - start_time) / 1000.0)::numeric, 3), ' s') AS __text, CONCAT(start_time, ':', next_time, ':', lap) AS __value FROM laps WHERE next_time IS NOT NULL ORDER BY lap;",
+        "description": "Laps to distance-sync. All loads the first N laps.",
+        "includeAll": true,
+        "label": "Compare laps",
+        "multi": true,
+        "name": "CompareLaps",
+        "options": [],
+        "query": "WITH selected_partitions AS ( SELECT p.start_time, p.end_time FROM partitions p WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[] OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[]) ), bounds AS ( SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS effective_start, LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS effective_end FROM selected_partitions ), laps AS ( SELECT ROW_NUMBER() OVER (ORDER BY start_time) AS lap, start_time, LEAD(start_time) OVER (ORDER BY start_time) AS next_time FROM classifier, bounds WHERE type = 'lap' AND start_time BETWEEN bounds.effective_start AND bounds.effective_end ) SELECT CONCAT('Lap ', lap, ' | ', ROUND(((next_time - start_time) / 1000.0)::numeric, 3), ' s') AS __text, CONCAT(start_time, ':', next_time, ':', lap) AS __value FROM laps WHERE next_time IS NOT NULL ORDER BY lap;",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "4",
+          "value": "4"
+        },
+        "description": "Number of laps loaded when Compare laps = All.",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Auto compare count",
+        "multi": false,
+        "name": "AutoCompareCount",
+        "options": [
+          {
+            "selected": false,
+            "text": "2",
+            "value": "2"
+          },
+          {
+            "selected": false,
+            "text": "3",
+            "value": "3"
+          },
+          {
+            "selected": true,
+            "text": "4",
+            "value": "4"
+          },
+          {
+            "selected": false,
+            "text": "5",
+            "value": "5"
+          },
+          {
+            "selected": false,
+            "text": "6",
+            "value": "6"
+          }
+        ],
+        "query": "2,3,4,5,6",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "5",
+          "value": "5"
+        },
+        "description": "Distance bin size for synced overlays.",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Distance step m",
+        "multi": false,
+        "name": "DistanceStep",
+        "options": [
+          {
+            "selected": false,
+            "text": "2",
+            "value": "2"
+          },
+          {
+            "selected": true,
+            "text": "5",
+            "value": "5"
+          },
+          {
+            "selected": false,
+            "text": "10",
+            "value": "10"
+          },
+          {
+            "selected": false,
+            "text": "20",
+            "value": "20"
+          }
+        ],
+        "query": "2,5,10,20",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m"
+    ]
+  },
+  "timezone": "browser",
+  "title": "Andrew / Orion Distance-Synced Lap Compare",
+  "uid": "andrew_orion_distance_lap_compare",
+  "version": 1,
+  "weekStart": ""
+}

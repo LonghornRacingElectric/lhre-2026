@@ -36,8 +36,29 @@ bool bse_is_active(float psi, bse_state_t *state, vcu_parameters_t *params) {
   return state->brake_pressed;
 }
 
-static bool bse_is_latched(bool brake_pressed, float pedal, bse_state_t *state,
+static bool launch_mode_allows_brake_pedal(const vcu_inputs_t *in,
+                                           bool brake_pressed, float pedal,
+                                           float brake_psi,
+                                           const vcu_parameters_t *params) {
+  if (params->torque_map.launch_mode_disable || !brake_pressed) {
+    return false;
+  }
+
+  return brake_psi >= params->torque_map.launch_brake_min_psi &&
+         pedal >= params->torque_map.launch_pedal_min &&
+         pedal <= params->torque_map.launch_pedal_max &&
+         fabsf(in->motor_speed_rpm) <= params->torque_map.launch_exit_rpm;
+}
+
+static bool bse_is_latched(const vcu_inputs_t *in, bool brake_pressed,
+                           float pedal, float brake_psi, bse_state_t *state,
                            vcu_parameters_t *params) {
+  if (launch_mode_allows_brake_pedal(in, brake_pressed, pedal, brake_psi,
+                                     params)) {
+    state->brake_latched = false;
+    return false;
+  }
+
   if (brake_pressed && pedal > params->bse.max_pedal_while_braking) {
     state->brake_latched = true;
   }
@@ -87,8 +108,9 @@ void bse_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   out->brake_light_pct = out->brake_pressed ? params->bse.brake_light_max_pct
                                             : params->bse.brake_light_min_pct;
 
-  out->faults.brake_latched = bse_is_latched(
-      out->brake_pressed, out->accel_pedal_travel, state, params);
+  out->faults.brake_latched =
+      bse_is_latched(in, out->brake_pressed, out->accel_pedal_travel,
+                     out->bse_psi, state, params);
 
   out->faults.brake_any_fault =
       out->faults.brake_any_fault || out->faults.brake_latched;

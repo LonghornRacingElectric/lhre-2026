@@ -93,13 +93,10 @@ typedef struct {
     float tc_rear_disagreement_mps;
     float tc_motor_rear_disagreement_mps;
     uint32_t tc_sensor_fault_flags;
-    bool launch_comp_active;
-    uint8_t launch_comp_state;
-    bool launch_contact_detected;
+    bool launch_active;
+    uint8_t launch_state;
     float launch_raw_torque_cmd_nm;
-    float launch_filtered_motor_rpm;
-    float launch_motor_accel_rpm_per_s;
-    float launch_torque_limit_nm;
+    float launch_torque_cmd_nm;
   } debug;
 
 } vcu_outputs_t;

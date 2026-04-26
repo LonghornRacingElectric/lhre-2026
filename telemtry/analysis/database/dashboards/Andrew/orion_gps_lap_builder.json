@@ -1,0 +1,1343 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Automatically derive Orion laps from GPS crossing a generated or saved start/finish gate.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": true,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [
+        "andrew",
+        "orion"
+      ],
+      "targetBlank": false,
+      "title": "Switch Orion Workbook",
+      "tooltip": "Jump between Andrew Orion dashboards while keeping time range and variables.",
+      "type": "dashboards"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "GPS Lap Builder",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<div style='font-size:22px;font-weight:800;color:#f8fafc'>ORION GPS LAP BUILDER</div><div style='color:#94a3b8'>Generate laps from GPS crossing a start/finish gate. Default Auto Gate uses the first valid GPS point; Track Mapping uses the saved gate from track_mapping.</div>",
+        "mode": "markdown"
+      },
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Generated Lap Sheet - Click Lap To Analyze",
+      "description": "Query-generated laps. Clicking lap opens the Orion overview with matching time bounds.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 7,
+        "h": 14
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "lap"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open lap in Orion overview",
+                    "url": "/d/andrew_orion_race_engineering/orion-race-engineering-overview?from=${__data.fields.start_ms}&to=${__data.fields.end_ms}&var-Lap=${__data.fields.lap_value}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "lap_value"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "start_ms"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "end_ms"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n), run_points AS (\n  SELECT p.time, p.packet_id, d.gps[1]::double precision AS lat, d.gps[2]::double precision AS lon,\n         d.gps_speed * 2.23694 AS speed_mph\n  FROM dynamics d JOIN packet p ON p.packet_id = d.packet_id JOIN run_bounds ON true\n  WHERE p.time BETWEEN run_bounds.run_start AND run_bounds.run_end\n    AND d.gps IS NOT NULL AND array_length(d.gps, 1) >= 2\n    AND d.gps[1] BETWEEN -90 AND 90 AND d.gps[2] BETWEEN -180 AND 180\n), auto_seed AS (\n  SELECT * FROM (\n    SELECT time, lat, lon,\n           LEAD(lat, 10) OVER (ORDER BY time) AS lat_next,\n           LEAD(lon, 10) OVER (ORDER BY time) AS lon_next\n    FROM run_points\n  ) seeded\n  WHERE lat_next IS NOT NULL AND lon_next IS NOT NULL\n  ORDER BY time LIMIT 1\n), auto_gate AS (\n  SELECT lat - ((lon_next - lon) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lat1,\n         lon + ((lat_next - lat) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lon1,\n         lat + ((lon_next - lon) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lat2,\n         lon - ((lat_next - lat) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lon2,\n         'auto first GPS point'::text AS gate_name\n  FROM auto_seed\n), mapped_gate AS (\n  SELECT start_gate_lat1::double precision AS lat1, start_gate_lon1::double precision AS lon1,\n         start_gate_lat2::double precision AS lat2, start_gate_lon2::double precision AS lon2,\n         name AS gate_name\n  FROM track_mapping\n  WHERE track_mapping_id::text = NULLIF('${TrackMapping:raw}', '$__all')\n  LIMIT 1\n), gate AS (\n  SELECT * FROM mapped_gate WHERE '${GateMode:raw}' = 'mapped'\n  UNION ALL\n  SELECT * FROM auto_gate WHERE '${GateMode:raw}' = 'auto' OR NOT EXISTS (SELECT 1 FROM mapped_gate)\n  LIMIT 1\n), segments AS (\n  SELECT LAG(time) OVER (ORDER BY time) AS prev_time, time,\n         LAG(lat) OVER (ORDER BY time) AS prev_lat, lat,\n         LAG(lon) OVER (ORDER BY time) AS prev_lon, lon\n  FROM run_points\n), raw_crossings AS (\n  SELECT ((prev_time + time) / 2)::bigint AS crossing_time\n  FROM segments CROSS JOIN gate\n  WHERE prev_time IS NOT NULL\n    AND LEAST(prev_lat, lat) <= GREATEST(gate.lat1, gate.lat2)\n    AND GREATEST(prev_lat, lat) >= LEAST(gate.lat1, gate.lat2)\n    AND LEAST(prev_lon, lon) <= GREATEST(gate.lon1, gate.lon2)\n    AND GREATEST(prev_lon, lon) >= LEAST(gate.lon1, gate.lon2)\n    AND (((lat - prev_lat) * (gate.lon1 - prev_lon) - (lon - prev_lon) * (gate.lat1 - prev_lat)) *\n         ((lat - prev_lat) * (gate.lon2 - prev_lon) - (lon - prev_lon) * (gate.lat2 - prev_lat))) <= 0\n    AND (((gate.lat2 - gate.lat1) * (prev_lon - gate.lon1) - (gate.lon2 - gate.lon1) * (prev_lat - gate.lat1)) *\n         ((gate.lat2 - gate.lat1) * (lon - gate.lon1) - (gate.lon2 - gate.lon1) * (lat - gate.lat1))) <= 0\n), crossing_gaps AS (\n  SELECT crossing_time,\n         CASE WHEN LAG(crossing_time) OVER (ORDER BY crossing_time) IS NULL\n                OR crossing_time - LAG(crossing_time) OVER (ORDER BY crossing_time) > (${MinLapSeconds:raw}::int * 1000)\n              THEN 1 ELSE 0 END AS new_group\n  FROM raw_crossings\n), clustered_crossings AS (\n  SELECT crossing_time, SUM(new_group) OVER (ORDER BY crossing_time) AS cluster_id\n  FROM crossing_gaps\n), lap_marks AS (\n  SELECT MIN(crossing_time) AS start_time\n  FROM clustered_crossings\n  GROUP BY cluster_id\n), generated_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY start_time) AS lap,\n         start_time,\n         LEAD(start_time) OVER (ORDER BY start_time) AS next_time\n  FROM lap_marks\n), lap_metrics AS (\n  SELECT generated_laps.lap, generated_laps.start_time, generated_laps.next_time,\n         (generated_laps.next_time - generated_laps.start_time) / 1000.0 AS lap_s,\n         MAX(d.gps_speed * 2.23694) AS max_mph,\n         AVG(c.apps1_travel) AS avg_throttle,\n         MAX(c.brake_pressure_f) AS peak_brake_f\n  FROM generated_laps\n  LEFT JOIN packet p ON p.time >= generated_laps.start_time AND p.time < COALESCE(generated_laps.next_time, generated_laps.start_time + 120000)\n  LEFT JOIN dynamics d ON d.packet_id = p.packet_id\n  LEFT JOIN controls c ON c.packet_id = p.packet_id\n  WHERE generated_laps.next_time IS NOT NULL\n  GROUP BY generated_laps.lap, generated_laps.start_time, generated_laps.next_time\n)\n, ranked AS (\n  SELECT *, MIN(lap_s) OVER () AS best_lap_s\n  FROM lap_metrics\n)\nSELECT lap AS \"lap\",\n       to_char(to_timestamp(start_time / 1000.0), 'HH24:MI:SS.MS') AS \"start\",\n       ROUND(lap_s::numeric, 3) AS \"lap time [s]\",\n       ROUND((lap_s - best_lap_s)::numeric, 3) AS \"delta [s]\",\n       ROUND(max_mph::numeric, 1) AS \"max [mph]\",\n       ROUND(avg_throttle::numeric, 1) AS \"avg throttle [%]\",\n       ROUND(peak_brake_f::numeric, 1) AS \"peak brake F [psi]\",\n       CONCAT(start_time, ':', next_time) AS lap_value,\n       start_time AS start_ms,\n       next_time AS end_ms\nFROM ranked\nORDER BY lap;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Gate Status",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 7,
+        "y": 2,
+        "w": 5,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n), run_points AS (\n  SELECT p.time, p.packet_id, d.gps[1]::double precision AS lat, d.gps[2]::double precision AS lon,\n         d.gps_speed * 2.23694 AS speed_mph\n  FROM dynamics d JOIN packet p ON p.packet_id = d.packet_id JOIN run_bounds ON true\n  WHERE p.time BETWEEN run_bounds.run_start AND run_bounds.run_end\n    AND d.gps IS NOT NULL AND array_length(d.gps, 1) >= 2\n    AND d.gps[1] BETWEEN -90 AND 90 AND d.gps[2] BETWEEN -180 AND 180\n), auto_seed AS (\n  SELECT * FROM (\n    SELECT time, lat, lon,\n           LEAD(lat, 10) OVER (ORDER BY time) AS lat_next,\n           LEAD(lon, 10) OVER (ORDER BY time) AS lon_next\n    FROM run_points\n  ) seeded\n  WHERE lat_next IS NOT NULL AND lon_next IS NOT NULL\n  ORDER BY time LIMIT 1\n), auto_gate AS (\n  SELECT lat - ((lon_next - lon) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lat1,\n         lon + ((lat_next - lat) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lon1,\n         lat + ((lon_next - lon) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lat2,\n         lon - ((lat_next - lat) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lon2,\n         'auto first GPS point'::text AS gate_name\n  FROM auto_seed\n), mapped_gate AS (\n  SELECT start_gate_lat1::double precision AS lat1, start_gate_lon1::double precision AS lon1,\n         start_gate_lat2::double precision AS lat2, start_gate_lon2::double precision AS lon2,\n         name AS gate_name\n  FROM track_mapping\n  WHERE track_mapping_id::text = NULLIF('${TrackMapping:raw}', '$__all')\n  LIMIT 1\n), gate AS (\n  SELECT * FROM mapped_gate WHERE '${GateMode:raw}' = 'mapped'\n  UNION ALL\n  SELECT * FROM auto_gate WHERE '${GateMode:raw}' = 'auto' OR NOT EXISTS (SELECT 1 FROM mapped_gate)\n  LIMIT 1\n), segments AS (\n  SELECT LAG(time) OVER (ORDER BY time) AS prev_time, time,\n         LAG(lat) OVER (ORDER BY time) AS prev_lat, lat,\n         LAG(lon) OVER (ORDER BY time) AS prev_lon, lon\n  FROM run_points\n), raw_crossings AS (\n  SELECT ((prev_time + time) / 2)::bigint AS crossing_time\n  FROM segments CROSS JOIN gate\n  WHERE prev_time IS NOT NULL\n    AND LEAST(prev_lat, lat) <= GREATEST(gate.lat1, gate.lat2)\n    AND GREATEST(prev_lat, lat) >= LEAST(gate.lat1, gate.lat2)\n    AND LEAST(prev_lon, lon) <= GREATEST(gate.lon1, gate.lon2)\n    AND GREATEST(prev_lon, lon) >= LEAST(gate.lon1, gate.lon2)\n    AND (((lat - prev_lat) * (gate.lon1 - prev_lon) - (lon - prev_lon) * (gate.lat1 - prev_lat)) *\n         ((lat - prev_lat) * (gate.lon2 - prev_lon) - (lon - prev_lon) * (gate.lat2 - prev_lat))) <= 0\n    AND (((gate.lat2 - gate.lat1) * (prev_lon - gate.lon1) - (gate.lon2 - gate.lon1) * (prev_lat - gate.lat1)) *\n         ((gate.lat2 - gate.lat1) * (lon - gate.lon1) - (gate.lon2 - gate.lon1) * (lat - gate.lat1))) <= 0\n), crossing_gaps AS (\n  SELECT crossing_time,\n         CASE WHEN LAG(crossing_time) OVER (ORDER BY crossing_time) IS NULL\n                OR crossing_time - LAG(crossing_time) OVER (ORDER BY crossing_time) > (${MinLapSeconds:raw}::int * 1000)\n              THEN 1 ELSE 0 END AS new_group\n  FROM raw_crossings\n), clustered_crossings AS (\n  SELECT crossing_time, SUM(new_group) OVER (ORDER BY crossing_time) AS cluster_id\n  FROM crossing_gaps\n), lap_marks AS (\n  SELECT MIN(crossing_time) AS start_time\n  FROM clustered_crossings\n  GROUP BY cluster_id\n), generated_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY start_time) AS lap,\n         start_time,\n         LEAD(start_time) OVER (ORDER BY start_time) AS next_time\n  FROM lap_marks\n), lap_metrics AS (\n  SELECT generated_laps.lap, generated_laps.start_time, generated_laps.next_time,\n         (generated_laps.next_time - generated_laps.start_time) / 1000.0 AS lap_s,\n         MAX(d.gps_speed * 2.23694) AS max_mph,\n         AVG(c.apps1_travel) AS avg_throttle,\n         MAX(c.brake_pressure_f) AS peak_brake_f\n  FROM generated_laps\n  LEFT JOIN packet p ON p.time >= generated_laps.start_time AND p.time < COALESCE(generated_laps.next_time, generated_laps.start_time + 120000)\n  LEFT JOIN dynamics d ON d.packet_id = p.packet_id\n  LEFT JOIN controls c ON c.packet_id = p.packet_id\n  WHERE generated_laps.next_time IS NOT NULL\n  GROUP BY generated_laps.lap, generated_laps.start_time, generated_laps.next_time\n)\nSELECT gate.gate_name AS \"gate\",\n       '${GateMode:raw}' AS \"mode\",\n       ROUND(gate.lat1::numeric, 7) AS lat1,\n       ROUND(gate.lon1::numeric, 7) AS lon1,\n       ROUND(gate.lat2::numeric, 7) AS lat2,\n       ROUND(gate.lon2::numeric, 7) AS lon2,\n       (SELECT COUNT(*) FROM lap_metrics) AS \"generated laps\",\n       (SELECT COUNT(*) FROM raw_crossings) AS \"raw crossings\"\nFROM gate;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 5,
+      "type": "geomap",
+      "title": "GPS Trace And Start/Finish Gate",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 2,
+        "w": 12,
+        "h": 14
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "basemap": {
+          "config": {},
+          "name": "Layer 0",
+          "type": "default"
+        },
+        "controls": {
+          "mouseWheelZoom": true,
+          "showAttribution": false,
+          "showDebug": false,
+          "showMeasure": false,
+          "showScale": true,
+          "showZoom": true
+        },
+        "layers": [
+          {
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": {
+                  "field": "speed_mph",
+                  "fixed": "#2ec4ff"
+                },
+                "opacity": 0.78,
+                "size": {
+                  "field": "point_size",
+                  "fixed": 4,
+                  "max": 12,
+                  "min": 2
+                }
+              }
+            },
+            "location": {
+              "latitude": "lat",
+              "longitude": "lon",
+              "mode": "coords"
+            },
+            "name": "GPS trace and gate",
+            "tooltip": true,
+            "type": "markers"
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        },
+        "view": {
+          "id": "coords",
+          "lat": 30.286,
+          "lon": -97.735,
+          "zoom": 15
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n), run_points AS (\n  SELECT p.time, p.packet_id, d.gps[1]::double precision AS lat, d.gps[2]::double precision AS lon,\n         d.gps_speed * 2.23694 AS speed_mph\n  FROM dynamics d JOIN packet p ON p.packet_id = d.packet_id JOIN run_bounds ON true\n  WHERE p.time BETWEEN run_bounds.run_start AND run_bounds.run_end\n    AND d.gps IS NOT NULL AND array_length(d.gps, 1) >= 2\n    AND d.gps[1] BETWEEN -90 AND 90 AND d.gps[2] BETWEEN -180 AND 180\n), auto_seed AS (\n  SELECT * FROM (\n    SELECT time, lat, lon,\n           LEAD(lat, 10) OVER (ORDER BY time) AS lat_next,\n           LEAD(lon, 10) OVER (ORDER BY time) AS lon_next\n    FROM run_points\n  ) seeded\n  WHERE lat_next IS NOT NULL AND lon_next IS NOT NULL\n  ORDER BY time LIMIT 1\n), auto_gate AS (\n  SELECT lat - ((lon_next - lon) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lat1,\n         lon + ((lat_next - lat) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lon1,\n         lat + ((lon_next - lon) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lat2,\n         lon - ((lat_next - lat) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lon2,\n         'auto first GPS point'::text AS gate_name\n  FROM auto_seed\n), mapped_gate AS (\n  SELECT start_gate_lat1::double precision AS lat1, start_gate_lon1::double precision AS lon1,\n         start_gate_lat2::double precision AS lat2, start_gate_lon2::double precision AS lon2,\n         name AS gate_name\n  FROM track_mapping\n  WHERE track_mapping_id::text = NULLIF('${TrackMapping:raw}', '$__all')\n  LIMIT 1\n), gate AS (\n  SELECT * FROM mapped_gate WHERE '${GateMode:raw}' = 'mapped'\n  UNION ALL\n  SELECT * FROM auto_gate WHERE '${GateMode:raw}' = 'auto' OR NOT EXISTS (SELECT 1 FROM mapped_gate)\n  LIMIT 1\n), segments AS (\n  SELECT LAG(time) OVER (ORDER BY time) AS prev_time, time,\n         LAG(lat) OVER (ORDER BY time) AS prev_lat, lat,\n         LAG(lon) OVER (ORDER BY time) AS prev_lon, lon\n  FROM run_points\n), raw_crossings AS (\n  SELECT ((prev_time + time) / 2)::bigint AS crossing_time\n  FROM segments CROSS JOIN gate\n  WHERE prev_time IS NOT NULL\n    AND LEAST(prev_lat, lat) <= GREATEST(gate.lat1, gate.lat2)\n    AND GREATEST(prev_lat, lat) >= LEAST(gate.lat1, gate.lat2)\n    AND LEAST(prev_lon, lon) <= GREATEST(gate.lon1, gate.lon2)\n    AND GREATEST(prev_lon, lon) >= LEAST(gate.lon1, gate.lon2)\n    AND (((lat - prev_lat) * (gate.lon1 - prev_lon) - (lon - prev_lon) * (gate.lat1 - prev_lat)) *\n         ((lat - prev_lat) * (gate.lon2 - prev_lon) - (lon - prev_lon) * (gate.lat2 - prev_lat))) <= 0\n    AND (((gate.lat2 - gate.lat1) * (prev_lon - gate.lon1) - (gate.lon2 - gate.lon1) * (prev_lat - gate.lat1)) *\n         ((gate.lat2 - gate.lat1) * (lon - gate.lon1) - (gate.lon2 - gate.lon1) * (lat - gate.lat1))) <= 0\n), crossing_gaps AS (\n  SELECT crossing_time,\n         CASE WHEN LAG(crossing_time) OVER (ORDER BY crossing_time) IS NULL\n                OR crossing_time - LAG(crossing_time) OVER (ORDER BY crossing_time) > (${MinLapSeconds:raw}::int * 1000)\n              THEN 1 ELSE 0 END AS new_group\n  FROM raw_crossings\n), clustered_crossings AS (\n  SELECT crossing_time, SUM(new_group) OVER (ORDER BY crossing_time) AS cluster_id\n  FROM crossing_gaps\n), lap_marks AS (\n  SELECT MIN(crossing_time) AS start_time\n  FROM clustered_crossings\n  GROUP BY cluster_id\n), generated_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY start_time) AS lap,\n         start_time,\n         LEAD(start_time) OVER (ORDER BY start_time) AS next_time\n  FROM lap_marks\n), lap_metrics AS (\n  SELECT generated_laps.lap, generated_laps.start_time, generated_laps.next_time,\n         (generated_laps.next_time - generated_laps.start_time) / 1000.0 AS lap_s,\n         MAX(d.gps_speed * 2.23694) AS max_mph,\n         AVG(c.apps1_travel) AS avg_throttle,\n         MAX(c.brake_pressure_f) AS peak_brake_f\n  FROM generated_laps\n  LEFT JOIN packet p ON p.time >= generated_laps.start_time AND p.time < COALESCE(generated_laps.next_time, generated_laps.start_time + 120000)\n  LEFT JOIN dynamics d ON d.packet_id = p.packet_id\n  LEFT JOIN controls c ON c.packet_id = p.packet_id\n  WHERE generated_laps.next_time IS NOT NULL\n  GROUP BY generated_laps.lap, generated_laps.start_time, generated_laps.next_time\n)\nSELECT to_timestamp(time / 1000.0) AS time, lat, lon, speed_mph, 4 AS point_size, 'gps' AS point_type\nFROM run_points\nWHERE packet_id % GREATEST(${Stride:raw}::int, 1) = 0\nUNION ALL\nSELECT to_timestamp(run_bounds.run_start / 1000.0), gate.lat1, gate.lon1, 120.0, 10, 'gate A'\nFROM gate CROSS JOIN run_bounds\nUNION ALL\nSELECT to_timestamp(run_bounds.run_start / 1000.0), gate.lat2, gate.lon2, 120.0, 10, 'gate B'\nFROM gate CROSS JOIN run_bounds\nORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Generated Lap Count",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 7,
+        "y": 8,
+        "w": 5,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n), run_points AS (\n  SELECT p.time, p.packet_id, d.gps[1]::double precision AS lat, d.gps[2]::double precision AS lon,\n         d.gps_speed * 2.23694 AS speed_mph\n  FROM dynamics d JOIN packet p ON p.packet_id = d.packet_id JOIN run_bounds ON true\n  WHERE p.time BETWEEN run_bounds.run_start AND run_bounds.run_end\n    AND d.gps IS NOT NULL AND array_length(d.gps, 1) >= 2\n    AND d.gps[1] BETWEEN -90 AND 90 AND d.gps[2] BETWEEN -180 AND 180\n), auto_seed AS (\n  SELECT * FROM (\n    SELECT time, lat, lon,\n           LEAD(lat, 10) OVER (ORDER BY time) AS lat_next,\n           LEAD(lon, 10) OVER (ORDER BY time) AS lon_next\n    FROM run_points\n  ) seeded\n  WHERE lat_next IS NOT NULL AND lon_next IS NOT NULL\n  ORDER BY time LIMIT 1\n), auto_gate AS (\n  SELECT lat - ((lon_next - lon) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lat1,\n         lon + ((lat_next - lat) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lon1,\n         lat + ((lon_next - lon) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lat2,\n         lon - ((lat_next - lat) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lon2,\n         'auto first GPS point'::text AS gate_name\n  FROM auto_seed\n), mapped_gate AS (\n  SELECT start_gate_lat1::double precision AS lat1, start_gate_lon1::double precision AS lon1,\n         start_gate_lat2::double precision AS lat2, start_gate_lon2::double precision AS lon2,\n         name AS gate_name\n  FROM track_mapping\n  WHERE track_mapping_id::text = NULLIF('${TrackMapping:raw}', '$__all')\n  LIMIT 1\n), gate AS (\n  SELECT * FROM mapped_gate WHERE '${GateMode:raw}' = 'mapped'\n  UNION ALL\n  SELECT * FROM auto_gate WHERE '${GateMode:raw}' = 'auto' OR NOT EXISTS (SELECT 1 FROM mapped_gate)\n  LIMIT 1\n), segments AS (\n  SELECT LAG(time) OVER (ORDER BY time) AS prev_time, time,\n         LAG(lat) OVER (ORDER BY time) AS prev_lat, lat,\n         LAG(lon) OVER (ORDER BY time) AS prev_lon, lon\n  FROM run_points\n), raw_crossings AS (\n  SELECT ((prev_time + time) / 2)::bigint AS crossing_time\n  FROM segments CROSS JOIN gate\n  WHERE prev_time IS NOT NULL\n    AND LEAST(prev_lat, lat) <= GREATEST(gate.lat1, gate.lat2)\n    AND GREATEST(prev_lat, lat) >= LEAST(gate.lat1, gate.lat2)\n    AND LEAST(prev_lon, lon) <= GREATEST(gate.lon1, gate.lon2)\n    AND GREATEST(prev_lon, lon) >= LEAST(gate.lon1, gate.lon2)\n    AND (((lat - prev_lat) * (gate.lon1 - prev_lon) - (lon - prev_lon) * (gate.lat1 - prev_lat)) *\n         ((lat - prev_lat) * (gate.lon2 - prev_lon) - (lon - prev_lon) * (gate.lat2 - prev_lat))) <= 0\n    AND (((gate.lat2 - gate.lat1) * (prev_lon - gate.lon1) - (gate.lon2 - gate.lon1) * (prev_lat - gate.lat1)) *\n         ((gate.lat2 - gate.lat1) * (lon - gate.lon1) - (gate.lon2 - gate.lon1) * (lat - gate.lat1))) <= 0\n), crossing_gaps AS (\n  SELECT crossing_time,\n         CASE WHEN LAG(crossing_time) OVER (ORDER BY crossing_time) IS NULL\n                OR crossing_time - LAG(crossing_time) OVER (ORDER BY crossing_time) > (${MinLapSeconds:raw}::int * 1000)\n              THEN 1 ELSE 0 END AS new_group\n  FROM raw_crossings\n), clustered_crossings AS (\n  SELECT crossing_time, SUM(new_group) OVER (ORDER BY crossing_time) AS cluster_id\n  FROM crossing_gaps\n), lap_marks AS (\n  SELECT MIN(crossing_time) AS start_time\n  FROM clustered_crossings\n  GROUP BY cluster_id\n), generated_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY start_time) AS lap,\n         start_time,\n         LEAD(start_time) OVER (ORDER BY start_time) AS next_time\n  FROM lap_marks\n), lap_metrics AS (\n  SELECT generated_laps.lap, generated_laps.start_time, generated_laps.next_time,\n         (generated_laps.next_time - generated_laps.start_time) / 1000.0 AS lap_s,\n         MAX(d.gps_speed * 2.23694) AS max_mph,\n         AVG(c.apps1_travel) AS avg_throttle,\n         MAX(c.brake_pressure_f) AS peak_brake_f\n  FROM generated_laps\n  LEFT JOIN packet p ON p.time >= generated_laps.start_time AND p.time < COALESCE(generated_laps.next_time, generated_laps.start_time + 120000)\n  LEFT JOIN dynamics d ON d.packet_id = p.packet_id\n  LEFT JOIN controls c ON c.packet_id = p.packet_id\n  WHERE generated_laps.next_time IS NOT NULL\n  GROUP BY generated_laps.lap, generated_laps.start_time, generated_laps.next_time\n)SELECT COUNT(*) AS laps FROM lap_metrics;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Speed / Inputs With GPS Lap Crossings",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/speed/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#2ec4ff"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/throttle/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#2fd17c"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/brake/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ff4d5a"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/GPS lap/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ffd166"
+                }
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "bars"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n), run_points AS (\n  SELECT p.time, p.packet_id, d.gps[1]::double precision AS lat, d.gps[2]::double precision AS lon,\n         d.gps_speed * 2.23694 AS speed_mph\n  FROM dynamics d JOIN packet p ON p.packet_id = d.packet_id JOIN run_bounds ON true\n  WHERE p.time BETWEEN run_bounds.run_start AND run_bounds.run_end\n    AND d.gps IS NOT NULL AND array_length(d.gps, 1) >= 2\n    AND d.gps[1] BETWEEN -90 AND 90 AND d.gps[2] BETWEEN -180 AND 180\n), auto_seed AS (\n  SELECT * FROM (\n    SELECT time, lat, lon,\n           LEAD(lat, 10) OVER (ORDER BY time) AS lat_next,\n           LEAD(lon, 10) OVER (ORDER BY time) AS lon_next\n    FROM run_points\n  ) seeded\n  WHERE lat_next IS NOT NULL AND lon_next IS NOT NULL\n  ORDER BY time LIMIT 1\n), auto_gate AS (\n  SELECT lat - ((lon_next - lon) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lat1,\n         lon + ((lat_next - lat) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lon1,\n         lat + ((lon_next - lon) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lat2,\n         lon - ((lat_next - lat) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lon2,\n         'auto first GPS point'::text AS gate_name\n  FROM auto_seed\n), mapped_gate AS (\n  SELECT start_gate_lat1::double precision AS lat1, start_gate_lon1::double precision AS lon1,\n         start_gate_lat2::double precision AS lat2, start_gate_lon2::double precision AS lon2,\n         name AS gate_name\n  FROM track_mapping\n  WHERE track_mapping_id::text = NULLIF('${TrackMapping:raw}', '$__all')\n  LIMIT 1\n), gate AS (\n  SELECT * FROM mapped_gate WHERE '${GateMode:raw}' = 'mapped'\n  UNION ALL\n  SELECT * FROM auto_gate WHERE '${GateMode:raw}' = 'auto' OR NOT EXISTS (SELECT 1 FROM mapped_gate)\n  LIMIT 1\n), segments AS (\n  SELECT LAG(time) OVER (ORDER BY time) AS prev_time, time,\n         LAG(lat) OVER (ORDER BY time) AS prev_lat, lat,\n         LAG(lon) OVER (ORDER BY time) AS prev_lon, lon\n  FROM run_points\n), raw_crossings AS (\n  SELECT ((prev_time + time) / 2)::bigint AS crossing_time\n  FROM segments CROSS JOIN gate\n  WHERE prev_time IS NOT NULL\n    AND LEAST(prev_lat, lat) <= GREATEST(gate.lat1, gate.lat2)\n    AND GREATEST(prev_lat, lat) >= LEAST(gate.lat1, gate.lat2)\n    AND LEAST(prev_lon, lon) <= GREATEST(gate.lon1, gate.lon2)\n    AND GREATEST(prev_lon, lon) >= LEAST(gate.lon1, gate.lon2)\n    AND (((lat - prev_lat) * (gate.lon1 - prev_lon) - (lon - prev_lon) * (gate.lat1 - prev_lat)) *\n         ((lat - prev_lat) * (gate.lon2 - prev_lon) - (lon - prev_lon) * (gate.lat2 - prev_lat))) <= 0\n    AND (((gate.lat2 - gate.lat1) * (prev_lon - gate.lon1) - (gate.lon2 - gate.lon1) * (prev_lat - gate.lat1)) *\n         ((gate.lat2 - gate.lat1) * (lon - gate.lon1) - (gate.lon2 - gate.lon1) * (lat - gate.lat1))) <= 0\n), crossing_gaps AS (\n  SELECT crossing_time,\n         CASE WHEN LAG(crossing_time) OVER (ORDER BY crossing_time) IS NULL\n                OR crossing_time - LAG(crossing_time) OVER (ORDER BY crossing_time) > (${MinLapSeconds:raw}::int * 1000)\n              THEN 1 ELSE 0 END AS new_group\n  FROM raw_crossings\n), clustered_crossings AS (\n  SELECT crossing_time, SUM(new_group) OVER (ORDER BY crossing_time) AS cluster_id\n  FROM crossing_gaps\n), lap_marks AS (\n  SELECT MIN(crossing_time) AS start_time\n  FROM clustered_crossings\n  GROUP BY cluster_id\n), generated_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY start_time) AS lap,\n         start_time,\n         LEAD(start_time) OVER (ORDER BY start_time) AS next_time\n  FROM lap_marks\n), lap_metrics AS (\n  SELECT generated_laps.lap, generated_laps.start_time, generated_laps.next_time,\n         (generated_laps.next_time - generated_laps.start_time) / 1000.0 AS lap_s,\n         MAX(d.gps_speed * 2.23694) AS max_mph,\n         AVG(c.apps1_travel) AS avg_throttle,\n         MAX(c.brake_pressure_f) AS peak_brake_f\n  FROM generated_laps\n  LEFT JOIN packet p ON p.time >= generated_laps.start_time AND p.time < COALESCE(generated_laps.next_time, generated_laps.start_time + 120000)\n  LEFT JOIN dynamics d ON d.packet_id = p.packet_id\n  LEFT JOIN controls c ON c.packet_id = p.packet_id\n  WHERE generated_laps.next_time IS NOT NULL\n  GROUP BY generated_laps.lap, generated_laps.start_time, generated_laps.next_time\n)\n, speed_trace AS (\n  SELECT to_timestamp(floor(p.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n         AVG(d.gps_speed * 2.23694) AS \"speed [mph]\",\n         AVG(c.apps1_travel) AS \"throttle [%]\",\n         AVG(c.brake_pressure_f) AS \"brake front [psi]\"\n  FROM packet p\n  JOIN dynamics d ON d.packet_id = p.packet_id\n  LEFT JOIN controls c ON c.packet_id = p.packet_id\n  JOIN run_bounds ON true JOIN granularity ON true\n  WHERE p.time BETWEEN run_bounds.run_start AND run_bounds.run_end\n  GROUP BY 1\n), lap_pulses AS (\n  SELECT to_timestamp(floor(start_time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, 100.0 AS \"GPS lap crossing\"\n  FROM generated_laps CROSS JOIN granularity\n)\nSELECT speed_trace.time, speed_trace.\"speed [mph]\", speed_trace.\"throttle [%]\", speed_trace.\"brake front [psi]\", lap_pulses.\"GPS lap crossing\"\nFROM speed_trace LEFT JOIN lap_pulses ON lap_pulses.time = speed_trace.time\nORDER BY speed_trace.time;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 7,
+      "type": "barchart",
+      "title": "Generated Lap Times",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 7,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisGridShow": true,
+            "axisPlacement": "auto",
+            "fillOpacity": 72,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "barRadius": 0.05,
+        "barWidth": 0.86,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "lap"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n), run_points AS (\n  SELECT p.time, p.packet_id, d.gps[1]::double precision AS lat, d.gps[2]::double precision AS lon,\n         d.gps_speed * 2.23694 AS speed_mph\n  FROM dynamics d JOIN packet p ON p.packet_id = d.packet_id JOIN run_bounds ON true\n  WHERE p.time BETWEEN run_bounds.run_start AND run_bounds.run_end\n    AND d.gps IS NOT NULL AND array_length(d.gps, 1) >= 2\n    AND d.gps[1] BETWEEN -90 AND 90 AND d.gps[2] BETWEEN -180 AND 180\n), auto_seed AS (\n  SELECT * FROM (\n    SELECT time, lat, lon,\n           LEAD(lat, 10) OVER (ORDER BY time) AS lat_next,\n           LEAD(lon, 10) OVER (ORDER BY time) AS lon_next\n    FROM run_points\n  ) seeded\n  WHERE lat_next IS NOT NULL AND lon_next IS NOT NULL\n  ORDER BY time LIMIT 1\n), auto_gate AS (\n  SELECT lat - ((lon_next - lon) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lat1,\n         lon + ((lat_next - lat) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lon1,\n         lat + ((lon_next - lon) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lat2,\n         lon - ((lat_next - lat) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lon2,\n         'auto first GPS point'::text AS gate_name\n  FROM auto_seed\n), mapped_gate AS (\n  SELECT start_gate_lat1::double precision AS lat1, start_gate_lon1::double precision AS lon1,\n         start_gate_lat2::double precision AS lat2, start_gate_lon2::double precision AS lon2,\n         name AS gate_name\n  FROM track_mapping\n  WHERE track_mapping_id::text = NULLIF('${TrackMapping:raw}', '$__all')\n  LIMIT 1\n), gate AS (\n  SELECT * FROM mapped_gate WHERE '${GateMode:raw}' = 'mapped'\n  UNION ALL\n  SELECT * FROM auto_gate WHERE '${GateMode:raw}' = 'auto' OR NOT EXISTS (SELECT 1 FROM mapped_gate)\n  LIMIT 1\n), segments AS (\n  SELECT LAG(time) OVER (ORDER BY time) AS prev_time, time,\n         LAG(lat) OVER (ORDER BY time) AS prev_lat, lat,\n         LAG(lon) OVER (ORDER BY time) AS prev_lon, lon\n  FROM run_points\n), raw_crossings AS (\n  SELECT ((prev_time + time) / 2)::bigint AS crossing_time\n  FROM segments CROSS JOIN gate\n  WHERE prev_time IS NOT NULL\n    AND LEAST(prev_lat, lat) <= GREATEST(gate.lat1, gate.lat2)\n    AND GREATEST(prev_lat, lat) >= LEAST(gate.lat1, gate.lat2)\n    AND LEAST(prev_lon, lon) <= GREATEST(gate.lon1, gate.lon2)\n    AND GREATEST(prev_lon, lon) >= LEAST(gate.lon1, gate.lon2)\n    AND (((lat - prev_lat) * (gate.lon1 - prev_lon) - (lon - prev_lon) * (gate.lat1 - prev_lat)) *\n         ((lat - prev_lat) * (gate.lon2 - prev_lon) - (lon - prev_lon) * (gate.lat2 - prev_lat))) <= 0\n    AND (((gate.lat2 - gate.lat1) * (prev_lon - gate.lon1) - (gate.lon2 - gate.lon1) * (prev_lat - gate.lat1)) *\n         ((gate.lat2 - gate.lat1) * (lon - gate.lon1) - (gate.lon2 - gate.lon1) * (lat - gate.lat1))) <= 0\n), crossing_gaps AS (\n  SELECT crossing_time,\n         CASE WHEN LAG(crossing_time) OVER (ORDER BY crossing_time) IS NULL\n                OR crossing_time - LAG(crossing_time) OVER (ORDER BY crossing_time) > (${MinLapSeconds:raw}::int * 1000)\n              THEN 1 ELSE 0 END AS new_group\n  FROM raw_crossings\n), clustered_crossings AS (\n  SELECT crossing_time, SUM(new_group) OVER (ORDER BY crossing_time) AS cluster_id\n  FROM crossing_gaps\n), lap_marks AS (\n  SELECT MIN(crossing_time) AS start_time\n  FROM clustered_crossings\n  GROUP BY cluster_id\n), generated_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY start_time) AS lap,\n         start_time,\n         LEAD(start_time) OVER (ORDER BY start_time) AS next_time\n  FROM lap_marks\n), lap_metrics AS (\n  SELECT generated_laps.lap, generated_laps.start_time, generated_laps.next_time,\n         (generated_laps.next_time - generated_laps.start_time) / 1000.0 AS lap_s,\n         MAX(d.gps_speed * 2.23694) AS max_mph,\n         AVG(c.apps1_travel) AS avg_throttle,\n         MAX(c.brake_pressure_f) AS peak_brake_f\n  FROM generated_laps\n  LEFT JOIN packet p ON p.time >= generated_laps.start_time AND p.time < COALESCE(generated_laps.next_time, generated_laps.start_time + 120000)\n  LEFT JOIN dynamics d ON d.packet_id = p.packet_id\n  LEFT JOIN controls c ON c.packet_id = p.packet_id\n  WHERE generated_laps.next_time IS NOT NULL\n  GROUP BY generated_laps.lap, generated_laps.start_time, generated_laps.next_time\n)\nSELECT lap::text AS lap, ROUND(lap_s::numeric, 3) AS \"lap time [s]\"\nFROM lap_metrics\nORDER BY lap;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 10,
+      "type": "xychart",
+      "title": "Generated GPS Laps - Speed vs Distance",
+      "description": "Immediate distance-synced overlay from GPS-generated laps before writing anything to classifier.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 7,
+        "y": 24,
+        "w": 17,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "fillOpacity": 28,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "pointShape": "circle",
+            "pointSize": {
+              "fixed": 2
+            },
+            "pointStrokeWidth": 0,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "show": "lines"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "mph"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 1 speed [mph]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#2ec4ff"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 2 speed [mph]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ff4d5a"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 3 speed [mph]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ffd166"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 4 speed [mph]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#2fd17c"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 5 speed [mph]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#b197fc"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compare 6 speed [mph]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#4dabf7"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "dims": {
+          "x": "distance_m"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "series": [
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 1 speed [mph]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 2 speed [mph]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 3 speed [mph]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 4 speed [mph]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 5 speed [mph]"
+          },
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": "distance_m",
+            "y": "Compare 6 speed [mph]"
+          }
+        ],
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH selected_partitions AS (\n  SELECT p.start_time, p.end_time\n  FROM partitions p\n  WHERE ARRAY[${Zoom:singlequote}]::text[] @> ARRAY['$__all']::text[]\n     OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n), run_bounds AS (\n  SELECT GREATEST(COALESCE(MIN(start_time), $__from::bigint), $__from::bigint) AS run_start,\n         LEAST(COALESCE(MAX(end_time), $__to::bigint), $__to::bigint) AS run_end\n  FROM selected_partitions\n), granularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n), run_points AS (\n  SELECT p.time, p.packet_id, d.gps[1]::double precision AS lat, d.gps[2]::double precision AS lon,\n         d.gps_speed * 2.23694 AS speed_mph\n  FROM dynamics d JOIN packet p ON p.packet_id = d.packet_id JOIN run_bounds ON true\n  WHERE p.time BETWEEN run_bounds.run_start AND run_bounds.run_end\n    AND d.gps IS NOT NULL AND array_length(d.gps, 1) >= 2\n    AND d.gps[1] BETWEEN -90 AND 90 AND d.gps[2] BETWEEN -180 AND 180\n), auto_seed AS (\n  SELECT * FROM (\n    SELECT time, lat, lon,\n           LEAD(lat, 10) OVER (ORDER BY time) AS lat_next,\n           LEAD(lon, 10) OVER (ORDER BY time) AS lon_next\n    FROM run_points\n  ) seeded\n  WHERE lat_next IS NOT NULL AND lon_next IS NOT NULL\n  ORDER BY time LIMIT 1\n), auto_gate AS (\n  SELECT lat - ((lon_next - lon) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lat1,\n         lon + ((lat_next - lat) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lon1,\n         lat + ((lon_next - lon) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lat2,\n         lon - ((lat_next - lat) / NULLIF(SQRT(POWER(lat_next - lat, 2) + POWER(lon_next - lon, 2)), 0)) * 0.00018 AS lon2,\n         'auto first GPS point'::text AS gate_name\n  FROM auto_seed\n), mapped_gate AS (\n  SELECT start_gate_lat1::double precision AS lat1, start_gate_lon1::double precision AS lon1,\n         start_gate_lat2::double precision AS lat2, start_gate_lon2::double precision AS lon2,\n         name AS gate_name\n  FROM track_mapping\n  WHERE track_mapping_id::text = NULLIF('${TrackMapping:raw}', '$__all')\n  LIMIT 1\n), gate AS (\n  SELECT * FROM mapped_gate WHERE '${GateMode:raw}' = 'mapped'\n  UNION ALL\n  SELECT * FROM auto_gate WHERE '${GateMode:raw}' = 'auto' OR NOT EXISTS (SELECT 1 FROM mapped_gate)\n  LIMIT 1\n), segments AS (\n  SELECT LAG(time) OVER (ORDER BY time) AS prev_time, time,\n         LAG(lat) OVER (ORDER BY time) AS prev_lat, lat,\n         LAG(lon) OVER (ORDER BY time) AS prev_lon, lon\n  FROM run_points\n), raw_crossings AS (\n  SELECT ((prev_time + time) / 2)::bigint AS crossing_time\n  FROM segments CROSS JOIN gate\n  WHERE prev_time IS NOT NULL\n    AND LEAST(prev_lat, lat) <= GREATEST(gate.lat1, gate.lat2)\n    AND GREATEST(prev_lat, lat) >= LEAST(gate.lat1, gate.lat2)\n    AND LEAST(prev_lon, lon) <= GREATEST(gate.lon1, gate.lon2)\n    AND GREATEST(prev_lon, lon) >= LEAST(gate.lon1, gate.lon2)\n    AND (((lat - prev_lat) * (gate.lon1 - prev_lon) - (lon - prev_lon) * (gate.lat1 - prev_lat)) *\n         ((lat - prev_lat) * (gate.lon2 - prev_lon) - (lon - prev_lon) * (gate.lat2 - prev_lat))) <= 0\n    AND (((gate.lat2 - gate.lat1) * (prev_lon - gate.lon1) - (gate.lon2 - gate.lon1) * (prev_lat - gate.lat1)) *\n         ((gate.lat2 - gate.lat1) * (lon - gate.lon1) - (gate.lon2 - gate.lon1) * (lat - gate.lat1))) <= 0\n), crossing_gaps AS (\n  SELECT crossing_time,\n         CASE WHEN LAG(crossing_time) OVER (ORDER BY crossing_time) IS NULL\n                OR crossing_time - LAG(crossing_time) OVER (ORDER BY crossing_time) > (${MinLapSeconds:raw}::int * 1000)\n              THEN 1 ELSE 0 END AS new_group\n  FROM raw_crossings\n), clustered_crossings AS (\n  SELECT crossing_time, SUM(new_group) OVER (ORDER BY crossing_time) AS cluster_id\n  FROM crossing_gaps\n), lap_marks AS (\n  SELECT MIN(crossing_time) AS start_time\n  FROM clustered_crossings\n  GROUP BY cluster_id\n), generated_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY start_time) AS lap,\n         start_time,\n         LEAD(start_time) OVER (ORDER BY start_time) AS next_time\n  FROM lap_marks\n), lap_metrics AS (\n  SELECT generated_laps.lap, generated_laps.start_time, generated_laps.next_time,\n         (generated_laps.next_time - generated_laps.start_time) / 1000.0 AS lap_s,\n         MAX(d.gps_speed * 2.23694) AS max_mph,\n         AVG(c.apps1_travel) AS avg_throttle,\n         MAX(c.brake_pressure_f) AS peak_brake_f\n  FROM generated_laps\n  LEFT JOIN packet p ON p.time >= generated_laps.start_time AND p.time < COALESCE(generated_laps.next_time, generated_laps.start_time + 120000)\n  LEFT JOIN dynamics d ON d.packet_id = p.packet_id\n  LEFT JOIN controls c ON c.packet_id = p.packet_id\n  WHERE generated_laps.next_time IS NOT NULL\n  GROUP BY generated_laps.lap, generated_laps.start_time, generated_laps.next_time\n)\n, selected_laps AS (\n  SELECT ROW_NUMBER() OVER (ORDER BY lap) AS compare_slot, lap, start_time, next_time\n  FROM generated_laps\n  WHERE next_time IS NOT NULL AND lap <= ${GpsCompareCount:raw}::int\n), samples AS (\n  SELECT sl.compare_slot, sl.lap, p.time,\n         d.gps[1]::double precision AS lat, d.gps[2]::double precision AS lon,\n         d.gps_speed * 2.23694 AS speed_mph,\n         LAG(d.gps[1]::double precision) OVER (PARTITION BY sl.compare_slot ORDER BY p.time) AS prev_lat,\n         LAG(d.gps[2]::double precision) OVER (PARTITION BY sl.compare_slot ORDER BY p.time) AS prev_lon\n  FROM selected_laps sl\n  JOIN packet p ON p.time >= sl.start_time AND p.time < sl.next_time\n  JOIN dynamics d ON d.packet_id = p.packet_id\n  WHERE d.gps IS NOT NULL AND array_length(d.gps, 1) >= 2\n), distance_samples AS (\n  SELECT *,\n         SUM(CASE WHEN prev_lat IS NULL OR prev_lon IS NULL THEN 0 ELSE\n           2 * 6371000 * ASIN(LEAST(1.0, SQRT(\n             POWER(SIN(RADIANS(lat - prev_lat) / 2), 2) +\n             COS(RADIANS(prev_lat)) * COS(RADIANS(lat)) * POWER(SIN(RADIANS(lon - prev_lon) / 2), 2)\n           ))) END) OVER (PARTITION BY compare_slot ORDER BY time ROWS UNBOUNDED PRECEDING) AS distance_m\n  FROM samples\n), binned AS (\n  SELECT (FLOOR(distance_m / GREATEST(${DistanceStep:raw}::numeric, 1)) * GREATEST(${DistanceStep:raw}::numeric, 1))::double precision AS distance_m,\n         compare_slot,\n         AVG(speed_mph) AS speed_mph\n  FROM distance_samples\n  GROUP BY 1, compare_slot\n)\nSELECT distance_m,\n       AVG(speed_mph) FILTER (WHERE compare_slot = 1) AS \"Compare 1 speed [mph]\",\n       AVG(speed_mph) FILTER (WHERE compare_slot = 2) AS \"Compare 2 speed [mph]\",\n       AVG(speed_mph) FILTER (WHERE compare_slot = 3) AS \"Compare 3 speed [mph]\",\n       AVG(speed_mph) FILTER (WHERE compare_slot = 4) AS \"Compare 4 speed [mph]\",\n       AVG(speed_mph) FILTER (WHERE compare_slot = 5) AS \"Compare 5 speed [mph]\",\n       AVG(speed_mph) FILTER (WHERE compare_slot = 6) AS \"Compare 6 speed [mph]\"\nFROM binned\nGROUP BY distance_m\nORDER BY distance_m;\n",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Saved Track Mappings",
+      "description": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "orion"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT track_mapping_id AS id, name, to_timestamp(created_at / 1000.0) AS created,\n       ROUND(start_gate_lat1::numeric, 7) AS lat1, ROUND(start_gate_lon1::numeric, 7) AS lon1,\n       ROUND(start_gate_lat2::numeric, 7) AS lat2, ROUND(start_gate_lon2::numeric, 7) AS lon2\nFROM track_mapping\nORDER BY created_at DESC;",
+          "refId": "A"
+        }
+      ],
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    },
+    {
+      "id": 9,
+      "type": "text",
+      "title": "How This Creates Laps",
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "This workbook does not need pre-existing classifier lap rows. It detects each time the GPS segment between two packets intersects the selected start/finish gate, deduplicates crossings closer than <b>${MinLapSeconds}s</b>, and builds lap intervals from crossing-to-crossing. Use <b>Auto Gate</b> for a first-pass lap split, then save a real gate in <code>track_mapping</code> and switch to <b>Track Mapping</b> for repeatable analysis.",
+        "mode": "markdown"
+      },
+      "transparent": true,
+      "pluginVersion": "11.3.0"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 40,
+  "style": "dark",
+  "tags": [
+    "andrew",
+    "orion",
+    "laps",
+    "gps",
+    "race-engineering"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "orion"
+        },
+        "definition": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "description": "Select one or more continuous runs split by packet gaps.",
+        "includeAll": true,
+        "label": "Run",
+        "multi": true,
+        "name": "Zoom",
+        "options": [],
+        "query": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "auto",
+          "value": "auto"
+        },
+        "description": "Auto uses the first GPS point. Track Mapping uses the selected saved gate.",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Gate mode",
+        "multi": false,
+        "name": "GateMode",
+        "options": [
+          {
+            "selected": true,
+            "text": "auto",
+            "value": "auto"
+          },
+          {
+            "selected": false,
+            "text": "track mapping",
+            "value": "mapped"
+          }
+        ],
+        "query": "auto,mapped",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "orion"
+        },
+        "definition": "SELECT name AS __text, track_mapping_id::text AS __value FROM track_mapping ORDER BY created_at DESC;",
+        "description": "Saved start/finish gate from track_mapping.",
+        "includeAll": false,
+        "label": "Track mapping",
+        "multi": false,
+        "name": "TrackMapping",
+        "options": [],
+        "query": "SELECT name AS __text, track_mapping_id::text AS __value FROM track_mapping ORDER BY created_at DESC;",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "5",
+          "value": "5"
+        },
+        "description": "Deduplicate repeated GPS crossings near the same gate.",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Min lap seconds",
+        "multi": false,
+        "name": "MinLapSeconds",
+        "options": [
+          {
+            "selected": true,
+            "text": "5",
+            "value": "5"
+          },
+          {
+            "selected": false,
+            "text": "10",
+            "value": "10"
+          },
+          {
+            "selected": false,
+            "text": "15",
+            "value": "15"
+          },
+          {
+            "selected": false,
+            "text": "20",
+            "value": "20"
+          },
+          {
+            "selected": false,
+            "text": "30",
+            "value": "30"
+          },
+          {
+            "selected": false,
+            "text": "45",
+            "value": "45"
+          },
+          {
+            "selected": false,
+            "text": "60",
+            "value": "60"
+          }
+        ],
+        "query": "5,10,15,20,30,45,60",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "4",
+          "value": "4"
+        },
+        "description": "Number of generated GPS laps shown in the distance-synced overlay.",
+        "hide": 0,
+        "includeAll": false,
+        "label": "GPS compare count",
+        "multi": false,
+        "name": "GpsCompareCount",
+        "options": [
+          {
+            "selected": false,
+            "text": "2",
+            "value": "2"
+          },
+          {
+            "selected": false,
+            "text": "3",
+            "value": "3"
+          },
+          {
+            "selected": true,
+            "text": "4",
+            "value": "4"
+          },
+          {
+            "selected": false,
+            "text": "5",
+            "value": "5"
+          },
+          {
+            "selected": false,
+            "text": "6",
+            "value": "6"
+          }
+        ],
+        "query": "2,3,4,5,6",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "5",
+          "value": "5"
+        },
+        "description": "Distance bin size for generated lap overlays.",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Distance step m",
+        "multi": false,
+        "name": "DistanceStep",
+        "options": [
+          {
+            "selected": false,
+            "text": "2",
+            "value": "2"
+          },
+          {
+            "selected": true,
+            "text": "5",
+            "value": "5"
+          },
+          {
+            "selected": false,
+            "text": "10",
+            "value": "10"
+          },
+          {
+            "selected": false,
+            "text": "20",
+            "value": "20"
+          }
+        ],
+        "query": "2,5,10,20",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
+      {
+        "current": {
+          "text": "1x",
+          "value": "1"
+        },
+        "description": "Extra SQL stride for map points only.",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Plot stride",
+        "multi": false,
+        "name": "Stride",
+        "options": [
+          {
+            "selected": true,
+            "text": "1x",
+            "value": "1"
+          },
+          {
+            "selected": false,
+            "text": "5x",
+            "value": "5"
+          },
+          {
+            "selected": false,
+            "text": "10x",
+            "value": "10"
+          },
+          {
+            "selected": false,
+            "text": "25x",
+            "value": "25"
+          },
+          {
+            "selected": false,
+            "text": "50x",
+            "value": "50"
+          }
+        ],
+        "query": "1,5,10,25,50",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m"
+    ]
+  },
+  "timezone": "browser",
+  "title": "Andrew / Orion GPS Lap Builder",
+  "uid": "andrew_orion_gps_lap_builder",
+  "version": 1,
+  "weekStart": ""
+}

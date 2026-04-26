@@ -138,16 +138,15 @@ typedef struct {
     float power_limit_motor_efficiency_rpm[VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS];
     float power_limit_motor_efficiency[VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS];
 
-    bool launch_compensation_disable;
-    float launch_start_rpm;
+    bool launch_mode_disable;
+    float launch_enter_rpm;
     float launch_exit_rpm;
+    float launch_pedal_min;
+    float launch_pedal_max;
+    float launch_brake_min_psi;
     float launch_preload_torque_nm;
-    float launch_preload_timeout_ms;
-    float launch_rpm_lpf_time_constant_s;
-    float launch_contact_positive_accel_rpm_per_s;
-    float launch_contact_decel_rpm_per_s;
-    float launch_contact_decel_confirm_ms;
-    float launch_ramp_rate_nm_per_s;
+    float launch_preload_ramp_rate_nm_per_s;
+    float launch_release_ramp_rate_nm_per_s;
   } torque_map;
 
   vcu_traction_control_parameters_t traction_control;
