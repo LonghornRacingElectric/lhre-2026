@@ -38,6 +38,10 @@ const PitDiagnostic: React.FC = () => {
     // ----- Wired fields -----
     const cellTopTemp = data?.can.temperature ?? null;
     const shutdown = data?.can.shutdown ?? null;
+    // BACKEND: odometer field exists in CanData but dashd always sets it
+    // to null today (no integrated wheel-speed-over-time logic, and unit
+    // unverified). Will read whatever the backend eventually provides.
+    const odometer = data?.can.odometer ?? null;
 
     // ----- Unwired fields (frontend stubs only — see top-of-file note) -----
 
@@ -195,7 +199,7 @@ const PitDiagnostic: React.FC = () => {
                 </div>
             </div>
 
-            {/* ===== BOTTOM TRAY: HV V | HV A | LV V ===== */}
+            {/* ===== BOTTOM TRAY: HV V | HV A | LV V | Odometer ===== */}
             <div className="dash-card pit-tray pit-tray-bottom">
                 <div className="pit-batt-grid">
                     <div className="pit-batt-cell">
@@ -217,6 +221,13 @@ const PitDiagnostic: React.FC = () => {
                         <div className="value-display pit-batt-val">
                             {fmt(lvVoltage, 2)}
                             <span className="unit-label">V</span>
+                        </div>
+                    </div>
+                    <div className="pit-batt-cell">
+                        <div className="label-small">Odo</div>
+                        <div className="value-display pit-batt-val">
+                            {fmt(odometer, 1)}
+                            <span className="unit-label">mi</span>
                         </div>
                     </div>
                 </div>

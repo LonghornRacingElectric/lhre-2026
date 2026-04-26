@@ -1,7 +1,5 @@
 import React from 'react';
 import { Container, Row, Col } from 'react-bootstrap';
-import RadialGauge from '../components/RadialGauge';
-import VerticalGauge from '../components/VerticalGauge';
 import ConnectivityIndicator from '../components/ConnectivityIndicator';
 import { useDash } from '../context/DashContext';
 import './ScreenOne.css';
@@ -17,7 +15,6 @@ const ScreenOne: React.FC = () => {
     const power = data?.can.power;
     const charge = data?.can.soc;
     const temp = data?.can.temperature;
-    const odometer = data?.can.odometer;
     const shutdown = data?.can.shutdown;
     const lapDelta = data?.mqtt.lapDelta;
     const energyDelta = data?.mqtt.energyDelta;
@@ -54,7 +51,6 @@ const ScreenOne: React.FC = () => {
     const BRAND_COLOR = "#BF5700"; // Burnt Orange
 
     // Safe numeric values for gauges (default to 0 when null)
-    const safeSpeed = speed ?? 0;
     const safePower = power ?? 0;
     const safeCharge = charge ?? 0;
     const safeTemp = temp ?? 0;
@@ -80,7 +76,7 @@ const ScreenOne: React.FC = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderRadius: '0 0 12px 12px',
+                borderRadius: '0',
                 background: 'rgba(255, 255, 255, 0.05)',
                 backdropFilter: 'blur(12px)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -180,134 +176,164 @@ const ScreenOne: React.FC = () => {
                 </div>
             </div>
 
+            {/* Left Side Panel - The whole sidebar IS the temp gauge.
+                Fill rises from the bottom in proportion to the value.
+                Label sits at the top, digits at the bottom. */}
+            <div className="dash-card" style={{
+                position: 'absolute',
+                top: '60px',
+                bottom: '80px',
+                left: '0',
+                zIndex: 100,
+                width: '90px',
+                borderRadius: '0',
+                background: 'rgba(255, 255, 255, 0.05)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                padding: 0,
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+            }}>
+                {/* Fill bar — inset 4px on three sides, anchored to bottom */}
+                <div style={{
+                    position: 'absolute',
+                    bottom: 4,
+                    left: 4,
+                    right: 4,
+                    height: `calc((100% - 8px) * ${Math.min(Math.max(safeTemp, 0), 100) / 100})`,
+                    background: safeTemp > 80 ? '#ff0000' : BRAND_COLOR,
+                    transition: 'height 0.3s ease-in-out, background-color 0.3s',
+                    zIndex: 0
+                }} />
+
+                <div className="label-small text-center" style={{
+                    position: 'relative',
+                    zIndex: 2,
+                    marginTop: '12px',
+                    marginBottom: 0,
+                    fontSize: '1rem',
+                    letterSpacing: '2px',
+                    color: '#fff',
+                    textShadow: '0 1px 3px rgba(0,0,0,0.7)'
+                }}>TEMP</div>
+
+                <div className="text-center value-display" style={{
+                    position: 'relative',
+                    zIndex: 2,
+                    marginBottom: '12px',
+                    fontSize: '2.4rem',
+                    fontWeight: 'bold',
+                    lineHeight: 1,
+                    color: '#fff',
+                    textShadow: '0 1px 4px rgba(0,0,0,0.8)'
+                }}>
+                    {temp !== null && temp !== undefined ? Math.round(temp * 9/5 + 32) : "--"}
+                    <span style={{ fontSize: '1rem', marginLeft: '4px', color: 'rgba(255,255,255,0.85)' }}>°F</span>
+                </div>
+            </div>
+
+            {/* Right Side Panel - The whole sidebar IS the SOC gauge.
+                Same pattern as the left: fill rises from the bottom. */}
+            <div className="dash-card" style={{
+                position: 'absolute',
+                top: '60px',
+                bottom: '80px',
+                right: '0',
+                zIndex: 100,
+                width: '90px',
+                borderRadius: '0',
+                background: 'rgba(255, 255, 255, 0.05)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                padding: 0,
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+            }}>
+                {/* Fill bar — inset 4px on three sides, anchored to bottom */}
+                <div style={{
+                    position: 'absolute',
+                    bottom: 4,
+                    left: 4,
+                    right: 4,
+                    height: `calc((100% - 8px) * ${Math.min(Math.max(safeCharge, 0), 100) / 100})`,
+                    background: '#FFD700',
+                    transition: 'height 0.3s ease-in-out',
+                    zIndex: 0
+                }} />
+
+                <div className="label-small text-center" style={{
+                    position: 'relative',
+                    zIndex: 2,
+                    marginTop: '12px',
+                    marginBottom: 0,
+                    fontSize: '1rem',
+                    letterSpacing: '2px',
+                    color: '#fff',
+                    textShadow: '0 1px 3px rgba(0,0,0,0.7)'
+                }}>SOC</div>
+
+                <div className="text-center value-display" style={{
+                    position: 'relative',
+                    zIndex: 2,
+                    marginBottom: '12px',
+                    fontSize: '2.4rem',
+                    fontWeight: 'bold',
+                    lineHeight: 1,
+                    color: '#fff',
+                    textShadow: '0 1px 4px rgba(0,0,0,0.8)'
+                }}>
+                    {fmt(charge)}
+                    <span style={{ fontSize: '1rem', marginLeft: '4px', color: 'rgba(255,255,255,0.85)' }}>%</span>
+                </div>
+            </div>
+
+            {/* Center Cluster: Speed (huge) + Power bar + kW readout */}
             <Container fluid style={{ height: '100%' }}>
                 <Row style={{ height: '100%' }}>
-
-                    {/* 1. Left Column: Temp */}
-                    <Col xs={2} className="h-100-flex align-items-center" style={{ paddingTop: '70px', paddingBottom: '90px' }}>
-                        <div className="dash-card d-flex flex-column align-items-center" style={{ width: '100%', height: '100%', justifyContent: 'center', border: 'none' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                                <div className="label-small text-center" style={{ fontSize: '1rem', letterSpacing: '2px' }}>TEMP</div>
-                                <VerticalGauge
-                                    value={safeTemp}
-                                    min={0}
-                                    max={100}
-                                    label=""
-                                    color={safeTemp > 80 ? "#ff0000" : BRAND_COLOR}
-                                    height={220}
-                                    width={40}
-                                />
-                                <div className="text-center value-display" style={{ fontSize: '2rem', fontWeight: 'bold' }}>
-                                    {temp !== null && temp !== undefined ? Math.round(temp * 9/5 + 32) : "--"}
-                                    <span style={{ fontSize: '1rem', marginLeft: '5px', color: '#888' }}>°F</span>
-                                </div>
-                            </div>
-                        </div>
-                    </Col>
-
-                    {/* 2. Center Cluster: Speed & Power */}
-                    <Col xs={8} className="h-100-flex" style={{ paddingTop: '60px', paddingBottom: '80px' }}>
+                    <Col xs={12} className="h-100-flex" style={{ paddingTop: '60px', paddingBottom: '80px' }}>
                         <Row className="h-100">
-                            {/* Speed Section */}
                             <Col xs={12} className="d-flex flex-column align-items-center justify-content-center">
-                                <div style={{ position: 'relative' }}>
-                                    <RadialGauge
-                                        value={safeSpeed}
-                                        min={0}
-                                        max={100}
-                                        label=""
-                                        size={340}
-                                        color={BRAND_COLOR}
-                                        numTicks={10}
-                                        strokeWidth={18}
-                                        className="glow-orange"
-                                        showValueText={false}
-                                    />
-                                    {/* Center Text Overlay */}
-                                    <div style={{ position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
-                                        <div className="value-display" style={{ fontSize: '5rem', fontWeight: 'bold', lineHeight: 1 }}>{fmt(speed)}</div>
-                                        <div className="label-small" style={{ fontSize: '0.9rem' }}>MPH</div>
+                                {/* Speed digit + MPH label */}
+                                <div className="text-center" style={{ marginBottom: '24px' }}>
+                                    <div className="value-display" style={{ fontSize: '8rem', fontWeight: 'bold', lineHeight: 1 }}>
+                                        {fmt(speed)}
                                     </div>
+                                    <div className="label-small" style={{ fontSize: '1rem', letterSpacing: '3px', marginTop: '4px' }}>MPH</div>
+                                </div>
 
-                                    {/* Horizontal Energy Bar */}
-                                    <div style={{ position: 'absolute', top: '60%', left: '50%', transform: 'translateX(-50%)', width: '180px', textAlign: 'center' }}>
-                                        <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', position: 'relative', overflow: 'hidden' }}>
-                                            {/* Center Marker */}
-                                            <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '2px', background: 'rgba(255,255,255,0.3)', transform: 'translateX(-50%)', zIndex: 2 }} />
-
-                                            {/* Fill */}
-                                            <div style={{
-                                                position: 'absolute',
-                                                top: 0, bottom: 0,
-                                                left: safePower < 0 ? `${50 - (Math.min(Math.abs(safePower), 80)/80)*50}%` : '50%',
-                                                width: `${(Math.min(Math.abs(safePower), 80)/80)*50}%`,
-                                                background: safePower < 0 ? 'linear-gradient(to right, #00CC00, #00FF66)' : 'linear-gradient(to left, #FF0000, #BF5700)',
-                                                transition: 'all 0.1s linear'
-                                            }} />
-                                        </div>
-                                        <div className="label-small" style={{ fontSize: '0.7rem', marginTop: '4px', color: '#888' }}>
-                                            {/* Math.round(power)} kW */}
-                                        </div>
-                                    </div>
-
-                                    {/* kW Digital Readout */}
-                                    <div style={{ position: 'absolute', top: '75%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
-                                        <div className="value-display" style={{ fontSize: '2.5rem', fontWeight: 'bold', lineHeight: 1, color: '#FFF' }}>
-                                            {fmt(power)}
-                                        </div>
-                                        <div className="label-small" style={{ fontSize: '0.9rem' }}>kW</div>
+                                {/* Bidirectional power bar (regen left, drive right) */}
+                                <div style={{ width: '260px', marginBottom: '12px' }}>
+                                    <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', position: 'relative', overflow: 'hidden' }}>
+                                        <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '2px', background: 'rgba(255,255,255,0.3)', transform: 'translateX(-50%)', zIndex: 2 }} />
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: 0, bottom: 0,
+                                            left: safePower < 0 ? `${50 - (Math.min(Math.abs(safePower), 80)/80)*50}%` : '50%',
+                                            width: `${(Math.min(Math.abs(safePower), 80)/80)*50}%`,
+                                            background: safePower < 0 ? 'linear-gradient(to right, #00CC00, #00FF66)' : 'linear-gradient(to left, #FF0000, #BF5700)',
+                                            transition: 'all 0.1s linear'
+                                        }} />
                                     </div>
                                 </div>
 
-                            </Col>
-
-                            {/* Power Section (Temporarily removed)
-                            <Col xs={6} className="d-flex flex-column align-items-center justify-content-center">
-                                <div style={{ position: 'relative' }}>
-                                    <RadialGauge
-                                        value={safePower}
-                                        min={-80}
-                                        max={80}
-                                        label=""
-                                        size={240}
-                                        mode="bidirectional"
-                                        numTicks={8}
-                                        strokeWidth={10}
-                                        className="glow-gradient"
-                                        showValueText={false}
-                                    />
-                                     <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
-                                        <div className="value-display" style={{ fontSize: '3rem', fontWeight: 'bold', lineHeight: 1 }}>{fmt(power)}</div>
-                                        <div className="label-small" style={{ fontSize: '0.9rem' }}>kW</div>
+                                {/* kW digital readout */}
+                                <div className="text-center">
+                                    <div className="value-display" style={{ fontSize: '2.5rem', fontWeight: 'bold', lineHeight: 1, color: '#FFF' }}>
+                                        {fmt(power)}
                                     </div>
+                                    <div className="label-small" style={{ fontSize: '0.9rem' }}>kW</div>
                                 </div>
                             </Col>
-                            */}
                         </Row>
                     </Col>
-
-                    {/* 4. Right Column: Charge & Laps */}
-                    <Col xs={2} className="h-100-flex align-items-center" style={{ paddingTop: '70px', paddingBottom: '90px' }}>
-                        <div className="dash-card d-flex flex-column align-items-center" style={{ width: '100%', height: '100%', justifyContent: 'center', border: 'none' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                                <div className="label-small text-center" style={{ fontSize: '1rem', letterSpacing: '2px' }}>SOC</div>
-                                <VerticalGauge
-                                    value={safeCharge}
-                                    min={0}
-                                    max={100}
-                                    label=""
-                                    color="#FFD700"
-                                    height={220}
-                                    width={40}
-                                />
-                                <div className="text-center value-display" style={{ fontSize: '2rem', fontWeight: 'bold' }}>
-                                    {fmt(charge)}
-                                    <span style={{ fontSize: '1rem', marginLeft: '5px', color: '#888' }}>%</span>
-                                </div>
-                            </div>
-                        </div>
-                    </Col>
-
                 </Row>
             </Container>
 
@@ -319,7 +345,7 @@ const ScreenOne: React.FC = () => {
                 zIndex: 100,
                 height: '80px',
                 width: '100%',
-                borderRadius: '12px 12px 0 0',
+                borderRadius: '0',
                 background: 'rgba(255, 255, 255, 0.05)',
                 backdropFilter: 'blur(12px)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -425,13 +451,6 @@ const ScreenOne: React.FC = () => {
                     ) : (
                         <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', fontSize: '3rem', fontWeight: 'bold', color: '#888' }}>--</div>
                     )}
-                </div>
-                {/* Odometer (Right) */}
-                <div style={{ position: 'absolute', right: '30px', top: '50%', transform: 'translateY(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <div className="label-small" style={{ fontSize: '0.75rem', marginBottom: 0 }}>Odometer</div>
-                    <div className="value-display" style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
-                        {odometer !== null && odometer !== undefined ? odometer.toFixed(1) : "--"} <span className="unit-label">miles</span>
-                    </div>
                 </div>
             </div>
         </div>
