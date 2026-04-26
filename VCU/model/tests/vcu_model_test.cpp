@@ -36,7 +36,7 @@ protected:
     params.bse.bse_max_psi = 1000.0f;
     params.bse.bse_off_psi = 30.0f;
     params.bse.bse_on_psi = 50.0f;
-    params.bse.max_pedal_while_braking = 0.25f;
+    params.bse.max_pedal_while_braking = 0.30f;
     params.bse.max_pedal_restore_threshold = 0.05f;
 
     // Basic torque map
@@ -137,7 +137,7 @@ TEST_F(VCUModelTest, BrakeLatchDisablesTorque) {
   vcu_model_step(&ctx, &in, &out, 10);
   EXPECT_FLOAT_EQ(out.torque_cmd, 50.0f);
 
-  // Now press brake while pedal is > 25%
+  // Now press brake while pedal is > 30%
   in.bse1_raw = 900; // Max psi
   in.bse2_raw = 950;
   vcu_model_step(&ctx, &in, &out, 10);
