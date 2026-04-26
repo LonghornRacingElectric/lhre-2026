@@ -40,6 +40,15 @@ static can_receive_message_t *inverter_status_mailbox_handle = NULL;
 static msg_inverter_speed_t inverter_speed_mailbox = {0};
 static can_receive_message_t *inverter_speed_mailbox_handle = NULL;
 
+static msg_inverter_voltage_t inverter_voltage_mailbox = {0};
+static can_receive_message_t *inverter_voltage_mailbox_handle = NULL;
+
+static msg_inverter_current_t inverter_current_mailbox = {0};
+static can_receive_message_t *inverter_current_mailbox_handle = NULL;
+
+static msg_battery_pack_status_t battery_pack_status_mailbox = {0};
+static can_receive_message_t *battery_pack_status_mailbox_handle = NULL;
+
 static msg_battery_cell_limits_t battery_cell_limits_mailbox = {0};
 static can_receive_message_t *battery_cell_limits_mailbox_handle = NULL;
 // #define DUI_R2D_STATUS_TIMEOUT_MS 1000u
@@ -221,6 +230,44 @@ void vcu_can_set_model_inputs(const vcu_inputs_t *in) {
   bse_voltages_mailbox.bse_line_lock_voltage = 0.0f;
 }
 
+void vcu_can_set_powertrain_inputs(vcu_inputs_t *in) {
+  bool battery_status_valid =
+      battery_pack_status_mailbox_handle != NULL &&
+      !message_timed_out(battery_pack_status_mailbox_handle,
+                         BATTERY_PACK_STATUS_TIMEOUT_MS);
+  bool inverter_speed_valid =
+      inverter_speed_mailbox_handle != NULL &&
+      !message_timed_out(inverter_speed_mailbox_handle,
+                         INVERTER_SPEED_TIMEOUT_MS);
+  bool inverter_power_valid =
+      inverter_voltage_mailbox_handle != NULL &&
+      inverter_current_mailbox_handle != NULL &&
+      !message_timed_out(inverter_voltage_mailbox_handle,
+                         INVERTER_VOLTAGE_TIMEOUT_MS) &&
+      !message_timed_out(inverter_current_mailbox_handle,
+                         INVERTER_CURRENT_TIMEOUT_MS);
+
+  in->battery_voltage_v = battery_pack_status_mailbox.pack_voltage;
+  in->battery_current_a = battery_pack_status_mailbox.tractive_current;
+  in->battery_soc_pct = battery_pack_status_mailbox.state_of_charge;
+  in->battery_status_valid = battery_status_valid;
+
+  in->inverter_dc_bus_voltage_v = inverter_voltage_mailbox.dc_bus_voltage;
+  in->inverter_dc_bus_current_a = inverter_current_mailbox.dc_bus_current;
+  in->inverter_power_valid = inverter_power_valid;
+
+  if (inverter_speed_valid) {
+    in->motor_speed_rpm = (float)inverter_speed_mailbox.motor_speed;
+  } else {
+    in->motor_speed_rpm = (float)inverter_status_mailbox.motor_speed;
+  }
+  in->inverter_speed_valid =
+      inverter_speed_valid ||
+      (inverter_status_mailbox_handle != NULL &&
+       !message_timed_out(inverter_status_mailbox_handle,
+                          INVERTER_STATUS_TIMEOUT_MS));
+}
+
 void vcu_can_set_model_outputs(const vcu_outputs_t *out) {
   brake_pedal_mailbox.brake_pedal_travel = out->bse_psi_filtered;
   brake_pedal_mailbox.brake_light_percent = out->brake_light_pct;
@@ -389,6 +436,30 @@ void vcu_can_add_receive_handlers(void) {
 
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for inverter speed registered\n");
+
+  inverter_voltage_mailbox_handle = can_get_receive_message_handle(
+      &inverter_voltage_mailbox, INVERTER_VOLTAGE_ID,
+      (CAN_unpack_message_fn)unpack_inverter_voltage);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   inverter_voltage_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for inverter voltage registered\n");
+
+  inverter_current_mailbox_handle = can_get_receive_message_handle(
+      &inverter_current_mailbox, INVERTER_CURRENT_ID,
+      (CAN_unpack_message_fn)unpack_inverter_current);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   inverter_current_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for inverter current registered\n");
+
+  battery_pack_status_mailbox_handle = can_get_receive_message_handle(
+      &battery_pack_status_mailbox, BATTERY_PACK_STATUS_ID,
+      (CAN_unpack_message_fn)unpack_battery_pack_status);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   battery_pack_status_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for battery pack status registered\n");
 
   battery_cell_limits_mailbox_handle = can_get_receive_message_handle(
       &battery_cell_limits_mailbox, BATTERY_CELL_LIMITS_ID,

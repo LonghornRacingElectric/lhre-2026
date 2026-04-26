@@ -7,6 +7,8 @@ extern "C" {
 
 #include <stdint.h>
 
+#define VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS 11
+
 typedef struct {
   float brake_enable_threshold;
   uint16_t buzzer_duration_ms;
@@ -58,8 +60,23 @@ typedef struct {
 
   struct {
     float max_torque_nm; // maximum torque request allowed in Nm
-    float low_cell_derate_start_v;
-    float low_cell_cutoff_v;
+
+    float power_limit_w;
+    float current_limit_a;
+    float hard_current_cut_a;
+    float hard_power_cut_w;
+    float ocv_cell_count;
+    float ocv_lpf_time_constant_s;
+
+    float power_limit_min_rpm;
+    float power_limit_trim_limit_nm;
+    float power_limit_kp;
+    float power_limit_ki;
+    float power_limit_kd;
+
+    // Motor efficiency map as rpm/efficiency pairs.
+    float power_limit_motor_efficiency_rpm[VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS];
+    float power_limit_motor_efficiency[VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS];
   } torque_map;
 } vcu_parameters_t;
 

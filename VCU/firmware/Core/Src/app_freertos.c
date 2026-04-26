@@ -90,6 +90,18 @@ const osThreadAttr_t controlTask_attributes = {
 #define STEERING_SENSOR_MAX_RATIO 0.90f
 #define STEERING_SENSOR_ANGLE_RANGE_DEG 360.0f
 #define CONTROL_LOOP_PERIOD_MS 3u
+#define VCU_TORQUE_MAP_MAX_TORQUE_NM 220.0f
+#define VCU_TORQUE_MAP_POWER_LIMIT_W 80000.0f
+#define VCU_TORQUE_MAP_CURRENT_LIMIT_A 200.0f
+#define VCU_TORQUE_MAP_HARD_CURRENT_CUT_A 240.0f
+#define VCU_TORQUE_MAP_HARD_POWER_CUT_W 85000.0f
+#define VCU_TORQUE_MAP_OCV_CELL_COUNT 130.0f
+#define VCU_TORQUE_MAP_OCV_LPF_TIME_CONSTANT_S 1.0f
+#define VCU_TORQUE_MAP_POWER_LIMIT_MIN_RPM 100.0f
+#define VCU_TORQUE_MAP_POWER_LIMIT_TRIM_LIMIT_NM 20.0f
+#define VCU_TORQUE_MAP_POWER_LIMIT_KP 0.002f
+#define VCU_TORQUE_MAP_POWER_LIMIT_KI 0.0f
+#define VCU_TORQUE_MAP_POWER_LIMIT_KD 0.0f
 
 /* USER CODE END PM */
 
@@ -120,9 +132,48 @@ static vcu_parameters_t s_params = {
         },
     .torque_map =
         {
-            .max_torque_nm = 220.0f,
-            .low_cell_derate_start_v = 3.1f,
-            .low_cell_cutoff_v = 3.0f,
+            .max_torque_nm = VCU_TORQUE_MAP_MAX_TORQUE_NM,
+            .power_limit_w = VCU_TORQUE_MAP_POWER_LIMIT_W,
+            .current_limit_a = VCU_TORQUE_MAP_CURRENT_LIMIT_A,
+            .hard_current_cut_a = VCU_TORQUE_MAP_HARD_CURRENT_CUT_A,
+            .hard_power_cut_w = VCU_TORQUE_MAP_HARD_POWER_CUT_W,
+            .ocv_cell_count = VCU_TORQUE_MAP_OCV_CELL_COUNT,
+            .ocv_lpf_time_constant_s =
+                VCU_TORQUE_MAP_OCV_LPF_TIME_CONSTANT_S,
+            .power_limit_min_rpm = VCU_TORQUE_MAP_POWER_LIMIT_MIN_RPM,
+            .power_limit_trim_limit_nm =
+                VCU_TORQUE_MAP_POWER_LIMIT_TRIM_LIMIT_NM,
+            .power_limit_kp = VCU_TORQUE_MAP_POWER_LIMIT_KP,
+            .power_limit_ki = VCU_TORQUE_MAP_POWER_LIMIT_KI,
+            .power_limit_kd = VCU_TORQUE_MAP_POWER_LIMIT_KD,
+            .power_limit_motor_efficiency_rpm =
+                {
+                    0.0f,
+                    550.0f,
+                    1100.0f,
+                    1650.0f,
+                    2200.0f,
+                    2750.0f,
+                    3300.0f,
+                    3850.0f,
+                    4400.0f,
+                    4950.0f,
+                    5500.0f,
+                },
+            .power_limit_motor_efficiency =
+                {
+                    0.86f,
+                    0.89f,
+                    0.92f,
+                    0.94f,
+                    0.95f,
+                    0.955f,
+                    0.955f,
+                    0.95f,
+                    0.945f,
+                    0.93f,
+                    0.90f,
+                },
         },
 
     .bse =
@@ -387,11 +438,7 @@ void StartControlTask(void *argument) {
     in.drive_switch = is_drive_switch_pressed();
 
     in.contactors_closed = hvc_tractive_ready();
-    in.motor_speed_rpm = fabsf(vcu_can_get_motor_speed_rpm());
-    in.min_cell_voltage_v = vcu_can_get_min_cell_voltage_v();
-    if (in.min_cell_voltage_v <= 0.0f) {
-      in.min_cell_voltage_v = s_params.torque_map.low_cell_derate_start_v;
-    }
+    vcu_can_set_powertrain_inputs(&in);
 
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
@@ -403,33 +450,34 @@ void StartControlTask(void *argument) {
     {
       float delta_resolver_angle_deg = vcu_can_get_delta_resolver_angle_deg();
       float motor_angle_deg = vcu_can_get_motor_angle_deg();
-      float torque_derate_pct = 1.0f;
-      if (in.min_cell_voltage_v <= s_params.torque_map.low_cell_cutoff_v) {
-        torque_derate_pct = 0.0f;
-      } else if (in.min_cell_voltage_v <
-                 s_params.torque_map.low_cell_derate_start_v) {
-        torque_derate_pct =
-            (in.min_cell_voltage_v - s_params.torque_map.low_cell_cutoff_v) /
-            (s_params.torque_map.low_cell_derate_start_v -
-             s_params.torque_map.low_cell_cutoff_v);
-      }
       log_printf(LOG_INFO,
                  "TICK:%lu | RPM:%.0f DRA:%.1f ANG:%.1f PED:%.3f TQ:%.1f | "
-                 "MIN:%.4f DRT:%.2f | STR_RAW:%lu AV:%.3f SV:%.3f SPCT:%.3f "
+                 "PLIM:%.0f PWR:%.0f OCV:%.1f DRT:%.1f FF:%.1f TRIM:%.1f | "
+                 "STR_RAW:%lu AV:%.3f SV:%.3f SPCT:%.3f "
                  "STR_DEG:%.1f | "
                  "PRNDL:%u INV:%u | "
-                 "DRV_IN:%u TR:%u | APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
+                 "DRV_IN:%u TR:%u | APPS_IMPL:%u BRAKE:%u PFLT:%u PCUT:%u "
+                 "ICUT:%u ANYFLT:%u\n",
                  (unsigned long)current_tick, (double)in.motor_speed_rpm,
                  (double)delta_resolver_angle_deg, (double)motor_angle_deg,
                  (double)out.accel_pedal_travel, (double)out.torque_cmd,
-                 (double)in.min_cell_voltage_v, (double)torque_derate_pct,
+                 (double)out.debug.active_power_limit_w,
+                 (double)out.debug.measured_power_w,
+                 (double)out.debug.ocv_estimate_v,
+                 (double)out.debug.low_voltage_derate_pct,
+                 (double)out.debug.power_limit_feedforward_torque_nm,
+                 (double)out.debug.power_limit_feedback_torque_nm,
                  (unsigned long)adc1_val, (double)steering_adc_voltage_v,
                  (double)steering_sensor_voltage_v,
                  (double)steering_angle_pct, (double)steering_angle_deg,
                  (unsigned)out.prndl_state, (unsigned)out.inverter_enable,
                  (unsigned)in.drive_switch, (unsigned)in.contactors_closed,
                  (unsigned)out.faults.apps_any_fault,
-                 (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault);
+                 (unsigned)out.brake_pressed,
+                 (unsigned)out.faults.power_limit_input_fault,
+                 (unsigned)out.faults.power_safety_cut,
+                 (unsigned)out.faults.current_safety_cut,
+                 (unsigned)out.faults.any_fault);
     }
 
     // 3 ms control loop (333 Hz)

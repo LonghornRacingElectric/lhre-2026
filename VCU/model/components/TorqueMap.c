@@ -1,73 +1,251 @@
 #include "TorqueMap.h"
-#include "Lookup2D.h"
 #include "util.h"
 
-#include <stdbool.h>
 #include <math.h>
+#include <stdbool.h>
+#include <string.h>
 
-#define MAX_MOTOR_RPM         6000.0f
-#define BATTERY_POWER_W       80000.0f
-#define EFFICIENCY 0.96f
-#define PI_F                  3.14159265f
-
-static float torque_table[LOOKUP2D_POINTS_Y][LOOKUP2D_POINTS_X];
-static Lookup2D torque_lookup;
-
-static float calc_max_torque_at_rpm(float rpm, float max_torque_nm) {
-  const float mech_power_w = BATTERY_POWER_W * EFFICIENCY;
-
-  if (rpm <= 1.0f) {
-    return max_torque_nm;
+static float lpf_alpha_from_tau(float dt_s, float tau_s) {
+  if (tau_s <= 0.0f) {
+    return 1.0f;
   }
 
-  float omega = rpm * 2.0f * PI_F / 60.0f;
-  float torque = mech_power_w / omega;
-
-  if (torque > max_torque_nm) {
-    torque = max_torque_nm;
-  }
-  if (torque < 0.0f) {
-    torque = 0.0f;
-  }
-
-  return torque;
+  return clamp_f(dt_s / (tau_s + dt_s), 0.0f, 1.0f);
 }
 
-static void build_torque_table(float max_torque_nm) {
-  for (int row = 0; row < LOOKUP2D_POINTS_Y; row++) {
-    float rpm = ((float)row / (float)(LOOKUP2D_POINTS_Y - 1)) * MAX_MOTOR_RPM;
-    float max_torque = calc_max_torque_at_rpm(rpm, max_torque_nm);
-
-    torque_table[row][0] = 0.0f;
-    torque_table[row][1] = 0.5f * max_torque;
-    torque_table[row][2] = max_torque;
-  }
+static float lpf_step(float previous, float input, float alpha) {
+  return alpha * input + (1.0f - alpha) * previous;
 }
 
-static void torque_map_init(float max_torque_nm) {
-  build_torque_table(max_torque_nm);
+static bool torque_map_efficiency_map_is_valid(const vcu_parameters_t *params) {
+  float previous_rpm = -1.0f;
 
-  Lookup2D_init(&torque_lookup,
-                0.0f,          // x0 = APPS min
-                1.0f,          // x1 = APPS max
-                0.0f,          // y0 = RPM min
-                MAX_MOTOR_RPM, // y1 = RPM max
-                torque_table);
+  for (int i = 0; i < VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS; i++) {
+    float rpm = params->torque_map.power_limit_motor_efficiency_rpm[i];
+    float efficiency = params->torque_map.power_limit_motor_efficiency[i];
+
+    if (!isfinite(rpm) || rpm < 0.0f || rpm <= previous_rpm) {
+      return false;
+    }
+
+    if (!isfinite(efficiency) || efficiency <= 0.0f || efficiency > 1.0f) {
+      return false;
+    }
+
+    previous_rpm = rpm;
+  }
+
+  return true;
+}
+
+static bool torque_map_params_are_valid(const vcu_parameters_t *params) {
+  return isfinite(params->torque_map.max_torque_nm) &&
+         params->torque_map.max_torque_nm > 0.0f &&
+         isfinite(params->torque_map.power_limit_w) &&
+         params->torque_map.power_limit_w > 0.0f &&
+         isfinite(params->torque_map.current_limit_a) &&
+         params->torque_map.current_limit_a > 0.0f &&
+         isfinite(params->torque_map.hard_current_cut_a) &&
+         params->torque_map.hard_current_cut_a >=
+             params->torque_map.current_limit_a &&
+         isfinite(params->torque_map.hard_power_cut_w) &&
+         params->torque_map.hard_power_cut_w >= params->torque_map.power_limit_w &&
+         isfinite(params->torque_map.ocv_cell_count) &&
+         params->torque_map.ocv_cell_count > 0.0f &&
+         isfinite(params->torque_map.ocv_lpf_time_constant_s) &&
+         params->torque_map.ocv_lpf_time_constant_s >= 0.0f &&
+         isfinite(params->torque_map.power_limit_min_rpm) &&
+         params->torque_map.power_limit_min_rpm > 0.0f &&
+         isfinite(params->torque_map.power_limit_trim_limit_nm) &&
+         params->torque_map.power_limit_trim_limit_nm >= 0.0f &&
+         isfinite(params->torque_map.power_limit_kp) &&
+         params->torque_map.power_limit_kp >= 0.0f &&
+         isfinite(params->torque_map.power_limit_ki) &&
+         params->torque_map.power_limit_ki >= 0.0f &&
+         isfinite(params->torque_map.power_limit_kd) &&
+         params->torque_map.power_limit_kd >= 0.0f &&
+         torque_map_efficiency_map_is_valid(params);
+}
+
+static float motor_efficiency_at_rpm(const vcu_parameters_t *params,
+                                     float motor_rpm) {
+  const float *rpm_map = params->torque_map.power_limit_motor_efficiency_rpm;
+  const float *efficiency_map = params->torque_map.power_limit_motor_efficiency;
+  const int last_index = VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS - 1;
+
+  float rpm = fmaxf(motor_rpm, 0.0f);
+
+  if (rpm <= rpm_map[0]) {
+    return clamp_f(efficiency_map[0], 0.50f, 1.00f);
+  }
+
+  for (int i = 0; i < last_index; i++) {
+    if (rpm <= rpm_map[i + 1]) {
+      float pct = (rpm - rpm_map[i]) / (rpm_map[i + 1] - rpm_map[i]);
+      return clamp_f(linear_interp(efficiency_map[i], efficiency_map[i + 1],
+                                   pct),
+                     0.50f, 1.00f);
+    }
+  }
+
+  return clamp_f(efficiency_map[last_index], 0.50f, 1.00f);
+}
+
+static float torque_from_power(float power_w, float motor_rpm,
+                               float min_rpm) {
+  const float two_pi = 6.28318530718f;
+  float limited_rpm = fmaxf(fabsf(motor_rpm), fmaxf(min_rpm, 1.0f));
+  float motor_angular_velocity_rad_s = limited_rpm * two_pi / 60.0f;
+
+  if (motor_angular_velocity_rad_s <= 0.0f) {
+    return 0.0f;
+  }
+
+  return power_w / motor_angular_velocity_rad_s;
+}
+
+void torque_map_init(torque_map_state_t *state) {
+  memset(state, 0, sizeof(torque_map_state_t));
 }
 
 void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
-                         vcu_parameters_t *params, uint32_t dt_ms) {
-  (void)dt_ms;
+                         torque_map_state_t *state, vcu_parameters_t *params,
+                         uint32_t dt_ms) {
+  const float dt_s = (float)dt_ms / 1000.0f;
 
-  float max_torque_nm = params->torque_map.max_torque_nm;
-  if (max_torque_nm < 0.0f) {
-    max_torque_nm = 0.0f;
+  if (!torque_map_params_are_valid(params)) {
+    out->torque_cmd = 0.0f;
+    out->faults.power_limit_input_fault = true;
+    return;
   }
 
-  torque_map_init(max_torque_nm);
+  if (!in->inverter_power_valid || !in->inverter_speed_valid) {
+    out->torque_cmd = 0.0f;
+    out->faults.power_limit_input_fault = true;
+    return;
+  }
 
-  float apps = clamp_f(out->accel_pedal_travel, 0.0f, 1.0f);
-  float rpm = clamp_f(in->motor_speed_rpm, 0.0f, MAX_MOTOR_RPM);
+  if (!isfinite(in->inverter_dc_bus_voltage_v) ||
+      in->inverter_dc_bus_voltage_v <= 0.0f ||
+      !isfinite(in->inverter_dc_bus_current_a) ||
+      !isfinite(in->motor_speed_rpm)) {
+    out->torque_cmd = 0.0f;
+    out->faults.power_limit_input_fault = true;
+    return;
+  }
 
-  out->torque_cmd = Lookup2D_evaluate(&torque_lookup, apps, rpm);
+  float raw_pedal_fraction = clamp_f(out->accel_pedal_travel, 0.0f, 1.0f);
+  float voltage_estimate_v =
+      in->battery_status_valid && isfinite(in->battery_voltage_v) &&
+              in->battery_voltage_v > 0.0f
+          ? in->battery_voltage_v
+          : in->inverter_dc_bus_voltage_v;
+
+  if (!state->ocv_initialized) {
+    state->ocv_estimate_v = voltage_estimate_v;
+    state->ocv_initialized = true;
+  } else if (fabsf(in->inverter_dc_bus_current_a) < 1.0f) {
+    state->ocv_estimate_v =
+        lpf_step(state->ocv_estimate_v, voltage_estimate_v,
+                 lpf_alpha_from_tau(
+                     dt_s, params->torque_map.ocv_lpf_time_constant_s));
+  }
+
+  float measured_power_w =
+      in->inverter_dc_bus_voltage_v * in->inverter_dc_bus_current_a;
+
+  float measured_power_rate_w_s = 0.0f;
+  if (dt_s > 0.0f && state->has_power_history) {
+    measured_power_rate_w_s =
+        (measured_power_w - state->previous_measured_power_w) / dt_s;
+  }
+  state->previous_measured_power_w = measured_power_w;
+  state->has_power_history = true;
+
+  float current_based_power_limit_w =
+      in->inverter_dc_bus_voltage_v * params->torque_map.current_limit_a;
+  float active_power_limit_w =
+      fmaxf(fminf(params->torque_map.power_limit_w,
+                 current_based_power_limit_w),
+            0.0f);
+
+  float cell_ocv_v = state->ocv_estimate_v / params->torque_map.ocv_cell_count;
+  float voltage_derate = clamp_f((cell_ocv_v - 3.3f) / 0.1f, 0.0f, 1.0f);
+  float voltage_derated_torque_limit_nm =
+      params->torque_map.max_torque_nm * voltage_derate;
+
+  out->debug.ocv_estimate_v = state->ocv_estimate_v;
+  out->debug.active_power_limit_w = active_power_limit_w;
+  out->debug.measured_power_w = measured_power_w;
+  out->debug.low_voltage_derate_pct = voltage_derate * 100.0f;
+
+  float motor_rpm = fabsf(in->motor_speed_rpm);
+  float efficiency = motor_efficiency_at_rpm(params, motor_rpm);
+  out->debug.motor_efficiency = efficiency;
+
+  float mechanical_power_limit_w = active_power_limit_w * efficiency;
+  float feedforward_torque_nm = torque_from_power(
+      mechanical_power_limit_w, motor_rpm,
+      params->torque_map.power_limit_min_rpm);
+  feedforward_torque_nm = clamp_f(feedforward_torque_nm, 0.0f,
+                                  voltage_derated_torque_limit_nm);
+
+  out->debug.power_limit_feedforward_torque_nm = feedforward_torque_nm;
+
+  if (in->inverter_dc_bus_current_a > params->torque_map.hard_current_cut_a ||
+      measured_power_w > params->torque_map.hard_power_cut_w) {
+    state->integral_w_s = 0.0f;
+    out->torque_cmd = 0.0f;
+    out->faults.current_safety_cut =
+        in->inverter_dc_bus_current_a > params->torque_map.hard_current_cut_a;
+    out->faults.power_safety_cut =
+        measured_power_w > params->torque_map.hard_power_cut_w;
+    return;
+  }
+
+  float power_error_w = active_power_limit_w - measured_power_w;
+  if (raw_pedal_fraction < 0.01f || voltage_derated_torque_limit_nm <= 0.0f) {
+    state->integral_w_s = 0.0f;
+  }
+
+  float proportional_nm = params->torque_map.power_limit_kp * power_error_w;
+  float candidate_integral_w_s = state->integral_w_s;
+  if (dt_s > 0.0f) {
+    candidate_integral_w_s += power_error_w * dt_s;
+  }
+
+  float derivative_nm = -params->torque_map.power_limit_kd *
+                        fmaxf(measured_power_rate_w_s, 0.0f);
+  float integral_term_nm =
+      params->torque_map.power_limit_ki * candidate_integral_w_s;
+  float unsaturated_trim_nm =
+      proportional_nm + integral_term_nm + derivative_nm;
+  float trim_limit_nm = params->torque_map.power_limit_trim_limit_nm;
+
+  bool saturating_high =
+      unsaturated_trim_nm > trim_limit_nm && power_error_w > 0.0f;
+  bool saturating_low =
+      unsaturated_trim_nm < -trim_limit_nm && power_error_w < 0.0f;
+  if (!(saturating_high || saturating_low)) {
+    state->integral_w_s = candidate_integral_w_s;
+  }
+
+  float integral_trim_nm =
+      params->torque_map.power_limit_ki * state->integral_w_s;
+  float trim_torque_nm = proportional_nm + integral_trim_nm + derivative_nm;
+  trim_torque_nm = clamp_f(trim_torque_nm, -trim_limit_nm, trim_limit_nm);
+
+  float available_torque_nm = feedforward_torque_nm + trim_torque_nm;
+  available_torque_nm =
+      clamp_f(available_torque_nm, 0.0f, voltage_derated_torque_limit_nm);
+
+  out->debug.power_limit_feedback_p_nm = proportional_nm;
+  out->debug.power_limit_feedback_i_nm = integral_trim_nm;
+  out->debug.power_limit_feedback_d_nm = derivative_nm;
+  out->debug.power_limit_feedback_torque_nm = trim_torque_nm;
+  out->debug.power_limit_available_torque_nm = available_torque_nm;
+
+  out->torque_cmd =
+      clamp_f(raw_pedal_fraction * available_torque_nm, 0.0f,
+              available_torque_nm);
 }

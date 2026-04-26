@@ -25,6 +25,7 @@ void vcu_can_read_contactor_status(void);
 void vcu_can_set_model_inputs(const vcu_inputs_t *in);
 void vcu_can_set_model_outputs(const vcu_outputs_t *out);
 void vcu_can_set_steering_angle_deg(float steering_angle_deg);
+void vcu_can_set_powertrain_inputs(vcu_inputs_t *in);
 
 bool is_drive_switch_pressed(void);
 

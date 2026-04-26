@@ -9,6 +9,7 @@ protected:
   vcu_model_context_t ctx;
 
   void SetUp() override {
+    params = {};
     // Basic apps params
     params.apps.apps1_min_adc_v = 1000;
     params.apps.apps1_max_adc_v = 4000;
@@ -41,11 +42,34 @@ protected:
 
     // Basic torque map
     params.torque_map.max_torque_nm = 100.0f;
+    params.torque_map.power_limit_w = 80000.0f;
+    params.torque_map.current_limit_a = 300.0f;
+    params.torque_map.hard_current_cut_a = 350.0f;
+    params.torque_map.hard_power_cut_w = 90000.0f;
+    params.torque_map.ocv_cell_count = 130.0f;
+    params.torque_map.ocv_lpf_time_constant_s = 1.0f;
+    params.torque_map.power_limit_min_rpm = 100.0f;
+    params.torque_map.power_limit_trim_limit_nm = 20.0f;
+    params.torque_map.power_limit_kp = 0.0f;
+    params.torque_map.power_limit_ki = 0.0f;
+    params.torque_map.power_limit_kd = 0.0f;
+    for (int i = 0; i < VCU_TORQUE_MAP_EFFICIENCY_MAP_POINTS; i++) {
+      params.torque_map.power_limit_motor_efficiency_rpm[i] =
+          static_cast<float>(i) * 500.0f;
+      params.torque_map.power_limit_motor_efficiency[i] = 1.0f;
+    }
 
     // Buzzer
     params.buzzer_duration_ms = 3000;
 
     in = {0};
+    in.inverter_dc_bus_voltage_v = 400.0f;
+    in.inverter_dc_bus_current_a = 0.0f;
+    in.motor_speed_rpm = 1000.0f;
+    in.battery_voltage_v = 520.0f;
+    in.battery_status_valid = true;
+    in.inverter_power_valid = true;
+    in.inverter_speed_valid = true;
     out = {0};
     ctx = {};
 

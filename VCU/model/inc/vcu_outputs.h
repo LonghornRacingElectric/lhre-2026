@@ -54,6 +54,10 @@ typedef struct {
     bool brake_latched;
     bool brake_any_fault;
 
+    bool power_limit_input_fault;
+    bool current_safety_cut;
+    bool power_safety_cut;
+
     bool any_fault;
   } faults;
 
@@ -63,6 +67,17 @@ typedef struct {
     float apps_diff;          // difference between apps1 and apps2
     float apps1_travel;
     float apps2_travel;
+    float ocv_estimate_v;
+    float active_power_limit_w;
+    float measured_power_w;
+    float low_voltage_derate_pct;
+    float power_limit_feedforward_torque_nm;
+    float power_limit_feedback_p_nm;
+    float power_limit_feedback_i_nm;
+    float power_limit_feedback_d_nm;
+    float power_limit_feedback_torque_nm;
+    float power_limit_available_torque_nm;
+    float motor_efficiency;
   } debug;
 
 } vcu_outputs_t;

@@ -18,13 +18,16 @@ typedef struct {
   bool drive_switch;
   bool contactors_closed;
 
+  /* Powertrain inputs from CAN */
+  float battery_voltage_v;
+  float battery_current_a;
+  float battery_soc_pct;
+  float inverter_dc_bus_voltage_v;
+  float inverter_dc_bus_current_a;
   float motor_speed_rpm;
-  float min_cell_voltage_v;
-
-  /*  can add more later:
-   *  float dc_bus_voltage;
-   *  bool inverter_enabled;
-   */
+  bool battery_status_valid;
+  bool inverter_power_valid;
+  bool inverter_speed_valid;
 } vcu_inputs_t;
 
 #ifdef __cplusplus
