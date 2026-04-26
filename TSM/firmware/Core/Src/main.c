@@ -176,20 +176,33 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   if (GPIO_Pin == GPIO_PIN_7) {
+    // Reed switch, max 20 LPM → 65 Hz → 15 ms period. 10 ms window filters bounce with margin.
     static uint32_t last_flow_tick = 0;
     uint32_t now = HAL_GetTick();
-    if (now - last_flow_tick > 5) {
+    if (now - last_flow_tick > 10) {
       flow_pulses++;
       last_flow_tick = now;
     }
   }
 
   if (GPIO_Pin == GPIO_PIN_5) {
-    fan_pulses++;
+    // Rad fan max ~7000 RPM × 4 p/r → 467 Hz → 2.1 ms period. 1 ms window.
+    static uint32_t last_fan_cyc = 0;
+    uint32_t now_cyc = DWT->CYCCNT;
+    if ((now_cyc - last_fan_cyc) > (SystemCoreClock / 1000U)) {
+      fan_pulses++;
+      last_fan_cyc = now_cyc;
+    }
   }
 
   if (GPIO_Pin == GPIO_PIN_6) {
-    bat_fan_pulses++;
+    // Bat fan max 32,500 RPM × 2 p/r → 1083 Hz → 923 µs period. 500 µs window.
+    static uint32_t last_bat_fan_cyc = 0;
+    uint32_t now_cyc = DWT->CYCCNT;
+    if ((now_cyc - last_bat_fan_cyc) > (SystemCoreClock / 2000U)) {
+      bat_fan_pulses++;
+      last_bat_fan_cyc = now_cyc;
+    }
   }
 }
 /* USER CODE END 4 */
