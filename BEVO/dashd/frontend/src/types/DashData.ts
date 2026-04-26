@@ -9,19 +9,31 @@ export interface CanData {
 
     // Battery / Pack
     soc: number | null;             // State of charge (0-100%)
-    temperature: number | null;     // Battery temp [TBD: °C or °F]
+    temperature: number | null;     // Battery temp in °C
 
     // Telemetry
     signalStrength: number | null;  // 5G signal (0-4 bars)
 
     // Shutdown circuit: 16 booleans (true = OK, false = FAULT)
     shutdown: boolean[] | null;
+
+    // Optional driver-thread additions. Not yet emitted by dashd; the
+    // demo data hook provides synthetic values so the layout is testable.
+    brakeBias?: number | null;      // % front bias, 0-100
 }
 
 export interface MqttData {
     lapDelta: number | null;        // Time delta vs reference lap in seconds
     energyDelta: number | null;     // Energy delta vs target in Wh
-    lapsRemaining: number | null;   // Estimated laps remaining
+    lapsRemaining: number | null;   // Estimated session laps remaining
+
+    // Optional driver-thread additions. Not yet emitted by dashd; the
+    // demo data hook provides synthetic values so the layout is testable.
+    lapsRemainingEnergy?: number | null; // Energy-based laps remaining
+    bestLapTime?: number | null;         // Seconds
+    lastLapTime?: number | null;         // Seconds
+    currentLapTime?: number | null;      // Seconds (live, ticking)
+    lapDeltaRate?: number | null;        // d(lapDelta)/dt, s/s
 }
 
 export interface DashMessage {

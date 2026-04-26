@@ -25,10 +25,17 @@ export function useDemoData(enabled: boolean): DashMessage | null {
     // Persistent accumulator state (not reset each tick)
     const accum = useRef({
         charge: 100,
-        temp: 40,
+        temp: 32,         // warm garage, below cruise band
         odometer: 90.5,
         signalStrength: 4,
         shutdown: Array(16).fill(true) as boolean[],
+
+        // Lap timer state. currentLapStart is wall-clock; bestLap / lastLap
+        // are seconds. lapTarget is randomized per lap to give variation.
+        bestLap: 75.30,
+        lastLap: 78.45,
+        currentLapStart: Date.now(),
+        lapTarget: 75 + Math.random() * 8,
     });
 
     useEffect(() => {
@@ -80,7 +87,17 @@ export function useDemoData(enabled: boolean): DashMessage | null {
 
             // Accumulate derived values
             a.charge = Math.max(0, a.charge - (newPower > 0 ? 0.05 : -0.01));
-            a.temp = Math.min(100, Math.max(20, a.temp + (newPower > 50 ? 0.05 : -0.02)));
+
+            // Cell temperature: physics-style. Heated by total power
+            // throughput (drive AND regen — both pump current through the
+            // pack), cooled toward ambient. Calibrated so cruise lap sits
+            // ~35–42°C and a hard run with full braking creeps toward but
+            // does not exceed the 60°C cell limit.
+            const ambient = 25;
+            const heatIn = Math.abs(clampedPower) * 0.0005;
+            const heatLoss = (a.temp - ambient) * 0.0012;
+            a.temp = Math.min(60, Math.max(ambient, a.temp + heatIn - heatLoss));
+
             a.odometer += s.speed / 3600 / 10;
 
             // Signal strength: occasional random changes
@@ -94,13 +111,34 @@ export function useDemoData(enabled: boolean): DashMessage | null {
 
             // MQTT-like derived values
             const lapDelta = parseFloat((Math.sin(Date.now() / 1000) * 2).toFixed(2));
+            // s/s is the analytical derivative of the sin wave — gives a
+            // smooth ±0.002 oscillation, far below the bar's ±0.5 max. To
+            // make the bar more visible in demo, scale it up.
+            const lapDeltaRate = Math.cos(Date.now() / 1000) * 0.3;
             const energyDelta = parseFloat((Math.cos(Date.now() / 1000) * 5).toFixed(1));
 
-            // Laps remaining calculation
+            // Laps remaining calculations
             const baseConsumption = 4.0;
             const fluctuation = (Math.sin(Date.now() / 2000) * 0.5) + (Math.random() * 0.2);
             const currentConsumption = baseConsumption + fluctuation;
             const lapsRemaining = currentConsumption > 0 ? a.charge / currentConsumption : 0;
+            // Energy-based: slightly more conservative than session count.
+            const lapsRemainingEnergy = lapsRemaining * 0.85;
+
+            // Lap timer: tick from currentLapStart; on completion, save as
+            // last lap, update best if it beat it, reset for next lap.
+            let elapsed = (Date.now() - a.currentLapStart) / 1000;
+            if (elapsed >= a.lapTarget) {
+                a.lastLap = elapsed;
+                if (elapsed < a.bestLap) a.bestLap = elapsed;
+                a.currentLapStart = Date.now();
+                a.lapTarget = 75 + Math.random() * 8;
+                elapsed = 0;
+            }
+            const currentLapTime = elapsed;
+
+            // Brake bias: slow drift around 55%, range ~52–58%.
+            const brakeBias = 55 + Math.sin(Date.now() / 5000) * 3;
 
             seq.current++;
 
@@ -114,11 +152,17 @@ export function useDemoData(enabled: boolean): DashMessage | null {
                     temperature: a.temp,
                     signalStrength: a.signalStrength,
                     shutdown: [...a.shutdown],
+                    brakeBias,
                 },
                 mqtt: {
                     lapDelta,
                     energyDelta,
                     lapsRemaining,
+                    lapsRemainingEnergy,
+                    bestLapTime: a.bestLap,
+                    lastLapTime: a.lastLap,
+                    currentLapTime,
+                    lapDeltaRate,
                 },
             });
         }, 100);

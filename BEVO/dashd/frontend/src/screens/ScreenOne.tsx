@@ -19,28 +19,37 @@ const ScreenOne: React.FC = () => {
     const energyDelta = data?.mqtt.energyDelta;
     const lapsRemaining = data?.mqtt.lapsRemaining;
 
-    // ----- Driver-thread proposals: stubbed null until backend wires up -----
-    // (Cast through `as number | null` so TS doesn't collapse `!== null`
-    // checks to `never` on the literal-null assignment.)
-    // BACKEND TODO: needs MqttData.lapsRemainingEnergy (off-car prediction
-    // from SOC + average consumption — see BEVO/dashd/MQTT_CONTRACT.md).
-    const lapsRemainingEnergy = null as number | null;
-    // BACKEND TODO: needs MqttData.bestLapTime / .lastLapTime (off-car
-    // computed) and on-car timer for currentLapTime (driven by lap signal).
-    const bestLapTime = null as number | null;
-    const lastLapTime = null as number | null;
-    const currentLapTime = null as number | null;
-    // BACKEND TODO: needs CanData.brakeBias derived from front/rear brake
-    // pressures. Bouncy on Angelique — needs low-pass filter and should
-    // probably gate display by brake pressure > threshold.
-    const brakeBias = null as number | null;
+    // ----- Driver-thread proposals -----
+    // These are declared optional in DashData.ts. Demo mode synthesises
+    // values via useDemoData; live mode (dashd) does not yet emit them, so
+    // they fall back to null in production until the backend is extended.
+    // BACKEND TODO: dashd needs to publish MqttData.lapsRemainingEnergy
+    //   (off-car prediction from SOC + average consumption — see
+    //   BEVO/dashd/MQTT_CONTRACT.md).
+    const lapsRemainingEnergy = data?.mqtt.lapsRemainingEnergy ?? null;
+    // BACKEND TODO: dashd needs MqttData.bestLapTime / .lastLapTime
+    //   (off-car) and on-car timer for currentLapTime (driven by lap signal).
+    const bestLapTime = data?.mqtt.bestLapTime ?? null;
+    const lastLapTime = data?.mqtt.lastLapTime ?? null;
+    const currentLapTime = data?.mqtt.currentLapTime ?? null;
+    // BACKEND TODO: dashd needs CanData.brakeBias derived from front/rear
+    //   brake pressures. Bouncy on Angelique — needs low-pass filter and
+    //   should probably gate display by brake pressure > threshold.
+    const brakeBias = data?.can.brakeBias ?? null;
+    // BACKEND TODO: dashd needs MqttData.lapDeltaRate — d(lapDelta)/dt,
+    //   units of seconds per second. Drivers want this as the primary
+    //   glance bar because absolute delta lags. Compute off-car to keep
+    //   the dash simple, or sample lapDelta on-car and low-pass-filter
+    //   the diff.
+    const lapDeltaRate = data?.mqtt.lapDeltaRate ?? null;
+    const LAP_DELTA_RATE_MAX = 0.5; // ±0.5 s/s pegs the bar end-to-end
 
     // Derived: system status from shutdown circuit (any false = FAULT)
     const systemOk = shutdown ? shutdown.every(Boolean) : null;
 
-    // Derived: alerts from temperature thresholds
+    // Derived: alerts from temperature thresholds (60 °C cell limit)
     const alerts: string[] = [];
-    if (temp !== null && temp !== undefined && temp > 80) {
+    if (temp !== null && temp !== undefined && temp > 55) {
         alerts.push("High Battery Temp");
     }
     if (systemOk === false) {
@@ -115,12 +124,15 @@ const ScreenOne: React.FC = () => {
                 borderTop: 'none',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
             }}>
-                {/* Left: Connectivity */}
-                <div style={{ position: 'absolute', left: '30px', top: '50%', transform: 'translateY(-50%)' }}>
-                    <ConnectivityIndicator />
+                {/* Left: SES laps remaining (fixed value width to avoid layout shift) */}
+                <div style={{ position: 'absolute', left: '30px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+                    <span className="label-small" style={{ marginBottom: 0 }}>SES</span>
+                    <span className="value-display" style={{ fontSize: '2.2rem', fontWeight: 'bold', lineHeight: 1, minWidth: '48px', textAlign: 'left', display: 'inline-block' }}>
+                        {fmt(lapsRemaining, 0)}
+                    </span>
                 </div>
 
-                {/* Center: Lap Delta */}
+                {/* Center: tall s/s rate bar (label on left) + lap delta (Δ left of number) */}
                 <div style={{
                     position: 'absolute',
                     left: '50%',
@@ -128,82 +140,56 @@ const ScreenOne: React.FC = () => {
                     transform: 'translate(-50%, -50%)',
                     zIndex: 100,
                     height: '100%',
-                    width: '500px',
+                    width: '540px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    gap: '20px',
+                    padding: '0 8px'
                 }}>
-                    {/* Title: Fixed to left */}
-                    <div className="label-small" style={{
-                        fontSize: '1rem',
-                        position: 'absolute',
-                        left: '30px',
-                        marginBottom: 0
-                    }}>
-                        Lap Delta
+                    {/* s/s bar with inline left label */}
+                    <div style={{ flex: '1 1 auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span className="label-small" style={{ marginBottom: 0, flexShrink: 0 }}>S/S</span>
+                        <div style={{ flex: 1, height: '26px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', position: 'relative', overflow: 'hidden' }}>
+                            {/* Zero marker (dead center) */}
+                            <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '2px', background: 'rgba(255,255,255,0.3)', transform: 'translateX(-50%)', zIndex: 2 }} />
+                            {/* Fill */}
+                            <div style={{
+                                position: 'absolute',
+                                top: 0, bottom: 0,
+                                left: lapDeltaRate !== null && lapDeltaRate < 0
+                                    ? `${50 - (Math.min(Math.abs(lapDeltaRate), LAP_DELTA_RATE_MAX) / LAP_DELTA_RATE_MAX) * 50}%`
+                                    : '50%',
+                                width: lapDeltaRate !== null
+                                    ? `${(Math.min(Math.abs(lapDeltaRate), LAP_DELTA_RATE_MAX) / LAP_DELTA_RATE_MAX) * 50}%`
+                                    : '0%',
+                                background: lapDeltaRate !== null && lapDeltaRate < 0
+                                    ? 'linear-gradient(to right, #00CC00, #00FF66)'
+                                    : 'linear-gradient(to left, #FF3333, #FF6600)',
+                                transition: 'all 0.1s linear'
+                            }} />
+                        </div>
                     </div>
 
-                    {/* Value: Decimal Dead Center */}
-                    {lapDelta !== null && lapDelta !== undefined ? (
-                        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                            {/* Decimal Point - Dead Center */}
-                            <div style={{
-                                position: 'absolute',
-                                left: '50%',
-                                top: '50%',
-                                transform: 'translate(-50%, -50%)',
-                                fontSize: '3rem',
-                                fontWeight: 'bold',
-                                lineHeight: 1,
-                                color: getDeltaColor(lapDelta),
-                                width: '20px',
-                                textAlign: 'center'
-                            }}>.</div>
+                    {/* Lap delta: Δ symbol left of value, "s" unit on the right.
+                        Value column is min-width-locked so the bar to the
+                        left of it never shifts as the digit count changes. */}
+                    <div style={{ flexShrink: 0, display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                        <span className="label-small" style={{ marginBottom: 0 }}>Δ</span>
+                        <span className="value-display" style={{ fontSize: '2.2rem', fontWeight: 'bold', lineHeight: 1, color: getDeltaColor(lapDelta), textShadow: 'none', minWidth: '110px', textAlign: 'right', display: 'inline-block' }}>
+                            {lapDelta !== null && lapDelta !== undefined
+                                ? `${lapDelta > 0 ? '+' : lapDelta < 0 ? '-' : ''}${Math.abs(lapDelta).toFixed(2)}`
+                                : '--'}
+                        </span>
+                        <span className="label-small" style={{ marginBottom: 0 }}>s</span>
+                    </div>
 
-                            {/* Integer Part */}
-                            <div style={{
-                                position: 'absolute',
-                                right: '50%',
-                                top: '50%',
-                                transform: 'translateY(-50%)',
-                                fontSize: '3rem',
-                                fontWeight: 'bold',
-                                lineHeight: 1,
-                                color: getDeltaColor(lapDelta),
-                                marginRight: '10px',
-                                textAlign: 'right',
-                                whiteSpace: 'nowrap'
-                            }}>
-                                {lapDelta > 0 ? "+" : lapDelta < 0 ? "-" : ""}{Math.floor(Math.abs(lapDelta))}
-                            </div>
-
-                            {/* Fraction Part */}
-                            <div style={{
-                                position: 'absolute',
-                                left: '50%',
-                                top: '50%',
-                                transform: 'translateY(-50%)',
-                                fontSize: '3rem',
-                                fontWeight: 'bold',
-                                lineHeight: 1,
-                                color: getDeltaColor(lapDelta),
-                                marginLeft: '10px',
-                                textAlign: 'left',
-                                whiteSpace: 'nowrap'
-                            }}>
-                                {Math.abs(lapDelta).toFixed(2).split('.')[1]} <span style={{fontSize: '1.5rem', marginLeft: '5px', verticalAlign: 'middle', color: '#888'}}>s</span>
-                            </div>
-                        </div>
-                    ) : (
-                        <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#888' }}>--</div>
-                    )}
                 </div>
 
-                {/* Right: Brake Bias — label sits left of the (larger) number */}
+                {/* Right: NRG laps remaining (fixed value width) */}
                 <div style={{ position: 'absolute', right: '30px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-                    <span className="label-small" style={{ marginBottom: 0 }}>BB</span>
-                    <span className="value-display" style={{ fontSize: '2.2rem', fontWeight: 'bold', lineHeight: 1 }}>
-                        {brakeBias !== null && brakeBias !== undefined ? `${brakeBias.toFixed(0)}%` : '--'}
+                    <span className="label-small" style={{ marginBottom: 0 }}>NRG</span>
+                    <span className="value-display" style={{ fontSize: '2.2rem', fontWeight: 'bold', lineHeight: 1, minWidth: '48px', textAlign: 'left', display: 'inline-block' }}>
+                        {fmt(lapsRemainingEnergy, 0)}
                     </span>
                 </div>
             </div>
@@ -230,14 +216,15 @@ const ScreenOne: React.FC = () => {
                 alignItems: 'center',
                 justifyContent: 'space-between'
             }}>
-                {/* Fill bar — inset 4px on three sides, anchored to bottom */}
+                {/* Fill bar — inset 4px on three sides, anchored to bottom.
+                    Scale: 0–60 °C (cell temperature limit). */}
                 <div style={{
                     position: 'absolute',
                     bottom: 4,
                     left: 4,
                     right: 4,
-                    height: `calc((100% - 8px) * ${Math.min(Math.max(safeTemp, 0), 100) / 100})`,
-                    background: safeTemp > 80 ? '#ff0000' : BRAND_COLOR,
+                    height: `calc((100% - 8px) * ${Math.min(Math.max(safeTemp, 0), 60) / 60})`,
+                    background: safeTemp > 50 ? '#ff0000' : BRAND_COLOR,
                     transition: 'height 0.3s ease-in-out, background-color 0.3s',
                     zIndex: 0
                 }} />
@@ -263,8 +250,8 @@ const ScreenOne: React.FC = () => {
                     color: '#fff',
                     textShadow: '0 1px 4px rgba(0,0,0,0.8)'
                 }}>
-                    {temp !== null && temp !== undefined ? Math.round(temp * 9/5 + 32) : "--"}
-                    <span style={{ fontSize: '1rem', marginLeft: '4px', color: 'rgba(255,255,255,0.85)' }}>°F</span>
+                    {temp !== null && temp !== undefined ? Math.round(temp) : "--"}
+                    <span style={{ fontSize: '1rem', marginLeft: '4px', color: 'rgba(255,255,255,0.85)' }}>°C</span>
                 </div>
             </div>
 
@@ -349,7 +336,7 @@ const ScreenOne: React.FC = () => {
                     <div className="label-small" style={{ fontSize: '1.2rem', letterSpacing: '4px', marginTop: '4px' }}>MPH</div>
                 </div>
 
-                {/* TR: Lap-stuff table (2x2): BEST | LAST / CURR | NRG */}
+                {/* TR: Lap-times table (2x2): BEST | LAST / CURR | (free) */}
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: '1fr 1fr',
@@ -357,12 +344,11 @@ const ScreenOne: React.FC = () => {
                     gap: '8px',
                     padding: '4px'
                 }}>
-                    {[
+                    {([
                         { label: 'BEST', value: fmtLapTime(bestLapTime) },
                         { label: 'LAST', value: fmtLapTime(lastLapTime) },
                         { label: 'CURR', value: fmtLapTime(currentLapTime), highlight: true },
-                        { label: 'SES', value: fmt(lapsRemaining, 1), suffix: 'laps' },
-                    ].map((cell) => (
+                    ] as { label: string; value: string; highlight?: boolean }[]).map((cell) => (
                         <div key={cell.label} style={{
                             display: 'flex',
                             flexDirection: 'column',
@@ -384,9 +370,6 @@ const ScreenOne: React.FC = () => {
                                 color: cell.highlight ? '#FFD700' : '#fff'
                             }}>
                                 {cell.value}
-                                {cell.suffix && (
-                                    <span style={{ fontSize: '0.7rem', marginLeft: '4px', color: '#888' }}>{cell.suffix}</span>
-                                )}
                             </div>
                         </div>
                     ))}
@@ -408,9 +391,9 @@ const ScreenOne: React.FC = () => {
                             <span className="label-small" style={{ fontSize: '0.9rem', marginLeft: '6px' }}>kW</span>
                         </div>
                         <div className="value-display" style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#aaa' }}>
-                            <span className="label-small" style={{ fontSize: '0.7rem', marginRight: '6px' }}>NRG</span>
-                            {fmt(lapsRemainingEnergy, 1)}
-                            <span className="label-small" style={{ fontSize: '0.7rem', marginLeft: '6px' }}>laps</span>
+                            <span className="label-small" style={{ fontSize: '0.7rem', marginRight: '6px' }}>BB</span>
+                            {brakeBias !== null && brakeBias !== undefined ? brakeBias.toFixed(0) : '--'}
+                            <span className="label-small" style={{ fontSize: '0.7rem', marginLeft: '3px' }}>%</span>
                         </div>
                     </div>
 
@@ -549,6 +532,11 @@ const ScreenOne: React.FC = () => {
                     ) : (
                         <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', fontSize: '3rem', fontWeight: 'bold', color: '#888' }}>--</div>
                     )}
+                </div>
+
+                {/* Connectivity (bottom-right of bottom tray) */}
+                <div style={{ position: 'absolute', right: '30px', top: '50%', transform: 'translateY(-50%)' }}>
+                    <ConnectivityIndicator />
                 </div>
             </div>
         </div>
