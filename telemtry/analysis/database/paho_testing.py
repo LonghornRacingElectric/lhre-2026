@@ -51,6 +51,13 @@ class DataTester:
         self.csv_data = None
         self.mapping = None
         self.csv_index = 0
+
+        # Demo fault scheduler — see create_row(). Tracks the last time a
+        # shutdown fault was injected so faults stay rare and bursty
+        # (one fault per ~minute, held briefly so it's visible on the dash)
+        # rather than firing on every packet.
+        self._last_shutdown_fault_time = 0.0
+        self._fault_active_until = 0.0
         
         if csv_path:
             self.load_csv(csv_path)
@@ -226,11 +233,21 @@ class DataTester:
 
         :return: a row of data in dict {col_name: random_data, col2_name: ...} format
         """
-        # Tunables for keeping the dash in a "mostly happy" state during sim.
-        # Lower SHUTDOWN_FAULT_RATE -> shutdown circuit faults are rarer.
-        # Tighter TEMP_RANGE -> temperature warnings (>80C threshold) are rarer.
-        SHUTDOWN_FAULT_RATE = 0.01   # ~1% chance any individual shutdown leg trips
-        TEMP_RANGE = (25, 60)         # safely under the 80C warning threshold
+        # Demo behaviour: keep the dash in a mostly-happy state. Shutdown faults
+        # fire on a clock (one per minute, held briefly so they're visible at
+        # any packet rate) rather than as a per-packet probability — that way
+        # raising the publish rate doesn't multiply the fault rate. Tighter
+        # TEMP_RANGE keeps temperatures under the 80C warning threshold.
+        SHUTDOWN_FAULT_INTERVAL_S = 60.0   # ~one shutdown fault per minute
+        FAULT_HOLD_S = 1.5                  # keep one bool False this long
+        TEMP_RANGE = (25, 60)
+
+        now = time.time()
+        if (now - self._last_shutdown_fault_time) >= SHUTDOWN_FAULT_INTERVAL_S:
+            self._last_shutdown_fault_time = now
+            self._fault_active_until = now + FAULT_HOLD_S
+        fault_active = now < self._fault_active_until
+        fault_assigned = False  # only one bool per row goes False during a fault
 
         row = {}
         for col, (dtype, ndims) in table_desc.items():
@@ -250,12 +267,20 @@ class DataTester:
             elif dtype is bytearray or dtype is bytes:
                 row[col] = secrets.token_bytes(16)
             elif dtype is bool:
-                # Bias bool fields heavily toward True so shutdown legs / OK flags
-                # don't trip the dash's fault state every other packet.
+                # Bools default True. During a scheduled fault window, the
+                # first bool encountered in this row goes False so the dash
+                # sees a transient shutdown trip.
                 if ndims == 0:
-                    row[col] = bool(self.rng.random() >= SHUTDOWN_FAULT_RATE)
+                    if fault_active and not fault_assigned:
+                        row[col] = False
+                        fault_assigned = True
+                    else:
+                        row[col] = True
                 elif ndims == 1:
-                    row[col] = [bool(self.rng.random() >= SHUTDOWN_FAULT_RATE) for _ in range(3)]
+                    row[col] = [True, True, True]
+                    if fault_active and not fault_assigned:
+                        row[col][int(self.rng.integers(0, 3))] = False
+                        fault_assigned = True
                 else:
                     raise ValueError(f'Invalid number of dimensions for bool: {ndims}')
             elif np.issubdtype(dtype, np.floating) and 'temp' in col.lower():
