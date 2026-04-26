@@ -67,6 +67,19 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
+osThreadId_t accelRideHeightTaskHandle;
+const osThreadAttr_t accelRideHeightTask_attributes = {
+    .name = "accelRideHeightTask",
+    .priority = (osPriority_t) osPriorityNormal,
+    .stack_size = 4096 * 4
+};
+
+osThreadId_t susPotStrainGaugeTaskHandle;
+const osThreadAttr_t susPotStrainGaugeTask_attributes = {
+    .name = "susPotStrainGaugeTask",
+    .priority = (osPriority_t) osPriorityNormal,
+    .stack_size = 2048 * 4
+};
 osThreadId_t IMUTaskHandle;
 const osThreadAttr_t IMUTask_attributes = {
     .name = "IMUTask",
@@ -104,6 +117,8 @@ const osThreadAttr_t defaultTask_attributes = {
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
+void StartAccelRideHeightTask(void *argument);
+void StartSusPotStrainGaugeTask(void *argument);
 void StartIMUTask(void *argument);
 void StartRideHeightTask(void *argument);
 void StartSusPotTask(void *argument);
@@ -161,9 +176,11 @@ void MX_FREERTOS_Init(void) {
     led_init(&led);
     led_start_thread();
 
+    accelRideHeightTaskHandle = osThreadNew(StartAccelRideHeightTask, NULL, &accelRideHeightTask_attributes);
+    susPotStrainGaugeTaskHandle = osThreadNew(StartSusPotStrainGaugeTask, NULL, &susPotStrainGaugeTask_attributes);
     // IMUTaskHandle = osThreadNew(StartIMUTask, NULL, &IMUTask_attributes);
     // susPotTaskHandle = osThreadNew(StartSusPotTask, NULL, &susPotTask_attributes);
-    rideHeightTaskHandle = osThreadNew(StartRideHeightTask, NULL, &rideHeightTask_attributes);
+    // rideHeightTaskHandle = osThreadNew(StartRideHeightTask, NULL, &rideHeightTask_attributes);
     // strainGaugeTaskHandle = osThreadNew(StartStrainGaugeTask, NULL, &strainGaugeTask_attributes);
   /* USER CODE END RTOS_THREADS */
 
@@ -216,6 +233,100 @@ void StartDefaultTask(void *argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+void StartAccelRideHeightTask(void *argument)
+{
+    // Wait for USB and CAN to be ready
+    osDelay(5000);
+
+    CDC_Transmit_FS((uint8_t*)"Accel+RH task started\r\n", 23);
+    osDelay(500);
+
+    // Init ride height sensor
+    ride_height_init();
+    osDelay(500);
+
+    // Init IMU
+    int result = IMU_Init(&hspi1);
+    if (result != 0) {
+        char buf[64];
+        snprintf(buf, sizeof(buf), "IMU init failed, WHO_AM_I=0x%02X\r\n", result);
+        CDC_Transmit_FS((uint8_t*)buf, strlen(buf));
+        // continue anyway — ride height will still work
+    } else {
+        CDC_Transmit_FS((uint8_t*)"IMU init success\r\n", 18);
+    }
+
+    // Stop rainbow LED and use it for ride height indication
+    led_disable();
+
+    imu_data_t imu_data = {0};
+    char buf[128];
+
+    for (;;)
+{
+    float distance_mm = ride_height_get_distance_mm();
+    uint8_t quality = ride_height_get_quality();
+
+    // Non-blocking IMU read — only update if data is ready
+    if (result == 0 && IMU_AccelStatus() && IMU_GyroStatus()) {
+        IMU_GetAccel(&imu_data.accel);
+        IMU_GetGyro(&imu_data.gyro);
+    }
+
+    csm_can_update_accel_ride_height(
+        imu_data.accel.x,
+        imu_data.accel.y,
+        imu_data.accel.z,
+        distance_mm
+    );
+
+    // LED update
+    float t = (distance_mm - 20.0f) / (200.0f - 20.0f);
+    if (t < 0.0f) t = 0.0f;
+    if (t > 1.0f) t = 1.0f;
+    led_set((1.0f - t) * 0.5f, 0.0f, t * 0.5f);
+
+    // Debug print
+    int len = snprintf(buf, sizeof(buf),
+        "RH: %.2f mm Q:%d | Accel: %.3f %.3f %.3f m/s^2\r\n",
+        distance_mm, quality,
+        imu_data.accel.x, imu_data.accel.y, imu_data.accel.z);
+    if (len > 0)
+        CDC_Transmit_FS((uint8_t*)buf, (uint16_t)len);
+
+    osDelay(10);
+}
+}
+
+void StartSusPotStrainGaugeTask(void *argument)
+{
+    osDelay(1000);  // wait for USB and CAN to be ready
+
+    char buf[64];
+
+    for (;;)
+    {
+        // Read sus pot
+        uint32_t sus_pot_raw = susPotGetVal(&hadc2, ADC_CHANNEL_12);
+        float sus_pot_voltage = ((float)sus_pot_raw / 4095.0f) * 5000.0f;
+
+        // Read strain gauge
+        int32_t strain_raw = strainGaugeGetVal(&hadc1, ADC_CHANNEL_4);
+        float strain_voltage = ((float)strain_raw / 4095.0f) * 5000.0f;
+
+        // Send CAN packet
+        csm_can_update_strain_gauge_sus_pot(sus_pot_voltage, strain_voltage);
+
+        // Debug print
+        int len = snprintf(buf, sizeof(buf),
+            "SusPot: %.2f mV | Strain: %.2f mV\r\n",
+            sus_pot_voltage, strain_voltage);
+        if (len > 0)
+            CDC_Transmit_FS((uint8_t*)buf, (uint16_t)len);
+
+        osDelay(10);  // 100Hz
+    }
+}
 void StartIMUTask(void *argument)
 {
     osDelay(8000);
@@ -338,20 +449,3 @@ void StartRideHeightTask(void *argument)
         osDelay(10);
     }
 }
-// void StartRideHeightTask(void *argument)
-// {
-//     osDelay(5000);
-
-//     CDC_Transmit_FS((uint8_t*)"RH task started\r\n", 17);
-//     osDelay(500);  // give USB time to send
-
-//     ride_height_init();
-
-//     for (;;)
-//     {
-//         CDC_Transmit_FS((uint8_t *)"heartbeat\r\n", 11);
-//         osDelay(1000);
-//     }
-// }
-/* USER CODE END Application */
-
