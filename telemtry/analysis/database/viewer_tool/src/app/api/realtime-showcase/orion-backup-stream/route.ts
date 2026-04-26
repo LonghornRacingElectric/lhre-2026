@@ -3,6 +3,10 @@ import { loadOrionBackupReplay } from "@/lib/demo/orionBackupReplay";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const preloadReplayPromise = loadOrionBackupReplay().catch((error) => {
+  console.error("Failed to preload Orion backup replay", error);
+  return null;
+});
 
 function sseHeaders() {
   return {
@@ -103,28 +107,36 @@ export async function GET(req: NextRequest) {
     const tickMs = clampTickMs(url.searchParams.get("tickMs"));
     const loop = url.searchParams.get("loop") !== "0";
     const file = url.searchParams.get("file") ?? undefined;
+    const metaOnly = url.searchParams.get("metaOnly") === "1";
 
+    if (!file) {
+      await preloadReplayPromise;
+    }
     const replay = await loadOrionBackupReplay(file);
     const frameCount = replay.frames.length;
     if (!frameCount) {
       return NextResponse.json({ error: "No backup replay frames available" }, { status: 500 });
     }
 
+    const metaPayload = {
+      source: replay.fileName,
+      sampleMs: replay.sampleMs,
+      trimStartMs: replay.trimStartMs,
+      trimEndMs: replay.trimEndMs,
+      durationMs: replay.durationMs,
+      frameCount: replay.frameCount,
+      cellTemps: replay.cellTemps,
+      outputHz: Math.round(1000 / tickMs),
+      loop,
+    };
+
+    if (metaOnly) {
+      return NextResponse.json(metaPayload);
+    }
+
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
-        controller.enqueue(
-          encodeSseEvent("meta", {
-            source: replay.fileName,
-            sampleMs: replay.sampleMs,
-            trimStartMs: replay.trimStartMs,
-            trimEndMs: replay.trimEndMs,
-            durationMs: replay.durationMs,
-            frameCount: replay.frameCount,
-            cellTemps: replay.cellTemps,
-            outputHz: Math.round(1000 / tickMs),
-            loop,
-          }),
-        );
+        controller.enqueue(encodeSseEvent("meta", metaPayload));
 
         const streamStartMs = replay.trimStartMs;
         const durationMs = Math.max(0, replay.durationMs);

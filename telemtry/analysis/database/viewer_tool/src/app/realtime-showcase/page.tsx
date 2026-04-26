@@ -73,6 +73,11 @@ type BackupReplayMeta = {
   loop: boolean;
 };
 
+const CELL_HEATMAP_COLS = 10;
+const CELL_HEATMAP_SIZE_PX = 10;
+const SPEED_FLICKER_THRESHOLD_MPH = 0.35;
+const SPEED_HOLD_MS = 1500;
+
 function toFiniteNumber(value: unknown): number | undefined {
   const n = typeof value === "number" ? value : Number(value);
   return Number.isFinite(n) ? n : undefined;
@@ -116,6 +121,28 @@ function findNumberArrayByKeys(
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function stabilizeSpeedValue(
+  previous: number | undefined,
+  next: number | undefined,
+  lastNonZeroAtRef: { current: number | undefined },
+  nowMs: number,
+): number | undefined {
+  if (typeof next !== "number") return previous;
+  if (Math.abs(next) > SPEED_FLICKER_THRESHOLD_MPH) {
+    lastNonZeroAtRef.current = nowMs;
+    return next;
+  }
+  if (
+    typeof previous === "number" &&
+    Math.abs(previous) > SPEED_FLICKER_THRESHOLD_MPH &&
+    typeof lastNonZeroAtRef.current === "number" &&
+    nowMs - lastNonZeroAtRef.current < SPEED_HOLD_MS
+  ) {
+    return previous;
+  }
+  return next;
 }
 
 function formatNumber(value: number | undefined, digits = 1): string {
@@ -421,7 +448,7 @@ function CellHeatmap({
     );
   }
 
-  const cols = values.length === 90 ? 10 : Math.ceil(Math.sqrt(values.length));
+  const cols = CELL_HEATMAP_COLS;
   const minTemp = Math.min(...values);
   const maxTemp = Math.max(...values);
   const hottestIndex = values.reduce(
@@ -467,14 +494,19 @@ function CellHeatmap({
         style={{
           background: theme.cardBackground,
           borderColor: theme.cardBorder,
-          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+          gridTemplateColumns: `repeat(${cols}, ${CELL_HEATMAP_SIZE_PX}px)`,
+          justifyContent: "center",
         }}
       >
         {values.map((temp, index) => (
           <div
             key={`cell-${index}`}
-            className="aspect-square rounded-sm border border-black/25"
-            style={{ background: heatColor(temp, minTemp, maxTemp) }}
+            className="rounded-[2px] border border-black/25"
+            style={{
+              width: `${CELL_HEATMAP_SIZE_PX}px`,
+              height: `${CELL_HEATMAP_SIZE_PX}px`,
+              background: heatColor(temp, minTemp, maxTemp),
+            }}
             title={`Cell ${index + 1}: ${temp.toFixed(2)}°C`}
           />
         ))}
@@ -510,6 +542,10 @@ export default function RealtimeShowcasePage() {
   const [backupLastMessageAt, setBackupLastMessageAt] = useState<number | undefined>(undefined);
   const pendingBackupFrameRef = useRef<BackupReplayFrame | null>(null);
   const backupFrameRafRef = useRef<number | null>(null);
+  const [displayVehicleSpeed, setDisplayVehicleSpeed] = useState<number | undefined>(undefined);
+  const [displayGpsSpeed, setDisplayGpsSpeed] = useState<number | undefined>(undefined);
+  const lastVehicleSpeedNonZeroAtRef = useRef<number | undefined>(undefined);
+  const lastGpsSpeedNonZeroAtRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -527,6 +563,22 @@ export default function RealtimeShowcasePage() {
     if (!SHOW_THEME_SELECTOR) return;
     window.localStorage.setItem(THEME_STORAGE_KEY, themeId);
   }, [themeId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/realtime-showcase/orion-backup-stream?metaOnly=1&tickMs=10")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((meta) => {
+        if (cancelled || !meta) return;
+        setBackupMeta(meta as BackupReplayMeta);
+      })
+      .catch(() => {
+        // Ignore prewarm failures; live mode still works.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!backupModeEnabled) {
@@ -697,6 +749,16 @@ export default function RealtimeShowcasePage() {
     typeof effectiveSteerSusLastMessageAt === "number"
       ? Math.max(0, Math.floor((Date.now() - effectiveSteerSusLastMessageAt) / 1000))
       : undefined;
+
+  useEffect(() => {
+    const now = Date.now();
+    setDisplayVehicleSpeed((previous) =>
+      stabilizeSpeedValue(previous, speed, lastVehicleSpeedNonZeroAtRef, now),
+    );
+    setDisplayGpsSpeed((previous) =>
+      stabilizeSpeedValue(previous, gpsSpeed, lastGpsSpeedNonZeroAtRef, now),
+    );
+  }, [speed, gpsSpeed]);
 
   return (
     <div
@@ -883,11 +945,11 @@ export default function RealtimeShowcasePage() {
             <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
               <div className="rounded-xl border p-3" style={cardStyle}>
                 <div className="text-white/65">Vehicle Speed</div>
-                <div className="mt-1 text-xl font-semibold">{formatNumber(speed)} mph</div>
+                <div className="mt-1 text-xl font-semibold">{formatNumber(displayVehicleSpeed)} mph</div>
               </div>
               <div className="rounded-xl border p-3" style={cardStyle}>
                 <div className="text-white/65">GPS Speed</div>
-                <div className="mt-1 text-xl font-semibold">{formatNumber(gpsSpeed)} mph</div>
+                <div className="mt-1 text-xl font-semibold">{formatNumber(displayGpsSpeed)} mph</div>
               </div>
             </div>
           </div>

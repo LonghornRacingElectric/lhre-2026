@@ -68,9 +68,18 @@ const THROTTLE_ACTIVE = 0.08;
 const GPS_ACTIVE_MPS = 1.0;
 const MPS_TO_MPH = 2.2369362920544;
 const METERS_TO_MILES = 0.0006213711922373339;
+const DEFAULT_BACKUP_BASENAME = "orion_log_better";
+const APPS_VOLTAGE_MIN = 1.2;
+const APPS_VOLTAGE_MAX = 3.8;
+const BRAKE_VOLTAGE_MIN = 0.3;
+const BRAKE_VOLTAGE_MAX = 1.15;
 
 type IndexMap = Record<string, number>;
-type Segment = { startMs: number; endMs: number };
+type Segment = {
+  startMs: number;
+  endMs: number;
+  variationScore: number;
+};
 
 let replayCache: Promise<OrionBackupReplay> | null = null;
 let replayCacheKey: string | null = null;
@@ -135,6 +144,60 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+function normalizePct(value: number | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  if (!Number.isFinite(value)) return undefined;
+  if (value <= 1.2) return clamp(value * 100, 0, 100);
+  return clamp(value, 0, 100);
+}
+
+function appsVoltageToPct(apps1V: number | undefined, apps2V: number | undefined): number | undefined {
+  const values = [apps1V, apps2V].filter((entry): entry is number => typeof entry === "number");
+  if (!values.length) return undefined;
+  const avgV = values.reduce((sum, entry) => sum + entry, 0) / values.length;
+  const pct = ((avgV - APPS_VOLTAGE_MIN) / (APPS_VOLTAGE_MAX - APPS_VOLTAGE_MIN)) * 100;
+  return clamp(pct, 0, 100);
+}
+
+function brakeVoltageToPct(bse1V: number | undefined, bse2V: number | undefined): number | undefined {
+  const values = [bse1V, bse2V].filter((entry): entry is number => typeof entry === "number");
+  if (!values.length) return undefined;
+  const pedalV = Math.max(...values);
+  const pct = ((pedalV - BRAKE_VOLTAGE_MIN) / (BRAKE_VOLTAGE_MAX - BRAKE_VOLTAGE_MIN)) * 100;
+  return clamp(pct, 0, 100);
+}
+
+function brakePressureToPctInverted(pressure: number | undefined): number | undefined {
+  if (pressure === undefined || !Number.isFinite(pressure)) return undefined;
+  // This Orion log's pressure channel behaves inverse (higher baseline when not braking).
+  const normalized = clamp(pressure / 300, 0, 1);
+  return (1 - normalized) * 100;
+}
+
+function firstFinite(...values: Array<number | undefined>): number | undefined {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function firstNonZero(...values: Array<number | undefined>): number | undefined {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value) && Math.abs(value) > 1e-6) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function estimateSocFromVoltage(hvPackV: number | undefined): number | undefined {
+  if (hvPackV === undefined || !Number.isFinite(hvPackV) || hvPackV <= 0) return undefined;
+  // Rough Orion backup estimate window from observed DC bus behavior.
+  return clamp(((hvPackV - 320) / (540 - 320)) * 100, 0, 100);
+}
+
 function haversineMeters(a: [number, number], b: [number, number]): number {
   const [lat1, lon1] = a;
   const [lat2, lon2] = b;
@@ -155,9 +218,14 @@ function field(values: string[], indexMap: IndexMap, name: string): string | und
   return values[idx];
 }
 
-function closeSegment(segments: Segment[], startMs: number | null, endMs: number | null) {
+function closeSegment(
+  segments: Segment[],
+  startMs: number | null,
+  endMs: number | null,
+  variationScore: number,
+) {
   if (startMs === null || endMs === null || endMs < startMs) return;
-  segments.push({ startMs, endMs });
+  segments.push({ startMs, endMs, variationScore });
 }
 
 async function resolveOrionLogFile(fileName?: string): Promise<{ fileName: string; filePath: string }> {
@@ -169,14 +237,20 @@ async function resolveOrionLogFile(fileName?: string): Promise<{ fileName: strin
   }
 
   if (fileName) {
-    const requested = csvFiles.find((entry) => entry === fileName);
+    const normalizedRequested = fileName.toLowerCase().endsWith(".csv")
+      ? fileName
+      : `${fileName}.csv`;
+    const requested = csvFiles.find((entry) => entry === normalizedRequested);
     if (!requested) {
       throw new Error(`CSV file '${fileName}' not found in ${logsDir}`);
     }
     return { fileName: requested, filePath: path.join(logsDir, requested) };
   }
 
-  const selected = csvFiles[csvFiles.length - 1];
+  const preferred = csvFiles.find(
+    (entry) => entry.toLowerCase() === `${DEFAULT_BACKUP_BASENAME}.csv`,
+  );
+  const selected = preferred ?? csvFiles[csvFiles.length - 1];
   return { fileName: selected, filePath: path.join(logsDir, selected) };
 }
 
@@ -195,6 +269,8 @@ async function detectTrimWindow(filePath: string): Promise<{ totalStartMs: numbe
 
   let currentSegStart: number | null = null;
   let currentSegEnd: number | null = null;
+  let currentSegScore = 0;
+  let currentSegLastGpsSpeedMps: number | undefined;
   const segments: Segment[] = [];
 
   for await (const line of rl) {
@@ -240,33 +316,57 @@ async function detectTrimWindow(filePath: string): Promise<{ totalStartMs: numbe
       gpsSpeedMps >= GPS_ACTIVE_MPS;
 
     if (isActive) {
-      if (currentSegStart === null) currentSegStart = timeMs;
+      if (currentSegStart === null) {
+        currentSegStart = timeMs;
+        currentSegScore = 0;
+        currentSegLastGpsSpeedMps = undefined;
+      }
       currentSegEnd = timeMs;
+      if (gps && prevGps && prevGpsTimeMs !== undefined && timeMs > prevGpsTimeMs) {
+        const distance = haversineMeters(prevGps, gps);
+        if (Number.isFinite(distance) && distance >= 0) {
+          currentSegScore += Math.min(distance, 60);
+        }
+        if (currentSegLastGpsSpeedMps !== undefined) {
+          currentSegScore += Math.min(Math.abs(gpsSpeedMps - currentSegLastGpsSpeedMps), 20) * 4;
+        }
+        currentSegLastGpsSpeedMps = gpsSpeedMps;
+      }
       continue;
     }
 
     if (currentSegStart !== null && currentSegEnd !== null && timeMs - currentSegEnd > ACTIVE_GAP_MS) {
-      closeSegment(segments, currentSegStart, currentSegEnd);
+      closeSegment(segments, currentSegStart, currentSegEnd, currentSegScore);
       currentSegStart = null;
       currentSegEnd = null;
+      currentSegScore = 0;
+      currentSegLastGpsSpeedMps = undefined;
     }
   }
 
-  closeSegment(segments, currentSegStart, currentSegEnd);
+  closeSegment(segments, currentSegStart, currentSegEnd, currentSegScore);
 
   if (totalStartMs === null || totalEndMs === null) {
     throw new Error(`CSV '${filePath}' has no usable rows`);
   }
 
-  const longest =
+  const bestSegment =
     segments.length > 0
-      ? segments.reduce((best, seg) =>
-          seg.endMs - seg.startMs > best.endMs - best.startMs ? seg : best,
-        )
-      : { startMs: totalStartMs, endMs: totalEndMs };
+      ? segments.reduce((best, seg) => {
+          const bestDurationMs = Math.max(1000, best.endMs - best.startMs);
+          const segDurationMs = Math.max(1000, seg.endMs - seg.startMs);
+          const bestDurationWeight = Math.min(1, bestDurationMs / 60000);
+          const segDurationWeight = Math.min(1, segDurationMs / 60000);
+          const bestRank = (best.variationScore / bestDurationMs) * bestDurationWeight;
+          const segRank = (seg.variationScore / segDurationMs) * segDurationWeight;
+          if (segRank > bestRank) return seg;
+          if (segRank === bestRank && seg.variationScore > best.variationScore) return seg;
+          return best;
+        })
+      : { startMs: totalStartMs, endMs: totalEndMs, variationScore: 0 };
 
-  const trimStartMs = Math.max(totalStartMs, longest.startMs - TRIM_PADDING_MS);
-  const trimEndMs = Math.min(totalEndMs, longest.endMs + TRIM_PADDING_MS);
+  const trimStartMs = Math.max(totalStartMs, bestSegment.startMs - TRIM_PADDING_MS);
+  const trimEndMs = Math.min(totalEndMs, bestSegment.endMs + TRIM_PADDING_MS);
 
   return { totalStartMs, totalEndMs, trimStartMs, trimEndMs };
 }
@@ -289,6 +389,13 @@ async function buildReplay(fileName?: string): Promise<OrionBackupReplay> {
   let lastGps: [number, number] | undefined;
   let speedMph = 0;
   let odometerMiles = 0;
+  let lastHvPackV: number | undefined;
+  let lastHvCurrent: number | undefined;
+  let lastHvSoc: number | undefined;
+  let lastLvV: number | undefined;
+  let lastInverterTemp: number | undefined;
+  let lastMotorTemp: number | undefined;
+  let lastAmbientTemp: number | undefined;
 
   for await (const line of rl) {
     if (!headerParsed) {
@@ -331,32 +438,90 @@ async function buildReplay(fileName?: string): Promise<OrionBackupReplay> {
     if (timeMs < nextSampleMs) continue;
 
     const accelPedal = toFiniteNumber(field(values, indexMap, "dynamics.accel_pedal_travel"));
+    const apps1Travel = toFiniteNumber(field(values, indexMap, "controls.apps1_travel"));
+    const apps2Travel = toFiniteNumber(field(values, indexMap, "controls.apps2_travel"));
+    const apps1V = toFiniteNumber(field(values, indexMap, "controls.apps1_v"));
+    const apps2V = toFiniteNumber(field(values, indexMap, "controls.apps2_v"));
+    const bse1V = toFiniteNumber(field(values, indexMap, "controls.bse1_v"));
+    const bse2V = toFiniteNumber(field(values, indexMap, "controls.bse2_v"));
     const brakePressure = toFiniteNumber(field(values, indexMap, "controls.brake_pressure_f"));
-    const hvPackV = toFiniteNumber(field(values, indexMap, "pack.hv_pack_v"));
-    const hvCurrent = toFiniteNumber(field(values, indexMap, "pack.hv_c"));
-    const hvSoc = toFiniteNumber(field(values, indexMap, "pack.hv_soc"));
-    const lvBattV = toFiniteNumber(field(values, indexMap, "pack.lv_batt_v"));
+    const hvPackV = firstNonZero(
+      toFiniteNumber(field(values, indexMap, "pack.hv_pack_v")),
+      toFiniteNumber(field(values, indexMap, "pack.dc_bus_v")),
+      toFiniteNumber(field(values, indexMap, "pack.bus_voltage")),
+    );
+    const hvCurrent = firstNonZero(
+      toFiniteNumber(field(values, indexMap, "pack.hv_c")),
+      toFiniteNumber(field(values, indexMap, "pack.dc_bus_current")),
+    );
+    const hvSocRaw = toFiniteNumber(field(values, indexMap, "pack.hv_soc"));
+    const hvSoc =
+      (typeof hvSocRaw === "number" && hvSocRaw > 0.1 ? clamp(hvSocRaw, 0, 100) : undefined) ??
+      estimateSocFromVoltage(hvPackV);
+    const lvBattV = firstNonZero(toFiniteNumber(field(values, indexMap, "pack.lv_batt_v")));
     const steerColAngle = toFiniteNumber(field(values, indexMap, "dynamics.steer_col_angle"));
-    const timeSinceOnS = toFiniteNumber(field(values, indexMap, "pack.time_since_on"));
-    const inverterTemp = toFiniteNumber(field(values, indexMap, "thermal.inverter_temp"));
-    const motorTemp = toFiniteNumber(field(values, indexMap, "thermal.motor_temp"));
-    const ambientTemp = toFiniteNumber(field(values, indexMap, "thermal.ambient_temp"));
+    const timeSinceOnS =
+      firstNonZero(toFiniteNumber(field(values, indexMap, "pack.time_since_on"))) ??
+      Math.max(0, (timeMs - trimStartMs) / 1000);
+    const inverterTemp = firstNonZero(
+      toFiniteNumber(field(values, indexMap, "thermal.inverter_temp")),
+      toFiniteNumber(field(values, indexMap, "thermal.inverter_hotspot_temp")),
+      toFiniteNumber(field(values, indexMap, "thermal.gate_driver_temp")),
+    );
+    const motorTemp = firstNonZero(toFiniteNumber(field(values, indexMap, "thermal.motor_temp")));
+    const ambientTemp = firstNonZero(
+      toFiniteNumber(field(values, indexMap, "thermal.ambient_temp")),
+      toFiniteNumber(field(values, indexMap, "thermal.coolant_temp")),
+    );
 
     const flPot = toFiniteNumber(field(values, indexMap, "dynamics.fl_sus_pot_v"));
     const frPot = toFiniteNumber(field(values, indexMap, "dynamics.fr_sus_pot_v"));
     const blPot = toFiniteNumber(field(values, indexMap, "dynamics.bl_sus_pot_v"));
     const brPot = toFiniteNumber(field(values, indexMap, "dynamics.br_sus_pot_v"));
-    const cellsTemps = parseNumberArray(field(values, indexMap, "pack.cells_temps"));
+    const cellsTempsRaw = parseNumberArray(field(values, indexMap, "pack.cells_temps"));
+    const cellsTemps =
+      cellsTempsRaw && cellsTempsRaw.length >= 90 ? cellsTempsRaw.slice(0, 90) : cellsTempsRaw;
     if (!cachedCellTemps && cellsTemps?.length) {
       cachedCellTemps = cellsTemps;
     }
 
+    const throttlePctFromAccel = normalizePct(accelPedal);
+    const throttlePctFromTravel = normalizePct(
+      Math.max(apps1Travel ?? Number.NEGATIVE_INFINITY, apps2Travel ?? Number.NEGATIVE_INFINITY),
+    );
+    const throttlePctFromAppsV = appsVoltageToPct(apps1V, apps2V);
     const throttlePct =
-      accelPedal !== undefined ? clamp(accelPedal <= 1.2 ? accelPedal * 100 : accelPedal, 0, 100) : undefined;
+      (throttlePctFromAccel !== undefined && throttlePctFromAccel > 0.1
+        ? throttlePctFromAccel
+        : undefined) ??
+      (throttlePctFromTravel !== undefined && throttlePctFromTravel > 0.1
+        ? throttlePctFromTravel
+        : undefined) ??
+      throttlePctFromAppsV;
+    const brakePctFromV = brakeVoltageToPct(bse1V, bse2V);
+    const brakePctFromPressure = brakePressureToPctInverted(brakePressure);
     const brakePct =
-      brakePressure !== undefined ? clamp(brakePressure <= 20 ? brakePressure * 5 : brakePressure, 0, 100) : undefined;
+      (brakePctFromV !== undefined && brakePctFromV > 0.1 ? brakePctFromV : undefined) ??
+      brakePctFromPressure;
+    const resolvedHvPackV = firstFinite(hvPackV, lastHvPackV);
+    const resolvedHvCurrent = firstFinite(hvCurrent, lastHvCurrent);
+    const resolvedHvSoc = firstFinite(hvSoc, lastHvSoc);
+    const resolvedLvBattV = firstFinite(lvBattV, lastLvV);
+    const resolvedInverterTemp = firstFinite(inverterTemp, lastInverterTemp);
+    const resolvedMotorTemp = firstFinite(motorTemp, lastMotorTemp);
+    const resolvedAmbientTemp = firstFinite(ambientTemp, lastAmbientTemp);
     const powerKw =
-      hvPackV !== undefined && hvCurrent !== undefined ? (hvPackV * hvCurrent) / 1000 : undefined;
+      resolvedHvPackV !== undefined && resolvedHvCurrent !== undefined
+        ? (resolvedHvPackV * resolvedHvCurrent) / 1000
+        : undefined;
+
+    lastHvPackV = resolvedHvPackV;
+    lastHvCurrent = resolvedHvCurrent;
+    lastHvSoc = resolvedHvSoc;
+    lastLvV = resolvedLvBattV;
+    lastInverterTemp = resolvedInverterTemp;
+    lastMotorTemp = resolvedMotorTemp;
+    lastAmbientTemp = resolvedAmbientTemp;
 
     frames.push({
       timestampMs: timeMs,
@@ -367,22 +532,22 @@ async function buildReplay(fileName?: string): Promise<OrionBackupReplay> {
         steerColAngle: steerColAngle ?? null,
         throttlePct: throttlePct ?? null,
         brakePct: brakePct ?? null,
-        batteryPct: hvSoc ?? null,
-        hvPackV: hvPackV ?? null,
-        hvCurrent: hvCurrent ?? null,
-        lvV: lvBattV ?? null,
-        inverterTempC: inverterTemp ?? null,
-        motorTempC: motorTemp ?? null,
-        ambientTempC: ambientTemp ?? null,
+        batteryPct: resolvedHvSoc ?? null,
+        hvPackV: resolvedHvPackV ?? null,
+        hvCurrent: resolvedHvCurrent ?? null,
+        lvV: resolvedLvBattV ?? null,
+        inverterTempC: resolvedInverterTemp ?? null,
+        motorTempC: resolvedMotorTemp ?? null,
+        ambientTempC: resolvedAmbientTemp ?? null,
       },
       liveBanner: {
-        battery: hvSoc ?? null,
+        battery: resolvedHvSoc ?? null,
         odometer: odometerMiles,
       },
       energy: {
         powerKw: powerKw ?? null,
         timeSinceOnS: timeSinceOnS ?? null,
-        batteryPct: hvSoc ?? null,
+        batteryPct: resolvedHvSoc ?? null,
       },
       map: {
         dynamics: { gps: lastGps ? [lastGps[0], lastGps[1]] : null },

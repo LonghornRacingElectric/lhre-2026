@@ -59,7 +59,6 @@ const MapResizer = ({ resize }: { resize: any }) => {
 
 const TRAIL_MAX_POINTS = 1000;
 const TRAIL_JUMP_RESET_METERS = 150;
-
 function distanceMeters(a: [number, number], b: [number, number]): number {
   const [lat1, lon1] = a;
   const [lat2, lon2] = b;
@@ -82,6 +81,9 @@ const Map = ({ resize, data }: { resize?: any, data?: MapData | null; }) => {
   const [showTrail, setShowTrail] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mapId = useRef(nanoid());
+  const latestPositionRef = useRef<[number, number] | null>(null);
+  const lastAppliedPositionRef = useRef<[number, number] | null>(null);
+  const frameRef = useRef<number | null>(null);
 
   // Live connection to Kafka "sensor_data" topic
   const { data: liveData } = useKafkaJSON<MapData>({
@@ -102,6 +104,8 @@ const Map = ({ resize, data }: { resize?: any, data?: MapData | null; }) => {
 
   useEffect(() => {
     setTrail([]);
+    latestPositionRef.current = null;
+    lastAppliedPositionRef.current = null;
   }, [selectedCar]);
 
   useEffect(() => {
@@ -113,27 +117,48 @@ const Map = ({ resize, data }: { resize?: any, data?: MapData | null; }) => {
         return;
       }
 
-      const nextPos: [number, number] = [lat, lng];
-      setPosition(nextPos);
-      setTrail((prev) => {
-        const last = prev[prev.length - 1];
-        if (last && last[0] === nextPos[0] && last[1] === nextPos[1]) {
-          return prev;
-        }
-
-        if (last && distanceMeters(last, nextPos) > TRAIL_JUMP_RESET_METERS) {
-          return [nextPos];
-        }
-
-        const next = [...prev, nextPos];
-        if (next.length <= TRAIL_MAX_POINTS) return next;
-        return next.slice(next.length - TRAIL_MAX_POINTS);
-      });
+      latestPositionRef.current = [lat, lng];
       setError(null);
     } else {
       setError("No Current Car Position");
     }
   }, [latitude, longitude]);
+
+  useEffect(() => {
+    const applyLatestPosition = () => {
+      const nextPos = latestPositionRef.current;
+      const lastApplied = lastAppliedPositionRef.current;
+      if (
+        nextPos &&
+        (!lastApplied || lastApplied[0] !== nextPos[0] || lastApplied[1] !== nextPos[1])
+      ) {
+        lastAppliedPositionRef.current = nextPos;
+        setPosition(nextPos);
+        setTrail((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && last[0] === nextPos[0] && last[1] === nextPos[1]) {
+            return prev;
+          }
+
+          if (last && distanceMeters(last, nextPos) > TRAIL_JUMP_RESET_METERS) {
+            return [nextPos];
+          }
+
+          const next = [...prev, nextPos];
+          if (next.length <= TRAIL_MAX_POINTS) return next;
+          return next.slice(next.length - TRAIL_MAX_POINTS);
+        });
+      }
+      frameRef.current = window.requestAnimationFrame(applyLatestPosition);
+    };
+
+    frameRef.current = window.requestAnimationFrame(applyLatestPosition);
+    return () => {
+      if (frameRef.current !== null) {
+        window.cancelAnimationFrame(frameRef.current);
+      }
+    };
+  }, []);
 
   if (error) {
     return (
@@ -157,7 +182,7 @@ const Map = ({ resize, data }: { resize?: any, data?: MapData | null; }) => {
         key={mapId.current}
         id={mapId.current}
         center={position}
-        zoom={19}
+        zoom={20}
         style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
