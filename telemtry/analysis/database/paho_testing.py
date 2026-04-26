@@ -226,6 +226,12 @@ class DataTester:
 
         :return: a row of data in dict {col_name: random_data, col2_name: ...} format
         """
+        # Tunables for keeping the dash in a "mostly happy" state during sim.
+        # Lower SHUTDOWN_FAULT_RATE -> shutdown circuit faults are rarer.
+        # Tighter TEMP_RANGE -> temperature warnings (>80C threshold) are rarer.
+        SHUTDOWN_FAULT_RATE = 0.01   # ~1% chance any individual shutdown leg trips
+        TEMP_RANGE = (25, 60)         # safely under the 80C warning threshold
+
         row = {}
         for col, (dtype, ndims) in table_desc.items():
             if col == 'time':
@@ -233,18 +239,34 @@ class DataTester:
             elif col == 'packet_id':
                 row[col] = packet
             elif col == 'cells_temp':
-                # row[col] = np.random.randint(1, 101, size=(4, 5)).tolist()
-                row[col] = np.random.randint(1, 101, size=140).tolist()
+                row[col] = np.random.randint(TEMP_RANGE[0], TEMP_RANGE[1], size=140).tolist()
             elif dtype is datetime.datetime:
                 row[col] = datetime.date.today()
             elif dtype is dict:
-                # row[col] = Jsonb({'fake_jsonb_data': self.get_random_data(int, 3)})
-                row[col] = {'fake_jsonb_data': self.get_random_data(int, 3)} 
+                row[col] = {'fake_jsonb_data': self.get_random_data(int, 3)}
             elif dtype == 'point' or dtype == "POINT" or (isinstance(dtype, str) and dtype.lower() == 'point') or (isinstance(dtype, str) and dtype.lower() == 'POINT'):
                 point = random.choice([(30.289464, -97.735303), (30.389670, -97.728152)])
                 row[col] = point
             elif dtype is bytearray or dtype is bytes:
                 row[col] = secrets.token_bytes(16)
+            elif dtype is bool:
+                # Bias bool fields heavily toward True so shutdown legs / OK flags
+                # don't trip the dash's fault state every other packet.
+                if ndims == 0:
+                    row[col] = bool(self.rng.random() >= SHUTDOWN_FAULT_RATE)
+                elif ndims == 1:
+                    row[col] = [bool(self.rng.random() >= SHUTDOWN_FAULT_RATE) for _ in range(3)]
+                else:
+                    raise ValueError(f'Invalid number of dimensions for bool: {ndims}')
+            elif np.issubdtype(dtype, np.floating) and 'temp' in col.lower():
+                # Keep any temp-named float in a safe range so the >80C banner
+                # stays off most of the time.
+                if ndims == 0:
+                    row[col] = float(self.rng.uniform(TEMP_RANGE[0], TEMP_RANGE[1]))
+                elif ndims == 1:
+                    row[col] = self.rng.uniform(TEMP_RANGE[0], TEMP_RANGE[1], size=3).tolist()
+                else:
+                    raise ValueError(f'Invalid number of dimensions for temp float: {ndims}')
             else:
                 if ndims == 0:
                     row[col] = self.get_random_data(dtype, size=1, as_scalar=True)
