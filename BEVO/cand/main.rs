@@ -284,7 +284,7 @@ fn update_external_dynamics_from_sentence(external_dynamics: &Arc<Mutex<External
         locked.gps.clear();
         locked.gps.push(lat);
         locked.gps.push(lon);
-        return;
+        // no return: RMC also carries speed, fall through to parse_nmea_gps_speed
     }
 
     if let Some((x, y, z)) = parse_pimu_xyz(sentence) {
@@ -351,15 +351,21 @@ fn nmea_coord_to_decimal(raw: &str, hemi: &str) -> Option<f32> {
 }
 
 fn parse_pimu_xyz(sentence: &str) -> Option<(f32, f32, f32)> {
-    if !sentence.starts_with("$PIMU") {
+    if !sentence.starts_with('$') {
         return None;
     }
     let payload = sentence.split('*').next()?;
-    let mut parts = payload.split(',');
-    parts.next()?;
-    let x: f32 = parts.next()?.trim().parse().ok()?;
-    let y: f32 = parts.next()?.trim().parse().ok()?;
-    let z: f32 = parts.next()?.trim().parse().ok()?;
+    let fields: Vec<&str> = payload.split(',').collect();
+    let msg = fields.first()?;
+
+    if !msg.ends_with("PIMU") {
+        return None;
+    }
+
+    // PIMU format: $PIMU,time,tIndex,ax,ay,az,...
+    let x: f32 = fields.get(3)?.trim().parse().ok()?;
+    let y: f32 = fields.get(4)?.trim().parse().ok()?;
+    let z: f32 = fields.get(5)?.trim().parse().ok()?;
     Some((x, y, z))
 }
 
