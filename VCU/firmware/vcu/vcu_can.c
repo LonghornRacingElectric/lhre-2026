@@ -34,6 +34,9 @@ static can_receive_message_t *contactor_status_mailbox_handle = NULL;
 static msg_dui_r2d_status_t dui_r2d_status_mailbox = {0};
 static can_receive_message_t *dui_r2d_status_mailbox_handle = NULL;
 
+static msg_inverter_status_t inverter_status_mailbox = {0};
+static can_receive_message_t *inverter_status_mailbox_handle = NULL;
+
 static msg_inverter_speed_t inverter_speed_mailbox = {0};
 static can_receive_message_t *inverter_speed_mailbox_handle = NULL;
 
@@ -281,6 +284,10 @@ void vcu_can_set_powertrain_inputs(vcu_inputs_t *in) {
       inverter_speed_mailbox_handle != NULL &&
       !message_timed_out(inverter_speed_mailbox_handle,
                          INVERTER_SPEED_TIMEOUT_MS);
+  bool inverter_status_valid =
+      inverter_status_mailbox_handle != NULL &&
+      !message_timed_out(inverter_status_mailbox_handle,
+                         INVERTER_STATUS_TIMEOUT_MS);
   bool inverter_power_valid =
       inverter_voltage_mailbox_handle != NULL &&
       inverter_current_mailbox_handle != NULL &&
@@ -298,8 +305,10 @@ void vcu_can_set_powertrain_inputs(vcu_inputs_t *in) {
   in->inverter_dc_bus_current_a = inverter_current_mailbox.dc_bus_current;
   in->inverter_power_valid = inverter_power_valid;
 
-  in->motor_speed_rpm = (float)inverter_speed_mailbox.motor_speed;
-  in->inverter_speed_valid = inverter_speed_valid;
+  in->motor_speed_rpm = inverter_speed_valid
+                            ? (float)inverter_speed_mailbox.motor_speed
+                            : (float)inverter_status_mailbox.motor_speed;
+  in->inverter_speed_valid = inverter_speed_valid || inverter_status_valid;
 
   bool wheel_speeds_valid =
       wheel_speeds_mailbox_handle != NULL &&
@@ -495,6 +504,14 @@ void vcu_can_add_receive_handlers(void) {
                                    dui_r2d_status_mailbox_handle);
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for DUI R2D status registered\n");
+
+  inverter_status_mailbox_handle = can_get_receive_message_handle(
+      &inverter_status_mailbox, INVERTER_STATUS_ID,
+      (CAN_unpack_message_fn)unpack_inverter_status);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   inverter_status_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for inverter status registered\n");
 
   inverter_speed_mailbox_handle = can_get_receive_message_handle(
       &inverter_speed_mailbox, INVERTER_SPEED_ID,
