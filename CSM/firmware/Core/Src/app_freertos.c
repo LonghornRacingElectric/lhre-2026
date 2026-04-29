@@ -48,6 +48,7 @@
 #include "ota/ota_flash.h"
 #include "csm_can.h"
 #include "spi_mutex.h"
+#include "fdcan.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -207,6 +208,17 @@ void StartDefaultTask(void *argument)
     spi_mutex_init();
     csm_can_init();
 
+    osDelay(1000);  // let bus settle
+    uint32_t psr = hfdcan2.Instance->PSR;
+    char buf[64];
+    snprintf(buf, sizeof(buf), "FDCAN PSR: 0x%08X BO:%d EP:%d EW:%d\r\n",
+      psr,
+      (int)((psr >> 7) & 1),
+      (int)((psr >> 6) & 1),
+      (int)((psr >> 5) & 1));
+CDC_Transmit_FS((uint8_t*)buf, strlen(buf));
+
+
     dfu_config dfu = {
       .delay_fn = (Delay_fn)osDelay,
       .gpiox = GPIOB,
@@ -222,7 +234,10 @@ void StartDefaultTask(void *argument)
         osDelay(1000);
     }
 
-
+  for (;;) {
+    osDelay(1000);
+    csm_can_debug();
+  }
 
 
 

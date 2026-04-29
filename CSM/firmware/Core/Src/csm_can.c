@@ -180,7 +180,11 @@ void csm_can_update_accel_ride_height(float x, float y, float z, float ride_heig
 }
 
 
-
+void csm_can_debug(void) {
+    log_printf(LOG_INFO, "[CSM] sent: %lu dropped: %lu err: %d errcode: %d\n",
+               data_acq_bus._messages_sent, data_acq_bus.dropped_packets,
+               data_acq_bus._error_occurred, data_acq_bus._error_code_send);
+}
 
 
 
