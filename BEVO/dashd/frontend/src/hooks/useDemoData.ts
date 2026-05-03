@@ -67,7 +67,7 @@ export function useDemoData(enabled: boolean): DashMessage | null {
                         s.accelRate = 0.5 + Math.random() * 1.0;
                     } else {
                         s.phase = 'accel';
-                        s.targetSpeed = Math.min(100, s.speed + 20 + Math.random() * 30);
+                        s.targetSpeed = Math.min(99, s.speed + 20 + Math.random() * 30);
                         s.accelRate = 0.2 + Math.random() * 0.6;
                     }
                 }
@@ -82,7 +82,7 @@ export function useDemoData(enabled: boolean): DashMessage | null {
                 }
             }
 
-            s.speed = Math.max(0, Math.min(s.speed, 100));
+            s.speed = Math.max(0, Math.min(s.speed, 99));
             const clampedPower = Math.min(Math.max(newPower, -80), 80);
 
             // Accumulate derived values

@@ -132,7 +132,7 @@ const ScreenOne: React.FC = () => {
                     </span>
                 </div>
 
-                {/* Center: tall s/s rate bar (label on left) + lap delta (Δ left of number) */}
+                {/* Center: full-width s/s rate bar (label on left) */}
                 <div style={{
                     position: 'absolute',
                     left: '50%',
@@ -143,46 +143,29 @@ const ScreenOne: React.FC = () => {
                     width: '540px',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '20px',
+                    gap: '10px',
                     padding: '0 8px'
                 }}>
-                    {/* s/s bar with inline left label */}
-                    <div style={{ flex: '1 1 auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span className="label-small" style={{ marginBottom: 0, flexShrink: 0 }}>S/S</span>
-                        <div style={{ flex: 1, height: '26px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', position: 'relative', overflow: 'hidden' }}>
-                            {/* Zero marker (dead center) */}
-                            <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '2px', background: 'rgba(255,255,255,0.3)', transform: 'translateX(-50%)', zIndex: 2 }} />
-                            {/* Fill */}
-                            <div style={{
-                                position: 'absolute',
-                                top: 0, bottom: 0,
-                                left: lapDeltaRate !== null && lapDeltaRate < 0
-                                    ? `${50 - (Math.min(Math.abs(lapDeltaRate), LAP_DELTA_RATE_MAX) / LAP_DELTA_RATE_MAX) * 50}%`
-                                    : '50%',
-                                width: lapDeltaRate !== null
-                                    ? `${(Math.min(Math.abs(lapDeltaRate), LAP_DELTA_RATE_MAX) / LAP_DELTA_RATE_MAX) * 50}%`
-                                    : '0%',
-                                background: lapDeltaRate !== null && lapDeltaRate < 0
-                                    ? 'linear-gradient(to right, #00CC00, #00FF66)'
-                                    : 'linear-gradient(to left, #FF3333, #FF6600)',
-                                transition: 'all 0.1s linear'
-                            }} />
-                        </div>
+                    <span className="label-small" style={{ marginBottom: 0, flexShrink: 0 }}>S/S</span>
+                    <div style={{ flex: 1, height: '26px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', position: 'relative', overflow: 'hidden' }}>
+                        {/* Zero marker (dead center) */}
+                        <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '2px', background: 'rgba(255,255,255,0.3)', transform: 'translateX(-50%)', zIndex: 2 }} />
+                        {/* Fill */}
+                        <div style={{
+                            position: 'absolute',
+                            top: 0, bottom: 0,
+                            left: lapDeltaRate !== null && lapDeltaRate < 0
+                                ? `${50 - (Math.min(Math.abs(lapDeltaRate), LAP_DELTA_RATE_MAX) / LAP_DELTA_RATE_MAX) * 50}%`
+                                : '50%',
+                            width: lapDeltaRate !== null
+                                ? `${(Math.min(Math.abs(lapDeltaRate), LAP_DELTA_RATE_MAX) / LAP_DELTA_RATE_MAX) * 50}%`
+                                : '0%',
+                            background: lapDeltaRate !== null && lapDeltaRate < 0
+                                ? 'linear-gradient(to right, #00CC00, #00FF66)'
+                                : 'linear-gradient(to left, #FF3333, #FF6600)',
+                            transition: 'all 0.1s linear'
+                        }} />
                     </div>
-
-                    {/* Lap delta: Δ symbol left of value, "s" unit on the right.
-                        Value column is min-width-locked so the bar to the
-                        left of it never shifts as the digit count changes. */}
-                    <div style={{ flexShrink: 0, display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                        <span className="label-small" style={{ marginBottom: 0 }}>Δ</span>
-                        <span className="value-display" style={{ fontSize: '2.2rem', fontWeight: 'bold', lineHeight: 1, color: getDeltaColor(lapDelta), textShadow: 'none', minWidth: '110px', textAlign: 'right', display: 'inline-block' }}>
-                            {lapDelta !== null && lapDelta !== undefined
-                                ? `${lapDelta > 0 ? '+' : lapDelta < 0 ? '-' : ''}${Math.abs(lapDelta).toFixed(2)}`
-                                : '--'}
-                        </span>
-                        <span className="label-small" style={{ marginBottom: 0 }}>s</span>
-                    </div>
-
                 </div>
 
                 {/* Right: NRG laps remaining (fixed value width) */}
@@ -324,7 +307,7 @@ const ScreenOne: React.FC = () => {
                 left: '90px',
                 right: '90px',
                 display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
+                gridTemplateColumns: '2fr 3fr',
                 gridTemplateRows: '3fr 2fr',
                 padding: '14px 20px'
             }}>
@@ -336,7 +319,7 @@ const ScreenOne: React.FC = () => {
                     <div className="label-small" style={{ fontSize: '1.2rem', letterSpacing: '4px', marginTop: '4px' }}>MPH</div>
                 </div>
 
-                {/* TR: Lap-times table (2x2): BEST | LAST / CURR | (free) */}
+                {/* TR: Lap-times table (2x2): CURR | Δ / BEST | LAST */}
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: '1fr 1fr',
@@ -345,10 +328,17 @@ const ScreenOne: React.FC = () => {
                     padding: '4px'
                 }}>
                     {([
+                        { label: 'CURR', value: fmtLapTime(currentLapTime), labelColor: '#FFD700', valueColor: '#FFD700' },
+                        {
+                            label: 'LAP DELTA',
+                            value: lapDelta !== null && lapDelta !== undefined
+                                ? `${lapDelta > 0 ? '+' : lapDelta < 0 ? '-' : ''}${Math.abs(lapDelta).toFixed(2)} s`
+                                : '--',
+                            valueColor: getDeltaColor(lapDelta),
+                        },
                         { label: 'BEST', value: fmtLapTime(bestLapTime) },
                         { label: 'LAST', value: fmtLapTime(lastLapTime) },
-                        { label: 'CURR', value: fmtLapTime(currentLapTime), highlight: true },
-                    ] as { label: string; value: string; highlight?: boolean }[]).map((cell) => (
+                    ] as { label: string; value: string; labelColor?: string; valueColor?: string }[]).map((cell) => (
                         <div key={cell.label} style={{
                             display: 'flex',
                             flexDirection: 'column',
@@ -358,16 +348,16 @@ const ScreenOne: React.FC = () => {
                             borderLeft: '2px solid rgba(255, 255, 255, 0.08)'
                         }}>
                             <div className="label-small" style={{
-                                fontSize: '0.7rem',
+                                fontSize: '0.95rem',
                                 letterSpacing: '2px',
-                                marginBottom: '2px',
-                                color: cell.highlight ? '#FFD700' : '#888'
+                                marginBottom: '4px',
+                                color: cell.labelColor ?? '#888'
                             }}>{cell.label}</div>
                             <div className="value-display" style={{
-                                fontSize: '1.4rem',
+                                fontSize: '2.1rem',
                                 fontWeight: 'bold',
                                 lineHeight: 1,
-                                color: cell.highlight ? '#FFD700' : '#fff'
+                                color: cell.valueColor ?? '#fff'
                             }}>
                                 {cell.value}
                             </div>
@@ -390,10 +380,10 @@ const ScreenOne: React.FC = () => {
                             {fmt(power)}
                             <span className="label-small" style={{ fontSize: '0.9rem', marginLeft: '6px' }}>kW</span>
                         </div>
-                        <div className="value-display" style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#aaa' }}>
-                            <span className="label-small" style={{ fontSize: '0.7rem', marginRight: '6px' }}>BB</span>
+                        <div className="value-display" style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#aaa', lineHeight: 1 }}>
+                            <span className="label-small" style={{ fontSize: '0.9rem', marginRight: '6px' }}>BB</span>
                             {brakeBias !== null && brakeBias !== undefined ? brakeBias.toFixed(0) : '--'}
-                            <span className="label-small" style={{ fontSize: '0.7rem', marginLeft: '3px' }}>%</span>
+                            <span className="label-small" style={{ fontSize: '0.9rem', marginLeft: '3px' }}>%</span>
                         </div>
                     </div>
 
