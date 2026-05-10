@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma/telemtry";
+import prismaTelemtry from "@/lib/prisma/telemtry";
+import {
+  findPacketTimeById,
+  normalizeCar,
+  resolveCarFromCarId,
+} from "@/lib/prisma/carPrisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,15 +30,6 @@ function addIfPresent(
   out[key] = String(value);
 }
 
-function toBigInt(value: string | null): bigint | null {
-  if (value == null || value === "") return null;
-  try {
-    return BigInt(value);
-  } catch {
-    return null;
-  }
-}
-
 function bigintToSafeNumber(v: bigint | null): number | null {
   if (v == null) return null;
   const n = Number(v);
@@ -55,7 +51,7 @@ export async function GET(req: NextRequest) {
     }
 
     // eventId maps to day_id since drive_day is now the single session record
-    const ev = await prisma.drive_day.findUnique({
+    const ev = await prismaTelemtry.drive_day.findUnique({
       where: { day_id: eventId },
       include: {
         car:       { select: { car_name: true } },
@@ -76,20 +72,19 @@ export async function GET(req: NextRequest) {
 
     const packetStart = BigInt(ev.packet_start as any);
     const packetEnd = BigInt(ev.packet_end as any);
-
+    const requestedCar = normalizeCar(url.searchParams.get("car"));
+    const car =
+      requestedCar ??
+      normalizeCar(ev.car?.car_name) ??
+      (await resolveCarFromCarId(ev.car_id)) ??
+      "orion";
     const [p0, p1] = await Promise.all([
-      prisma.packet.findUnique({
-        where: { packet_id: packetStart },
-        select: { time: true },
-      }),
-      prisma.packet.findUnique({
-        where: { packet_id: packetEnd },
-        select: { time: true },
-      }),
+      findPacketTimeById(car, packetStart),
+      findPacketTimeById(car, packetEnd),
     ]);
 
-    const startMs = p0?.time != null ? BigInt(p0.time as any) : null;
-    const endMs = p1?.time != null ? BigInt(p1.time as any) : null;
+    const startMs = p0 != null ? BigInt(p0 as any) : null;
+    const endMs = p1 != null ? BigInt(p1 as any) : null;
 
     if (startMs == null || endMs == null) {
       return NextResponse.json(
@@ -98,7 +93,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const classifiers = await prisma.classifier.findMany({
+    const classifiers = await prismaTelemtry.classifier.findMany({
       where: {
         AND: [
           { day_id: BigInt(eventId) },
@@ -212,6 +207,7 @@ export async function GET(req: NextRequest) {
         track: ev.location?.track ?? null,
         event_type: ev.eventType?.event_type ?? null,
         car_name: ev.car?.car_name ?? null,
+        car_type: car,
         time_start: bigintToSafeNumber(startMs),
         time_end: bigintToSafeNumber(endMs),
         lap_times,

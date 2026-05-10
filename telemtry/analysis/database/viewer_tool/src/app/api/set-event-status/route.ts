@@ -1,5 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma/telemtry';
+import prismaTelemtry from '@/lib/prisma/telemtry';
+import {
+  findLatestPacketId,
+  normalizeCar,
+  resolveCarFromCarId,
+} from '@/lib/prisma/carPrisma';
+
+function toBigInt(value: unknown): bigint | null {
+  if (value === null || value === undefined || value === '') return null;
+  try {
+    return BigInt(value as string | number | bigint);
+  } catch {
+    return null;
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,25 +24,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing day_id or status' }, { status: 400 });
     }
 
-    const now = start_time ?? Date.now();
+    const dayId = Number(day_id);
+    const nextStatus = Number(status);
+    if (!Number.isFinite(dayId) || !Number.isFinite(nextStatus)) {
+      return NextResponse.json({ error: 'Invalid day_id or status' }, { status: 400 });
+    }
 
-    if (status === 1) {
-      await prisma.drive_day.update({
-        where: { day_id },
+    const now = start_time ?? Date.now();
+    const dayMeta = await prismaTelemtry.drive_day.findUnique({
+      where: { day_id: dayId },
+      select: {
+        car_id: true,
+        car: { select: { car_name: true } },
+      },
+    });
+
+    if (!dayMeta) {
+      return NextResponse.json({ error: 'Drive day not found' }, { status: 404 });
+    }
+
+    const car =
+      normalizeCar(body.car) ??
+      normalizeCar(dayMeta.car?.car_name) ??
+      (await resolveCarFromCarId(dayMeta.car_id));
+
+    if (nextStatus === 1) {
+      await prismaTelemtry.drive_day.update({
+        where: { day_id: dayId },
         data: {
           start_time: BigInt(now),
           status: 1,
         },
       });
-    } else if (status === 0) {
-      const lastPacket = await prisma.packet.findFirst({
-        orderBy: { packet_id: 'desc' },
-      });
+    } else if (nextStatus === 0) {
+      const lastPacketId = await findLatestPacketId(car);
+      const fallbackPacketEnd = toBigInt(body.packet_end) ?? BigInt(0);
+      const packet_end = lastPacketId ?? fallbackPacketEnd;
 
-      const packet_end = lastPacket?.packet_id ?? body.packet_end ?? BigInt(0);
-
-      await prisma.drive_day.update({
-        where: { day_id },
+      await prismaTelemtry.drive_day.update({
+        where: { day_id: dayId },
         data: {
           end_time: BigInt(now),
           status: 0,
@@ -36,9 +70,9 @@ export async function POST(req: NextRequest) {
         },
       });
     } else {
-      await prisma.drive_day.update({
-        where: { day_id },
-        data: { status },
+      await prismaTelemtry.drive_day.update({
+        where: { day_id: dayId },
+        data: { status: nextStatus },
       });
     }
 

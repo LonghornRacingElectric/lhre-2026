@@ -1,5 +1,5 @@
 
-©'
+Ü'
 $nonhermetic/assets/can_packets.protoorion"ê
 OrionSensorData
 time (Rtime
@@ -131,31 +131,33 @@ r2d_status (R	r2dStatus#
 shutdown_leg1 (RshutdownLeg1#
 shutdown_leg2 (RshutdownLeg2#
 shutdown_leg3 (RshutdownLeg3#
-shutdown_leg4	 (RshutdownLeg4"Œ
+shutdown_leg4	 (RshutdownLeg4"¿
 Thermal0
 batt_cooling_current (RbattCoolingCurrent2
-motor_cooling_current (RmotorCoolingCurrent
+motor_cooling_current (RmotorCoolingCurrent!
+ambient_temp (RambientTemp
 
-motor_temp (R	motorTemp!
-ambient_temp (RambientTemp-
+motor_temp (R	motorTemp-
 batt_loop_batt_temp (RbattLoopBattTemp4
 batt_loop_rad_fan_speed (RbattLoopRadFanSpeed+
-batt_loop_rad_temp (RbattLoopRadTemp"
-bus_bar_temp1 (RbusBarTemp1"
-bus_bar_temp2	 (RbusBarTemp2"
-bus_bar_temp3
- (RbusBarTemp3(
-cell_bottom_temp (RcellBottomTemp"
-cell_top_temp (RcellTopTemp!
-coolant_temp (RcoolantTemp(
-discharge_r_temp (RdischargeRTemp(
-gate_driver_temp (RgateDriverTemp2
-inverter_hotspot_temp (RinverterHotspotTemp#
-inverter_temp (RinverterTemp"
-module_a_temp (RmoduleATemp"
-module_b_temp (RmoduleBTemp"
-module_c_temp (RmoduleCTemp7
-motor_loop_inverter_temp (RmotorLoopInverterTemp1
-motor_loop_motor_temp (RmotorLoopMotorTemp6
-motor_loop_rad_fan_speed (RmotorLoopRadFanSpeed-
-motor_loop_rad_temp (RmotorLoopRadTempbproto3
+batt_loop_rad_temp (RbattLoopRadTemp&
+battery_fan_rpm (RbatteryFanRpm"
+bus_bar_temp1	 (RbusBarTemp1"
+bus_bar_temp2
+ (RbusBarTemp2"
+bus_bar_temp3 (RbusBarTemp3(
+cell_bottom_temp (RcellBottomTemp"
+cell_top_temp (RcellTopTemp(
+coolant_flow_lpm (RcoolantFlowLpm!
+coolant_temp (RcoolantTemp(
+discharge_r_temp (RdischargeRTemp
+fan_rpm (RfanRpm(
+gate_driver_temp (RgateDriverTemp2
+inverter_hotspot_temp (RinverterHotspotTemp#
+inverter_temp (RinverterTemp"
+module_a_temp (RmoduleATemp"
+module_b_temp (RmoduleBTemp"
+module_c_temp (RmoduleCTemp7
+motor_loop_inverter_temp (RmotorLoopInverterTemp1
+motor_loop_motor_temp (RmotorLoopMotorTemp-
+motor_loop_rad_temp (RmotorLoopRadTempbproto3

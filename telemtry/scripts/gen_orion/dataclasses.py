@@ -119,18 +119,21 @@ class OrionDiagnosticsLow:
 class OrionThermal:
     batt_cooling_current: Optional[float] = None
     motor_cooling_current: Optional[float] = None
-    motor_temp: Optional[float] = None
     ambient_temp: Optional[float] = None
+    motor_temp: Optional[float] = None
     batt_loop_batt_temp: Optional[float] = None
     batt_loop_rad_fan_speed: Optional[float] = None
     batt_loop_rad_temp: Optional[float] = None
+    battery_fan_rpm: Optional[float] = None
     bus_bar_temp1: Optional[float] = None
     bus_bar_temp2: Optional[float] = None
     bus_bar_temp3: Optional[float] = None
     cell_bottom_temp: Optional[float] = None
     cell_top_temp: Optional[float] = None
+    coolant_flow_lpm: Optional[float] = None
     coolant_temp: Optional[float] = None
     discharge_r_temp: Optional[float] = None
+    fan_rpm: Optional[float] = None
     gate_driver_temp: Optional[float] = None
     inverter_hotspot_temp: Optional[float] = None
     inverter_temp: Optional[float] = None
@@ -139,7 +142,6 @@ class OrionThermal:
     module_c_temp: Optional[float] = None
     motor_loop_inverter_temp: Optional[float] = None
     motor_loop_motor_temp: Optional[float] = None
-    motor_loop_rad_fan_speed: Optional[float] = None
     motor_loop_rad_temp: Optional[float] = None
 
 @dataclass

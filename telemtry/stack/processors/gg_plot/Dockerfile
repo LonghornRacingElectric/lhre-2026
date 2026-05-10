@@ -8,11 +8,8 @@ WORKDIR /app
 # Copy the processor-specific code
 COPY ./stack/processors/gg_plot/ /app/stack/processors/gg_plot/
 
-# Copy dependencies
-COPY ./stack/ingest/mqtt_handler.py /app/stack/ingest/mqtt_handler.py
+# Copy protobuf schemas for direct decode
 COPY ./stack/ingest/protobuf/ /app/stack/ingest/protobuf/
-COPY ./analysis/sql_utils/ /app/analysis/sql_utils/
-COPY ./net_configs.json /app/net_configs.json
 
 ENV PYTHONPATH /app
 WORKDIR /app/stack/processors/gg_plot/

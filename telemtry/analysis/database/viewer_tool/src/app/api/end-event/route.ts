@@ -1,30 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma/telemtry';
+import prismaTelemtry from '@/lib/prisma/telemtry';
+import {
+  findLatestPacketId,
+  normalizeCar,
+  resolveCarFromCarId,
+} from '@/lib/prisma/carPrisma';
 
 export async function POST(req: NextRequest) {
   try {
+    const body = await req.json().catch(() => ({}));
     const now = Date.now();
 
     // Find the latest active drive day (status 2)
-    const activeDay = await prisma.drive_day.findFirst({
+    const activeDay = await prismaTelemtry.drive_day.findFirst({
       where: { status: 2 },
       orderBy: { day_id: 'desc' },
+      select: {
+        day_id: true,
+        car_id: true,
+        car: { select: { car_name: true } },
+      },
     });
 
     if (!activeDay) {
       return NextResponse.json({ message: 'No active drive day found' }, { status: 204 });
     }
 
-    const day_id = activeDay.day_id;
+    const car =
+      normalizeCar(body?.car) ??
+      normalizeCar(activeDay.car?.car_name) ??
+      (await resolveCarFromCarId(activeDay.car_id));
 
-    const lastPacket = await prisma.packet.findFirst({
-      orderBy: { packet_id: 'desc' },
-    });
+    // Capture packet end from the selected car stream when possible.
+    const lastPacketId = await findLatestPacketId(car);
+    const packet_end = lastPacketId ?? BigInt(1);
 
-    const packet_end = lastPacket?.packet_id ?? BigInt(1);
-
-    await prisma.drive_day.update({
-      where: { day_id },
+    await prismaTelemtry.drive_day.update({
+      where: { day_id: activeDay.day_id },
       data: {
         end_time: BigInt(now),
         status: 0,
