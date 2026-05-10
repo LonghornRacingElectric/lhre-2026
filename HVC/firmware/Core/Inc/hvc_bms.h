@@ -26,6 +26,7 @@ bool bms_check_overtemp(void);
 
 uint8_t bms_get_num_responsive_ics(void);
 uint8_t bms_get_balance_status(void);
+uint8_t bms_get_balance_count(void);  // # of cells currently bleeding
 float bms_get_pack_voltage(void);
 float bms_get_min_voltage(void);
 float bms_get_max_voltage(void);

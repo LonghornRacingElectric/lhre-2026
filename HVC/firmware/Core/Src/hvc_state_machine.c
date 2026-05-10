@@ -15,6 +15,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "hvc_state_machine.h"
+#include "hvc_bms.h"
 #include "hvc_contactors.h"
 #include "cmsis_os.h"
 #include "gpio.h"
@@ -47,7 +48,6 @@ void state_machine_init(void) {
 
 /**
  * @brief Update state machine
- * @note Based on 2024 implementation with ~80 lines of proven logic
  */
 void update_state_machine(bool any_faults) {
     uint32_t current_time = osKernelGetTickCount();
@@ -80,7 +80,7 @@ void update_state_machine(bool any_faults) {
         case HVC_STATE_PRECHARGING:
             // Check if precharge complete
             float tractive_voltage = get_tractive_voltage();
-            float pack_voltage = get_pack_voltage();
+            float pack_voltage = bms_get_pack_voltage();
             float precharge_threshold = pack_voltage * HVC_PRECHARGE_THRESHOLD_PERCENT;
 
             if (tractive_voltage > precharge_threshold) {
@@ -116,7 +116,7 @@ void update_state_machine(bool any_faults) {
         case HVC_STATE_CHARGING_PRECHARGING:
             // Similar to normal precharge, but for charging
             tractive_voltage = get_tractive_voltage();
-            pack_voltage = get_pack_voltage();
+            pack_voltage = bms_get_pack_voltage();
             precharge_threshold = pack_voltage * HVC_PRECHARGE_THRESHOLD_PERCENT;
             
             if (tractive_voltage > precharge_threshold) {
@@ -218,12 +218,4 @@ const char* get_state_name(hvc_state_t state) {
 __attribute__((weak)) bool is_charge_enable_active(void) {
     // Default: return false (not charging)
     return false;
-}
-
-
-__attribute__((weak)) float get_pack_voltage(void) {
-    // Default: return pack voltage (read from BMS) in volts
-    extern float getPackVoltage_v(void);
-    float pack_v = getPackVoltage_v();
-    return pack_v;
 }

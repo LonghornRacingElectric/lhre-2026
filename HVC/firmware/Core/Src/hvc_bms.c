@@ -36,7 +36,6 @@
 #define CELL_OVERVOLTAGE_THRESHOLD   4.2f  // Volts
 #define CELL_UNDERVOLTAGE_THRESHOLD  3.0f  // Volts
 #define CELL_OVERTEMP_THRESHOLD      60.0f // Celsius
-#define BMS_DISCONNECT_DEBOUNCE      3
 
 // BMS Balance Thresholds
 #define MAX_BAL_CELLS_PER_BOARD 6
@@ -64,7 +63,6 @@
 static cell_asic IC[TOTAL_IC];
 static uint8_t discharge_active = 0;
 static uint8_t bms_responsive_ics = 0;
-static uint8_t bms_disconnect_strikes = 0;  // ticked once per bms_update; saturates at debounce limit
 
 static float cell_temps[TOTAL_IC * THERMISTORS_PER_IC];
 static float cell_voltages[NUM_CELLS];
@@ -110,6 +108,16 @@ uint8_t bms_get_num_responsive_ics(void) {
     return bms_responsive_ics;
 }
 
+// Number of cells currently flagged for bleeding (after the per-board cap).
+// Reflects the bal_cmd[] state pushed to the chips on the most recent balance tick.
+uint8_t bms_get_balance_count(void) {
+    uint8_t n = 0;
+    for (int i = 0; i < NUM_CELLS; i++) {
+        if (bal_cmd[i]) n++;
+    }
+    return n;
+}
+
 bool bms_check_undervoltage(void)
 {
     for (int i = 0; i < NUM_CELLS; i++) {
@@ -143,12 +151,9 @@ bool bms_check_overtemp(void)
     return false;
 }
 
-// Debounced: only asserts after BMS_DISCONNECT_DEBOUNCE consecutive bad
-// cycles, where "cycle" is one bms_update() tick. The strike counter is
-// owned by bms_update so multiple calls per tick (gate eval) all see the
-// same answer.
+// Raw read; debouncing lives in hvc_faults.c (TIMER_BMS_COMMS).
 bool bms_check_disconnection(void) {
-    return bms_disconnect_strikes >= BMS_DISCONNECT_DEBOUNCE;
+    return bms_responsive_ics < TOTAL_IC;
 }
 
 float bms_get_min_voltage(void) {
@@ -430,13 +435,6 @@ static void bms_update_connectivity(void)
     for (int i = 0; i < TOTAL_IC; i++) {
         bms_responsive_ics += (IC[i].cccrc.cell_pec == 0) && (IC[i].cccrc.aux_pec == 0);
     }
-    if (bms_responsive_ics < TOTAL_IC) {
-        if (bms_disconnect_strikes < BMS_DISCONNECT_DEBOUNCE) {
-            bms_disconnect_strikes++;
-        }
-    } else {
-        bms_disconnect_strikes = 0;
-    }
 }
 
 void bms_update(void)
@@ -445,6 +443,7 @@ void bms_update(void)
     bms_tick++;
 
     bool balance_cycle = (bms_tick % BAL_PERIOD_CYCLES) == 0;
+    bool temp_cycle = (bms_tick % THERMISTOR_PERIOD_CYCLES) == 0;
 
     if (balance_cycle) {
         bms_balancing_rest();
@@ -452,7 +451,7 @@ void bms_update(void)
 
     bms_read_cell_voltages();
 
-    if ((bms_tick % THERMISTOR_PERIOD_CYCLES) == 0) {
+    if (temp_cycle) {
         bms_read_thermistors();
     }
 

@@ -72,12 +72,12 @@ osThreadId_t bmsTaskHandle;
 const osThreadAttr_t bmsTask_attributes = {
     .name = "bms_Task",
     .priority = (osPriority_t)osPriorityHigh2,
-    .stack_size = 256 * 8 * 2 * 2};
+    .stack_size = 8192};
 osThreadId_t stateMachineTaskHandle;
 const osThreadAttr_t stateMachineTask_attributes = {
     .name = "stateMachine",
     .priority = (osPriority_t)osPriorityHigh,
-    .stack_size = 128 * 8 * 2};
+    .stack_size = 4096};
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
@@ -257,21 +257,23 @@ void StartStateMachineTask(void *argument) {
     latched_fault_vector |= current_fault_vector;
     set_bms_fault_pin(current_fault_vector != 0);
     bool any_faults = (latched_fault_vector != 0) ||
-                      (osKernelGetTickCount() <
-                       5000); // decreasing may introduce race condition
+                      (osKernelGetTickCount() < 5000);
 
     update_state_machine(any_faults);
     hvc_update_contactor_status();
 
+    float min_v = bms_get_min_voltage();
+    float max_v = bms_get_max_voltage();
     log_printf(LOG_INFO,
                "Pack: %.2f, Tractive: %.2f V, Raw: %.2f, "
-               "Faults: 0x%08lX, MinV: %.3f, MaxV: %.3f, MinT: %.1f, MaxT: %.1f, "
-               "State: %d, Shutdown: %d, BMS Responsive: %d\n",
-               get_pack_voltage(), get_tractive_voltage(),
+               "Faults: 0x%08lX, MinV: %.3f, MaxV: %.3f, dV: %.3f, MinT: %.1f, MaxT: %.1f, "
+               "State: %d, Shutdown: %d, BMS Responsive: %d, Bal Count: %d\n",
+               bms_get_pack_voltage(), get_tractive_voltage(),
                hvc_adc_read_voltage_sense_v(),
-               latched_fault_vector, bms_get_min_voltage(), bms_get_max_voltage(),
+               latched_fault_vector, min_v, max_v, max_v - min_v,
                bms_get_min_temp(), bms_get_max_temp(), get_current_state(),
-               is_shutdown_closed(), bms_get_num_responsive_ics());
+               is_shutdown_closed(), bms_get_num_responsive_ics(),
+               bms_get_balance_count());
     osDelay(task_period_ms);
   }
 }
