@@ -40,21 +40,23 @@ export const DashProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return (
         <DashContext.Provider value={{ data, isConnected, isDemoMode }}>
-            {/* Mode indicator */}
-            <div style={{
-                position: 'fixed',
-                top: '4px',
-                right: '8px',
-                zIndex: 9999,
-                fontSize: '0.6rem',
-                fontFamily: 'monospace',
-                color: isDemoMode ? '#FFD700' : (isConnected ? '#00FF66' : '#FF3333'),
-                opacity: 0.7,
-                pointerEvents: 'none',
-                letterSpacing: '1px',
-            }}>
-                {isDemoMode ? 'DEMO' : (isConnected ? 'LIVE' : 'DISCONNECTED')}
-            </div>
+            {/* Mode indicator (temporarily hidden) */}
+            {false && (
+                <div style={{
+                    position: 'fixed',
+                    top: '4px',
+                    right: '8px',
+                    zIndex: 9999,
+                    fontSize: '0.6rem',
+                    fontFamily: 'monospace',
+                    color: isDemoMode ? '#FFD700' : (isConnected ? '#00FF66' : '#FF3333'),
+                    opacity: 0.7,
+                    pointerEvents: 'none',
+                    letterSpacing: '1px',
+                }}>
+                    {isDemoMode ? 'DEMO' : (isConnected ? 'LIVE' : 'DISCONNECTED')}
+                </div>
+            )}
             {children}
         </DashContext.Provider>
     );

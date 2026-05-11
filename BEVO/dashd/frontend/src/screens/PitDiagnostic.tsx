@@ -43,41 +43,32 @@ const PitDiagnostic: React.FC = () => {
     // unverified). Will read whatever the backend eventually provides.
     const odometer = data?.can.odometer ?? null;
 
-    // ----- Unwired fields (frontend stubs only — see top-of-file note) -----
+    // ----- Optional fields — wired in demo mode via useDemoData; live mode
+    //       returns null until dashd publishes them. See per-field BACKEND
+    //       TODOs in the type definition (src/types/DashData.ts). -----
 
-    // BACKEND TODO: CanData.apps         (VCU apps_percent)
-    const apps: number | null = null;
-    // BACKEND TODO: CanData.bpps         (VCU bpps_percent)
-    const bpps: number | null = null;
-    // BACKEND TODO: CanData.brakePressureFront / .brakePressureRear
-    const brakePressureFront: number | null = null;
-    const brakePressureRear: number | null = null;
+    const apps = data?.can.apps ?? null;
+    const bpps = data?.can.bpps ?? null;
+    const brakePressureFront = data?.can.brakePressureFront ?? null;
+    const brakePressureRear = data?.can.brakePressureRear ?? null;
 
-    // BACKEND TODO: CanData.motorTemp     (Inverter motor temp message)
-    const motorTemp: number | null = null;
-    // BACKEND TODO: CanData.inverterTemp  (Inverter hotspot or device temp)
-    const inverterTemp: number | null = null;
-    // BACKEND TODO: CanData.coolantTemp   (HVC or VCU coolant loop temp)
-    const coolantTemp: number | null = null;
-    // BACKEND TODO: CanData.cellTempMax   (currently only cell_top_temp is forwarded)
-    const cellTempMax: number | null = cellTopTemp;
-    // BACKEND TODO: CanData.cellTempAvg   (segment-averaged or pack-averaged cell temp)
-    const cellTempAvg: number | null = null;
-    // BACKEND TODO: CanData.cellTempMin
-    const cellTempMin: number | null = null;
+    const motorTemp = data?.can.motorTemp ?? null;
+    const inverterTemp = data?.can.inverterTemp ?? null;
+    const coolantTemp = data?.can.coolantTemp ?? null;
+    // cellTempMax falls back to cellTopTemp until backend exposes the real max.
+    const cellTempMax = cellTopTemp;
+    const cellTempAvg = data?.can.cellTempAvg ?? null;
+    const cellTempMin = data?.can.cellTempMin ?? null;
 
-    // BACKEND TODO: CanData.hvVoltage     (dashd has pack.dc_bus_v but doesn't pass through)
-    const hvVoltage: number | null = null;
-    // BACKEND TODO: CanData.hvCurrent     (dashd has pack.dc_bus_current but doesn't pass through)
-    const hvCurrent: number | null = null;
-    // BACKEND TODO: CanData.lvVoltage
-    const lvVoltage: number | null = null;
+    const hvVoltage = data?.can.hvVoltage ?? null;
+    const hvCurrent = data?.can.hvCurrent ?? null;
+    const lvVoltage = data?.can.lvVoltage ?? null;
+    const lvCurrent = data?.can.lvCurrent ?? null;
 
-    // BACKEND TODO: CanData.wheelSpeeds[4] — only a single CanData.speed exists today
-    const wheelSpeedFL: number | null = null;
-    const wheelSpeedFR: number | null = null;
-    const wheelSpeedRL: number | null = null;
-    const wheelSpeedRR: number | null = null;
+    const wheelSpeedFL = data?.can.wheelSpeedFL ?? null;
+    const wheelSpeedFR = data?.can.wheelSpeedFR ?? null;
+    const wheelSpeedRL = data?.can.wheelSpeedRL ?? null;
+    const wheelSpeedRR = data?.can.wheelSpeedRR ?? null;
 
     // ----- Derived: faults from shutdown[] (will stay null until shutdown wires up) -----
     // NOTE: shutdown[] itself is also blocked — the CAN bus exposes 4 legs but the
@@ -212,8 +203,15 @@ const PitDiagnostic: React.FC = () => {
                     <div className="pit-batt-cell">
                         <div className="label-small">LV V</div>
                         <div className="value-display pit-batt-val">
-                            {fmt(lvVoltage, 2)}
+                            {fmt(lvVoltage, 1)}
                             <span className="unit-label">V</span>
+                        </div>
+                    </div>
+                    <div className="pit-batt-cell">
+                        <div className="label-small">LV A</div>
+                        <div className="value-display pit-batt-val">
+                            {fmt(lvCurrent, 1)}
+                            <span className="unit-label">A</span>
                         </div>
                     </div>
                     <div className="pit-batt-cell">

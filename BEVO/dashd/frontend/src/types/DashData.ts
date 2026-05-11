@@ -20,6 +20,34 @@ export interface CanData {
     // Optional driver-thread additions. Not yet emitted by dashd; the
     // demo data hook provides synthetic values so the layout is testable.
     brakeBias?: number | null;      // % front bias, 0-100
+
+    // Driver-armable flags. Source TBD — could come from VCU over CAN
+    // (steering-wheel rotary/switch state) or off-car settings. Not yet
+    // wired to a real producer; demo hook synthesizes values.
+    tcLevel?: number | null;        // Traction control level (vehicle-defined range)
+    tcEnabled?: boolean | null;     // TC armed?
+    regenEnabled?: boolean | null;  // Regenerative braking enabled?
+
+    // Pit-diagnostic fields. Not yet emitted by dashd (per-field BACKEND
+    // TODOs in PitDiagnostic.tsx); demo hook synthesizes values so the
+    // layout is testable.
+    apps?: number | null;             // Accelerator pedal %, 0-100
+    bpps?: number | null;             // Brake pedal %, 0-100
+    brakePressureFront?: number | null; // psi
+    brakePressureRear?: number | null;  // psi
+    motorTemp?: number | null;        // °C
+    inverterTemp?: number | null;     // °C
+    coolantTemp?: number | null;      // °C
+    cellTempAvg?: number | null;      // °C, pack-averaged cell temp
+    cellTempMin?: number | null;      // °C
+    hvVoltage?: number | null;        // V (FSAE EV TSV cap: 600 V DC)
+    hvCurrent?: number | null;        // A
+    lvVoltage?: number | null;        // V (GLV bus)
+    lvCurrent?: number | null;        // A
+    wheelSpeedFL?: number | null;     // same units as speed
+    wheelSpeedFR?: number | null;
+    wheelSpeedRL?: number | null;
+    wheelSpeedRR?: number | null;
 }
 
 export interface MqttData {

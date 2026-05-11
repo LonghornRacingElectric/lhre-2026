@@ -36,6 +36,13 @@ const ScreenOne: React.FC = () => {
     //   brake pressures. Bouncy on Angelique — needs low-pass filter and
     //   should probably gate display by brake pressure > threshold.
     const brakeBias = data?.can.brakeBias ?? null;
+    // BACKEND TODO: real source UNKNOWN. Likely CAN from VCU
+    //   (steering-wheel rotary + enable switch), but could be MQTT-side
+    //   settings. UI is wired only against demo hook; live mode will
+    //   show "OFF/—" until backend producer is defined.
+    const tcLevel = data?.can.tcLevel ?? null;
+    const tcEnabled = data?.can.tcEnabled ?? null;
+    const regenEnabled = data?.can.regenEnabled ?? null;
     // BACKEND TODO: dashd needs MqttData.lapDeltaRate — d(lapDelta)/dt,
     //   units of seconds per second. Drivers want this as the primary
     //   glance bar because absolute delta lags. Compute off-car to keep
@@ -423,8 +430,85 @@ const ScreenOne: React.FC = () => {
                 boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
                 padding: 0
             }}>
-                {/* Left: System Status */}
-                <div style={{ position: 'absolute', left: '0', top: '50%', transform: 'translateY(-50%)', textAlign: 'center', width: '120px' }}>
+                {/* Driver-armable flags (TC + REGEN) — left side, vertically
+                    centered. NOT HOOKED UP: values come from the demo hook
+                    only; real backend source not yet defined. */}
+                <div style={{
+                    position: 'absolute',
+                    left: '14px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: '160px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                }}>
+                    {/* TC bar */}
+                    <div style={{
+                        height: '26px',
+                        padding: '0 14px',
+                        borderRadius: '5px',
+                        border: `2px solid ${tcEnabled ? '#BF5700' : 'rgba(255,255,255,0.15)'}`,
+                        background: tcEnabled ? 'rgba(191,87,0,0.20)' : 'rgba(255,255,255,0.04)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        <span className="label-small" style={{ marginBottom: 0, fontSize: '0.9rem', letterSpacing: '2px' }}>TC</span>
+                        <span className="value-display" style={{
+                            fontSize: '1.3rem',
+                            fontWeight: 'bold',
+                            lineHeight: 1,
+                            color: tcEnabled ? '#fff' : '#666'
+                        }}>
+                            {tcEnabled === null || tcEnabled === undefined
+                                ? '—'
+                                : tcEnabled && tcLevel !== null && tcLevel !== undefined
+                                    ? `L${tcLevel}`
+                                    : 'OFF'}
+                        </span>
+                    </div>
+
+                    {/* REGEN bar */}
+                    <div style={{
+                        height: '26px',
+                        padding: '0 14px',
+                        borderRadius: '5px',
+                        border: `2px solid ${regenEnabled ? '#00CC66' : 'rgba(255,255,255,0.15)'}`,
+                        background: regenEnabled ? 'rgba(0,204,102,0.20)' : 'rgba(255,255,255,0.04)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        <span className="label-small" style={{ marginBottom: 0, fontSize: '0.9rem', letterSpacing: '2px' }}>REGEN</span>
+                        <span className="value-display" style={{
+                            fontSize: '1.3rem',
+                            fontWeight: 'bold',
+                            lineHeight: 1,
+                            color: regenEnabled ? '#fff' : '#666'
+                        }}>
+                            {regenEnabled === null || regenEnabled === undefined
+                                ? '—'
+                                : regenEnabled ? 'ON' : 'OFF'}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Vertical divider — separates center cluster from System */}
+                <div style={{
+                    position: 'absolute',
+                    right: '130px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    height: '60%',
+                    width: '1px',
+                    background: 'rgba(255, 255, 255, 0.1)'
+                }} />
+
+                {/* System Status — far right of bottom tray */}
+                <div style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', textAlign: 'center', width: '110px' }}>
                     <div className="label-small" style={{ marginBottom: 0 }}>System</div>
                     {systemOk === null ? (
                         <div className="value-display" style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#888', lineHeight: 1 }}>--</div>
@@ -435,47 +519,38 @@ const ScreenOne: React.FC = () => {
                     )}
                 </div>
 
-                {/* Vertical Divider for System Status */}
-                <div style={{
-                    position: 'absolute',
-                    left: '120px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    height: '60%',
-                    width: '1px',
-                    background: 'rgba(255, 255, 255, 0.1)'
-                }} />
-
-                {/* Energy Delta (Center) */}
+                {/* Energy Delta (Center) — label stacked above value so the
+                    label can never overlap the digits on tight readouts. */}
                 <div style={{
                     position: 'absolute',
                     left: '50%',
                     top: '50%',
                     transform: 'translate(-50%, -50%)',
                     zIndex: 100,
-                    height: '60px',
-                    width: '500px'
+                    height: '72px',
+                    width: '360px'
                 }}>
-                    {/* Title: Fixed to left */}
+                    {/* Title: top center */}
                     <div className="label-small" style={{
-                        fontSize: '1rem',
+                        fontSize: '0.75rem',
                         position: 'absolute',
-                        left: '30px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        marginBottom: 0
+                        top: '2px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        marginBottom: 0,
+                        whiteSpace: 'nowrap'
                     }}>
                         Energy Delta
                     </div>
 
-                    {/* Value: Decimal Dead Center */}
+                    {/* Value: Decimal Dead Center, anchored toward the bottom */}
                     {energyDelta !== null && energyDelta !== undefined ? (
                         <div style={{ position: 'relative', width: '100%', height: '100%', left: 0, top: 0 }}>
                             {/* Decimal Point - Dead Center */}
                             <div style={{
                                 position: 'absolute',
                                 left: '50%',
-                                top: '50%',
+                                top: 'calc(50% + 10px)',
                                 transform: 'translate(-50%, -50%)',
                                 fontSize: '3rem',
                                 fontWeight: 'bold',
@@ -489,7 +564,7 @@ const ScreenOne: React.FC = () => {
                             <div style={{
                                 position: 'absolute',
                                 right: '50%',
-                                top: '50%',
+                                top: 'calc(50% + 10px)',
                                 transform: 'translateY(-50%)',
                                 fontSize: '3rem',
                                 fontWeight: 'bold',
@@ -506,7 +581,7 @@ const ScreenOne: React.FC = () => {
                             <div style={{
                                 position: 'absolute',
                                 left: '50%',
-                                top: '50%',
+                                top: 'calc(50% + 10px)',
                                 transform: 'translateY(-50%)',
                                 fontSize: '3rem',
                                 fontWeight: 'bold',
@@ -520,12 +595,12 @@ const ScreenOne: React.FC = () => {
                             </div>
                         </div>
                     ) : (
-                        <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', fontSize: '3rem', fontWeight: 'bold', color: '#888' }}>--</div>
+                        <div style={{ position: 'absolute', left: '50%', top: 'calc(50% + 10px)', transform: 'translate(-50%, -50%)', fontSize: '3rem', fontWeight: 'bold', color: '#888' }}>--</div>
                     )}
                 </div>
 
-                {/* Connectivity (bottom-right of bottom tray) */}
-                <div style={{ position: 'absolute', right: '30px', top: '50%', transform: 'translateY(-50%)' }}>
+                {/* Connectivity (just left of System status) */}
+                <div style={{ position: 'absolute', right: '170px', top: '50%', transform: 'translateY(-50%)' }}>
                     <ConnectivityIndicator />
                 </div>
             </div>

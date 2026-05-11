@@ -26,7 +26,7 @@ export function useDemoData(enabled: boolean): DashMessage | null {
     const accum = useRef({
         charge: 100,
         temp: 32,         // warm garage, below cruise band
-        odometer: 90.5,
+        odometer: 101.3,
         signalStrength: 4,
         shutdown: Array(16).fill(true) as boolean[],
 
@@ -86,7 +86,7 @@ export function useDemoData(enabled: boolean): DashMessage | null {
             const clampedPower = Math.min(Math.max(newPower, -80), 80);
 
             // Accumulate derived values
-            a.charge = Math.max(0, a.charge - (newPower > 0 ? 0.05 : -0.01));
+            a.charge = Math.max(0, a.charge - (newPower > 0 ? 0.005 : -0.001));
 
             // Cell temperature: physics-style. Heated by total power
             // throughput (drive AND regen — both pump current through the
@@ -98,7 +98,7 @@ export function useDemoData(enabled: boolean): DashMessage | null {
             const heatLoss = (a.temp - ambient) * 0.0012;
             a.temp = Math.min(60, Math.max(ambient, a.temp + heatIn - heatLoss));
 
-            a.odometer += s.speed / 3600 / 10;
+            // Odometer pinned for demo — leave a.odometer untouched.
 
             // Signal strength: occasional random changes
             if (Math.random() > 0.95) {
@@ -140,6 +140,46 @@ export function useDemoData(enabled: boolean): DashMessage | null {
             // Brake bias: slow drift around 55%, range ~52–58%.
             const brakeBias = 55 + Math.sin(Date.now() / 5000) * 3;
 
+            // Driver-armable flags — placeholders until backend wires them.
+            // Cycle through states slowly so both enabled/disabled UI is
+            // visible during a casual look at the dash.
+            const tcLevel = (Math.floor(Date.now() / 5000) % 3) + 1;        // 1,2,3
+            const tcEnabled = (Math.floor(Date.now() / 9000) % 3) !== 0;     // ~66% on
+            const regenEnabled = (Math.floor(Date.now() / 8000) % 4) !== 0;  // ~75% on
+
+            // Pit-diagnostic fakes — derived from the existing sim where
+            // possible so values move with the rest of the dash.
+            const apps = s.phase === 'accel'
+                ? Math.min(100, s.accelRate * 80 + Math.random() * 5)
+                : s.phase === 'cruise'
+                    ? 12 + Math.random() * 6
+                    : 0;
+            const bpps = s.phase === 'brake'
+                ? Math.min(100, s.accelRate * 45 + Math.random() * 5)
+                : 0;
+            // Brake pressures: ~700 psi at 100% bpps, split by brakeBias.
+            const brakePressureFront = bpps * 7 * (brakeBias / 100);
+            const brakePressureRear = bpps * 7 * (1 - brakeBias / 100);
+            // Powertrain temps — ambient baseline + |power|-driven heating.
+            const motorTemp = Math.min(120, 50 + Math.abs(clampedPower) * 0.4);
+            const inverterTemp = Math.min(90, 45 + Math.abs(clampedPower) * 0.25);
+            const coolantTemp = Math.min(70, 35 + Math.abs(clampedPower) * 0.15);
+            // Cell stats — max already comes from a.temp; avg/min are
+            // synthesized just below it.
+            const cellTempAvg = a.temp - 1.5;
+            const cellTempMin = a.temp - 3.5;
+            // Bottom tray pinned to plausible static values for the design
+            // briefing demo. Live values will come from dashd once wired.
+            const hvVoltage = 449.3;
+            const hvCurrent = 10;
+            const lvVoltage = 25;
+            const lvCurrent = 9.3;
+            // Wheel speeds — small per-wheel variance for visual interest.
+            const wheelSpeedFL = Math.max(0, s.speed + (Math.random() - 0.5) * 0.4);
+            const wheelSpeedFR = Math.max(0, s.speed + (Math.random() - 0.5) * 0.4);
+            const wheelSpeedRL = Math.max(0, s.speed + (Math.random() - 0.5) * 0.6);
+            const wheelSpeedRR = Math.max(0, s.speed + (Math.random() - 0.5) * 0.6);
+
             seq.current++;
 
             setMessage({
@@ -153,6 +193,26 @@ export function useDemoData(enabled: boolean): DashMessage | null {
                     signalStrength: a.signalStrength,
                     shutdown: [...a.shutdown],
                     brakeBias,
+                    tcLevel,
+                    tcEnabled,
+                    regenEnabled,
+                    apps,
+                    bpps,
+                    brakePressureFront,
+                    brakePressureRear,
+                    motorTemp,
+                    inverterTemp,
+                    coolantTemp,
+                    cellTempAvg,
+                    cellTempMin,
+                    hvVoltage,
+                    hvCurrent,
+                    lvVoltage,
+                    lvCurrent,
+                    wheelSpeedFL,
+                    wheelSpeedFR,
+                    wheelSpeedRL,
+                    wheelSpeedRR,
                 },
                 mqtt: {
                     lapDelta,
