@@ -1,5 +1,5 @@
 
-Œ'
+Ü'
 $nonhermetic/assets/can_packets.protoorion"ê
 OrionSensorData
 time (Rtime
@@ -9,40 +9,41 @@ $nonhermetic/assets/can_packets.protoorion"ê
 pack (2.orion.PackRpackA
 diagnostics_high (2.orion.DiagnosticsHighRdiagnosticsHigh>
 diagnostics_low (2.orion.DiagnosticsLowRdiagnosticsLow(
-thermal (2.orion.ThermalRthermal"Ù
+thermal (2.orion.ThermalRthermal"ö
 Dynamics
 gps (Rgps
-gps_imu (RgpsImu,
-accel_pedal_travel (RaccelPedalTravel&
-steer_col_angle (RsteerColAngle&
-bl_sprung_accel (RblSprungAccel*
-bl_unsprung_accel (RblUnsprungAccel&
-br_sprung_accel (RbrSprungAccel*
-br_unsprung_accel (RbrUnsprungAccel&
-fl_sprung_accel	 (RflSprungAccel*
-fl_unsprung_accel
- (RflUnsprungAccel&
-fr_sprung_accel (RfrSprungAccel*
-fr_unsprung_accel (RfrUnsprungAccel$
-bl_ride_height (RblRideHeight)
-bl_strain_gauge_v (RblStrainGaugeV
-bl_sus_pot_v (R	blSusPotV
-	blw_speed (RblwSpeed$
-br_ride_height (RbrRideHeight)
-br_strain_gauge_v (RbrStrainGaugeV
-br_sus_pot_v (R	brSusPotV
-	brw_speed (RbrwSpeed$
-fl_ride_height (RflRideHeight)
-fl_strain_gauge_v (RflStrainGaugeV
-fl_sus_pot_v (R	flSusPotV
-	flw_speed (RflwSpeed$
-fr_ride_height (RfrRideHeight)
-fr_strain_gauge_v (RfrStrainGaugeV
-fr_sus_pot_v (R	frSusPotV
-	frw_speed (RfrwSpeed
-ride_height (R
+gps_imu (RgpsImu
+	gps_speed (RgpsSpeed,
+accel_pedal_travel (RaccelPedalTravel&
+steer_col_angle (RsteerColAngle&
+bl_sprung_accel (RblSprungAccel*
+bl_unsprung_accel (RblUnsprungAccel&
+br_sprung_accel (RbrSprungAccel*
+br_unsprung_accel	 (RbrUnsprungAccel&
+fl_sprung_accel
+ (RflSprungAccel*
+fl_unsprung_accel (RflUnsprungAccel&
+fr_sprung_accel (RfrSprungAccel*
+fr_unsprung_accel (RfrUnsprungAccel$
+bl_ride_height (RblRideHeight)
+bl_strain_gauge_v (RblStrainGaugeV
+bl_sus_pot_v (R	blSusPotV
+	blw_speed (RblwSpeed$
+br_ride_height (RbrRideHeight)
+br_strain_gauge_v (RbrStrainGaugeV
+br_sus_pot_v (R	brSusPotV
+	brw_speed (RbrwSpeed$
+fl_ride_height (RflRideHeight)
+fl_strain_gauge_v (RflStrainGaugeV
+fl_sus_pot_v (R	flSusPotV
+	flw_speed (RflwSpeed$
+fr_ride_height (RfrRideHeight)
+fr_strain_gauge_v (RfrStrainGaugeV
+fr_sus_pot_v (R	frSusPotV
+	frw_speed (RfrwSpeed
+ride_height (R
 rideHeight
-wheel_speed (R
+wheel_speed (R
 wheelSpeed"¼
 Controls
 motor_speed (R
@@ -130,31 +131,33 @@ r2d_status (R	r2dStatus#
 shutdown_leg1 (RshutdownLeg1#
 shutdown_leg2 (RshutdownLeg2#
 shutdown_leg3 (RshutdownLeg3#
-shutdown_leg4	 (RshutdownLeg4"Œ
+shutdown_leg4	 (RshutdownLeg4"¿
 Thermal0
 batt_cooling_current (RbattCoolingCurrent2
-motor_cooling_current (RmotorCoolingCurrent
+motor_cooling_current (RmotorCoolingCurrent!
+ambient_temp (RambientTemp
 
-motor_temp (R	motorTemp!
-ambient_temp (RambientTemp-
+motor_temp (R	motorTemp-
 batt_loop_batt_temp (RbattLoopBattTemp4
 batt_loop_rad_fan_speed (RbattLoopRadFanSpeed+
-batt_loop_rad_temp (RbattLoopRadTemp"
-bus_bar_temp1 (RbusBarTemp1"
-bus_bar_temp2	 (RbusBarTemp2"
-bus_bar_temp3
- (RbusBarTemp3(
-cell_bottom_temp (RcellBottomTemp"
-cell_top_temp (RcellTopTemp!
-coolant_temp (RcoolantTemp(
-discharge_r_temp (RdischargeRTemp(
-gate_driver_temp (RgateDriverTemp2
-inverter_hotspot_temp (RinverterHotspotTemp#
-inverter_temp (RinverterTemp"
-module_a_temp (RmoduleATemp"
-module_b_temp (RmoduleBTemp"
-module_c_temp (RmoduleCTemp7
-motor_loop_inverter_temp (RmotorLoopInverterTemp1
-motor_loop_motor_temp (RmotorLoopMotorTemp6
-motor_loop_rad_fan_speed (RmotorLoopRadFanSpeed-
-motor_loop_rad_temp (RmotorLoopRadTempbproto3
+batt_loop_rad_temp (RbattLoopRadTemp&
+battery_fan_rpm (RbatteryFanRpm"
+bus_bar_temp1	 (RbusBarTemp1"
+bus_bar_temp2
+ (RbusBarTemp2"
+bus_bar_temp3 (RbusBarTemp3(
+cell_bottom_temp (RcellBottomTemp"
+cell_top_temp (RcellTopTemp(
+coolant_flow_lpm (RcoolantFlowLpm!
+coolant_temp (RcoolantTemp(
+discharge_r_temp (RdischargeRTemp
+fan_rpm (RfanRpm(
+gate_driver_temp (RgateDriverTemp2
+inverter_hotspot_temp (RinverterHotspotTemp#
+inverter_temp (RinverterTemp"
+module_a_temp (RmoduleATemp"
+module_b_temp (RmoduleBTemp"
+module_c_temp (RmoduleCTemp7
+motor_loop_inverter_temp (RmotorLoopInverterTemp1
+motor_loop_motor_temp (RmotorLoopMotorTemp-
+motor_loop_rad_temp (RmotorLoopRadTempbproto3

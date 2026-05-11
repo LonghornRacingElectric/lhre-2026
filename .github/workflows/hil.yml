@@ -1,0 +1,138 @@
+name: HIL Tests
+run-name: HIL tests triggered by ${{ github.actor }}
+
+on:
+    pull_request:
+        types: [opened, synchronize, reopened]
+        paths:
+            # Board firmware directories
+            - "CSM/firmware/**"
+            - "DUI/firmware/**"
+            - "HVC/firmware/**"
+            - "LVBMS/firmware/**"
+            - "PDU/firmware/**"
+            - "TSM/firmware/**"
+            - "USM/firmware/**"
+            - "VCU/firmware/**"
+            # Shared driver code
+            - "drivers/**"
+
+jobs:
+    detect-changes:
+        name: Detect Changed Targets
+        runs-on: ubuntu-latest
+        outputs:
+            boards: ${{ steps.detect.outputs.boards }}
+            drivers_changed: ${{ steps.detect.outputs.drivers_changed }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Detect changed boards and drivers
+              id: detect
+              run: |
+                  BASE_SHA=${{ github.event.pull_request.base.sha }}
+                  HEAD_SHA=${{ github.event.pull_request.head.sha }}
+
+                  CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+
+                  BOARDS=("CSM" "DUI" "HVC" "LVBMS" "PDU" "TSM" "USM" "VCU")
+                  CHANGED_BOARDS=()
+                  DRIVERS_CHANGED="false"
+
+                  for file in $CHANGED_FILES; do
+                    # Check if a driver file was modified
+                    if [[ "$file" == drivers/* ]]; then
+                      DRIVERS_CHANGED="true"
+                    fi
+
+                    # Check each board's firmware directory
+                    for board in "${BOARDS[@]}"; do
+                      if [[ "$file" == ${board}/firmware/* ]]; then
+                        # Add board if not already in the list
+                        if [[ ! " ${CHANGED_BOARDS[*]} " =~ " ${board} " ]]; then
+                          CHANGED_BOARDS+=("$board")
+                        fi
+                      fi
+                    done
+                  done
+
+                  # Expand boards with location variants into individual targets.
+                  # CSM and USM have FR, FL, RR, RL variants — each gets its own
+                  # HIL test job.
+                  EXPANDED_TARGETS=()
+                  for board in "${CHANGED_BOARDS[@]}"; do
+                    case "$board" in
+                      CSM|USM)
+                        for loc in FR FL RR RL; do
+                          EXPANDED_TARGETS+=("${board}_${loc}")
+                        done
+                        ;;
+                      *)
+                        EXPANDED_TARGETS+=("$board")
+                        ;;
+                    esac
+                  done
+
+                  # Build JSON array of targets
+                  TARGETS_JSON=$(printf '%s\n' "${EXPANDED_TARGETS[@]}" | jq -R . | jq -sc .)
+                  if [ "$TARGETS_JSON" = '[""]' ] || [ "$TARGETS_JSON" = "[]" ]; then
+                    TARGETS_JSON="[]"
+                  fi
+
+                  echo "boards=$TARGETS_JSON" >> "$GITHUB_OUTPUT"
+                  echo "drivers_changed=$DRIVERS_CHANGED" >> "$GITHUB_OUTPUT"
+
+                  echo "### HIL targets: $TARGETS_JSON"
+                  echo "### Drivers changed: $DRIVERS_CHANGED"
+
+    hil-firmware:
+        name: HIL - ${{ matrix.board }}
+        needs: detect-changes
+        if: needs.detect-changes.outputs.boards != '[]'
+        runs-on: hil
+        strategy:
+            fail-fast: false
+            matrix:
+                board: ${{ fromJson(needs.detect-changes.outputs.boards) }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  submodules: recursive
+
+            - name: Build firmware for ${{ matrix.board }}
+              run: |
+                  # Extract the board directory (everything before _VARIANT, or the whole thing)
+                  BOARD_DIR=$(echo "${{ matrix.board }}" | cut -d'_' -f1)
+                  bazel build //${BOARD_DIR}/firmware:all \
+                    --config=ci \
+                    --remote_header=x-buildbuddy-api-key=${{ secrets.BUILD_BUDDY_API_KEY }} \
+                    --copt=-DHIL
+
+            - name: Run HIL tests for ${{ matrix.board }}
+              run: |
+                  python3 tests/hil.py --target ${{ matrix.board }}
+
+    hil-drivers:
+        name: HIL - DFU (driver changes)
+        needs: detect-changes
+        if: needs.detect-changes.outputs.drivers_changed == 'true'
+        runs-on: hil
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  submodules: recursive
+
+            - name: Build DFU firmware
+              run: |
+                  bazel build //DUI/firmware:all \
+                    --config=ci \
+                    --remote_header=x-buildbuddy-api-key=${{ secrets.BUILD_BUDDY_API_KEY }}
+
+            - name: Run HIL tests for DFU
+              run: |
+                  python3 tests/hil.py --target dfu

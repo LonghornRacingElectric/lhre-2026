@@ -11,51 +11,23 @@ datasource db {
 model drive_day {
   day_id Int @id @default(autoincrement())
   date DateTime
+  track_name String?
+  weather String?
+  wind_speed Float?
   power_limit Int?
   air_temperature Float?
   relative_humidity Float?
   track_temperature Float?
-  track_name String?
-}
-
-model lut_driver {
-  driver_id Int @id
-  driver_name String
-  driver_weight Int?
-}
-
-model lut_location {
-  location_id Int @id
-  area String
-  track String
-
-  tracks track[]
-}
-
-model lut_car {
-  car_id Int @id
-  car_name String
-}
-
-model lut_event_type {
-  type_id Int @id
-  event_type String
-}
-
-model event {
-  event_id Int @id @default(autoincrement())
-  day_id Int
   status Int?
-  creation_time BigInt
+  creation_time BigInt?
   start_time BigInt?
   end_time BigInt?
   packet_start BigInt?
   packet_end BigInt?
-  car_id Int
-  driver_id Int
-  location_id Int
-  event_type Int
-  event_index Int?
+  car_id Int?
+  driver_id Int?
+  location_id Int?
+  event_type Int?
   car_weight Int?
   tow_angle Float?
   camber_front Float?
@@ -67,12 +39,15 @@ model event {
   ride_height Float?
   ackerman_adjustment Float?
   shock_dampening Int?
-  power_limit Int?
   torque_limit Int?
   frw_pressure Float?
   flw_pressure Float?
   brw_pressure Float?
   blw_pressure Float?
+  frw_hot_pressure Float?
+  flw_hot_pressure Float?
+  brw_hot_pressure Float?
+  blw_hot_pressure Float?
   fr_wear_depth Float?
   fl_wear_depth Float?
   rr_wear_depth Float?
@@ -111,12 +86,46 @@ model event {
   rear_corner_spring_rate Float?
   front_arb_setting String?
   rear_arb_setting String?
+}
 
-  track_points track_point[]
+model lut_driver {
+  driver_id Int @id
+  driver_name String
+  driver_weight Int?
+}
+
+model lut_location {
+  location_id Int @id
+  area String
+  track String
+
+  tracks track[]
+}
+
+model lut_car {
+  car_id Int @id
+  car_name String
+}
+
+model lut_event_type {
+  type_id Int @id
+  event_type String
+}
+
+model track_mapping {
+  track_mapping_id Int @id @default(autoincrement())
+  name String
+  created_at BigInt
+  start_gate_lat1 String
+  start_gate_lon1 String
+  start_gate_lat2 String
+  start_gate_lon2 String
+  points Json?
+  sectors Json?
 }
 
 model classifier {
-  event_id BigInt
+  day_id BigInt
   type String
   start_time BigInt
   end_time BigInt?
@@ -160,7 +169,7 @@ model sector_gate {
 
 model track_point {
   point_id BigInt @id @default(autoincrement())
-  event_id Int
+  day_id Int
   latitude Float
   longitude Float
   timestamp_ms BigInt
@@ -186,6 +195,7 @@ model dynamics {
   packet_id BigInt @id
   gps                  Float[]
   gps_imu              Float[]
+  gps_speed            Float?
   accel_pedal_travel   Float?
   steer_col_angle      Float?
   bl_sprung_accel      Float[]
@@ -314,18 +324,21 @@ model thermal {
   packet_id BigInt @id
   batt_cooling_current Float?
   motor_cooling_current Float?
-  motor_temp           Float?
   ambient_temp         Float?
+  motor_temp           Float?
   batt_loop_batt_temp  Float?
   batt_loop_rad_fan_speed Float?
   batt_loop_rad_temp   Float?
+  battery_fan_rpm      Float?
   bus_bar_temp1        Float?
   bus_bar_temp2        Float?
   bus_bar_temp3        Float?
   cell_bottom_temp     Float?
   cell_top_temp        Float?
+  coolant_flow_lpm     Float?
   coolant_temp         Float?
   discharge_r_temp     Float?
+  fan_rpm              Float?
   gate_driver_temp     Float?
   inverter_hotspot_temp Float?
   inverter_temp        Float?
@@ -334,7 +347,6 @@ model thermal {
   module_c_temp        Float?
   motor_loop_inverter_temp Float?
   motor_loop_motor_temp Float?
-  motor_loop_rad_fan_speed Float?
   motor_loop_rad_temp  Float?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])

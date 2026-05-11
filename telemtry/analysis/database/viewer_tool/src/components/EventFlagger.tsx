@@ -29,7 +29,7 @@ export default function EventFlagger({ note, setNote }: Props) {
 
     const loadEventActive = async () => {
       try {
-        const res = await fetch("/api/event-active", { cache: "no-store" });
+        const res = await fetch("/api/driveday-active", { cache: "no-store" });
         if (!res.ok) return;
         const data: { eventActive?: boolean } = await res.json();
         if (!cancelled) setEventActive(Boolean(data.eventActive));

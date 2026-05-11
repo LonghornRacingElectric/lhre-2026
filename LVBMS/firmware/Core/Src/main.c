@@ -19,7 +19,8 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
-#include "i2c.h"
+#include "adc.h"
+#include "spi.h"
 #include "tim.h"
 #include "usart.h"
 #include "usb_device.h"
@@ -27,7 +28,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "usbd_cdc_if.h"
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -60,7 +62,12 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+int __io_putchar(int ch) {
+  uint8_t c = (uint8_t) ch;
+  CDC_Transmit_FS(&c, 1);
+  osDelay(1); // Small delay to ensure data is sent before next character
+  return ch;
+}
 /* USER CODE END 0 */
 
 /**
@@ -93,9 +100,12 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_TIM2_Init();
-  MX_I2C3_Init();
   MX_USART3_UART_Init();
   MX_USART1_UART_Init();
+  MX_ADC3_Init();
+  MX_SPI1_Init();
+  MX_ADC1_Init();
+  MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
   /* USER CODE END 2 */
 

@@ -8,7 +8,7 @@ CAN_JSON_PATH="$BEVO_ROOT/nonhermetic/assets/can.json"
 
 cleanup() {
   kill "${MOCK_PID:-}" "${CAND_PID:-}" "${DASHD_PID:-}" "${LOGGERD_PID:-}" >/dev/null 2>&1 || true
-  rm -f /tmp/BEVO_publishd_ready /tmp/BEVO_cand.sock
+  rm -f /tmp/BEVO_publishd_ready /tmp/BEVO_cand.sock /tmp/BEVO_cand_publishd.sock
 }
 trap cleanup EXIT INT TERM
 

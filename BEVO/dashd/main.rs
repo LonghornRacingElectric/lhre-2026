@@ -35,9 +35,8 @@ fn env_or_default(name: &str, default: &str) -> String {
 
 #[derive(Serialize, Clone, Default)]
 struct CanData {
-    /// Vehicle speed from dynamics.wheel_speed.
-    /// UNIT UNKNOWN — raw CAN value passed through as-is (int16 * 0.0078125).
-    /// Needs verification from electrical/controls team before display is meaningful.
+    /// Vehicle speed in MPH from dynamics.gps_speed (NMEA knots * 1.15078).
+    /// Source: GPS module via cand NMEA parser (RMC/VTG sentences).
     speed: Option<f32>,
 
     /// Electrical power in kW, derived as dc_bus_v * dc_bus_current / 1000.
@@ -140,7 +139,9 @@ struct DashState {
 // ---------------------------------------------------------------------------
 
 fn extract_can_data(data: &OrionSensorData) -> CanData {
-    let speed = data.dynamics.as_ref().map(|d| d.wheel_speed);
+    // GPS speed is in knots (from NMEA RMC/VTG), convert to MPH
+    const KNOTS_TO_MPH: f32 = 1.15078;
+    let speed = data.dynamics.as_ref().map(|d| d.gps_speed * KNOTS_TO_MPH);
 
     let power = data.pack.as_ref().map(|p| p.dc_bus_v * p.dc_bus_current / 1000.0);
 

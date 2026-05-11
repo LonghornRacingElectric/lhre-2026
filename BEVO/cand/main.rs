@@ -20,6 +20,7 @@ use sensor_proto::generated_mapping;
 
 const MOCK_ADDR: &str = "127.0.0.1:5005";
 const SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
+const PUBLISHD_SOCKET_PATH: &str = "/tmp/BEVO_cand_publishd.sock";
 const STARTUP_SEMAPHORE_PATH: &str = "/tmp/BEVO_publishd_ready";
 //const OTA_SEMAPHORE_PATH: &str = "/tmp/BEVO_ota_request"; 
 const CAN_INTERFACE: &str = "can0";
@@ -39,6 +40,7 @@ struct RawCanMessage {
 struct ExternalDynamicsData {
     gps: Vec<f32>,
     gps_imu: Vec<f32>,
+    gps_speed: f32,
 }
 
 fn main() -> Result<()> {
@@ -59,11 +61,7 @@ fn main() -> Result<()> {
 
     let config_json = load_can_config_json()?;
     let packets: Vec<PacketConfig> = serde_json::from_str(&config_json)?;
-    let initial_packet_id = if use_mock {
-        1
-    } else {
-        wait_for_publishd_ready()?
-    };
+    let initial_packet_id = 1;
     
     // This is where CAN IDs are mapped to their JSON configuration
     let packet_map = Arc::new(
@@ -121,21 +119,14 @@ fn load_can_config_json() -> Result<String> {
     Ok(config_json)
 }
 
-// waits for matt semaphore to be set
-
-fn wait_for_publishd_ready() -> Result<u64> {
-    println!("[CAND] Waiting for publishd startup semaphore at {}", STARTUP_SEMAPHORE_PATH);
-    loop {
-        if Path::new(STARTUP_SEMAPHORE_PATH).exists() {
-            if let Ok(contents) = std::fs::read_to_string(STARTUP_SEMAPHORE_PATH) {
-                if let Ok(packet_id) = contents.trim().parse::<u64>() {
-                    println!("[CAND] publishd ready, starting from packet_id={}", packet_id);
-                    return Ok(packet_id.max(1));
-                }
-            }
-        }
-        thread::sleep(Duration::from_millis(100));
+fn read_publishd_start_packet_id() -> Option<u64> {
+    if !Path::new(STARTUP_SEMAPHORE_PATH).exists() {
+        return None;
     }
+
+    let contents = std::fs::read_to_string(STARTUP_SEMAPHORE_PATH).ok()?;
+    let packet_id = contents.trim().parse::<u64>().ok()?;
+    Some(packet_id.max(1))
 }
 
 // check for OTA sempahore file and read current id and link
@@ -293,7 +284,7 @@ fn update_external_dynamics_from_sentence(external_dynamics: &Arc<Mutex<External
         locked.gps.clear();
         locked.gps.push(lat);
         locked.gps.push(lon);
-        return;
+        // no return: RMC also carries speed, fall through to parse_nmea_gps_speed
     }
 
     if let Some((x, y, z)) = parse_pimu_xyz(sentence) {
@@ -302,6 +293,12 @@ fn update_external_dynamics_from_sentence(external_dynamics: &Arc<Mutex<External
         locked.gps_imu.push(x);
         locked.gps_imu.push(y);
         locked.gps_imu.push(z);
+        return;
+    }
+
+    if let Some(speed) = parse_nmea_gps_speed(sentence) {
+        let mut locked = external_dynamics.lock().unwrap();
+        locked.gps_speed = speed;
     }
 }
 
@@ -354,22 +351,51 @@ fn nmea_coord_to_decimal(raw: &str, hemi: &str) -> Option<f32> {
 }
 
 fn parse_pimu_xyz(sentence: &str) -> Option<(f32, f32, f32)> {
-    if !sentence.starts_with("$PIMU") {
+    if !sentence.starts_with('$') {
         return None;
     }
     let payload = sentence.split('*').next()?;
-    let mut parts = payload.split(',');
-    parts.next()?;
-    let x: f32 = parts.next()?.trim().parse().ok()?;
-    let y: f32 = parts.next()?.trim().parse().ok()?;
-    let z: f32 = parts.next()?.trim().parse().ok()?;
+    let fields: Vec<&str> = payload.split(',').collect();
+    let msg = fields.first()?;
+
+    if !msg.ends_with("PIMU") {
+        return None;
+    }
+
+    // PIMU format: $PIMU,time,tIndex,ax,ay,az,...
+    let x: f32 = fields.get(3)?.trim().parse().ok()?;
+    let y: f32 = fields.get(4)?.trim().parse().ok()?;
+    let z: f32 = fields.get(5)?.trim().parse().ok()?;
     Some((x, y, z))
+}
+
+fn parse_nmea_gps_speed(sentence: &str) -> Option<f32> {
+    if !sentence.starts_with('$') {
+        return None;
+    }
+    let payload = sentence.split('*').next()?;
+    let fields: Vec<&str> = payload.split(',').collect();
+    let msg = fields.first()?;
+
+    let speed_knots = if msg.ends_with("RMC") {
+        // RMC format: field[7] is speed in knots
+        *fields.get(7)?
+    } else if msg.ends_with("VTG") {
+        // VTG format: field[5] is speed in knots
+        *fields.get(5)?
+    } else {
+        return None;
+    };
+
+    let speed: f32 = speed_knots.trim().parse().ok()?;
+    Some(speed)
 }
 
 fn apply_external_dynamics(data: &mut OrionSensorData, external_dynamics: &ExternalDynamicsData) {
     let dynamics = data.dynamics.get_or_insert_with(Default::default);
     dynamics.gps = external_dynamics.gps.clone();
     dynamics.gps_imu = external_dynamics.gps_imu.clone();
+    dynamics.gps_speed = external_dynamics.gps_speed;
 }
 
 // fn ota_processing_loop(device_id: u32, data_link: String) -> Result<std::path::PathBuf> {
@@ -513,7 +539,9 @@ fn process_raw_data(
     }
 }
 
-/// send them jawns to dashd and publishd over a unix socket, at the specified publish_hz rate
+/// send frames over unix sockets at the specified publish_hz rate
+/// `SOCKET_PATH` is always-on for dashd/loggerd, while `PUBLISHD_SOCKET_PATH`
+/// is blocked until `STARTUP_SEMAPHORE_PATH` provides the publish stream seed packet_id.
 
 fn ipc_server_loop(
     sensor_data: Arc<Mutex<OrionSensorData>>,
@@ -521,16 +549,27 @@ fn ipc_server_loop(
     publish_hz: u64,
     initial_packet_id: u64,
 ) -> Result<()> {
-    let _ = std::fs::remove_file(SOCKET_PATH); 
+    let _ = std::fs::remove_file(SOCKET_PATH);
+    let _ = std::fs::remove_file(PUBLISHD_SOCKET_PATH);
     let listener = UnixListener::bind(SOCKET_PATH)?;
+    let publishd_listener = UnixListener::bind(PUBLISHD_SOCKET_PATH)?;
     let clients = Arc::new(Mutex::new(Vec::<UnixStream>::new()));
+    let publishd_clients = Arc::new(Mutex::new(Vec::<UnixStream>::new()));
     let publish_interval = Duration::from_secs_f64(1.0 / publish_hz as f64);
     let mut next_packet_id = initial_packet_id.max(1);
+    let mut publishd_next_packet_id: Option<u64> = None;
 
     let clients_clone = Arc::clone(&clients);
     thread::spawn(move || {
         for stream in listener.incoming() {
             if let Ok(s) = stream { clients_clone.lock().unwrap().push(s); }
+        }
+    });
+
+    let publishd_clients_clone = Arc::clone(&publishd_clients);
+    thread::spawn(move || {
+        for stream in publishd_listener.incoming() {
+            if let Ok(s) = stream { publishd_clients_clone.lock().unwrap().push(s); }
         }
     });
 
@@ -556,21 +595,30 @@ fn ipc_server_loop(
         //     continue;
         // }
 
+        let cycle_start = Instant::now();
+        let mut buffer = Vec::new();
+        let publishd_packet_id_for_cycle = publishd_next_packet_id;
+        let mut publishd_buffer: Option<Vec<u8>> = None;
         {
             let mut data = sensor_data.lock().unwrap();
-            data.packet_id = (next_packet_id.min(i64::MAX as u64)) as i64;
             data.time = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_millis() as i64;
             let external_snapshot = external_dynamics.lock().unwrap().clone();
             apply_external_dynamics(&mut data, &external_snapshot);
-        }
 
-        let cycle_start = Instant::now();
-        let mut buffer = Vec::new();
-        {
-            sensor_data.lock().unwrap().encode(&mut buffer).ok();
+            // Serialize both streams from the same locked snapshot so all fields
+            // except packet_id stay identical across sockets for this cycle.
+            data.packet_id = (next_packet_id.min(i64::MAX as u64)) as i64;
+            data.encode(&mut buffer).ok();
+
+            if let Some(packet_id) = publishd_packet_id_for_cycle {
+                let mut encoded = Vec::new();
+                data.packet_id = (packet_id.min(i64::MAX as u64)) as i64;
+                data.encode(&mut encoded).ok();
+                publishd_buffer = Some(encoded);
+            }
         }
 
         let frame_len = (buffer.len() as u32).to_be_bytes();
@@ -578,6 +626,36 @@ fn ipc_server_loop(
             stream.write_all(&frame_len).and_then(|_| stream.write_all(&buffer)).is_ok()
         });
         next_packet_id = next_packet_id.saturating_add(1);
+
+        if publishd_next_packet_id.is_none() {
+            if let Some(seed_packet_id) = read_publishd_start_packet_id() {
+                publishd_next_packet_id = Some(seed_packet_id);
+                println!(
+                    "[CAND-IPC] publishd gate opened on {} with start packet_id={}",
+                    PUBLISHD_SOCKET_PATH,
+                    seed_packet_id
+                );
+            }
+        }
+
+        if let (Some(packet_id), Some(publishd_buffer)) = (publishd_packet_id_for_cycle, publishd_buffer) {
+            let publishd_frame_len = (publishd_buffer.len() as u32).to_be_bytes();
+            let mut sent_to_publishd = false;
+            publishd_clients.lock().unwrap().retain_mut(|stream| {
+                let ok = stream
+                    .write_all(&publishd_frame_len)
+                    .and_then(|_| stream.write_all(&publishd_buffer))
+                    .is_ok();
+                if ok {
+                    sent_to_publishd = true;
+                }
+                ok
+            });
+
+            if sent_to_publishd {
+                publishd_next_packet_id = Some(packet_id.saturating_add(1));
+            }
+        }
 
         let elapsed = cycle_start.elapsed();
         if elapsed < publish_interval {
