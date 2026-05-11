@@ -42,6 +42,10 @@ bool bms_check_undervoltage(void);
 bool bms_check_overvoltage(void);
 bool bms_check_overtemp(void);
 
+/* Pack extremes used by the charger CC/CV algorithm. */
+float bms_get_max_voltage(void);  /* highest cell voltage, volts */
+float bms_get_max_temp(void);     /* highest cell temperature, deg C */
+
 float getPackVoltage_v(void);
 
 void StartBmsTask(void *argument);

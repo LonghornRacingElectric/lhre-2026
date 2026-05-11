@@ -25,6 +25,11 @@ static msg_indicators_shutdown_status_t indicator_status_tx = {0};
 // Cell temperature messages (23 packets total: 22 with 4 temps, 1 with 2 temps)
 static msg_cell_temperatures_t cell_temps_tx[23] = {0};
 
+// Charger comms
+static msg_charge_command_t   charge_command_tx  = {0};
+static msg_charger_status_t   charger_status_rx  = {0};
+static can_receive_message_t *charger_status_handle;
+
 can_interface_t critical_can_bus = {
     .handle = &hfdcan1,
 };
@@ -80,6 +85,18 @@ void hvc_can_init(void) {
     can_rtos_register_send_packet(&critical_can_bus, cell_temp_handle);
   }
 
+  // TX: charge command (HVC -> Charger)
+  can_message_t *charge_command_handle = can_get_message_handle(
+      &charge_command_tx, CHARGE_COMMAND_ID, CHARGE_COMMAND_FREQ,
+      CHARGE_COMMAND_DLC, (CAN_pack_message_fn)pack_charge_command);
+  can_rtos_register_send_packet(&critical_can_bus, charge_command_handle);
+
+  // RX: charger status (Charger -> HVC)
+  charger_status_handle = can_get_receive_message_handle(
+      &charger_status_rx, CHARGER_STATUS_ID,
+      (CAN_unpack_message_fn)unpack_charger_status);
+  can_rtos_register_receive_packet(&critical_can_bus, charger_status_handle);
+
   can_rtos_start_interface(&critical_can_bus);
 
   // Start tasks LAST
@@ -112,6 +129,38 @@ void hvc_set_indicator_status(bool bms_error, bool imd_error,
   indicator_status_tx.shutdown_leg_4 = shutdown_leg4 ? 1 : 0;
 
   taskEXIT_CRITICAL();
+}
+
+/**
+ * hvc_set_charge_command - Stage the next Charge Command frame for the
+ * CAN RTOS to broadcast at CHARGE_COMMAND_FREQ. Called from charger_update().
+ */
+void hvc_set_charge_command(float target_v, float current_limit_a,
+                            uint8_t flags, uint8_t seq)
+{
+    taskENTER_CRITICAL();
+    charge_command_tx.target_voltage = target_v;
+    charge_command_tx.current_limit  = current_limit_a;
+    charge_command_tx.charge_flags   = flags;
+    charge_command_tx.sequence       = seq;
+    taskEXIT_CRITICAL();
+}
+
+/**
+ * hvc_get_charger_status - Atomically copy the most recent Charger Status
+ * mailbox into the caller's output params. Polled from charger_update().
+ */
+void hvc_get_charger_status(float *v_out, float *c_out, uint8_t *flags_out,
+                            uint8_t *state_out, uint8_t *plug_out,
+                            uint8_t *seq_echo_out) {
+    taskENTER_CRITICAL();
+    if (v_out)        *v_out        = charger_status_rx.charger_voltage;
+    if (c_out)        *c_out        = charger_status_rx.charger_current;
+    if (flags_out)    *flags_out    = charger_status_rx.charger_flags;
+    if (state_out)    *state_out    = charger_status_rx.charger_state;
+    if (plug_out)     *plug_out     = charger_status_rx.plug_status;
+    if (seq_echo_out) *seq_echo_out = charger_status_rx.sequence_echo;
+    taskEXIT_CRITICAL();
 }
 
 /**

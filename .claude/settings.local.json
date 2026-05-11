@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git merge *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git checkout *)",
+      "Bash(git branch *)",
+      "PowerShell(winget update *)",
+      "Bash(xargs grep -n -A 30 \"pack_charge_command\\\\b\\\\|unpack_charger_status\\\\b\")"
+    ]
+  }
+}

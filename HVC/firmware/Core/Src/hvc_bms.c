@@ -49,6 +49,39 @@ static uint8_t bms_responsive_ics = 0;
 // Cell temperature buffer for CAN transmission
 static float cell_temps[90];
 
+float bms_get_max_voltage(void) {
+    float max_v = 0.0f;
+
+    for (int i = 0; i < TOTAL_IC; i++) {
+        for (int j = 0; j < CELLS_PER_IC; j++) {
+            uint16_t code = IC[i].cell.c_codes[j];
+            float voltage_v = (code * 0.000150f) + 1.5f;
+            if (voltage_v > max_v) {
+                max_v = voltage_v;
+            }
+        }
+    }
+
+    return max_v;
+}
+
+float bms_get_max_temp(void) {
+    float max_temp = -100.0f;  // Start with an impossibly low temperature
+
+    for (int i = 0; i < TOTAL_IC; i++) {
+        for (int j = 1; j < 9; j++) {  // GPIO 2-9 (aux channels 1-8)
+            int16_t code = IC[i].aux.a_codes[j];
+            float voltage_v = ((code + 10000) * 0.000150f);
+            float temp_c = ntc_voltage_to_temp(voltage_v);
+            if (!isnan(temp_c) && temp_c > max_temp) {
+                max_temp = temp_c;
+            }
+        }
+    }
+
+    return max_temp;
+}
+
 // Returns pack voltage in millivolts by summing all cell voltages
 float getPackVoltage_v(void)
 {

@@ -107,9 +107,7 @@ int main(void) {
   // Init ADC sampling
   pilotInit();
 
-  // charge for angelique is 1
-  // charge for nightwatch is 2
-  charging_init(2);
+  charging_init();
   //
   // ST7796_Init();
   // Draw_Blue_Square();
@@ -118,26 +116,21 @@ int main(void) {
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-  uint32_t totalTime = 0;
   while (1) {
     pilotPeriodic();
     uint32_t elapsedTime = lib_timer_ms_elapsed();
-    totalTime += elapsedTime;
-    uint8_t led_high = (totalTime / 150) % 2;
 
-    if (getImdError()) {
-      HAL_GPIO_WritePin(IMD_LED_GPIO_Port, IMD_LED_Pin, led_high);
-    }
-    if (getAmsError()) {
-      HAL_GPIO_WritePin(BMS_LED_GPIO_Port, BMS_LED_Pin, !led_high);
-    }
+    // Solid ON while HVC reports the fault, OFF otherwise. Assumes the LED
+    // GPIOs are active-high; swap SET/RESET if your board sinks the LED.
+    HAL_GPIO_WritePin(IMD_LED_GPIO_Port, IMD_LED_Pin,
+                      getImdError() ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(BMS_LED_GPIO_Port, BMS_LED_Pin,
+                      getAmsError() ? GPIO_PIN_SET : GPIO_PIN_RESET);
 
     float deltaTime = elapsedTime / 1000.0f;
     charging_periodic(deltaTime);
 
-    if (rainbow == 3) { // currently 2
-      led_rainbow(deltaTime);
-    }
+    led_rainbow(deltaTime);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

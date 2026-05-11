@@ -43,6 +43,7 @@
 
 /* HVC Application Modules */
 #include "hvc_bms.h"
+#include "hvc_charger.h"
 #include "hvc_contactors.h"
 #include "hvc_faults.h"
 #include "hvc_state_machine.h"
@@ -246,6 +247,7 @@ void StartStateMachineTask(void *argument) {
   state_machine_init();
   contactors_init();
   faults_init();
+  charger_init();
 
   // Task loop - 10Hz update rate (100ms period)
   const uint32_t task_period_ms = 100;
@@ -262,6 +264,7 @@ void StartStateMachineTask(void *argument) {
 
     update_state_machine(any_faults);
     hvc_update_contactor_status();
+    charger_update();   // CC/CV algo + Charge Command TX, after state machine
     // log_printf(LOG_INFO, "Responsive BMS ICs: %d\n",
     // bms_get_num_responsive_ics());
 

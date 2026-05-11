@@ -15,6 +15,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "hvc_state_machine.h"
+#include "hvc_charger.h"
 #include "hvc_contactors.h"
 #include "cmsis_os.h"
 #include "gpio.h"
@@ -77,71 +78,63 @@ void update_state_machine(bool any_faults) {
             }
             break;
             
-        case HVC_STATE_PRECHARGING:
-            // Check if precharge complete
+        case HVC_STATE_PRECHARGING: {
             float tractive_voltage = get_tractive_voltage();
             float pack_voltage = get_pack_voltage();
             float precharge_threshold = pack_voltage * HVC_PRECHARGE_THRESHOLD_PERCENT;
 
             if (tractive_voltage > precharge_threshold) {
                 uint32_t elapsed = current_time - precharge_start_time;
-                // log_printf(LOG_INFO, "shutdown closed: %d, elapsed: %lu ms, tractive voltage: %.2f V, pack voltage: %.2f V, threshold: %.2f V\n",
-                //             is_shutdown_closed(), elapsed, tractive_voltage, pack_voltage, precharge_threshold);
                 if (elapsed >= HVC_PRECHARGE_VALID_MS) {
-                    // Precharge complete - close drive contactors
                     set_positive_contactor(true);
                     current_state = HVC_STATE_ENERGIZED;
                 }
             } else {
-                // Reset timer if voltage drops
                 precharge_start_time = current_time;
             }
 
-            // Check if shutdown is closed
             if (!is_shutdown_closed()) {
                 set_positive_contactor(false);
                 current_state = HVC_STATE_NOT_ENERGIZED;
             }
             break;
-            
+        }
+
         case HVC_STATE_ENERGIZED:
-            // Stay energized while TS_Enable is active
-            // log_printf(LOG_INFO, "energized - shutdown closed: %d\n", is_shutdown_closed());
             if (!is_shutdown_closed()) {
                 set_positive_contactor(false);
                 current_state = HVC_STATE_NOT_ENERGIZED;
             }
             break;
-            
-        case HVC_STATE_CHARGING_PRECHARGING:
-            // Similar to normal precharge, but for charging
-            tractive_voltage = get_tractive_voltage();
-            pack_voltage = get_pack_voltage();
-            precharge_threshold = pack_voltage * HVC_PRECHARGE_THRESHOLD_PERCENT;
-            
+
+        case HVC_STATE_CHARGING_PRECHARGING: {
+            float tractive_voltage = get_tractive_voltage();
+            float pack_voltage = get_pack_voltage();
+            float precharge_threshold = pack_voltage * HVC_PRECHARGE_THRESHOLD_PERCENT;
+
             if (tractive_voltage > precharge_threshold) {
                 uint32_t elapsed = current_time - precharge_start_time;
-
                 if (elapsed >= HVC_PRECHARGE_VALID_MS) {
-                    // Precharge complete - transition to charging
                     set_positive_contactor(true);
                     current_state = HVC_STATE_CHARGING;
                 }
             } else {
-                // Reset timer if voltage drops
                 precharge_start_time = current_time;
             }
-            
-            // Check if charge enable released
-            if (!is_charge_enable_active()) {
+
+            // Bail to NOT_ENERGIZED if charge enable released or shutdown opens
+            // mid-precharge. The hardware shutdown loop physically opens the
+            // contactors regardless; this keeps software in sync with reality.
+            if (!is_charge_enable_active() || !is_shutdown_closed()) {
                 set_positive_contactor(false);
                 current_state = HVC_STATE_NOT_ENERGIZED;
             }
             break;
-            
+        }
+
         case HVC_STATE_CHARGING:
-            // Stay in charging while charge enable is active
-            if (!is_charge_enable_active()) {
+            // Stay in charging while charge enable is active and shutdown is closed.
+            if (!is_charge_enable_active() || !is_shutdown_closed()) {
                 set_positive_contactor(false);
                 current_state = HVC_STATE_NOT_ENERGIZED;
             }
@@ -216,8 +209,11 @@ const char* get_state_name(hvc_state_t state) {
 
 
 __attribute__((weak)) bool is_charge_enable_active(void) {
-    // Default: return false (not charging)
-    return false;
+    // Charger board reports plug status over CAN. We treat both PLUGGED and
+    // READY as "charge-enable" for entering CHARGING_PRECHARGING; the actual
+    // current draw won't start until charger comms are healthy and the
+    // charger reports READY (handled inside charger_update).
+    return charger_is_plugged() && charger_comms_ok();
 }
 
 
