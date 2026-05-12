@@ -124,6 +124,14 @@ message DiagnosticsLow {
     bool shutdown_leg2 = 7;
     bool shutdown_leg3 = 8;
     bool shutdown_leg4 = 9;
+    // Bits decoded by can.json but previously dropped because the proto
+    // lacked these fields. Conventions match the wire encoding:
+    //   *_status  bits are 1 when the corresponding leg is closed/OK
+    //   temp_shutdown_* bits are 1 when the DUI sees a thermal shutdown
+    bool shutdown_bspd_status = 10;
+    bool shutdown_emeter_status = 11;
+    bool temp_shutdown_1 = 12;
+    bool temp_shutdown_2 = 13;
 }
 
 message Thermal {

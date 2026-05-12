@@ -232,8 +232,10 @@ fn extract_can_data(data: &OrionSensorData) -> CanData {
         .unwrap_or((None, None, None));
 
     // Shutdown array — packed in the order SHUTDOWN_NAMES expects.
-    // bmb_comm_error / imd_gnd_isolation_error are *_error fields (true =
-    // fault), so they're inverted to the shutdown convention (true = OK).
+    // Convention: true = OK, false = FAULT. Source fields are normalized to
+    // that convention here:
+    //   - shutdown_legN / shutdown_*_status: wire bit = 1 means leg closed
+    //   - *_error / temp_shutdown_*: wire bit = 1 means a fault, so inverted
     let shutdown = diag_low.map(|d| vec![
         d.shutdown_leg1,
         d.shutdown_leg2,
@@ -241,6 +243,10 @@ fn extract_can_data(data: &OrionSensorData) -> CanData {
         d.shutdown_leg4,
         !d.bmb_comm_error,
         !d.imd_gnd_isolation_error,
+        d.shutdown_bspd_status,
+        d.shutdown_emeter_status,
+        !d.temp_shutdown_1,
+        !d.temp_shutdown_2,
     ]);
 
     CanData {

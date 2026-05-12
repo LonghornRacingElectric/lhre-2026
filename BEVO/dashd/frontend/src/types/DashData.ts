@@ -79,10 +79,14 @@ export interface DashMessage {
 // team owns the leg-to-physical-component mapping; the placeholder leg names
 // stay until that comes back.
 export const SHUTDOWN_NAMES: string[] = [
-    "LEG 1", // diagnostics_low.shutdown_leg1
-    "LEG 2", // diagnostics_low.shutdown_leg2
-    "LEG 3", // diagnostics_low.shutdown_leg3
-    "LEG 4", // diagnostics_low.shutdown_leg4
-    "BMS",   // !diagnostics_low.bmb_comm_error
-    "IMD",   // !diagnostics_low.imd_gnd_isolation_error
+    "LEG 1",       // diagnostics_low.shutdown_leg1
+    "LEG 2",       // diagnostics_low.shutdown_leg2
+    "LEG 3",       // diagnostics_low.shutdown_leg3
+    "LEG 4",       // diagnostics_low.shutdown_leg4
+    "BMS",         // !diagnostics_low.bmb_comm_error
+    "IMD",         // !diagnostics_low.imd_gnd_isolation_error
+    "BSPD",        // diagnostics_low.shutdown_bspd_status
+    "E-METER",     // diagnostics_low.shutdown_emeter_status
+    "DUI TEMP 1",  // !diagnostics_low.temp_shutdown_1
+    "DUI TEMP 2",  // !diagnostics_low.temp_shutdown_2
 ];
