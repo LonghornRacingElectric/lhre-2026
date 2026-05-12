@@ -1,59 +1,55 @@
 import React from 'react';
 import { useDash } from '../context/DashContext';
+import { SHUTDOWN_NAMES } from '../types/DashData';
 import TopTray from '../components/TopTray';
 import './ScreenTwo.css';
 
 // Screen Two: Shutdown Circuit Status
 // Resolution: 800 x 480
 // Theme: Modern EV (Dark, Glassmorphism, Glowing)
+//
+// The layout is driven by SHUTDOWN_NAMES (defined in types/DashData) which is
+// the authoritative ordering for dashd's shutdown[] array. Descriptions below
+// are optional context only — adding/removing entries in SHUTDOWN_NAMES
+// automatically updates this screen.
 
-interface ShutdownItem {
-    id: number;
-    name: string;
-    description?: string;
-}
-
-const ITEMS: ShutdownItem[] = [
-    { id: 1, name: "LV Master Switch", description: "" },
-    { id: 2, name: "Shutdown Fuse", description: "5A" },
-    { id: 3, name: "R-ESTOP", description: "Right E-Stop Button" },
-    { id: 4, name: "BMS", description: "Battery Management System Relay" },
-    { id: 5, name: "IMD", description: "Insulation Monitoring Device Relay" },
-    { id: 6, name: "Battery ACU HVIL", description: "" },
-    { id: 7, name: "L-ESTOP", description: "Left E-Stop Button" },
-    { id: 8, name: "D-ESTOP", description: "Dash E-Stop Button" },
-    { id: 9, name: "Inertial Switch", description: "" },
-    { id: 10, name: "BOTS", description: "Brake Over-Travel Switch" },
-    { id: 11, name: "BSPD", description: "Brake Systems Plausibility Device Relay" },
-    { id: 12, name: "E-Meter HVIL", description: "" },
-    { id: 13, name: "MSD HVIL", description: "Manual Service Disconnect" },
-    { id: 14, name: "Battery HVIL", description: "" },
-    { id: 15, name: "Inverter HVIL", description: "" },
-    { id: 16, name: "TSMS", description: "Tractive Systems Master Switch" },
-];
+const DESCRIPTIONS: Record<string, string> = {
+    "LEG 1": "Shutdown circuit leg 1",
+    "LEG 2": "Shutdown circuit leg 2",
+    "LEG 3": "Shutdown circuit leg 3",
+    "LEG 4": "Shutdown circuit leg 4",
+    "BMS": "Battery Management System",
+    "IMD": "Insulation Monitoring Device",
+    "BSPD": "Brake System Plausibility Device",
+    "E-METER": "Energy Meter HVIL",
+    "DUI TEMP 1": "DUI thermal shutdown 1",
+    "DUI TEMP 2": "DUI thermal shutdown 2",
+};
 
 const ScreenTwo: React.FC = () => {
     const { data } = useDash();
-
-    // Get shutdown array from context, default to all-null if no data
     const shutdown = data?.can.shutdown;
 
     return (
         <div className="shutdown-container">
             <TopTray screenLabel="Shutdown" />
             <div className="shutdown-grid">
-                {ITEMS.map((item, index) => {
-                    const status = shutdown ? shutdown[index] : null;
+                {SHUTDOWN_NAMES.map((name, index) => {
+                    // Defensive: if shutdown[] is shorter than expected, treat
+                    // the missing slot as "unknown" rather than letting falsy
+                    // `undefined` masquerade as a fault.
+                    const status = shutdown ? (shutdown[index] ?? null) : null;
                     const statusClass = status === null ? 'status-unknown' : status ? 'status-good' : 'status-bad';
+                    const description = DESCRIPTIONS[name];
 
                     return (
-                        <div key={item.id} className={`shutdown-item ${statusClass}`}>
-                            <div className="item-number">{item.id}</div>
+                        <div key={name} className={`shutdown-item ${statusClass}`}>
+                            <div className="item-number">{index + 1}</div>
                             <div className="d-flex flex-column justify-content-center" style={{ flexGrow: 1 }}>
-                                <div className="item-name">{item.name}</div>
-                                {item.description && (
+                                <div className="item-name">{name}</div>
+                                {description && (
                                     <div className="item-description">
-                                        {item.description}
+                                        {description}
                                     </div>
                                 )}
                             </div>
