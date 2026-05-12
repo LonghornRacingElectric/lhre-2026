@@ -50,21 +50,86 @@ struct CanData {
     /// State of charge (0–100%) from pack.hv_soc.
     soc: Option<f32>,
 
-    /// Battery cell temperature in °C from thermal.cell_top_temp.
-    /// DECISION: Using cell_top_temp. Alternatives: cell_bottom_temp,
-    /// batt_loop_batt_temp, motor_temp. May need revisiting.
+    /// Pack temperature in °C — currently sourced from thermal.cell_top_temp.
+    /// Frontend's main TEMP gauge reads this. Hottest-cell semantics live on
+    /// `cellTempMax` below for the diag screen.
     temperature: Option<f32>,
 
     /// NOT AVAILABLE — 5G signal strength is not on the CAN bus. Always null.
+    /// Could be sourced from the cellular modem (see BEVO/cell.py) in a
+    /// follow-up.
     #[serde(rename = "signalStrength")]
     signal_strength: Option<f32>,
 
-    /// NOT AVAILABLE — CAN provides 4 shutdown legs (shutdown_leg1–4 in
-    /// DiagnosticsLow), but the frontend expects a 16-element boolean array
-    /// matching specific named items. The mapping from 4 hardware legs to 16
-    /// named shutdown items is UNKNOWN. Always null until electrical team
-    /// provides this mapping.
+    /// 4-leg shutdown circuit state from diagnostics_low.shutdown_legX.
+    /// Emitted as [leg1, leg2, leg3, leg4]; frontend renders a "FAULT" if any
+    /// element is false. The 16-name mapping originally expected by the
+    /// frontend has been collapsed to these four legs in SHUTDOWN_NAMES.
     shutdown: Option<Vec<bool>>,
+
+    // ---------------------------------------------------------------
+    // Pit / extended driver-thread fields — all sourced from the same
+    // OrionSensorData snapshot cand publishes. None when cand has not
+    // received the corresponding CAN message yet.
+    // ---------------------------------------------------------------
+
+    /// Front brake-bias percentage (controls.brake_bias).
+    #[serde(rename = "brakeBias")]
+    brake_bias: Option<f32>,
+
+    /// Accelerator pedal travel %, controls.apps1_travel.
+    apps: Option<f32>,
+    /// Brake pedal travel %, controls.bpps1_travel.
+    bpps: Option<f32>,
+
+    /// Front brake pressure (controls.brake_pressure_f).
+    #[serde(rename = "brakePressureFront")]
+    brake_pressure_front: Option<f32>,
+    /// Rear brake pressure — sum of the two rear sensors (rall + rbll).
+    #[serde(rename = "brakePressureRear")]
+    brake_pressure_rear: Option<f32>,
+
+    /// Motor temperature °C (thermal.motor_temp).
+    #[serde(rename = "motorTemp")]
+    motor_temp: Option<f32>,
+    /// Inverter temperature °C (thermal.inverter_temp).
+    #[serde(rename = "inverterTemp")]
+    inverter_temp: Option<f32>,
+    /// Coolant temperature °C (thermal.coolant_temp).
+    #[serde(rename = "coolantTemp")]
+    coolant_temp: Option<f32>,
+
+    /// Pack-wide cell temp aggregates from pack.cells_temps[] (°C).
+    /// None when the array is empty (cand has not yet seen a cell-temp packet).
+    #[serde(rename = "cellTempMax")]
+    cell_temp_max: Option<f32>,
+    #[serde(rename = "cellTempAvg")]
+    cell_temp_avg: Option<f32>,
+    #[serde(rename = "cellTempMin")]
+    cell_temp_min: Option<f32>,
+
+    /// HV pack voltage (pack.hv_pack_v).
+    #[serde(rename = "hvVoltage")]
+    hv_voltage: Option<f32>,
+    /// HV pack current (pack.hv_c).
+    #[serde(rename = "hvCurrent")]
+    hv_current: Option<f32>,
+    /// GLV / LV bus voltage (pack.lv_batt_v).
+    #[serde(rename = "lvVoltage")]
+    lv_voltage: Option<f32>,
+    /// GLV / LV bus current (pack.lv_batt_c).
+    #[serde(rename = "lvCurrent")]
+    lv_current: Option<f32>,
+
+    /// Per-wheel speed in same units as `wheel_speed` (dynamics.flw/frw/blw/brw_speed).
+    #[serde(rename = "wheelSpeedFL")]
+    wheel_speed_fl: Option<f32>,
+    #[serde(rename = "wheelSpeedFR")]
+    wheel_speed_fr: Option<f32>,
+    #[serde(rename = "wheelSpeedRL")]
+    wheel_speed_rl: Option<f32>,
+    #[serde(rename = "wheelSpeedRR")]
+    wheel_speed_rr: Option<f32>,
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -143,11 +208,40 @@ fn extract_can_data(data: &OrionSensorData) -> CanData {
     const KNOTS_TO_MPH: f32 = 1.15078;
     let speed = data.dynamics.as_ref().map(|d| d.gps_speed * KNOTS_TO_MPH);
 
-    let power = data.pack.as_ref().map(|p| p.dc_bus_v * p.dc_bus_current / 1000.0);
+    let pack = data.pack.as_ref();
+    let thermal = data.thermal.as_ref();
+    let controls = data.controls.as_ref();
+    let dynamics = data.dynamics.as_ref();
+    let diag_low = data.diagnostics_low.as_ref();
 
-    let soc = data.pack.as_ref().map(|p| p.hv_soc);
+    let power = pack.map(|p| p.dc_bus_v * p.dc_bus_current / 1000.0);
+    let soc = pack.map(|p| p.hv_soc);
+    let temperature = thermal.map(|t| t.cell_top_temp);
 
-    let temperature = data.thermal.as_ref().map(|t| t.cell_top_temp);
+    // Per-cell temp aggregates — None when cand has not received cell-temp
+    // packets yet (empty vec).
+    let (cell_temp_max, cell_temp_avg, cell_temp_min) = pack
+        .map(|p| p.cells_temps.as_slice())
+        .filter(|t| !t.is_empty())
+        .map(|t| {
+            let max = t.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+            let min = t.iter().cloned().fold(f32::INFINITY, f32::min);
+            let avg = t.iter().sum::<f32>() / t.len() as f32;
+            (Some(max), Some(avg), Some(min))
+        })
+        .unwrap_or((None, None, None));
+
+    // Shutdown array — packed in the order SHUTDOWN_NAMES expects.
+    // bmb_comm_error / imd_gnd_isolation_error are *_error fields (true =
+    // fault), so they're inverted to the shutdown convention (true = OK).
+    let shutdown = diag_low.map(|d| vec![
+        d.shutdown_leg1,
+        d.shutdown_leg2,
+        d.shutdown_leg3,
+        d.shutdown_leg4,
+        !d.bmb_comm_error,
+        !d.imd_gnd_isolation_error,
+    ]);
 
     CanData {
         speed,
@@ -156,7 +250,35 @@ fn extract_can_data(data: &OrionSensorData) -> CanData {
         temperature,
         odometer: None,
         signal_strength: None,
-        shutdown: None,
+        shutdown,
+
+        brake_bias: controls.map(|c| c.brake_bias),
+        apps: controls.map(|c| c.apps1_travel),
+        bpps: controls.map(|c| c.bpps1_travel),
+        brake_pressure_front: controls.map(|c| c.brake_pressure_f),
+        // rall + rbll are two rear pressure sensors. Averaged here so the
+        // display reads a single "rear pressure" regardless of which sensor
+        // (or both, redundantly) is reporting. Worth revisiting once the
+        // brake team confirms whether these are redundant or L/R-split.
+        brake_pressure_rear: controls
+            .map(|c| (c.brake_pressure_rall + c.brake_pressure_rbll) / 2.0),
+
+        motor_temp: thermal.map(|t| t.motor_temp),
+        inverter_temp: thermal.map(|t| t.inverter_temp),
+        coolant_temp: thermal.map(|t| t.coolant_temp),
+        cell_temp_max,
+        cell_temp_avg,
+        cell_temp_min,
+
+        hv_voltage: pack.map(|p| p.hv_pack_v),
+        hv_current: pack.map(|p| p.hv_c),
+        lv_voltage: pack.map(|p| p.lv_batt_v),
+        lv_current: pack.map(|p| p.lv_batt_c),
+
+        wheel_speed_fl: dynamics.map(|d| d.flw_speed),
+        wheel_speed_fr: dynamics.map(|d| d.frw_speed),
+        wheel_speed_rl: dynamics.map(|d| d.blw_speed),
+        wheel_speed_rr: dynamics.map(|d| d.brw_speed),
     }
 }
 

@@ -14,7 +14,9 @@ export interface CanData {
     // Telemetry
     signalStrength: number | null;  // 5G signal (0-4 bars)
 
-    // Shutdown circuit: 16 booleans (true = OK, false = FAULT)
+    // Shutdown circuit: booleans (true = OK, false = FAULT).
+    // dashd currently emits four legs from diagnostics_low.shutdown_legX.
+    // See SHUTDOWN_NAMES for the matching labels.
     shutdown: boolean[] | null;
 
     // Optional driver-thread additions. Not yet emitted by dashd; the
@@ -38,6 +40,7 @@ export interface CanData {
     motorTemp?: number | null;        // °C
     inverterTemp?: number | null;     // °C
     coolantTemp?: number | null;      // °C
+    cellTempMax?: number | null;      // °C, hottest cell from pack.cells_temps[]
     cellTempAvg?: number | null;      // °C, pack-averaged cell temp
     cellTempMin?: number | null;      // °C
     hvVoltage?: number | null;        // V (FSAE EV TSV cap: 600 V DC)
@@ -70,22 +73,16 @@ export interface DashMessage {
     mqtt: MqttData;
 }
 
-// Shutdown circuit index-to-name mapping (matches spec)
+// Shutdown circuit / safety-fault items, in the order dashd emits them.
+// LEG 1–4 are the hardware shutdown legs from DiagnosticsLow.shutdown_legX;
+// BMS / IMD are *_error flags inverted into shutdown convention. Electrical
+// team owns the leg-to-physical-component mapping; the placeholder leg names
+// stay until that comes back.
 export const SHUTDOWN_NAMES: string[] = [
-    "LV Master Switch",    // 0
-    "Shutdown Fuse",       // 1
-    "R-ESTOP",             // 2
-    "BMS",                 // 3
-    "IMD",                 // 4
-    "Battery ACU HVIL",    // 5
-    "L-ESTOP",             // 6
-    "D-ESTOP",             // 7
-    "Inertial Switch",     // 8
-    "BOTS",                // 9
-    "BSPD",                // 10
-    "E-Meter HVIL",        // 11
-    "MSD HVIL",            // 12
-    "Battery HVIL",        // 13
-    "Inverter HVIL",       // 14
-    "TSMS",                // 15
+    "LEG 1", // diagnostics_low.shutdown_leg1
+    "LEG 2", // diagnostics_low.shutdown_leg2
+    "LEG 3", // diagnostics_low.shutdown_leg3
+    "LEG 4", // diagnostics_low.shutdown_leg4
+    "BMS",   // !diagnostics_low.bmb_comm_error
+    "IMD",   // !diagnostics_low.imd_gnd_isolation_error
 ];

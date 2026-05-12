@@ -55,8 +55,9 @@ const PitDiagnostic: React.FC = () => {
     const motorTemp = data?.can.motorTemp ?? null;
     const inverterTemp = data?.can.inverterTemp ?? null;
     const coolantTemp = data?.can.coolantTemp ?? null;
-    // cellTempMax falls back to cellTopTemp until backend exposes the real max.
-    const cellTempMax = cellTopTemp;
+    // Prefer dashd's pack-wide max (aggregate of pack.cells_temps[]) when
+    // present; fall back to the single cell_top_temp the main TEMP gauge uses.
+    const cellTempMax = data?.can.cellTempMax ?? cellTopTemp;
     const cellTempAvg = data?.can.cellTempAvg ?? null;
     const cellTempMin = data?.can.cellTempMin ?? null;
 
@@ -70,10 +71,9 @@ const PitDiagnostic: React.FC = () => {
     const wheelSpeedRL = data?.can.wheelSpeedRL ?? null;
     const wheelSpeedRR = data?.can.wheelSpeedRR ?? null;
 
-    // ----- Derived: faults from shutdown[] (will stay null until shutdown wires up) -----
-    // NOTE: shutdown[] itself is also blocked — the CAN bus exposes 4 legs but the
-    // frontend expects 16 named items, and the leg→item mapping is owned by the
-    // electrical team and not yet provided. Until then, shutdown is always null.
+    // Derived faults — dashd emits four legs from diagnostics_low.shutdown_legX.
+    // SHUTDOWN_NAMES holds the placeholder leg labels until electrical clarifies
+    // which physical sub-system each leg represents.
     const faultIndices = shutdown
         ? shutdown.map((ok, i) => (ok ? -1 : i)).filter(i => i >= 0)
         : null;
