@@ -8,10 +8,18 @@ import './ScreenTwo.css';
 // Resolution: 800 x 480
 // Theme: Modern EV (Dark, Glassmorphism, Glowing)
 //
-// The layout is driven by SHUTDOWN_NAMES (defined in types/DashData) which is
-// the authoritative ordering for dashd's shutdown[] array. Descriptions below
-// are optional context only — adding/removing entries in SHUTDOWN_NAMES
-// automatically updates this screen.
+// Cells fall into two buckets:
+//   1. Items dashd emits in CanData.shutdown[] — driven by SHUTDOWN_NAMES.
+//      shutdownIndex points at the matching position in that array.
+//   2. Placeholder items the electrical team hasn't put on CAN yet
+//      (shutdownIndex = null). These render permanently as "status-unknown"
+//      with an "AWAITING FIRMWARE" subtitle.
+
+interface ShutdownCell {
+    name: string;
+    description: string;
+    shutdownIndex: number | null;
+}
 
 const DESCRIPTIONS: Record<string, string> = {
     "LEG 1": "Shutdown circuit leg 1",
@@ -26,6 +34,22 @@ const DESCRIPTIONS: Record<string, string> = {
     "DUI TEMP 2": "DUI thermal shutdown 2",
 };
 
+const PLACEHOLDER_LABEL = "Awaiting firmware";
+
+const CELLS: ShutdownCell[] = [
+    ...SHUTDOWN_NAMES.map((name, index) => ({
+        name,
+        description: DESCRIPTIONS[name] ?? "",
+        shutdownIndex: index,
+    })),
+    { name: "TSMS",     description: "Tractive Systems Master Switch", shutdownIndex: null },
+    { name: "MSD HVIL", description: "Manual Service Disconnect",      shutdownIndex: null },
+    { name: "BOTS",     description: "Brake Over-Travel Switch",       shutdownIndex: null },
+    { name: "L-ESTOP",  description: "Left E-Stop",                    shutdownIndex: null },
+    { name: "R-ESTOP",  description: "Right E-Stop",                   shutdownIndex: null },
+    { name: "D-ESTOP",  description: "Dash E-Stop",                    shutdownIndex: null },
+];
+
 const ScreenTwo: React.FC = () => {
     const { data } = useDash();
     const shutdown = data?.can.shutdown;
@@ -34,22 +58,25 @@ const ScreenTwo: React.FC = () => {
         <div className="shutdown-container">
             <TopTray screenLabel="Shutdown" />
             <div className="shutdown-grid">
-                {SHUTDOWN_NAMES.map((name, index) => {
-                    // Defensive: if shutdown[] is shorter than expected, treat
-                    // the missing slot as "unknown" rather than letting falsy
-                    // `undefined` masquerade as a fault.
-                    const status = shutdown ? (shutdown[index] ?? null) : null;
-                    const statusClass = status === null ? 'status-unknown' : status ? 'status-good' : 'status-bad';
-                    const description = DESCRIPTIONS[name];
+                {CELLS.map((cell, gridIndex) => {
+                    const status = cell.shutdownIndex !== null && shutdown
+                        ? (shutdown[cell.shutdownIndex] ?? null)
+                        : null;
+                    const statusClass = status === null
+                        ? 'status-unknown'
+                        : status ? 'status-good' : 'status-bad';
+                    const subtitle = cell.shutdownIndex === null
+                        ? PLACEHOLDER_LABEL
+                        : cell.description;
 
                     return (
-                        <div key={name} className={`shutdown-item ${statusClass}`}>
-                            <div className="item-number">{index + 1}</div>
+                        <div key={cell.name} className={`shutdown-item ${statusClass}`}>
+                            <div className="item-number">{gridIndex + 1}</div>
                             <div className="d-flex flex-column justify-content-center" style={{ flexGrow: 1 }}>
-                                <div className="item-name">{name}</div>
-                                {description && (
+                                <div className="item-name">{cell.name}</div>
+                                {subtitle && (
                                     <div className="item-description">
-                                        {description}
+                                        {subtitle}
                                     </div>
                                 )}
                             </div>
