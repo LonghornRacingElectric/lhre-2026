@@ -25,6 +25,11 @@ const MQTT_CLIENT_ID: &str = "BEVO-DASHD";
 const MQTT_TOPIC_PREFIX: &str = "lhre/dash/";
 const MQTT_STALE_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// If we haven't gotten a fresh OrionSensorData snapshot from cand within
+/// this window, the next WebSocket frame ships an all-default CanData so
+/// the dash shows "--" instead of frozen last-known values.
+const CAN_STALE_TIMEOUT: Duration = Duration::from_secs(3);
+
 fn env_or_default(name: &str, default: &str) -> String {
     std::env::var(name).unwrap_or_else(|_| default.to_string())
 }
@@ -196,6 +201,9 @@ impl MqttState {
 
 struct DashState {
     can: CanData,
+    /// Wall-clock time of the most recent successful IPC decode. Used by the
+    /// WS sender to null out CanData once cand has stopped publishing.
+    last_can_update: Instant,
     mqtt: MqttState,
 }
 
@@ -319,6 +327,7 @@ fn ipc_reader_loop(state: Arc<Mutex<DashState>>) {
                             let can_data = extract_can_data(&data);
                             let mut locked = state.lock().unwrap();
                             locked.can = can_data;
+                            locked.last_can_update = Instant::now();
                         }
                         Err(e) => eprintln!("[DASHD] Protobuf decode error: {}", e),
                     }
@@ -361,9 +370,14 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
 
                             let message = {
                                 let locked = state.lock().unwrap();
+                                let can = if locked.last_can_update.elapsed() > CAN_STALE_TIMEOUT {
+                                    CanData::default()
+                                } else {
+                                    locked.can.clone()
+                                };
                                 DashMessage {
                                     seq,
-                                    can: locked.can.clone(),
+                                    can,
                                     mqtt: locked.mqtt.to_mqtt_data(),
                                 }
                             };
@@ -498,6 +512,8 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
 fn main() -> Result<()> {
     let state = Arc::new(Mutex::new(DashState {
         can: CanData::default(),
+        // Start stale so the dash shows "--" until cand actually connects.
+        last_can_update: Instant::now() - CAN_STALE_TIMEOUT,
         mqtt: MqttState::new(),
     }));
 
