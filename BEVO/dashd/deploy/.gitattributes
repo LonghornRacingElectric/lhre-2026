@@ -3,3 +3,5 @@
 *.sh        text eol=lf
 *.service   text eol=lf
 *.desktop   text eol=lf
+*.plymouth  text eol=lf
+*.script    text eol=lf
