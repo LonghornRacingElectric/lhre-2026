@@ -1,6 +1,5 @@
 use anyhow::Result;
 use prost::Message;
-use socketcan::{CanSocket, Socket, EmbeddedFrame, Id};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, UdpSocket};
@@ -16,6 +15,9 @@ use sensor_proto::proto::orion::OrionSensorData;
 use sensor_proto::config::PacketConfig;
 use sensor_proto::generated_mapping;
 
+#[cfg(target_os = "linux")]
+use socketcan::{CanSocket, EmbeddedFrame, Id, Socket};
+
 //use std::process::Command;
 
 const MOCK_ADDR: &str = "127.0.0.1:5005";
@@ -23,7 +25,8 @@ const SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
 const PUBLISHD_SOCKET_PATH: &str = "/tmp/BEVO_cand_publishd.sock";
 const STARTUP_SEMAPHORE_PATH: &str = "/tmp/BEVO_publishd_ready";
 //const OTA_SEMAPHORE_PATH: &str = "/tmp/BEVO_ota_request"; 
-const CAN_INTERFACE: &str = "can0";
+const CAN_INTERFACE_0: &str = "can0";
+const CAN_INTERFACE_1: &str = "can1";
 const DEFAULT_PUBLISH_HZ: u64 = 100;
 const DEFAULT_NMEA_LISTEN_ADDR: &str = "0.0.0.0:2000";
 //const OTA_DOWNLOAD_START_ADDRESS: &str = "0x00000000";
@@ -43,6 +46,7 @@ struct ExternalDynamicsData {
     gps_speed: f32,
 }
 
+#[cfg(target_os = "linux")]
 fn main() -> Result<()> {
     //let _ = std::fs::remove_file(OTA_SEMAPHORE_PATH);
     let use_mock = matches!(
@@ -52,7 +56,8 @@ fn main() -> Result<()> {
             .map(|value| value.to_ascii_lowercase()),
         Some(value) if value == "1" || value == "true" || value == "yes"
     );
-    let can_interface = std::env::var("CAND_CAN_INTERFACE").unwrap_or_else(|_| CAN_INTERFACE.to_string());
+    let can_interface_0 = std::env::var("CAND_CAN_INTERFACE_0").unwrap_or_else(|_| CAN_INTERFACE_0.to_string());
+    let can_interface_1 = std::env::var("CAND_CAN_INTERFACE_1").unwrap_or_else(|_| CAN_INTERFACE_1.to_string());
     let publish_hz = std::env::var("CAND_PUBLISH_HZ")
         .ok()
         .and_then(|value| value.parse::<u64>().ok())
@@ -75,10 +80,11 @@ fn main() -> Result<()> {
     let (raw_tx, raw_rx) = mpsc::channel::<RawCanMessage>();
 
     let can_packet_map = Arc::clone(&packet_map);
-    let can_interface_clone = can_interface.clone();
+    let can_interface_0_clone = can_interface_0.clone();
+    let can_interface_1_clone = can_interface_1.clone();
     let can_reader_tx = raw_tx.clone();
     thread::spawn(move || {
-        if let Err(e) = can_reader_loop(can_reader_tx, use_mock, can_interface_clone) {
+        if let Err(e) = can_reader_loop(can_reader_tx, use_mock, can_interface_0_clone, can_interface_1_clone) {
             eprintln!("[CAND-CAN] Error: {:?}", e);
         }
     });
@@ -108,9 +114,15 @@ fn main() -> Result<()> {
     if use_mock {
         println!("[CAND] Started in MOCK mode ({}) @ {} Hz", MOCK_ADDR, publish_hz);
     } else {
-        println!("[CAND] Started in REAL mode ({}) @ {} Hz", can_interface, publish_hz);
+        println!("[CAND] Started in REAL mode ({}, {}) @ {} Hz", can_interface_0, can_interface_1, publish_hz);
     }
     loop { thread::park(); }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn main() -> Result<()> {
+    eprintln!("[CAND] Linux is required for the real CAN reader; use mock_main on macOS.");
+    Ok(())
 }
 
 fn load_can_config_json() -> Result<String> {
@@ -181,7 +193,8 @@ fn read_publishd_start_packet_id() -> Option<u64> {
 
 // continuously reads CAN frames from the specified interface (or mock UDP socket), and sends them to the processing thread over a channel
 
-fn can_reader_loop(raw_tx: Sender<RawCanMessage>, use_mock: bool, can_interface: String) -> Result<()> {
+#[cfg(target_os = "linux")]
+fn can_reader_loop(raw_tx: Sender<RawCanMessage>, use_mock: bool, can_interface_0: String, can_interface_1: String) -> Result<()> {
     if use_mock {
         let socket = UdpSocket::bind(MOCK_ADDR)?;
         let mut buf = [0u8; 12];
@@ -194,11 +207,25 @@ fn can_reader_loop(raw_tx: Sender<RawCanMessage>, use_mock: bool, can_interface:
             }
         }
     } else {
-        let socket = CanSocket::open(&can_interface)?;
+        let socket_0 = CanSocket::open(&can_interface_0)?;
+        let socket_1 = CanSocket::open(&can_interface_1)?;
         loop {
-            let frame = socket.read_frame()?;
-            if let Id::Standard(id) = frame.id() {
-                let payload = frame.data().to_vec();
+            let frame_0 = socket_0.read_frame()?;
+            let frame_1 = socket_1.read_frame()?;
+
+            if let Id::Standard(id) = frame_0.id() {
+                let payload = frame_0.data().to_vec();
+                let message = RawCanMessage {
+                    id: id.as_raw() as u32,
+                    payload,
+                };
+                if raw_tx.send(message).is_err() {
+                    return Ok(());
+                }
+            }
+
+            if let Id::Standard(id) = frame_1.id() {
+                let payload = frame_1.data().to_vec();
                 let message = RawCanMessage {
                     id: id.as_raw() as u32,
                     payload,
