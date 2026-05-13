@@ -252,6 +252,18 @@ Discoveries baked into the repo:
 
 | Commit     | Summary                                                                  |
 |------------|--------------------------------------------------------------------------|
+| `ce3477e6` | `BEVO: template repo path in bevo_telemetry.service; install via install.sh` |
+| `6ab2676d` | `cand/mock: fix battery pack status packet id (161 -> 306)`              |
+| `1e8d6938` | `dashd/frontend: keep live + demo hooks always-on to fix toggle stale state` |
+| `dc972c78` | `dashd/frontend: hide cursor on the dash`                                |
+| `c43dfe92` | `dashd/frontend: default to live mode on boot`                           |
+| `2c0095bc` | `dashd/deploy: override system labwc autostart instead of user one`      |
+| `6e25b8c8` | `dashd/deploy: suppress panel + desktop during kiosk session`            |
+| `92dfc602` | `dashd/deploy: revert splash to rectangular crop`                        |
+| `99d1d1e6` | `dashd/deploy: center splash within panel's visible 480-row region`      |
+| `10959200` | `dashd/deploy: scale boot splash to 400x400`                             |
+| `953b76a5` | `dashd/deploy: pizookie boot splash (pre-rotated for upside-down panel)` |
+| `58d4d9ce` | `dashd/deploy: ship black Plymouth boot theme via install.sh`            |
 | `aa0bdcef` | `dashd/deploy: switch dash panel to 800x480 custom mode`                 |
 | `de1170a1` | `dashd/deploy: force dash panel mode + 180 rotation on kiosk launch`     |
 | `a495e219` | `dashd/deploy: template repo path in unit files`                         |
@@ -270,14 +282,12 @@ Key findings:
   800x480 --transform 180`, now baked into `launch_kiosk.sh` and overridable
   via `BEVO_DASH_OUTPUT` / `BEVO_DASH_MODE` / `BEVO_DASH_TRANSFORM` env vars.
 - **The panel is mounted upside-down** → needs `--transform 180`.
-- **Path templating.** The deploy unit files (`bevo_dash_serve.service`,
-  `dash-kiosk.desktop`) used to hardcode `/home/lhre/Documents/lhre-2026/`.
-  This BEVO unit has its repo at `/home/lhre/Documents/lhre/lhre-2026/`
-  instead (double `lhre/`). `install.sh` now substitutes `__BEVO_REPO__` at
-  install time from `$(cd "$SCRIPT_DIR/../../.." && pwd)`, so future BEVO
-  Pis can clone anywhere and the install works. **`bevo_telemetry.service`
-  in `BEVO/nonhermetic/` was NOT yet given the same treatment** — see open
-  questions #8 below.
+- **Path templating.** All three relevant unit/desktop files
+  (`bevo_dash_serve.service`, `dash-kiosk.desktop`, `bevo_telemetry.service`)
+  now use `__BEVO_REPO__` placeholders that `install.sh` substitutes at
+  install time from `$(cd "$SCRIPT_DIR/../../.." && pwd)`. This BEVO unit
+  has its repo at `/home/lhre/Documents/lhre/lhre-2026/` (double `lhre/`),
+  but the install works from any checkout path now.
 - **Narrowed origin refspec on this Pi.** The Pi's `origin` had a narrow
   refspec only fetching `main`, so `git fetch origin` didn't see `dash-mqtt`.
   Fixed with `git config remote.origin.fetch
@@ -287,6 +297,29 @@ Key findings:
   Sufficient for the dash stack; everything under `BEVO/**` materializes.
   When switching branches, `git sparse-checkout reapply` may be needed if
   new directories appear in the cone (we hit this with `BEVO/dashd/deploy/`).
+- **Pi OS labwc-pi runs BOTH `/etc/xdg/labwc/autostart` AND `~/.config/labwc/autostart`.**
+  Stock labwc only reads one (the user one if present, else system). The
+  Pi OS fork runs both, so a user-level override doesn't suppress system
+  entries. To skip the Pi OS desktop / panel flash before kiosk, `install.sh`
+  overwrites `/etc/xdg/labwc/autostart` (backing up to `.bak`) with a
+  minimal version that only runs `kanshi` + `lxsession-xdg-autostart`.
+- **Boot polish.** `/boot/firmware/config.txt` gets `disable_splash=1`
+  (rainbow), `cmdline.txt` gets `vt.global_cursor_default=0 logo.nologo
+  loglevel=0`. Plymouth theme `bevo` at `BEVO/dashd/deploy/plymouth/bevo/`
+  is installed by `install.sh` step [6/7] via `plymouth-set-default-theme -R`.
+  These cmdline/config edits are NOT yet automated — apply manually (see
+  README idempotent `grep -q || sed` one-liners) until someone scripts them.
+- **`dashd` is single-client.** `ws_server_loop` accepts exactly one
+  WebSocket client at a time. The kiosk's Chromium claims that slot, so
+  `wscat` from SSH hangs silently until you `pkill chromium`. Plan B for
+  debugging: open kiosk devtools instead. Long-term: multi-client server.
+- **`mock_can.py` typo we found.** Battery Pack Status was being sent under
+  packet ID 161 (doesn't exist in `can.json`); the real id is 306. Fixed in
+  `6ab2676d`. If other mock packet IDs feel wrong on bench, cross-check
+  against `BEVO/nonhermetic/assets/can.json` first.
+- **Frontend live/demo toggle.** `useCarData` with the enable flag toggling
+  to `null` left `lastJsonMessage` stuck across reconnect. Fix: keep both
+  hooks always-on, switch at the render layer (`1e8d6938`).
 
 ## Open questions / risks (read these)
 
@@ -328,14 +361,16 @@ Key findings:
    `BEVO/cell.py` (read it for context); polling its signal status to expose
    over the dash is a future-work item, not addressed this session.
 
-8. **`bevo_telemetry.service` still hardcodes the repo path.** Three lines in
-   `BEVO/nonhermetic/bevo_telemetry.service` (`WorkingDirectory`, `ExecStart`,
-   `Environment=PYTHONPATH=...`) reference `/home/lhre/Documents/lhre-2026/`.
-   On the current BEVO Pi the repo lives at `/home/lhre/Documents/lhre/lhre-2026/`,
-   so as-shipped this unit will fail. Templating fix is the same pattern as
-   `bevo_dash_serve.service` (use `__BEVO_REPO__`) — apply when bringing up
-   telemetry. Then either fold its install into `dashd/deploy/install.sh` or
-   document the sed-substitute step in the deploy README.
+8. ~~**`bevo_telemetry.service` still hardcodes the repo path.**~~
+   **RESOLVED 2026-05-12.** The unit file now uses `__BEVO_REPO__` placeholders
+   (same pattern as the dash unit). `dashd/deploy/install.sh` installs it
+   alongside the dash service but leaves it **disabled** — the launcher
+   (`start_telemetry.sh`) requires `$REPO/.venv/bin/python`, the cellular
+   modem, and `can0` to be up, none of which exist on a bench BEVO. Enable
+   manually when those prereqs are ready:
+   ```
+   sudo systemctl enable --now bevo_telemetry.service
+   ```
 
 ## Going to the garage — what should happen on the Pi
 
