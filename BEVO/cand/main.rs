@@ -20,7 +20,8 @@ use socketcan::{CanSocket, EmbeddedFrame, Id, Socket};
 
 //use std::process::Command;
 
-const MOCK_ADDR: &str = "127.0.0.1:5005";
+const MOCK_ADDR_0: &str = "127.0.0.1:5005";
+const MOCK_ADDR_1: &str = "127.0.0.1:5006";
 const SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
 const PUBLISHD_SOCKET_PATH: &str = "/tmp/BEVO_cand_publishd.sock";
 const STARTUP_SEMAPHORE_PATH: &str = "/tmp/BEVO_publishd_ready";
@@ -84,9 +85,16 @@ fn main() -> Result<()> {
     let can_interface_1_clone = can_interface_1.clone();
 
     if use_mock {
-        let can_reader_tx = raw_tx.clone();
+        let can_reader_tx_0 = raw_tx.clone();
         thread::spawn(move || {
-            if let Err(e) = mock_can_reader_loop(can_reader_tx) {
+            if let Err(e) = mock_can_reader_loop(can_reader_tx_0, MOCK_ADDR_0) {
+                eprintln!("[CAND-CAN] Error: {:?}", e);
+            }
+        });
+
+        let can_reader_tx_1 = raw_tx.clone();
+        thread::spawn(move || {
+            if let Err(e) = mock_can_reader_loop(can_reader_tx_1, MOCK_ADDR_1) {
                 eprintln!("[CAND-CAN] Error: {:?}", e);
             }
         });
@@ -129,7 +137,7 @@ fn main() -> Result<()> {
     });
 
     if use_mock {
-        println!("[CAND] Started in MOCK mode ({}) @ {} Hz", MOCK_ADDR, publish_hz);
+        println!("[CAND] Started in MOCK mode ({}, {}) @ {} Hz", MOCK_ADDR_0, MOCK_ADDR_1, publish_hz);
     } else {
         println!("[CAND] Started in REAL mode ({}, {}) @ {} Hz", can_interface_0, can_interface_1, publish_hz);
     }
@@ -233,8 +241,8 @@ fn can_socket_reader_loop(raw_tx: Sender<RawCanMessage>, can_interface: String) 
 // reads CAN frames from the mock UDP socket used for local testing.
 
 #[cfg(target_os = "linux")]
-fn mock_can_reader_loop(raw_tx: Sender<RawCanMessage>) -> Result<()> {
-    let socket = UdpSocket::bind(MOCK_ADDR)?;
+fn mock_can_reader_loop(raw_tx: Sender<RawCanMessage>, mock_addr: &'static str) -> Result<()> {
+    let socket = UdpSocket::bind(mock_addr)?;
     let mut buf = [0u8; 12];
     loop {
         let (len, _) = socket.recv_from(&mut buf)?;
