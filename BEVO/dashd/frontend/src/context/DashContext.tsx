@@ -12,13 +12,13 @@ interface DashContextValue {
 const DashContext = createContext<DashContextValue>({
     data: null,
     isConnected: false,
-    isDemoMode: true,
+    isDemoMode: false,
 });
 
 export const useDash = () => useContext(DashContext);
 
 export const DashProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [isDemoMode, setIsDemoMode] = useState(true);
+    const [isDemoMode, setIsDemoMode] = useState(false);
 
     // Toggle demo mode with 'D' key
     useEffect(() => {
