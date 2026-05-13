@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=BEVO
+Description=Solid black boot splash for the BEVO dash kiosk
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/bevo
+ScriptFile=/usr/share/plymouth/themes/bevo/bevo.script

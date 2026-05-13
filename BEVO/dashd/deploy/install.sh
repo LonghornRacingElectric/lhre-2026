@@ -10,19 +10,29 @@ SERVICE_DST="/etc/systemd/system/bevo_dash_serve.service"
 DESKTOP_SRC="$SCRIPT_DIR/dash-kiosk.desktop"
 DESKTOP_DST="$HOME/.config/autostart/dash-kiosk.desktop"
 
-echo "[1/4] Marking helper scripts executable"
+echo "[1/5] Marking helper scripts executable"
 chmod +x "$SCRIPT_DIR/launch_kiosk.sh"
 
-echo "[2/4] Installing systemd unit for static dash server (repo=$REPO_ROOT)"
+echo "[2/5] Installing systemd unit for static dash server (repo=$REPO_ROOT)"
 sed "s|__BEVO_REPO__|$REPO_ROOT|g" "$SERVICE_SRC" | sudo tee "$SERVICE_DST" >/dev/null
 sudo systemctl daemon-reload
 sudo systemctl enable --now bevo_dash_serve.service
 
-echo "[3/4] Installing Chromium-kiosk autostart entry"
+echo "[3/5] Installing Chromium-kiosk autostart entry"
 mkdir -p "$HOME/.config/autostart"
 sed "s|__BEVO_REPO__|$REPO_ROOT|g" "$DESKTOP_SRC" > "$DESKTOP_DST"
 
-echo "[4/4] Verifying static server is up"
+echo "[4/5] Installing Plymouth boot-splash theme (black)"
+if command -v plymouth-set-default-theme >/dev/null 2>&1; then
+    sudo mkdir -p /usr/share/plymouth/themes/bevo
+    sudo cp "$SCRIPT_DIR/plymouth/bevo/"* /usr/share/plymouth/themes/bevo/
+    sudo plymouth-set-default-theme -R bevo
+    echo "  bevo theme installed and set as default (initramfs rebuilt)"
+else
+    echo "  (plymouth-set-default-theme not present, skipping)"
+fi
+
+echo "[5/5] Verifying static server is up"
 sleep 1
 if curl -sfo /dev/null http://localhost:8080; then
     echo "  ok — http://localhost:8080 responds"

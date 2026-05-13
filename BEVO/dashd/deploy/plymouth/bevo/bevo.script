@@ -1,0 +1,24 @@
+Window.SetBackgroundTopColor(0.0, 0.0, 0.0);
+Window.SetBackgroundBottomColor(0.0, 0.0, 0.0);
+
+fun refresh_callback() {}
+fun boot_progress_callback(duration, progress) {}
+fun root_mounted_callback() {}
+fun update_status_callback(status) {}
+fun display_normal_callback() {}
+fun display_password_callback(prompt, bullets) {}
+fun display_question_callback(prompt, entry) {}
+fun display_message_callback(text) {}
+fun hide_message_callback(text) {}
+fun quit_callback() {}
+
+Plymouth.SetRefreshFunction(refresh_callback);
+Plymouth.SetBootProgressFunction(boot_progress_callback);
+Plymouth.SetRootMountedFunction(root_mounted_callback);
+Plymouth.SetUpdateStatusFunction(update_status_callback);
+Plymouth.SetDisplayNormalFunction(display_normal_callback);
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+Plymouth.SetDisplayQuestionFunction(display_question_callback);
+Plymouth.SetMessageFunction(display_message_callback);
+Plymouth.SetHideMessageFunction(hide_message_callback);
+Plymouth.SetQuitFunction(quit_callback);
