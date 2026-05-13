@@ -82,12 +82,29 @@ fn main() -> Result<()> {
     let can_packet_map = Arc::clone(&packet_map);
     let can_interface_0_clone = can_interface_0.clone();
     let can_interface_1_clone = can_interface_1.clone();
-    let can_reader_tx = raw_tx.clone();
-    thread::spawn(move || {
-        if let Err(e) = can_reader_loop(can_reader_tx, use_mock, can_interface_0_clone, can_interface_1_clone) {
-            eprintln!("[CAND-CAN] Error: {:?}", e);
-        }
-    });
+
+    if use_mock {
+        let can_reader_tx = raw_tx.clone();
+        thread::spawn(move || {
+            if let Err(e) = mock_can_reader_loop(can_reader_tx) {
+                eprintln!("[CAND-CAN] Error: {:?}", e);
+            }
+        });
+    } else {
+        let can_reader_tx_0 = raw_tx.clone();
+        thread::spawn(move || {
+            if let Err(e) = can_socket_reader_loop(can_reader_tx_0, can_interface_0_clone) {
+                eprintln!("[CAND-CAN-0] Error: {:?}", e);
+            }
+        });
+
+        let can_reader_tx_1 = raw_tx.clone();
+        thread::spawn(move || {
+            if let Err(e) = can_socket_reader_loop(can_reader_tx_1, can_interface_1_clone) {
+                eprintln!("[CAND-CAN-1] Error: {:?}", e);
+            }
+        });
+    }
 
     let processing_sensor_data = Arc::clone(&sensor_data_cache);
     thread::spawn(move || {
@@ -191,49 +208,44 @@ fn read_publishd_start_packet_id() -> Option<u64> {
 //     anyhow::bail!("unable to resolve BEVO root; set BEVO_ROOT env var")
 // }
 
-// continuously reads CAN frames from the specified interface (or mock UDP socket), and sends them to the processing thread over a channel
+// continuously reads CAN frames from the specified socketCAN interface and
+// sends them to the processing thread over a channel.
 
 #[cfg(target_os = "linux")]
-fn can_reader_loop(raw_tx: Sender<RawCanMessage>, use_mock: bool, can_interface_0: String, can_interface_1: String) -> Result<()> {
-    if use_mock {
-        let socket = UdpSocket::bind(MOCK_ADDR)?;
-        let mut buf = [0u8; 12];
-        loop {
-            socket.recv_from(&mut buf)?;
-            let id = u32::from_le_bytes(buf[0..4].try_into().unwrap());
-            let payload = buf[4..12].to_vec();
-            if raw_tx.send(RawCanMessage { id, payload }).is_err() {
+fn can_socket_reader_loop(raw_tx: Sender<RawCanMessage>, can_interface: String) -> Result<()> {
+    let socket = CanSocket::open(&can_interface)?;
+    loop {
+        let frame = socket.read_frame()?;
+
+        if let Id::Standard(id) = frame.id() {
+            let payload = frame.data().to_vec();
+            let message = RawCanMessage {
+                id: id.as_raw() as u32,
+                payload,
+            };
+            if raw_tx.send(message).is_err() {
                 return Ok(());
             }
         }
-    } else {
-        let socket_0 = CanSocket::open(&can_interface_0)?;
-        let socket_1 = CanSocket::open(&can_interface_1)?;
-        loop {
-            let frame_0 = socket_0.read_frame()?;
-            let frame_1 = socket_1.read_frame()?;
+    }
+}
 
-            if let Id::Standard(id) = frame_0.id() {
-                let payload = frame_0.data().to_vec();
-                let message = RawCanMessage {
-                    id: id.as_raw() as u32,
-                    payload,
-                };
-                if raw_tx.send(message).is_err() {
-                    return Ok(());
-                }
-            }
+// reads CAN frames from the mock UDP socket used for local testing.
 
-            if let Id::Standard(id) = frame_1.id() {
-                let payload = frame_1.data().to_vec();
-                let message = RawCanMessage {
-                    id: id.as_raw() as u32,
-                    payload,
-                };
-                if raw_tx.send(message).is_err() {
-                    return Ok(());
-                }
-            }
+#[cfg(target_os = "linux")]
+fn mock_can_reader_loop(raw_tx: Sender<RawCanMessage>) -> Result<()> {
+    let socket = UdpSocket::bind(MOCK_ADDR)?;
+    let mut buf = [0u8; 12];
+    loop {
+        let (len, _) = socket.recv_from(&mut buf)?;
+        if len < 4 {
+            continue;
+        }
+
+        let id = u32::from_le_bytes(buf[0..4].try_into().unwrap());
+        let payload = buf[4..12].to_vec();
+        if raw_tx.send(RawCanMessage { id, payload }).is_err() {
+            return Ok(());
         }
     }
 }
