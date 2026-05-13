@@ -36,7 +36,9 @@ if [[ ! -f "$CELL_SCRIPT" ]]; then
 fi
 
 echo "Turning on cellular module..."
-"$PYTHON_BIN" "$CELL_SCRIPT" on
+if ! "$PYTHON_BIN" "$CELL_SCRIPT" on; then
+  echo "WARNING: cell.py failed; continuing without cellular (dash + CAN still work)." >&2
+fi
 sleep 5
 
 echo "Configuring CAN interface $CAN_IFACE @ $CAN_BITRATE bps..."
