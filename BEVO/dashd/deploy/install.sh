@@ -4,6 +4,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 SERVICE_SRC="$SCRIPT_DIR/bevo_dash_serve.service"
 SERVICE_DST="/etc/systemd/system/bevo_dash_serve.service"
 DESKTOP_SRC="$SCRIPT_DIR/dash-kiosk.desktop"
@@ -12,14 +13,14 @@ DESKTOP_DST="$HOME/.config/autostart/dash-kiosk.desktop"
 echo "[1/4] Marking helper scripts executable"
 chmod +x "$SCRIPT_DIR/launch_kiosk.sh"
 
-echo "[2/4] Installing systemd unit for static dash server"
-sudo cp "$SERVICE_SRC" "$SERVICE_DST"
+echo "[2/4] Installing systemd unit for static dash server (repo=$REPO_ROOT)"
+sed "s|__BEVO_REPO__|$REPO_ROOT|g" "$SERVICE_SRC" | sudo tee "$SERVICE_DST" >/dev/null
 sudo systemctl daemon-reload
 sudo systemctl enable --now bevo_dash_serve.service
 
 echo "[3/4] Installing Chromium-kiosk autostart entry"
 mkdir -p "$HOME/.config/autostart"
-cp "$DESKTOP_SRC" "$DESKTOP_DST"
+sed "s|__BEVO_REPO__|$REPO_ROOT|g" "$DESKTOP_SRC" > "$DESKTOP_DST"
 
 echo "[4/4] Verifying static server is up"
 sleep 1
