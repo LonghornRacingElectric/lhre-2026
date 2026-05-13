@@ -56,7 +56,7 @@ while True:
     cell_top = 28 + ((tick // 4) % 6)
     cell_bottom = 26 + ((tick // 5) % 6)
     batt_data = struct.pack("<HHHBB", hv_pack_mv, hv_c_cs, hv_soc_cs, cell_top, cell_bottom)
-    send_packet(161, batt_data)
+    send_packet(306, batt_data)
 
     send_cells_v_burst(tick)
 
