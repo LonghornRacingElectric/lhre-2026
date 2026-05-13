@@ -5,3 +5,4 @@
 *.desktop   text eol=lf
 *.plymouth  text eol=lf
 *.script    text eol=lf
+*.png       binary
