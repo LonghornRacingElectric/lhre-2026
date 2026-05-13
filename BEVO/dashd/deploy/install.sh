@@ -10,7 +10,7 @@ SERVICE_DST="/etc/systemd/system/bevo_dash_serve.service"
 DESKTOP_SRC="$SCRIPT_DIR/dash-kiosk.desktop"
 DESKTOP_DST="$HOME/.config/autostart/dash-kiosk.desktop"
 LABWC_AUTOSTART_SRC="$SCRIPT_DIR/labwc-autostart"
-LABWC_AUTOSTART_DST="$HOME/.config/labwc/autostart"
+LABWC_AUTOSTART_DST="/etc/xdg/labwc/autostart"
 
 echo "[1/6] Marking helper scripts executable"
 chmod +x "$SCRIPT_DIR/launch_kiosk.sh"
@@ -24,10 +24,16 @@ echo "[3/6] Installing Chromium-kiosk autostart entry"
 mkdir -p "$HOME/.config/autostart"
 sed "s|__BEVO_REPO__|$REPO_ROOT|g" "$DESKTOP_SRC" > "$DESKTOP_DST"
 
-echo "[4/6] Installing labwc user-level autostart (no panel, no desktop)"
-mkdir -p "$HOME/.config/labwc"
-cp "$LABWC_AUTOSTART_SRC" "$LABWC_AUTOSTART_DST"
-chmod +x "$LABWC_AUTOSTART_DST"
+echo "[4/6] Overriding labwc system autostart (no panel, no desktop)"
+if [ ! -f "${LABWC_AUTOSTART_DST}.bak" ]; then
+    sudo cp "$LABWC_AUTOSTART_DST" "${LABWC_AUTOSTART_DST}.bak"
+    echo "  backed up original to ${LABWC_AUTOSTART_DST}.bak"
+fi
+sudo cp "$LABWC_AUTOSTART_SRC" "$LABWC_AUTOSTART_DST"
+sudo chmod +x "$LABWC_AUTOSTART_DST"
+# Clean up the user-level autostart from a previous install (now redundant
+# since Pi OS's labwc runs both user + system, causing duplicate kanshi).
+rm -f "$HOME/.config/labwc/autostart"
 
 echo "[5/6] Installing Plymouth boot-splash theme (black)"
 if command -v plymouth-set-default-theme >/dev/null 2>&1; then
