@@ -31,9 +31,11 @@ export const DashProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
-    // Both hooks run, but only one is "enabled"
-    const live = useCarData(!isDemoMode);
-    const demo = useDemoData(isDemoMode);
+    // Keep both data sources always-on. Toggling the WebSocket on/off via the
+    // hook's enable flag had a stale-state quirk where `lastJsonMessage` stuck
+    // at null after a re-enable, leaving the dash blank. Cheap to keep running.
+    const live = useCarData(true);
+    const demo = useDemoData(true);
 
     const data = isDemoMode ? demo : live.data;
     const isConnected = isDemoMode ? true : live.isConnected;
