@@ -10,15 +10,18 @@ TL;DR, then jump to the section you need.
 
 - **Project:** Real-time driver dashboard for the **UT Austin Longhorn Racing
   Electric (LHR)** FSAE EV car. Lives at `BEVO/dashd/` in this monorepo.
-- **Branch:** `dash-mqtt`. Most recent commit: `dbac1088` at time of writing.
+- **Branch:** `dash-mqtt`. Most recent commit: `aa0bdcef` at time of writing.
 - **Stack:** A Rust daemon (`dashd`) reads decoded CAN data from another Rust
   daemon (`cand`) over a Unix socket, subscribes to an MQTT broker for off-car
   computed values, merges both, and serves a unified JSON stream over
   WebSocket to a React frontend. The frontend runs in Chromium kiosk mode on
   the BEVO board (a Pi-based custom board in the car).
-- **Where things stand:** All software wiring is complete and pushed. Nothing
-  has been verified on real hardware yet. The next session is a garage trip
-  to the BEVO board to do first-light validation.
+- **Where things stand:** **First-light validated 2026-05-12** — Pi boots
+  clean, static server + Chromium kiosk autostart, dash UI is visible on the
+  BEVO panel at the right resolution + orientation. No CAN bus connected to
+  BEVO on the bench, so dash shows `--` everywhere; the next step is bringing
+  up `bevo_telemetry.service` (cand + dashd + publishd + loggerd) and either
+  feeding mock data or hooking up the real CAN bus.
 - **The user (Gray):** UT Austin student on the LHR team. Comfortable with
   software but **new to embedded / physical-hardware setup**. Prefers terse
   responses, short commit messages, and emphatically **does not want Claude
@@ -242,17 +245,59 @@ Pinned values in `useDemoData.ts` for the design briefing: HV V 449.3,
 HV A 10, LV V 25, LV A 9.3, Odo 101.3. These are static intentionally for
 the briefing photo — they're easy to revert if you want movement back.
 
+## Follow-up session 2026-05-12 — first-light on BEVO
+
+Brought the kiosk up end-to-end on the actual BEVO board for the first time.
+Discoveries baked into the repo:
+
+| Commit     | Summary                                                                  |
+|------------|--------------------------------------------------------------------------|
+| `aa0bdcef` | `dashd/deploy: switch dash panel to 800x480 custom mode`                 |
+| `de1170a1` | `dashd/deploy: force dash panel mode + 180 rotation on kiosk launch`     |
+| `a495e219` | `dashd/deploy: template repo path in unit files`                         |
+
+Key findings:
+
+- **The BEVO Pi is CM5 + Pi OS Trixie (Debian 13) + labwc Wayland compositor.**
+  Not bookworm + wayfire (which some docs around here may still assume).
+  Display config tool is `wlr-randr`, not `xrandr`. `legacy hdmi_*` options in
+  `config.txt` are largely no-ops under KMS.
+- **The dash panel advertises 800x600 but is physically ~800x480.** Default
+  compositor mode selection picks 1024x768 (the panel's largest advertised
+  mode) and the panel can't sync → screen goes dark. Forcing 800x600 fits the
+  width but the panel's top ~120 rows are physically unscanned, cutting off
+  UI content. **Working config:** `wlr-randr --output HDMI-A-1 --custom-mode
+  800x480 --transform 180`, now baked into `launch_kiosk.sh` and overridable
+  via `BEVO_DASH_OUTPUT` / `BEVO_DASH_MODE` / `BEVO_DASH_TRANSFORM` env vars.
+- **The panel is mounted upside-down** → needs `--transform 180`.
+- **Path templating.** The deploy unit files (`bevo_dash_serve.service`,
+  `dash-kiosk.desktop`) used to hardcode `/home/lhre/Documents/lhre-2026/`.
+  This BEVO unit has its repo at `/home/lhre/Documents/lhre/lhre-2026/`
+  instead (double `lhre/`). `install.sh` now substitutes `__BEVO_REPO__` at
+  install time from `$(cd "$SCRIPT_DIR/../../.." && pwd)`, so future BEVO
+  Pis can clone anywhere and the install works. **`bevo_telemetry.service`
+  in `BEVO/nonhermetic/` was NOT yet given the same treatment** — see open
+  questions #8 below.
+- **Narrowed origin refspec on this Pi.** The Pi's `origin` had a narrow
+  refspec only fetching `main`, so `git fetch origin` didn't see `dash-mqtt`.
+  Fixed with `git config remote.origin.fetch
+  '+refs/heads/*:refs/remotes/origin/*'`. Won't bite again on this Pi but
+  could on others.
+- **Sparse checkout.** This Pi uses cone-mode sparse with `BEVO` in the cone.
+  Sufficient for the dash stack; everything under `BEVO/**` materializes.
+  When switching branches, `git sparse-checkout reapply` may be needed if
+  new directories appear in the cone (we hit this with `BEVO/dashd/deploy/`).
+
 ## Open questions / risks (read these)
 
-1. **`generated_mapping.rs` is out of date relative to the proto.** The four
-   new shutdown bits added in `f48e5894` won't actually populate from CAN
-   until someone runs `BEVO/nonhermetic/sync_assets.sh` on a Linux box that
-   has `bazel` or `protoc`. The script regenerates `BEVO/sensor_data.desc`
-   and `BEVO/generated_mapping.rs`. **`cargo build --release` alone does NOT
-   do this** — `BEVO/build.rs` only handles `prost_build` of the proto-Rust
-   structs. cand will keep silently dropping the four new bits until regen
-   runs. The fix is one command on the Pi. See the on-Pi setup section
-   below.
+1. ~~**`generated_mapping.rs` is out of date relative to the proto.**~~
+   **RESOLVED 2026-05-12.** `sync_assets.sh` ran cleanly on the BEVO Pi after
+   `apt install python3-protobuf` (the Python `google.protobuf` module was
+   the only missing dependency). `BEVO/generated_mapping.rs` is now
+   regenerated and `BEVO/sensor_data.desc` is in sync. The four new shutdown
+   bits will populate from CAN once telemetry is brought up. The regenerated
+   files are NOT committed yet — local changes on the Pi only. Decide whether
+   to commit them or rely on every fresh Pi running sync_assets.sh.
 
 2. **Bazel / hermetic build path.** The canonical proto is at
    `drivers/longhorn-lib/protobuf/can_packets.proto`. The vendored copy used
@@ -265,12 +310,10 @@ the briefing photo — they're easy to revert if you want movement back.
    forward-compat means existing parsers won't crash on unknown fields, but
    the viewer won't see the four new shutdown bits if it ever cares.
 
-4. **Compilation never verified on Linux.** All the Rust changes are
-   mechanical, but the working machine is Windows where `cand`/`dashd` won't
-   build (they use `socketcan` + Unix sockets). First `cargo build` on the
-   Pi might surface a typo / wrong field name. If it does, the fix is
-   probably obvious — the proto field names in `extract_can_data` should
-   match `orion.proto` exactly.
+4. ~~**Compilation never verified on Linux.**~~ **RESOLVED 2026-05-12.**
+   `cargo build --release` succeeded clean on the Pi (with two harmless
+   `unused variable` warnings in the auto-generated `generated_mapping.rs`).
+   `dashd` and `cand` binaries are at `BEVO/target/release/`.
 
 5. **No tests.** There are no unit tests on `dashd`. End-to-end validation
    is just "run the mock stack and look at the dash."
@@ -285,35 +328,94 @@ the briefing photo — they're easy to revert if you want movement back.
    `BEVO/cell.py` (read it for context); polling its signal status to expose
    over the dash is a future-work item, not addressed this session.
 
+8. **`bevo_telemetry.service` still hardcodes the repo path.** Three lines in
+   `BEVO/nonhermetic/bevo_telemetry.service` (`WorkingDirectory`, `ExecStart`,
+   `Environment=PYTHONPATH=...`) reference `/home/lhre/Documents/lhre-2026/`.
+   On the current BEVO Pi the repo lives at `/home/lhre/Documents/lhre/lhre-2026/`,
+   so as-shipped this unit will fail. Templating fix is the same pattern as
+   `bevo_dash_serve.service` (use `__BEVO_REPO__`) — apply when bringing up
+   telemetry. Then either fold its install into `dashd/deploy/install.sh` or
+   document the sed-substitute step in the deploy README.
+
 ## Going to the garage — what should happen on the Pi
 
-The full procedure is in `BEVO/dashd/deploy/README.md`. The fast path:
+The full procedure is in `BEVO/dashd/deploy/README.md`. Below is the fast path
+plus the gotchas discovered on the actual BEVO board during 2026-05-12.
 
-1. **SSH or physical-keyboard onto the Pi.** Username `lhre`. If you don't
-   know the IP, ask the user — they may need to look it up via the network's
-   DHCP table or run `hostname -I` from a directly-connected keyboard.
-2. **Pull and rebuild.** If first-time:
-   ```bash
-   # First-time setup section in deploy/README.md has the full prereq list.
-   cd ~/Documents/lhre-2026
-   git pull
-   bash BEVO/nonhermetic/sync_assets.sh   # only needed once after proto changes
-   cd BEVO && cargo build --release
-   cd dashd/frontend && npm install && npm run build
-   cd ../..
-   bash dashd/deploy/install.sh
-   sudo cp nonhermetic/bevo_telemetry.service /etc/systemd/system/
-   sudo systemctl daemon-reload
-   sudo systemctl enable --now bevo_telemetry.service
-   ```
-   If subsequent run:
-   ```bash
-   bash ~/Documents/lhre-2026/BEVO/dashd/deploy/deploy.sh
-   ```
-3. **Reboot to verify the kiosk launches clean.**
-4. **Validate live data.** If the dash shows `--` everywhere after 3 s,
-   either `cand` isn't running, the CAN bus isn't up, or the protobuf isn't
-   getting decoded. Use the diagnostics section of the deploy README.
+### If you're back on the same BEVO unit we've been using
+
+Repo is at `~/Documents/lhre/lhre-2026/` (note the double `lhre`). The dash
+kiosk is already installed and enabled. Update path:
+
+```bash
+bash ~/Documents/lhre/lhre-2026/BEVO/dashd/deploy/deploy.sh
+```
+
+That runs `git pull` → `cargo build` → `npm run build` → `systemctl restart`.
+Reload the kiosk with `Ctrl+R` if the React build changed, or `pkill chromium`
+and let the autostart relaunch.
+
+### If you're setting up a fresh Pi from scratch
+
+```bash
+cd ~/Documents              # or wherever you want it
+git clone https://github.com/LonghornRacingElectric/lhre-2026.git
+cd lhre-2026
+
+# Narrow sparse checkout to BEVO (this monorepo is large).
+git sparse-checkout init --cone
+git sparse-checkout set BEVO
+git switch dash-mqtt
+
+# Widen origin's refspec so future branch fetches work.
+git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+
+# Install prereqs.
+sudo apt update
+sudo apt install -y nodejs npm python3-protobuf wlr-randr cargo protobuf-compiler
+
+# Regenerate Rust proto mapping (only after proto changes; idempotent).
+bash BEVO/nonhermetic/sync_assets.sh
+
+# Build.
+( cd BEVO && cargo build --release )
+( cd BEVO/dashd/frontend && npm install && npm run build )
+
+# Install dash kiosk + static-serve.
+bash BEVO/dashd/deploy/install.sh
+
+# Telemetry (cand + dashd + publishd + loggerd). NOTE: this unit currently
+# hardcodes the repo path. Edit /etc/systemd/system/bevo_telemetry.service
+# after copying, or template it before. See "open questions" #8.
+sudo cp BEVO/nonhermetic/bevo_telemetry.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now bevo_telemetry.service
+
+sudo reboot
+```
+
+### Dash panel display config
+
+The BEVO panel needs a forced mode + rotation (it's effectively 800x480
+mounted upside-down, despite advertising 800x600). The `launch_kiosk.sh`
+script handles this automatically via `wlr-randr` on every kiosk start. For
+a different panel, override via environment in `~/.config/autostart/dash-kiosk.desktop`:
+
+```
+BEVO_DASH_OUTPUT=HDMI-A-1     # which DRM connector
+BEVO_DASH_MODE=800x480        # passed to wlr-randr --custom-mode
+BEVO_DASH_TRANSFORM=180       # 0 / 90 / 180 / 270, or flipped*
+```
+
+If the screen goes dark after boot: SSH in (Pi is up regardless), inspect
+modes with `WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/$(id -u) wlr-randr`,
+and iterate on the mode string.
+
+### Validating live data
+
+If the dash shows `--` everywhere after 3 s, either `cand` isn't running,
+the CAN bus isn't up, or the protobuf isn't getting decoded. Use the
+diagnostics section of the deploy README.
 
 ## User working preferences
 
@@ -375,9 +477,15 @@ Code by purpose:
 
 ## Quick command reference
 
+Paths below assume the canonical `~/Documents/lhre-2026/` checkout. On the
+current BEVO Pi the repo is actually at `~/Documents/lhre/lhre-2026/` — adjust
+accordingly. `deploy.sh` and `launch_kiosk.sh` derive their own paths from
+their script location, so calling them by their absolute path is fine
+regardless.
+
 ```bash
 # Switch to dash branch (if not already)
-git checkout dash-mqtt
+git switch dash-mqtt
 
 # Pull / rebuild / restart on the Pi
 bash ~/Documents/lhre-2026/BEVO/dashd/deploy/deploy.sh
@@ -415,6 +523,16 @@ curl -s http://localhost:8080/ | head
 # Manually relaunch the kiosk after killing it
 pkill chromium
 ~/Documents/lhre-2026/BEVO/dashd/deploy/launch_kiosk.sh
+
+# Display debugging — show current Wayland outputs / modes
+export WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/$(id -u)
+wlr-randr
+
+# Force a different mode / rotation live (session-only; persist in launch_kiosk.sh)
+wlr-randr --output HDMI-A-1 --custom-mode 800x480 --transform 180
+
+# See what HDMI modes the kernel detected from EDID
+cat /sys/class/drm/card1-HDMI-A-1/modes
 ```
 
 ## Where to read more
