@@ -1,10 +1,15 @@
 Window.SetBackgroundTopColor(0.0, 0.0, 0.0);
 Window.SetBackgroundBottomColor(0.0, 0.0, 0.0);
 
-splash_image = Image("splash.png").Scale(400, 400);
+splash_image = Image("splash.png").Scale(460, 460);
 splash_sprite = Sprite(splash_image);
 splash_sprite.SetX((Window.GetWidth() - splash_image.GetWidth()) / 2);
-splash_sprite.SetY((Window.GetHeight() - splash_image.GetHeight()) / 2);
+# Plymouth runs at framebuffer-native resolution (here 800x600) but the
+# BEVO panel only scans the bottom 480 rows of the framebuffer (the top
+# ~120 rows are physically not displayed). Center the splash in that
+# visible region rather than the full framebuffer so it doesn't get cut.
+PANEL_VISIBLE_HEIGHT = 480;
+splash_sprite.SetY((PANEL_VISIBLE_HEIGHT - splash_image.GetHeight()) / 2);
 
 fun refresh_callback() {}
 fun boot_progress_callback(duration, progress) {}
