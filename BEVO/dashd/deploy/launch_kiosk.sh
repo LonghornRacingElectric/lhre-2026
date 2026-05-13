@@ -6,6 +6,18 @@ set -euo pipefail
 
 URL="${BEVO_DASH_URL:-http://localhost:8080}"
 
+# Configure the dash panel mode + rotation. Defaults match the BEVO panel
+# (800x600 native, mounted upside-down). Override per-Pi via env if different.
+DISPLAY_OUTPUT="${BEVO_DASH_OUTPUT:-HDMI-A-1}"
+DISPLAY_MODE="${BEVO_DASH_MODE:-800x600@60.317}"
+DISPLAY_TRANSFORM="${BEVO_DASH_TRANSFORM:-180}"
+if command -v wlr-randr >/dev/null 2>&1; then
+    wlr-randr --output "$DISPLAY_OUTPUT" \
+        --mode "$DISPLAY_MODE" \
+        --transform "$DISPLAY_TRANSFORM" \
+        || echo "[BEVO] wlr-randr failed; continuing with compositor defaults" >&2
+fi
+
 # Wait up to ~30 s for the static server to respond.
 for _ in $(seq 1 30); do
     if curl -sfo /dev/null "$URL"; then
