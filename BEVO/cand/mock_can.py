@@ -17,48 +17,119 @@ def send_packet(packet_id, data_bytes):
 
 
 def send_cells_v_burst(tick):
-    # Packet 208 in can.json: 35 frames, each frame carries 4 cell voltages (uint16 with precision 0.0001)
+    # Packet 208: 35 frames, each frame carries 4 cell voltages (uint16, precision 0.0001).
     for frame_idx in range(35):
         base = 30000 + ((tick * 3 + frame_idx * 7) % 2000)
-        cell0 = base
-        cell1 = base + 1
-        cell2 = base + 2
-        cell3 = base + 3
-        payload = struct.pack("<HHHH", cell0, cell1, cell2, cell3)
+        payload = struct.pack("<HHHH", base, base + 1, base + 2, base + 3)
         send_packet(208, payload)
+
+
+def send_cells_t_burst(tick):
+    # Packet 256: 23 frames, each with 4 cell temps (uint16, precision 0.1).
+    # Raw 300-360 → displayed 30-36 °C.
+    for frame_idx in range(23):
+        base = 300 + ((tick + frame_idx * 2) % 60)
+        payload = struct.pack("<HHHH", base, base + 1, base + 2, base + 3)
+        send_packet(256, payload)
+
 
 print(f"LHR Mock CAN active. Sending to {UDP_IP}:{UDP_PORT}...")
 
 tick = 0
 while True:
+    # --- packet 448: APPS Voltages + travels ---
     apps1 = 32000 + (tick % 2000)
     apps2 = 14000 + ((tick * 3) % 2000)
     apps1_travel = 30000 + ((tick * 5) % 3000)
     apps2_travel = 12000 + ((tick * 7) % 3000)
-    apps_data = struct.pack("<HHHH", apps1, apps2, apps1_travel, apps2_travel)
-    send_packet(448, apps_data)
-    
-    inverter = 420 + (tick % 40)
-    motor = 40 + (tick % 10)
-    ambient = 25 + ((tick // 2) % 8)
-    discharge = 30 + ((tick // 3) % 8)
-    inv_temps = struct.pack("<hhhh", inverter, motor, ambient, discharge)
-    send_packet(386, inv_temps)
+    send_packet(448, struct.pack("<HHHH", apps1, apps2, apps1_travel, apps2_travel))
 
+    # --- packet 449: Accelerator Pedal travel + faults ---
     pedal_travel = 4500 + ((tick * 11) % 2000)
     faults = 0x01 if (tick // 20) % 2 == 0 else 0x00
-    apps_fault_data = struct.pack("<HB", pedal_travel, faults)
-    send_packet(449, apps_fault_data)
+    send_packet(449, struct.pack("<HB", pedal_travel, faults))
 
+    # --- packet 450: BPPS Voltages + travels ---
+    bpps1_v = 25000 + ((tick * 4) % 5000)
+    bpps2_v = 25500 + ((tick * 5) % 5000)
+    bpps1_travel = 20000 + ((tick * 11) % 5000)
+    bpps2_travel = 20500 + ((tick * 13) % 5000)
+    send_packet(450, struct.pack("<HHHH", bpps1_v, bpps2_v, bpps1_travel, bpps2_travel))
+
+    # --- packet 453: Brakes (pressures + brake bias) ---
+    # brake_pressure_f / rbll / rall: uint16, precision 0.05 → raw 800 ≈ 40 psi.
+    bp_f = 800 + ((tick * 5) % 400)
+    bp_rbll = 750 + ((tick * 7) % 400)
+    bp_rall = 760 + ((tick * 6) % 400)
+    brake_bias = 55                            # uint8, precision 0.01 → 0.55 (55% front)
+    bse_faults = 0
+    send_packet(453, struct.pack("<HHHBB", bp_f, bp_rbll, bp_rall, brake_bias, bse_faults))
+
+    # --- packet 386: Inverter / Motor / Ambient / Discharge temps ---
+    # int16, precision 0.01 → raw 4500 = 45.00 °C.
+    inverter_t = 4500 + (tick % 400)
+    motor_t = 6000 + (tick % 200)
+    ambient_t = 2500 + (tick % 100)
+    discharge_t = 3500 + (tick % 100)
+    send_packet(386, struct.pack("<hhhh", inverter_t, motor_t, ambient_t, discharge_t))
+
+    # --- packet 162: Inverter Temps 2 (coolant temp at byte 0) ---
+    # int16, precision 0.1 → raw 400 = 40.0 °C.
+    coolant_t = 400 + ((tick // 3) % 100)
+    send_packet(162, struct.pack("<hhhh", coolant_t, 600, 500, 500))
+
+    # --- packet 166: Inverter Current (dc_bus_current at byte 6) ---
+    # int16, precision 0.1 → raw 600 = 60.0 A.
+    dc_bus_c = 600 + ((tick * 7) % 400)
+    send_packet(166, struct.pack("<hhhh", 500 + (tick % 200), 450, 480, dc_bus_c))
+
+    # --- packet 167: Inverter Voltage (dc_bus_v at byte 0) ---
+    # int16, precision 0.1 → raw 3800 = 380.0 V.
+    dc_bus_v_raw = 3800 + ((tick * 3) % 200)
+    send_packet(167, struct.pack("<hhhh", dc_bus_v_raw, 0, 0, 0))
+
+    # --- packet 306: Battery Pack Status (HV V/A/SoC + cell top/bottom temps) ---
     hv_pack_mv = 39500 + ((tick * 13) % 1000)
     hv_c_cs = 4500 + ((tick * 9) % 1200)
     hv_soc_cs = 7800 + ((tick * 4) % 600)
     cell_top = 28 + ((tick // 4) % 6)
     cell_bottom = 26 + ((tick // 5) % 6)
-    batt_data = struct.pack("<HHHBB", hv_pack_mv, hv_c_cs, hv_soc_cs, cell_top, cell_bottom)
-    send_packet(306, batt_data)
+    send_packet(306, struct.pack("<HHHBB", hv_pack_mv, hv_c_cs, hv_soc_cs, cell_top, cell_bottom))
 
+    # --- packet 387: LV Battery V/A/T ---
+    # lv_batt_v: uint16, 0.01 → raw 2350 = 23.5 V.
+    # lv_batt_c: int16, 0.01.
+    # lv_batt_t: int16, 0.01.
+    lv_v_cs = 2350 + (tick % 100)
+    lv_c_cs = 350 + ((tick * 2) % 200)
+    lv_t_cs = 2500
+    send_packet(387, struct.pack("<Hhh", lv_v_cs, lv_c_cs, lv_t_cs))
+
+    # --- packet 1024: Wheel Speeds (FL/FR/BL/BR) ---
+    # int16, precision 0.01.
+    fl = 1500 + (tick % 500)
+    fr = 1480 + ((tick * 2) % 500)
+    bl = 1490 + ((tick * 3) % 500)
+    br = 1510 + ((tick * 5) % 500)
+    send_packet(1024, struct.pack("<hhhh", fl, fr, bl, br))
+
+    # --- packet 308: Indicators + Shutdown legs ---
+    # bmb_comm_error (false=OK), imd_gnd_isolation_error (false=OK),
+    # shutdown_leg1..4 (true=OK).
+    send_packet(308, struct.pack("<BBBBBB", 0, 0, 1, 1, 1, 1))
+
+    # --- packet 320: VCU Shutdown Status (BSPD + E-meter as OK) ---
+    # Bitfield: bit 0 = bspd, bit 1 = emeter. Both true → 0x03.
+    send_packet(320, struct.pack("<B", 0x03))
+
+    # --- packet 288: DUI R2D Status + temp_shutdown bits ---
+    # r2d_status=1 (in R2D), temp_shutdown_1/2 cleared (no thermal fault).
+    # extract_can_data inverts temp_shutdown_*, so bit=0 → dash shows OK.
+    send_packet(288, struct.pack("<BB", 1, 0))
+
+    # --- Cell voltage + temp bursts (drives cellTempMax/Avg/Min on the dash) ---
     send_cells_v_burst(tick)
+    send_cells_t_burst(tick)
 
     tick += 1
-    time.sleep(0.1) # 10Hz loop
+    time.sleep(0.1)  # 10 Hz loop
