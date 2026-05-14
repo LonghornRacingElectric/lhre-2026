@@ -9,6 +9,7 @@ class OrionPacket(BaseOrion):
     diagnostics_high = relationship("OrionDiagnosticsHigh", uselist=False, back_populates="packet")
     diagnostics_low = relationship("OrionDiagnosticsLow", uselist=False, back_populates="packet")
     thermal = relationship("OrionThermal", uselist=False, back_populates="packet")
+    board_status = relationship("OrionBoardStatus", uselist=False, back_populates="packet")
 
 class OrionDynamics(BaseOrion):
     __tablename__ = 'dynamics'
@@ -170,3 +171,17 @@ class OrionThermal(BaseOrion):
     motor_loop_motor_temp = Column(Float)
     motor_loop_rad_temp = Column(Float)
     packet = relationship("OrionPacket", back_populates="thermal")
+
+class OrionBoardStatus(BaseOrion):
+    __tablename__ = 'board_status'
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
+    csm_last_seen_s = Column(Float)
+    dui_last_seen_s = Column(Float)
+    hvc_last_seen_s = Column(Float)
+    inverter_last_seen_s = Column(Float)
+    pdu_last_seen_s = Column(Float)
+    tsm_last_seen_s = Column(Float)
+    usm_last_seen_s = Column(Float)
+    vcu_last_seen_s = Column(Float)
+    packet = relationship("OrionPacket", back_populates="board_status")

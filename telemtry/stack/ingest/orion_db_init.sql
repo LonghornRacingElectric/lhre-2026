@@ -420,3 +420,17 @@ CREATE TABLE public.thermal (
     motor_loop_rad_temp  real,
     CONSTRAINT fk_thermal_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
+
+-- Generated Board_status Table
+CREATE TABLE public.board_status (
+    packet_id           bigint   NOT NULL,
+    csm_last_seen_s      real,
+    dui_last_seen_s      real,
+    hvc_last_seen_s      real,
+    inverter_last_seen_s real,
+    pdu_last_seen_s      real,
+    tsm_last_seen_s      real,
+    usm_last_seen_s      real,
+    vcu_last_seen_s      real,
+    CONSTRAINT fk_board_status_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
+);

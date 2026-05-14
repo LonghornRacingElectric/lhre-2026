@@ -1,6 +1,5 @@
 use anyhow::Result;
 use prost::Message;
-use socketcan::{CanSocket, Socket, EmbeddedFrame, Id};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, UdpSocket};
@@ -16,19 +15,25 @@ use sensor_proto::proto::orion::OrionSensorData;
 use sensor_proto::config::PacketConfig;
 use sensor_proto::generated_mapping;
 
+#[cfg(target_os = "linux")]
+use socketcan::{CanSocket, EmbeddedFrame, Id, Socket};
+
 //use std::process::Command;
 
-const MOCK_ADDR: &str = "127.0.0.1:5005";
+const MOCK_ADDR_0: &str = "127.0.0.1:5005";
+const MOCK_ADDR_1: &str = "127.0.0.1:5006";
 const SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
 const PUBLISHD_SOCKET_PATH: &str = "/tmp/BEVO_cand_publishd.sock";
 const STARTUP_SEMAPHORE_PATH: &str = "/tmp/BEVO_publishd_ready";
 //const OTA_SEMAPHORE_PATH: &str = "/tmp/BEVO_ota_request"; 
-const CAN_INTERFACE: &str = "can0";
+const CAN_INTERFACE_0: &str = "can0";
+const CAN_INTERFACE_1: &str = "can1";
 const DEFAULT_PUBLISH_HZ: u64 = 100;
 const DEFAULT_NMEA_LISTEN_ADDR: &str = "0.0.0.0:2000";
 //const OTA_DOWNLOAD_START_ADDRESS: &str = "0x00000000";
 
 const DEFAULT_CAN_JSON_PATH: &str = "BEVO/nonhermetic/assets/can.json";
+const TRACKED_BOARD_SOURCES: [&str; 8] = ["CSM", "DUI", "HVC", "Inverter", "PDU", "TSM", "USM", "VCU"];
 
 #[derive(Debug)]
 struct RawCanMessage {
@@ -43,6 +48,7 @@ struct ExternalDynamicsData {
     gps_speed: f32,
 }
 
+#[cfg(target_os = "linux")]
 fn main() -> Result<()> {
     //let _ = std::fs::remove_file(OTA_SEMAPHORE_PATH);
     let use_mock = matches!(
@@ -52,7 +58,8 @@ fn main() -> Result<()> {
             .map(|value| value.to_ascii_lowercase()),
         Some(value) if value == "1" || value == "true" || value == "yes"
     );
-    let can_interface = std::env::var("CAND_CAN_INTERFACE").unwrap_or_else(|_| CAN_INTERFACE.to_string());
+    let can_interface_0 = std::env::var("CAND_CAN_INTERFACE_0").unwrap_or_else(|_| CAN_INTERFACE_0.to_string());
+    let can_interface_1 = std::env::var("CAND_CAN_INTERFACE_1").unwrap_or_else(|_| CAN_INTERFACE_1.to_string());
     let publish_hz = std::env::var("CAND_PUBLISH_HZ")
         .ok()
         .and_then(|value| value.parse::<u64>().ok())
@@ -61,6 +68,8 @@ fn main() -> Result<()> {
 
     let config_json = load_can_config_json()?;
     let packets: Vec<PacketConfig> = serde_json::from_str(&config_json)?;
+    let packet_source_lookup = Arc::new(build_packet_source_lookup(&packets));
+    let board_last_seen = Arc::new(Mutex::new(default_board_last_seen_map()));
     let initial_packet_id = 1;
     
     // This is where CAN IDs are mapped to their JSON configuration
@@ -75,17 +84,50 @@ fn main() -> Result<()> {
     let (raw_tx, raw_rx) = mpsc::channel::<RawCanMessage>();
 
     let can_packet_map = Arc::clone(&packet_map);
-    let can_interface_clone = can_interface.clone();
-    let can_reader_tx = raw_tx.clone();
-    thread::spawn(move || {
-        if let Err(e) = can_reader_loop(can_reader_tx, use_mock, can_interface_clone) {
-            eprintln!("[CAND-CAN] Error: {:?}", e);
-        }
-    });
+    let can_interface_0_clone = can_interface_0.clone();
+    let can_interface_1_clone = can_interface_1.clone();
+
+    if use_mock {
+        let can_reader_tx_0 = raw_tx.clone();
+        thread::spawn(move || {
+            if let Err(e) = mock_can_reader_loop(can_reader_tx_0, MOCK_ADDR_0) {
+                eprintln!("[CAND-CAN] Error: {:?}", e);
+            }
+        });
+
+        let can_reader_tx_1 = raw_tx.clone();
+        thread::spawn(move || {
+            if let Err(e) = mock_can_reader_loop(can_reader_tx_1, MOCK_ADDR_1) {
+                eprintln!("[CAND-CAN] Error: {:?}", e);
+            }
+        });
+    } else {
+        let can_reader_tx_0 = raw_tx.clone();
+        thread::spawn(move || {
+            if let Err(e) = can_socket_reader_loop(can_reader_tx_0, can_interface_0_clone) {
+                eprintln!("[CAND-CAN-0] Error: {:?}", e);
+            }
+        });
+
+        let can_reader_tx_1 = raw_tx.clone();
+        thread::spawn(move || {
+            if let Err(e) = can_socket_reader_loop(can_reader_tx_1, can_interface_1_clone) {
+                eprintln!("[CAND-CAN-1] Error: {:?}", e);
+            }
+        });
+    }
 
     let processing_sensor_data = Arc::clone(&sensor_data_cache);
+    let processing_packet_sources = Arc::clone(&packet_source_lookup);
+    let processing_board_last_seen = Arc::clone(&board_last_seen);
     thread::spawn(move || {
-        can_processing_loop(processing_sensor_data, can_packet_map, raw_rx);
+        can_processing_loop(
+            processing_sensor_data,
+            can_packet_map,
+            processing_packet_sources,
+            processing_board_last_seen,
+            raw_rx,
+        );
     });
 
     let nmea_external_dynamics = Arc::clone(&external_dynamics);
@@ -99,24 +141,111 @@ fn main() -> Result<()> {
 
     let ipc_sensor_data = Arc::clone(&sensor_data_cache);
     let ipc_external_dynamics = Arc::clone(&external_dynamics);
+    let ipc_board_last_seen = Arc::clone(&board_last_seen);
     thread::spawn(move || {
-        if let Err(e) = ipc_server_loop(ipc_sensor_data, ipc_external_dynamics, publish_hz, initial_packet_id) {
+        if let Err(e) = ipc_server_loop(
+            ipc_sensor_data,
+            ipc_external_dynamics,
+            ipc_board_last_seen,
+            publish_hz,
+            initial_packet_id,
+        ) {
             eprintln!("[CAND-IPC] Error: {:?}", e);
         }
     });
 
     if use_mock {
-        println!("[CAND] Started in MOCK mode ({}) @ {} Hz", MOCK_ADDR, publish_hz);
+        println!("[CAND] Started in MOCK mode ({}, {}) @ {} Hz", MOCK_ADDR_0, MOCK_ADDR_1, publish_hz);
     } else {
-        println!("[CAND] Started in REAL mode ({}) @ {} Hz", can_interface, publish_hz);
+        println!("[CAND] Started in REAL mode ({}, {}) @ {} Hz", can_interface_0, can_interface_1, publish_hz);
     }
     loop { thread::park(); }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn main() -> Result<()> {
+    eprintln!("[CAND] Linux is required for the real CAN reader; use mock_main on macOS.");
+    Ok(())
 }
 
 fn load_can_config_json() -> Result<String> {
     let configured_path = std::env::var("CAND_CAN_JSON_PATH").unwrap_or_else(|_| DEFAULT_CAN_JSON_PATH.to_string());
     let config_json = fs::read_to_string(&configured_path)?;
     Ok(config_json)
+}
+
+fn is_tracked_board_source(source: &str) -> bool {
+    TRACKED_BOARD_SOURCES
+        .iter()
+        .any(|candidate| candidate.eq_ignore_ascii_case(source))
+}
+
+fn canonical_board_name(source: &str) -> Option<&'static str> {
+    TRACKED_BOARD_SOURCES
+        .iter()
+        .find(|candidate| candidate.eq_ignore_ascii_case(source))
+        .copied()
+}
+
+fn packet_source(packet: &PacketConfig) -> Option<String> {
+    packet
+        .from
+        .iter()
+        .find_map(|source| canonical_board_name(source))
+        .map(ToString::to_string)
+}
+
+fn build_packet_source_lookup(packets: &[PacketConfig]) -> HashMap<u32, String> {
+    let mut source_lookup = HashMap::new();
+    for packet in packets {
+        let Some(source) = packet_source(packet) else {
+            continue;
+        };
+        let quantity = packet.quantity.max(1);
+        for offset in 0..quantity {
+            let packet_id = packet.packet_id.saturating_add(offset);
+            source_lookup.insert(packet_id, source.clone());
+        }
+    }
+    source_lookup
+}
+
+fn default_board_last_seen_map() -> HashMap<String, f32> {
+    TRACKED_BOARD_SOURCES
+        .iter()
+        .map(|board| (board.to_string(), -1.0_f32))
+        .collect()
+}
+
+fn mark_board_seen(
+    board_last_seen: &Arc<Mutex<HashMap<String, f32>>>,
+    packet_sources: &HashMap<u32, String>,
+    packet_id: u32,
+) {
+    let Some(source) = packet_sources.get(&packet_id) else {
+        return;
+    };
+    if !is_tracked_board_source(source) {
+        return;
+    }
+    if let Some(value) = board_last_seen.lock().unwrap().get_mut(source) {
+        *value = 0.0;
+    }
+}
+
+fn tick_board_last_seen(
+    board_last_seen: &Arc<Mutex<HashMap<String, f32>>>,
+    elapsed_seconds: f32,
+) -> HashMap<String, f32> {
+    let mut locked = board_last_seen.lock().unwrap();
+    if elapsed_seconds > 0.0 {
+        for value in locked.values_mut() {
+            if *value >= 0.0 {
+                *value += elapsed_seconds;
+            }
+        }
+    }
+    locked.clone()
 }
 
 fn read_publishd_start_packet_id() -> Option<u64> {
@@ -179,34 +308,44 @@ fn read_publishd_start_packet_id() -> Option<u64> {
 //     anyhow::bail!("unable to resolve BEVO root; set BEVO_ROOT env var")
 // }
 
-// continuously reads CAN frames from the specified interface (or mock UDP socket), and sends them to the processing thread over a channel
+// continuously reads CAN frames from the specified socketCAN interface and
+// sends them to the processing thread over a channel.
 
-fn can_reader_loop(raw_tx: Sender<RawCanMessage>, use_mock: bool, can_interface: String) -> Result<()> {
-    if use_mock {
-        let socket = UdpSocket::bind(MOCK_ADDR)?;
-        let mut buf = [0u8; 12];
-        loop {
-            socket.recv_from(&mut buf)?;
-            let id = u32::from_le_bytes(buf[0..4].try_into().unwrap());
-            let payload = buf[4..12].to_vec();
-            if raw_tx.send(RawCanMessage { id, payload }).is_err() {
+#[cfg(target_os = "linux")]
+fn can_socket_reader_loop(raw_tx: Sender<RawCanMessage>, can_interface: String) -> Result<()> {
+    let socket = CanSocket::open(&can_interface)?;
+    loop {
+        let frame = socket.read_frame()?;
+
+        if let Id::Standard(id) = frame.id() {
+            let payload = frame.data().to_vec();
+            let message = RawCanMessage {
+                id: id.as_raw() as u32,
+                payload,
+            };
+            if raw_tx.send(message).is_err() {
                 return Ok(());
             }
         }
-    } else {
-        let socket = CanSocket::open(&can_interface)?;
-        loop {
-            let frame = socket.read_frame()?;
-            if let Id::Standard(id) = frame.id() {
-                let payload = frame.data().to_vec();
-                let message = RawCanMessage {
-                    id: id.as_raw() as u32,
-                    payload,
-                };
-                if raw_tx.send(message).is_err() {
-                    return Ok(());
-                }
-            }
+    }
+}
+
+// reads CAN frames from the mock UDP socket used for local testing.
+
+#[cfg(target_os = "linux")]
+fn mock_can_reader_loop(raw_tx: Sender<RawCanMessage>, mock_addr: &'static str) -> Result<()> {
+    let socket = UdpSocket::bind(mock_addr)?;
+    let mut buf = [0u8; 12];
+    loop {
+        let (len, _) = socket.recv_from(&mut buf)?;
+        if len < 4 {
+            continue;
+        }
+
+        let id = u32::from_le_bytes(buf[0..4].try_into().unwrap());
+        let payload = buf[4..12].to_vec();
+        if raw_tx.send(RawCanMessage { id, payload }).is_err() {
+            return Ok(());
         }
     }
 }
@@ -216,9 +355,12 @@ fn can_reader_loop(raw_tx: Sender<RawCanMessage>, use_mock: bool, can_interface:
 fn can_processing_loop(
     data_cache: Arc<Mutex<OrionSensorData>>,
     packet_map: Arc<HashMap<u32, PacketConfig>>,
+    packet_sources: Arc<HashMap<u32, String>>,
+    board_last_seen: Arc<Mutex<HashMap<String, f32>>>,
     raw_rx: Receiver<RawCanMessage>,
 ) {
     while let Ok(message) = raw_rx.recv() {
+        mark_board_seen(&board_last_seen, &packet_sources, message.id);
         if let Some((config, series_index)) = resolve_packet_config(&packet_map, message.id) {
             let mut locked = data_cache.lock().unwrap();
             process_raw_data(&mut locked, &message.payload, config, series_index);
@@ -398,6 +540,22 @@ fn apply_external_dynamics(data: &mut OrionSensorData, external_dynamics: &Exter
     dynamics.gps_speed = external_dynamics.gps_speed;
 }
 
+fn board_last_seen_value(board_last_seen: &HashMap<String, f32>, board: &str) -> f32 {
+    board_last_seen.get(board).copied().unwrap_or(-1.0)
+}
+
+fn apply_board_last_seen(data: &mut OrionSensorData, board_last_seen: &HashMap<String, f32>) {
+    let board_status = data.board_status.get_or_insert_with(Default::default);
+    board_status.csm_last_seen_s = board_last_seen_value(board_last_seen, "CSM");
+    board_status.dui_last_seen_s = board_last_seen_value(board_last_seen, "DUI");
+    board_status.hvc_last_seen_s = board_last_seen_value(board_last_seen, "HVC");
+    board_status.inverter_last_seen_s = board_last_seen_value(board_last_seen, "Inverter");
+    board_status.pdu_last_seen_s = board_last_seen_value(board_last_seen, "PDU");
+    board_status.tsm_last_seen_s = board_last_seen_value(board_last_seen, "TSM");
+    board_status.usm_last_seen_s = board_last_seen_value(board_last_seen, "USM");
+    board_status.vcu_last_seen_s = board_last_seen_value(board_last_seen, "VCU");
+}
+
 // fn ota_processing_loop(device_id: u32, data_link: String) -> Result<std::path::PathBuf> {
 //     // create a temporary file path that includes the device id so multiple
 //     // OTA downloads don't collide
@@ -546,6 +704,7 @@ fn process_raw_data(
 fn ipc_server_loop(
     sensor_data: Arc<Mutex<OrionSensorData>>,
     external_dynamics: Arc<Mutex<ExternalDynamicsData>>,
+    board_last_seen: Arc<Mutex<HashMap<String, f32>>>,
     publish_hz: u64,
     initial_packet_id: u64,
 ) -> Result<()> {
@@ -557,6 +716,7 @@ fn ipc_server_loop(
     let publishd_clients = Arc::new(Mutex::new(Vec::<UnixStream>::new()));
     let publish_interval = Duration::from_secs_f64(1.0 / publish_hz as f64);
     let mut next_packet_id = initial_packet_id.max(1);
+    let mut last_status_tick = Instant::now();
     let mut publishd_next_packet_id: Option<u64> = None;
 
     let clients_clone = Arc::clone(&clients);
@@ -595,6 +755,12 @@ fn ipc_server_loop(
         //     continue;
         // }
 
+        let elapsed_since_tick = last_status_tick.elapsed().as_secs_f32();
+        last_status_tick = Instant::now();
+        let board_status_snapshot = tick_board_last_seen(&board_last_seen, elapsed_since_tick);
+        let external_snapshot = external_dynamics.lock().unwrap().clone();
+
+
         let cycle_start = Instant::now();
         let mut buffer = Vec::new();
         let publishd_packet_id_for_cycle = publishd_next_packet_id;
@@ -605,8 +771,8 @@ fn ipc_server_loop(
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_millis() as i64;
-            let external_snapshot = external_dynamics.lock().unwrap().clone();
             apply_external_dynamics(&mut data, &external_snapshot);
+            apply_board_last_seen(&mut data, &board_status_snapshot);
 
             // Serialize both streams from the same locked snapshot so all fields
             // except packet_id stay identical across sockets for this cycle.

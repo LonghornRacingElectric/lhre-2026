@@ -36,6 +36,7 @@ from .models import (
     OrionDiagnosticsHigh,
     OrionDiagnosticsLow,
     OrionThermal,
+    OrionBoardStatus,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import JSONB # Added for JSONB type handling
@@ -85,6 +86,7 @@ class QueryBuilder:
             self._models["DiagnosticsHigh"] = OrionDiagnosticsHigh
             self._models["DiagnosticsLow"] = OrionDiagnosticsLow
             self._models["Thermal"] = OrionThermal
+            self._models["BoardStatus"] = OrionBoardStatus
             self._models["Packet"] = OrionPacket
         else:
             raise ValueError(f"Car {car} is not supported.")
@@ -337,7 +339,7 @@ class QueryBuilder:
             model.__tablename__: model for model in [
                 Packet, Dynamics, Controls, Pack, DiagnosticsHigh, DiagnosticsLow, Thermal,
                 AngeliquePacket, AngeliqueDynamics, AngeliqueControls, AngeliquePack, AngeliqueDiagnostics, AngeliqueThermal,
-                OrionPacket, OrionDynamics, OrionControls, OrionPack, OrionDiagnosticsLow, OrionThermal,
+                OrionPacket, OrionDynamics, OrionControls, OrionPack, OrionDiagnosticsHigh, OrionDiagnosticsLow, OrionThermal, OrionBoardStatus,
             ]
         }
         
