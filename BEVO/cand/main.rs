@@ -1,6 +1,5 @@
 use anyhow::Result;
 use prost::Message;
-use socketcan::{CanSocket, Socket, EmbeddedFrame, Id};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, UdpSocket};
@@ -16,14 +15,19 @@ use sensor_proto::proto::orion::OrionSensorData;
 use sensor_proto::config::PacketConfig;
 use sensor_proto::generated_mapping;
 
+#[cfg(target_os = "linux")]
+use socketcan::{CanSocket, EmbeddedFrame, Id, Socket};
+
 //use std::process::Command;
 
-const MOCK_ADDR: &str = "127.0.0.1:5005";
+const MOCK_ADDR_0: &str = "127.0.0.1:5005";
+const MOCK_ADDR_1: &str = "127.0.0.1:5006";
 const SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
 const PUBLISHD_SOCKET_PATH: &str = "/tmp/BEVO_cand_publishd.sock";
 const STARTUP_SEMAPHORE_PATH: &str = "/tmp/BEVO_publishd_ready";
 //const OTA_SEMAPHORE_PATH: &str = "/tmp/BEVO_ota_request"; 
-const CAN_INTERFACE: &str = "can0";
+const CAN_INTERFACE_0: &str = "can0";
+const CAN_INTERFACE_1: &str = "can1";
 const DEFAULT_PUBLISH_HZ: u64 = 100;
 const DEFAULT_NMEA_LISTEN_ADDR: &str = "0.0.0.0:2000";
 //const OTA_DOWNLOAD_START_ADDRESS: &str = "0x00000000";
@@ -44,6 +48,7 @@ struct ExternalDynamicsData {
     gps_speed: f32,
 }
 
+#[cfg(target_os = "linux")]
 fn main() -> Result<()> {
     //let _ = std::fs::remove_file(OTA_SEMAPHORE_PATH);
     let use_mock = matches!(
@@ -53,7 +58,8 @@ fn main() -> Result<()> {
             .map(|value| value.to_ascii_lowercase()),
         Some(value) if value == "1" || value == "true" || value == "yes"
     );
-    let can_interface = std::env::var("CAND_CAN_INTERFACE").unwrap_or_else(|_| CAN_INTERFACE.to_string());
+    let can_interface_0 = std::env::var("CAND_CAN_INTERFACE_0").unwrap_or_else(|_| CAN_INTERFACE_0.to_string());
+    let can_interface_1 = std::env::var("CAND_CAN_INTERFACE_1").unwrap_or_else(|_| CAN_INTERFACE_1.to_string());
     let publish_hz = std::env::var("CAND_PUBLISH_HZ")
         .ok()
         .and_then(|value| value.parse::<u64>().ok())
@@ -78,13 +84,38 @@ fn main() -> Result<()> {
     let (raw_tx, raw_rx) = mpsc::channel::<RawCanMessage>();
 
     let can_packet_map = Arc::clone(&packet_map);
-    let can_interface_clone = can_interface.clone();
-    let can_reader_tx = raw_tx.clone();
-    thread::spawn(move || {
-        if let Err(e) = can_reader_loop(can_reader_tx, use_mock, can_interface_clone) {
-            eprintln!("[CAND-CAN] Error: {:?}", e);
-        }
-    });
+    let can_interface_0_clone = can_interface_0.clone();
+    let can_interface_1_clone = can_interface_1.clone();
+
+    if use_mock {
+        let can_reader_tx_0 = raw_tx.clone();
+        thread::spawn(move || {
+            if let Err(e) = mock_can_reader_loop(can_reader_tx_0, MOCK_ADDR_0) {
+                eprintln!("[CAND-CAN] Error: {:?}", e);
+            }
+        });
+
+        let can_reader_tx_1 = raw_tx.clone();
+        thread::spawn(move || {
+            if let Err(e) = mock_can_reader_loop(can_reader_tx_1, MOCK_ADDR_1) {
+                eprintln!("[CAND-CAN] Error: {:?}", e);
+            }
+        });
+    } else {
+        let can_reader_tx_0 = raw_tx.clone();
+        thread::spawn(move || {
+            if let Err(e) = can_socket_reader_loop(can_reader_tx_0, can_interface_0_clone) {
+                eprintln!("[CAND-CAN-0] Error: {:?}", e);
+            }
+        });
+
+        let can_reader_tx_1 = raw_tx.clone();
+        thread::spawn(move || {
+            if let Err(e) = can_socket_reader_loop(can_reader_tx_1, can_interface_1_clone) {
+                eprintln!("[CAND-CAN-1] Error: {:?}", e);
+            }
+        });
+    }
 
     let processing_sensor_data = Arc::clone(&sensor_data_cache);
     let processing_packet_sources = Arc::clone(&packet_source_lookup);
@@ -124,11 +155,17 @@ fn main() -> Result<()> {
     });
 
     if use_mock {
-        println!("[CAND] Started in MOCK mode ({}) @ {} Hz", MOCK_ADDR, publish_hz);
+        println!("[CAND] Started in MOCK mode ({}, {}) @ {} Hz", MOCK_ADDR_0, MOCK_ADDR_1, publish_hz);
     } else {
-        println!("[CAND] Started in REAL mode ({}) @ {} Hz", can_interface, publish_hz);
+        println!("[CAND] Started in REAL mode ({}, {}) @ {} Hz", can_interface_0, can_interface_1, publish_hz);
     }
     loop { thread::park(); }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn main() -> Result<()> {
+    eprintln!("[CAND] Linux is required for the real CAN reader; use mock_main on macOS.");
+    Ok(())
 }
 
 fn load_can_config_json() -> Result<String> {
@@ -271,34 +308,44 @@ fn read_publishd_start_packet_id() -> Option<u64> {
 //     anyhow::bail!("unable to resolve BEVO root; set BEVO_ROOT env var")
 // }
 
-// continuously reads CAN frames from the specified interface (or mock UDP socket), and sends them to the processing thread over a channel
+// continuously reads CAN frames from the specified socketCAN interface and
+// sends them to the processing thread over a channel.
 
-fn can_reader_loop(raw_tx: Sender<RawCanMessage>, use_mock: bool, can_interface: String) -> Result<()> {
-    if use_mock {
-        let socket = UdpSocket::bind(MOCK_ADDR)?;
-        let mut buf = [0u8; 12];
-        loop {
-            socket.recv_from(&mut buf)?;
-            let id = u32::from_le_bytes(buf[0..4].try_into().unwrap());
-            let payload = buf[4..12].to_vec();
-            if raw_tx.send(RawCanMessage { id, payload }).is_err() {
+#[cfg(target_os = "linux")]
+fn can_socket_reader_loop(raw_tx: Sender<RawCanMessage>, can_interface: String) -> Result<()> {
+    let socket = CanSocket::open(&can_interface)?;
+    loop {
+        let frame = socket.read_frame()?;
+
+        if let Id::Standard(id) = frame.id() {
+            let payload = frame.data().to_vec();
+            let message = RawCanMessage {
+                id: id.as_raw() as u32,
+                payload,
+            };
+            if raw_tx.send(message).is_err() {
                 return Ok(());
             }
         }
-    } else {
-        let socket = CanSocket::open(&can_interface)?;
-        loop {
-            let frame = socket.read_frame()?;
-            if let Id::Standard(id) = frame.id() {
-                let payload = frame.data().to_vec();
-                let message = RawCanMessage {
-                    id: id.as_raw() as u32,
-                    payload,
-                };
-                if raw_tx.send(message).is_err() {
-                    return Ok(());
-                }
-            }
+    }
+}
+
+// reads CAN frames from the mock UDP socket used for local testing.
+
+#[cfg(target_os = "linux")]
+fn mock_can_reader_loop(raw_tx: Sender<RawCanMessage>, mock_addr: &'static str) -> Result<()> {
+    let socket = UdpSocket::bind(mock_addr)?;
+    let mut buf = [0u8; 12];
+    loop {
+        let (len, _) = socket.recv_from(&mut buf)?;
+        if len < 4 {
+            continue;
+        }
+
+        let id = u32::from_le_bytes(buf[0..4].try_into().unwrap());
+        let payload = buf[4..12].to_vec();
+        if raw_tx.send(RawCanMessage { id, payload }).is_err() {
+            return Ok(());
         }
     }
 }

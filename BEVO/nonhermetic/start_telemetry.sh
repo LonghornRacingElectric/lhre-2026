@@ -7,7 +7,9 @@ REPO_ROOT="$(cd "$BEVO_ROOT/.." && pwd)"
 
 PYTHON_BIN="${BEVO_PYTHON_BIN:-$REPO_ROOT/.venv/bin/python}"
 CELL_SCRIPT="${BEVO_CELL_SCRIPT:-$BEVO_ROOT/cell.py}"
-CAN_IFACE="${CAND_CAN_INTERFACE:-can0}"
+CAN_IFACE_0="${CAND_CAN_INTERFACE_0:-can0}"
+CAN_IFACE_1="${CAND_CAN_INTERFACE_1:-can1}"
+
 CAN_BITRATE="${BEVO_CAN_BITRATE:-1000000}"
 OPENVPN_CONFIG="${BEVO_OPENVPN_CONFIG:-/etc/openvpn/client/client.ovpn}"
 OPENVPN_CREDS="${BEVO_OPENVPN_CREDS:-$BEVO_ROOT/vpn_creds.txt}"
@@ -31,18 +33,20 @@ echo "Turning on cellular module..."
 "$PYTHON_BIN" "$CELL_SCRIPT" on
 sleep 5
 
-echo "Configuring CAN interface $CAN_IFACE @ $CAN_BITRATE bps..."
-if ip link show "$CAN_IFACE" >/dev/null 2>&1; then
-  ip link set "$CAN_IFACE" down >/dev/null 2>&1 || true
-fi
-ip link set "$CAN_IFACE" up type can bitrate "$CAN_BITRATE"
+for CAN_IFACE in "$CAN_IFACE_0" "$CAN_IFACE_1"; do
+  echo "Configuring CAN interface $CAN_IFACE @ $CAN_BITRATE bps..."
+  if ip link show "$CAN_IFACE" >/dev/null 2>&1; then
+    ip link set "$CAN_IFACE" down >/dev/null 2>&1 || true
+  fi
+  ip link set "$CAN_IFACE" up type can bitrate "$CAN_BITRATE"
+done
 
 # echo "Starting VPN connection..."
 # openvpn --config "$OPENVPN_CONFIG" --auth-user-pass "$OPENVPN_CREDS" --daemon
 # sleep 5
 
 echo "Starting BEVO real CAN stack..."
-LOGGERD_ENABLED=0 "$SCRIPT_ROOT/run_real_stack.sh" &
+LOGGERD_ENABLED=1 "$SCRIPT_ROOT/run_real_stack.sh" &
 STACK_PID=$!
 START_TIME=$(date +%s)
 
