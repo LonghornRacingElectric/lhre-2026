@@ -426,7 +426,10 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
             mqtt_host, mqtt_port
         );
 
-        let mut opts = MqttOptions::new(MQTT_CLIENT_ID, &mqtt_host, mqtt_port);
+        // Append PID so multiple dashd instances (e.g. dev laptop + on-car)
+        // don't kick each other off the broker via duplicate client ids.
+        let client_id = format!("{}-{}", MQTT_CLIENT_ID, std::process::id());
+        let mut opts = MqttOptions::new(client_id, &mqtt_host, mqtt_port);
         opts.set_keep_alive(Duration::from_secs(20));
 
         let (client, mut connection) = Client::new(opts, 64);

@@ -46,7 +46,11 @@ sudo cp "$LABWC_AUTOSTART_SRC" "$LABWC_AUTOSTART_DST"
 sudo chmod +x "$LABWC_AUTOSTART_DST"
 # Clean up the user-level autostart from a previous install (now redundant
 # since Pi OS's labwc runs both user + system, causing duplicate kanshi).
-rm -f "$HOME/.config/labwc/autostart"
+# Back it up first in case anything's been customized locally.
+if [ -f "$HOME/.config/labwc/autostart" ]; then
+    cp "$HOME/.config/labwc/autostart" "$HOME/.config/labwc/autostart.bak"
+    rm -f "$HOME/.config/labwc/autostart"
+fi
 
 echo "[6/7] Installing Plymouth boot-splash theme (black)"
 if command -v plymouth-set-default-theme >/dev/null 2>&1; then
