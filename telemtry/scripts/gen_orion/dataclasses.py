@@ -145,6 +145,17 @@ class OrionThermal:
     motor_loop_rad_temp: Optional[float] = None
 
 @dataclass
+class OrionBoardStatus:
+    csm_last_seen_s: Optional[float] = None
+    dui_last_seen_s: Optional[float] = None
+    hvc_last_seen_s: Optional[float] = None
+    inverter_last_seen_s: Optional[float] = None
+    pdu_last_seen_s: Optional[float] = None
+    tsm_last_seen_s: Optional[float] = None
+    usm_last_seen_s: Optional[float] = None
+    vcu_last_seen_s: Optional[float] = None
+
+@dataclass
 class OrionSensorData:
     packet_id: int
     time: int
@@ -154,3 +165,4 @@ class OrionSensorData:
     diagnostics_high: Optional[OrionDiagnosticsHigh] = None
     diagnostics_low: Optional[OrionDiagnosticsLow] = None
     thermal: Optional[OrionThermal] = None
+    board_status: Optional[OrionBoardStatus] = None

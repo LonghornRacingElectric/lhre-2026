@@ -457,6 +457,21 @@ def _emit_message(name: str, fields: List[ParsedField]) -> str:
     return "\n".join(lines)
 
 
+def _emit_board_status_message() -> str:
+    lines: List[str] = []
+    lines.append("message BoardStatus {")
+    lines.append("    float csm_last_seen_s = 1;")
+    lines.append("    float dui_last_seen_s = 2;")
+    lines.append("    float hvc_last_seen_s = 3;")
+    lines.append("    float inverter_last_seen_s = 4;")
+    lines.append("    float pdu_last_seen_s = 5;")
+    lines.append("    float tsm_last_seen_s = 6;")
+    lines.append("    float usm_last_seen_s = 7;")
+    lines.append("    float vcu_last_seen_s = 8;")
+    lines.append("}")
+    return "\n".join(lines)
+
+
 def generate_proto_text(partitions: Dict[str, List[ParsedField]], car_name:str) -> str:
     # Keep a fixed ordering for deterministic output
     partition_order = ["Dynamics", "Controls", "Pack", "DiagnosticsHigh", "DiagnosticsLow", "Thermal"]
@@ -486,7 +501,11 @@ def generate_proto_text(partitions: Dict[str, List[ParsedField]], car_name:str) 
         lines.append("    DiagnosticsLow diagnostics_low = 7;")
     if partitions.get("Thermal"):
         lines.append("    Thermal thermal = 8;")
+    lines.append("    BoardStatus board_status = 9;")
     lines.append("}")
+    lines.append("")
+
+    lines.append(_emit_board_status_message())
     lines.append("")
 
     # Partition messages

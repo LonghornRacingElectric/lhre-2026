@@ -261,6 +261,7 @@ message OrionSensorData {
     OrionDiagnosticsHigh diagnostics_high = 6;
     OrionDiagnosticsLow diagnostics_low = 7;
     OrionThermal thermal = 8;
+    OrionBoardStatus board_status = 9;
 }
 
 message OrionDynamics {
@@ -401,4 +402,15 @@ message OrionThermal {
     float motor_loop_motor_temp = 22;
     float motor_loop_rad_fan_speed = 23;
     float motor_loop_rad_temp = 24;
+}
+
+message OrionBoardStatus {
+    float csm_last_seen_s = 1;
+    float dui_last_seen_s = 2;
+    float hvc_last_seen_s = 3;
+    float inverter_last_seen_s = 4;
+    float pdu_last_seen_s = 5;
+    float tsm_last_seen_s = 6;
+    float usm_last_seen_s = 7;
+    float vcu_last_seen_s = 8;
 }

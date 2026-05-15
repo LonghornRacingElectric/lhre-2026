@@ -4,6 +4,8 @@ use serde::Deserialize;
 pub struct PacketConfig {
     pub packet_id: u32,
     pub packet_name: String,
+    #[serde(default)]
+    pub from: Vec<String>,
     #[serde(default = "default_quantity")]
     pub quantity: u32,
     pub bytes: Vec<SignalConfig>,
