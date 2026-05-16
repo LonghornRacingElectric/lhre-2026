@@ -1228,6 +1228,36 @@
             {
                 "index": 1,
                 "start_byte": 1,
+                "name": "temp_shutdown_1",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "temp_shutdown_1",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 1,
+                "name": "temp_shutdown_2",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "temp_shutdown_2",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 1,
                 "name": "DUI Shutdown Faults",
                 "length": 1,
                 "conv_type": "bitfield",
@@ -1277,6 +1307,36 @@
             {
                 "index": 1,
                 "start_byte": 1,
+                "name": "temp_imd_1",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "temp_imd_1",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 1,
+                "name": "temp_imd_2",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "temp_imd_2",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 1,
                 "name": "DUI IMD Faults",
                 "length": 1,
                 "conv_type": "bitfield",
@@ -1293,7 +1353,37 @@
                 ]
             },
             {
-                "index": 2,
+                "index": 4,
+                "start_byte": 2,
+                "name": "temp_ams_1",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "temp_ams_1",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 5,
+                "start_byte": 2,
+                "name": "temp_ams_2",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "temp_ams_2",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 4,
                 "start_byte": 2,
                 "name": "DUI AMS Faults",
                 "length": 1,
@@ -1725,6 +1815,36 @@
             {
                 "index": 0,
                 "start_byte": 0,
+                "name": "shutdown_bspd_status",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "shutdown_bspd_status",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 0,
+                "name": "shutdown_emeter_status",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "shutdown_emeter_status",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 0,
+                "start_byte": 0,
                 "name": "VCU Shutdown Status",
                 "length": 1,
                 "conv_type": "bitfield",
@@ -1757,6 +1877,126 @@
         "quantity": 1,
         "bus": "Critical",
         "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "batt_pump_fuse",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "batt_pump_fuse",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 0,
+                "name": "tssi_green_fuse",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "tssi_green_fuse",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 0,
+                "name": "tssi_red_fuse",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "tssi_red_fuse",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 0,
+                "name": "batt_fans_fuse",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "batt_fans_fuse",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 4,
+                "start_byte": 0,
+                "name": "shtdn_fuse",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "shtdn_fuse",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 5,
+                "start_byte": 0,
+                "name": "ll_fuse",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "ll_fuse",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 6,
+                "start_byte": 0,
+                "name": "motor_pump_fuse",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "motor_pump_fuse",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 7,
+                "start_byte": 0,
+                "name": "boards_fuse",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "boards_fuse",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
             {
                 "index": 0,
                 "start_byte": 0,
@@ -1800,7 +2040,52 @@
                 ]
             },
             {
-                "index": 1,
+                "index": 9,
+                "start_byte": 1,
+                "name": "brake_light_fuse",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "brake_light_fuse",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 10,
+                "start_byte": 1,
+                "name": "rtd_fuse",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "rtd_fuse",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 11,
+                "start_byte": 1,
+                "name": "spare_fuse",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "spare_fuse",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 9,
                 "start_byte": 1,
                 "name": "VCU Fuses 2",
                 "length": 1,
@@ -1928,6 +2213,36 @@
             {
                 "index": 0,
                 "start_byte": 0,
+                "name": "temp_command_1",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "temp_command_1",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 0,
+                "name": "temp_command_2",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "temp_command_2",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 0,
+                "start_byte": 0,
                 "name": "Switch Command",
                 "length": 1,
                 "conv_type": "bitfield",
@@ -1960,6 +2275,36 @@
         "quantity": 1,
         "bus": "Critical",
         "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "temp_output_1",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "temp_output_1",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 0,
+                "name": "temp_output_2",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "temp_output_2",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
             {
                 "index": 0,
                 "start_byte": 0,
@@ -2408,6 +2753,96 @@
             {
                 "index": 1,
                 "start_byte": 2,
+                "name": "apps1_disconnect",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "apps1_disconnect",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 2,
+                "name": "apps2_disconnect",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "apps2_disconnect",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 2,
+                "name": "apps1_out_range",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "apps1_out_range",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 4,
+                "start_byte": 2,
+                "name": "apps2_out_range",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "apps2_out_range",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 5,
+                "start_byte": 2,
+                "name": "apps_mismatch",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "apps_mismatch",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 6,
+                "start_byte": 2,
+                "name": "apps_implause",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "apps_implause",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
                 "name": "APPS Faults",
                 "length": 1,
                 "conv_type": "bitfield",
@@ -2540,6 +2975,81 @@
             {
                 "index": 1,
                 "start_byte": 2,
+                "name": "bpps1_disconnect",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "bpps1_disconnect",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 2,
+                "name": "bpps2_disconnect",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "bpps2_disconnect",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 2,
+                "name": "bpps1_out_range",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "bpps1_out_range",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 4,
+                "start_byte": 2,
+                "name": "bpps2_out_range",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "bpps2_out_range",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 5,
+                "start_byte": 2,
+                "name": "bpps_mismatch",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "bpps_mismatch",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
                 "name": "BPPS Faults",
                 "length": 1,
                 "conv_type": "bitfield",
@@ -2568,7 +3078,7 @@
                 ]
             },
             {
-                "index": 2,
+                "index": 7,
                 "start_byte": 3,
                 "name": "Brake Light Percent",
                 "length": 2,
@@ -2709,6 +3219,66 @@
                 "protobuf": {
                     "type": "float",
                     "field": "brake_bias",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 4,
+                "start_byte": 7,
+                "name": "bse1_disconnect",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "bse1_disconnect",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 5,
+                "start_byte": 7,
+                "name": "bse2_disconnect",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "bse2_disconnect",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 6,
+                "start_byte": 7,
+                "name": "bse1_out_range",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "bse1_out_range",
+                    "type": "bool",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 7,
+                "start_byte": 7,
+                "name": "bse2_out_range",
+                "length": 1,
+                "conv_type": "bool",
+                "precision": 1.0,
+                "is_boolean": true,
+                "protobuf": {
+                    "field": "bse2_out_range",
+                    "type": "bool",
                     "repeated": false,
                     "field_index": null
                 }
