@@ -1,6 +1,6 @@
 
-‹'
-$nonhermetic/assets/can_packets.protoorion"Í
+ˇ5
+$nonhermetic/assets/can_packets.protoorion"°
 OrionSensorData
 time (Rtime
 	packet_id (RpacketId+
@@ -9,7 +9,17 @@ $nonhermetic/assets/can_packets.protoorion"Í
 pack (2.orion.PackRpackA
 diagnostics_high (2.orion.DiagnosticsHighRdiagnosticsHigh>
 diagnostics_low (2.orion.DiagnosticsLowRdiagnosticsLow(
-thermal (2.orion.ThermalRthermal"ˆ
+thermal (2.orion.ThermalRthermal5
+board_status	 (2.orion.BoardStatusRboardStatus"œ
+BoardStatus%
+csm_last_seen_s (RcsmLastSeenS%
+dui_last_seen_s (RduiLastSeenS%
+hvc_last_seen_s (RhvcLastSeenS/
+inverter_last_seen_s (RinverterLastSeenS%
+pdu_last_seen_s (RpduLastSeenS%
+tsm_last_seen_s (RtsmLastSeenS%
+usm_last_seen_s (RusmLastSeenS%
+vcu_last_seen_s (RvcuLastSeenS"ˆ
 Dynamics
 gps (Rgps
 gps_imu (RgpsImu
@@ -103,7 +113,7 @@ cellsTemps$
 	lv_batt_v (RlvBattV&
 phase_a_current (RphaseACurrent&
 phase_b_current (RphaseBCurrent&
-phase_c_current (RphaseCCurrent"é
+phase_c_current (RphaseCCurrent"Ã
 DiagnosticsHigh
 prndl_state (R
 prndlState)
@@ -112,15 +122,46 @@ prndlState)
 post_faults (R
 postFaults
 
-run_faults (R	runFaults
+run_faults (R	runFaults)
+apps1_disconnect (Rapps1Disconnect&
+apps1_out_range (Rapps1OutRange)
+apps2_disconnect (Rapps2Disconnect&
+apps2_out_range	 (Rapps2OutRange#
+apps_implause
+ (RappsImplause#
+apps_mismatch (RappsMismatch$
+batt_fans_fuse (RbattFansFuse$
+batt_pump_fuse (RbattPumpFuse
+boards_fuse (R
+boardsFuse)
+bpps1_disconnect (Rbpps1Disconnect&
+bpps1_out_range (Rbpps1OutRange)
+bpps2_disconnect (Rbpps2Disconnect&
+bpps2_out_range (Rbpps2OutRange#
+bpps_mismatch (RbppsMismatch(
+brake_light_fuse (RbrakeLightFuse'
+bse1_disconnect (Rbse1Disconnect$
+bse1_out_range (Rbse1OutRange'
+bse2_disconnect (Rbse2Disconnect$
+bse2_out_range (Rbse2OutRange
+ll_fuse (RllFuse&
+motor_pump_fuse (RmotorPumpFuse
 
-r2d_buzzer (R	r2dBuzzer
-stomp_fault (R
-stompFault(
-neg_hv_contactor (RnegHvContactor(
-pos_hv_contactor	 (RposHvContactor/
-precharge_contactor
- (RprechargeContactor"Ò
+r2d_buzzer (R	r2dBuzzer
+rtd_fuse (RrtdFuse
+
+shtdn_fuse (R	shtdnFuse0
+shutdown_bspd_status (RshutdownBspdStatus4
+shutdown_emeter_status (RshutdownEmeterStatus
+
+spare_fuse  (R	spareFuse
+stomp_fault! (R
+stompFault&
+tssi_green_fuse" (RtssiGreenFuse"
+tssi_red_fuse# (RtssiRedFuse(
+neg_hv_contactor$ (RnegHvContactor(
+pos_hv_contactor% (RposHvContactor/
+precharge_contactor& (RprechargeContactor"˝
 DiagnosticsLow(
 precharge_r_temp (RprechargeRTemp$
 bmb_comm_error (RbmbCommError5
@@ -131,7 +172,15 @@ r2d_status (R	r2dStatus#
 shutdown_leg1 (RshutdownLeg1#
 shutdown_leg2 (RshutdownLeg2#
 shutdown_leg3 (RshutdownLeg3#
-shutdown_leg4	 (RshutdownLeg4"ø
+shutdown_leg4	 (RshutdownLeg4
+
+temp_imd_1
+ (RtempImd1
+
+temp_imd_2 (RtempImd2&
+temp_shutdown_1 (RtempShutdown1&
+temp_shutdown_2 (RtempShutdown2"è
+
 Thermal0
 batt_cooling_current (RbattCoolingCurrent2
 motor_cooling_current (RmotorCoolingCurrent!
@@ -160,4 +209,12 @@ motor_temp (R	motorTemp-
 module_c_temp (RmoduleCTemp7
 motor_loop_inverter_temp (RmotorLoopInverterTemp1
 motor_loop_motor_temp (RmotorLoopMotorTemp-
-motor_loop_rad_temp (RmotorLoopRadTempbproto3
+motor_loop_rad_temp (RmotorLoopRadTemp
+
+temp_ams_1 (RtempAms1
+
+temp_ams_2 (RtempAms2$
+temp_command_1 (RtempCommand1$
+temp_command_2 (RtempCommand2"
+temp_output_1 (RtempOutput1"
+temp_output_2  (RtempOutput2bproto3

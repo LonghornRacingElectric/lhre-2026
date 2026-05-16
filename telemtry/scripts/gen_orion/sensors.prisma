@@ -116,8 +116,36 @@ model diagnostics_high {
   hvc_state_machine    Float?
   post_faults          Float?
   run_faults           Float?
+  apps1_disconnect     Boolean?
+  apps1_out_range      Boolean?
+  apps2_disconnect     Boolean?
+  apps2_out_range      Boolean?
+  apps_implause        Boolean?
+  apps_mismatch        Boolean?
+  batt_fans_fuse       Boolean?
+  batt_pump_fuse       Boolean?
+  boards_fuse          Boolean?
+  bpps1_disconnect     Boolean?
+  bpps1_out_range      Boolean?
+  bpps2_disconnect     Boolean?
+  bpps2_out_range      Boolean?
+  bpps_mismatch        Boolean?
+  brake_light_fuse     Boolean?
+  bse1_disconnect      Boolean?
+  bse1_out_range       Boolean?
+  bse2_disconnect      Boolean?
+  bse2_out_range       Boolean?
+  ll_fuse              Boolean?
+  motor_pump_fuse      Boolean?
   r2d_buzzer           Boolean?
+  rtd_fuse             Boolean?
+  shtdn_fuse           Boolean?
+  shutdown_bspd_status Boolean?
+  shutdown_emeter_status Boolean?
+  spare_fuse           Boolean?
   stomp_fault          Boolean?
+  tssi_green_fuse      Boolean?
+  tssi_red_fuse        Boolean?
   neg_hv_contactor     Boolean?
   pos_hv_contactor     Boolean?
   precharge_contactor  Boolean?
@@ -136,6 +164,10 @@ model diagnostics_low {
   shutdown_leg2        Boolean?
   shutdown_leg3        Boolean?
   shutdown_leg4        Boolean?
+  temp_imd_1           Boolean?
+  temp_imd_2           Boolean?
+  temp_shutdown_1      Boolean?
+  temp_shutdown_2      Boolean?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }
@@ -168,6 +200,12 @@ model thermal {
   motor_loop_inverter_temp Float?
   motor_loop_motor_temp Float?
   motor_loop_rad_temp  Float?
+  temp_ams_1           Boolean?
+  temp_ams_2           Boolean?
+  temp_command_1       Boolean?
+  temp_command_2       Boolean?
+  temp_output_1        Boolean?
+  temp_output_2        Boolean?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }

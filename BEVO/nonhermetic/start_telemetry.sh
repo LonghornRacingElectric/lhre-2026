@@ -5,7 +5,15 @@ SCRIPT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 BEVO_ROOT="$(cd "$SCRIPT_ROOT/.." && pwd)"
 REPO_ROOT="$(cd "$BEVO_ROOT/.." && pwd)"
 
-PYTHON_BIN="${BEVO_PYTHON_BIN:-$REPO_ROOT/.venv/bin/python}"
+PYTHON_BIN="${BEVO_PYTHON_BIN:-}"
+if [[ -z "$PYTHON_BIN" ]]; then
+  for candidate in "$REPO_ROOT/.venv/bin/python" "$REPO_ROOT/venv/bin/python"; do
+    if [[ -x "$candidate" ]]; then
+      PYTHON_BIN="$candidate"
+      break
+    fi
+  done
+fi
 CELL_SCRIPT="${BEVO_CELL_SCRIPT:-$BEVO_ROOT/cell.py}"
 CAN_IFACE_0="${CAND_CAN_INTERFACE_0:-can0}"
 CAN_IFACE_1="${CAND_CAN_INTERFACE_1:-can1}"
@@ -30,7 +38,9 @@ if [[ ! -f "$CELL_SCRIPT" ]]; then
 fi
 
 echo "Turning on cellular module..."
-"$PYTHON_BIN" "$CELL_SCRIPT" on
+if ! "$PYTHON_BIN" "$CELL_SCRIPT" on; then
+  echo "WARNING: cell.py failed; continuing without cellular (dash + CAN still work)." >&2
+fi
 sleep 5
 
 for CAN_IFACE in "$CAN_IFACE_0" "$CAN_IFACE_1"; do
