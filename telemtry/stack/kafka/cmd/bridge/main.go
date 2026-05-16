@@ -784,10 +784,6 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["shutdown_leg2"] = dl.ShutdownLeg2
 		m["shutdown_leg3"] = dl.ShutdownLeg3
 		m["shutdown_leg4"] = dl.ShutdownLeg4
-		m["temp_imd_1"] = dl.TempImd1
-		m["temp_imd_2"] = dl.TempImd2
-		m["temp_shutdown_1"] = dl.TempShutdown1
-		m["temp_shutdown_2"] = dl.TempShutdown2
 	}
 
 	if t := msg.Thermal; t != nil {
@@ -817,12 +813,6 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["motor_loop_inverter_temp"] = t.MotorLoopInverterTemp
 		m["motor_loop_motor_temp"] = t.MotorLoopMotorTemp
 		m["motor_loop_rad_temp"] = t.MotorLoopRadTemp
-		m["temp_ams_1"] = t.TempAms1
-		m["temp_ams_2"] = t.TempAms2
-		m["temp_command_1"] = t.TempCommand1
-		m["temp_command_2"] = t.TempCommand2
-		m["temp_output_1"] = t.TempOutput1
-		m["temp_output_2"] = t.TempOutput2
 	}
 
 	if bs := msg.BoardStatus; bs != nil {
