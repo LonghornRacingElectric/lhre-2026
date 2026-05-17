@@ -45,20 +45,17 @@
 #define PACK_I_MAX_MA     5000
 #define BAL_TEMP_CUTOFF_C 60.0f
 
-// bms_update() cadence dividers. StartBmsTask ticks every 250 ms, so
-// 8 cycles == 2 s and 4 cycles == 1 s.
-//
-// Balance cadence: cell deltas drift at mV/minute, so deciding more often
-// than every couple of seconds is wasted CPU/SPI traffic. The rest tick
-// fires immediately before each balance decision so the algorithm reads
-// true open-circuit cell voltages, not the IR-loaded value across the
-// bleed resistor.
-//
-// Thermistor cadence: cells have huge thermal mass; 1 Hz sampling is
-// plenty and saves SPI bus time on the other ticks.
 #define BAL_PERIOD_CYCLES        8
 #define THERMISTOR_PERIOD_CYCLES 4
-#define BAL_REST_SETTLE_MS       50
+
+// IC die-temperature derating for internal discharge switches.
+// ITMP in Status A: T(C) = (code * 150uV + 1.5V) / 7.5mV/C - 273  (datasheet Table 105)
+#define ADBMS_ITMP_LSB_V         0.000150f
+#define ADBMS_ITMP_OFFSET_V      1.5f
+#define ADBMS_ITMP_SCALE_V_PER_C 0.0075f
+#define BAL_DIE_TEMP_REDUCE_C    80.0f  // cap drops to BAL_DIE_TEMP_REDUCE_MAX above here
+#define BAL_DIE_TEMP_STOP_C      90.0f  // balancing disabled for that IC above here
+#define BAL_DIE_TEMP_REDUCE_MAX  2
 
 static cell_asic IC[TOTAL_IC];
 static uint8_t discharge_active = 0;
@@ -73,6 +70,7 @@ static float cell_voltages[NUM_CELLS];
 static bool     bal_cmd[NUM_CELLS]       = { false };
 static uint16_t bal_dcc_prev[TOTAL_IC]   = { 0 };
 static bool     bal_was_active           = false;
+static float    ic_die_temps[TOTAL_IC]   = { 0.0f };
 
 
 void bms_init(void)
@@ -196,58 +194,74 @@ float bms_get_max_temp(void) {
     return max_t;
 }
 
+float bms_get_ic_die_temp(uint8_t ic) {
+    if (ic >= TOTAL_IC) return 0.0f;
+    return ic_die_temps[ic];
+}
+
+// Per-IC balancing cap based on die temperature.
+static uint8_t ic_bal_cap(uint8_t ic)
+{
+    float t = ic_die_temps[ic];
+    if (t >= BAL_DIE_TEMP_STOP_C)   return 0;
+    if (t >= BAL_DIE_TEMP_REDUCE_C) return BAL_DIE_TEMP_REDUCE_MAX;
+    return MAX_BAL_CELLS_PER_BOARD;
+}
+
 /*
- * Cap per-board balancing requests at MAX_BAL_CELLS_PER_BOARD by keeping
+ * Cap per-board balancing requests using per-IC thermal caps by keeping
  * the cells with the largest delta (cell_v - vmin_v) and clearing the rest.
+ * A cap of 0 disables all balancing on that IC.
  */
 static void limit_max_cells_per_board(bool balance_cmd[NUM_CELLS],
                                       const float cell_v[NUM_CELLS],
-                                      float vmin_v)
+                                      float vmin_v,
+                                      const uint8_t caps[TOTAL_IC])
 {
     for (uint8_t board = 0; board < TOTAL_IC; board++) {
         const uint16_t base = (uint16_t)board * CELLS_PER_IC;
+        const uint8_t  cap  = caps[board];
 
-        uint8_t cand_idx[CELLS_PER_IC];
-        float   cand_delta[CELLS_PER_IC];
-        uint8_t n_cand = 0;
+        uint8_t cell_idx[CELLS_PER_IC];
+        float   cell_delta[CELLS_PER_IC];
+        uint8_t n_cells = 0;
 
         for (uint8_t i = 0; i < CELLS_PER_IC; i++) {
             if (balance_cmd[base + i]) {
                 float v = cell_v[base + i];
-                cand_delta[n_cand] = (v > vmin_v) ? (v - vmin_v) : 0.0f;
-                cand_idx[n_cand] = i;
-                n_cand++;
+                cell_delta[n_cells] = (v > vmin_v) ? (v - vmin_v) : 0.0f;
+                cell_idx[n_cells] = i;
+                n_cells++;
             }
         }
 
-        // Already under (or at) the cap — nothing to trim. Also covers n_cand == 0.
-        if (n_cand <= MAX_BAL_CELLS_PER_BOARD) {
+        // Already under (or at) the cap — nothing to trim. Also covers n_cells == 0.
+        if (n_cells <= cap) {
             continue;
         }
 
-        // Partial selection sort: only need the top MAX_BAL_CELLS_PER_BOARD
-        // entries by delta, in any order. After this loop, positions
-        // [0 .. MAX) hold the keepers and [MAX .. n_cand) hold the rejects.
-        for (uint8_t a = 0; a < MAX_BAL_CELLS_PER_BOARD; a++) {
+        // Partial selection sort: keep the top cap entries by delta.
+        // After this loop, positions [0 .. cap) hold the keepers.
+        for (uint8_t a = 0; a < cap; a++) {
             uint8_t best = a;
-            for (uint8_t b = a + 1; b < n_cand; b++) {
-                if (cand_delta[b] > cand_delta[best]) {
+            for (uint8_t b = a + 1; b < n_cells; b++) {
+                if (cell_delta[b] > cell_delta[best]) {
                     best = b;
                 }
             }
             if (best != a) {
-                float td = cand_delta[a];
-                cand_delta[a]    = cand_delta[best];
-                cand_delta[best] = td;
-                uint8_t ti = cand_idx[a];
-                cand_idx[a]    = cand_idx[best];
-                cand_idx[best] = ti;
+                float td = cell_delta[a];
+                cell_delta[a]    = cell_delta[best];
+                cell_delta[best] = td;
+                uint8_t ti = cell_idx[a];
+                cell_idx[a]    = cell_idx[best];
+                cell_idx[best] = ti;
             }
         }
 
-        // Clear every candidate that didn't make the top.
-        for (uint8_t k = MAX_BAL_CELLS_PER_BOARD; k < n_cand; k++) {
-            balance_cmd[base + cand_idx[k]] = false;
+        // Clear every cell that didn't make the top.
+        for (uint8_t k = cap; k < n_cells; k++) {
+            balance_cmd[base + cell_idx[k]] = false;
         }
     }
 }
@@ -260,8 +274,7 @@ static bool bms_balance_gates_failed(void)
     bool driving     = (get_current_state() == HVC_STATE_ENERGIZED);
     int32_t pack_mA  = (int32_t)(get_tractive_current() * 1000.0f);
     bool overcurrent = (pack_mA > PACK_I_MAX_MA) || (pack_mA < -PACK_I_MAX_MA);
-    bool fault       = bms_check_disconnection() || bms_check_undervoltage()
-                     || bms_check_overtemp();
+    bool fault       = bms_check_disconnection() || bms_check_undervoltage() || bms_check_overtemp();
     bool overtemp    = (bms_get_max_temp() >= BAL_TEMP_CUTOFF_C);
     return fault || driving || overcurrent || overtemp;
 }
@@ -295,8 +308,6 @@ void bms_balance_cells(void)
     const float bal_min_cell_v = BAL_MIN_CELL_MV * 0.001f;
 
     if (bms_balance_gates_failed()) {
-        // Force every command off; the apply step below will push dcc=0
-        // to hardware (if it isn't already there).
         for (int i = 0; i < NUM_CELLS; i++) {
             bal_cmd[i] = false;
         }
@@ -304,39 +315,32 @@ void bms_balance_cells(void)
         // -------- Find vmin over the live cell_voltages[] (volts) --------
         // Skip near-zero reads so a single dropped channel doesn't pin every
         // other cell to a huge delta and fire balancing across the pack.
-        float vmin_v = INFINITY;
+        float vmin_v = bms_get_min_voltage();
+
+        // -------- Per-cell hysteresis decision --------
         for (int i = 0; i < NUM_CELLS; i++) {
             float v = cell_voltages[i];
-            if (v > 0.1f && v < vmin_v) {
-                vmin_v = v;
+
+            if (v < bal_min_cell_v) {
+                bal_cmd[i] = false;          // never bleed a low cell
+                continue;
             }
+            float delta = v - vmin_v;        // negative deltas just fail both compares
+
+            if (delta > bal_start_v) {
+                bal_cmd[i] = true;
+            } else if (delta < bal_stop_v) {
+                bal_cmd[i] = false;
+            }
+            // else: in [BAL_STOP_MV, BAL_START_MV] — leave previous value.
         }
 
-        if (!isfinite(vmin_v)) {
-            // Every channel read ~0 — treat as a fault, leave bleeds off.
-            for (int i = 0; i < NUM_CELLS; i++) bal_cmd[i] = false;
-        } else {
-            // -------- Per-cell hysteresis decision --------
-            for (int i = 0; i < NUM_CELLS; i++) {
-                float v = cell_voltages[i];
-
-                if (v < bal_min_cell_v) {
-                    bal_cmd[i] = false;          // never bleed a low cell
-                    continue;
-                }
-                float delta = v - vmin_v;        // negative deltas just fail both compares
-
-                if (delta > bal_start_v) {
-                    bal_cmd[i] = true;
-                } else if (delta < bal_stop_v) {
-                    bal_cmd[i] = false;
-                }
-                // else: in [BAL_STOP_MV, BAL_START_MV] — leave previous value.
-            }
-
-            // -------- Per-board cap with adjacency preference --------
-            limit_max_cells_per_board(bal_cmd, cell_voltages, vmin_v);
+        // -------- Per-board cap (thermal derating applied here) --------
+        uint8_t caps[TOTAL_IC];
+        for (uint8_t ic = 0; ic < TOTAL_IC; ic++) {
+            caps[ic] = ic_bal_cap(ic);
         }
+        limit_max_cells_per_board(bal_cmd, cell_voltages, vmin_v, caps);
     }
 
     // -------- Pack into chip dcc bitmasks; write only if changed --------
@@ -367,35 +371,6 @@ void bms_balance_cells(void)
     discharge_active = any_on ? 1 : 0;
 }
 
-/*
- * Open every DCC bit and wait BAL_REST_SETTLE_MS for the cells to relax,
- * so the next bms_read_cell_voltages() sees true open-circuit values.
- * No-op when nothing was bleeding. bal_cmd[] is left untouched so the next
- * bms_balance_cells() can re-arm whatever was active.
- */
-static void bms_balancing_rest(void)
-{
-    bool any_active = false;
-    for (uint8_t ic = 0; ic < TOTAL_IC; ic++) {
-        if (bal_dcc_prev[ic] != 0) {
-            any_active = true;
-            break;
-        }
-    }
-    if (!any_active) {
-        return;
-    }
-    for (uint8_t ic = 0; ic < TOTAL_IC; ic++) {
-        IC[ic].tx_cfgb.dcc = 0;
-        bal_dcc_prev[ic]   = 0;
-    }
-    adBmsWakeupIc(TOTAL_IC);
-    adBms6830_write_config(TOTAL_IC, IC);
-
-    // Let the cells settle. bal_was_active stays true so the change-detect
-    // logic in bms_balance_cells() will re-issue the SPI write to re-arm.
-    osDelay(BAL_REST_SETTLE_MS);
-}
 
 void bms_read_thermistors(void)
 {
@@ -416,12 +391,12 @@ void bms_read_thermistors(void)
 
 void bms_read_cell_voltages(void)
 {
-    adBms6830_read_fcell_voltages(TOTAL_IC, IC);
+    adBms6830_read_cell_voltages(TOTAL_IC, IC);
 
     int volt_idx = 0;
     for (int i = 0; i < TOTAL_IC; i++) {
         for (int j = 0; j < CELLS_PER_IC; j++) {
-            int16_t code = IC[i].fcell.fc_codes[j];
+            int16_t code = IC[i].cell.c_codes[j];
             cell_voltages[volt_idx++] = code * ADBMS_LSB_V + ADBMS_OFFSET_V;
         }
     }
@@ -437,6 +412,17 @@ static void bms_update_connectivity(void)
     }
 }
 
+static void bms_read_die_temps(void)
+{
+    uint8_t cmd_rdstata[2] = {0x00, 0x30};
+    adBmsWakeupIc(TOTAL_IC);
+    adBmsReadData(TOTAL_IC, &IC[0], cmd_rdstata, Status, A);
+    for (int i = 0; i < TOTAL_IC; i++) {
+        float v = IC[i].stata.itmp * ADBMS_ITMP_LSB_V + ADBMS_ITMP_OFFSET_V;
+        ic_die_temps[i] = v / ADBMS_ITMP_SCALE_V_PER_C - 273.0f;
+    }
+}
+
 void bms_update(void)
 {
     static uint32_t bms_tick = 0;
@@ -445,14 +431,11 @@ void bms_update(void)
     bool balance_cycle = (bms_tick % BAL_PERIOD_CYCLES) == 0;
     bool temp_cycle = (bms_tick % THERMISTOR_PERIOD_CYCLES) == 0;
 
-    if (balance_cycle) {
-        bms_balancing_rest();
-    }
-
     bms_read_cell_voltages();
 
     if (temp_cycle) {
         bms_read_thermistors();
+        bms_read_die_temps();
     }
 
     bms_update_connectivity();
