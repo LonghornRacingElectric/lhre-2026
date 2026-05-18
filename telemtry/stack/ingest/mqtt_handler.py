@@ -184,7 +184,7 @@ class MQTTHandler:
                 return
 
             try:
-                QueryBuilder.execute_insert(session_obj, jobs, self.table_specs[car], commit=False)
+                QueryBuilder.execute_insert(session_obj, jobs, self.table_specs[car], commit=False, car=car)
 
                 packet_times = sorted({
                     int(row["time"])

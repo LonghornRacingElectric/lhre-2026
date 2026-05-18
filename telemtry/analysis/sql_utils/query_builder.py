@@ -331,16 +331,32 @@ class QueryBuilder:
             session.commit()
 
     @staticmethod
-    def execute_insert(session, rows, table_desc, commit=True):
+    def _model_classes_for_car(car: str):
+        shared_models = [
+            DriveDay,
+            LutDriver,
+            LutLocation,
+            LutCar,
+            LutEventType,
+            Event,
+            Classifier,
+            Partitions,
+        ]
+        if car == "Nightwatch":
+            return shared_models + [Packet, Dynamics, Controls, Pack, DiagnosticsHigh, DiagnosticsLow, Thermal]
+        if car == "Angelique":
+            return shared_models + [AngeliquePacket, AngeliqueDynamics, AngeliqueControls, AngeliquePack, AngeliqueDiagnostics, AngeliqueThermal]
+        if car == "Orion":
+            return shared_models + [OrionPacket, OrionDynamics, OrionControls, OrionPack, OrionDiagnosticsHigh, OrionDiagnosticsLow, OrionThermal, OrionBoardStatus]
+        raise ValueError(f"Car {car} is not supported.")
+
+    @staticmethod
+    def execute_insert(session, rows, table_desc, commit=True, car="Nightwatch"):
         if not rows:
             return
         
         model_lookup = {
-            model.__tablename__: model for model in [
-                Packet, Dynamics, Controls, Pack, DiagnosticsHigh, DiagnosticsLow, Thermal,
-                AngeliquePacket, AngeliqueDynamics, AngeliqueControls, AngeliquePack, AngeliqueDiagnostics, AngeliqueThermal,
-                OrionPacket, OrionDynamics, OrionControls, OrionPack, OrionDiagnosticsHigh, OrionDiagnosticsLow, OrionThermal, OrionBoardStatus,
-            ]
+            model.__tablename__: model for model in QueryBuilder._model_classes_for_car(car)
         }
         
         rows_by_table = {}
@@ -356,11 +372,24 @@ class QueryBuilder:
             table_rows = rows_by_table[table_name]
             model = model_lookup.get(table_name)
             
-            if not model or not table_rows:
+            if not table_rows:
                 continue
+
+            if not model:
+                raise KeyError(
+                    f"No ORM model mapped for table '{table_name}' (car={car}). "
+                    "Regenerate schema artifacts and ensure QueryBuilder model mappings are updated."
+                )
+
+            table_spec = table_desc.get(model.__tablename__)
+            if table_spec is None:
+                raise KeyError(
+                    f"No table description found for '{model.__tablename__}' (car={car}). "
+                    "Regenerate schema artifacts to restore schema consistency."
+                )
             
             processed_rows = [
-                QueryBuilder.get_insert_values(table_name, row, model, table_desc[model.__tablename__])
+                QueryBuilder.get_insert_values(table_name, row, model, table_spec)
                 for row in table_rows
             ]
             
