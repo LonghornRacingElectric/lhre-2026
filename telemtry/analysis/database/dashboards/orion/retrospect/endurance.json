@@ -1,0 +1,259 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "interval": "200ms",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(pack.hv_soc) AS \"hvc/hv_soc [%]\" FROM pack JOIN packet ON packet.packet_id = pack.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "title": "Battery SoC vs Time (Distance Next)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "orion"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": 300000,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "interval": "200ms",
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ), cell_t AS ( SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, UNNEST(pack.cells_temps) AS value FROM pack JOIN packet ON packet.packet_id = pack.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end ) SELECT time, AVG(value) AS \"hvc/cells_temp_avg [C]\" FROM cell_t GROUP BY time ORDER BY time;",
+          "refId": "A"
+        }
+      ],
+      "title": "Battery Temp vs Time (Distance Next)",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "refresh": "",
+  "schemaVersion": 40,
+  "tags": [
+    "orion",
+    "retrospective",
+    "endurance",
+    "use-case"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "orion"
+        },
+        "definition": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "description": "Select partition generated from packet gaps",
+        "includeAll": true,
+        "label": "Zoom to partition",
+        "multi": true,
+        "name": "Zoom",
+        "options": [],
+        "query": "SELECT partition_name FROM partitions ORDER BY start_time;",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "2026-03-11T00:23:00.000Z",
+    "to": "2026-03-12T07:17:00.000Z"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Orion Endurance - Retrospective",
+  "uid": "orion_endurance_ret_v1",
+  "version": 1,
+  "weekStart": ""
+}

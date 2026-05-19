@@ -670,6 +670,7 @@ def main():
         }
         with MQTTHandler('ingest', db_sessions=db_sessions, target=MQTTTarget.get()) as mqtt:
             mqtt.subscribe(topic='#')
+            mqtt.loop_forever()
 
 if __name__ == '__main__':
     logging.basicConfig(level=os.getenv('LOGLEVEL', 'DEBUG'))
