@@ -221,6 +221,7 @@ fn extract_can_data(data: &OrionSensorData) -> CanData {
     let controls = data.controls.as_ref();
     let dynamics = data.dynamics.as_ref();
     let diag_low = data.diagnostics_low.as_ref();
+    let diag_high = data.diagnostics_high.as_ref();
 
     let power = pack.map(|p| p.dc_bus_v * p.dc_bus_current / 1000.0);
     let soc = pack.map(|p| p.hv_soc);
@@ -244,18 +245,33 @@ fn extract_can_data(data: &OrionSensorData) -> CanData {
     // that convention here:
     //   - shutdown_legN / shutdown_*_status: wire bit = 1 means leg closed
     //   - *_error / temp_shutdown_*: wire bit = 1 means a fault, so inverted
-    let shutdown = diag_low.map(|d| vec![
-        d.shutdown_leg1,
-        d.shutdown_leg2,
-        d.shutdown_leg3,
-        d.shutdown_leg4,
-        !d.bmb_comm_error,
-        !d.imd_gnd_isolation_error,
-        d.shutdown_bspd_status,
-        d.shutdown_emeter_status,
-        !d.temp_shutdown_1,
-        !d.temp_shutdown_2,
-    ]);
+    let shutdown = match (diag_low, diag_high) {
+        (Some(low), Some(high)) => Some(vec![
+            low.shutdown_leg1,
+            low.shutdown_leg2,
+            low.shutdown_leg3,
+            low.shutdown_leg4,
+            !low.bmb_comm_error,
+            !low.imd_gnd_isolation_error,
+            high.shutdown_bspd_status,
+            high.shutdown_emeter_status,
+            !low.temp_shutdown_1,
+            !low.temp_shutdown_2,
+        ]),
+        (Some(low), None) => Some(vec![
+            low.shutdown_leg1,
+            low.shutdown_leg2,
+            low.shutdown_leg3,
+            low.shutdown_leg4,
+            !low.bmb_comm_error,
+            !low.imd_gnd_isolation_error,
+            false,
+            false,
+            !low.temp_shutdown_1,
+            !low.temp_shutdown_2,
+        ]),
+        _ => None,
+    };
 
     CanData {
         speed,
