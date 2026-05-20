@@ -99,22 +99,18 @@ const osThreadAttr_t controlTask_attributes = {
 static vcu_parameters_t s_params = {
     .apps =
         {
-            .apps1_min_adc_v =
-                ((1560.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
-            .apps1_max_adc_v =
-                ((1255.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+            .apps1_min_adc_v = 1.750f,
+            .apps1_max_adc_v = 1.540f,
 
-            .apps2_min_adc_v =
-                ((1560.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
-            .apps2_max_adc_v =
-                ((1240.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+            .apps2_min_adc_v = 0.205f,
+            .apps2_max_adc_v = 0.000f,
 
             .implaus_debounce_time_ms = 100u,
-            .max_allowable_diff = 0.12f,
+            .max_allowable_diff = 0.10f,
             // .min_travel_threshold = 0.10f,
             // .max_travel_restore_threshold = 0.05f,
 
-            .min_travel_deadzone = 0.14f,
+            .min_travel_deadzone = 0.08f,
             .max_travel_deadzone = 0.92f,
             .pedal_ema_alpha = 0.35f,
         },
@@ -413,23 +409,29 @@ void StartControlTask(void *argument) {
             (s_params.torque_map.low_cell_derate_start_v -
              s_params.torque_map.low_cell_cutoff_v);
       }
-      log_printf(LOG_INFO,
-                 "TICK:%lu | RPM:%.0f DRA:%.1f ANG:%.1f PED:%.3f TQ:%.1f | "
-                 "MIN:%.4f DRT:%.2f | STR_RAW:%lu AV:%.3f SV:%.3f SPCT:%.3f "
-                 "STR_DEG:%.1f | "
-                 "PRNDL:%u INV:%u | "
-                 "DRV_IN:%u TR:%u | APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
-                 (unsigned long)current_tick, (double)in.motor_speed_rpm,
-                 (double)delta_resolver_angle_deg, (double)motor_angle_deg,
-                 (double)out.accel_pedal_travel, (double)out.torque_cmd,
-                 (double)in.min_cell_voltage_v, (double)torque_derate_pct,
-                 (unsigned long)adc1_val, (double)steering_adc_voltage_v,
-                 (double)steering_sensor_voltage_v,
-                 (double)steering_angle_pct, (double)steering_angle_deg,
-                 (unsigned)out.prndl_state, (unsigned)out.inverter_enable,
-                 (unsigned)in.drive_switch, (unsigned)in.contactors_closed,
-                 (unsigned)out.faults.apps_any_fault,
-                 (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault);
+    // log_printf(LOG_INFO,
+    //          "TICK:%lu | RPM:%.0f DRA:%.1f ANG:%.1f PED:%.3f TQ:%.1f | "
+    //          "MIN:%.4f DRT:%.2f | STR_RAW:%lu AV:%.3f SV:%.3f SPCT:%.3f "
+    //          "STR_DEG:%.1f | "
+    //          "PRNDL:%u INV:%u | "
+    //          "DRV_IN:%u TR:%u | APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
+    //          (unsigned long)current_tick, (double)in.motor_speed_rpm,
+    //          (double)delta_resolver_angle_deg, (double)motor_angle_deg,
+    //          (double)out.accel_pedal_travel, (double)out.torque_cmd,
+    //          (double)in.min_cell_voltage_v, (double)torque_derate_pct,
+    //          (unsigned long)adc1_val, (double)steering_adc_voltage_v,
+    //          (double)steering_sensor_voltage_v,
+    //          (double)steering_angle_pct, (double)steering_angle_deg,
+    //          (unsigned)out.prndl_state, (unsigned)out.inverter_enable,
+    //          (unsigned)in.drive_switch, (unsigned)in.contactors_closed,
+    //          (unsigned)out.faults.apps_any_fault,
+    //          (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault);
+    
+    log_printf(LOG_INFO,
+             "\nAPPS1_RAW:%.3f APPS1_PCT:%.3f\nAPPS2_RAW:%.3f APPS2_PCT:%.3f\nAPPS: %.3f\n\n",
+             (double)in.apps1_raw, (double)out.apps1_travel,
+             (double)in.apps2_raw, (double)out.apps2_travel,
+             (double)out.accel_pedal_travel);
     }
 
     // 3 ms control loop (333 Hz)
