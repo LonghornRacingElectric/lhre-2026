@@ -74,5 +74,6 @@ bash BEVO/nonhermetic/sync_assets.sh
 This refreshes local generated assets used by nonhermetic builds:
 
 - `BEVO/nonhermetic/assets/can.json`
+- `BEVO/nonhermetic/assets/can_packets.proto`
 - `BEVO/sensor_data.desc`
 - `BEVO/generated_mapping.rs`

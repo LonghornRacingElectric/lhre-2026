@@ -1,29 +1,12 @@
 {
-  "sensor_data": [
+  "track-mapper": [
     {
-      "to": "driver_input_visualizer",
-      "pick": ["controls"]
-    },
-    {
-      "to": "car_visualization",
-      "pick": ["dynamics"]
-    },
-    {
-      "to": "live_banner",
-      "pick": ["battery", "odometer"]
+      "to": "track-mapper"
     }
-    
   ],
-
-  "track-mapper":
-  {
-      "to": "track-mapper",
-      "pick": []
-    },
-
-  "gg-plot": {
-    "to": "gg-plot",
-    "pick": ["data"]
-  }
-  
+  "gg-plot": [
+    {
+      "to": "gg-plot"
+    }
+  ]
 }

@@ -377,6 +377,28 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
                                 byte_def["bitfield_encoding"] = (
                                     bitfield_encoding_details
                                 )
+                                for bit in bitfield_encoding_details:
+                                    pb_name = bit.get("protobuf_field")
+                                    if not pb_name:
+                                        continue
+                                    proto_meta = {
+                                        "field": pb_name,
+                                        "type": "bool",
+                                        "repeated": False,
+                                        "field_index": None,
+                                    }
+                                    sub_byte_def = {
+                                        "index": field_index_counter,
+                                        "start_byte": current_byte_index,
+                                        "name": pb_name,
+                                        "length": 1,
+                                        "conv_type": "bool",
+                                        "precision": 1.0,
+                                        "is_boolean": True,
+                                        "protobuf": proto_meta,
+                                    }
+                                    bytes_list.append(sub_byte_def)
+                                    field_index_counter += 1
                             bytes_list.append(byte_def)
                             field_index_counter += 1
                             current_byte_index += length

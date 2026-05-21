@@ -2,12 +2,17 @@ load("//tools:outputs/build_outputs.bzl", "firmware_project_g4")
 
 firmware_project_g4(
     name = "tsm_firmware_2026",
-    linker_script = "STM32G474XX_FLASH.ld",
-    startup_script = "startup_stm32g474xx.s",
+    linker_script = "STM32G491XX_FLASH.ld",
+    startup_script = "startup_stm32g491xx.s",
     defines = [
         "STM32G474xx",
     ],
     enable_freertos = True,
     enable_usb = True,
     usb_device_name = "Thermal Sensor Module",
+    extra_includes = ["tsm/"],
+    extra_srcs = glob([
+        "tsm/*.c",
+        "tsm/*.h",
+    ]),
 )

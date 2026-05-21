@@ -12,6 +12,7 @@ CAN_JSON_PATH="$ASSETS_DIR/can.json"
 CAN_PACKETS_CSV="$REPO_ROOT/drivers/longhorn-lib/config/can_packets.csv"
 CAN_BITFIELDS_CSV="$REPO_ROOT/drivers/longhorn-lib/config/can_bitfields.csv"
 CAN_JSON_GEN_SCRIPT="$REPO_ROOT/drivers/longhorn-lib/scripts/generate_can_json.py"
+CAN_PROTO_SRC="$REPO_ROOT/drivers/longhorn-lib/protobuf/can_packets.proto"
 
 if ! command -v cargo >/dev/null 2>&1; then
   echo "cargo is required but not found" >&2
@@ -26,6 +27,11 @@ fi
 if [[ -f "$CAN_PACKETS_CSV" && -f "$CAN_BITFIELDS_CSV" && -f "$CAN_JSON_GEN_SCRIPT" ]]; then
   echo "Refreshing BEVO-local CAN json at $CAN_JSON_PATH from monorepo CSVs"
   python3 "$CAN_JSON_GEN_SCRIPT" "$CAN_PACKETS_CSV" "$CAN_BITFIELDS_CSV" "$CAN_JSON_PATH"
+fi
+
+if [[ -f "$CAN_PROTO_SRC" ]]; then
+  echo "Refreshing BEVO-local proto at $PROTO_FILE from monorepo source"
+  cp "$CAN_PROTO_SRC" "$PROTO_FILE"
 fi
 
 if [[ ! -f "$PROTO_FILE" ]]; then

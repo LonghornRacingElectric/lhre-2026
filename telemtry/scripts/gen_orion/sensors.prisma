@@ -8,12 +8,14 @@ model packet {
   diagnostics_high diagnostics_high?
   diagnostics_low diagnostics_low?
   thermal thermal?
+  board_status board_status?
 }
 
 model dynamics {
   packet_id BigInt @id
   gps                  Float[]
   gps_imu              Float[]
+  gps_speed            Float?
   accel_pedal_travel   Float?
   steer_col_angle      Float?
   bl_sprung_accel      Float[]
@@ -114,8 +116,36 @@ model diagnostics_high {
   hvc_state_machine    Float?
   post_faults          Float?
   run_faults           Float?
+  apps1_disconnect     Boolean?
+  apps1_out_range      Boolean?
+  apps2_disconnect     Boolean?
+  apps2_out_range      Boolean?
+  apps_implause        Boolean?
+  apps_mismatch        Boolean?
+  batt_fans_fuse       Boolean?
+  batt_pump_fuse       Boolean?
+  boards_fuse          Boolean?
+  bpps1_disconnect     Boolean?
+  bpps1_out_range      Boolean?
+  bpps2_disconnect     Boolean?
+  bpps2_out_range      Boolean?
+  bpps_mismatch        Boolean?
+  brake_light_fuse     Boolean?
+  bse1_disconnect      Boolean?
+  bse1_out_range       Boolean?
+  bse2_disconnect      Boolean?
+  bse2_out_range       Boolean?
+  ll_fuse              Boolean?
+  motor_pump_fuse      Boolean?
   r2d_buzzer           Boolean?
+  rtd_fuse             Boolean?
+  shtdn_fuse           Boolean?
+  shutdown_bspd_status Boolean?
+  shutdown_emeter_status Boolean?
+  spare_fuse           Boolean?
   stomp_fault          Boolean?
+  tssi_green_fuse      Boolean?
+  tssi_red_fuse        Boolean?
   neg_hv_contactor     Boolean?
   pos_hv_contactor     Boolean?
   precharge_contactor  Boolean?
@@ -134,6 +164,10 @@ model diagnostics_low {
   shutdown_leg2        Boolean?
   shutdown_leg3        Boolean?
   shutdown_leg4        Boolean?
+  temp_imd_1           Boolean?
+  temp_imd_2           Boolean?
+  temp_shutdown_1      Boolean?
+  temp_shutdown_2      Boolean?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }
@@ -142,18 +176,21 @@ model thermal {
   packet_id BigInt @id
   batt_cooling_current Float?
   motor_cooling_current Float?
-  motor_temp           Float?
   ambient_temp         Float?
+  motor_temp           Float?
   batt_loop_batt_temp  Float?
   batt_loop_rad_fan_speed Float?
   batt_loop_rad_temp   Float?
+  battery_fan_rpm      Float?
   bus_bar_temp1        Float?
   bus_bar_temp2        Float?
   bus_bar_temp3        Float?
   cell_bottom_temp     Float?
   cell_top_temp        Float?
+  coolant_flow_lpm     Float?
   coolant_temp         Float?
   discharge_r_temp     Float?
+  fan_rpm              Float?
   gate_driver_temp     Float?
   inverter_hotspot_temp Float?
   inverter_temp        Float?
@@ -162,8 +199,27 @@ model thermal {
   module_c_temp        Float?
   motor_loop_inverter_temp Float?
   motor_loop_motor_temp Float?
-  motor_loop_rad_fan_speed Float?
   motor_loop_rad_temp  Float?
+  temp_ams_1           Boolean?
+  temp_ams_2           Boolean?
+  temp_command_1       Boolean?
+  temp_command_2       Boolean?
+  temp_output_1        Boolean?
+  temp_output_2        Boolean?
+
+  packet packet @relation(fields: [packet_id], references: [packet_id])
+}
+
+model board_status {
+  packet_id BigInt @id
+  csm_last_seen_s      Float?
+  dui_last_seen_s      Float?
+  hvc_last_seen_s      Float?
+  inverter_last_seen_s Float?
+  pdu_last_seen_s      Float?
+  tsm_last_seen_s      Float?
+  usm_last_seen_s      Float?
+  vcu_last_seen_s      Float?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }

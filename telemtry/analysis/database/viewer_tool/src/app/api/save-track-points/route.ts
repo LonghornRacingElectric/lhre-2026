@@ -14,34 +14,34 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json();
-    const { event_id, points } = body;
+    const { day_id, points } = body;
 
-    if (!event_id || !Array.isArray(points) || points.length === 0) {
+    if (!day_id || !Array.isArray(points) || points.length === 0) {
       return NextResponse.json(
-        { error: 'Invalid request: event_id and points array required' },
+        { error: 'Invalid request: day_id and points array required' },
         { status: 400 }
       );
     }
 
     client = await pool.connect();
     let saved_count = 0;
-    
+
     for (const point of points) {
       const { latitude, longitude, timestamp_ms } = point;
-      
+
       await client.query(
-        `INSERT INTO public.track_point (event_id, latitude, longitude, timestamp_ms)
+        `INSERT INTO public.track_point (day_id, latitude, longitude, timestamp_ms)
          VALUES ($1, $2, $3, $4)`,
-        [event_id, latitude, longitude, timestamp_ms]
+        [day_id, latitude, longitude, timestamp_ms]
       );
       saved_count++;
     }
 
     return NextResponse.json(
-      { 
-        success: true, 
+      {
+        success: true,
         saved_count,
-        message: `Successfully saved ${saved_count} points for event ${event_id}`
+        message: `Successfully saved ${saved_count} points for day ${day_id}`
       },
       { status: 200 }
     );
