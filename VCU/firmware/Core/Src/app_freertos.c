@@ -37,6 +37,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -81,6 +82,14 @@ const osThreadAttr_t controlTask_attributes = {
 #define ADC_MAX_VAL ((1u << 12) - 1u)
 #define ADC_APPS_SCALE_V 3.3f
 #define ADC_BSE_SCALE_V 3.2837f
+#define ADC_STEERING_SCALE_V 3.3f
+#define STEERING_DIVIDER_R_TOP_OHMS 5100.0f
+#define STEERING_DIVIDER_R_BOTTOM_OHMS 10000.0f
+#define STEERING_SENSOR_SUPPLY_V 4.64f
+#define STEERING_SENSOR_MIN_RATIO 0.10f
+#define STEERING_SENSOR_MAX_RATIO 0.90f
+#define STEERING_SENSOR_ANGLE_RANGE_DEG 360.0f
+#define CONTROL_LOOP_PERIOD_MS 3u
 
 /* USER CODE END PM */
 
@@ -90,30 +99,21 @@ const osThreadAttr_t controlTask_attributes = {
 static vcu_parameters_t s_params = {
     .apps =
         {
-            .apps1_min_adc_v =
-                ((1560.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
-            .apps1_max_adc_v =
-                ((1255.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+            .apps1_min_adc_v = 1.750f,
+            .apps1_max_adc_v = 1.540f,
 
-            .apps2_min_adc_v =
-                ((1560.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
-            .apps2_max_adc_v =
-                ((1240.0f * ADC_APPS_SCALE_V) / ADC_MAX_VAL),
+            .apps2_min_adc_v = 0.205f,
+            .apps2_max_adc_v = 0.000f,
 
             .implaus_debounce_time_ms = 100u,
-            .max_allowable_diff = 0.12f,
+            .max_allowable_diff = 0.10f,
             // .min_travel_threshold = 0.10f,
             // .max_travel_restore_threshold = 0.05f,
 
-            .min_travel_deadzone = 0.14f,
+            .min_travel_deadzone = 0.12f,
             .max_travel_deadzone = 0.92f,
             .pedal_ema_alpha = 0.35f,
         },
-    .torque_map =
-        {
-            .max_torque_nm = 220.0f,
-        },
-
     .bse =
         {
             .bse_off_psi = 30.0f,
@@ -128,14 +128,27 @@ static vcu_parameters_t s_params = {
             .bse2_adc_at_max_psi_v =
                 ((2017.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
             .bse_max_psi = 3000.0f,
-            .max_pedal_while_braking = 0.30f,
+            .max_pedal_while_braking = 0.25f,
             .max_pedal_restore_threshold = 0.05f,
             .min_psi_deadzone = 0.4f,
             .max_psi_deadzone = 1.0f,
-            .bse_ema_alpha = 1.0f,
+            .bse_ema_alpha = 0.10f,
             .brake_light_min_pct = 0.0f,
             .brake_light_max_pct = 0.30f,
         },
+    .torque_map =
+        {
+            .max_torque_nm = 220.0f,
+            .low_cell_derate_start_v = 3.2f,
+            .low_cell_cutoff_v = 3.0f,
+        },
+    .power_limit =
+      {
+          .power_limit_w = 75000.0f,
+          .power_limit_trim_kp = 0.006f,
+          .power_limit_trim_ki = 0.6f,
+          .power_limit_trim_integral_max = 1000.0f,
+      },
     .buzzer_duration_ms = 1800u,
     .brake_enable_threshold = 0.1f,
 };
@@ -156,6 +169,9 @@ const osThreadAttr_t defaultTask_attributes = {
 // Function prototypes
 void StartSystemTask(void *argument);
 void StartControlTask(void *argument);
+static float steering_adc_to_sensor_voltage(float adc_voltage_v);
+static float steering_sensor_voltage_to_percent(float sensor_voltage_v);
+static float steering_sensor_voltage_to_angle_deg(float sensor_voltage_v);
 
 /* USER CODE END FunctionPrototypes */
 
@@ -244,6 +260,31 @@ void StartDefaultTask(void *argument) {
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+static float steering_adc_to_sensor_voltage(float adc_voltage_v) {
+  const float divider_gain =
+      (STEERING_DIVIDER_R_TOP_OHMS + STEERING_DIVIDER_R_BOTTOM_OHMS) /
+      STEERING_DIVIDER_R_BOTTOM_OHMS;
+  return adc_voltage_v * divider_gain;
+}
+
+static float steering_sensor_voltage_to_angle_deg(float sensor_voltage_v) {
+  // Assumes the PIHER sensor output is ratiometric from 10% to 90% of the
+  // 4.64 V supply across a 360 degree sweep.
+  const float angle_pct = steering_sensor_voltage_to_percent(sensor_voltage_v);
+  return (angle_pct * STEERING_SENSOR_ANGLE_RANGE_DEG) -
+         (0.5f * STEERING_SENSOR_ANGLE_RANGE_DEG);
+}
+
+static float steering_sensor_voltage_to_percent(float sensor_voltage_v) {
+  const float sensor_min_v =
+      STEERING_SENSOR_SUPPLY_V * STEERING_SENSOR_MIN_RATIO;
+  const float sensor_max_v =
+      STEERING_SENSOR_SUPPLY_V * STEERING_SENSOR_MAX_RATIO;
+  const float clamped_sensor_v =
+      fminf(fmaxf(sensor_voltage_v, sensor_min_v), sensor_max_v);
+  return (clamped_sensor_v - sensor_min_v) / (sensor_max_v - sensor_min_v);
+}
+
 // SystemTask: one-time initialization (USB, logging, DFU, ADC DMA, CAN) -----
 void StartSystemTask(void *argument) {
   // USB + logging
@@ -296,8 +337,11 @@ void StartControlTask(void *argument) {
 
   vcu_model_init(&ctx, &s_params);
 
-  uint32_t log_div = 0;  // for slower logging
-  uint32_t adc1_val = 0; // optional polled ADC1 read
+  uint32_t adc1_val = 0; // steering ADC1 read
+  float steering_adc_voltage_v = 0.0f;
+  float steering_sensor_voltage_v = 0.0f;
+  float steering_angle_pct = 0.0f;
+  float steering_angle_deg = 0.0f;
 
   for (;;) {
     uint32_t current_tick = osKernelGetTickCount();
@@ -321,12 +365,20 @@ void StartControlTask(void *argument) {
     // Optional: small delay to let conversions complete before we read
     // osDelay(1);
 
-    // To-Do: Steering
-    // HAL_ADC_Start(&hadc1);
-    // if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
-    //   adc1_val = HAL_ADC_GetValue(&hadc1);
-    // }
-    // HAL_ADC_Stop(&hadc1);
+    HAL_ADC_Start(&hadc1);
+    if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
+      adc1_val = HAL_ADC_GetValue(&hadc1);
+    }
+    HAL_ADC_Stop(&hadc1);
+
+    steering_adc_voltage_v =
+        ((float)adc1_val * ADC_STEERING_SCALE_V) / ADC_MAX_VAL;
+    steering_sensor_voltage_v =
+        steering_adc_to_sensor_voltage(steering_adc_voltage_v);
+    steering_angle_pct =
+        steering_sensor_voltage_to_percent(steering_sensor_voltage_v);
+    steering_angle_deg =
+        steering_sensor_voltage_to_angle_deg(steering_sensor_voltage_v);
 
     // Read pedal sensors from DMA buffers
     in.apps1_raw = ((float)adc3_dma_buf[0] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
@@ -337,85 +389,59 @@ void StartControlTask(void *argument) {
     in.drive_switch = is_drive_switch_pressed();
 
     in.contactors_closed = hvc_tractive_ready();
+    in.motor_speed_rpm = fabsf(vcu_can_get_motor_speed_rpm());
+    in.min_cell_voltage_v = vcu_can_get_min_cell_voltage_v();
+    if (in.min_cell_voltage_v <= 0.0f) {
+      in.min_cell_voltage_v = s_params.torque_map.low_cell_derate_start_v;
+    }
+    in.battery_voltage_v = 0;
+    in.battery_current_a = 0;
 
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
 
     vcu_can_set_model_inputs(&in);
     vcu_can_set_model_outputs(&out);
+    vcu_can_set_steering_angle_deg(steering_angle_deg);
 
-    // log_printf(LOG_WARNING,
-    //            "PEDAL OUT, %0.2f, TORQUE OUT %0.2f, FAULT %d, APPS1 %0.2f, "
-    //            "APPS2 %0.2f",
-    //            out.accel_pedal_travel, out.torque_cmd,
-    //            out.faults.apps_any_fault, out.apps1_travel,
-    //            out.apps2_travel);
-
-float front_bias_pct = 0.0f;
-float total = out.bse1_psi + out.bse2_psi;
-
-if (total > 1e-3f) {
-    front_bias_pct = (out.bse1_psi / total) * 100.0f;
-}
-
-// log_printf(LOG_WARNING,
-//     "BSE_RAW adc1=%u adc2=%u | PSI1=%.2f PSI2=%.2f AVG=%.2f | FRONT_BIAS=%.1f%% | BRAKE=%u",
-//     (unsigned)adc2_dma_buf[0],
-//     (unsigned)adc2_dma_buf[1],
-//     out.bse1_psi,
-//     out.bse2_psi,
-//     out.bse_psi,
-//     front_bias_pct,
-//     (unsigned)out.brake_pressed
-// );
-
-//     log_printf(LOG_WARNING,
-//     "BSE_RAW adc1=%u adc2=%u | V1=%.4f V2=%.4f | CAL1 min=%.4f max=%.4f | CAL2 min=%.4f max=%.4f | PSI1=%.2f PSI2=%.2f AVG=%.2f | BRAKE=%u",
-//     (unsigned)adc2_dma_buf[0],
-//     (unsigned)adc2_dma_buf[1],
-//     in.bse1_raw,
-//     in.bse2_raw,
-//     s_params.bse.bse1_adc_at_min_psi_v,
-//     s_params.bse.bse1_adc_at_max_psi_v,
-//     s_params.bse.bse2_adc_at_min_psi_v,
-//     s_params.bse.bse2_adc_at_max_psi_v,
-//     out.bse1_psi,
-//     out.bse2_psi,
-//     out.bse_psi,
-//     (unsigned)out.brake_pressed
-// );
+    float delta_resolver_angle_deg = vcu_can_get_delta_resolver_angle_deg();
+    float motor_angle_deg = vcu_can_get_motor_angle_deg();
+    float torque_derate_pct = 1.0f;
+    if (in.min_cell_voltage_v <= s_params.torque_map.low_cell_cutoff_v) {
+      torque_derate_pct = 0.0f;
+    } else if (in.min_cell_voltage_v <
+                s_params.torque_map.low_cell_derate_start_v) {
+      torque_derate_pct =
+          (in.min_cell_voltage_v - s_params.torque_map.low_cell_cutoff_v) /
+          (s_params.torque_map.low_cell_derate_start_v -
+            s_params.torque_map.low_cell_cutoff_v);
+    // log_printf(LOG_INFO,
+    //          "TICK:%lu | RPM:%.0f DRA:%.1f ANG:%.1f PED:%.3f TQ:%.1f | "
+    //          "MIN:%.4f DRT:%.2f | STR_RAW:%lu AV:%.3f SV:%.3f SPCT:%.3f "
+    //          "STR_DEG:%.1f | "
+    //          "PRNDL:%u INV:%u | "
+    //          "DRV_IN:%u TR:%u | APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
+    //          (unsigned long)current_tick, (double)in.motor_speed_rpm,
+    //          (double)delta_resolver_angle_deg, (double)motor_angle_deg,
+    //          (double)out.accel_pedal_travel, (double)out.torque_cmd,
+    //          (double)in.min_cell_voltage_v, (double)torque_derate_pct,
+    //          (unsigned long)adc1_val, (double)steering_adc_voltage_v,
+    //          (double)steering_sensor_voltage_v,
+    //          (double)steering_angle_pct, (double)steering_angle_deg,
+    //          (unsigned)out.prndl_state, (unsigned)out.inverter_enable,
+    //          (unsigned)in.drive_switch, (unsigned)in.contactors_closed,
+    //          (unsigned)out.faults.apps_any_fault,
+    //          (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault);
     
-    // log_printf(LOG_WARNING,
-    // "PEDAL_OUT %.2f, TORQUE_OUT %.2f, APPS1 %.2f, APPS2 %.2f, adc1: %u, adc2: %u",
-    // out.accel_pedal_travel,
-    // out.torque_cmd,
-    // out.apps1_travel,
-    // out.apps2_travel,
-    // adc3_dma_buf[0],
-    // adc3_dma_buf[1]);           
-
     log_printf(LOG_INFO,
-               "TICK:%lu | PED:%.3f TQ:%.1f | PRNDL:%u INV:%u | "
-               "DRV_IN:%u TR:%u | "
-               "APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
-               (unsigned long)current_tick, (double)out.accel_pedal_travel,
-               (double)out.torque_cmd, (unsigned)out.prndl_state,
-               (unsigned)out.inverter_enable, (unsigned)in.drive_switch,
-               (unsigned)in.contactors_closed,
-               (unsigned)out.faults.apps_any_fault,
-               (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault);
-
-    // log_printf(LOG_WARNING,
-    //        "R2D_RX:%u CONTACTORS:%u PRNDL:%u BRAKE:%u\n",
-    //        (unsigned)in.drive_switch,
-    //        (unsigned)in.contactors_closed,
-    //        (unsigned)out.prndl_state,
-    //        (unsigned)out.brake_pressed);
-
-    
+             "\nAPPS1_RAW:%.3f APPS1_PCT:%.3f\nAPPS2_RAW:%.3f APPS2_PCT:%.3f\nAPPS: %.3f\n\n",
+             (double)in.apps1_raw, (double)out.apps1_travel,
+             (double)in.apps2_raw, (double)out.apps2_travel,
+             (double)out.accel_pedal_travel);
+    }
 
     // 3 ms control loop (333 Hz)
-    osDelay(pdMS_TO_TICKS(3));
+    osDelay(pdMS_TO_TICKS(CONTROL_LOOP_PERIOD_MS));
   }
 }
 

@@ -6,6 +6,7 @@
  */
 
 #include "hvc_bms.h"
+#include "can.h"
 #include "hvc_thermistors.h"
 #include "can.h"
 #include "main.h"
@@ -45,6 +46,7 @@ static uint8_t discharge_active = 0;
 static uint8_t bms_error_bmb = 0;      // Which BMB has the error
 static uint8_t bms_error_cell = 0;     // Which cell/thermistor has the error
 static uint8_t bms_responsive_ics = 0;
+static float min_cell_voltage_v = 0.0f;
 
 // Cell temperature buffer for CAN transmission
 static float cell_temps[90];
@@ -65,6 +67,11 @@ float getPackVoltage_v(void)
     }
 
     return pack_v;
+}
+
+float bms_get_min_cell_voltage_v(void)
+{
+    return min_cell_voltage_v;
 }
 
 // Return BMS status: 1 if discharging active, 0 otherwise
@@ -280,6 +287,8 @@ void bms_update(void)
     // Read cell voltages
     adBms6830_read_cell_voltages(TOTAL_IC, IC);
     
+    min_cell_voltage_v = INFINITY;
+
     // Print all cell voltages
     for (int i = 0; i < TOTAL_IC; i++) {
         char cell_line[256];
@@ -291,6 +300,9 @@ void bms_update(void)
         for (int j = 0; j < CELLS_PER_IC; j++) {
             code = IC[i].cell.c_codes[j];
             voltage_v = (code * 0.000150f) + 1.5f;
+            if (voltage_v < min_cell_voltage_v) {
+                min_cell_voltage_v = voltage_v;
+            }
             
             // Add to line buffer
             // offset += snprintf(cell_line + offset, sizeof(cell_line) - offset, 
@@ -306,6 +318,12 @@ void bms_update(void)
         
         // osDelay(10);
     }
+
+    if (!isfinite(min_cell_voltage_v)) {
+        min_cell_voltage_v = 0.0f;
+    }
+
+    hvc_set_min_cell_voltage(min_cell_voltage_v);
     // log_printf(LOG_INFO, "Pack Voltage: %.3f V\n", getPackVoltage_v());
     
     // Read thermistor values

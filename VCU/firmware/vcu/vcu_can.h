@@ -24,10 +24,16 @@ void vcu_can_read_contactor_status(void);
 
 void vcu_can_set_model_inputs(const vcu_inputs_t *in);
 void vcu_can_set_model_outputs(const vcu_outputs_t *out);
+void vcu_can_set_steering_angle_deg(float steering_angle_deg);
 
 bool is_drive_switch_pressed(void);
 
 bool hvc_tractive_ready(void);
+
+float vcu_can_get_motor_speed_rpm(void);
+float vcu_can_get_delta_resolver_angle_deg(void);
+float vcu_can_get_motor_angle_deg(void);
+float vcu_can_get_min_cell_voltage_v(void);
 
 // Inverter feedback variables (populated automatically)
 extern float inverter_torque_fb;   // Nm

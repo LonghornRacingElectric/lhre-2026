@@ -34,6 +34,14 @@ static can_receive_message_t *contactor_status_mailbox_handle = NULL;
 static msg_dui_r2d_status_t dui_r2d_status_mailbox = {0};
 static can_receive_message_t *dui_r2d_status_mailbox_handle = NULL;
 
+static msg_inverter_status_t inverter_status_mailbox = {0};
+static can_receive_message_t *inverter_status_mailbox_handle = NULL;
+
+static msg_inverter_speed_t inverter_speed_mailbox = {0};
+static can_receive_message_t *inverter_speed_mailbox_handle = NULL;
+
+static msg_battery_cell_limits_t battery_cell_limits_mailbox = {0};
+static can_receive_message_t *battery_cell_limits_mailbox_handle = NULL;
 // #define DUI_R2D_STATUS_TIMEOUT_MS 1000u
 
 // static bool dui_r2d_timed_out_logged = false;
@@ -57,6 +65,9 @@ static can_message_t *bse_voltages_mailbox_handle = NULL;
 
 static msg_brakes_t brakes_mailbox = {0};
 static can_message_t *brakes_mailbox_handle = NULL;
+
+static msg_steering_column_t steering_column_mailbox = {0};
+static can_message_t *steering_column_mailbox_handle = NULL;
 
 static msg_vcu_state_t vcu_state_mailbox = {0};
 static can_message_t *vcu_state_mailbox_handle = NULL;
@@ -175,6 +186,13 @@ void vcu_can_add_send_handlers(void) {
   can_rtos_register_send_packet(&critical_bus, brakes_mailbox_handle);
   log_printf(LOG_INFO, "[VCU] CAN send handler for brakes registered\n");
 
+  steering_column_mailbox_handle = can_get_message_handle(
+      &steering_column_mailbox, STEERING_COLUMN_ID, STEERING_COLUMN_FREQ,
+      STEERING_COLUMN_DLC, (CAN_pack_message_fn)pack_steering_column);
+  can_rtos_register_send_packet(&critical_bus, steering_column_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN send handler for steering column registered\n");
+
   vcu_state_mailbox_handle =
       can_get_message_handle(&vcu_state_mailbox, VCU_STATE_ID, VCU_STATE_FREQ,
                              VCU_STATE_DLC,
@@ -250,6 +268,10 @@ void vcu_can_set_model_outputs(const vcu_outputs_t *out) {
   }
 }
 
+void vcu_can_set_steering_angle_deg(float steering_angle_deg) {
+  steering_column_mailbox.steering_column_angle = steering_angle_deg;
+}
+
 static float compute_brake_bias_pct(const vcu_outputs_t *out) {
   float total = out->bse1_psi + out->bse2_psi;
 
@@ -306,6 +328,27 @@ bool hvc_tractive_ready(void) {
   return contactor_status_mailbox.hvc_state_machine == HVC_STATE_ENERGIZED;
 }
 
+float vcu_can_get_motor_speed_rpm(void) {
+  if (!message_timed_out(inverter_speed_mailbox_handle,
+                         INVERTER_SPEED_TIMEOUT_MS)) {
+    return (float)inverter_speed_mailbox.motor_speed;
+  }
+
+  return (float)inverter_status_mailbox.motor_speed;
+}
+
+float vcu_can_get_delta_resolver_angle_deg(void) {
+  return (float)inverter_status_mailbox.delta_resolver_angle;
+}
+
+float vcu_can_get_motor_angle_deg(void) {
+  return (float)inverter_status_mailbox.motor_angle;
+}
+
+float vcu_can_get_min_cell_voltage_v(void) {
+  return battery_cell_limits_mailbox.min_cell_voltage;
+}
+
 /**
  * @brief Creates the CAN receive handlers and registers them with the CAN lib
  *
@@ -329,4 +372,29 @@ void vcu_can_add_receive_handlers(void) {
                                    dui_r2d_status_mailbox_handle);
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for DUI R2D status registered\n");
+
+  inverter_status_mailbox_handle = can_get_receive_message_handle(
+      &inverter_status_mailbox, INVERTER_STATUS_ID,
+      (CAN_unpack_message_fn)unpack_inverter_status);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   inverter_status_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for inverter status registered\n");
+
+  inverter_speed_mailbox_handle = can_get_receive_message_handle(
+      &inverter_speed_mailbox, INVERTER_SPEED_ID,
+      (CAN_unpack_message_fn)unpack_inverter_speed);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   inverter_speed_mailbox_handle);
+
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for inverter speed registered\n");
+
+  battery_cell_limits_mailbox_handle = can_get_receive_message_handle(
+      &battery_cell_limits_mailbox, BATTERY_CELL_LIMITS_ID,
+      (CAN_unpack_message_fn)unpack_battery_cell_limits);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   battery_cell_limits_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for battery cell limits registered\n");
 }

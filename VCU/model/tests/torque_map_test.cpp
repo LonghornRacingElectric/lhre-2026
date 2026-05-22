@@ -14,6 +14,8 @@ protected:
     params.torque_map.max_torque_nm = 100.0f;
     in = {0};
     out = {0};
+    in.min_cell_voltage_v = 4.0f;
+    torque_map_init(&params);
   }
 };
 
@@ -21,15 +23,15 @@ TEST_F(TorqueMapTest, BasicMapping) {
   // 0 pedal -> 0 torque
   out.accel_pedal_travel = 0.0f;
   torque_map_evaluate(&in, &out, &params, 10);
-  EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
+  EXPECT_FLOAT_EQ(out.torque_lookup_output, 0.0f);
 
   // 50% pedal -> 50 torque
   out.accel_pedal_travel = 0.5f;
   torque_map_evaluate(&in, &out, &params, 10);
-  EXPECT_FLOAT_EQ(out.torque_cmd, 50.0f);
+  EXPECT_FLOAT_EQ(out.torque_lookup_output, 50.0f);
 
   // 100% pedal -> 100 torque
   out.accel_pedal_travel = 1.0f;
   torque_map_evaluate(&in, &out, &params, 10);
-  EXPECT_FLOAT_EQ(out.torque_cmd, 100.0f);
+  EXPECT_FLOAT_EQ(out.torque_lookup_output, 100.0f);
 }
