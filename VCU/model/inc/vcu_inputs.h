@@ -21,6 +21,9 @@ typedef struct {
   float motor_speed_rpm;
   float min_cell_voltage_v;
 
+  float battery_voltage_v;
+  float battery_current_a;
+
   /*  can add more later:
    *  float dc_bus_voltage;
    *  bool inverter_enabled;

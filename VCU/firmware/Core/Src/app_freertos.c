@@ -114,13 +114,6 @@ static vcu_parameters_t s_params = {
             .max_travel_deadzone = 0.92f,
             .pedal_ema_alpha = 0.35f,
         },
-    .torque_map =
-        {
-            .max_torque_nm = 220.0f,
-            .low_cell_derate_start_v = 3.1f,
-            .low_cell_cutoff_v = 3.0f,
-        },
-
     .bse =
         {
             .bse_off_psi = 30.0f,
@@ -135,14 +128,27 @@ static vcu_parameters_t s_params = {
             .bse2_adc_at_max_psi_v =
                 ((2017.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
             .bse_max_psi = 3000.0f,
-            .max_pedal_while_braking = 0.30f,
+            .max_pedal_while_braking = 0.25f,
             .max_pedal_restore_threshold = 0.05f,
             .min_psi_deadzone = 0.4f,
             .max_psi_deadzone = 1.0f,
-            .bse_ema_alpha = 1.0f,
+            .bse_ema_alpha = 0.10f,
             .brake_light_min_pct = 0.0f,
             .brake_light_max_pct = 0.30f,
         },
+    .torque_map =
+        {
+            .max_torque_nm = 220.0f,
+            .low_cell_derate_start_v = 3.2f,
+            .low_cell_cutoff_v = 3.0f,
+        },
+    .power_limit =
+      {
+          .power_limit_w = 75000.0f,
+          .power_limit_trim_kp = 0.006f,
+          .power_limit_trim_ki = 0.6f,
+          .power_limit_trim_integral_max = 1000.0f,
+      },
     .buzzer_duration_ms = 1800u,
     .brake_enable_threshold = 0.1f,
 };
@@ -388,6 +394,8 @@ void StartControlTask(void *argument) {
     if (in.min_cell_voltage_v <= 0.0f) {
       in.min_cell_voltage_v = s_params.torque_map.low_cell_derate_start_v;
     }
+    in.battery_voltage_v = 0;
+    in.battery_current_a = 0;
 
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
@@ -396,19 +404,17 @@ void StartControlTask(void *argument) {
     vcu_can_set_model_outputs(&out);
     vcu_can_set_steering_angle_deg(steering_angle_deg);
 
-    {
-      float delta_resolver_angle_deg = vcu_can_get_delta_resolver_angle_deg();
-      float motor_angle_deg = vcu_can_get_motor_angle_deg();
-      float torque_derate_pct = 1.0f;
-      if (in.min_cell_voltage_v <= s_params.torque_map.low_cell_cutoff_v) {
-        torque_derate_pct = 0.0f;
-      } else if (in.min_cell_voltage_v <
-                 s_params.torque_map.low_cell_derate_start_v) {
-        torque_derate_pct =
-            (in.min_cell_voltage_v - s_params.torque_map.low_cell_cutoff_v) /
-            (s_params.torque_map.low_cell_derate_start_v -
-             s_params.torque_map.low_cell_cutoff_v);
-      }
+    float delta_resolver_angle_deg = vcu_can_get_delta_resolver_angle_deg();
+    float motor_angle_deg = vcu_can_get_motor_angle_deg();
+    float torque_derate_pct = 1.0f;
+    if (in.min_cell_voltage_v <= s_params.torque_map.low_cell_cutoff_v) {
+      torque_derate_pct = 0.0f;
+    } else if (in.min_cell_voltage_v <
+                s_params.torque_map.low_cell_derate_start_v) {
+      torque_derate_pct =
+          (in.min_cell_voltage_v - s_params.torque_map.low_cell_cutoff_v) /
+          (s_params.torque_map.low_cell_derate_start_v -
+            s_params.torque_map.low_cell_cutoff_v);
     // log_printf(LOG_INFO,
     //          "TICK:%lu | RPM:%.0f DRA:%.1f ANG:%.1f PED:%.3f TQ:%.1f | "
     //          "MIN:%.4f DRT:%.2f | STR_RAW:%lu AV:%.3f SV:%.3f SPCT:%.3f "

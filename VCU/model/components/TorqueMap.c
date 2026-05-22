@@ -44,8 +44,8 @@ static void build_torque_table(float max_torque_nm) {
   }
 }
 
-static void torque_map_init(float max_torque_nm) {
-  build_torque_table(max_torque_nm);
+void torque_map_init(const vcu_parameters_t *params) {
+  build_torque_table(params->torque_map.max_torque_nm);
 
   Lookup2D_init(&torque_lookup,
                 0.0f,          // x0 = APPS min
@@ -55,8 +55,28 @@ static void torque_map_init(float max_torque_nm) {
                 torque_table);
 }
 
+static float compute_low_cell_voltage_derate(const vcu_inputs_t *in,
+                                             const vcu_parameters_t *params) {
+  const float derate_start_v = params->torque_map.low_cell_derate_start_v;
+  const float cutoff_v = params->torque_map.low_cell_cutoff_v;
+
+  if (derate_start_v <= cutoff_v) {
+    return 1.0f;
+  }
+
+  if (in->min_cell_voltage_v >= derate_start_v) {
+    return 1.0f;
+  }
+
+  if (in->min_cell_voltage_v <= cutoff_v) {
+    return 0.0f;
+  }
+
+  return (in->min_cell_voltage_v - cutoff_v) / (derate_start_v - cutoff_v);
+}
+
 void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
-                         vcu_parameters_t *params, uint32_t dt_ms) {
+                         const vcu_parameters_t *params, uint32_t dt_ms) {
   (void)dt_ms;
 
   float max_torque_nm = params->torque_map.max_torque_nm;
@@ -64,10 +84,15 @@ void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
     max_torque_nm = 0.0f;
   }
 
-  torque_map_init(max_torque_nm);
-
   float apps = clamp_f(out->accel_pedal_travel, 0.0f, 1.0f);
   float rpm = clamp_f(in->motor_speed_rpm, 0.0f, MAX_MOTOR_RPM);
 
-  out->torque_cmd = Lookup2D_evaluate(&torque_lookup, apps, rpm);
+  out->torque_lookup_output = Lookup2D_evaluate(&torque_lookup, apps, rpm);
+
+  out->derate_factor_cell_voltage = compute_low_cell_voltage_derate(in, params);
+  out->derate_factor_cell_temp = 1.0f; // TODO: cell temp derate
+
+  out->torque_derated = out->torque_lookup_output
+  * out->derate_factor_cell_voltage
+  * out->derate_factor_cell_temp;
 }

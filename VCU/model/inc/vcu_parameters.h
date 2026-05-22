@@ -61,6 +61,13 @@ typedef struct {
     float low_cell_derate_start_v;
     float low_cell_cutoff_v;
   } torque_map;
+
+  struct {
+    float power_limit_w;
+    float power_limit_trim_kp;
+    float power_limit_trim_ki;
+    float power_limit_trim_integral_max;
+  } power_limit;
 } vcu_parameters_t;
 
 #ifdef __cplusplus

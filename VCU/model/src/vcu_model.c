@@ -1,5 +1,4 @@
 #include "vcu_model.h"
-#include "TorqueMap.h"
 #include "string.h"
 #include "util.h"
 #include <math.h>
@@ -20,6 +19,8 @@ void vcu_model_init(vcu_model_context_t *ctx, const vcu_parameters_t *params) {
   apps_init(&ctx->apps_state);
   bse_init(&ctx->bse_state);
   cooling_init(&ctx->cooling_state, &ctx->params);
+  torque_map_init(&ctx->params);
+  power_limit_init(&ctx->power_limit_state, &ctx->params);
 }
 
 bool can_timed_out() { return false; }
@@ -28,26 +29,6 @@ bool any_fault_exists(vcu_outputs_t *out) {
   out->faults.any_fault =
       out->faults.apps_any_fault || out->faults.brake_any_fault;
   return out->faults.any_fault;
-}
-
-static float compute_low_cell_voltage_derate(const vcu_inputs_t *in,
-                                             const vcu_parameters_t *params) {
-  const float derate_start_v = params->torque_map.low_cell_derate_start_v;
-  const float cutoff_v = params->torque_map.low_cell_cutoff_v;
-
-  if (derate_start_v <= cutoff_v) {
-    return 1.0f;
-  }
-
-  if (in->min_cell_voltage_v >= derate_start_v) {
-    return 1.0f;
-  }
-
-  if (in->min_cell_voltage_v <= cutoff_v) {
-    return 0.0f;
-  }
-
-  return (in->min_cell_voltage_v - cutoff_v) / (derate_start_v - cutoff_v);
 }
 
 void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
@@ -66,7 +47,9 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
 
   // perform mapping from pedal to output
   torque_map_evaluate(in, out, &ctx->params, dt_ms);
-  out->torque_cmd *= compute_low_cell_voltage_derate(in, &ctx->params);
+
+  // power limit
+  power_limit_evaluate(in, out, &ctx->power_limit_state, &ctx->params, dt_ms);
 
   // get the state for this step
   prndl_evaluate(&ctx->prndl_machine, in, out, ctx->time_ms);
