@@ -14,6 +14,8 @@ protected:
     params.torque_map.max_torque_nm = 100.0f;
     in = {0};
     out = {0};
+    in.cell_voltage_v = 4.0f;
+    torque_map_init(&params);
   }
 };
 
