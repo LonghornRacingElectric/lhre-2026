@@ -92,7 +92,8 @@ fn canonical_csv_headers() -> Vec<String> {
         thermal: Some(Thermal::default()),
         board_status: Some(BoardStatus::default()),
     };
-    let value = serde_json::to_value(&template).unwrap_or(Value::Null);
+    let value = serde_json::to_value(&template)
+        .expect("OrionSensorData::default() must always serialize to JSON");
     let mut row = BTreeMap::new();
     flatten_json_value("", &value, &mut row);
     row.keys().cloned().collect()
