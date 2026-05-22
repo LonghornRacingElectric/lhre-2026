@@ -39,6 +39,7 @@ graph TD
 *   **Root Table:** The `packet` table (with relations to all discovered sensor messages).
 *   **Sensor Tables:** `dynamics`, `controls`, `pack`, `thermal`, `diagnostics`.
 *   **Python:** SQLAlchemy models and DataClasses.
+*   **Viewer Runtime Proto Mirror (Orion):** `analysis/database/viewer_tool/protobuf/orion.proto` for runtime protobufjs decode.
 
 ## 4. Implementation Plan
 
@@ -54,5 +55,5 @@ graph TD
         *   Map Postgres types to Prisma types (e.g., `smallint` -> `Int`, `real` -> `Float`).
         *   Generate `common.prisma`.
 3.  **Integration:**
-    *   Update `sync_schema.sh` to orchestrate this generation.
+    *   Update `sync_schema.sh` to orchestrate this generation and sync Orion viewer runtime proto from `drivers/longhorn-lib/protobuf/can_packets.proto`.
     *   Update `mqtt_handler.py` and Viewer Tool to use generated artifacts.

@@ -418,9 +418,14 @@ def parse_can_model_to_partitions(packets: list) -> Dict[str, List[ParsedField]]
 
 
 def _ensure_dynamics_gps_fields(fields: List[ParsedField]) -> List[ParsedField]:
-    forced_names = ["gps", "gps_imu"]
+    forced_names = ["gps", "gps_imu", "gps_speed"]
     forced: Dict[str, ParsedField] = {
-        name: ParsedField(proto_name=name, proto_type="float", repeated=True, weight=0.0)
+        name: ParsedField(
+            proto_name=name,
+            proto_type="float",
+            repeated=(name != "gps_speed"),
+            weight=0.0,
+        )
         for name in forced_names
     }
     existing: Dict[str, ParsedField] = {f.proto_name: f for f in fields}
@@ -429,7 +434,10 @@ def _ensure_dynamics_gps_fields(fields: List[ParsedField]) -> List[ParsedField]:
     for name in forced_names:
         if name in existing:
             existing_field = existing.pop(name)
-            result.append(ParsedField(proto_name=name, proto_type="float", repeated=True, weight=existing_field.weight))
+            if name != "gps_speed":
+                result.append(ParsedField(proto_name=name, proto_type="float", repeated=True, weight=existing_field.weight))
+            else:
+                result.append(ParsedField(proto_name=name, proto_type='float', repeated=False, weight=existing_field.weight))
         else:
             result.append(forced[name])
 
@@ -445,6 +453,21 @@ def _emit_message(name: str, fields: List[ParsedField]) -> str:
         repeated_kw = "repeated " if field.repeated else ""
         lines.append(f"    {repeated_kw}{field.proto_type} {field.proto_name} = {tag};")
         tag += 1
+    lines.append("}")
+    return "\n".join(lines)
+
+
+def _emit_board_status_message() -> str:
+    lines: List[str] = []
+    lines.append("message BoardStatus {")
+    lines.append("    float csm_last_seen_s = 1;")
+    lines.append("    float dui_last_seen_s = 2;")
+    lines.append("    float hvc_last_seen_s = 3;")
+    lines.append("    float inverter_last_seen_s = 4;")
+    lines.append("    float pdu_last_seen_s = 5;")
+    lines.append("    float tsm_last_seen_s = 6;")
+    lines.append("    float usm_last_seen_s = 7;")
+    lines.append("    float vcu_last_seen_s = 8;")
     lines.append("}")
     return "\n".join(lines)
 
@@ -478,7 +501,11 @@ def generate_proto_text(partitions: Dict[str, List[ParsedField]], car_name:str) 
         lines.append("    DiagnosticsLow diagnostics_low = 7;")
     if partitions.get("Thermal"):
         lines.append("    Thermal thermal = 8;")
+    lines.append("    BoardStatus board_status = 9;")
     lines.append("}")
+    lines.append("")
+
+    lines.append(_emit_board_status_message())
     lines.append("")
 
     # Partition messages

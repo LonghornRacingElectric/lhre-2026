@@ -1,0 +1,9 @@
+# These files are consumed by the Pi (Linux). Lock LF endings so Windows
+# checkouts can't bring CRLF in and break the bash interpreter / systemd.
+*.sh        text eol=lf
+*.service   text eol=lf
+*.desktop   text eol=lf
+*.plymouth      text eol=lf
+*.script        text eol=lf
+*.png           binary
+labwc-autostart text eol=lf

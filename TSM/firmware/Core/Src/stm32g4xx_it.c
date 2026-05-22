@@ -189,5 +189,10 @@ void TIM20_UP_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
-
+void EXTI9_5_IRQHandler(void)
+{
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_5);
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_6);
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_7);
+}
 /* USER CODE END 1 */

@@ -1,14 +1,14 @@
 {
-    "configurations": [
-        {
-            "name": "Firmware",
-            "includePath": [
-                "${workspaceFolder}/**"
-            ],
-            "compileCommands": [
-                "${workspaceFolder}/compile_commands.json"
-            ]
-        }
-    ],
-    "version": 4
+  "configurations": [
+    {
+      "name": "Firmware",
+      "includePath": [
+        "${workspaceFolder}/**"
+      ],
+      "compileCommands": [
+        "${workspaceFolder}/compile_commands.json"
+      ]
+    }
+  ],
+  "version": 4
 }

@@ -5,12 +5,13 @@ SCRIPT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 BEVO_ROOT="$(cd "$SCRIPT_ROOT/.." && pwd)"
 BIN_DIR="$BEVO_ROOT/target/release"
 CAN_JSON_PATH="$BEVO_ROOT/nonhermetic/assets/can.json"
-CAN_IFACE="${CAND_CAN_INTERFACE:-can0}"
+CAN_IFACE_0="${CAND_CAN_INTERFACE_0:-can0}"
+CAN_IFACE_1="${CAND_CAN_INTERFACE_1:-can1}"
 LOGGERD_ENABLED="${LOGGERD_ENABLED:-1}"
 
 cleanup() {
   kill "${CAND_PID:-}" "${DASHD_PID:-}" "${PUBLISHD_PID:-}" "${LOGGERD_PID:-}" >/dev/null 2>&1 || true
-  rm -f /tmp/BEVO_publishd_ready /tmp/BEVO_cand.sock
+  rm -f /tmp/BEVO_publishd_ready /tmp/BEVO_cand.sock /tmp/BEVO_cand_publishd.sock
 }
 trap cleanup EXIT INT TERM
 
@@ -39,7 +40,10 @@ if [[ "$LOGGERD_ENABLED" == "1" ]]; then
   LOGGERD_PID=$!
 fi
 
-CAND_USE_MOCK=0 CAND_CAN_INTERFACE="$CAN_IFACE" CAND_CAN_JSON_PATH="$CAN_JSON_PATH" "$BIN_DIR/cand" &
+CAND_USE_MOCK=0 \
+CAND_CAN_INTERFACE_0="$CAN_IFACE_0" \
+CAND_CAN_INTERFACE_1="$CAN_IFACE_1" \
+CAND_CAN_JSON_PATH="$CAN_JSON_PATH" "$BIN_DIR/cand" &
 CAND_PID=$!
 
 wait "$DASHD_PID"

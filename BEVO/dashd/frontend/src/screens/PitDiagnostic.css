@@ -1,0 +1,211 @@
+/* Layout-only styles. Visual language (cards, typography, colors) is
+   inherited from ScreenOne.css via dash-card / value-display / label-small. */
+
+.pit-container {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    overflow: hidden;
+}
+
+/* ----- Top + bottom trays match ScreenOne exactly ----- */
+
+.pit-tray {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    padding: 0 24px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.pit-tray-top {
+    top: 0;
+    height: 60px;
+    border-radius: 0 0 12px 12px;
+    border-top: none;
+}
+
+.pit-tray-bottom {
+    bottom: 0;
+    height: 80px;
+    border-radius: 12px 12px 0 0;
+    border-bottom: none;
+}
+
+/* ----- Top tray content ----- */
+
+.pit-tray-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pit-tray-right {
+    font-size: 0.85rem;
+    letter-spacing: 4px;
+    color: #aaa;
+}
+
+.fault-light {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.fault-light.ok {
+    background: #00FF66;
+    box-shadow: 0 0 8px #00FF66;
+}
+
+.fault-light.bad {
+    background: #FF3333;
+    box-shadow: 0 0 8px #FF3333;
+}
+
+.fault-light.unknown {
+    background: #555;
+}
+
+.fault-summary {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+}
+
+.fault-summary-status {
+    font-size: 1.4rem;
+    font-weight: bold;
+}
+
+.fault-summary-status.ok {
+    color: #00FF66;
+    text-shadow: 0 0 6px rgba(0, 255, 100, 0.5);
+}
+
+.fault-summary-status.bad {
+    color: #FF3333;
+    text-shadow: 0 0 6px rgba(255, 50, 50, 0.5);
+}
+
+.fault-summary-status.unknown {
+    color: #888;
+}
+
+.fault-summary-name {
+    font-size: 0.9rem;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+/* ----- Middle: 4 section cards ----- */
+
+.pit-middle {
+    position: absolute;
+    top: 70px;       /* 60 tray + 10 gap */
+    bottom: 90px;    /* 80 tray + 10 gap */
+    left: 12px;
+    right: 12px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+
+.pit-section {
+    display: flex;
+    flex-direction: column;
+    padding: 10px 14px;
+    overflow: hidden;
+}
+
+.pit-section-title {
+    font-size: 0.8rem;
+    letter-spacing: 2.5px;
+    color: #aaa;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 6px;
+}
+
+.diag-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 5px 0;
+    min-width: 0;
+}
+
+.diag-row .label-small {
+    flex-shrink: 0;
+    margin-right: 8px;
+}
+
+.diag-value {
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.diag-value.warn {
+    color: #FFD700;
+}
+
+.diag-value.bad {
+    color: #FF3333;
+}
+
+.diag-fault-row {
+    padding: 4px 0;
+    font-size: 0.85rem;
+    color: #FF3333;
+    text-shadow: 0 0 4px rgba(255, 50, 50, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.diag-fault-row.empty {
+    color: #555;
+    text-shadow: none;
+}
+
+/* ----- Bottom tray: HV V | HV A | LV V | LV A | Odo ----- */
+
+.pit-batt-grid {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: center;
+    justify-items: center;
+}
+
+.pit-batt-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.pit-batt-cell .label-small {
+    margin-bottom: 0;
+}
+
+.pit-batt-val {
+    font-size: 1.8rem;
+    font-weight: bold;
+    line-height: 1;
+}

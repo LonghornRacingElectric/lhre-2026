@@ -1,57 +1,82 @@
 import React from 'react';
 import { useDash } from '../context/DashContext';
+import { SHUTDOWN_NAMES } from '../types/DashData';
+import TopTray from '../components/TopTray';
 import './ScreenTwo.css';
 
 // Screen Two: Shutdown Circuit Status
 // Resolution: 800 x 480
 // Theme: Modern EV (Dark, Glassmorphism, Glowing)
+//
+// Cells fall into two buckets:
+//   1. Items dashd emits in CanData.shutdown[] — driven by SHUTDOWN_NAMES.
+//      shutdownIndex points at the matching position in that array.
+//   2. Placeholder items the electrical team hasn't put on CAN yet
+//      (shutdownIndex = null). These render permanently as "status-unknown"
+//      with an "AWAITING FIRMWARE" subtitle.
 
-interface ShutdownItem {
-    id: number;
+interface ShutdownCell {
     name: string;
-    description?: string;
+    description: string;
+    shutdownIndex: number | null;
 }
 
-const ITEMS: ShutdownItem[] = [
-    { id: 1, name: "LV Master Switch", description: "" },
-    { id: 2, name: "Shutdown Fuse", description: "5A" },
-    { id: 3, name: "R-ESTOP", description: "Right E-Stop Button" },
-    { id: 4, name: "BMS", description: "Battery Management System Relay" },
-    { id: 5, name: "IMD", description: "Insulation Monitoring Device Relay" },
-    { id: 6, name: "Battery ACU HVIL", description: "" },
-    { id: 7, name: "L-ESTOP", description: "Left E-Stop Button" },
-    { id: 8, name: "D-ESTOP", description: "Dash E-Stop Button" },
-    { id: 9, name: "Inertial Switch", description: "" },
-    { id: 10, name: "BOTS", description: "Brake Over-Travel Switch" },
-    { id: 11, name: "BSPD", description: "Brake Systems Plausibility Device Relay" },
-    { id: 12, name: "E-Meter HVIL", description: "" },
-    { id: 13, name: "MSD HVIL", description: "Manual Service Disconnect" },
-    { id: 14, name: "Battery HVIL", description: "" },
-    { id: 15, name: "Inverter HVIL", description: "" },
-    { id: 16, name: "TSMS", description: "Tractive Systems Master Switch" },
+const DESCRIPTIONS: Record<string, string> = {
+    "LEG 1": "Shutdown circuit leg 1",
+    "LEG 2": "Shutdown circuit leg 2",
+    "LEG 3": "Shutdown circuit leg 3",
+    "LEG 4": "Shutdown circuit leg 4",
+    "BMS": "Battery Management System",
+    "IMD": "Insulation Monitoring Device",
+    "BSPD": "Brake System Plausibility Device",
+    "E-METER": "Energy Meter HVIL",
+    "DUI TEMP 1": "DUI thermal shutdown 1",
+    "DUI TEMP 2": "DUI thermal shutdown 2",
+};
+
+const PLACEHOLDER_LABEL = "Awaiting firmware";
+
+const CELLS: ShutdownCell[] = [
+    ...SHUTDOWN_NAMES.map((name, index) => ({
+        name,
+        description: DESCRIPTIONS[name] ?? "",
+        shutdownIndex: index,
+    })),
+    { name: "TSMS",     description: "Tractive Systems Master Switch", shutdownIndex: null },
+    { name: "MSD HVIL", description: "Manual Service Disconnect",      shutdownIndex: null },
+    { name: "BOTS",     description: "Brake Over-Travel Switch",       shutdownIndex: null },
+    { name: "L-ESTOP",  description: "Left E-Stop",                    shutdownIndex: null },
+    { name: "R-ESTOP",  description: "Right E-Stop",                   shutdownIndex: null },
+    { name: "D-ESTOP",  description: "Dash E-Stop",                    shutdownIndex: null },
 ];
 
 const ScreenTwo: React.FC = () => {
     const { data } = useDash();
-
-    // Get shutdown array from context, default to all-null if no data
     const shutdown = data?.can.shutdown;
 
     return (
         <div className="shutdown-container">
+            <TopTray screenLabel="Shutdown" />
             <div className="shutdown-grid">
-                {ITEMS.map((item, index) => {
-                    const status = shutdown ? shutdown[index] : null;
-                    const statusClass = status === null ? 'status-unknown' : status ? 'status-good' : 'status-bad';
+                {CELLS.map((cell, gridIndex) => {
+                    const status = cell.shutdownIndex !== null && shutdown
+                        ? (shutdown[cell.shutdownIndex] ?? null)
+                        : null;
+                    const statusClass = status === null
+                        ? 'status-unknown'
+                        : status ? 'status-good' : 'status-bad';
+                    const subtitle = cell.shutdownIndex === null
+                        ? PLACEHOLDER_LABEL
+                        : cell.description;
 
                     return (
-                        <div key={item.id} className={`shutdown-item ${statusClass}`}>
-                            <div className="item-number">{item.id}</div>
+                        <div key={cell.name} className={`shutdown-item ${statusClass}`}>
+                            <div className="item-number">{gridIndex + 1}</div>
                             <div className="d-flex flex-column justify-content-center" style={{ flexGrow: 1 }}>
-                                <div className="item-name">{item.name}</div>
-                                {item.description && (
+                                <div className="item-name">{cell.name}</div>
+                                {subtitle && (
                                     <div className="item-description">
-                                        {item.description}
+                                        {subtitle}
                                     </div>
                                 )}
                             </div>

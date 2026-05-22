@@ -1,4 +1,4 @@
-import { useWebSocket, ReadyState } from 'react-use-websocket';
+import useWebSocket, { ReadyState } from 'react-use-websocket';
 import { DashMessage } from '../types/DashData';
 
 const WS_URL = 'ws://localhost:8001/';
