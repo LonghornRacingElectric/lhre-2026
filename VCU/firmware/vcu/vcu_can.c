@@ -42,6 +42,12 @@ static can_receive_message_t *inverter_speed_mailbox_handle = NULL;
 
 static msg_battery_cell_limits_t battery_cell_limits_mailbox = {0};
 static can_receive_message_t *battery_cell_limits_mailbox_handle = NULL;
+
+static msg_inverter_current_t inverter_current_mailbox = {0};
+static can_receive_message_t *inverter_current_mailbox_handle = NULL;
+
+static msg_inverter_voltage_t inverter_voltage_mailbox = {0};
+static can_receive_message_t *inverter_voltage_mailbox_handle = NULL;
 // #define DUI_R2D_STATUS_TIMEOUT_MS 1000u
 
 // static bool dui_r2d_timed_out_logged = false;
@@ -349,6 +355,24 @@ float vcu_can_get_min_cell_voltage_v(void) {
   return battery_cell_limits_mailbox.min_cell_voltage;
 }
 
+inverter_currents_t vcu_can_get_inverter_currents(void) {
+  return (inverter_currents_t){
+      .phase_a = inverter_current_mailbox.phase_a_current,
+      .phase_b = inverter_current_mailbox.phase_b_current,
+      .phase_c = inverter_current_mailbox.phase_c_current,
+      .dc_bus  = inverter_current_mailbox.dc_bus_current,
+  };
+}
+
+inverter_voltages_t vcu_can_get_inverter_voltages(void) {
+  return (inverter_voltages_t){
+      .dc_bus          = inverter_voltage_mailbox.dc_bus_voltage,
+      .neutral_output  = inverter_voltage_mailbox.neutral_output_voltage,
+      .vab_vq          = inverter_voltage_mailbox.vab_vq_voltage,
+      .vbc_vd          = inverter_voltage_mailbox.vbc_vd_voltage,
+  };
+}
+
 /**
  * @brief Creates the CAN receive handlers and registers them with the CAN lib
  *
@@ -397,4 +421,20 @@ void vcu_can_add_receive_handlers(void) {
                                    battery_cell_limits_mailbox_handle);
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for battery cell limits registered\n");
+
+  inverter_current_mailbox_handle = can_get_receive_message_handle(
+      &inverter_current_mailbox, INVERTER_CURRENT_ID,
+      (CAN_unpack_message_fn)unpack_inverter_current);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   inverter_current_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for inverter current registered\n");
+
+  inverter_voltage_mailbox_handle = can_get_receive_message_handle(
+      &inverter_voltage_mailbox, INVERTER_VOLTAGE_ID,
+      (CAN_unpack_message_fn)unpack_inverter_voltage);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   inverter_voltage_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for inverter voltage registered\n");
 }

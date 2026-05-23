@@ -394,8 +394,8 @@ void StartControlTask(void *argument) {
     if (in.min_cell_voltage_v <= 0.0f) {
       in.min_cell_voltage_v = s_params.torque_map.low_cell_derate_start_v;
     }
-    in.battery_voltage_v = 0;
-    in.battery_current_a = 0;
+    in.battery_voltage_v = vcu_can_get_inverter_voltages().dc_bus;
+    in.battery_current_a = vcu_can_get_inverter_currents().dc_bus;
 
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
