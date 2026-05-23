@@ -18,9 +18,9 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).parents[2]))
 
-from analysis.sql_utils.db_session import get_db
+from analysis.sql_utils.db_session import get_db, engine_nightwatch, engine_angelique, engine_orion
 from analysis.sql_utils.query_builder import QueryBuilder
-from analysis.sql_utils.models import AngeliquePacket, OrionPacket
+from analysis.sql_utils.models import AngeliquePacket, OrionPacket, BaseTelemetry, BaseAngelique, BaseOrion
 from stack.ingest.partition_manager import PartitionManager
 from stack.ingest.protobuf import template_pb2, angelique_pb2, can_packets_pb2, bridge_pb2, bridge_pb2_grpc
 
@@ -184,7 +184,7 @@ class MQTTHandler:
                 return
 
             try:
-                QueryBuilder.execute_insert(session_obj, jobs, self.table_specs[car], commit=False, car=car)
+                QueryBuilder.execute_insert(session_obj, jobs, self.table_specs[car], car, commit=False)
 
                 packet_times = sorted({
                     int(row["time"])
@@ -657,11 +657,28 @@ class MQTTHandler:
         return payload
 
 
+def reconcile_orm_schema():
+    # Create any ORM-mapped tables that don't yet exist in their target DB.
+    # Why: orion_db_init.sql only runs on first volume init, so existing volumes
+    # miss tables added after their initial bring-up (e.g. board_status).
+    for name, base, engine in (
+        ("Nightwatch", BaseTelemetry, engine_nightwatch),
+        ("Angelique", BaseAngelique, engine_angelique),
+        ("Orion", BaseOrion, engine_orion),
+    ):
+        try:
+            base.metadata.create_all(engine, checkfirst=True)
+        except Exception as exc:
+            logging.warning("Schema reconcile for %s skipped: %s", name, exc)
+
+
 def main():
     '''
     This is the runner script for the subscribe-side MQTT script which uploads data to the database.
     '''
-    
+
+    reconcile_orm_schema()
+
     with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session, get_db("Orion") as orion_session:
         db_sessions = {
             'Nightwatch': nightwatch_session,
@@ -670,7 +687,6 @@ def main():
         }
         with MQTTHandler('ingest', db_sessions=db_sessions, target=MQTTTarget.get()) as mqtt:
             mqtt.subscribe(topic='#')
-            mqtt.loop_forever()
 
 if __name__ == '__main__':
     logging.basicConfig(level=os.getenv('LOGLEVEL', 'DEBUG'))

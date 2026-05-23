@@ -247,8 +247,8 @@
     ]
   },
   "time": {
-    "from": "2026-03-11T00:23:00.000Z",
-    "to": "2026-03-12T07:17:00.000Z"
+    "from": "now-7d",
+    "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",

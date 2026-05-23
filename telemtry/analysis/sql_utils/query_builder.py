@@ -351,7 +351,7 @@ class QueryBuilder:
         raise ValueError(f"Car {car} is not supported.")
 
     @staticmethod
-    def execute_insert(session, rows, table_desc, commit=True, car="Nightwatch"):
+    def execute_insert(session, rows, table_desc, car, commit=True):
         if not rows:
             return
         
