@@ -14,6 +14,11 @@ StandardError=journal
 
 # Environment variables if needed
 Environment=PYTHONPATH=__BEVO_REPO__
+# loggerd resolves its log dir as $BUILD_WORKSPACE_DIRECTORY/BEVO/loggerd/logs;
+# WorkingDirectory above is BEVO/, so without this env var the relative join
+# produces BEVO/BEVO/loggerd/logs. Pin to repo root so CSVs land at the
+# canonical BEVO/loggerd/logs path.
+Environment=BUILD_WORKSPACE_DIRECTORY=__BEVO_REPO__
 
 [Install]
 WantedBy=multi-user.target
