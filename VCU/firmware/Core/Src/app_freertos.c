@@ -100,18 +100,18 @@ static vcu_parameters_t s_params = {
     .apps =
         {
             .apps1_min_adc_v = 1.750f,
-            .apps1_max_adc_v = 1.540f,
+            .apps1_max_adc_v = 1.520f,
 
-            .apps2_min_adc_v = 0.205f,
-            .apps2_max_adc_v = 0.000f,
+            .apps2_min_adc_v = 0.190f,
+            .apps2_max_adc_v = -0.020f,
 
             .implaus_debounce_time_ms = 100u,
-            .max_allowable_diff = 0.10f,
+            .max_allowable_diff = 0.15f,
             // .min_travel_threshold = 0.10f,
             // .max_travel_restore_threshold = 0.05f,
 
-            .min_travel_deadzone = 0.12f,
-            .max_travel_deadzone = 0.92f,
+            .min_travel_deadzone = 0.09f,
+            .max_travel_deadzone = 0.88f,
             .pedal_ema_alpha = 0.35f,
         },
     .bse =
@@ -433,7 +433,7 @@ void StartControlTask(void *argument) {
     //          (unsigned)out.faults.apps_any_fault,
     //          (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault);
     
-    log_printf(LOG_INFO,
+      log_printf(LOG_INFO,
              "\nAPPS1_RAW:%.3f APPS1_PCT:%.3f\nAPPS2_RAW:%.3f APPS2_PCT:%.3f\nAPPS: %.3f\n\n",
              (double)in.apps1_raw, (double)out.apps1_travel,
              (double)in.apps2_raw, (double)out.apps2_travel,

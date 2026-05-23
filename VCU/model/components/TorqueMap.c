@@ -33,19 +33,26 @@ static float calc_max_torque_at_rpm(float rpm, float max_torque_nm) {
   return torque;
 }
 
-static void build_torque_table(float max_torque_nm) {
-  for (int row = 0; row < LOOKUP2D_POINTS_Y; row++) {
-    float rpm = ((float)row / (float)(LOOKUP2D_POINTS_Y - 1)) * MAX_MOTOR_RPM;
-    float max_torque = calc_max_torque_at_rpm(rpm, max_torque_nm);
+// static void build_torque_table(float max_torque_nm) {
+//   for (int row = 0; row < LOOKUP2D_POINTS_Y; row++) {
+//     float rpm = ((float)row / (float)(LOOKUP2D_POINTS_Y - 1)) * MAX_MOTOR_RPM;
+//     float max_torque = calc_max_torque_at_rpm(rpm, max_torque_nm);
 
-    torque_table[row][0] = 0.0f;
-    torque_table[row][1] = 0.5f * max_torque;
-    torque_table[row][2] = max_torque;
-  }
-}
+//     torque_table[row][0] = 0.0f;
+//     torque_table[row][1] = 0.5f * max_torque;
+//     torque_table[row][2] = max_torque;
+//   }
+// }
 
 void torque_map_init(const vcu_parameters_t *params) {
-  build_torque_table(params->torque_map.max_torque_nm);
+  // build_torque_table(params->torque_map.max_torque_nm);
+
+  float row[LOOKUP2D_POINTS_X] = {0.0f, 22.0f, 44.0f, 66.0f, 88.0f, 110.0f, 132.0f, 154.0f, 176.0f, 198.0f, 220.0f};
+  for (int i = 0; i < LOOKUP2D_POINTS_Y; i++) {
+    for (int j = 0; j < LOOKUP2D_POINTS_X; j++) {
+      torque_table[i][j] = row[j];
+    }
+  }
 
   Lookup2D_init(&torque_lookup,
                 0.0f,          // x0 = APPS min
