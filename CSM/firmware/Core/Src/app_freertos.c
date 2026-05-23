@@ -230,14 +230,11 @@ CDC_Transmit_FS((uint8_t*)buf, strlen(buf));
 
       init_dfu(dfu);
       dfu_start_thread();
+
     for (;;) {
         osDelay(1000);
+        // csm_can_debug();
     }
-
-  for (;;) {
-    osDelay(1000);
-    csm_can_debug();
-  }
 
 
 
@@ -278,7 +275,7 @@ void StartAccelRideHeightTask(void *argument)
     char buf[128];
 
     for (;;)
-{
+    {
     float distance_mm = ride_height_get_distance_mm();
     uint8_t quality = ride_height_get_quality();
 
@@ -293,6 +290,12 @@ void StartAccelRideHeightTask(void *argument)
         imu_data.accel.y,
         imu_data.accel.z,
         distance_mm
+    );
+
+    csm_can_update_gyro(
+    imu_data.gyro.x,
+    imu_data.gyro.y,
+    imu_data.gyro.z
     );
 
     // LED update
