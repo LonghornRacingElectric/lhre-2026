@@ -136,7 +136,7 @@
             "properties": [
               {
                 "id": "unit",
-                "value": "watt"
+                "value": "kwatt"
               },
               {
                 "id": "custom.thresholdsStyle",
