@@ -1,7 +1,7 @@
 #include "buzzer.h"
 
+#include "dui_can.h"
 #include "main.h"
-#include "r2d.h"
 
 #include "cmsis_os.h"
 #include <cmsis_os2.h>
@@ -21,16 +21,16 @@ void dui_buzzer_init(void) { osThreadNew(buzzer_task, NULL, &buzzer_thread_attrs
 
 static void buzzer_task(void *argument) {
   bool speaker_high = false;
-  bool r2d_was_enabled = is_r2d_enabled();
+  bool r2d_buzzer_was_active = dui_r2d_buzzer_active();
 
   CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
   DWT->CYCCNT = 0;
   DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
 
   while (true) {
-    bool r2d_enabled = is_r2d_enabled();
+    bool r2d_buzzer_active = dui_r2d_buzzer_active();
 
-    if (r2d_enabled && !r2d_was_enabled) {
+    if (r2d_buzzer_active && !r2d_buzzer_was_active) {
       uint32_t cycles =
           (BUZZER_TEST_DURATION_MS * 1000U) / BUZZER_HALF_PERIOD_US;
 
@@ -45,7 +45,7 @@ static void buzzer_task(void *argument) {
       HAL_GPIO_WritePin(SPEAKER_GPIO_Port, SPEAKER_Pin, GPIO_PIN_RESET);
     }
 
-    r2d_was_enabled = r2d_enabled;
+    r2d_buzzer_was_active = r2d_buzzer_active;
     osDelay(pdMS_TO_TICKS(1));
   }
 }
