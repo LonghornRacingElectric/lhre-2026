@@ -70,7 +70,7 @@ void update_state_machine(bool any_faults) {
                 // Transition to precharging
                 precharge_start_time = current_time;
                 current_state = HVC_STATE_PRECHARGING;
-            } else if (is_charge_enable_active()) {
+            } else if (is_shutdown_closed() && is_charge_enable_active()) {
                 // Transition to charging precharge
                 precharge_start_time = current_time;
                 current_state = HVC_STATE_CHARGING_PRECHARGING;
@@ -133,7 +133,7 @@ void update_state_machine(bool any_faults) {
             }
             
             // Check if charge enable released
-            if (!is_charge_enable_active()) {
+            if (!is_charge_enable_active() || !is_shutdown_closed()) { //false = not charging
                 set_positive_contactor(false);
                 current_state = HVC_STATE_NOT_ENERGIZED;
             }
@@ -141,7 +141,7 @@ void update_state_machine(bool any_faults) {
             
         case HVC_STATE_CHARGING:
             // Stay in charging while charge enable is active
-            if (!is_charge_enable_active()) {
+            if (!is_charge_enable_active() || !is_shutdown_closed()) {
                 set_positive_contactor(false);
                 current_state = HVC_STATE_NOT_ENERGIZED;
             }
