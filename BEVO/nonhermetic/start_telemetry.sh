@@ -15,7 +15,7 @@ if [[ -z "$PYTHON_BIN" ]]; then
   done
 fi
 CELL_SCRIPT="${BEVO_CELL_SCRIPT:-$BEVO_ROOT/cell.py}"
-LOCUS_POWER_SCRIPT="${BEVO_LOCUS_POWER_SCRIPT:-$BEVO_ROOT/locus_power.py}"
+LOCUS_POWER_SCRIPT="${BEVO_LOCUS_POWER_SCRIPT:-$BEVO_ROOT/locus_power.sh}"
 CAN_IFACE_0="${CAND_CAN_INTERFACE_0:-can0}"
 CAN_IFACE_1="${CAND_CAN_INTERFACE_1:-can1}"
 
@@ -38,10 +38,10 @@ if [[ ! -f "$CELL_SCRIPT" ]]; then
   exit 1
 fi
 
-if [[ -f "$LOCUS_POWER_SCRIPT" ]]; then
+if [[ -x "$LOCUS_POWER_SCRIPT" ]]; then
   echo "Enabling Locus Lock power rail (GPIO14)..."
-  if ! "$PYTHON_BIN" "$LOCUS_POWER_SCRIPT" on; then
-    echo "WARNING: locus_power.py failed; Locus Lock GPS will not power on." >&2
+  if ! "$LOCUS_POWER_SCRIPT" on; then
+    echo "WARNING: locus_power.sh failed; Locus Lock GPS will not power on." >&2
   fi
 fi
 
