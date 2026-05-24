@@ -279,13 +279,15 @@ void vcu_can_set_steering_angle_deg(float steering_angle_deg) {
 }
 
 static float compute_brake_bias_pct(const vcu_outputs_t *out) {
+  static float remembered_brake_bias = 0.0f;
   float total = out->bse1_psi + out->bse2_psi;
 
-  if (total <= 1e-3f) {
-    return 0.0f;
+  if (total <= 100.0f) {
+    return remembered_brake_bias;
+  } else {
+    remembered_brake_bias = out->bse1_psi / total;
   }
-
-  return (out->bse1_psi / total) * 100.0f;
+  return remembered_brake_bias;
 }
 
 static uint8_t pack_apps_faults(const vcu_outputs_t *out) {
