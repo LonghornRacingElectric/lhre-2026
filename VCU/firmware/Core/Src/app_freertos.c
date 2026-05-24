@@ -89,6 +89,7 @@ const osThreadAttr_t controlTask_attributes = {
 #define STEERING_SENSOR_MIN_RATIO 0.10f
 #define STEERING_SENSOR_MAX_RATIO 0.90f
 #define STEERING_SENSOR_ANGLE_RANGE_DEG 360.0f
+#define STEERING_SENSOR_ANGLE_OFFSET_DEG 0.0f
 #define CONTROL_LOOP_PERIOD_MS 3u
 
 /* USER CODE END PM */
@@ -280,12 +281,15 @@ static float steering_adc_to_sensor_voltage(float adc_voltage_v) {
   return adc_voltage_v * divider_gain;
 }
 
+// 48% (rightmost) to 114% (leftmost)
+
 static float steering_sensor_voltage_to_angle_deg(float sensor_voltage_v) {
   // Assumes the PIHER sensor output is ratiometric from 10% to 90% of the
   // 4.64 V supply across a 360 degree sweep.
-  const float angle_pct = steering_sensor_voltage_to_percent(sensor_voltage_v);
-  return (angle_pct * STEERING_SENSOR_ANGLE_RANGE_DEG) -
+  float angle_pct = steering_sensor_voltage_to_percent(sensor_voltage_v);
+  float raw_angle_deg = (angle_pct * STEERING_SENSOR_ANGLE_RANGE_DEG) -
          (0.5f * STEERING_SENSOR_ANGLE_RANGE_DEG);
+  float adjusted_angle_deg = raw_angle_deg + STEERING_SENSOR_ANGLE_OFFSET_DEG;
 }
 
 static float steering_sensor_voltage_to_percent(float sensor_voltage_v) {
@@ -295,7 +299,11 @@ static float steering_sensor_voltage_to_percent(float sensor_voltage_v) {
       STEERING_SENSOR_SUPPLY_V * STEERING_SENSOR_MAX_RATIO;
   const float clamped_sensor_v =
       fminf(fmaxf(sensor_voltage_v, sensor_min_v), sensor_max_v);
-  return (clamped_sensor_v - sensor_min_v) / (sensor_max_v - sensor_min_v);
+  float pct = (clamped_sensor_v - sensor_min_v) / (sensor_max_v - sensor_min_v);
+  if(pct > 0.8f) {
+    pct -= 1.0f;
+  }
+  return pct;
 }
 
 // SystemTask: one-time initialization (USB, logging, DFU, ADC DMA, CAN) -----
@@ -390,8 +398,9 @@ void StartControlTask(void *argument) {
         steering_adc_to_sensor_voltage(steering_adc_voltage_v);
     steering_angle_pct =
         steering_sensor_voltage_to_percent(steering_sensor_voltage_v);
-    steering_angle_deg =
-        steering_sensor_voltage_to_angle_deg(steering_sensor_voltage_v);
+    // steering_angle_deg =
+    //     steering_sensor_voltage_to_angle_deg(steering_sensor_voltage_v);
+    steering_angle_deg = ((steering_angle_pct - 0.02f) / 0.62f - 0.5f) * 120.0f;  // TODO chud temp tuning
 
     // Read pedal sensors from DMA buffers
     in.apps1_raw = ((float)adc3_dma_buf[0] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
