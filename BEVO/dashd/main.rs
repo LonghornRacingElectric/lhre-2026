@@ -40,8 +40,9 @@ fn env_or_default(name: &str, default: &str) -> String {
 
 #[derive(Serialize, Clone, Default)]
 struct CanData {
-    /// Vehicle speed in MPH from dynamics.gps_speed (NMEA knots * 1.15078).
-    /// Source: GPS module via cand NMEA parser (RMC/VTG sentences).
+    /// Vehicle speed in MPH derived from motor RPM via drivetrain geometry:
+    /// `motor_speed * 2*pi/60 * 13/43 * 0.201 * 2.237` (rpm→rad/s, motor→wheel
+    /// gear ratio, wheel radius m, m/s→mph). Source: controls.motor_speed.
     speed: Option<f32>,
 
     /// Electrical power in kW, derived as dc_bus_v * dc_bus_current / 1000.
@@ -212,16 +213,18 @@ struct DashState {
 // ---------------------------------------------------------------------------
 
 fn extract_can_data(data: &OrionSensorData) -> CanData {
-    // GPS speed is in knots (from NMEA RMC/VTG), convert to MPH
-    const KNOTS_TO_MPH: f32 = 1.15078;
-    let speed = data.dynamics.as_ref().map(|d| d.gps_speed * KNOTS_TO_MPH);
-
     let pack = data.pack.as_ref();
     let thermal = data.thermal.as_ref();
     let controls = data.controls.as_ref();
     let dynamics = data.dynamics.as_ref();
     let diag_low = data.diagnostics_low.as_ref();
     let diag_high = data.diagnostics_high.as_ref();
+
+    // speed (mph) = motor_speed * 2*pi/60 * 13/43 * 0.201 * 2.237
+    //               \_RPM→rad/s_/ \gear_/ \wheel_r_m/ \m/s→mph_/
+    // Assumes controls.motor_speed is in RPM (proto carries no unit).
+    const MOTOR_RPM_TO_MPH: f32 = 0.014233265;
+    let speed = controls.map(|c| c.motor_speed * MOTOR_RPM_TO_MPH);
 
     let power = pack.map(|p| p.dc_bus_v * p.dc_bus_current / 1000.0);
     let soc = pack.map(|p| p.hv_soc);

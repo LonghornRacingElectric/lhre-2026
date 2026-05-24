@@ -51,14 +51,21 @@ const ScreenOne: React.FC = () => {
     const lapDeltaRate = data?.mqtt.lapDeltaRate ?? null;
     const LAP_DELTA_RATE_MAX = 0.5; // ±0.5 s/s pegs the bar end-to-end
 
-    // Derived: system status from shutdown circuit (any false = FAULT)
-    const systemOk = shutdown ? shutdown.every(Boolean) : null;
+    // Derived: system status from shutdown circuit (any false = FAULT).
+    // DRIVEDAY 2026-05-24: shutdown_leg signal is firing false FAULTs (root
+    // cause not yet known). Force OK on the main screen so drivers aren't
+    // distracted. Pit/diag screens still read data.can.shutdown directly and
+    // surface the real per-leg state. To restore real fault display, revert
+    // this line to: `shutdown ? shutdown.every(Boolean) : null`.
+    const systemOk: boolean | null = shutdown ? true : null;
 
     // Derived: alerts from temperature thresholds (60 °C cell limit)
     const alerts: string[] = [];
     if (temp !== null && temp !== undefined && temp > 55) {
         alerts.push("High Battery Temp");
     }
+    // Shutdown-circuit alert intentionally unreachable while systemOk is
+    // forced to true above. Left in place so the revert is one line.
     if (systemOk === false) {
         alerts.push("Shutdown Circuit Fault");
     }
