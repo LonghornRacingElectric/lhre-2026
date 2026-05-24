@@ -47,6 +47,7 @@ static uint8_t bms_error_bmb = 0;      // Which BMB has the error
 static uint8_t bms_error_cell = 0;     // Which cell/thermistor has the error
 static uint8_t bms_responsive_ics = 0;
 static float min_cell_voltage_v = 0.0f;
+static float max_cell_voltage_v = 0.0f;
 
 // Cell temperature buffer for CAN transmission
 static float cell_temps[90];
@@ -72,6 +73,11 @@ float getPackVoltage_v(void)
 float bms_get_min_cell_voltage_v(void)
 {
     return min_cell_voltage_v;
+}
+
+float bms_get_max_cell_voltage_v(void)
+{
+    return max_cell_voltage_v;
 }
 
 // Return BMS status: 1 if discharging active, 0 otherwise
@@ -288,6 +294,7 @@ void bms_update(void)
     adBms6830_read_cell_voltages(TOTAL_IC, IC);
     
     min_cell_voltage_v = INFINITY;
+    max_cell_voltage_v = -INFINITY;
 
     // Print all cell voltages
     for (int i = 0; i < TOTAL_IC; i++) {
@@ -302,6 +309,9 @@ void bms_update(void)
             voltage_v = (code * 0.000150f) + 1.5f;
             if (voltage_v < min_cell_voltage_v) {
                 min_cell_voltage_v = voltage_v;
+            }
+            if (voltage_v > max_cell_voltage_v) {
+                max_cell_voltage_v = voltage_v;
             }
             
             // Add to line buffer
@@ -321,6 +331,9 @@ void bms_update(void)
 
     if (!isfinite(min_cell_voltage_v)) {
         min_cell_voltage_v = 0.0f;
+    }
+    if (!isfinite(max_cell_voltage_v)) {
+        max_cell_voltage_v = 0.0f;
     }
 
     hvc_set_min_cell_voltage(min_cell_voltage_v);
