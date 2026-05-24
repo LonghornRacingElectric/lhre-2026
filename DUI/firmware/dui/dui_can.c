@@ -151,7 +151,6 @@ bool hvc_bms_fault(void) {
 void dui_set_r2d(bool enabled) { r2d_status_mailbox.r2d_status = enabled; }
 
 bool dui_r2d_buzzer_active(void) {
-  return vcu_state_mailbox.prndl_state == 1 &&
-         vcu_state_mailbox.ready_to_drive_buzzer &&
-         !message_timed_out(vcu_state_mailbox_handle, VCU_STATE_TIMEOUT_MS * 4);
+  return vcu_state_mailbox.ready_to_drive_buzzer;
+//    && !message_timed_out(vcu_state_mailbox_handle, VCU_STATE_TIMEOUT_MS * 4);
 }
