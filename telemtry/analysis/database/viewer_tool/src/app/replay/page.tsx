@@ -213,7 +213,14 @@ export default function ReplayPage() {
     }
 
     (async () => {
-      const res = await fetch(`/api/replay/summary?eventId=${selected.event_id}`);
+      const selectedCar =
+        selected.car_name && selected.car_name !== "—"
+          ? selected.car_name.toLowerCase()
+          : "";
+      const summaryUrl = selectedCar
+        ? `/api/replay/summary?eventId=${selected.event_id}&car=${encodeURIComponent(selectedCar)}`
+        : `/api/replay/summary?eventId=${selected.event_id}`;
+      const res = await fetch(summaryUrl);
       const json = (await res.json()) as ReplaySummary;
       setSummary(json);
       setIsEnd(false);
@@ -243,10 +250,15 @@ export default function ReplayPage() {
     if (isEnd) return;
 
     const tickMs = 100; // modify this to increase the data precision
+    const selectedCar =
+      selected.car_name && selected.car_name !== "—"
+        ? selected.car_name.toLowerCase()
+        : "";
     const url = `/api/replay/stream?eventId=${selected.event_id}` +
       `&startAtTimeMs=${streamStartAtMs}` +
       `&playing=${playing ? "1" : "0"}` +
-      `&tickMs=${tickMs}`;
+      `&tickMs=${tickMs}` +
+      (selectedCar ? `&car=${encodeURIComponent(selectedCar)}` : "");
 
     const es = new EventSource(url);
     esRef.current = es;
@@ -324,7 +336,7 @@ export default function ReplayPage() {
       es.close();
       if (esRef.current === es) esRef.current = null;
     };
-  }, [selected?.event_id, playing, streamStartAtMs, isEnd, timeEnd]);
+  }, [selected?.event_id, selected?.car_name, playing, streamStartAtMs, isEnd, timeEnd]);
 
   const markers = useMemo(() => {
     if (!summary || timeStart == null || timeEnd == null || timeEnd <= timeStart) return [];

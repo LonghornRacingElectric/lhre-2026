@@ -12,6 +12,7 @@ services:
     environment:
       PYTHONUNBUFFERED: 1
       IN_DOCKER: 1
+      LOGLEVEL: INFO
     volumes:
       - ../../../analysis/sql_utils/DB_description.pkl:/DB_description.pkl
       - ../../../analysis/database/viewer_tool/static/images:/kafka_processor_base/static/images

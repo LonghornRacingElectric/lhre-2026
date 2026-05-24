@@ -18,9 +18,14 @@ typedef struct {
   bool drive_switch;
   bool contactors_closed;
 
+  float motor_speed_rpm;
+  float min_cell_voltage_v;
+
+  float battery_voltage_v;
+  float battery_current_a;
+
   /*  can add more later:
    *  float dc_bus_voltage;
-   *  float motor_speed_rpm;
    *  bool inverter_enabled;
    */
 } vcu_inputs_t;

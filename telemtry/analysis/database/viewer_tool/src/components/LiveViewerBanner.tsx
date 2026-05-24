@@ -13,26 +13,46 @@ import {
 import { Button } from '@/components/ui/button';
 import { signOut, useSession } from 'next-auth/react';
 import { useKafkaJSON } from '@/hooks/useKafkaStream';
+import { LiveCar, liveCarLabel, SUPPORTED_LIVE_CARS } from '@/lib/car';
+import { useCarSelection } from '@/lib/carSelection';
 
 
 const LiveViewerBanner = () => {
   const { data: session } = useSession();
   const router = useRouter();
+  const {
+    selectedCar,
+    selectedCarLabel,
+    multiCarEnabled,
+    setSelectedCar,
+    ssePath,
+    matchesSelectedCar,
+  } = useCarSelection();
   const [time, setTime] = useState("");
   const [date, setDate] = useState("");
   const [eventInProgress, setEventInProgress] = useState<boolean | undefined>(undefined);
 
   // Live connection and status via Kafka "status" topic
   // Expecting messages like: { connected: boolean, battery?: number, odometer?: number }
-  const { data: status, connected: sseConnected, kafkaConnected } = useKafkaJSON<{
+  const { data: status, kafkaConnected, lastMessageAt } = useKafkaJSON<{
     battery?: number;
     odometer?: number;
+    car_type?: string;
   }>({
     topic: 'live_banner',
-    // No custom select: we want the whole object; default parser handles JSON
+    car: selectedCar,
+    ssePath,
+    filter: matchesSelectedCar,
+    staleAfterMs: 2000,
+    sampleMs: 200,
+    merge: true,
   });
 
-  const isConnected = sseConnected && kafkaConnected;
+  const isConnected = kafkaConnected;
+  const lastSeenSeconds =
+    typeof lastMessageAt === 'number'
+      ? Math.max(0, Math.floor((Date.now() - lastMessageAt) / 1000))
+      : undefined;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -49,7 +69,7 @@ const LiveViewerBanner = () => {
 
     const loadEventActive = async () => {
       try {
-        const res = await fetch('/api/event-active', { cache: 'no-store' });
+        const res = await fetch('/api/driveday-active', { cache: 'no-store' });
         if (!res.ok) return;
         const data: { eventActive?: boolean } = await res.json();
         if (!cancelled) setEventInProgress(typeof data.eventActive === 'boolean' ? data.eventActive : undefined);
@@ -100,16 +120,16 @@ const LiveViewerBanner = () => {
         <button
           type="button"
           onClick={() => {
-            router.push('/driveday');
+            router.push(eventInProgress === true ? '/driveday-active' : '/driveday');
           }}
           className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-2 text-sm cursor-pointer hover:bg-gray-700"
           aria-disabled={false}
           title={
             eventInProgress === true
-              ? 'Event is currently active'
+              ? 'Drive day active — click to end'
               : eventInProgress === false
-              ? 'Event inactive — click to go to Driveday'
-              : 'Event status unavailable'
+              ? 'Drive day inactive — click to start'
+              : 'Drive day status unavailable'
           }
         >
           <span
@@ -123,12 +143,36 @@ const LiveViewerBanner = () => {
           />
           <span>
             {eventInProgress === true
-              ? 'Event Active'
+              ? 'Drive Day Active'
               : eventInProgress === false
-              ? 'Event Inactive'
-              : 'Event —'}
+              ? 'Drive Day Inactive'
+              : 'Drive Day —'}
           </span>
         </button>
+
+        {/* Live car selector */}
+        {multiCarEnabled ? (
+          <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-2 text-sm">
+            <span className="mr-2 text-gray-300">Live Car</span>
+            <select
+              value={selectedCar}
+              onChange={(evt) => setSelectedCar(evt.target.value as LiveCar)}
+              className="bg-gray-800 border border-gray-600 rounded px-2 py-0.5 text-sm"
+              aria-label="Select live car"
+            >
+              {SUPPORTED_LIVE_CARS.map((car) => (
+                <option key={car} value={car}>
+                  {liveCarLabel(car)}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-2 text-sm">
+            <span className="mr-2 text-gray-300">Live Car</span>
+            <span className="font-medium">{selectedCarLabel}</span>
+          </div>
+        )}
         
         {/* Odometer Display */}
         <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-2 text-sm">
@@ -163,9 +207,15 @@ const LiveViewerBanner = () => {
         <div className="flex items-center border border-gray-600 rounded-lg px-2 py-1 mr-2 text-sm">
           <div 
               className={`w-4 h-4 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'} mr-2 pulse-size`}
-              title={isConnected ? 'Receiving live data' : 'No recent Kafka data'}
+              title={
+                isConnected
+                  ? `Receiving ${selectedCarLabel} data`
+                  : lastSeenSeconds !== undefined
+                    ? `No recent ${selectedCarLabel} data (${lastSeenSeconds}s since last sample)`
+                    : `No recent ${selectedCarLabel} Kafka data`
+              }
           ></div>
-          <span className="mr-2">Car Connection</span>
+          <span className="mr-2">{selectedCarLabel} Connection</span>
         </div>
         <div className="hidden md:flex items-center">
           <span className="mr-4">{date}</span>

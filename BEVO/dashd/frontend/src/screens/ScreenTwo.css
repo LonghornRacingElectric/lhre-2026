@@ -1,11 +1,12 @@
 .shutdown-container {
+    position: relative;
     background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
     font-family: 'Segoe UI', 'Roboto', sans-serif;
     color: #fff;
     overflow: hidden;
     height: 100vh;
     width: 100vw;
-    padding: 20px;
+    padding: 70px 20px 20px 20px;  /* 60 tray + 10 gap on top */
     box-sizing: border-box;
 }
 
@@ -43,6 +44,16 @@
     background: rgba(255, 0, 0, 0.15);
     box-shadow: 0 0 20px rgba(255, 0, 0, 0.3) inset;
     animation: pulse-red 1.5s infinite;
+}
+
+.status-unknown {
+    border-color: rgba(136, 136, 136, 0.3);
+    opacity: 0.5;
+}
+
+.status-unknown .status-indicator {
+    background-color: #888;
+    box-shadow: 0 0 5px #888;
 }
 
 @keyframes pulse-red {

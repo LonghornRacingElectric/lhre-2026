@@ -84,8 +84,8 @@
 .alert-overlay {
     position: absolute;
     top: 50px; /* Moved a few px higher */
-    left: 0;
-    width: 100%;
+    left: 90px; /* matches sidebar width — banner stays between side panels */
+    right: 90px;
     color: #000;
     text-align: center;
     padding: 10px 12px; /* Increased vertical padding */

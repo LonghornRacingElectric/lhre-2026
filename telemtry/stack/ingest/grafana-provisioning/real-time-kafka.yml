@@ -3,7 +3,7 @@ apiVersion: 1
 datasources:
   - name: Real Time Data
     uid: real-time-data
-    type: hamedkarbasi93-kafka-datasource
+    type: lhre-kafka-datasource
     access: proxy
     isDefault: false
 

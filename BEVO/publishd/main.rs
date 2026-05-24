@@ -7,16 +7,16 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 // OTA globals
-static OTA_LINK: Mutex<Option<String>> = Mutex::new(None);
-static OTA_DEVICE_ID: Mutex<Option<u32>> = Mutex::new(None);
+// static OTA_LINK: Mutex<Option<String>> = Mutex::new(None);
+// static OTA_DEVICE_ID: Mutex<Option<u32>> = Mutex::new(None);
 
-const IPC_SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
+const IPC_SOCKET_PATH: &str = "/tmp/BEVO_cand_publishd.sock";
 const STARTUP_SEMAPHORE_PATH: &str = "/tmp/BEVO_publishd_ready";
-const OTA_SEMAPHORE_PATH: &str = "/tmp/BEVO_ota_request";
-// const MQTT_HOST: &str = "192.168.1.109";
+// const OTA_SEMAPHORE_PATH: &str = "/tmp/BEVO_ota_request";
+// // const MQTT_HOST: &str = "192.168.1.109";
 const MQTT_HOST: &str = "18.191.225.118"; // aws broker hard coded for testing
 const MQTT_PORT: u16 = 1883;
 const MQTT_CLIENT_ID: &str = "BEVO-ORION";
@@ -25,20 +25,19 @@ const MQTT_TOPIC_PUBLISH: &str = "orion";
 const MQTT_TOPIC_SERVER_COMMUNICATION: &str = "server-communication";
 const MQTT_TOPIC_CLIENT_CONNECTIONS: &str = "client-connections";
 const MQTT_OUTBOUND_QUEUE_CAPACITY: usize = 2048;
-const INITIAL_PACKET_ID_REQUEST_TIMEOUT_SECS: u64 = 12;
-const INITIAL_PACKET_ID_REQUEST_INTERVAL_MS: u64 = 500;
+const INITIAL_PACKET_ID_REQUEST_INTERVAL_MS: u64 = 1000;
 
 fn env_or_default(name: &str, default: &str) -> String {
     std::env::var(name).unwrap_or_else(|_| default.to_string())
 }
 
 fn should_require_server_packet_id() -> bool {
-    matches!(
+    !matches!(
         std::env::var("PUBLISHD_REQUIRE_SERVER_PACKET_ID")
             .ok()
             .as_deref()
             .map(|value| value.to_ascii_lowercase()),
-        Some(value) if value == "1" || value == "true" || value == "yes"
+        Some(value) if value == "0" || value == "false" || value == "no"
     )
 }
 
@@ -130,19 +129,14 @@ impl MqttClient {
         self.packet_id.load(Ordering::Relaxed)
     }
 
-    fn wait_for_initial_packet_id(&self) -> u64 {
-        while !self.initialized.load(Ordering::Relaxed) {
-            thread::sleep(Duration::from_millis(100));
-        }
-        self.packet_id()
-    }
-
-    fn request_initial_packet_id_or_default(&self, announce_payload: &str, default: u64) -> u64 {
-        let deadline = Instant::now() + Duration::from_secs(INITIAL_PACKET_ID_REQUEST_TIMEOUT_SECS);
-        while Instant::now() < deadline {
+    fn request_initial_packet_id(&self, announce_payload: &str) -> u64 {
+        let mut attempts: u64 = 0;
+        loop {
             if self.initialized.load(Ordering::Relaxed) {
                 return self.packet_id();
             }
+
+            attempts = attempts.saturating_add(1);
 
             println!(
                 "publishd requesting packet_id on topic '{}' with payload '{}'",
@@ -164,15 +158,15 @@ impl MqttClient {
                 eprintln!("publishd mqtt packet_id request publish error: {error}");
             }
 
+            if attempts % 30 == 0 {
+                eprintln!(
+                    "publishd still waiting for server packet_id after {} requests",
+                    attempts
+                );
+            }
+
             thread::sleep(Duration::from_millis(INITIAL_PACKET_ID_REQUEST_INTERVAL_MS));
         }
-
-        eprintln!(
-            "publishd did not receive server packet_id within {}s; defaulting to {}",
-            INITIAL_PACKET_ID_REQUEST_TIMEOUT_SECS,
-            default
-        );
-        default
     }
 }
 
@@ -186,35 +180,35 @@ fn handle_server_message(
         return;
     };
 
-    if message.get("type").and_then(Value::as_str).is_some()
-    {
-        println!("publishd received server message: {}", message);
-    }
+    // if message.get("type").and_then(Value::as_str).is_some()
+    // {
+    //     println!("publishd received server message: {}", message);
+    // }
 
-    if message.get("packet_id").is_none() {
-        // Assume request for OTA
-        if let Some(ota_obj) = message.get("OTA_request").and_then(Value::as_object) {
-            if let Some(link) = ota_obj.get("OTA_link").and_then(Value::as_str) {
-                if let Some(device_id) = ota_obj.get("OTA_device_id").and_then(Value::as_u64) {
-                    let mut ota_link_lock = OTA_LINK.lock().unwrap();
-                    *ota_link_lock = Some(link.to_string());
-                    println!("publishd received OTA link: {}", link);
-                    let mut ota_device_id_lock = OTA_DEVICE_ID.lock().unwrap();
-                    *ota_device_id_lock = Some(device_id as u32);
-                    println!("publishd received OTA device ID: {}", device_id);
+    // if message.get("packet_id").is_none() {
+    //     // Assume request for OTA
+    //     if let Some(ota_obj) = message.get("OTA_request").and_then(Value::as_object) {
+    //         if let Some(link) = ota_obj.get("OTA_link").and_then(Value::as_str) {
+    //             if let Some(device_id) = ota_obj.get("OTA_device_id").and_then(Value::as_u64) {
+    //                 let mut ota_link_lock = OTA_LINK.lock().unwrap();
+    //                 *ota_link_lock = Some(link.to_string());
+    //                 println!("publishd received OTA link: {}", link);
+    //                 let mut ota_device_id_lock = OTA_DEVICE_ID.lock().unwrap();
+    //                 *ota_device_id_lock = Some(device_id as u32);
+    //                 println!("publishd received OTA device ID: {}", device_id);
 
-                    // set semaphore to tell can daemon to transition to sending packets rather than sniffing CAN bus
-                    write_ota_semaphore(device_id as u32, link).unwrap_or_else(|error| {
-                        eprintln!("publishd failed to write OTA semaphore: {error}");
-                    });
-                } else {
-                    eprintln!("publishd received malformed OTA request: {}", message);
-                }
-            } else {
-                eprintln!("publishd received malformed OTA request: {}", message);
-            }
-        }
-    }
+    //                 // set semaphore to tell can daemon to transition to sending packets rather than sniffing CAN bus
+    //                 write_ota_semaphore(device_id as u32, link).unwrap_or_else(|error| {
+    //                     eprintln!("publishd failed to write OTA semaphore: {error}");
+    //                 });
+    //             } else {
+    //                 eprintln!("publishd received malformed OTA request: {}", message);
+    //             }
+    //         } else {
+    //             eprintln!("publishd received malformed OTA request: {}", message);
+    //         }
+    //     }
+    // }
 
     if let Some(server_packet_id) = message.get("packet_id").and_then(Value::as_u64) {
         let candidate = server_packet_id.saturating_add(1);
@@ -242,22 +236,28 @@ fn write_startup_semaphore(packet_id: u64) -> Result<()> {
     Ok(())
 }
 
-fn write_ota_semaphore(device_id: u32, data_link: &str) -> Result<()> {
-    let temp_path = format!("{}.tmp", OTA_SEMAPHORE_PATH);
-    std::fs::write(&temp_path, format!("{}:{}", device_id, data_link))?;
-    std::fs::rename(temp_path, OTA_SEMAPHORE_PATH)?;
-    Ok(())
-}
+// fn write_ota_semaphore(device_id: u32, data_link: &str) -> Result<()> {
+//     let temp_path = format!("{}.tmp", OTA_SEMAPHORE_PATH);
+//     std::fs::write(&temp_path, format!("{}:{}", device_id, data_link))?;
+//     std::fs::rename(temp_path, OTA_SEMAPHORE_PATH)?;
+//     Ok(())
+// }
 
 fn main() -> Result<()> {
     let _ = std::fs::remove_file(STARTUP_SEMAPHORE_PATH);
-    let _ = std::fs::remove_file(OTA_SEMAPHORE_PATH);
+    // let _ = std::fs::remove_file(OTA_SEMAPHORE_PATH);
     let mqtt_host = env_or_default("PUBLISHD_MQTT_HOST", MQTT_HOST);
     let mqtt_port = std::env::var("PUBLISHD_MQTT_PORT")
         .ok()
         .and_then(|value| value.parse::<u16>().ok())
         .unwrap_or(MQTT_PORT);
-    let mqtt_client_id = env_or_default("PUBLISHD_MQTT_CLIENT_ID", MQTT_CLIENT_ID);
+    // Append PID so multiple publishd instances (e.g. orphan from a botched
+    // test kill, or dev laptop + on-car) don't collide on the same MQTT
+    // client_id and kick each other off the broker in a reconnect loop. The
+    // server-side device identity is carried in announce_payload (which keeps
+    // using MQTT_ANNOUNCE_CLIENT_ID verbatim), so this is broker-level only.
+    let mqtt_client_id_base = env_or_default("PUBLISHD_MQTT_CLIENT_ID", MQTT_CLIENT_ID);
+    let mqtt_client_id = format!("{}-{}", mqtt_client_id_base, std::process::id());
     let announce_payload = packet_id_announce_payload(MQTT_ANNOUNCE_CLIENT_ID);
 
     let mqtt_client = MqttClient::new(&mqtt_host, mqtt_port, &mqtt_client_id)?;
@@ -268,7 +268,7 @@ fn main() -> Result<()> {
 
     let require_server_packet_id = should_require_server_packet_id();
     println!(
-        "publishd require_server_packet_id={} (set PUBLISHD_REQUIRE_SERVER_PACKET_ID=1 to enable handshake)",
+        "publishd require_server_packet_id={} (set PUBLISHD_REQUIRE_SERVER_PACKET_ID=0 to skip handshake)",
         require_server_packet_id
     );
 
@@ -277,7 +277,7 @@ fn main() -> Result<()> {
             "publishd requesting initial packet_id using client-connections payload '{}'",
             announce_payload
         );
-        mqtt_client.request_initial_packet_id_or_default(&announce_payload, 1)
+        mqtt_client.request_initial_packet_id(&announce_payload)
     } else {
         1
     };

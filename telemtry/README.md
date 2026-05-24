@@ -9,6 +9,9 @@ pm2 start npm --name viewer_tool -- run start -- -p 3001
 ### Starting the Docker Containers
 - This starts kafka, the db, and the mqtt handler: `cd stack`, `./server_devtool.sh` and select option `2`
 - To reset the database while starting the same services, run: `./server_devtool.sh` and select option `3` instead.
+- Options `1/2/3/4/Q/W` also restart the live-viewer dev server on `0.0.0.0:3001` (Tailscale/LAN accessible). If an unrelated process is already using port `3001`, startup is skipped.
+- When live-viewer auto-starts from `server_devtool.sh`, missing Prisma clients (`auth`, `angelique`, `telemetry`) are generated automatically before launch.
+- Option `S` stops all telemetry stack docker-compose services that may be running (`ingest`, `kafka`, and processor stacks). On Linux/macOS it also stops the live-viewer started by `server_devtool.sh`.
 - To start a processor, look into option e,f,z.
 - To start on windows platforms, use `.\win_server_devtools.ps1` instead (same option logic applies). 
 
@@ -16,7 +19,7 @@ pm2 start npm --name viewer_tool -- run start -- -p 3001
 - Make sure that the `.env` file is fully complete
 - Move to the Next.js root `cd analysis/database/viewer_tool`
 - To load the database schemas for prisma, run: `npm run prisma-auth-generate` (loading auth database), `npm run prisma-angelique-generate` (loading angelique database) and `npm run prisma-telemtry-generate` (loading nightwatch database)
-- To launch the website in dev mode, run `npm run dev`
+- To launch the website in dev mode manually, run `npm run dev -- --hostname 0.0.0.0 --port 3001`
 - To launch the website for deployment, run `npm run build`
 
 ### Maintaining the Webtool
@@ -80,4 +83,3 @@ pm2 start npm --name viewer_tool -- run start -- -p 3001
     1. Look for this in terminal: `YOU ARE IN DEBUGING MODE` followed by some warnings and `Connection Pool Fully Conected!`
 
 8. Every time you wish to stop the server, press control C to stop the server, then run `docker compose down`. Please follow this step when stopping the running server
-

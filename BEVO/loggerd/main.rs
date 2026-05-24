@@ -13,7 +13,10 @@ use std::thread;
 use std::time::SystemTime;
 use std::time::Duration;
 
-use sensor_proto::proto::orion::OrionSensorData;
+use sensor_proto::proto::orion::{
+    BoardStatus, Controls, DiagnosticsHigh, DiagnosticsLow, Dynamics, OrionSensorData, Pack,
+    Thermal,
+};
 
 const SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
 const DEFAULT_LOG_DIR: &str = "BEVO/loggerd/logs";
@@ -34,11 +37,20 @@ impl CsvLogger {
             .write(true)
             .truncate(true)
             .open(&csv_path)?;
-        let writer = BufWriter::new(file);
+        let mut writer = BufWriter::new(file);
+
+        // Pre-populate the header from the full proto schema rather than the
+        // first-seen row. Without this, if the first packet has any nested
+        // sub-message as None, flatten_json_value emits a bare top-level key
+        // (e.g. "pack") instead of the per-field keys (e.g. "pack.hv_pack_v")
+        // that later populated packets produce. The header would lock to the
+        // bare form and silently drop every nested value thereafter.
+        let headers = canonical_csv_headers();
+        write_csv_record(&mut writer, headers.iter().map(|s| s.as_str()))?;
 
         Ok(Self {
             writer,
-            headers: Vec::new(),
+            headers,
             rows_since_flush: 0,
         })
     }
@@ -47,11 +59,6 @@ impl CsvLogger {
         let value = serde_json::to_value(data)?;
         let mut row = BTreeMap::new();
         flatten_json_value("", &value, &mut row);
-
-        if self.headers.is_empty() {
-            self.headers = row.keys().cloned().collect();
-            write_csv_record(&mut self.writer, self.headers.iter().map(|s| s.as_str()))?;
-        }
 
         let values = self
             .headers
@@ -67,6 +74,29 @@ impl CsvLogger {
 
         Ok(())
     }
+}
+
+fn canonical_csv_headers() -> Vec<String> {
+    // Build a fully-populated OrionSensorData template (all sub-messages
+    // present as Some(default)) so that flatten_json_value enumerates every
+    // reachable scalar key once. Repeated fields stay empty and contribute
+    // no indexed columns; this only fixes the nested-message-presence gap.
+    let template = OrionSensorData {
+        time: 0,
+        packet_id: 0,
+        dynamics: Some(Dynamics::default()),
+        controls: Some(Controls::default()),
+        pack: Some(Pack::default()),
+        diagnostics_high: Some(DiagnosticsHigh::default()),
+        diagnostics_low: Some(DiagnosticsLow::default()),
+        thermal: Some(Thermal::default()),
+        board_status: Some(BoardStatus::default()),
+    };
+    let value = serde_json::to_value(&template)
+        .expect("OrionSensorData::default() must always serialize to JSON");
+    let mut row = BTreeMap::new();
+    flatten_json_value("", &value, &mut row);
+    row.keys().cloned().collect()
 }
 
 fn flatten_json_value(prefix: &str, value: &Value, output: &mut BTreeMap<String, String>) {

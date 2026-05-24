@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include <stdint.h>
+#include "Lookup2D.h"
 
 typedef struct {
   float brake_enable_threshold;
@@ -57,8 +58,18 @@ typedef struct {
   } bse;
 
   struct {
+    float torque_map[LOOKUP2D_POINTS_Y][LOOKUP2D_POINTS_X];
     float max_torque_nm; // maximum torque request allowed in Nm
+    float low_cell_derate_start_v;
+    float low_cell_cutoff_v;
   } torque_map;
+
+  struct {
+    float power_limit_w;
+    float power_limit_trim_kp;
+    float power_limit_trim_ki;
+    float power_limit_trim_integral_max;
+  } power_limit;
 } vcu_parameters_t;
 
 #ifdef __cplusplus

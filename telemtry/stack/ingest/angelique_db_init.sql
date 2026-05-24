@@ -17,6 +17,7 @@ $$;
 
 ALTER FUNCTION public.get_event_index(smallint,smallint) OWNER TO electric;
 
+
 -- Drive Day Table
 CREATE TABLE public.drive_day (
 	day_id              smallserial NOT NULL,
@@ -282,3 +283,35 @@ CREATE TABLE public.partitions(
     start_time        bigint       NOT NULL,
     end_time          bigint       NOT NULL
 );
+
+
+CREATE OR REPLACE FUNCTION public.get_partition_bounds(
+    p_partition_name text,
+    p_time_from timestamptz DEFAULT NULL,
+    p_time_to timestamptz DEFAULT NULL,
+    p_bucket_divisor double precision DEFAULT 5000.0
+)
+RETURNS TABLE(
+    bucket_len double precision,
+    effective_start bigint,
+    effective_end bigint
+)
+LANGUAGE sql
+STABLE
+AS
+$$
+    SELECT
+        GREATEST(
+            (
+                LEAST(p.end_time, COALESCE((EXTRACT(EPOCH FROM p_time_to) * 1000)::bigint, p.end_time))
+                - GREATEST(p.start_time, COALESCE((EXTRACT(EPOCH FROM p_time_from) * 1000)::bigint, p.start_time))
+            ) / p_bucket_divisor,
+            1
+        ) AS bucket_len,
+        GREATEST(p.start_time, COALESCE((EXTRACT(EPOCH FROM p_time_from) * 1000)::bigint, p.start_time)) AS effective_start,
+        LEAST(p.end_time, COALESCE((EXTRACT(EPOCH FROM p_time_to) * 1000)::bigint, p.end_time)) AS effective_end
+    FROM partitions p
+    WHERE p.partition_name = p_partition_name;
+$$;
+
+ALTER FUNCTION public.get_partition_bounds(text,timestamptz,timestamptz,double precision) OWNER TO electric;

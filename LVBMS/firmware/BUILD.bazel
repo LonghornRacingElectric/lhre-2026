@@ -7,7 +7,18 @@ firmware_project_g4(
     defines = [
         "STM32G474xx",
     ],
+    enable_dfu = True,
     enable_freertos = True,
     enable_usb = True,
+    extra_includes = [
+        "lvbms/",
+        "../adbms6830/inc",
+    ],
+    extra_srcs = [
+        "//LVBMS/adbms6830:adbms_sources",
+    ] + glob([
+        "lvbms/*.c",
+        "lvbms/*.h",
+    ]),
     usb_device_name = "Low Voltage Battery Management System",
 )

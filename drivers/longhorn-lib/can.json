@@ -289,13 +289,13 @@
             {
                 "index": 0,
                 "start_byte": 0,
-                "name": "RTD #4 Temp",
+                "name": "Coolant Temp",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
-                    "field": "rtd4_temp",
+                    "field": "coolant_temp",
                     "repeated": false,
                     "field_index": null
                 }
@@ -303,13 +303,13 @@
             {
                 "index": 1,
                 "start_byte": 2,
-                "name": "RTD #5 Temp",
+                "name": "Inverter Hot Spot Temp",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
-                    "field": "rtd5_temp",
+                    "field": "inverter_hotspot_temp",
                     "repeated": false,
                     "field_index": null
                 }
@@ -320,7 +320,7 @@
                 "name": "Motor Temp",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
                     "field": "motor_temp",
@@ -772,7 +772,7 @@
                 "name": "torque feedback",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
                     "field": "torque_feedback",
@@ -786,7 +786,7 @@
                 "name": "Time since turned ON",
                 "length": 4,
                 "conv_type": "uint32",
-                "precision": 1.0,
+                "precision": 0.003,
                 "protobuf": {
                     "type": "float",
                     "field": "time_since_on",
@@ -817,7 +817,7 @@
                 "name": "commanded torque",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
                     "field": "torque_command",
@@ -831,7 +831,7 @@
                 "name": "torque feedback",
                 "length": 2,
                 "conv_type": "int16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
                     "field": "torque_feedback",
@@ -859,7 +859,7 @@
                 "name": "Bus Voltage",
                 "length": 2,
                 "conv_type": "uint16",
-                "precision": 1.0,
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
                     "field": "bus_voltage",
@@ -2173,18 +2173,18 @@
     },
     {
         "packet_id": 416,
-        "packet_name": "Motor Cooling",
+        "packet_name": "Coolant Loop Temps",
         "from": [
             "TSM"
         ],
         "to": [
-            "PDU"
+            "Pi"
         ],
         "data_length": 8,
         "frequency_ms": 100,
         "frequency": 10.0,
         "quantity": 1,
-        "bus": "Critical",
+        "bus": "Data Acq",
         "bytes": [
             {
                 "index": 0,
@@ -2227,17 +2227,76 @@
                     "repeated": false,
                     "field_index": null
                 }
+            }
+        ]
+    },
+    {
+        "packet_id": 418,
+        "packet_name": "Fan/Flow Speeds",
+        "from": [
+            "TSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 8,
+        "frequency_ms": 100,
+        "frequency": 10.0,
+        "quantity": 1,
+        "bus": "",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Radiator Fan Speed",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fan_rpm",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Battery Fan Speed",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "battery_fan_rpm",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Coolant Flow",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "coolant_flow_lpm",
+                    "repeated": false,
+                    "field_index": null
+                }
             },
             {
                 "index": 3,
                 "start_byte": 6,
-                "name": "Radiator Fan Speed",
+                "name": "Ambient Temp",
                 "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.2,
+                "conv_type": "int16",
+                "precision": 0.01,
                 "protobuf": {
                     "type": "float",
-                    "field": "motor_loop_rad_fan_speed",
+                    "field": "ambient_temp",
                     "repeated": false,
                     "field_index": null
                 }
@@ -2707,66 +2766,6 @@
                 "protobuf": {
                     "type": "float",
                     "field": "steer_col_angle",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 455,
-        "packet_name": "VCU State",
-        "from": [
-            "VCU"
-        ],
-        "to": [
-            "Pi",
-            "PDU"
-        ],
-        "data_length": 3,
-        "frequency_ms": 3,
-        "frequency": 333.0,
-        "quantity": 1,
-        "bus": "Critical",
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "PRNDL State",
-                "length": 1,
-                "conv_type": "uint8",
-                "precision": 1.0,
-                "protobuf": {
-                    "type": "float",
-                    "field": "prndl_state",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 1,
-                "name": "STOMP Fault",
-                "length": 1,
-                "conv_type": "uint8",
-                "precision": 1.0,
-                "protobuf": {
-                    "type": "bool",
-                    "field": "stomp_fault",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 2,
-                "name": "Ready To Drive Buzzer",
-                "length": 1,
-                "conv_type": "uint8",
-                "precision": 1.0,
-                "protobuf": {
-                    "type": "bool",
-                    "field": "r2d_buzzer",
                     "repeated": false,
                     "field_index": null
                 }

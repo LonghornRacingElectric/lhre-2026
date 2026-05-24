@@ -7,6 +7,8 @@ import pickle
 import base64
 import sys
 import time
+import queue
+import threading
 import numpy as np
 import copy
 import grpc
@@ -16,9 +18,10 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).parents[2]))
 
-from analysis.sql_utils.db_session import get_db
+from analysis.sql_utils.db_session import get_db, engine_nightwatch, engine_angelique, engine_orion
 from analysis.sql_utils.query_builder import QueryBuilder
-from analysis.sql_utils.models import AngeliquePacket, OrionPacket
+from analysis.sql_utils.models import AngeliquePacket, OrionPacket, BaseTelemetry, BaseAngelique, BaseOrion
+from stack.ingest.partition_manager import PartitionManager
 from stack.ingest.protobuf import template_pb2, angelique_pb2, can_packets_pb2, bridge_pb2, bridge_pb2_grpc
 
 # Determine path to net_configs.json based on execution context
@@ -65,11 +68,33 @@ class MQTTHandler:
         self.scalar_or_list = lambda val, scalar: val.tolist()[0] if scalar else val.tolist()
         self.cache = []
         self.cache_enable = cache_enable
+        self._shutdown = False
+        self.partition_manager = PartitionManager(gap_seconds=300)
+        self.partition_enabled_cars = {"Angelique", "Orion"}
         self.table_specs = {
             "Nightwatch": QueryBuilder("Nightwatch").get_table_column_specs(),
             "Angelique": QueryBuilder("Angelique").get_table_column_specs(),
             "Orion": QueryBuilder("Orion").get_table_column_specs(),
         }
+
+        # Non-blocking producer/consumer queues.
+        # MQTT callback enqueues jobs, workers perform blocking DB and CSV IO.
+        self.db_queues = {
+            "Nightwatch": queue.Queue(maxsize=4096),
+            "Angelique": queue.Queue(maxsize=4096),
+            "Orion": queue.Queue(maxsize=15000),
+        }
+        self.db_workers = {
+            car: threading.Thread(target=self._db_worker, args=(car,), daemon=True)
+            for car in self.db_queues
+        }
+        for worker in self.db_workers.values():
+            worker.start()
+
+        # Single CSV worker preserves append order for Orion log output.
+        self.csv_queue = queue.Queue(maxsize=15000)
+        self.csv_worker = threading.Thread(target=self._csv_worker, daemon=True)
+        self.csv_worker.start()
         
         # gRPC bridge client instead of Kafka
         bridge_addr = 'kafka-bridge:50051' if os.getenv("IN_DOCKER") else 'localhost:50051'
@@ -123,6 +148,7 @@ class MQTTHandler:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self._shutdown_workers()
         self.client.disconnect()
 
     def subscribe(self, topic: str = '#'):
@@ -132,6 +158,112 @@ class MQTTHandler:
 
     def publish(self, *args, **kwargs):
         self.client.publish(*args, **kwargs)
+
+    def _shutdown_workers(self):
+        if self._shutdown:
+            return
+        self._shutdown = True
+
+        for car in self.db_queues:
+            try:
+                self.db_queues[car].put_nowait(None)
+            except queue.Full:
+                pass
+        try:
+            self.csv_queue.put_nowait(None)
+        except queue.Full:
+            pass
+
+    def _db_worker(self, car: str):
+        jobs = []
+        pending_acks = 0
+
+        def flush_batch(session_obj, timeout_flush: bool = False):
+            nonlocal jobs
+            if not jobs:
+                return
+
+            try:
+                QueryBuilder.execute_insert(session_obj, jobs, self.table_specs[car], car, commit=False)
+
+                packet_times = sorted({
+                    int(row["time"])
+                    for table, row in jobs
+                    if table == "packet" and isinstance(row, dict) and row.get("time") is not None
+                })
+                if car in self.partition_enabled_cars and packet_times:
+                    # Create partitions only at boundaries/gaps; avoid per-packet updates.
+                    prev_time = packet_times[0]
+                    self.partition_manager.record_packet_time(session_obj, prev_time)
+
+                    for packet_time in packet_times[1:]:
+                        if packet_time - prev_time > self.partition_manager.partition_gap_ms:
+                            self.partition_manager.record_packet_time(session_obj, packet_time)
+                        prev_time = packet_time
+
+                    # On timeout flush, explicitly advance end_time to the latest packet in this batch.
+                    if timeout_flush:
+                        self.partition_manager.set_latest_end_time(session_obj, packet_times[-1])
+                    else:
+                        self.partition_manager.set_latest_end_time(session_obj, packet_times[-1])
+
+                session_obj.commit()
+            except Exception as e:
+                session_obj.rollback()
+                logging.error(f"DB worker batch insert failed for {car}: {e}")
+            finally:
+                jobs.clear()
+
+        with get_db(car) as session:
+            while True:
+                try:
+                    job = self.db_queues[car].get(block=True, timeout=5)
+                except queue.Empty:
+                    if jobs:
+                        flush_batch(session, timeout_flush=True)
+                        while pending_acks > 0:
+                            self.db_queues[car].task_done()
+                            pending_acks -= 1
+                    continue
+
+                if job is None:
+                    if jobs:
+                        flush_batch(session)
+                    while pending_acks > 0:
+                        self.db_queues[car].task_done()
+                        pending_acks -= 1
+                    self.db_queues[car].task_done()
+                    break
+
+                if not isinstance(job, list):
+                    logging.error(f"DB worker for {car} received malformed job type: {type(job)}")
+                    self.db_queues[car].task_done()
+                    continue
+
+                jobs.extend(job)
+                pending_acks += 1
+
+                if len(jobs) >= 40:
+                    flush_batch(session)
+                    while pending_acks > 0:
+                        self.db_queues[car].task_done()
+                        pending_acks -= 1
+
+    def _csv_worker(self):
+        while True:
+            item = self.csv_queue.get()
+            if item is None:
+                self.csv_queue.task_done()
+                break
+
+            file_path, row_vals = item
+            try:
+                with open(file_path, 'a', newline='') as f:
+                    csv.writer(f).writerow(row_vals)
+            except Exception as e:
+                logging.error(f"CSV worker write failed for {file_path}: {e}")
+            finally:
+                self.csv_queue.task_done()
 
     def on_message(self, client: mqtt_client.Client, userdata, msg):
         if msg.topic == 'client-connections':
@@ -177,7 +309,7 @@ class MQTTHandler:
                     cols = []
                     # Qualify columns with table name so similarly named fields map correctly.
                     for table, col_spec in self.table_specs["Orion"].items():
-                        if (table in {"packet", "dynamics", "controls", "pack", "diagnostics_low", "diagnostics_high", "thermal"}):
+                        if (table in {"packet", "dynamics", "controls", "pack", "diagnostics_low", "diagnostics_high", "thermal", "board_status"}):
                             cols.extend(f"{table}.{col}" for col in col_spec.keys())
                     with open(log_file, 'w', newline='') as f:
                         csv.writer(f).writerow(cols)
@@ -277,10 +409,12 @@ class MQTTHandler:
                 logging.error(f'\tUnexpected payload received: {payload}')
 
     def cache_flush(self, car):
-        if (len(self.cache) > 0):
-            session = self.sessions[car]
-            session.bulk_insert_mappings(self.cache[0][0], [item[1] for item in self.cache])
-            session.commit()
+        if len(self.cache) > 0:
+            try:
+                self.db_queues[car].put_nowait(list(self.cache))
+                self.cache.clear()
+            except queue.Full:
+                logging.error(f"DB queue full for {car}; dropping cached batch")
 
     def _data_ingest(self, payload: str, table: str, car:str, cache_enable = False):
         '''
@@ -302,13 +436,35 @@ class MQTTHandler:
 
         if model:
             table_desc = self.table_specs[car][model.__tablename__]
-            if isinstance(data_dict, list):
-                if len(data_dict) > 1:
-                    QueryBuilder.bulk_insert(session, table, model, data_dict, table_desc, commit=True)
-                else:
-                    QueryBuilder.insert(session, table, model, data_dict[0], table_desc, commit=True)
-            elif not cache_enable:
-                QueryBuilder.insert(session, table, model, data_dict, table_desc, commit=True)
+            should_record_partition = (car in self.partition_enabled_cars and table == "packet")
+
+            try:
+                if isinstance(data_dict, list):
+                    if len(data_dict) > 1:
+                        QueryBuilder.bulk_insert(session, table, model, data_dict, table_desc, commit=not should_record_partition)
+                        if should_record_partition:
+                            for row in data_dict:
+                                packet_time = row.get("time") if isinstance(row, dict) else None
+                                if packet_time is not None:
+                                    self.partition_manager.record_packet_time(session, int(packet_time))
+                            session.commit()
+                    else:
+                        QueryBuilder.insert(session, table, model, data_dict[0], table_desc, commit=not should_record_partition)
+                        if should_record_partition:
+                            packet_time = data_dict[0].get("time") if isinstance(data_dict[0], dict) else None
+                            if packet_time is not None:
+                                self.partition_manager.record_packet_time(session, int(packet_time))
+                            session.commit()
+                elif not cache_enable:
+                    QueryBuilder.insert(session, table, model, data_dict, table_desc, commit=not should_record_partition)
+                    if should_record_partition:
+                        packet_time = data_dict.get("time") if isinstance(data_dict, dict) else None
+                        if packet_time is not None:
+                            self.partition_manager.record_packet_time(session, int(packet_time))
+                        session.commit()
+            except Exception as e:
+                session.rollback()
+                logging.error(f"Data ingest failed for {car}.{table}: {e}")
     
     def _proto_ingest(self, payload:str, cache_enable = False, car = "Nightwatch"):
         message_dict = self._proto_decode(payload=payload, car=car)
@@ -316,9 +472,9 @@ class MQTTHandler:
         if ("time" not in message_dict or "packet_id" not in message_dict):
             raise Exception("time/packet_id MISSING FROM PAYLOAD")
         
-        session = self.sessions[car]
         builder = QueryBuilder(car)
         table_specs = self.table_specs[car]
+        insert_jobs = []
 
         for table in table_specs.keys():
             model = builder._models.get(self._model_key(table))
@@ -331,18 +487,21 @@ class MQTTHandler:
 
                 if data is not None:
                     if not cache_enable:
-                        QueryBuilder.insert(session, table, model, data, table_desc, commit=False)
+                        insert_jobs.append((table, data))
                     elif table == 'packet':
-                        QueryBuilder.insert(session, table, model, data, table_desc, commit=False)
+                        insert_jobs.append((table, data))
                     elif table != 'packet':
-                        self.cache.append((model, data))
+                        self.cache.append((table, data))
                         if (len(self.cache) == 24):
-                            self.cache_flush(car)
+                            insert_jobs.extend(self.cache)
                             self.cache.clear()
 
-        session.commit()
+        if insert_jobs:
+            try:
+                self.db_queues[car].put_nowait(insert_jobs)
+            except queue.Full:
+                logging.error(f"DB queue full for {car}; dropping message packet_id={message_dict.get('packet_id')}")
 
-        # if an Orion log file is active, append this decoded record
         if car == "Orion" and self.orion_log_path is not None:
             flat = {}
             for table in table_specs.keys():
@@ -350,7 +509,6 @@ class MQTTHandler:
                 if not model:
                     continue
 
-                # Mirror the same unpacking shape as DB insertion logic.
                 data = {col.name: message_dict[col.name] for col in model.__table__.columns if col.name in message_dict} if table == "packet" else None
                 if data is None:
                     data = ({col.name: message_dict[table][col.name] for col in model.__table__.columns if col.name in message_dict[table]}
@@ -366,8 +524,10 @@ class MQTTHandler:
                 if isinstance(val, (list, dict)):
                     val = json.dumps(val)
                 row_vals.append(val)
-            with open(self.orion_log_path, 'a', newline='') as f:
-                csv.writer(f).writerow(row_vals)
+            try:
+                self.csv_queue.put_nowait((self.orion_log_path, row_vals))
+            except queue.Full:
+                logging.error("CSV queue full for Orion log; dropping row")
 
 
     def _b64_ingest(self, payload: str, high_freq: bool):
@@ -497,11 +657,28 @@ class MQTTHandler:
         return payload
 
 
+def reconcile_orm_schema():
+    # Create any ORM-mapped tables that don't yet exist in their target DB.
+    # Why: orion_db_init.sql only runs on first volume init, so existing volumes
+    # miss tables added after their initial bring-up (e.g. board_status).
+    for name, base, engine in (
+        ("Nightwatch", BaseTelemetry, engine_nightwatch),
+        ("Angelique", BaseAngelique, engine_angelique),
+        ("Orion", BaseOrion, engine_orion),
+    ):
+        try:
+            base.metadata.create_all(engine, checkfirst=True)
+        except Exception as exc:
+            logging.warning("Schema reconcile for %s skipped: %s", name, exc)
+
+
 def main():
     '''
     This is the runner script for the subscribe-side MQTT script which uploads data to the database.
     '''
-    
+
+    reconcile_orm_schema()
+
     with get_db("Nightwatch") as nightwatch_session, get_db("Angelique") as angelique_session, get_db("Orion") as orion_session:
         db_sessions = {
             'Nightwatch': nightwatch_session,
