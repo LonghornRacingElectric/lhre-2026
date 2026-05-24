@@ -53,12 +53,18 @@ struct CanData {
     /// confirmed first. Always null.
     odometer: Option<f32>,
 
-    /// State of charge (0–100%) from pack.hv_soc.
+    /// Estimated SOC from the inverter's DC bus voltage:
+    /// `(dc_bus_v - 390) / (546 / 390)`. Only refreshed while the bus
+    /// current magnitude is below 1.0 A (so we're sampling cell EMF, not
+    /// IR drop). Held at the last qualified value otherwise. Used because
+    /// HVC firmware does not currently broadcast packet 0x132 carrying
+    /// pack.hv_soc; once 0x132 is back, prefer that.
     soc: Option<f32>,
 
-    /// Pack temperature in °C — currently sourced from thermal.cell_top_temp.
-    /// Frontend's main TEMP gauge reads this. Hottest-cell semantics live on
-    /// `cellTempMax` below for the diag screen.
+    /// Pack temperature in °C — max of all reported cell temps
+    /// (pack.cells_temps from packet 0x100). Was thermal.cell_top_temp,
+    /// but that field arrives in packet 0x132 which HVC does not
+    /// currently emit. Same value as `cellTempMax` below.
     temperature: Option<f32>,
 
     /// NOT AVAILABLE — 5G signal strength is not on the CAN bus. Always null.
@@ -205,6 +211,10 @@ struct DashState {
     /// Wall-clock time of the most recent successful IPC decode. Used by the
     /// WS sender to null out CanData once cand has stopped publishing.
     last_can_update: Instant,
+    /// Most recent SOC estimate that satisfied the current-qualification
+    /// gate (|dc_bus_current| < 1.0 A). Reused while the gate is open so
+    /// the bar doesn't twitch under load. None until first qualified read.
+    last_qualified_soc: Option<f32>,
     mqtt: MqttState,
 }
 
@@ -212,7 +222,7 @@ struct DashState {
 // Protobuf -> CanData extraction
 // ---------------------------------------------------------------------------
 
-fn extract_can_data(data: &OrionSensorData) -> CanData {
+fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>) -> CanData {
     let pack = data.pack.as_ref();
     let thermal = data.thermal.as_ref();
     let controls = data.controls.as_ref();
@@ -227,8 +237,16 @@ fn extract_can_data(data: &OrionSensorData) -> CanData {
     let speed = controls.map(|c| c.motor_speed * MOTOR_RPM_TO_MPH);
 
     let power = pack.map(|p| p.dc_bus_v * p.dc_bus_current / 1000.0);
-    let soc = pack.map(|p| p.hv_soc);
-    let temperature = thermal.map(|t| t.cell_top_temp);
+
+    // SOC estimate from inverter DC bus voltage. Refreshed only while the
+    // current is near zero (cell EMF vs IR drop); held otherwise. See the
+    // doc on CanData.soc for the why.
+    if let Some(p) = pack {
+        if p.dc_bus_current.abs() < 1.0 {
+            *last_qualified_soc = Some((p.dc_bus_v - 390.0) / (546.0 / 390.0));
+        }
+    }
+    let soc = *last_qualified_soc;
 
     // Per-cell temp aggregates — None when cand has not received cell-temp
     // packets yet (empty vec).
@@ -242,6 +260,9 @@ fn extract_can_data(data: &OrionSensorData) -> CanData {
             (Some(max), Some(avg), Some(min))
         })
         .unwrap_or((None, None, None));
+
+    // Pack temp = hottest cell. Bound to cell_temp_max above; same source.
+    let temperature = cell_temp_max;
 
     // Shutdown array — packed in the order SHUTDOWN_NAMES expects.
     // Convention: true = OK, false = FAULT. Source fields are normalized to
@@ -343,8 +364,8 @@ fn ipc_reader_loop(state: Arc<Mutex<DashState>>) {
 
                     match OrionSensorData::decode(&msg_buf[..]) {
                         Ok(data) => {
-                            let can_data = extract_can_data(&data);
                             let mut locked = state.lock().unwrap();
+                            let can_data = extract_can_data(&data, &mut locked.last_qualified_soc);
                             locked.can = can_data;
                             locked.last_can_update = Instant::now();
                         }
@@ -536,6 +557,7 @@ fn main() -> Result<()> {
         can: CanData::default(),
         // Start stale so the dash shows "--" until cand actually connects.
         last_can_update: Instant::now() - CAN_STALE_TIMEOUT,
+        last_qualified_soc: None,
         mqtt: MqttState::new(),
     }));
 
