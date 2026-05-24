@@ -32,6 +32,9 @@ static can_message_t *r2d_status_mailbox_handle = NULL;
 static msg_indicators_shutdown_status_t indicator_status_mailbox = {0};
 static can_receive_message_t *indicator_status_mailbox_handle = NULL;
 
+static msg_vcu_state_t vcu_state_mailbox = {0};
+static can_receive_message_t *vcu_state_mailbox_handle = NULL;
+
 void dui_can_add_receive_handlers(void);
 void dui_can_add_send_handlers(void);
 
@@ -101,6 +104,14 @@ void dui_can_add_receive_handlers(void) {
                                    indicator_status_mailbox_handle);
 
   log_printf(LOG_INFO, "[DUI] CAN IMD + BMS handlers registered\n");
+
+  // VCU State
+  vcu_state_mailbox_handle = can_get_receive_message_handle(
+      &vcu_state_mailbox, VCU_STATE_ID, (CAN_unpack_message_fn)unpack_vcu_state);
+
+  can_rtos_register_receive_packet(&critical_bus, vcu_state_mailbox_handle);
+
+  log_printf(LOG_INFO, "[DUI] CAN VCU State handler registered\n");
 }
 
 /**
@@ -138,3 +149,9 @@ bool hvc_bms_fault(void) {
 }
 
 void dui_set_r2d(bool enabled) { r2d_status_mailbox.r2d_status = enabled; }
+
+bool dui_r2d_buzzer_active(void) {
+  return vcu_state_mailbox.prndl_state == 1 &&
+         vcu_state_mailbox.ready_to_drive_buzzer &&
+         !message_timed_out(vcu_state_mailbox_handle, VCU_STATE_TIMEOUT_MS * 4);
+}

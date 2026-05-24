@@ -21,6 +21,14 @@ void dui_can_init(void);
 void dui_set_r2d(bool r2d);
 
 /**
+ * @brief Returns whether the VCU is requesting the ready-to-drive buzzer.
+ *
+ * @return true if the buzzer should be active
+ * @return false if the buzzer should be off
+ */
+bool dui_r2d_buzzer_active(void);
+
+/**
  * @brief Returns whether or not the HVC has an IMD fault from the HVC
  *
  * @return true if there is an IMD fault

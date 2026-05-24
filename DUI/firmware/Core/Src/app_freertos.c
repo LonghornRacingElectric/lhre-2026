@@ -39,6 +39,7 @@
 #include "usbd_cdc_if.h"
 #include "ota/ota_flash.h"
 
+#include <buzzer.h>
 #include "cmsis_os2.h"
 #include <dui_can.h>
 #include <r2d.h>
@@ -167,6 +168,8 @@ void StartDefaultTask(void *argument)
   dui_r2d_init();
 
   dui_can_init();
+
+  dui_buzzer_init();
 
   /* Infinite loop */
   for (;;) {
