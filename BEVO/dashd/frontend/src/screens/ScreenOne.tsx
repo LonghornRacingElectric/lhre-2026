@@ -64,11 +64,9 @@ const ScreenOne: React.FC = () => {
     if (temp !== null && temp !== undefined && temp > 55) {
         alerts.push("High Battery Temp");
     }
-    // Shutdown-circuit alert intentionally unreachable while systemOk is
-    // forced to true above. Left in place so the revert is one line.
-    if (systemOk === false) {
-        alerts.push("Shutdown Circuit Fault");
-    }
+    // Shutdown-circuit alert disabled — to restore, change systemOk above
+    // back to `shutdown.every(Boolean)` and add:
+    //   if (systemOk === false) alerts.push("Shutdown Circuit Fault");
 
     // -------------------------------------------------------------------------
     // RENDER HELPERS
