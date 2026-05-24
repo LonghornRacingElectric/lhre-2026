@@ -400,7 +400,7 @@ void StartControlTask(void *argument) {
         steering_sensor_voltage_to_percent(steering_sensor_voltage_v);
     // steering_angle_deg =
     //     steering_sensor_voltage_to_angle_deg(steering_sensor_voltage_v);
-    steering_angle_deg = ((steering_angle_pct - 0.02f) / 0.62f - 0.5f) * 120.0f;  // TODO chud temp tuning
+    steering_angle_deg = ((steering_angle_pct - 0.02f) / 0.62f - 0.5f) * 230.0f + 7.0f;  // TODO chud temp tuning
 
     // Read pedal sensors from DMA buffers
     in.apps1_raw = ((float)adc3_dma_buf[0] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
