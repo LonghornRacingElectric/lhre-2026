@@ -306,7 +306,12 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
         signal_strength: None,
         shutdown,
 
-        brake_bias: controls.map(|c| c.brake_bias),
+        // Workaround: the can.json precision on brake_bias is 0.01, so a
+        // raw VCU byte of 45 (meaning 45%) decodes to 0.45 and the dash
+        // rounds to "0%". Multiply back to 0..100 here. Proper fix is in
+        // longhorn-lib's can_packets.csv (set precision to 1.0); remove
+        // this scaling once that lands and can.json refreshes.
+        brake_bias: controls.map(|c| c.brake_bias * 100.0),
         apps: controls.map(|c| c.apps1_travel),
         bpps: controls.map(|c| c.bpps1_travel),
         brake_pressure_front: controls.map(|c| c.brake_pressure_f),
