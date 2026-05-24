@@ -173,7 +173,17 @@ void StartDefaultTask(void *argument)
 
   /* Infinite loop */
   for (;;) {
-    osDelay(1000);
+    dui_can_debug_state_t can_debug = dui_can_get_debug_state();
+    log_printf(LOG_INFO,
+               "[DUI] r2d_sw=%u vcu_prndl=%u vcu_r2d_buzzer=%u "
+               "vcu_timeout=%u buzzer_active=%u\n",
+               (unsigned)can_debug.r2d_switch,
+               (unsigned)can_debug.prndl_state,
+               (unsigned)can_debug.ready_to_drive_buzzer,
+               (unsigned)can_debug.vcu_state_timed_out,
+               (unsigned)can_debug.buzzer_active);
+
+    osDelay(250);
   }
   /* USER CODE END StartDefaultTask */
 }
