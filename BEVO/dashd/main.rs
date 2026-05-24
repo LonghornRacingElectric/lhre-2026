@@ -243,7 +243,11 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
     // doc on CanData.soc for the why.
     if let Some(p) = pack {
         if p.dc_bus_current.abs() < 1.0 {
-            *last_qualified_soc = Some((p.dc_bus_v - 390.0) / (546.0 / 390.0));
+            // Floor at 0 so a sub-390 V reading doesn't render as a negative
+            // SOC. Upper end left unclamped — frontend already caps the bar
+            // fill at 100%; the numeric readout above 100 is honest signal.
+            let raw = (p.dc_bus_v - 390.0) / (546.0 / 390.0);
+            *last_qualified_soc = Some(raw.max(0.0));
         }
     }
     let soc = *last_qualified_soc;
