@@ -35,6 +35,23 @@ float vcu_can_get_delta_resolver_angle_deg(void);
 float vcu_can_get_motor_angle_deg(void);
 float vcu_can_get_min_cell_voltage_v(void);
 
+typedef struct {
+    float phase_a;
+    float phase_b;
+    float phase_c;
+    float dc_bus;
+} inverter_currents_t;
+
+typedef struct {
+    float dc_bus;
+    float neutral_output;
+    float vab_vq;
+    float vbc_vd;
+} inverter_voltages_t;
+
+inverter_currents_t vcu_can_get_inverter_currents(void);
+inverter_voltages_t vcu_can_get_inverter_voltages(void);
+
 // Inverter feedback variables (populated automatically)
 extern float inverter_torque_fb;   // Nm
 extern int16_t inverter_rpm;       // rpm

@@ -100,18 +100,18 @@ static vcu_parameters_t s_params = {
     .apps =
         {
             .apps1_min_adc_v = 1.750f,
-            .apps1_max_adc_v = 1.540f,
+            .apps1_max_adc_v = 1.520f,
 
-            .apps2_min_adc_v = 0.205f,
-            .apps2_max_adc_v = 0.000f,
+            .apps2_min_adc_v = 0.190f,
+            .apps2_max_adc_v = -0.020f,
 
             .implaus_debounce_time_ms = 100u,
-            .max_allowable_diff = 0.10f,
+            .max_allowable_diff = 0.15f,
             // .min_travel_threshold = 0.10f,
             // .max_travel_restore_threshold = 0.05f,
 
-            .min_travel_deadzone = 0.12f,
-            .max_travel_deadzone = 0.92f,
+            .min_travel_deadzone = 0.09f,
+            .max_travel_deadzone = 0.88f,
             .pedal_ema_alpha = 0.35f,
         },
     .bse =
@@ -138,6 +138,19 @@ static vcu_parameters_t s_params = {
         },
     .torque_map =
         {
+            .torque_map = {
+              /* rpm=    0 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 100.0f, 110.0f, 120.0f, 130.0f,  140.0f,  150.00f },
+              /* rpm=  600 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 100.0f, 110.0f, 120.0f, 130.0f,  140.0f,  150.00f },
+              /* rpm= 1200 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 120.0f, 130.0f, 150.0f,  160.0f,  170.00f },
+              /* rpm= 1800 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 120.0f, 130.0f, 150.0f,  170.0f,  190.00f },
+              /* rpm= 2400 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 176.0f,  188.0f,  200.00f },
+              /* rpm= 3000 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 176.0f,  198.0f,  220.00f },
+              /* rpm= 3600 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 176.0f,  198.0f,  203.72f },
+              /* rpm= 4200 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 174.62f, 174.62f, 174.62f },
+              /* rpm= 4800 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 152.79f, 152.79f, 152.79f, 152.79f },
+              /* rpm= 5400 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 135.81f, 135.81f, 135.81f, 135.81f },
+              /* rpm= 6000 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 122.23f, 122.23f, 122.23f, 122.23f, 122.23f },
+            },
             .max_torque_nm = 220.0f,
             .low_cell_derate_start_v = 3.2f,
             .low_cell_cutoff_v = 3.0f,
@@ -149,7 +162,7 @@ static vcu_parameters_t s_params = {
           .power_limit_trim_ki = 0.6f,
           .power_limit_trim_integral_max = 1000.0f,
       },
-    .buzzer_duration_ms = 1800u,
+    .buzzer_duration_ms = 1200u,
     .brake_enable_threshold = 0.1f,
 };
 
@@ -394,8 +407,8 @@ void StartControlTask(void *argument) {
     if (in.min_cell_voltage_v <= 0.0f) {
       in.min_cell_voltage_v = s_params.torque_map.low_cell_derate_start_v;
     }
-    in.battery_voltage_v = 0;
-    in.battery_current_a = 0;
+    in.battery_voltage_v = vcu_can_get_inverter_voltages().dc_bus;
+    in.battery_current_a = vcu_can_get_inverter_currents().dc_bus;
 
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
@@ -433,7 +446,7 @@ void StartControlTask(void *argument) {
     //          (unsigned)out.faults.apps_any_fault,
     //          (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault);
     
-    log_printf(LOG_INFO,
+      log_printf(LOG_INFO,
              "\nAPPS1_RAW:%.3f APPS1_PCT:%.3f\nAPPS2_RAW:%.3f APPS2_PCT:%.3f\nAPPS: %.3f\n\n",
              (double)in.apps1_raw, (double)out.apps1_travel,
              (double)in.apps2_raw, (double)out.apps2_travel,

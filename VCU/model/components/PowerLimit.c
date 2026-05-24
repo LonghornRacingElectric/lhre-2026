@@ -35,7 +35,6 @@ void power_limit_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   // Trim is one-sided: only ever reduce torque, never below zero
   torque_trim = clamp_f(torque_trim, 0.0f, out->torque_lookup_output);
 
-  torque_trim = 0; // TODO disabled
-  out->torque_power_limited = out->torque_lookup_output - torque_trim;
+  out->torque_power_limited = out->torque_lookup_output;// - torque_trim;
   out->torque_cmd = out->torque_power_limited;
 }
