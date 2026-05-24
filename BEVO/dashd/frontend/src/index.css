@@ -1,3 +1,47 @@
+/* Theme variables. Default = dark. Add body.theme-light override below. */
+:root {
+  --bg-gradient: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+  --fg-primary: #fff;
+  --fg-secondary: #aaa;
+  --fg-muted: #888;
+  --card-bg: rgba(255, 255, 255, 0.05);
+  --card-bg-hover: rgba(255, 255, 255, 0.08);
+  --card-border: rgba(255, 255, 255, 0.1);
+  --card-border-hover: rgba(255, 255, 255, 0.2);
+  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --card-shadow-hover: 0 4px 25px rgba(0, 0, 0, 0.6);
+  --text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  --text-shadow-strong: 0 1px 4px rgba(0, 0, 0, 0.8);
+  --value-glow: 0 0 10px rgba(255, 255, 255, 0.2);
+  --divider: rgba(255, 255, 255, 0.08);
+  --bar-track: rgba(255, 255, 255, 0.08);
+  --bar-center: rgba(255, 255, 255, 0.3);
+  /* Status / brand colors stay constant across themes */
+  --brand: #BF5700;
+  --accent-gold: #FFD700;
+  --accent-green: #00FF66;
+  --accent-red: #FF3333;
+}
+
+body.theme-light {
+  --bg-gradient: radial-gradient(circle at center, #ffffff 0%, #e2e2e2 100%);
+  --fg-primary: #111;
+  --fg-secondary: #444;
+  --fg-muted: #666;
+  --card-bg: rgba(0, 0, 0, 0.04);
+  --card-bg-hover: rgba(0, 0, 0, 0.08);
+  --card-border: rgba(0, 0, 0, 0.12);
+  --card-border-hover: rgba(0, 0, 0, 0.22);
+  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  --card-shadow-hover: 0 4px 25px rgba(0, 0, 0, 0.22);
+  --text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
+  --text-shadow-strong: 0 1px 3px rgba(255, 255, 255, 0.8);
+  --value-glow: 0 0 10px rgba(0, 0, 0, 0.12);
+  --divider: rgba(0, 0, 0, 0.1);
+  --bar-track: rgba(0, 0, 0, 0.08);
+  --bar-center: rgba(0, 0, 0, 0.35);
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
