@@ -236,6 +236,22 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
     const MOTOR_RPM_TO_MPH: f32 = 0.014233265;
     let speed = controls.map(|c| c.motor_speed * MOTOR_RPM_TO_MPH);
 
+    // DEBUG (driveday): trace why dash shows 0 mph even when motor_speed is
+    // non-zero in cand's CSV. Remove this block once diagnosis is done.
+    {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        static TICK: AtomicU32 = AtomicU32::new(0);
+        let n = TICK.fetch_add(1, Ordering::Relaxed);
+        if n % 100 == 0 {
+            eprintln!(
+                "[DASHD-DBG] controls.is_some={} motor_speed_raw={:?} speed_mph={:?}",
+                controls.is_some(),
+                controls.map(|c| c.motor_speed),
+                speed
+            );
+        }
+    }
+
     let power = pack.map(|p| p.dc_bus_v * p.dc_bus_current / 1000.0);
 
     // SOC estimate from inverter DC bus voltage. Refreshed only while the
