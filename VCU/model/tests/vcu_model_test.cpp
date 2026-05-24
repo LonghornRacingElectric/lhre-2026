@@ -39,11 +39,24 @@ protected:
     params.bse.max_pedal_while_braking = 0.30f;
     params.bse.max_pedal_restore_threshold = 0.05f;
 
-    // Basic torque map
-    params.torque_map.max_torque_nm = 100.0f;
-
     // Buzzer
     params.buzzer_duration_ms = 3000;
+
+    // Torque map
+    float temp_torque_map[11][11] = {
+          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
+          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
+          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
+          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
+          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
+          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
+          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
+          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
+          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
+          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
+          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
+    };
+    memcpy(params.torque_map.torque_map, temp_torque_map, sizeof(temp_torque_map));
 
     in = {0};
     out = {0};

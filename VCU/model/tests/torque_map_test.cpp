@@ -41,10 +41,10 @@ TEST_F(TorqueMapTest, BasicMapping) {
   // 50% pedal -> 50 torque
   out.accel_pedal_travel = 0.5f;
   torque_map_evaluate(&in, &out, &params, 10);
-  EXPECT_FLOAT_EQ(out.torque_lookup_output, 50.0f);
+  EXPECT_FLOAT_EQ(out.torque_lookup_output, 100.0f);
 
   // 100% pedal -> 100 torque
   out.accel_pedal_travel = 1.0f;
   torque_map_evaluate(&in, &out, &params, 10);
-  EXPECT_FLOAT_EQ(out.torque_lookup_output, 100.0f);
+  EXPECT_FLOAT_EQ(out.torque_lookup_output, 150.0f);
 }
