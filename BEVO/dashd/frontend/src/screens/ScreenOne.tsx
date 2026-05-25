@@ -656,10 +656,20 @@ const ScreenOne: React.FC = () => {
                     )}
                 </div>
 
-                {/* Connectivity — moved leftward, sits just right of the
-                    TC/REGEN cluster (which ends at ~14+160=174 px from
-                    the left edge). */}
-                <div style={{ position: 'absolute', left: '190px', top: '50%', transform: 'translateY(-50%)' }}>
+                {/* Connectivity — centered in the gap between Energy
+                    Delta (right edge ~50%+180) and the GEAR/HV cluster
+                    (left edge ~width-174). Midpoint sits at 50% + 203
+                    on the 800-wide tray. Overlaps Energy Delta's
+                    bounding box visually, but the Energy digits are
+                    centered narrowly inside it so the rendered overlap
+                    is minimal. zIndex bumped to sit above. */}
+                <div style={{
+                    position: 'absolute',
+                    left: 'calc(50% + 203px)',
+                    top: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: 110
+                }}>
                     <ConnectivityIndicator />
                 </div>
             </div>
