@@ -1,4 +1,5 @@
 #include "vcu_model/inc/vcu_model.h"
+#include <cstring>
 #include <gtest/gtest.h>
 
 class VCUModelTest : public ::testing::Test {
@@ -9,6 +10,8 @@ protected:
   vcu_model_context_t ctx;
 
   void SetUp() override {
+    memset(&params, 0, sizeof(params));
+
     // Basic apps params
     params.apps.apps1_min_adc_v = 1000;
     params.apps.apps1_max_adc_v = 4000;
@@ -43,24 +46,33 @@ protected:
     params.buzzer_duration_ms = 3000;
 
     // Torque map
-    float temp_torque_map[11][11] = {
-          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
-          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
-          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
-          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
-          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
-          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
-          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
-          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
-          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
-          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
-          {   0.0f,  10.0f,  20.0f,  30.0f,  40.0f, 50.0f, 60.0f, 70.0f, 80.0f,  90.0f,  100.00f },
-    };
-    memcpy(params.torque_map.torque_map, temp_torque_map, sizeof(temp_torque_map));
+    params.torque_map.max_torque_nm = 100.0f;
+    params.torque_map.pedal_exponent = 1.0f;
+    params.torque_map.power_limit_w = 75000.0f;
+    params.torque_map.current_limit_a = 200.0f;
+    params.torque_map.hard_current_cut_a = 240.0f;
+    params.torque_map.hard_power_cut_w = 80000.0f;
+    params.torque_map.ocv_cell_count = 130.0f;
+    params.torque_map.ocv_lpf_time_constant_s = 1.0f;
+    params.torque_map.power_limit_trim_limit_nm = 20.0f;
+    params.torque_map.power_limit_kp = 0.002f;
+    params.torque_map.power_limit_ki = 0.0f;
+    params.torque_map.power_limit_kd = 0.0f;
+    for (int i = 0; i < VCU_POWER_LIMIT_TORQUE_MAP_POINTS; i++) {
+      params.torque_map.power_limit_torque_rpm[i] =
+          static_cast<float>(i) * 500.0f;
+      params.torque_map.power_limit_torque_nm[i] = 100.0f;
+    }
 
     in = {0};
     out = {0};
     ctx = {};
+    in.inverter_power_valid = true;
+    in.inverter_speed_valid = true;
+    in.inverter_dc_bus_voltage_v = 400.0f;
+    in.inverter_dc_bus_current_a = 0.0f;
+    in.battery_status_valid = true;
+    in.battery_voltage_v = 455.0f;
 
     vcu_model_init(&ctx, &params);
   }

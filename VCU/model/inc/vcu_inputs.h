@@ -18,11 +18,15 @@ typedef struct {
   bool drive_switch;
   bool contactors_closed;
 
+  /* Powertrain feedback from CAN */
   float motor_speed_rpm;
-  float min_cell_voltage_v;
-
   float battery_voltage_v;
   float battery_current_a;
+  float inverter_dc_bus_voltage_v;
+  float inverter_dc_bus_current_a;
+  bool battery_status_valid;
+  bool inverter_power_valid;
+  bool inverter_speed_valid;
 
   /*  can add more later:
    *  float dc_bus_voltage;

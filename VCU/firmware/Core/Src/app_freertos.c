@@ -91,6 +91,17 @@ const osThreadAttr_t controlTask_attributes = {
 #define STEERING_SENSOR_ANGLE_RANGE_DEG 360.0f
 #define STEERING_SENSOR_ANGLE_OFFSET_DEG 0.0f
 #define CONTROL_LOOP_PERIOD_MS 3u
+#define VCU_TORQUE_MAP_PEDAL_EXPONENT 1.6f
+#define VCU_TORQUE_MAP_POWER_LIMIT_W 75000.0f
+#define VCU_TORQUE_MAP_CURRENT_LIMIT_A 200.0f
+#define VCU_TORQUE_MAP_HARD_CURRENT_CUT_A 240.0f
+#define VCU_TORQUE_MAP_HARD_POWER_CUT_W 80000.0f
+#define VCU_TORQUE_MAP_OCV_CELL_COUNT 130.0f
+#define VCU_TORQUE_MAP_OCV_LPF_TIME_CONSTANT_S 1.0f
+#define VCU_TORQUE_MAP_POWER_LIMIT_TRIM_LIMIT_NM 20.0f
+#define VCU_TORQUE_MAP_POWER_LIMIT_KP 0.002f
+#define VCU_TORQUE_MAP_POWER_LIMIT_KI 0.0f
+#define VCU_TORQUE_MAP_POWER_LIMIT_KD 0.0f
 
 /* USER CODE END PM */
 
@@ -139,30 +150,53 @@ static vcu_parameters_t s_params = {
         },
     .torque_map =
         {
-            .torque_map = {
-              /* rpm=    0 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 100.0f, 110.0f, 120.0f, 130.0f,  140.0f,  150.00f },
-              /* rpm=  600 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 100.0f, 110.0f, 120.0f, 130.0f,  140.0f,  150.00f },
-              /* rpm= 1200 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 120.0f, 130.0f, 150.0f,  160.0f,  170.00f },
-              /* rpm= 1800 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 120.0f, 130.0f, 150.0f,  170.0f,  190.00f },
-              /* rpm= 2400 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 176.0f,  188.0f,  200.00f },
-              /* rpm= 3000 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 176.0f,  198.0f,  220.00f },
-              /* rpm= 3600 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 176.0f,  198.0f,  203.72f },
-              /* rpm= 4200 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 174.62f, 174.62f, 174.62f },
-              /* rpm= 4800 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 152.79f, 152.79f, 152.79f, 152.79f },
-              /* rpm= 5400 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 135.81f, 135.81f, 135.81f, 135.81f },
-              /* rpm= 6000 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 122.23f, 122.23f, 122.23f, 122.23f, 122.23f },
-            },
             .max_torque_nm = 220.0f,
-            .low_cell_derate_start_v = 3.2f,
-            .low_cell_cutoff_v = 3.0f,
+            .pedal_exponent = VCU_TORQUE_MAP_PEDAL_EXPONENT,
+            .power_limit_w = VCU_TORQUE_MAP_POWER_LIMIT_W,
+            .current_limit_a = VCU_TORQUE_MAP_CURRENT_LIMIT_A,
+            .hard_current_cut_a = VCU_TORQUE_MAP_HARD_CURRENT_CUT_A,
+            .hard_power_cut_w = VCU_TORQUE_MAP_HARD_POWER_CUT_W,
+            .ocv_cell_count = VCU_TORQUE_MAP_OCV_CELL_COUNT,
+            .ocv_lpf_time_constant_s =
+                VCU_TORQUE_MAP_OCV_LPF_TIME_CONSTANT_S,
+            .power_limit_trim_limit_nm =
+                VCU_TORQUE_MAP_POWER_LIMIT_TRIM_LIMIT_NM,
+            .power_limit_kp = VCU_TORQUE_MAP_POWER_LIMIT_KP,
+            .power_limit_ki = VCU_TORQUE_MAP_POWER_LIMIT_KI,
+            .power_limit_kd = VCU_TORQUE_MAP_POWER_LIMIT_KD,
+            .power_limit_torque_rpm =
+                {
+                    0.0f,
+                    500.0f,
+                    1000.0f,
+                    1500.0f,
+                    2000.0f,
+                    2500.0f,
+                    3000.0f,
+                    3500.0f,
+                    4000.0f,
+                    4500.0f,
+                    5000.0f,
+                    5500.0f,
+                    6000.0f,
+                },
+            .power_limit_torque_nm =
+                {
+                    220.0f,
+                    220.0f,
+                    220.0f,
+                    220.0f,
+                    220.0f,
+                    220.0f,
+                    220.0f,
+                    192.0f,
+                    166.0f,
+                    145.0f,
+                    129.0f,
+                    115.0f,
+                    103.0f,
+                },
         },
-    .power_limit =
-      {
-          .power_limit_w = 75000.0f,
-          .power_limit_trim_kp = 0.006f,
-          .power_limit_trim_ki = 0.6f,
-          .power_limit_trim_integral_max = 1000.0f,
-      },
     .buzzer_duration_ms = 1200u,
     .brake_enable_threshold = 0.1f,
 };
@@ -411,13 +445,7 @@ void StartControlTask(void *argument) {
     in.drive_switch = is_drive_switch_pressed();
 
     in.contactors_closed = hvc_tractive_ready();
-    in.motor_speed_rpm = fabsf(vcu_can_get_motor_speed_rpm());
-    in.min_cell_voltage_v = vcu_can_get_min_cell_voltage_v();
-    if (in.min_cell_voltage_v <= 0.0f) {
-      in.min_cell_voltage_v = s_params.torque_map.low_cell_derate_start_v;
-    }
-    in.battery_voltage_v = vcu_can_get_inverter_voltages().dc_bus;
-    in.battery_current_a = vcu_can_get_inverter_currents().dc_bus;
+    vcu_can_set_powertrain_inputs(&in);
 
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
@@ -428,15 +456,7 @@ void StartControlTask(void *argument) {
 
     float delta_resolver_angle_deg = vcu_can_get_delta_resolver_angle_deg();
     float motor_angle_deg = vcu_can_get_motor_angle_deg();
-    float torque_derate_pct = 1.0f;
-    if (in.min_cell_voltage_v <= s_params.torque_map.low_cell_cutoff_v) {
-      torque_derate_pct = 0.0f;
-    } else if (in.min_cell_voltage_v <
-                s_params.torque_map.low_cell_derate_start_v) {
-      torque_derate_pct =
-          (in.min_cell_voltage_v - s_params.torque_map.low_cell_cutoff_v) /
-          (s_params.torque_map.low_cell_derate_start_v -
-            s_params.torque_map.low_cell_cutoff_v);
+    if (out.derate_factor_cell_voltage < 0.999f) {
     // log_printf(LOG_INFO,
     //          "TICK:%lu | RPM:%.0f DRA:%.1f ANG:%.1f PED:%.3f TQ:%.1f | "
     //          "MIN:%.4f DRT:%.2f | STR_RAW:%lu AV:%.3f SV:%.3f SPCT:%.3f "
@@ -446,7 +466,8 @@ void StartControlTask(void *argument) {
     //          (unsigned long)current_tick, (double)in.motor_speed_rpm,
     //          (double)delta_resolver_angle_deg, (double)motor_angle_deg,
     //          (double)out.accel_pedal_travel, (double)out.torque_cmd,
-    //          (double)in.min_cell_voltage_v, (double)torque_derate_pct,
+    //          (double)out.debug.ocv_estimate_v,
+    //          (double)out.derate_factor_cell_voltage,
     //          (unsigned long)adc1_val, (double)steering_adc_voltage_v,
     //          (double)steering_sensor_voltage_v,
     //          (double)steering_angle_pct, (double)steering_angle_deg,

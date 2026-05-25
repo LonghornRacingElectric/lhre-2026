@@ -10,6 +10,7 @@
 #include "longhorn/rtos/logger.h"
 #include <ota_flash.h>
 #include <PRNDL.h>
+#include <math.h>
 #include <stm32g4xx_hal_fdcan.h>
 #include <vcu_inputs.h>
 
@@ -42,6 +43,9 @@ static can_receive_message_t *inverter_speed_mailbox_handle = NULL;
 
 static msg_battery_cell_limits_t battery_cell_limits_mailbox = {0};
 static can_receive_message_t *battery_cell_limits_mailbox_handle = NULL;
+
+static msg_battery_pack_status_t battery_pack_status_mailbox = {0};
+static can_receive_message_t *battery_pack_status_mailbox_handle = NULL;
 
 static msg_inverter_current_t inverter_current_mailbox = {0};
 static can_receive_message_t *inverter_current_mailbox_handle = NULL;
@@ -84,6 +88,8 @@ void vcu_init_inverter(void);
 static float compute_brake_bias_pct(const vcu_outputs_t *out);
 static uint8_t pack_apps_faults(const vcu_outputs_t *out);
 static uint8_t pack_bse_faults(const vcu_outputs_t *out);
+static bool receive_message_is_fresh(can_receive_message_t *handle,
+                                     uint32_t timeout_ms);
 
 /**
  * @brief Initializes the CAN interface with the RTOS library and registers
@@ -336,13 +342,60 @@ bool hvc_tractive_ready(void) {
   return contactor_status_mailbox.hvc_state_machine == HVC_STATE_ENERGIZED;
 }
 
+static bool receive_message_is_fresh(can_receive_message_t *handle,
+                                     uint32_t timeout_ms) {
+  return handle != NULL && !message_timed_out(handle, timeout_ms);
+}
+
 float vcu_can_get_motor_speed_rpm(void) {
-  if (!message_timed_out(inverter_speed_mailbox_handle,
-                         INVERTER_SPEED_TIMEOUT_MS)) {
+  if (receive_message_is_fresh(inverter_speed_mailbox_handle,
+                               INVERTER_SPEED_TIMEOUT_MS)) {
     return (float)inverter_speed_mailbox.motor_speed;
   }
 
-  return (float)inverter_status_mailbox.motor_speed;
+  if (receive_message_is_fresh(inverter_status_mailbox_handle,
+                               INVERTER_STATUS_TIMEOUT_MS)) {
+    return (float)inverter_status_mailbox.motor_speed;
+  }
+
+  return 0.0f;
+}
+
+void vcu_can_set_powertrain_inputs(vcu_inputs_t *in) {
+  bool inverter_speed_valid =
+      receive_message_is_fresh(inverter_speed_mailbox_handle,
+                               INVERTER_SPEED_TIMEOUT_MS);
+  bool inverter_status_valid =
+      receive_message_is_fresh(inverter_status_mailbox_handle,
+                               INVERTER_STATUS_TIMEOUT_MS);
+  bool inverter_current_valid =
+      receive_message_is_fresh(inverter_current_mailbox_handle,
+                               INVERTER_CURRENT_TIMEOUT_MS);
+  bool inverter_voltage_valid =
+      receive_message_is_fresh(inverter_voltage_mailbox_handle,
+                               INVERTER_VOLTAGE_TIMEOUT_MS);
+  bool battery_status_valid =
+      receive_message_is_fresh(battery_pack_status_mailbox_handle,
+                               BATTERY_PACK_STATUS_TIMEOUT_MS);
+
+  if (inverter_speed_valid) {
+    in->motor_speed_rpm = (float)inverter_speed_mailbox.motor_speed;
+  } else if (inverter_status_valid) {
+    in->motor_speed_rpm = (float)inverter_status_mailbox.motor_speed;
+  } else {
+    in->motor_speed_rpm = 0.0f;
+  }
+  in->inverter_speed_valid = inverter_speed_valid || inverter_status_valid;
+
+  in->inverter_dc_bus_voltage_v = inverter_voltage_mailbox.dc_bus_voltage;
+  in->inverter_dc_bus_current_a = inverter_current_mailbox.dc_bus_current;
+  in->inverter_power_valid = inverter_current_valid && inverter_voltage_valid;
+
+  in->battery_voltage_v = battery_pack_status_mailbox.pack_voltage;
+  in->battery_current_a = battery_pack_status_mailbox.tractive_current;
+  in->battery_status_valid =
+      battery_status_valid && isfinite(in->battery_voltage_v) &&
+      in->battery_voltage_v > 0.0f;
 }
 
 float vcu_can_get_delta_resolver_angle_deg(void) {
@@ -423,6 +476,14 @@ void vcu_can_add_receive_handlers(void) {
                                    battery_cell_limits_mailbox_handle);
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for battery cell limits registered\n");
+
+  battery_pack_status_mailbox_handle = can_get_receive_message_handle(
+      &battery_pack_status_mailbox, BATTERY_PACK_STATUS_ID,
+      (CAN_unpack_message_fn)unpack_battery_pack_status);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   battery_pack_status_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for battery pack status registered\n");
 
   inverter_current_mailbox_handle = can_get_receive_message_handle(
       &inverter_current_mailbox, INVERTER_CURRENT_ID,

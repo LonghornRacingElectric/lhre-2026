@@ -14,7 +14,6 @@ extern "C" {
 #include "Cooling.h"
 #include "PRNDL.h"
 #include "TorqueMap.h"
-#include "PowerLimit.h"
 
 typedef struct {
   prndl_machine_t prndl_machine;
@@ -23,7 +22,7 @@ typedef struct {
   apps_state_t apps_state;
   bse_state_t bse_state;
   cooling_state_t cooling_state;
-  power_limit_state_t power_limit_state;
+  torque_map_state_t torque_map_state;
 } vcu_model_context_t;
 
 /* Initialize internal model state (call once at startup) */

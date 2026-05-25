@@ -9,9 +9,19 @@
 extern "C" {
 #endif
 
-void torque_map_init(const vcu_parameters_t *params);
+typedef struct {
+  float ocv_estimate_v;
+  bool ocv_initialized;
+
+  float integral_w_s;
+  float previous_measured_power_w;
+  bool has_power_history;
+} torque_map_state_t;
+
+void torque_map_init(torque_map_state_t *state, const vcu_parameters_t *params);
 
 void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
+                         torque_map_state_t *state,
                          const vcu_parameters_t *params, uint32_t dt_ms);
 
 #ifdef __cplusplus

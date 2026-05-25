@@ -6,7 +6,8 @@ extern "C" {
 #endif
 
 #include <stdint.h>
-#include "Lookup2D.h"
+
+#define VCU_POWER_LIMIT_TORQUE_MAP_POINTS 13
 
 typedef struct {
   float brake_enable_threshold;
@@ -58,18 +59,24 @@ typedef struct {
   } bse;
 
   struct {
-    float torque_map[LOOKUP2D_POINTS_Y][LOOKUP2D_POINTS_X];
     float max_torque_nm; // maximum torque request allowed in Nm
-    float low_cell_derate_start_v;
-    float low_cell_cutoff_v;
-  } torque_map;
+    float pedal_exponent; // 1.0 = linear, >1.0 softens initial pedal
 
-  struct {
     float power_limit_w;
-    float power_limit_trim_kp;
-    float power_limit_trim_ki;
-    float power_limit_trim_integral_max;
-  } power_limit;
+    float current_limit_a;
+    float hard_current_cut_a;
+    float hard_power_cut_w;
+    float ocv_cell_count;
+    float ocv_lpf_time_constant_s;
+
+    float power_limit_trim_limit_nm;
+    float power_limit_kp;
+    float power_limit_ki;
+    float power_limit_kd;
+
+    float power_limit_torque_rpm[VCU_POWER_LIMIT_TORQUE_MAP_POINTS];
+    float power_limit_torque_nm[VCU_POWER_LIMIT_TORQUE_MAP_POINTS];
+  } torque_map;
 } vcu_parameters_t;
 
 #ifdef __cplusplus
