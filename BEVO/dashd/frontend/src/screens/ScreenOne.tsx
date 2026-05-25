@@ -730,32 +730,87 @@ const ScreenOne: React.FC = () => {
                     fontSize: '0.7rem',
                     letterSpacing: '2px',
                 }}>
-                    STEER (DEG) — 5s
+                    STEER (DEG) — 5s · <span style={{ color: '#00FF66' }}>0.5 Hz</span> · <span style={{ color: '#FFD700' }}>1 Hz</span> · ±10°
                 </div>
-                <svg
-                    viewBox={`0 0 ${STEER_MAX_SAMPLES} 200`}
-                    preserveAspectRatio="none"
-                    style={{ width: '100%', height: '100%', display: 'block' }}
-                >
-                    {/* zero line */}
-                    <line
-                        x1={0} y1={100}
-                        x2={STEER_MAX_SAMPLES} y2={100}
-                        stroke="var(--card-border)"
-                        strokeWidth={1}
-                        vectorEffect="non-scaling-stroke"
-                    />
-                    {/* trace — y inverted so positive angle is up */}
-                    <polyline
-                        points={steerHistory
-                            .map((v, i) => `${i},${100 - (Math.max(Math.min(v, STEER_MAX_DEG), -STEER_MAX_DEG) / STEER_MAX_DEG) * 95}`)
-                            .join(' ')}
-                        fill="none"
-                        stroke="var(--brand)"
-                        strokeWidth={2}
-                        vectorEffect="non-scaling-stroke"
-                    />
-                </svg>
+                {(() => {
+                    // Reference sine waves the driver is supposed to match
+                    // (±10° amplitude, 0.5 Hz and 1 Hz). Recomputed each
+                    // render against wall-clock so the waves scroll in sync
+                    // with the data trace's rolling window.
+                    const REF_AMPLITUDE_DEG = 10;
+                    const nowSec = Date.now() / 1000;
+                    const refPoints = (freqHz: number) =>
+                        Array.from({ length: STEER_MAX_SAMPLES + 1 }, (_, x) => {
+                            const t = nowSec - (STEER_MAX_SAMPLES - x) / STEER_SAMPLE_HZ;
+                            const deg = REF_AMPLITUDE_DEG * Math.sin(2 * Math.PI * freqHz * t);
+                            const y = 100 - (deg / STEER_MAX_DEG) * 95;
+                            return `${x},${y}`;
+                        }).join(' ');
+                    return (
+                        <svg
+                            viewBox={`0 0 ${STEER_MAX_SAMPLES} 200`}
+                            preserveAspectRatio="none"
+                            style={{ width: '100%', height: '100%', display: 'block' }}
+                        >
+                            {/* zero line */}
+                            <line
+                                x1={0} y1={100}
+                                x2={STEER_MAX_SAMPLES} y2={100}
+                                stroke="var(--card-border)"
+                                strokeWidth={1}
+                                vectorEffect="non-scaling-stroke"
+                            />
+                            {/* ±10° reference markers so the driver knows
+                                the amplitude target without doing math */}
+                            <line
+                                x1={0} y1={100 - (REF_AMPLITUDE_DEG / STEER_MAX_DEG) * 95}
+                                x2={STEER_MAX_SAMPLES} y2={100 - (REF_AMPLITUDE_DEG / STEER_MAX_DEG) * 95}
+                                stroke="var(--card-border)"
+                                strokeWidth={0.5}
+                                strokeDasharray="2,4"
+                                vectorEffect="non-scaling-stroke"
+                            />
+                            <line
+                                x1={0} y1={100 + (REF_AMPLITUDE_DEG / STEER_MAX_DEG) * 95}
+                                x2={STEER_MAX_SAMPLES} y2={100 + (REF_AMPLITUDE_DEG / STEER_MAX_DEG) * 95}
+                                stroke="var(--card-border)"
+                                strokeWidth={0.5}
+                                strokeDasharray="2,4"
+                                vectorEffect="non-scaling-stroke"
+                            />
+                            {/* 0.5 Hz reference — green, dashed */}
+                            <polyline
+                                points={refPoints(0.5)}
+                                fill="none"
+                                stroke="#00FF66"
+                                strokeWidth={1.5}
+                                strokeDasharray="6,4"
+                                opacity={0.7}
+                                vectorEffect="non-scaling-stroke"
+                            />
+                            {/* 1 Hz reference — gold, finer dashes */}
+                            <polyline
+                                points={refPoints(1.0)}
+                                fill="none"
+                                stroke="#FFD700"
+                                strokeWidth={1.5}
+                                strokeDasharray="3,3"
+                                opacity={0.7}
+                                vectorEffect="non-scaling-stroke"
+                            />
+                            {/* trace — y inverted so positive angle is up */}
+                            <polyline
+                                points={steerHistory
+                                    .map((v, i) => `${i},${100 - (Math.max(Math.min(v, STEER_MAX_DEG), -STEER_MAX_DEG) / STEER_MAX_DEG) * 95}`)
+                                    .join(' ')}
+                                fill="none"
+                                stroke="var(--brand)"
+                                strokeWidth={2}
+                                vectorEffect="non-scaling-stroke"
+                            />
+                        </svg>
+                    );
+                })()}
             </div>
         </div>
     );
