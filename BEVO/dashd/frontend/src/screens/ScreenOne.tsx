@@ -1,13 +1,39 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import ConnectivityIndicator from '../components/ConnectivityIndicator';
 import { useDash } from '../context/DashContext';
 import './ScreenOne.css';
+
+// TEMP (driveday): 5-second time-series buffer of the value currently
+// in CanData.speed (which dashd is sourcing from steer_col_angle for
+// this test). Drop the whole STEER_* block + the rendered SVG below
+// when reverting.
+const STEER_HISTORY_SECONDS = 5;
+const STEER_SAMPLE_HZ = 30; // dashd WS rate; oversample is harmless
+const STEER_MAX_SAMPLES = STEER_HISTORY_SECONDS * STEER_SAMPLE_HZ;
+const STEER_MAX_DEG = 135;  // int16 * 0.004°/LSB ≈ ±131°, give a bit of margin
 
 // Screen One: Main Dashboard (Modern EV Style)
 // Resolution: 800 x 480
 
 const ScreenOne: React.FC = () => {
     const { data } = useDash();
+
+    // TEMP: rolling buffer of the speed-field-as-steering for the chart.
+    // Re-keys on data.seq so we tick once per WS frame even if the angle
+    // sample is unchanged (otherwise the trace would flatline mid-buffer
+    // when the wheel is held still).
+    const [steerHistory, setSteerHistory] = useState<number[]>([]);
+    useEffect(() => {
+        const v = data?.can.speed;
+        if (typeof v !== 'number') return;
+        setSteerHistory(prev => {
+            const next = prev.concat(v);
+            return next.length > STEER_MAX_SAMPLES
+                ? next.slice(-STEER_MAX_SAMPLES)
+                : next;
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [data?.seq]);
 
     // Extract values with null fallback
     const speed = data?.can.speed;
@@ -678,6 +704,58 @@ const ScreenOne: React.FC = () => {
                 }}>
                     <ConnectivityIndicator />
                 </div>
+            </div>
+
+            {/* TEMP: live steering-angle trace, 5s rolling window.
+                Overlays the lower inner-grid (power bar + kW/BB row).
+                Drop this whole block when reverting. */}
+            <div style={{
+                position: 'absolute',
+                left: '100px',
+                right: '100px',
+                bottom: '90px',
+                height: '160px',
+                background: 'var(--card-bg)',
+                backdropFilter: 'blur(8px)',
+                border: '1px solid var(--card-border)',
+                borderRadius: '8px',
+                zIndex: 95,
+                overflow: 'hidden',
+            }}>
+                <div className="label-small" style={{
+                    position: 'absolute',
+                    top: '4px',
+                    left: '10px',
+                    margin: 0,
+                    fontSize: '0.7rem',
+                    letterSpacing: '2px',
+                }}>
+                    STEER (DEG) — 5s
+                </div>
+                <svg
+                    viewBox={`0 0 ${STEER_MAX_SAMPLES} 200`}
+                    preserveAspectRatio="none"
+                    style={{ width: '100%', height: '100%', display: 'block' }}
+                >
+                    {/* zero line */}
+                    <line
+                        x1={0} y1={100}
+                        x2={STEER_MAX_SAMPLES} y2={100}
+                        stroke="var(--card-border)"
+                        strokeWidth={1}
+                        vectorEffect="non-scaling-stroke"
+                    />
+                    {/* trace — y inverted so positive angle is up */}
+                    <polyline
+                        points={steerHistory
+                            .map((v, i) => `${i},${100 - (Math.max(Math.min(v, STEER_MAX_DEG), -STEER_MAX_DEG) / STEER_MAX_DEG) * 95}`)
+                            .join(' ')}
+                        fill="none"
+                        stroke="var(--brand)"
+                        strokeWidth={2}
+                        vectorEffect="non-scaling-stroke"
+                    />
+                </svg>
             </div>
         </div>
     );
