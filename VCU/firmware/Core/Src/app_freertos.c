@@ -89,6 +89,7 @@ const osThreadAttr_t controlTask_attributes = {
 #define STEERING_SENSOR_MIN_RATIO 0.10f
 #define STEERING_SENSOR_MAX_RATIO 0.90f
 #define STEERING_SENSOR_ANGLE_RANGE_DEG 360.0f
+#define STEERING_SENSOR_ANGLE_OFFSET_DEG 0.0f
 #define CONTROL_LOOP_PERIOD_MS 3u
 
 /* USER CODE END PM */
@@ -138,35 +139,45 @@ static vcu_parameters_t s_params = {
         },
     .torque_map =
         {
-            .torque_map = {
-              /* rpm=    0 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 100.0f, 110.0f, 120.0f, 130.0f,  140.0f,  150.00f },
-              /* rpm=  600 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 100.0f, 110.0f, 120.0f, 130.0f,  140.0f,  150.00f },
-              /* rpm= 1200 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 120.0f, 130.0f, 150.0f,  160.0f,  170.00f },
-              /* rpm= 1800 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 120.0f, 130.0f, 150.0f,  170.0f,  190.00f },
-              /* rpm= 2400 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 176.0f,  188.0f,  200.00f },
-              /* rpm= 3000 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 176.0f,  198.0f,  220.00f },
-              /* rpm= 3600 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 176.0f,  198.0f,  203.72f },
-              /* rpm= 4200 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 174.62f, 174.62f, 174.62f },
-              /* rpm= 4800 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 152.79f, 152.79f, 152.79f, 152.79f },
-              /* rpm= 5400 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 135.81f, 135.81f, 135.81f, 135.81f },
-              /* rpm= 6000 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 122.23f, 122.23f, 122.23f, 122.23f, 122.23f },
+            .power_limit_torque = {
+              /* rpm=    0 */ 210.0f,
+              /* rpm=  600 */ 210.0f,
+              /* rpm= 1200 */ 210.0f,
+              /* rpm= 1800 */ 210.0f,
+              /* rpm= 2400 */ 210.0f,
+              /* rpm= 3000 */ 192.0f,
+              /* rpm= 3600 */ 166.0f,
+              /* rpm= 4200 */ 145.0f,
+              /* rpm= 4800 */ 129.0f,
+              /* rpm= 5400 */ 115.0f,
+              /* rpm= 6000 */ 103.0f
             },
-            .max_torque_nm = 220.0f,
+            .pedal_curve_exponent = 2.0f,
             .low_cell_derate_start_v = 3.2f,
             .low_cell_cutoff_v = 3.0f,
         },
     .power_limit =
       {
-          .power_limit_w = 75000.0f,
+          .power_limit_w = 70000.0f,
           .power_limit_trim_kp = 0.006f,
           .power_limit_trim_ki = 0.6f,
-          .power_limit_trim_integral_max = 1000.0f,
+          .power_limit_trim_integral_max = 20000.0f,
       },
+    .battery = {
+      .cell_voltage_ema_alpha = 0.05f,
+      .soe_from_cell_voltage = {
+        0.0f,  1.0f,  3.0f,  6.0f, 10.0f,
+        17.0f, 28.0f, 46.0f, 68.0f, 86.0f, 100.0f
+      },
+      .min_soe_cell_voltage = 2.8f,
+      .max_soe_cell_voltage = 4.2f
+    },
     .buzzer_duration_ms = 1200u,
     .brake_enable_threshold = 0.1f,
 };
 
 static vcu_model_context_t ctx = {0};
+
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
@@ -280,12 +291,15 @@ static float steering_adc_to_sensor_voltage(float adc_voltage_v) {
   return adc_voltage_v * divider_gain;
 }
 
+// 48% (rightmost) to 114% (leftmost)
+
 static float steering_sensor_voltage_to_angle_deg(float sensor_voltage_v) {
   // Assumes the PIHER sensor output is ratiometric from 10% to 90% of the
   // 4.64 V supply across a 360 degree sweep.
-  const float angle_pct = steering_sensor_voltage_to_percent(sensor_voltage_v);
-  return (angle_pct * STEERING_SENSOR_ANGLE_RANGE_DEG) -
+  float angle_pct = steering_sensor_voltage_to_percent(sensor_voltage_v);
+  float raw_angle_deg = (angle_pct * STEERING_SENSOR_ANGLE_RANGE_DEG) -
          (0.5f * STEERING_SENSOR_ANGLE_RANGE_DEG);
+  float adjusted_angle_deg = raw_angle_deg + STEERING_SENSOR_ANGLE_OFFSET_DEG;
 }
 
 static float steering_sensor_voltage_to_percent(float sensor_voltage_v) {
@@ -295,7 +309,11 @@ static float steering_sensor_voltage_to_percent(float sensor_voltage_v) {
       STEERING_SENSOR_SUPPLY_V * STEERING_SENSOR_MAX_RATIO;
   const float clamped_sensor_v =
       fminf(fmaxf(sensor_voltage_v, sensor_min_v), sensor_max_v);
-  return (clamped_sensor_v - sensor_min_v) / (sensor_max_v - sensor_min_v);
+  float pct = (clamped_sensor_v - sensor_min_v) / (sensor_max_v - sensor_min_v);
+  if(pct > 0.8f) {
+    pct -= 1.0f;
+  }
+  return pct;
 }
 
 // SystemTask: one-time initialization (USB, logging, DFU, ADC DMA, CAN) -----
@@ -390,8 +408,9 @@ void StartControlTask(void *argument) {
         steering_adc_to_sensor_voltage(steering_adc_voltage_v);
     steering_angle_pct =
         steering_sensor_voltage_to_percent(steering_sensor_voltage_v);
-    steering_angle_deg =
-        steering_sensor_voltage_to_angle_deg(steering_sensor_voltage_v);
+    // steering_angle_deg =
+    //     steering_sensor_voltage_to_angle_deg(steering_sensor_voltage_v);
+    steering_angle_deg = ((steering_angle_pct - 0.02f) / 0.62f - 0.5f) * 230.0f + 7.0f;  // TODO chud temp tuning
 
     // Read pedal sensors from DMA buffers
     in.apps1_raw = ((float)adc3_dma_buf[0] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;

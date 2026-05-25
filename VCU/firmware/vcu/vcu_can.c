@@ -253,6 +253,8 @@ void vcu_can_set_model_outputs(const vcu_outputs_t *out) {
   vcu_state_mailbox.prndl_state = out->prndl_state;
   vcu_state_mailbox.stomp_fault = out->faults.brake_latched;
   vcu_state_mailbox.ready_to_drive_buzzer = out->buzzer_active;
+  vcu_state_mailbox.state_of_charge_estimate = out->soe_pct;
+  vcu_state_mailbox.line_lock_enabled = false; // TODO out->line_lock_enabled;
 
   led_set(out->brake_pressed, is_drive_switch_pressed(),
           out->accel_pedal_travel == 0);
@@ -279,13 +281,15 @@ void vcu_can_set_steering_angle_deg(float steering_angle_deg) {
 }
 
 static float compute_brake_bias_pct(const vcu_outputs_t *out) {
+  static float remembered_brake_bias = 0.0f;
   float total = out->bse1_psi + out->bse2_psi;
 
-  if (total <= 1e-3f) {
-    return 0.0f;
+  if (total <= 1000.0f) {
+    return remembered_brake_bias;
+  } else {
+    remembered_brake_bias = out->bse1_psi / total;
   }
-
-  return (out->bse1_psi / total) * 100.0f;
+  return remembered_brake_bias;
 }
 
 static uint8_t pack_apps_faults(const vcu_outputs_t *out) {

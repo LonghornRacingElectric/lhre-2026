@@ -17,6 +17,7 @@ void vcu_model_init(vcu_model_context_t *ctx, const vcu_parameters_t *params) {
 
   prndl_init(&ctx->prndl_machine);
   apps_init(&ctx->apps_state);
+  battery_init(&ctx->battery_state, &ctx->params);
   bse_init(&ctx->bse_state);
   cooling_init(&ctx->cooling_state, &ctx->params);
   torque_map_init(&ctx->params);
@@ -38,6 +39,7 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
   // default output state
   memset(out, 0, sizeof(vcu_outputs_t));
 
+  battery_evaluate(in, out, &ctx->battery_state, &ctx->params, dt_ms);
   apps_evaluate(in, out, &ctx->apps_state, &ctx->params, dt_ms);
   bse_evaluate(in, out, &ctx->bse_state, &ctx->params, dt_ms);
   torque_map_evaluate(in, out, &ctx->params, dt_ms);
