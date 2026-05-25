@@ -36,6 +36,15 @@ void faults_init() {
     
 }
 
+uint32_t get_shutdown_sense(void) {
+         
+           HAL_GPIO_ReadPin(Shutdown_Sense_1_GPIO_Port, Shutdown_Sense_1_Pin) == GPIO_PIN_SET << 0
+           HAL_GPIO_ReadPin(Shutdown_Sense_2_GPIO_Port, Shutdown_Sense_2_Pin) == GPIO_PIN_SET << 1
+           HAL_GPIO_ReadPin(Shutdown_Sense_3_GPIO_Port, Shutdown_Sense_3_Pin) == GPIO_PIN_SET << 2
+           HAL_GPIO_ReadPin(Shutdown_Sense_4_GPIO_Port, Shutdown_Sense_4_Pin) == GPIO_PIN_SET << 3
+
+    return
+}
 
 uint32_t get_faults() {
     static float last_time_s = 0.0f;
@@ -96,6 +105,8 @@ uint32_t get_faults() {
     // TODO unimplemented faults
 
     // IMD
+
+
 
     // // Pack Overvoltage Fault
     // if (/*TODO: Pack overvoltage fault condition*/) {

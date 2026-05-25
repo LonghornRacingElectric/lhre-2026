@@ -23,6 +23,8 @@ static msg_contactor_status_t contactor_status_tx;
 static msg_indicators_shutdown_status_t indicator_status_tx = {0};
 static msg_battery_cell_limits_t battery_cell_limits_tx = {0};
 
+
+
 // Cell temperature messages (23 packets total: 22 with 4 temps, 1 with 2 temps)
 static msg_cell_temperatures_t cell_temps_tx[23] = {0};
 
@@ -68,7 +70,7 @@ void hvc_can_init(void) {
 
   // TX: indicators + shutdown status
   can_message_t *indicator_status_handle = can_get_message_handle(
-      &indicator_status_tx, INDICATORS_SHUTDOWN_STATUS_ID, 10,
+      &indicator_status_tx, INDICATORS_SHUTDOWN_STATUS_ID, INDICATORS_SHUTDOWN_STATUS_FREQ,
       INDICATORS_SHUTDOWN_STATUS_DLC,
       (CAN_pack_message_fn)pack_indicators_shutdown_status);
   can_rtos_register_send_packet(&critical_can_bus, indicator_status_handle);
@@ -107,16 +109,17 @@ void hvc_set_contactor_status(int state, bool pos, bool neg) {
 }
 
 void hvc_set_indicator_status(bool bms_error, bool imd_error,
-                              bool shutdown_leg1, bool shutdown_leg2,
-                              bool shutdown_leg3, bool shutdown_leg4) {
+                              bool shutdown_leg2, bool shutdown_leg3,
+                              bool shutdown_leg4, bool shutdown_leg5, bool shutdown_leg12) {
   taskENTER_CRITICAL();
 
   indicator_status_tx.bms_error = bms_error ? 1 : 0;
   indicator_status_tx.imd_error = imd_error ? 1 : 0;
-  indicator_status_tx.shutdown_leg_1 = shutdown_leg1 ? 1 : 0;
   indicator_status_tx.shutdown_leg_2 = shutdown_leg2 ? 1 : 0;
   indicator_status_tx.shutdown_leg_3 = shutdown_leg3 ? 1 : 0;
   indicator_status_tx.shutdown_leg_4 = shutdown_leg4 ? 1 : 0;
+  indicator_status_tx.shutdown_leg_5 = shutdown_leg5 ? 1 : 0;
+  indicator_status_tx.shutdown_leg_12 = shutdown_leg12 ? 1 : 0;
 
   taskEXIT_CRITICAL();
 }
