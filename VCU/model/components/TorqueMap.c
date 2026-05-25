@@ -10,8 +10,7 @@
 #define EFFICIENCY 0.96f
 #define PI_F                  3.14159265f
 
-static float torque_table[LOOKUP2D_POINTS_Y][LOOKUP2D_POINTS_X];
-static Lookup2D torque_lookup;
+static Lookup1D torque_lookup;
 
 static float calc_max_torque_at_rpm(float rpm, float max_torque_nm) {
   const float mech_power_w = BATTERY_POWER_W * EFFICIENCY;
@@ -33,26 +32,11 @@ static float calc_max_torque_at_rpm(float rpm, float max_torque_nm) {
   return torque;
 }
 
-static void build_torque_table(float max_torque_nm) {
-  for (int row = 0; row < LOOKUP2D_POINTS_Y; row++) {
-    float rpm = ((float)row / (float)(LOOKUP2D_POINTS_Y - 1)) * MAX_MOTOR_RPM;
-    float max_torque = calc_max_torque_at_rpm(rpm, max_torque_nm);
-
-    torque_table[row][0] = 0.0f;
-    torque_table[row][1] = 0.5f * max_torque;
-    torque_table[row][2] = max_torque;
-  }
-}
-
 void torque_map_init(const vcu_parameters_t *params) {
-  build_torque_table(params->torque_map.max_torque_nm);
-
-  Lookup2D_init(&torque_lookup,
-                0.0f,          // x0 = APPS min
-                1.0f,          // x1 = APPS max
-                0.0f,          // y0 = RPM min
-                MAX_MOTOR_RPM, // y1 = RPM max
-                torque_table);
+  Lookup1D_init(&torque_lookup,
+                0.0f,
+                MAX_MOTOR_RPM,
+                params->torque_map.power_limit_torque);
 }
 
 static float compute_low_cell_voltage_derate(const vcu_inputs_t *in,
@@ -77,17 +61,13 @@ static float compute_low_cell_voltage_derate(const vcu_inputs_t *in,
 
 void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
                          const vcu_parameters_t *params, uint32_t dt_ms) {
-  (void)dt_ms;
-
-  float max_torque_nm = params->torque_map.max_torque_nm;
-  if (max_torque_nm < 0.0f) {
-    max_torque_nm = 0.0f;
-  }
 
   float apps = clamp_f(out->accel_pedal_travel, 0.0f, 1.0f);
   float rpm = clamp_f(in->motor_speed_rpm, 0.0f, MAX_MOTOR_RPM);
 
-  out->torque_lookup_output = Lookup2D_evaluate(&torque_lookup, apps, rpm);
+  float available_torque = Lookup1D_evaluate(&torque_lookup, rpm);
+  float pedal_percent_of_available_torque = powf(apps, params->torque_map.pedal_curve_exponent);
+  out->torque_lookup_output = available_torque * pedal_percent_of_available_torque;
 
   out->derate_factor_cell_voltage = compute_low_cell_voltage_derate(in, params);
   out->derate_factor_cell_temp = 1.0f; // TODO: cell temp derate

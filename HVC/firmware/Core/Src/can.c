@@ -127,6 +127,12 @@ void hvc_set_min_cell_voltage(float min_cell_voltage_v) {
   taskEXIT_CRITICAL();
 }
 
+void hvc_set_max_cell_voltage(float max_cell_voltage_v) {
+  taskENTER_CRITICAL();
+  battery_cell_limits_tx.max_cell_voltage = max_cell_voltage_v;
+  taskEXIT_CRITICAL();
+}
+
 
 /**
  * hvc_set_cell_temperatures - Update cell temperature values for CAN transmission

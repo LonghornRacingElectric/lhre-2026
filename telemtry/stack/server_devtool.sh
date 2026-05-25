@@ -23,6 +23,7 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INGEST_DIR="$SCRIPT_DIR/ingest"
+DASHBOARD_SOURCE_DIR="$SCRIPT_DIR/../analysis/database/dashboards"
 
 remove_images_matching() {
     local pattern="$1"
@@ -51,6 +52,15 @@ compose_down_if_present() {
     )
 }
 
+ensure_grafana_dashboards_exist() {
+    if [[ ! -d "$DASHBOARD_SOURCE_DIR" ]]; then
+        echo "Grafana dashboard source directory not found: $DASHBOARD_SOURCE_DIR"
+        return 1
+    fi
+
+    echo "Grafana dashboards found and ready for auto-provisioning."
+}
+
 stop_everything_running() {
     compose_down_if_present "$SCRIPT_DIR/ingest" "ingest services"
     compose_down_if_present "$SCRIPT_DIR/kafka" "kafka services"
@@ -75,6 +85,12 @@ do
     else
         brew services stop postgresql
     fi
+
+    case $opt in
+        1|2|3|4|q|Q|w|W|z|Z)
+            ensure_grafana_dashboards_exist || exit 1
+            ;;
+    esac
     
     case $opt in
         1)

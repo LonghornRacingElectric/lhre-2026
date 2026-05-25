@@ -37,7 +37,7 @@ graph TD
 
 ### Generated Components (Source: `{car}.proto`)
 *   **Root Table:** The `packet` table (with relations to all discovered sensor messages).
-*   **Sensor Tables:** `dynamics`, `controls`, `pack`, `thermal`, `diagnostics`.
+*   **Sensor Tables:** Generated directly from root sensor-message modules in proto (e.g., `dynamics`, `controls`, `pack`, `thermal`, `diagnostics`, `diagnostics_high`, `diagnostics_low`, `board_status`).
 *   **Python:** SQLAlchemy models and DataClasses.
 *   **Viewer Runtime Proto Mirror (Orion):** `analysis/database/viewer_tool/protobuf/orion.proto` for runtime protobufjs decode.
 

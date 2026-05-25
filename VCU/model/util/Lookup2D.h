@@ -5,8 +5,8 @@
 extern "C" {
 #endif
 
-#define LOOKUP2D_POINTS_X 3
-#define LOOKUP2D_POINTS_Y 5
+#define LOOKUP2D_POINTS_X 11
+#define LOOKUP2D_POINTS_Y 11
 
 typedef struct {
   float x0;

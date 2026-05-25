@@ -39,11 +39,13 @@ protected:
     params.bse.max_pedal_while_braking = 0.30f;
     params.bse.max_pedal_restore_threshold = 0.05f;
 
-    // Basic torque map
-    params.torque_map.max_torque_nm = 100.0f;
-
     // Buzzer
     params.buzzer_duration_ms = 3000;
+
+    // Torque map
+    float temp_torque_map[11] = {100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f};
+    memcpy(params.torque_map.power_limit_torque, temp_torque_map, sizeof(temp_torque_map));
+    params.torque_map.pedal_curve_exponent = 1.0f;
 
     in = {0};
     out = {0};

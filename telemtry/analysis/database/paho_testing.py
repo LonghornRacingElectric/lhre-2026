@@ -292,6 +292,12 @@ class DataTester:
             return self._cast_numeric(story["odometer"], dtype)
         if lower_col in {"time_since_on"}:
             return self._cast_numeric(story["t"], dtype)
+        if lower_col.endswith("_last_seen_s"):
+            board_name = lower_col.removesuffix("_last_seen_s")
+            # Viewer profile shows a healthy car; all boards active (<1s).
+            # Stream dropout (no active publish) is detected by the dashboard via elapsed time.
+            healthy_s = 0.03 + abs(self._viewer_noise(packet, board_name, 0.09))
+            return self._cast_numeric(healthy_s, dtype)
 
         if lower_col in {"hv_soc"}:
             return self._cast_numeric(story["soc_pct"], dtype)

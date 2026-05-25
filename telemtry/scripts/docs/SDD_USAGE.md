@@ -16,7 +16,7 @@ The fastest way to update your local environment is to use the sync script:
 ```bash
 bash scripts/sync_schema.sh
 ```
-This script runs the generator for Angelique and automatically updates:
+This script runs the generator for the requested car (`Orion` by default) and automatically updates:
 - `stack/ingest/{car}_db_init.sql` (Database)
 - `analysis/database/viewer_tool/prisma/{car}.prisma` (Frontend)
 - `analysis/sql_utils/models.py` (ORM)

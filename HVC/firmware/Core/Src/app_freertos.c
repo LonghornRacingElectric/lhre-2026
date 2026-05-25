@@ -267,11 +267,12 @@ void StartStateMachineTask(void *argument) {
 
     log_printf(LOG_INFO,
                "Pack Voltage: %.2f, Tractive Voltage: %.2f V, Raw: %.2f, State "
-               "Machine: %d, Shutdown: %d, BMS Responsive: %d\n", 
+               "Machine: %d, Shutdown: %d, BMS Responsive: %d, Min Cell: %.4f V, Max Cell: %.4f V\n", 
                get_pack_voltage(), get_tractive_voltage(),
                hvc_adc_read_voltage_sense_v(), get_current_state(),
                // get_state_name(get_current_state()),
-               is_shutdown_closed(), bms_get_num_responsive_ics());
+               is_shutdown_closed(), bms_get_num_responsive_ics(),
+               bms_get_min_cell_voltage_v(), bms_get_max_cell_voltage_v());
     osDelay(task_period_ms);
   }
 }
