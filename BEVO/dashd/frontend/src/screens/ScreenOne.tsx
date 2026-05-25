@@ -332,7 +332,10 @@ const ScreenOne: React.FC = () => {
                     <div className="value-display" style={{ fontSize: '11rem', fontWeight: 'bold', lineHeight: 0.85 }}>
                         {fmt(speed)}
                     </div>
-                    <div className="label-small" style={{ fontSize: '1.2rem', letterSpacing: '4px', marginTop: '4px' }}>MPH</div>
+                    {/* TEMP: dashd is currently sending steer_col_angle in
+                        place of speed for driveday testing. Restore "MPH"
+                        when dashd swaps back to motor_speed-derived. */}
+                    <div className="label-small" style={{ fontSize: '1.2rem', letterSpacing: '4px', marginTop: '4px' }}>DEG</div>
                 </div>
 
                 {/* TR: Lap-times table (2x2): CURR | Δ / BEST | LAST */}

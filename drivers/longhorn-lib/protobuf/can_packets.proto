@@ -152,6 +152,12 @@ message DiagnosticsHigh {
     bool neg_hv_contactor = 36;
     bool pos_hv_contactor = 37;
     bool precharge_contactor = 38;
+    // New fields on packet 0x1C7 from the mm/vcu-soc work (VCU now
+    // computes a State-of-Charge estimate using an OCV→SOC lookup on
+    // min cell voltage, qualified by |I|<1A). soc_estimate is uint16
+    // with 0.1% precision per the CSV — decodes to a float in 0..100%.
+    float soc_estimate = 39;
+    bool line_lock_enabled = 40;
 }
 
 message DiagnosticsLow {

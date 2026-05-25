@@ -248,11 +248,13 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
     let diag_low = data.diagnostics_low.as_ref();
     let diag_high = data.diagnostics_high.as_ref();
 
-    // speed (mph) = motor_speed * 2*pi/60 * 13/43 * 0.201 * 2.237
-    //               \_RPM→rad/s_/ \gear_/ \wheel_r_m/ \m/s→mph_/
-    // Assumes controls.motor_speed is in RPM (proto carries no unit).
-    const MOTOR_RPM_TO_MPH: f32 = 0.014233265;
-    let speed = controls.map(|c| c.motor_speed * MOTOR_RPM_TO_MPH);
+    // TEMP (driveday test): surface steering column angle in the big
+    // speed display so the driver can read handwheel input directly.
+    // Frontend label switched MPH → DEG to match. Restore vehicle speed
+    // by re-enabling this block:
+    //   const MOTOR_RPM_TO_MPH: f32 = 0.014233265;
+    //   let speed = controls.map(|c| c.motor_speed * MOTOR_RPM_TO_MPH);
+    let speed = dynamics.map(|d| d.steer_col_angle);
 
     let power = pack.map(|p| p.dc_bus_v * p.dc_bus_current / 1000.0);
 
@@ -274,19 +276,23 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
         }
     }
 
-    // SOC estimate from inverter DC bus voltage. Refreshed only while the
-    // current is near zero (cell EMF vs IR drop); held otherwise. See the
-    // doc on CanData.soc for the why.
+    // Update the dc-bus-derived fallback (kept for when VCU isn't
+    // broadcasting yet or reads 0). Same qualification + floor as before.
     if let Some(p) = pack {
         if p.dc_bus_current.abs() < 1.0 {
-            // Floor at 0 so a sub-390 V reading doesn't render as a negative
-            // SOC. Upper end left unclamped — frontend already caps the bar
-            // fill at 100%; the numeric readout above 100 is honest signal.
             let raw = (p.dc_bus_v - 390.0) / (546.0 / 390.0);
             *last_qualified_soc = Some(raw.max(0.0));
         }
     }
-    let soc = *last_qualified_soc;
+
+    // Prefer the VCU-computed soc_estimate from packet 0x1C7 (mm/vcu-soc:
+    // OCV-curve lookup on min cell voltage with EMA filter + |I|<1A
+    // qualification — more accurate than our dc_bus fallback). VCU value
+    // arrives as a float % directly (0.1 precision from CSV). Falls back
+    // to the dc_bus formula when VCU reports 0 (not yet computed).
+    let soc = diag_high
+        .and_then(|d| if d.soc_estimate > 0.0 { Some(d.soc_estimate) } else { None })
+        .or(*last_qualified_soc);
 
     // Per-cell temp aggregates — None when cand has not received cell-temp
     // packets yet (empty vec).
