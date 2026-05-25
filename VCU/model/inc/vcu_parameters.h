@@ -72,6 +72,13 @@ typedef struct {
     float power_limit_trim_ki;
     float power_limit_trim_integral_max;
   } power_limit;
+
+  struct {
+    float cell_voltage_ema_alpha;
+    float soe_from_cell_voltage[LOOKUP1D_POINTS];
+    float min_soe_cell_voltage;
+    float max_soe_cell_voltage;
+  } battery;
 } vcu_parameters_t;
 
 #ifdef __cplusplus

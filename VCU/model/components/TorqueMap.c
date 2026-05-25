@@ -44,7 +44,7 @@ void torque_map_init(const vcu_parameters_t *params) {
                 params->torque_map.pedal_map);
 }
 
-static float compute_low_cell_voltage_derate(const vcu_inputs_t *in,
+static float compute_low_cell_voltage_derate(float min_cell_voltage,
                                              const vcu_parameters_t *params) {
   const float derate_start_v = params->torque_map.low_cell_derate_start_v;
   const float cutoff_v = params->torque_map.low_cell_cutoff_v;
@@ -53,15 +53,15 @@ static float compute_low_cell_voltage_derate(const vcu_inputs_t *in,
     return 1.0f;
   }
 
-  if (in->min_cell_voltage_v >= derate_start_v) {
+  if (min_cell_voltage >= derate_start_v) {
     return 1.0f;
   }
 
-  if (in->min_cell_voltage_v <= cutoff_v) {
+  if (min_cell_voltage <= cutoff_v) {
     return 0.0f;
   }
 
-  return (in->min_cell_voltage_v - cutoff_v) / (derate_start_v - cutoff_v);
+  return (min_cell_voltage - cutoff_v) / (derate_start_v - cutoff_v);
 }
 
 void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
@@ -76,7 +76,7 @@ void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   
   out->torque_lookup_output = available_torque * pedal_percent_of_available_torque;
 
-  out->derate_factor_cell_voltage = compute_low_cell_voltage_derate(in, params);
+  out->derate_factor_cell_voltage = compute_low_cell_voltage_derate(out->open_circuit_cell_voltage, params);
   out->derate_factor_cell_temp = 1.0f; // TODO: cell temp derate
 
   out->torque_derated = out->torque_lookup_output
