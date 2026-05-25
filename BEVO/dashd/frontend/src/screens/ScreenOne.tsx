@@ -10,7 +10,11 @@ import './ScreenOne.css';
 const STEER_HISTORY_SECONDS = 5;
 const STEER_SAMPLE_HZ = 30; // dashd WS rate; oversample is harmless
 const STEER_MAX_SAMPLES = STEER_HISTORY_SECONDS * STEER_SAMPLE_HZ;
-const STEER_MAX_DEG = 135;  // int16 * 0.004°/LSB ≈ ±131°, give a bit of margin
+// Visual y-axis range. Tightened to fit the ±10° reference sine waves
+// prominently; the trace clamps to the edges past this. The hardware
+// limit (int16 × 0.004°/LSB) is ~±131° — values past ±15° just pin to
+// the top/bottom rail of the chart.
+const STEER_MAX_DEG = 15;
 
 // Screen One: Main Dashboard (Modern EV Style)
 // Resolution: 800 x 480
@@ -778,24 +782,20 @@ const ScreenOne: React.FC = () => {
                                 strokeDasharray="2,4"
                                 vectorEffect="non-scaling-stroke"
                             />
-                            {/* 0.5 Hz reference — green, dashed */}
+                            {/* 0.5 Hz reference — solid green */}
                             <polyline
                                 points={refPoints(0.5)}
                                 fill="none"
                                 stroke="#00FF66"
-                                strokeWidth={1.5}
-                                strokeDasharray="6,4"
-                                opacity={0.7}
+                                strokeWidth={2}
                                 vectorEffect="non-scaling-stroke"
                             />
-                            {/* 1 Hz reference — gold, finer dashes */}
+                            {/* 1 Hz reference — solid gold */}
                             <polyline
                                 points={refPoints(1.0)}
                                 fill="none"
                                 stroke="#FFD700"
-                                strokeWidth={1.5}
-                                strokeDasharray="3,3"
-                                opacity={0.7}
+                                strokeWidth={2}
                                 vectorEffect="non-scaling-stroke"
                             />
                             {/* trace — y inverted so positive angle is up */}
