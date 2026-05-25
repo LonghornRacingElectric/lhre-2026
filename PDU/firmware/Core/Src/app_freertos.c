@@ -19,20 +19,21 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "task.h"
-#include "main.h"
 #include "cmsis_os.h"
+#include "main.h"
+#include "task.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "bse3.h"
 #include "cooling.h"
-#include "line_lock.h"
 #include "lights.h"
 #include "longhorn/rtos/dfu.h"
 #include "longhorn/rtos/led.h"
 #include "longhorn/rtos/logger.h"
 #include "ota/ota_flash.h"
 #include "pdu_can.h"
+#include "shutdown_sense.h"
 #include "tim.h"
 #include "usb_device.h"
 #include "usbd_cdc_if.h"
@@ -70,10 +71,9 @@ dfu_config dfu = {
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
-  .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 1024 * 4
-};
+    .name = "defaultTask",
+    .priority = (osPriority_t)osPriorityNormal,
+    .stack_size = 1024 * 4};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -86,10 +86,10 @@ void StartDefaultTask(void *argument);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /**
-  * @brief  FreeRTOS initialization
-  * @param  None
-  * @retval None
-  */
+ * @brief  FreeRTOS initialization
+ * @param  None
+ * @retval None
+ */
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
@@ -113,7 +113,8 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  defaultTaskHandle =
+      osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   rainbow_led_t led = {
@@ -136,9 +137,6 @@ void MX_FREERTOS_Init(void) {
   // Initialize Light subsystem
   lights_init();
 
-  // Initialize Line Lock subsystem
-  line_lock_init();
-
   // Initialize Cooling subsystem
   cooling_init();
 
@@ -148,7 +146,6 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
   /* USER CODE END RTOS_EVENTS */
-
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -158,8 +155,7 @@ void MX_FREERTOS_Init(void) {
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
-{
+void StartDefaultTask(void *argument) {
   /* init code for USB_Device */
   MX_USB_Device_Init();
   /* USER CODE BEGIN StartDefaultTask */
@@ -186,15 +182,17 @@ void StartDefaultTask(void *argument)
 
   /* Infinite loop */
   for (;;) {
-    line_lock_shutdown_sense_t sdwn = line_lock_shutdown_sense();
+    shutdown_sense_t sdwn = shutdown_sense_read();
 
     log_printf(LOG_INFO,
-               "[PDU] Line Lock | BSE3: %.3f V | SDWN 11:%u 12:%u 13:%u "
-               "14:%u 15:%u | closed:%u\n",
-               (double)line_lock_bse3_voltage(), (unsigned)sdwn.leg_11,
+               "\nBSE3_ADC_V:%.3f BSE3_SENSOR_V:%.3f BSE3_PSI:%.1f\n"
+               "SDWN11:%u SDWN12:%u SDWN13:%u SDWN14:%u SDWN15:%u\n"
+               "SDWN_CLOSED:%u\n\n",
+               (double)bse3_voltage(), (double)bse3_sensor_voltage(),
+               (double)bse3_pressure_psi(), (unsigned)sdwn.leg_11,
                (unsigned)sdwn.leg_12, (unsigned)sdwn.leg_13,
                (unsigned)sdwn.leg_14, (unsigned)sdwn.leg_15,
-               (unsigned)line_lock_shutdown_closed());
+               (unsigned)shutdown_sense_closed());
 
     osDelay(200);
   }
@@ -205,4 +203,3 @@ void StartDefaultTask(void *argument)
 /* USER CODE BEGIN Application */
 
 /* USER CODE END Application */
-
