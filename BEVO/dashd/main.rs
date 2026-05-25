@@ -285,14 +285,13 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
         }
     }
 
-    // Prefer the VCU-computed soc_estimate from packet 0x1C7 (mm/vcu-soc:
-    // OCV-curve lookup on min cell voltage with EMA filter + |I|<1A
-    // qualification — more accurate than our dc_bus fallback). VCU value
-    // arrives as a float % directly (0.1 precision from CSV). Falls back
-    // to the dc_bus formula when VCU reports 0 (not yet computed).
-    let soc = diag_high
-        .and_then(|d| if d.soc_estimate > 0.0 { Some(d.soc_estimate) } else { None })
-        .or(*last_qualified_soc);
+    // VCU-only SOC for now. Per driveday request: dc_bus fallback is
+    // commented out so the dash shows exactly what VCU broadcasts on
+    // packet 0x1C7 (mm/vcu-soc). To restore the fallback, swap to:
+    //   let soc = diag_high
+    //       .and_then(|d| if d.soc_estimate > 0.0 { Some(d.soc_estimate) } else { None })
+    //       .or(*last_qualified_soc);
+    let soc = diag_high.map(|d| d.soc_estimate);
 
     // Per-cell temp aggregates — None when cand has not received cell-temp
     // packets yet (empty vec).
