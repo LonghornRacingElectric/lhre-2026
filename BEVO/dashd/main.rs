@@ -488,6 +488,19 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                 }
                             };
 
+                            // DEBUG (driveday): sample the JSON sent to chromium
+                            // once every ~100 ticks so we can verify power is in
+                            // the payload. Revert when kW=0 bug is diagnosed.
+                            {
+                                use std::sync::atomic::{AtomicU32, Ordering};
+                                static JSON_TICK: AtomicU32 = AtomicU32::new(0);
+                                let n = JSON_TICK.fetch_add(1, Ordering::Relaxed);
+                                if n % 100 == 0 {
+                                    let preview: String = json.chars().take(280).collect();
+                                    eprintln!("[DASHD-JSON] {}", preview);
+                                }
+                            }
+
                             if ws.send(tungstenite::Message::Text(json)).is_err() {
                                 println!("[DASHD] WebSocket client disconnected");
                                 break;
