@@ -337,6 +337,7 @@ void bms_update(void)
     }
 
     hvc_set_min_cell_voltage(min_cell_voltage_v);
+    hvc_set_max_cell_voltage(max_cell_voltage_v);
     // log_printf(LOG_INFO, "Pack Voltage: %.3f V\n", getPackVoltage_v());
     
     // Read thermistor values
