@@ -27,6 +27,7 @@
 /* USER CODE BEGIN Includes */
 #include "bse3.h"
 #include "cooling.h"
+#include "line_lock.h"
 #include "lights.h"
 #include "longhorn/rtos/dfu.h"
 #include "longhorn/rtos/led.h"
@@ -139,6 +140,9 @@ void MX_FREERTOS_Init(void) {
 
   // Initialize Cooling subsystem
   cooling_init();
+
+  // Initialize Line Lock subsystem
+  line_lock_init();
 
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
