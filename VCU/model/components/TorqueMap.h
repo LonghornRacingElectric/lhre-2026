@@ -12,6 +12,8 @@ extern "C" {
 typedef struct {
   float ocv_estimate_v;
   bool ocv_initialized;
+  float min_cell_ocv_estimate_v;
+  bool min_cell_ocv_initialized;
 
   float integral_w_s;
   float previous_measured_power_w;

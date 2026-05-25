@@ -75,6 +75,7 @@ typedef struct {
     float apps1_travel;
     float apps2_travel;
     float ocv_estimate_v;
+    float min_cell_ocv_estimate_v;
     float active_power_limit_w;
     float measured_power_w;
     float low_voltage_derate_pct;

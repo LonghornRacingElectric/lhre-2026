@@ -377,6 +377,9 @@ void vcu_can_set_powertrain_inputs(vcu_inputs_t *in) {
   bool battery_status_valid =
       receive_message_is_fresh(battery_pack_status_mailbox_handle,
                                BATTERY_PACK_STATUS_TIMEOUT_MS);
+  bool min_cell_voltage_valid =
+      receive_message_is_fresh(battery_cell_limits_mailbox_handle,
+                               BATTERY_CELL_LIMITS_TIMEOUT_MS);
 
   if (inverter_speed_valid) {
     in->motor_speed_rpm = (float)inverter_speed_mailbox.motor_speed;
@@ -396,6 +399,10 @@ void vcu_can_set_powertrain_inputs(vcu_inputs_t *in) {
   in->battery_status_valid =
       battery_status_valid && isfinite(in->battery_voltage_v) &&
       in->battery_voltage_v > 0.0f;
+  in->min_cell_voltage_v = battery_cell_limits_mailbox.min_cell_voltage;
+  in->min_cell_voltage_valid =
+      min_cell_voltage_valid && isfinite(in->min_cell_voltage_v) &&
+      in->min_cell_voltage_v > 0.0f;
 }
 
 float vcu_can_get_delta_resolver_angle_deg(void) {

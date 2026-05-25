@@ -52,8 +52,9 @@ protected:
     params.torque_map.current_limit_a = 200.0f;
     params.torque_map.hard_current_cut_a = 240.0f;
     params.torque_map.hard_power_cut_w = 80000.0f;
-    params.torque_map.ocv_cell_count = 130.0f;
     params.torque_map.ocv_lpf_time_constant_s = 1.0f;
+    params.torque_map.min_cell_ocv_derate_start_v = 3.2f;
+    params.torque_map.min_cell_ocv_derate_cutoff_v = 3.0f;
     params.torque_map.power_limit_trim_limit_nm = 20.0f;
     params.torque_map.power_limit_kp = 0.002f;
     params.torque_map.power_limit_ki = 0.0f;
@@ -73,6 +74,8 @@ protected:
     in.inverter_dc_bus_current_a = 0.0f;
     in.battery_status_valid = true;
     in.battery_voltage_v = 455.0f;
+    in.min_cell_voltage_valid = true;
+    in.min_cell_voltage_v = 3.5f;
 
     vcu_model_init(&ctx, &params);
   }
@@ -193,4 +196,21 @@ TEST_F(VCUModelTest, TransitionToParkOnContactorLoss) {
   in.apps2_raw = 1250;
   vcu_model_step(&ctx, &in, &out, 10);
   EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
+}
+
+TEST_F(VCUModelTest, PowerLimitDiagnosticsDoNotSetGlobalFault) {
+  TransitionToDrive();
+
+  in.bse1_raw = 100;
+  in.bse2_raw = 150;
+  in.apps1_raw = 2500;
+  in.apps2_raw = 1250;
+  in.inverter_power_valid = false;
+
+  vcu_model_step(&ctx, &in, &out, 10);
+
+  EXPECT_TRUE(out.faults.power_limit_input_fault);
+  EXPECT_FALSE(out.faults.any_fault);
+  EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
+  EXPECT_TRUE(out.inverter_enable);
 }

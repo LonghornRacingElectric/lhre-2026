@@ -21,8 +21,9 @@ protected:
     params.torque_map.current_limit_a = 200.0f;
     params.torque_map.hard_current_cut_a = 240.0f;
     params.torque_map.hard_power_cut_w = 80000.0f;
-    params.torque_map.ocv_cell_count = 130.0f;
     params.torque_map.ocv_lpf_time_constant_s = 1.0f;
+    params.torque_map.min_cell_ocv_derate_start_v = 3.2f;
+    params.torque_map.min_cell_ocv_derate_cutoff_v = 3.0f;
     params.torque_map.power_limit_trim_limit_nm = 20.0f;
     params.torque_map.power_limit_kp = 0.002f;
     params.torque_map.power_limit_ki = 0.0f;
@@ -49,6 +50,8 @@ protected:
     in.inverter_dc_bus_current_a = 0.0f;
     in.battery_status_valid = true;
     in.battery_voltage_v = 455.0f;
+    in.min_cell_voltage_valid = true;
+    in.min_cell_voltage_v = 3.5f;
 
     torque_map_init(&state, &params);
   }
@@ -166,10 +169,10 @@ TEST_F(TorqueMapTest, HardCurrentCutFailsClosedOnLiveBusCurrent) {
   EXPECT_TRUE(out.faults.current_safety_cut);
 }
 
-TEST_F(TorqueMapTest, OcvOnlyAffectsLowVoltageDerate) {
+TEST_F(TorqueMapTest, MinCellOcvOnlyAffectsLowVoltageDerate) {
   params.torque_map.power_limit_kp = 0.0f;
   out.accel_pedal_travel = 1.0f;
-  in.battery_voltage_v = 435.5f;
+  in.min_cell_voltage_v = 3.1f;
   in.inverter_dc_bus_voltage_v = 400.0f;
   in.inverter_dc_bus_current_a = 0.0f;
 
@@ -179,4 +182,20 @@ TEST_F(TorqueMapTest, OcvOnlyAffectsLowVoltageDerate) {
   EXPECT_NEAR(out.debug.active_power_limit_w, 75000.0f, 0.01f);
   EXPECT_NEAR(out.torque_derated, 110.0f, 0.5f);
   EXPECT_NEAR(out.torque_cmd, 110.0f, 0.5f);
+}
+
+TEST_F(TorqueMapTest, MinCellOcvHoldsDuringCurrent) {
+  params.torque_map.power_limit_kp = 0.0f;
+  out.accel_pedal_travel = 1.0f;
+  in.min_cell_voltage_v = 3.2f;
+  in.inverter_dc_bus_current_a = 0.0f;
+  torque_map_evaluate(&in, &out, &state, &params, 10);
+  EXPECT_NEAR(out.derate_factor_cell_voltage, 1.0f, 0.01f);
+
+  in.min_cell_voltage_v = 2.9f;
+  in.inverter_dc_bus_current_a = 100.0f;
+  torque_map_evaluate(&in, &out, &state, &params, 10);
+
+  EXPECT_NEAR(out.debug.min_cell_ocv_estimate_v, 3.2f, 0.01f);
+  EXPECT_NEAR(out.derate_factor_cell_voltage, 1.0f, 0.01f);
 }

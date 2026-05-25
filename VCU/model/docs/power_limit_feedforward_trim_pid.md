@@ -10,28 +10,40 @@ The control goal is:
 3. Let the pedal request a percentage of the available torque at the current
    RPM.
 4. Use live inverter electrical power to trim the available torque.
-5. Fail closed on invalid inputs, invalid parameters, or hard power/current
-   excursions.
+5. Use min-cell OCV estimate for low-voltage torque derate.
+6. Avoid accidental VCU fault behavior from power-limit diagnostics.
 
 ## System State
 
-The current branch removes the old standalone `PowerLimit` component because
-that path had its trim disabled. The power-limit logic now lives in the torque
-stage so the final drive torque path is easy to review:
+The power-limit logic lives in the torque stage. The old standalone
+`PowerLimit` component was removed because its trim path was disabled.
 
 ```text
 APPS pedal travel
   -> pedal exponent shaping
   -> 1D power-limit torque lookup by motor RPM
-  -> current-limit scaling
-  -> OCV low-voltage derate
+  -> pack-current power scaling
+  -> min-cell OCV low-voltage derate
   -> electrical-power PID trim
   -> pedal percentage of available torque
-  -> PRNDL / fault final authority
+  -> PRNDL / APPS / BSE final authority
 ```
 
 No traction control, launch control, dashboard work, or unrelated playground
 features are included.
+
+## Fault Handling
+
+The power-limit flags are diagnostic limiter flags, not global VCU faults.
+
+`power_limit_input_fault`, `current_safety_cut`, and `power_safety_cut` can
+force torque to zero for the current model step, but they are intentionally not
+included in `faults.any_fault`. They are not packed into the APPS/BSE CAN fault
+fields and do not disable the inverter. This avoids accidentally creating car
+fault behavior from a limiter diagnostic.
+
+Global VCU fault behavior remains limited to the existing APPS and BSE fault
+paths.
 
 ## Main Logic
 
@@ -44,10 +56,11 @@ evaluated.
    non-negative and no greater than `max_torque_nm`, hard current must be at
    least the current target, and hard power must be at least the power target.
 
-2. Validate live CAN inputs.
+2. Validate live inverter inputs.
    `inverter_power_valid` and `inverter_speed_valid` must be true. Live DC bus
    voltage must be finite and positive. Live DC bus current and motor speed must
-   be finite. Failure sets `power_limit_input_fault` and commands zero torque.
+   be finite. Failure sets the diagnostic `power_limit_input_fault` flag and
+   commands zero torque for that step, but does not set `any_fault`.
 
 3. Shape pedal.
    APPS travel is clamped to `[0, 1]`, then shaped:
@@ -73,38 +86,51 @@ evaluated.
    Bus current is not low-pass filtered. The trim loop and hard cuts react as
    quickly as CAN feedback and the 3 ms control task allow.
 
-6. Apply current-derived power scaling.
+6. Apply pack-current power scaling.
    The active power target is:
 
    ```text
-   active_power_limit_w = min(power_limit_w, Vbus * current_limit_a)
+   current_power_limit_w = Vbus * current_limit_a
+   active_power_limit_w = min(power_limit_w, current_power_limit_w)
    power_limit_scale = active_power_limit_w / power_limit_w
    ```
 
-   The 1D torque table is multiplied by `power_limit_scale`. This keeps the
-   table usable when live voltage makes the current target more restrictive than
-   the nominal power target.
+   The 1D torque table is multiplied by `power_limit_scale`. This makes
+   `current_limit_a` a soft pack-current target. If bus voltage is high enough
+   that `power_limit_w` is more restrictive, the current target does not reduce
+   torque. If bus voltage is low enough that `Vbus * current_limit_a` is lower
+   than `power_limit_w`, available torque scales down before the PID trim loop.
 
-7. Update OCV estimate for low-voltage derate only.
-   OCV is initialized from HVC pack voltage when fresh, otherwise inverter DC
-   bus voltage. After initialization, OCV only updates when absolute DC bus
-   current is below 1 A. OCV is not used for power tracking.
+7. Update OCV estimates.
+   Full pack OCV estimate is kept for debug from HVC pack voltage when fresh,
+   otherwise inverter DC bus voltage. Min-cell OCV estimate is updated from HVC
+   `Battery Cell Limits.min_cell_voltage`.
 
-8. Apply low-voltage derate.
+   Both estimates initialize from the first valid value. After initialization,
+   they only update while absolute DC bus current is below 1 A. During load,
+   the previous OCV estimate is held so voltage sag does not create an
+   artificial low-voltage derate.
+
+8. Apply min-cell low-voltage derate.
+   Torque derate uses min-cell OCV estimate, not pack average voltage:
 
    ```text
-   cell_ocv_v = ocv_estimate_v / ocv_cell_count
-   voltage_derate = clamp((cell_ocv_v - 3.3 V) / 0.1 V, 0.0, 1.0)
+   voltage_derate =
+     clamp((min_cell_ocv_estimate_v - 3.0 V) / (3.2 V - 3.0 V), 0.0, 1.0)
    ```
 
-   This gives full torque at 3.4 V/cell and above, zero torque at 3.3 V/cell
-   and below, and a linear ramp between them.
+   This gives full torque at 3.2 V/cell and above, zero torque at 3.0 V/cell
+   and below, and a linear ramp between them. If no valid min-cell value has
+   ever been received, the derate remains 1.0 so missing min-cell telemetry does
+   not accidentally create a torque cut.
 
 9. Apply hard cuts.
    If live DC bus current exceeds `hard_current_cut_a`, the controller commands
-   zero torque for the step and sets `current_safety_cut`. If live measured
-   power exceeds `hard_power_cut_w`, it commands zero torque and sets
-   `power_safety_cut`.
+   zero torque for the step and sets diagnostic `current_safety_cut`. The
+   firmware default is `240 A`.
+
+   If live measured power exceeds `hard_power_cut_w`, the controller commands
+   zero torque for the step and sets diagnostic `power_safety_cut`.
 
 10. Compute PID trim from live electrical power.
 
@@ -135,8 +161,38 @@ evaluated.
     torque_cmd = pedal_shaped_pct * available_torque_nm
     ```
 
-    PRNDL and existing APPS/BSE model faults can still force final torque to
+    PRNDL and existing APPS/BSE global faults can still force final torque to
     zero after this stage.
+
+## Pack Current Limits
+
+There are two current-related limits:
+
+| Parameter | Default | Role |
+| --- | ---: | --- |
+| `current_limit_a` | 200 A | Soft pack-current target. It scales the power-limit torque table through `Vbus * current_limit_a`. |
+| `hard_current_cut_a` | 240 A | Last-resort current cut. If live DC bus current exceeds this value, torque is zero for the current step. |
+
+The soft limit is part of normal control. The hard cut is not tuning control; it
+is a backstop. The hard cut flag is diagnostic only and does not set global
+`any_fault`.
+
+Example at 400 V bus:
+
+```text
+current_power_limit_w = 400 V * 200 A = 80,000 W
+active_power_limit_w = min(75,000 W, 80,000 W) = 75,000 W
+```
+
+At 350 V bus:
+
+```text
+current_power_limit_w = 350 V * 200 A = 70,000 W
+active_power_limit_w = min(75,000 W, 70,000 W) = 70,000 W
+```
+
+So at lower bus voltage the soft current limit reduces available torque before
+the trim loop. The hard current cut remains fixed at 240 A.
 
 ## 1D Power-Limit Torque Table
 
@@ -181,10 +237,12 @@ uses the first torque value. Above the last point it uses the last torque value.
 | `motor_speed_rpm` | Absolute value selects the 1D torque table point. |
 | `inverter_dc_bus_voltage_v` | Live bus voltage for measured power and current-derived power target. |
 | `inverter_dc_bus_current_a` | Live bus current for measured power, hard current cut, and OCV update inhibit. |
-| `inverter_power_valid` | Must be true. False fails closed to zero torque. |
-| `inverter_speed_valid` | Must be true. False fails closed to zero torque. |
-| `battery_voltage_v` | HVC pack voltage for OCV when `battery_status_valid` is true. |
-| `battery_status_valid` | Enables HVC pack voltage as OCV source. |
+| `inverter_power_valid` | Must be true for power limiting. False commands zero torque for the step. |
+| `inverter_speed_valid` | Must be true for power limiting. False commands zero torque for the step. |
+| `battery_voltage_v` | HVC pack voltage for full-pack OCV debug when `battery_status_valid` is true. |
+| `battery_status_valid` | Enables HVC pack voltage as full-pack OCV source. |
+| `min_cell_voltage_v` | HVC minimum cell voltage used for min-cell OCV estimate. |
+| `min_cell_voltage_valid` | Enables min-cell voltage update when true. |
 
 ## Parameters
 
@@ -195,11 +253,12 @@ All parameters live under `vcu_parameters_t.torque_map`.
 | `max_torque_nm` | Nm | Absolute torque ceiling. Table values must not exceed this. |
 | `pedal_exponent` | none | Pedal shaping exponent. `1.0` linear, `>1.0` softer initial pedal. |
 | `power_limit_w` | W | Nominal electrical power target that the table is calibrated for. |
-| `current_limit_a` | A | Current-derived power limit: `Vbus * current_limit_a`. |
-| `hard_current_cut_a` | A | Immediate zero-torque current threshold. |
+| `current_limit_a` | A | Soft pack-current target via `Vbus * current_limit_a`. |
+| `hard_current_cut_a` | A | Immediate zero-torque current threshold. Default is 240 A. |
 | `hard_power_cut_w` | W | Immediate zero-torque power threshold. |
-| `ocv_cell_count` | cells | Series cell count used to convert pack OCV to cell OCV. |
 | `ocv_lpf_time_constant_s` | s | OCV filter time constant while current is near zero. Set 0 for no OCV filtering. |
+| `min_cell_ocv_derate_start_v` | V | Min-cell OCV where low-voltage derate starts. Default 3.2 V. |
+| `min_cell_ocv_derate_cutoff_v` | V | Min-cell OCV where low-voltage derate reaches zero torque. Default 3.0 V. |
 | `power_limit_trim_limit_nm` | Nm | Symmetric clamp on PID trim torque. |
 | `power_limit_kp` | Nm/W | Proportional trim gain. |
 | `power_limit_ki` | Nm/(W*s) | Integral trim gain. Default is 0 for first deployment. |
@@ -217,34 +276,36 @@ Firmware defaults:
 | `current_limit_a` | 200 A |
 | `hard_current_cut_a` | 240 A |
 | `hard_power_cut_w` | 80,000 W |
-| `ocv_cell_count` | 130 |
 | `ocv_lpf_time_constant_s` | 1.0 s |
+| `min_cell_ocv_derate_start_v` | 3.2 V |
+| `min_cell_ocv_derate_cutoff_v` | 3.0 V |
 | `power_limit_trim_limit_nm` | 20 Nm |
 | `power_limit_kp` | 0.002 Nm/W |
 | `power_limit_ki` | 0 |
 | `power_limit_kd` | 0 |
 
-## Outputs And Faults
+## Outputs And Diagnostics
 
 | Output | Meaning |
 | --- | --- |
 | `torque_lookup_output` | 1D power-limit table torque at current RPM before derates. |
-| `torque_derated` | Table torque after current-derived power scaling and OCV derate. |
+| `torque_derated` | Table torque after current-derived power scaling and min-cell OCV derate. |
 | `torque_power_limited` | Pedal-shaped final torque after PID trim. |
 | `torque_cmd` | Final model torque request before PRNDL may force park torque to zero. |
-| `derate_factor_cell_voltage` | OCV derate ratio from 0 to 1. |
-| `power_limit_input_fault` | Required parameters or live inputs are invalid. |
-| `current_safety_cut` | Live bus current exceeded `hard_current_cut_a`. |
-| `power_safety_cut` | Live bus power exceeded `hard_power_cut_w`. |
+| `derate_factor_cell_voltage` | Min-cell OCV derate ratio from 0 to 1. |
+| `power_limit_input_fault` | Diagnostic flag for invalid limiter parameters or required live inputs. Does not set `any_fault`. |
+| `current_safety_cut` | Diagnostic flag for live bus current above `hard_current_cut_a`. Does not set `any_fault`. |
+| `power_safety_cut` | Diagnostic flag for live bus power above `hard_power_cut_w`. Does not set `any_fault`. |
 
 Debug outputs:
 
 | Debug field | Meaning |
 | --- | --- |
-| `ocv_estimate_v` | Current pack OCV estimate. |
-| `active_power_limit_w` | Active target after current-derived power limiting. |
+| `ocv_estimate_v` | Current full-pack OCV estimate. |
+| `min_cell_ocv_estimate_v` | Current min-cell OCV estimate used for low-voltage derate. |
+| `active_power_limit_w` | Active target after pack-current power limiting. |
 | `measured_power_w` | Raw live `Vbus * Ibus`. |
-| `low_voltage_derate_pct` | OCV derate as percent. |
+| `low_voltage_derate_pct` | Min-cell OCV derate as percent. |
 | `power_limit_feedforward_torque_nm` | Derated 1D table torque before PID trim. |
 | `power_limit_feedback_p_nm` | P contribution. |
 | `power_limit_feedback_i_nm` | I contribution. |
@@ -258,14 +319,14 @@ Debug outputs:
 | Function | Purpose |
 | --- | --- |
 | `torque_map_init()` | Clears OCV and PID state. |
-| `torque_map_evaluate()` | Main control step. Validates, looks up table torque, applies derates, trims with PID, and outputs torque/faults. |
+| `torque_map_evaluate()` | Main control step. Validates, looks up table torque, applies derates, trims with PID, and outputs torque/diagnostics. |
 | `power_limit_torque_map_is_valid()` | Confirms RPM breakpoints increase and torque values are finite and safe. |
 | `torque_map_params_are_valid()` | Confirms all limiter parameters are finite and internally consistent. |
 | `power_limit_torque_at_rpm()` | Interpolates the 1D RPM/torque table. |
 | `shape_pedal()` | Applies the pedal exponent safely. |
-| `compute_low_voltage_derate()` | Converts OCV estimate to the low-voltage torque derate. |
+| `compute_low_voltage_derate()` | Converts min-cell OCV estimate to the low-voltage torque derate. |
 | `lpf_alpha_from_tau()` / `lpf_step()` | OCV-only low-pass helpers. |
-| `vcu_can_set_powertrain_inputs()` | Firmware CAN adapter for inverter voltage/current/speed and HVC pack voltage. |
+| `vcu_can_set_powertrain_inputs()` | Firmware CAN adapter for inverter voltage/current/speed, HVC pack voltage, and HVC min-cell voltage. |
 
 ## Firmware CAN Wiring
 
@@ -277,37 +338,45 @@ Debug outputs:
   `Inverter Current.dc_bus_current`.
 - `inverter_power_valid` is true only when both inverter voltage and current
   packets are fresh.
-- HVC `Battery Pack Status.pack_voltage` is registered and used only for OCV
-  when fresh. If stale, inverter DC bus voltage is the OCV fallback.
+- HVC `Battery Pack Status.pack_voltage` is used only for full-pack OCV debug
+  when fresh.
+- HVC `Battery Cell Limits.min_cell_voltage` is used for the min-cell OCV
+  estimate when fresh.
 
 ## Edge-Case Behavior
 
 | Case | Behavior |
 | --- | --- |
-| Missing inverter voltage/current/speed | Zero torque, `power_limit_input_fault = true`. |
-| Invalid table order or torque values | Zero torque, `power_limit_input_fault = true`. |
-| Zero or negative DC bus voltage | Zero torque, `power_limit_input_fault = true`. |
+| Missing inverter voltage/current/speed | Zero torque for the step, diagnostic `power_limit_input_fault = true`, no global `any_fault`. |
+| Invalid table order or torque values | Zero torque for the step, diagnostic `power_limit_input_fault = true`, no global `any_fault`. |
+| Zero or negative DC bus voltage | Zero torque for the step, diagnostic `power_limit_input_fault = true`, no global `any_fault`. |
+| Missing min-cell voltage before first valid value | Low-voltage derate remains 1.0; no accidental torque cut. |
+| Missing min-cell voltage after estimate exists | Holds the previous min-cell OCV estimate. |
 | RPM below table | Uses first table value. |
 | RPM above table | Uses last table value. |
 | Pedal below zero or above one | Clamped to `[0, 1]`. |
-| Pedal exponent outside `[0.1, 5.0]` | Invalid parameter fault, zero torque. |
+| Pedal exponent outside `[0.1, 5.0]` | Invalid parameter diagnostic, zero torque for the step. |
 | Current target lower than power target | Table torque scales down by active power ratio. |
-| Hard current or power exceeded | Zero torque for that step and safety fault set. |
-| OCV unavailable | Uses inverter bus voltage as OCV fallback. |
+| Hard current or power exceeded | Zero torque for the step and diagnostic safety flag set, no global `any_fault`. |
 
 ## Tuning Guidance
 
 1. Recalculate the 1D RPM/torque table if `power_limit_w` changes.
-2. Start with `power_limit_ki = 0` and `power_limit_kd = 0`.
-3. Confirm inverter power and speed freshness on-car before driving.
-4. Confirm inverter current sign: positive must mean discharge.
-5. Log `measured_power_w`, `active_power_limit_w`, `torque_derated`,
-   `power_limit_available_torque_nm`, and `pedal_shaped_pct`.
-6. Tune the 1D table first. It should land slightly under target at full pedal.
-7. Increase `power_limit_kp` only enough to close the remaining power error.
-8. Add `power_limit_ki` only if steady-state error remains after table and P
-   tuning.
-9. Add `power_limit_kd` only if rising power spikes need damping.
+2. Keep `hard_current_cut_a = 240 A` unless the accumulator/current rules
+   change.
+3. Start with `power_limit_ki = 0` and `power_limit_kd = 0`.
+4. Confirm inverter power and speed freshness on-car before driving.
+5. Confirm inverter current sign: positive must mean discharge.
+6. Confirm HVC min-cell voltage is received before relying on low-voltage
+   torque derate.
+7. Log `measured_power_w`, `active_power_limit_w`, `torque_derated`,
+   `power_limit_available_torque_nm`, `min_cell_ocv_estimate_v`, and
+   `pedal_shaped_pct`.
+8. Tune the 1D table first. It should land slightly under target at full pedal.
+9. Increase `power_limit_kp` only enough to close the remaining power error.
+10. Add `power_limit_ki` only if steady-state error remains after table and P
+    tuning.
+11. Add `power_limit_kd` only if rising power spikes need damping.
 
 ## Verification
 
@@ -320,8 +389,10 @@ Model tests cover:
 - PID trim using live measured electrical power.
 - Stale inverter input fail-closed behavior.
 - Invalid table fail-closed behavior.
+- Power-limit diagnostics not setting global `any_fault`.
 - Hard power/current cuts.
-- OCV affecting only low-voltage derate.
+- Min-cell OCV low-voltage derate.
+- Min-cell OCV holding during current draw.
 
 The embedded VCU firmware target builds with the CAN wiring and calibration
 table in place.

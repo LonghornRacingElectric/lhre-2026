@@ -55,10 +55,13 @@ static bool torque_map_params_are_valid(const vcu_parameters_t *params) {
          isfinite(params->torque_map.hard_power_cut_w) &&
          params->torque_map.hard_power_cut_w >=
              params->torque_map.power_limit_w &&
-         isfinite(params->torque_map.ocv_cell_count) &&
-         params->torque_map.ocv_cell_count > 0.0f &&
          isfinite(params->torque_map.ocv_lpf_time_constant_s) &&
          params->torque_map.ocv_lpf_time_constant_s >= 0.0f &&
+         isfinite(params->torque_map.min_cell_ocv_derate_start_v) &&
+         isfinite(params->torque_map.min_cell_ocv_derate_cutoff_v) &&
+         params->torque_map.min_cell_ocv_derate_start_v >
+             params->torque_map.min_cell_ocv_derate_cutoff_v &&
+         params->torque_map.min_cell_ocv_derate_cutoff_v > 0.0f &&
          isfinite(params->torque_map.power_limit_trim_limit_nm) &&
          params->torque_map.power_limit_trim_limit_nm >= 0.0f &&
          isfinite(params->torque_map.power_limit_kp) &&
@@ -91,10 +94,17 @@ static float power_limit_torque_at_rpm(const vcu_parameters_t *params,
   return torque_map[last_index];
 }
 
-static float compute_low_voltage_derate(float ocv_estimate_v,
+static float compute_low_voltage_derate(const torque_map_state_t *state,
                                         const vcu_parameters_t *params) {
-  float cell_ocv_v = ocv_estimate_v / params->torque_map.ocv_cell_count;
-  return clamp_f((cell_ocv_v - 3.3f) / 0.1f, 0.0f, 1.0f);
+  if (!state->min_cell_ocv_initialized) {
+    return 1.0f;
+  }
+
+  return clamp_f((state->min_cell_ocv_estimate_v -
+                  params->torque_map.min_cell_ocv_derate_cutoff_v) /
+                     (params->torque_map.min_cell_ocv_derate_start_v -
+                      params->torque_map.min_cell_ocv_derate_cutoff_v),
+                 0.0f, 1.0f);
 }
 
 static float shape_pedal(float pedal, float exponent) {
@@ -166,6 +176,21 @@ void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
                      dt_s, params->torque_map.ocv_lpf_time_constant_s));
   }
 
+  bool min_cell_voltage_valid =
+      in->min_cell_voltage_valid && isfinite(in->min_cell_voltage_v) &&
+      in->min_cell_voltage_v > 0.0f;
+  if (min_cell_voltage_valid) {
+    if (!state->min_cell_ocv_initialized) {
+      state->min_cell_ocv_estimate_v = in->min_cell_voltage_v;
+      state->min_cell_ocv_initialized = true;
+    } else if (fabsf(in->inverter_dc_bus_current_a) < 1.0f) {
+      state->min_cell_ocv_estimate_v =
+          lpf_step(state->min_cell_ocv_estimate_v, in->min_cell_voltage_v,
+                   lpf_alpha_from_tau(
+                       dt_s, params->torque_map.ocv_lpf_time_constant_s));
+    }
+  }
+
   float measured_power_w =
       in->inverter_dc_bus_voltage_v * in->inverter_dc_bus_current_a;
   float measured_power_rate_w_s = 0.0f;
@@ -186,8 +211,7 @@ void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
       clamp_f(active_power_limit_w / params->torque_map.power_limit_w, 0.0f,
               1.0f);
 
-  float voltage_derate = compute_low_voltage_derate(state->ocv_estimate_v,
-                                                    params);
+  float voltage_derate = compute_low_voltage_derate(state, params);
   float voltage_derated_torque_limit_nm = max_torque_nm * voltage_derate;
 
   float table_torque_nm =
@@ -204,6 +228,7 @@ void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   out->torque_derated = derated_table_torque_nm;
 
   out->debug.ocv_estimate_v = state->ocv_estimate_v;
+  out->debug.min_cell_ocv_estimate_v = state->min_cell_ocv_estimate_v;
   out->debug.active_power_limit_w = active_power_limit_w;
   out->debug.measured_power_w = measured_power_w;
   out->debug.low_voltage_derate_pct = voltage_derate * 100.0f;

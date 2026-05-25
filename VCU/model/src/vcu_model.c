@@ -25,10 +25,11 @@ void vcu_model_init(vcu_model_context_t *ctx, const vcu_parameters_t *params) {
 bool can_timed_out() { return false; }
 
 bool any_fault_exists(vcu_outputs_t *out) {
+  // Power-limit diagnostics are intentionally not global VCU faults. They can
+  // clamp torque for the current step, but must not create unrelated fault
+  // behavior or inverter disable paths.
   out->faults.any_fault =
-      out->faults.apps_any_fault || out->faults.brake_any_fault ||
-      out->faults.power_limit_input_fault || out->faults.current_safety_cut ||
-      out->faults.power_safety_cut;
+      out->faults.apps_any_fault || out->faults.brake_any_fault;
   return out->faults.any_fault;
 }
 

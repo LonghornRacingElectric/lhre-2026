@@ -66,8 +66,9 @@ typedef struct {
     float current_limit_a;
     float hard_current_cut_a;
     float hard_power_cut_w;
-    float ocv_cell_count;
     float ocv_lpf_time_constant_s;
+    float min_cell_ocv_derate_start_v;
+    float min_cell_ocv_derate_cutoff_v;
 
     float power_limit_trim_limit_nm;
     float power_limit_kp;

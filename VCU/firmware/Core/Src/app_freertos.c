@@ -96,8 +96,9 @@ const osThreadAttr_t controlTask_attributes = {
 #define VCU_TORQUE_MAP_CURRENT_LIMIT_A 200.0f
 #define VCU_TORQUE_MAP_HARD_CURRENT_CUT_A 240.0f
 #define VCU_TORQUE_MAP_HARD_POWER_CUT_W 80000.0f
-#define VCU_TORQUE_MAP_OCV_CELL_COUNT 130.0f
 #define VCU_TORQUE_MAP_OCV_LPF_TIME_CONSTANT_S 1.0f
+#define VCU_TORQUE_MAP_MIN_CELL_OCV_DERATE_START_V 3.2f
+#define VCU_TORQUE_MAP_MIN_CELL_OCV_DERATE_CUTOFF_V 3.0f
 #define VCU_TORQUE_MAP_POWER_LIMIT_TRIM_LIMIT_NM 20.0f
 #define VCU_TORQUE_MAP_POWER_LIMIT_KP 0.002f
 #define VCU_TORQUE_MAP_POWER_LIMIT_KI 0.0f
@@ -156,9 +157,12 @@ static vcu_parameters_t s_params = {
             .current_limit_a = VCU_TORQUE_MAP_CURRENT_LIMIT_A,
             .hard_current_cut_a = VCU_TORQUE_MAP_HARD_CURRENT_CUT_A,
             .hard_power_cut_w = VCU_TORQUE_MAP_HARD_POWER_CUT_W,
-            .ocv_cell_count = VCU_TORQUE_MAP_OCV_CELL_COUNT,
             .ocv_lpf_time_constant_s =
                 VCU_TORQUE_MAP_OCV_LPF_TIME_CONSTANT_S,
+            .min_cell_ocv_derate_start_v =
+                VCU_TORQUE_MAP_MIN_CELL_OCV_DERATE_START_V,
+            .min_cell_ocv_derate_cutoff_v =
+                VCU_TORQUE_MAP_MIN_CELL_OCV_DERATE_CUTOFF_V,
             .power_limit_trim_limit_nm =
                 VCU_TORQUE_MAP_POWER_LIMIT_TRIM_LIMIT_NM,
             .power_limit_kp = VCU_TORQUE_MAP_POWER_LIMIT_KP,
