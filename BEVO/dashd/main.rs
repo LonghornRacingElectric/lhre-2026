@@ -79,6 +79,24 @@ struct CanData {
     /// frontend has been collapsed to these four legs in SHUTDOWN_NAMES.
     shutdown: Option<Vec<bool>>,
 
+    /// PRNDL state from diagnostics_high.prndl_state. "P" for PARK (0),
+    /// "D" for DRIVE (1), None when no diag data or unknown value. Other
+    /// gears (R/N/L) aren't implemented in VCU firmware; matches the
+    /// VCU enum in VCU/model/components/PRNDL.h.
+    prndl: Option<&'static str>,
+
+    /// HV contactor states from HVC packet 0x131 (Contactor Status) via
+    /// diagnostics_high.{pos_hv_contactor, neg_hv_contactor,
+    /// precharge_contactor}. Frontend combines pos+neg into a single
+    /// "HV UP/DOWN" indicator; precharge is exposed separately for pit
+    /// diagnostics use.
+    #[serde(rename = "posContactor")]
+    pos_contactor: Option<bool>,
+    #[serde(rename = "negContactor")]
+    neg_contactor: Option<bool>,
+    #[serde(rename = "prechargeContactor")]
+    precharge_contactor: Option<bool>,
+
     // ---------------------------------------------------------------
     // Pit / extended driver-thread fields — all sourced from the same
     // OrionSensorData snapshot cand publishes. None when cand has not
@@ -301,6 +319,15 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
         _ => None,
     };
 
+    // PRNDL: float on the wire but VCU's enum only emits 0 (PARK) or
+    // 1 (DRIVE) — see VCU/model/components/PRNDL.h. Anything else is
+    // unexpected, so map to None.
+    let prndl: Option<&'static str> = diag_high.and_then(|d| match d.prndl_state as i32 {
+        0 => Some("P"),
+        1 => Some("D"),
+        _ => None,
+    });
+
     CanData {
         speed,
         power,
@@ -309,6 +336,10 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
         odometer: None,
         signal_strength: None,
         shutdown,
+        prndl,
+        pos_contactor: diag_high.map(|d| d.pos_hv_contactor),
+        neg_contactor: diag_high.map(|d| d.neg_hv_contactor),
+        precharge_contactor: diag_high.map(|d| d.precharge_contactor),
 
         // Workaround: the can.json precision on brake_bias is 0.01, so a
         // raw VCU byte of 45 (meaning 45%) decodes to 0.45 and the dash

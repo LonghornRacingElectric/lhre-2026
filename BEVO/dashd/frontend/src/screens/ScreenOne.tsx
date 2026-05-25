@@ -51,6 +51,17 @@ const ScreenOne: React.FC = () => {
     const lapDeltaRate = data?.mqtt.lapDeltaRate ?? null;
     const LAP_DELTA_RATE_MAX = 0.5; // ±0.5 s/s pegs the bar end-to-end
 
+    // VCU PRNDL state — "P" or "D". Null = no diagnostics_high data yet.
+    const prndl = data?.can.prndl ?? null;
+
+    // HV status from HVC 0x131. posContactor=1 means energized (ready
+    // to drive). prechargeContactor=1 means we're sequencing — display
+    // a blinking bolt so the driver waits. negContactor=0 means shutdown
+    // circuit is open (dash should switch to shutdown screen entirely;
+    // TODO not implemented here).
+    const posContactor = data?.can.posContactor ?? null;
+    const prechargeContactor = data?.can.prechargeContactor ?? null;
+
     // Derived: system status from shutdown circuit (any false = FAULT).
     // DRIVEDAY 2026-05-24: shutdown_leg signal is firing false FAULTs (root
     // cause not yet known). Force OK on the main screen so drivers aren't
@@ -522,6 +533,55 @@ const ScreenOne: React.FC = () => {
                     ) : (
                         <div className="value-display" style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#FF3333', textShadow: '0 0 5px rgba(255,50,50,0.5)', lineHeight: 1 }}>FAULT</div>
                     )}
+                </div>
+
+                {/* PRNDL + HV bolt cluster — just left of System.
+                    PRNDL chip on top (green pill in DRIVE, gray in PARK);
+                    HV bolt below (solid amber when pos=1 energized,
+                    blinking when precharge=1, dimmed otherwise). Together
+                    they tell the driver "you're in drive AND HV is up,
+                    safe to press the pedal." TODO: when negContactor is
+                    false, shutdown circuit is open and the dash should
+                    switch to ScreenTwo entirely; not implemented yet. */}
+                <div style={{
+                    position: 'absolute',
+                    right: '142px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: '60px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px'
+                }}>
+                    <div style={{
+                        padding: '2px 10px',
+                        borderRadius: '5px',
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold',
+                        letterSpacing: '2px',
+                        lineHeight: 1,
+                        minWidth: '32px',
+                        textAlign: 'center',
+                        background: prndl === 'D' ? 'rgba(0, 204, 102, 0.25)' : 'var(--card-bg)',
+                        border: `2px solid ${prndl === 'D' ? '#00CC66' : 'var(--card-border)'}`,
+                        color: prndl === 'D' ? '#00FF66' : 'var(--fg-muted)',
+                        textShadow: prndl === 'D' ? '0 0 6px rgba(0, 255, 100, 0.5)' : 'none'
+                    }}>
+                        {prndl ?? '--'}
+                    </div>
+                    <div style={{
+                        fontSize: '1.6rem',
+                        lineHeight: 1,
+                        color: posContactor ? '#FFD700' : 'var(--fg-muted)',
+                        textShadow: posContactor ? '0 0 8px rgba(255, 215, 0, 0.7)' : 'none',
+                        opacity: posContactor || prechargeContactor ? 1 : 0.3,
+                        animation: !posContactor && prechargeContactor
+                            ? 'hv-precharge-blink 1s steps(1, end) infinite'
+                            : 'none'
+                    }}>
+                        ⚡
+                    </div>
                 </div>
 
                 {/* Energy Delta (Center) — label stacked above value so the

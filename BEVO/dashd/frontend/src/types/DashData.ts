@@ -19,6 +19,16 @@ export interface CanData {
     // See SHUTDOWN_NAMES for the matching labels.
     shutdown: boolean[] | null;
 
+    // PRNDL state from VCU. "P" (Park) or "D" (Drive); null if not yet
+    // received or value is outside the known enum.
+    prndl: string | null;
+
+    // HV contactor states from HVC 0x131. pos+neg both closed means the
+    // HV system is up; precharge is transient during sequencing.
+    posContactor: boolean | null;
+    negContactor: boolean | null;
+    prechargeContactor: boolean | null;
+
     // Optional driver-thread additions. Not yet emitted by dashd; the
     // demo data hook provides synthetic values so the layout is testable.
     brakeBias?: number | null;      // % front bias, 0-100
