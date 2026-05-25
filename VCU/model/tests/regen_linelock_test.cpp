@@ -79,6 +79,7 @@ TEST_F(RegenLinelockTest, HighOcvKeepsRearBrakesMechanical) {
 
 TEST_F(RegenLinelockTest, LowCellTemperatureKeepsRearBrakesMechanical) {
   in.min_cell_temp_c = 5.0f;
+
   out.torque_cmd = 12.0f;
 
   regen_linelock_evaluate(&in, &out, &state, &params, 3);
@@ -86,6 +87,18 @@ TEST_F(RegenLinelockTest, LowCellTemperatureKeepsRearBrakesMechanical) {
   EXPECT_FALSE(out.regen_available);
   EXPECT_FALSE(out.linelock_enabled);
   EXPECT_TRUE(out.faults.regen_linelock_pack_temp_low);
+  EXPECT_FLOAT_EQ(out.torque_cmd, 12.0f);
+}
+
+TEST_F(RegenLinelockTest, LowMotorSpeedKeepsRearBrakesMechanical) {
+  in.motor_speed_rpm = 200.0f;
+  out.torque_cmd = 12.0f;
+
+  regen_linelock_evaluate(&in, &out, &state, &params, 3);
+
+  EXPECT_FALSE(out.regen_available);
+  EXPECT_FALSE(out.linelock_enabled);
+  EXPECT_TRUE(out.faults.regen_linelock_motor_speed_low);
   EXPECT_FLOAT_EQ(out.torque_cmd, 12.0f);
 }
 
