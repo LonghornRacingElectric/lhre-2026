@@ -1,2 +1,2 @@
-kafka-python==2.0.2
-pyyaml>=6.0
+kafka-python==2.2.15
+pyyaml==6.0
