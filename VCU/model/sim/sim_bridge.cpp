@@ -131,10 +131,10 @@ PYBIND11_MODULE(vcu_model_sim, m) {
       .def_readwrite("brake_light_min_pct", &bse_params_t::brake_light_min_pct)
       .def_readwrite("brake_light_max_pct", &bse_params_t::brake_light_max_pct);
 
-  using torque_map_params_t = decltype(vcu_parameters_t::torque_map);
-  py::class_<torque_map_params_t>(params, "TorqueMapParams")
-      .def(py::init<>())
-      .def_readwrite("max_torque_nm", &torque_map_params_t::max_torque_nm);
+//   using torque_map_params_t = decltype(vcu_parameters_t::torque_map);
+//   py::class_<torque_map_params_t>(params, "TorqueMapParams")
+//       .def(py::init<>())
+//       .def_readwrite("max_torque_nm", &torque_map_params_t::max_torque_nm);
 
   // ── vcu_model_context_t ───────────────────────────────────────────────
   py::class_<vcu_model_context_t>(m, "VcuModelContext")
