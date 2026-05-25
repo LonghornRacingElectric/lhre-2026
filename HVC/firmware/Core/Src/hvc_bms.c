@@ -37,7 +37,7 @@ extern uint8_t WRPWM2[2];
 
 // BMS Safety Thresholds
 #define CELL_OVERVOLTAGE_THRESHOLD  4.2f   // Volts
-#define CELL_UNDERVOLTAGE_THRESHOLD 2.5f   // Volts
+#define CELL_UNDERVOLTAGE_THRESHOLD 3.0f   // Volts
 #define CELL_OVERTEMP_THRESHOLD     60.0f  // Celsius
 
 
