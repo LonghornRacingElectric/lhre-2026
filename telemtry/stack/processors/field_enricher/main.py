@@ -17,7 +17,9 @@ CONFIG_PATH = os.getenv("ENRICHER_CONFIG", f"/app/stack/processors/field_enriche
 KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
 
 _MATH_NS = {k: getattr(math, k) for k in dir(math) if not k.startswith("_")}
-_MATH_NS.update({"abs": abs, "max": max, "min": min, "round": round, "len": len, "None": None, "True": True, "False": False})
+_MATH_NS.update(
+    {"math": math, "abs": abs, "max": max, "min": min, "round": round, "len": len, "None": None, "True": True, "False": False}
+)
 
 _config_mtime: float = 0.0
 _fields: list[dict] = []
