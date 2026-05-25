@@ -57,9 +57,15 @@ export function computeSunWindow(
 
     const haDeg = Math.acos(cosHa) * 180 / Math.PI;
 
-    // Sunrise/sunset in UTC minutes from midnight.
-    const sunriseUtcMin = 720 - 4 * (lonWestDeg + haDeg) - eqtime;
-    const sunsetUtcMin  = 720 - 4 * (lonWestDeg - haDeg) - eqtime;
+    // Sunrise/sunset in UTC minutes from midnight. NOAA's published
+    // form is `720 - 4*(lon + ha) - eqtime` but only when `lon` is in
+    // degrees EAST (positive east). With longitude-west as positive
+    // (our convention here), the equivalent is `720 + 4*(lon_west ∓ ha)`
+    // — verified for Austin against expected sunrise ~6:35 AM CDT and
+    // sunset ~8:20 PM CDT in late May. Earlier draft used the wrong
+    // sign and reported sunrise=evening / sunset=morning.
+    const sunriseUtcMin = 720 + 4 * (lonWestDeg - haDeg) - eqtime;
+    const sunsetUtcMin  = 720 + 4 * (lonWestDeg + haDeg) - eqtime;
 
     const utcMidnight = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
     return {
