@@ -36,14 +36,16 @@ void faults_init() {
     
 }
 
-uint32_t get_shutdown_sense(void) {
-         
-           HAL_GPIO_ReadPin(Shutdown_Sense_1_GPIO_Port, Shutdown_Sense_1_Pin) == GPIO_PIN_SET << 0
-           HAL_GPIO_ReadPin(Shutdown_Sense_2_GPIO_Port, Shutdown_Sense_2_Pin) == GPIO_PIN_SET << 1
-           HAL_GPIO_ReadPin(Shutdown_Sense_3_GPIO_Port, Shutdown_Sense_3_Pin) == GPIO_PIN_SET << 2
-           HAL_GPIO_ReadPin(Shutdown_Sense_4_GPIO_Port, Shutdown_Sense_4_Pin) == GPIO_PIN_SET << 3
+void update_shutdown_faults(void) {
 
-    return
+    //pin numbers should change on ioc, wrong leg numbers rn
+         
+         uint8_t leg2 = HAL_GPIO_ReadPin(Shutdown_Sense_1_GPIO_Port, Shutdown_Sense_1_Pin) == GPIO_PIN_SET;
+         uint8_t leg3 = HAL_GPIO_ReadPin(Shutdown_Sense_2_GPIO_Port, Shutdown_Sense_2_Pin) == GPIO_PIN_SET;
+         uint8_t leg4 = HAL_GPIO_ReadPin(Shutdown_Sense_3_GPIO_Port, Shutdown_Sense_3_Pin) == GPIO_PIN_SET;
+         uint8_t leg5 = HAL_GPIO_ReadPin(Shutdown_Sense_4_GPIO_Port, Shutdown_Sense_4_Pin) == GPIO_PIN_SET;
+         uint8_t leg12 = HAL_GPIO_ReadPin(Shutdown_Sense_12_GPIO_Port, Shutdown_Sense_12_Pin) == GPIO_PIN_SET;
+         hvc_set_indicator_status(/*bms_error=*/false, /*imd_error=*/false,leg2, leg3, leg4, leg5, leg12);
 }
 
 uint32_t get_faults() {

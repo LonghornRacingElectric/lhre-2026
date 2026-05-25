@@ -262,6 +262,7 @@ void StartStateMachineTask(void *argument) {
 
     update_state_machine(any_faults);
     hvc_update_contactor_status();
+    update_shutdown_faults();
     // log_printf(LOG_INFO, "Responsive BMS ICs: %d\n",
     // bms_get_num_responsive_ics());
 
