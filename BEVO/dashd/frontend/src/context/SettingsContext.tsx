@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { effectiveAutoTheme } from '../util/sunCalc';
 
 // Hardcoded driver roster. Edit here when the lineup changes.
 export const DRIVERS = [
@@ -10,7 +11,9 @@ export const DRIVERS = [
 
 export type Driver = typeof DRIVERS[number];
 
-export const THEMES = ['dark', 'light'] as const;
+// 'auto' uses sunrise/sunset (Austin lat/lon, computed inline). 'dark'
+// and 'light' are manual overrides.
+export const THEMES = ['auto', 'dark', 'light'] as const;
 export type Theme = typeof THEMES[number];
 
 interface Settings {
@@ -20,7 +23,7 @@ interface Settings {
 
 const DEFAULT_SETTINGS: Settings = {
     activeDriver: DRIVERS[0],
-    theme: 'light',
+    theme: 'auto',
 };
 
 const STORAGE_KEY = 'dashd.settings';
@@ -63,9 +66,21 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
     }, [settings]);
 
-    // Apply theme to body so CSS variables in index.css switch.
+    // Apply theme to body. For 'auto', poll every minute and recompute
+    // against sunrise/sunset; for explicit dark/light, just toggle once.
     useEffect(() => {
-        document.body.classList.toggle('theme-light', settings.theme === 'light');
+        const apply = () => {
+            const effective = settings.theme === 'auto'
+                ? effectiveAutoTheme()
+                : settings.theme;
+            document.body.classList.toggle('theme-light', effective === 'light');
+        };
+        apply();
+        if (settings.theme !== 'auto') return;
+        // 60s tick is fast enough for a horizon-crossing event and far
+        // below any visible lag.
+        const id = window.setInterval(apply, 60_000);
+        return () => window.clearInterval(id);
     }, [settings.theme]);
 
     const setActiveDriver = (driver: Driver) => {
