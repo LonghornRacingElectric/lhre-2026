@@ -139,35 +139,36 @@ static vcu_parameters_t s_params = {
         },
     .torque_map =
         {
-            .torque_map = {
-              /* rpm=    0 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 100.0f, 110.0f, 120.0f, 130.0f,  140.0f,  150.00f },
-              /* rpm=  600 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 100.0f, 110.0f, 120.0f, 130.0f,  140.0f,  150.00f },
-              /* rpm= 1200 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 120.0f, 130.0f, 150.0f,  160.0f,  170.00f },
-              /* rpm= 1800 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 120.0f, 130.0f, 150.0f,  170.0f,  190.00f },
-              /* rpm= 2400 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 176.0f,  188.0f,  200.00f },
-              /* rpm= 3000 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 176.0f,  198.0f,  220.00f },
-              /* rpm= 3600 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 176.0f,  198.0f,  203.72f },
-              /* rpm= 4200 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 174.62f, 174.62f, 174.62f },
-              /* rpm= 4800 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 152.79f, 152.79f, 152.79f, 152.79f },
-              /* rpm= 5400 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 135.81f, 135.81f, 135.81f, 135.81f },
-              /* rpm= 6000 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 122.23f, 122.23f, 122.23f, 122.23f, 122.23f },
+            .power_limit_torque = {
+              /* rpm=    0 */ 210.0f,
+              /* rpm=  600 */ 210.0f,
+              /* rpm= 1200 */ 210.0f,
+              /* rpm= 1800 */ 210.0f,
+              /* rpm= 2400 */ 210.0f,
+              /* rpm= 3000 */ 192.0f,
+              /* rpm= 3600 */ 166.0f,
+              /* rpm= 4200 */ 145.0f,
+              /* rpm= 4800 */ 129.0f,
+              /* rpm= 5400 */ 115.0f,
+              /* rpm= 6000 */ 103.0f
             },
-            .max_torque_nm = 220.0f,
+            .pedal_curve_exponent = 2.0f,
             .low_cell_derate_start_v = 3.2f,
             .low_cell_cutoff_v = 3.0f,
         },
     .power_limit =
       {
-          .power_limit_w = 75000.0f,
+          .power_limit_w = 70000.0f,
           .power_limit_trim_kp = 0.006f,
           .power_limit_trim_ki = 0.6f,
-          .power_limit_trim_integral_max = 1000.0f,
+          .power_limit_trim_integral_max = 20000.0f,
       },
     .buzzer_duration_ms = 1200u,
     .brake_enable_threshold = 0.1f,
 };
 
 static vcu_model_context_t ctx = {0};
+
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */

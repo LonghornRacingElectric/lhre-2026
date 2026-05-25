@@ -64,6 +64,22 @@ void cooling_init(void) {
 
 void cooling_task(void) {
     while (1) {
+        bool cooling_enabled = vehicle_in_drive();
+
+        if (cooling_enabled) {
+            // VCU State indicates DRIVE: turn on all cooling.
+            HAL_GPIO_WritePin(SW_PUMPS_GPIO_Port, SW_PUMPS_Pin, GPIO_PIN_SET);
+            HAL_GPIO_WritePin(SW_BATT_FANS1_GPIO_Port, SW_BATT_FANS1_Pin, GPIO_PIN_SET);
+            HAL_GPIO_WritePin(SW_BATT_FANS2_GPIO_Port, SW_BATT_FANS2_Pin, GPIO_PIN_SET);
+            HAL_GPIO_WritePin(SW_FANS_GPIO_Port, SW_FANS_Pin, GPIO_PIN_SET);
+        } else {
+            // VCU State indicates PARK: turn off all cooling.
+            HAL_GPIO_WritePin(SW_PUMPS_GPIO_Port, SW_PUMPS_Pin, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(SW_BATT_FANS1_GPIO_Port, SW_BATT_FANS1_Pin, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(SW_BATT_FANS2_GPIO_Port, SW_BATT_FANS2_Pin, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(SW_FANS_GPIO_Port, SW_FANS_Pin, GPIO_PIN_RESET);
+        }
+
         osDelay(100);
     }
 }

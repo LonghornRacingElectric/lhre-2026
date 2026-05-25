@@ -1228,36 +1228,6 @@
             {
                 "index": 1,
                 "start_byte": 1,
-                "name": "temp_shutdown_1",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "temp_shutdown_1",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 1,
-                "name": "temp_shutdown_2",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "temp_shutdown_2",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 1,
                 "name": "DUI Shutdown Faults",
                 "length": 1,
                 "conv_type": "bitfield",
@@ -1307,36 +1277,6 @@
             {
                 "index": 1,
                 "start_byte": 1,
-                "name": "temp_imd_1",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "temp_imd_1",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 1,
-                "name": "temp_imd_2",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "temp_imd_2",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 1,
                 "name": "DUI IMD Faults",
                 "length": 1,
                 "conv_type": "bitfield",
@@ -1353,37 +1293,7 @@
                 ]
             },
             {
-                "index": 4,
-                "start_byte": 2,
-                "name": "temp_ams_1",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "temp_ams_1",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 5,
-                "start_byte": 2,
-                "name": "temp_ams_2",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "temp_ams_2",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 4,
+                "index": 2,
                 "start_byte": 2,
                 "name": "DUI AMS Faults",
                 "length": 1,
@@ -1793,54 +1703,9 @@
         "data_length": 0,
         "frequency_ms": null,
         "frequency": null,
-        "quantity": 1,
+        "quantity": 0,
         "bus": "Critical",
         "bytes": []
-    },
-    {
-        "packet_id": 310,
-        "packet_name": "Battery Cell Limits",
-        "from": [
-            "HVC"
-        ],
-        "to": [
-            "VCU"
-        ],
-        "data_length": 3,
-        "frequency_ms": 100,
-        "frequency": 10.0,
-        "quantity": 1,
-        "bus": "Critical",
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Min Cell Voltage",
-                "length": 2,
-                "conv_type": "uint16",
-                "precision": 0.0001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "min_cell_voltage",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Max Cell Voltage",
-                "length": 1,
-                "conv_type": "uint8",
-                "precision": 0.02,
-                "protobuf": {
-                    "type": "float",
-                    "field": "max_cell_voltage",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
     },
     {
         "packet_id": 320,
@@ -1857,36 +1722,6 @@
         "quantity": 1,
         "bus": "Critical",
         "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "shutdown_bspd_status",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "shutdown_bspd_status",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 0,
-                "name": "shutdown_emeter_status",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "shutdown_emeter_status",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
             {
                 "index": 0,
                 "start_byte": 0,
@@ -1922,126 +1757,6 @@
         "quantity": 1,
         "bus": "Critical",
         "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "batt_pump_fuse",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "batt_pump_fuse",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 0,
-                "name": "tssi_green_fuse",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "tssi_green_fuse",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 0,
-                "name": "tssi_red_fuse",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "tssi_red_fuse",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 0,
-                "name": "batt_fans_fuse",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "batt_fans_fuse",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 4,
-                "start_byte": 0,
-                "name": "shtdn_fuse",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "shtdn_fuse",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 5,
-                "start_byte": 0,
-                "name": "ll_fuse",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "ll_fuse",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 6,
-                "start_byte": 0,
-                "name": "motor_pump_fuse",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "motor_pump_fuse",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 7,
-                "start_byte": 0,
-                "name": "boards_fuse",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "boards_fuse",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
             {
                 "index": 0,
                 "start_byte": 0,
@@ -2085,52 +1800,7 @@
                 ]
             },
             {
-                "index": 9,
-                "start_byte": 1,
-                "name": "brake_light_fuse",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "brake_light_fuse",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 10,
-                "start_byte": 1,
-                "name": "rtd_fuse",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "rtd_fuse",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 11,
-                "start_byte": 1,
-                "name": "spare_fuse",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "spare_fuse",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 9,
+                "index": 1,
                 "start_byte": 1,
                 "name": "VCU Fuses 2",
                 "length": 1,
@@ -2258,36 +1928,6 @@
             {
                 "index": 0,
                 "start_byte": 0,
-                "name": "temp_command_1",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "temp_command_1",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 0,
-                "name": "temp_command_2",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "temp_command_2",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 0,
-                "start_byte": 0,
                 "name": "Switch Command",
                 "length": 1,
                 "conv_type": "bitfield",
@@ -2320,36 +1960,6 @@
         "quantity": 1,
         "bus": "Critical",
         "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "temp_output_1",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "temp_output_1",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 0,
-                "name": "temp_output_2",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "temp_output_2",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
             {
                 "index": 0,
                 "start_byte": 0,
@@ -2798,96 +2408,6 @@
             {
                 "index": 1,
                 "start_byte": 2,
-                "name": "apps1_disconnect",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "apps1_disconnect",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 2,
-                "name": "apps2_disconnect",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "apps2_disconnect",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 2,
-                "name": "apps1_out_range",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "apps1_out_range",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 4,
-                "start_byte": 2,
-                "name": "apps2_out_range",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "apps2_out_range",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 5,
-                "start_byte": 2,
-                "name": "apps_mismatch",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "apps_mismatch",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 6,
-                "start_byte": 2,
-                "name": "apps_implause",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "apps_implause",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
                 "name": "APPS Faults",
                 "length": 1,
                 "conv_type": "bitfield",
@@ -3020,81 +2540,6 @@
             {
                 "index": 1,
                 "start_byte": 2,
-                "name": "bpps1_disconnect",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "bpps1_disconnect",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 2,
-                "name": "bpps2_disconnect",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "bpps2_disconnect",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 2,
-                "name": "bpps1_out_range",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "bpps1_out_range",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 4,
-                "start_byte": 2,
-                "name": "bpps2_out_range",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "bpps2_out_range",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 5,
-                "start_byte": 2,
-                "name": "bpps_mismatch",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "bpps_mismatch",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
                 "name": "BPPS Faults",
                 "length": 1,
                 "conv_type": "bitfield",
@@ -3123,7 +2568,7 @@
                 ]
             },
             {
-                "index": 7,
+                "index": 2,
                 "start_byte": 3,
                 "name": "Brake Light Percent",
                 "length": 2,
@@ -3271,66 +2716,6 @@
             {
                 "index": 4,
                 "start_byte": 7,
-                "name": "bse1_disconnect",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "bse1_disconnect",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 5,
-                "start_byte": 7,
-                "name": "bse2_disconnect",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "bse2_disconnect",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 6,
-                "start_byte": 7,
-                "name": "bse1_out_range",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "bse1_out_range",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 7,
-                "start_byte": 7,
-                "name": "bse2_out_range",
-                "length": 1,
-                "conv_type": "bool",
-                "precision": 1.0,
-                "is_boolean": true,
-                "protobuf": {
-                    "field": "bse2_out_range",
-                    "type": "bool",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 4,
-                "start_byte": 7,
                 "name": "BSE Faults",
                 "length": 1,
                 "conv_type": "bitfield",
@@ -3381,65 +2766,6 @@
                 "protobuf": {
                     "type": "float",
                     "field": "steer_col_angle",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 455,
-        "packet_name": "VCU State",
-        "from": [
-            "VCU"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 3,
-        "frequency_ms": 3,
-        "frequency": 333.0,
-        "quantity": 1,
-        "bus": "Critical",
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "PRNDL State",
-                "length": 1,
-                "conv_type": "uint8",
-                "precision": 1.0,
-                "protobuf": {
-                    "type": "float",
-                    "field": "prndl_state",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 1,
-                "name": "STOMP Fault",
-                "length": 1,
-                "conv_type": "uint8",
-                "precision": 1.0,
-                "protobuf": {
-                    "type": "bool",
-                    "field": "stomp_fault",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 2,
-                "name": "Ready To Drive Buzzer",
-                "length": 1,
-                "conv_type": "uint8",
-                "precision": 1.0,
-                "protobuf": {
-                    "type": "bool",
-                    "field": "r2d_buzzer",
                     "repeated": false,
                     "field_index": null
                 }
@@ -3757,7 +3083,7 @@
     },
     {
         "packet_id": 1280,
-        "packet_name": "FL Accel + Ride Height",
+        "packet_name": "Acceleration Vector Sprung + Ride Height FL",
         "from": [
             "CSM"
         ],
@@ -3830,52 +3156,7 @@
     },
     {
         "packet_id": 1281,
-        "packet_name": "FL Strain Gauge + Sus Pot.",
-        "from": [
-            "CSM"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 4,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bus": "Data Acq",
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Front Left Strain Gauge Voltage",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.0002,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fl_strain_gauge_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Front Left Suspension Potentiometer",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fl_sus_pot_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1282,
-        "packet_name": "FR Accel + Ride Height",
+        "packet_name": "Acceleration Vector Sprung + Ride Height FR",
         "from": [
             "CSM"
         ],
@@ -3947,53 +3228,8 @@
         ]
     },
     {
-        "packet_id": 1283,
-        "packet_name": "FR Strain Gauge + Sus Pot.",
-        "from": [
-            "CSM"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 4,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bus": "Data Acq",
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Front Right Strain Gauge Voltage",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.0002,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fr_strain_gauge_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Front Right Suspension Potentiometer",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "fr_sus_pot_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1284,
-        "packet_name": "RL Accel + Ride Height",
+        "packet_id": 1282,
+        "packet_name": "Acceleration Vector Sprung + Ride Height RL",
         "from": [
             "CSM"
         ],
@@ -4065,53 +3301,8 @@
         ]
     },
     {
-        "packet_id": 1285,
-        "packet_name": "RL Strain Gauge + Sus Pot.",
-        "from": [
-            "CSM"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 4,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bus": "Data Acq",
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Back Left Strain Gauge Voltage",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.0002,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bl_strain_gauge_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Back Left Suspension Potentiometer",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.001,
-                "protobuf": {
-                    "type": "float",
-                    "field": "bl_sus_pot_v",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1286,
-        "packet_name": "RR Accel + Ride Height",
+        "packet_id": 1283,
+        "packet_name": "Acceleration Vector Sprung + Ride Height RR",
         "from": [
             "CSM"
         ],
@@ -4183,15 +3374,15 @@
         ]
     },
     {
-        "packet_id": 1287,
-        "packet_name": "RR Strain Gauge + Sus Pot.",
+        "packet_id": 1284,
+        "packet_name": "Front Strain Gauge + Sus Pot.",
         "from": [
             "CSM"
         ],
         "to": [
             "Pi"
         ],
-        "data_length": 4,
+        "data_length": 8,
         "frequency_ms": 10,
         "frequency": 100.0,
         "quantity": 1,
@@ -4200,6 +3391,93 @@
             {
                 "index": 0,
                 "start_byte": 0,
+                "name": "Front Left Strain Gauge Voltage",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.0002,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_strain_gauge_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Front Right Strain Gauge Voltage",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.0002,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_strain_gauge_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Front Left Suspension Potentiometer",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_sus_pot_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Front Right Suspension Potentiometer",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_sus_pot_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1285,
+        "packet_name": "Back Strain Gauge + Sus Pot.",
+        "from": [
+            "CSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 8,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Back Left Strain Gauge Voltage",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.0002,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_strain_gauge_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
                 "name": "Back Right Strain Gauge Voltage",
                 "length": 2,
                 "conv_type": "int16",
@@ -4212,8 +3490,22 @@
                 }
             },
             {
-                "index": 1,
-                "start_byte": 2,
+                "index": 2,
+                "start_byte": 4,
+                "name": "Back Left Suspension Potentiometer",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_sus_pot_v",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
                 "name": "Back Right Suspension Potentiometer",
                 "length": 2,
                 "conv_type": "int16",
@@ -4303,7 +3595,7 @@
         "data_length": 0,
         "frequency_ms": null,
         "frequency": null,
-        "quantity": 1,
+        "quantity": 0,
         "bus": "",
         "bytes": []
     }
