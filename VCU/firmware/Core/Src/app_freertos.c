@@ -163,6 +163,15 @@ static vcu_parameters_t s_params = {
           .power_limit_trim_ki = 0.6f,
           .power_limit_trim_integral_max = 20000.0f,
       },
+    .battery = {
+      .cell_voltage_ema_alpha = 0.05f,
+      .soe_from_cell_voltage = {
+        0.0f,  1.0f,  3.0f,  6.0f, 10.0f,
+        17.0f, 28.0f, 46.0f, 68.0f, 86.0f, 100.0f
+      },
+      .min_soe_cell_voltage = 2.8f,
+      .max_soe_cell_voltage = 4.2f
+    },
     .buzzer_duration_ms = 1200u,
     .brake_enable_threshold = 0.1f,
 };
