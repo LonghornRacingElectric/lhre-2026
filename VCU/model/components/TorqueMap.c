@@ -68,10 +68,10 @@ void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   float available_torque = Lookup1D_evaluate(&torque_lookup, rpm);
   float pedal_percent_of_available_torque = powf(apps, params->torque_map.pedal_curve_exponent);
 
-  if(apps < 0.05f) {
-    pedal_percent_of_available_torque = apps / 0.05f * 0.30f;
+  if(apps < 0.10f) {
+    pedal_percent_of_available_torque = apps / 0.10f * 0.30f;
   } else if(apps < 0.30f) {
-    pedal_percent_of_available_torque = (apps - 0.05f) / (0.30f - 0.05f) * 0.40f + 0.30f;
+    pedal_percent_of_available_torque = (apps - 0.10f) / (0.30f - 0.10f) * 0.40f + 0.30f;
   } else {
     pedal_percent_of_available_torque = 0.70f;
   }
