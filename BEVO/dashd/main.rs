@@ -256,6 +256,24 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
 
     let power = pack.map(|p| p.dc_bus_v * p.dc_bus_current / 1000.0);
 
+    // DEBUG (driveday): user reports kW value stuck at 0 even during
+    // hard driving (CSV shows up to 204 A peak). Trace what dashd
+    // actually reads/computes. Revert when bug found.
+    {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        static TICK: AtomicU32 = AtomicU32::new(0);
+        let n = TICK.fetch_add(1, Ordering::Relaxed);
+        if n % 100 == 0 {
+            eprintln!(
+                "[DASHD-PWR] pack.is_some={} dc_v={:?} dc_i={:?} power={:?}",
+                pack.is_some(),
+                pack.map(|p| p.dc_bus_v),
+                pack.map(|p| p.dc_bus_current),
+                power,
+            );
+        }
+    }
+
     // SOC estimate from inverter DC bus voltage. Refreshed only while the
     // current is near zero (cell EMF vs IR drop); held otherwise. See the
     // doc on CanData.soc for the why.
