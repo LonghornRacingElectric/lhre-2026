@@ -187,6 +187,12 @@ struct DashMessage {
     seq: u64,
     can: CanData,
     mqtt: MqttData,
+    /// Driveday TEMP: which reference set the steering chart should
+    /// render. Set by writing "sine" or "ramp" to
+    /// `/tmp/dash_chart_mode` over SSH; dashd re-reads each WS frame.
+    /// Frontend defaults to "sine" if absent.
+    #[serde(rename = "chartMode")]
+    chart_mode: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -491,10 +497,20 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                 } else {
                                     locked.can.clone()
                                 };
+                                // Reads `/tmp/dash_chart_mode` each frame
+                                // ("sine" / "ramp"). Falls back to "sine"
+                                // if file missing or unreadable. Cheap I/O,
+                                // single-digit µs per WS tick.
+                                let chart_mode = std::fs::read_to_string("/tmp/dash_chart_mode")
+                                    .ok()
+                                    .map(|s| s.trim().to_string())
+                                    .filter(|s| !s.is_empty())
+                                    .unwrap_or_else(|| "sine".to_string());
                                 DashMessage {
                                     seq,
                                     can,
                                     mqtt: locked.mqtt.to_mqtt_data(),
+                                    chart_mode,
                                 }
                             };
 

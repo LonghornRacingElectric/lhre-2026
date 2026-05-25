@@ -10,10 +10,16 @@ import './ScreenOne.css';
 const STEER_HISTORY_SECONDS = 5;
 const STEER_SAMPLE_HZ = 30; // dashd WS rate; oversample is harmless
 const STEER_MAX_SAMPLES = STEER_HISTORY_SECONDS * STEER_SAMPLE_HZ;
-// Visual y-axis range. Sized to fit the sawtooth ramp reference (0→45°)
-// at the top; the ±10° sine references sit near center; the trace
-// clamps at the rails past this. Hardware limit is ~±131°.
-const STEER_MAX_DEG = 45;
+// Visual y-axis range depends on which reference set is showing. Switch
+// at runtime via dashd: `echo ramp > /tmp/dash_chart_mode` (or "sine").
+const STEER_SINE_AMPLITUDE_DEG = 10;
+const STEER_RAMP_AMPLITUDE_DEG = 45;
+const STEER_RAMP_PERIOD_S = 10;
+// Ranges include a small margin past the reference amplitudes.
+const SINE_CHART_MIN = -15;
+const SINE_CHART_MAX = 15;
+const RAMP_CHART_MIN = -5;
+const RAMP_CHART_MAX = 50;
 
 // Screen One: Main Dashboard (Modern EV Style)
 // Resolution: 800 x 480
@@ -733,38 +739,42 @@ const ScreenOne: React.FC = () => {
                     fontSize: '0.7rem',
                     letterSpacing: '2px',
                 }}>
-                    STEER (DEG) — 5s · <span style={{ color: '#000000' }}>0.5 Hz</span> · <span style={{ color: '#0066FF' }}>1 Hz</span> ±10° · <span style={{ color: '#CC00AA' }}>RAMP</span> 0→45° / 10s
+                    {data?.chartMode === 'ramp'
+                        ? <>STEER (DEG) — 5s · <span style={{ color: '#CC00AA' }}>RAMP</span> 0→45° / 10s · range −5°..50°</>
+                        : <>STEER (DEG) — 5s · <span style={{ color: '#000000' }}>0.5 Hz</span> · <span style={{ color: '#0066FF' }}>1 Hz</span> ±10°</>
+                    }
                 </div>
                 {(() => {
-                    // Reference target waves the driver attempts to match.
-                    // Sine 0.5 Hz + 1 Hz at ±10°, plus a sawtooth ramp
-                    // 0→45° with a 10 s period. All recomputed each render
-                    // against wall-clock so they scroll in sync with the
-                    // data trace's rolling window.
-                    const REF_SINE_AMPLITUDE_DEG = 10;
-                    const RAMP_AMPLITUDE_DEG = 45;
-                    const RAMP_PERIOD_S = 10;
+                    // Switch which reference set is drawn + the chart's
+                    // vertical range to fit it. Mode is set by writing
+                    // "sine" or "ramp" to /tmp/dash_chart_mode on BEVO.
+                    const mode = data?.chartMode === 'ramp' ? 'ramp' : 'sine';
+                    const [chartMin, chartMax] = mode === 'ramp'
+                        ? [RAMP_CHART_MIN, RAMP_CHART_MAX]
+                        : [SINE_CHART_MIN, SINE_CHART_MAX];
+                    // Linear deg → viewBox y in [5, 195] (small padding off the rails).
+                    const degToY = (deg: number): number => {
+                        const c = Math.max(chartMin, Math.min(chartMax, deg));
+                        return 5 + ((chartMax - c) / (chartMax - chartMin)) * 190;
+                    };
                     const nowSec = Date.now() / 1000;
                     const timeForX = (x: number) =>
                         nowSec - (STEER_MAX_SAMPLES - x) / STEER_SAMPLE_HZ;
-                    const refPoints = (freqHz: number) =>
+                    const sinePoints = (freqHz: number) =>
                         Array.from({ length: STEER_MAX_SAMPLES + 1 }, (_, x) => {
                             const t = timeForX(x);
-                            const deg = REF_SINE_AMPLITUDE_DEG * Math.sin(2 * Math.PI * freqHz * t);
-                            const y = 100 - (deg / STEER_MAX_DEG) * 95;
-                            return `${x},${y}`;
+                            const deg = STEER_SINE_AMPLITUDE_DEG * Math.sin(2 * Math.PI * freqHz * t);
+                            return `${x},${degToY(deg)}`;
                         }).join(' ');
-                    // Sawtooth ramp: linear 0 → RAMP_AMPLITUDE_DEG over
-                    // RAMP_PERIOD_S, then snaps back to 0. Polyline drawn
-                    // edge-to-edge so the snap shows as a vertical jump.
+                    // Sawtooth ramp: linear 0 → STEER_RAMP_AMPLITUDE_DEG over
+                    // STEER_RAMP_PERIOD_S, then snaps back to 0.
                     const rampPoints = Array.from(
                         { length: STEER_MAX_SAMPLES + 1 },
                         (_, x) => {
                             const t = timeForX(x);
-                            const phase = ((t % RAMP_PERIOD_S) + RAMP_PERIOD_S) % RAMP_PERIOD_S;
-                            const deg = (phase / RAMP_PERIOD_S) * RAMP_AMPLITUDE_DEG;
-                            const y = 100 - (deg / STEER_MAX_DEG) * 95;
-                            return `${x},${y}`;
+                            const phase = ((t % STEER_RAMP_PERIOD_S) + STEER_RAMP_PERIOD_S) % STEER_RAMP_PERIOD_S;
+                            const deg = (phase / STEER_RAMP_PERIOD_S) * STEER_RAMP_AMPLITUDE_DEG;
+                            return `${x},${degToY(deg)}`;
                         },
                     ).join(' ');
                     return (
@@ -773,68 +783,79 @@ const ScreenOne: React.FC = () => {
                             preserveAspectRatio="none"
                             style={{ width: '100%', height: '100%', display: 'block' }}
                         >
-                            {/* zero line */}
-                            <line
-                                x1={0} y1={100}
-                                x2={STEER_MAX_SAMPLES} y2={100}
-                                stroke="var(--card-border)"
-                                strokeWidth={1}
-                                vectorEffect="non-scaling-stroke"
-                            />
-                            {/* ±10° reference markers (amplitude bound for
-                                the sine waves) + +45° marker (top of ramp) */}
-                            <line
-                                x1={0} y1={100 - (REF_SINE_AMPLITUDE_DEG / STEER_MAX_DEG) * 95}
-                                x2={STEER_MAX_SAMPLES} y2={100 - (REF_SINE_AMPLITUDE_DEG / STEER_MAX_DEG) * 95}
-                                stroke="var(--card-border)"
-                                strokeWidth={0.5}
-                                strokeDasharray="2,4"
-                                vectorEffect="non-scaling-stroke"
-                            />
-                            <line
-                                x1={0} y1={100 + (REF_SINE_AMPLITUDE_DEG / STEER_MAX_DEG) * 95}
-                                x2={STEER_MAX_SAMPLES} y2={100 + (REF_SINE_AMPLITUDE_DEG / STEER_MAX_DEG) * 95}
-                                stroke="var(--card-border)"
-                                strokeWidth={0.5}
-                                strokeDasharray="2,4"
-                                vectorEffect="non-scaling-stroke"
-                            />
-                            <line
-                                x1={0} y1={100 - (RAMP_AMPLITUDE_DEG / STEER_MAX_DEG) * 95}
-                                x2={STEER_MAX_SAMPLES} y2={100 - (RAMP_AMPLITUDE_DEG / STEER_MAX_DEG) * 95}
-                                stroke="var(--card-border)"
-                                strokeWidth={0.5}
-                                strokeDasharray="2,4"
-                                vectorEffect="non-scaling-stroke"
-                            />
-                            {/* 0.5 Hz reference — solid black */}
-                            <polyline
-                                points={refPoints(0.5)}
-                                fill="none"
-                                stroke="#000000"
-                                strokeWidth={2}
-                                vectorEffect="non-scaling-stroke"
-                            />
-                            {/* 1 Hz reference — solid blue */}
-                            <polyline
-                                points={refPoints(1.0)}
-                                fill="none"
-                                stroke="#0066FF"
-                                strokeWidth={2}
-                                vectorEffect="non-scaling-stroke"
-                            />
-                            {/* Ramp sawtooth 0→45° over 10 s — magenta */}
-                            <polyline
-                                points={rampPoints}
-                                fill="none"
-                                stroke="#CC00AA"
-                                strokeWidth={2}
-                                vectorEffect="non-scaling-stroke"
-                            />
-                            {/* trace — y inverted so positive angle is up */}
+                            {/* zero line (only when 0 is inside the visible range) */}
+                            {chartMin <= 0 && chartMax >= 0 && (
+                                <line
+                                    x1={0} y1={degToY(0)}
+                                    x2={STEER_MAX_SAMPLES} y2={degToY(0)}
+                                    stroke="var(--card-border)"
+                                    strokeWidth={1}
+                                    vectorEffect="non-scaling-stroke"
+                                />
+                            )}
+                            {/* amplitude bound markers for the active mode */}
+                            {mode === 'sine' && (
+                                <>
+                                    <line
+                                        x1={0} y1={degToY(STEER_SINE_AMPLITUDE_DEG)}
+                                        x2={STEER_MAX_SAMPLES} y2={degToY(STEER_SINE_AMPLITUDE_DEG)}
+                                        stroke="var(--card-border)"
+                                        strokeWidth={0.5}
+                                        strokeDasharray="2,4"
+                                        vectorEffect="non-scaling-stroke"
+                                    />
+                                    <line
+                                        x1={0} y1={degToY(-STEER_SINE_AMPLITUDE_DEG)}
+                                        x2={STEER_MAX_SAMPLES} y2={degToY(-STEER_SINE_AMPLITUDE_DEG)}
+                                        stroke="var(--card-border)"
+                                        strokeWidth={0.5}
+                                        strokeDasharray="2,4"
+                                        vectorEffect="non-scaling-stroke"
+                                    />
+                                </>
+                            )}
+                            {mode === 'ramp' && (
+                                <line
+                                    x1={0} y1={degToY(STEER_RAMP_AMPLITUDE_DEG)}
+                                    x2={STEER_MAX_SAMPLES} y2={degToY(STEER_RAMP_AMPLITUDE_DEG)}
+                                    stroke="var(--card-border)"
+                                    strokeWidth={0.5}
+                                    strokeDasharray="2,4"
+                                    vectorEffect="non-scaling-stroke"
+                                />
+                            )}
+                            {/* References — only the active mode's set */}
+                            {mode === 'sine' && (
+                                <>
+                                    <polyline
+                                        points={sinePoints(0.5)}
+                                        fill="none"
+                                        stroke="#000000"
+                                        strokeWidth={2}
+                                        vectorEffect="non-scaling-stroke"
+                                    />
+                                    <polyline
+                                        points={sinePoints(1.0)}
+                                        fill="none"
+                                        stroke="#0066FF"
+                                        strokeWidth={2}
+                                        vectorEffect="non-scaling-stroke"
+                                    />
+                                </>
+                            )}
+                            {mode === 'ramp' && (
+                                <polyline
+                                    points={rampPoints}
+                                    fill="none"
+                                    stroke="#CC00AA"
+                                    strokeWidth={2}
+                                    vectorEffect="non-scaling-stroke"
+                                />
+                            )}
+                            {/* Driver trace — same dynamic scale */}
                             <polyline
                                 points={steerHistory
-                                    .map((v, i) => `${i},${100 - (Math.max(Math.min(v, STEER_MAX_DEG), -STEER_MAX_DEG) / STEER_MAX_DEG) * 95}`)
+                                    .map((v, i) => `${i},${degToY(v)}`)
                                     .join(' ')}
                                 fill="none"
                                 stroke="var(--brand)"
