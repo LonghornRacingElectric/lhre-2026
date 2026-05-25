@@ -48,7 +48,7 @@ protected:
     // Torque map
     params.torque_map.max_torque_nm = 100.0f;
     params.torque_map.pedal_exponent = 1.0f;
-    params.torque_map.power_limit_w = 75000.0f;
+    params.torque_map.power_limit_w = 78000.0f;
     params.torque_map.current_limit_a = 200.0f;
     params.torque_map.hard_current_cut_a = 240.0f;
     params.torque_map.hard_power_cut_w = 80000.0f;

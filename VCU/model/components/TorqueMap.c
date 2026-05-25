@@ -277,7 +277,7 @@ void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   float integral_trim_nm =
       params->torque_map.power_limit_ki * state->integral_w_s;
   float trim_torque_nm = proportional_nm + integral_trim_nm + derivative_nm;
-  trim_torque_nm = clamp_f(trim_torque_nm, -trim_limit_nm, trim_limit_nm);
+  trim_torque_nm = clamp_f(trim_torque_nm, -trim_limit_nm, 0.0f);
 
   float available_torque_nm = derated_table_torque_nm + trim_torque_nm;
   available_torque_nm =

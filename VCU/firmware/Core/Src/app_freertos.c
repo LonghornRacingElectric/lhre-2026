@@ -92,7 +92,7 @@ const osThreadAttr_t controlTask_attributes = {
 #define STEERING_SENSOR_ANGLE_OFFSET_DEG 0.0f
 #define CONTROL_LOOP_PERIOD_MS 3u
 #define VCU_TORQUE_MAP_PEDAL_EXPONENT 1.6f
-#define VCU_TORQUE_MAP_POWER_LIMIT_W 75000.0f
+#define VCU_TORQUE_MAP_POWER_LIMIT_W 78000.0f
 #define VCU_TORQUE_MAP_CURRENT_LIMIT_A 200.0f
 #define VCU_TORQUE_MAP_HARD_CURRENT_CUT_A 240.0f
 #define VCU_TORQUE_MAP_HARD_POWER_CUT_W 80000.0f
@@ -193,12 +193,12 @@ static vcu_parameters_t s_params = {
                     220.0f,
                     220.0f,
                     220.0f,
-                    192.0f,
-                    166.0f,
-                    145.0f,
-                    129.0f,
-                    115.0f,
-                    103.0f,
+                    200.0f,
+                    173.0f,
+                    151.0f,
+                    134.0f,
+                    120.0f,
+                    107.0f,
                 },
         },
     .buzzer_duration_ms = 1200u,

@@ -17,7 +17,7 @@ protected:
 
     params.torque_map.max_torque_nm = 220.0f;
     params.torque_map.pedal_exponent = 1.0f;
-    params.torque_map.power_limit_w = 75000.0f;
+    params.torque_map.power_limit_w = 78000.0f;
     params.torque_map.current_limit_a = 200.0f;
     params.torque_map.hard_current_cut_a = 240.0f;
     params.torque_map.hard_power_cut_w = 80000.0f;
@@ -36,8 +36,8 @@ protected:
     };
     const float torque[VCU_POWER_LIMIT_TORQUE_MAP_POINTS] = {
         220.0f, 220.0f, 220.0f, 220.0f, 220.0f,
-        220.0f, 220.0f, 192.0f, 166.0f, 145.0f,
-        129.0f, 115.0f, 103.0f,
+        220.0f, 220.0f, 200.0f, 173.0f, 151.0f,
+        134.0f, 120.0f, 107.0f,
     };
     memcpy(params.torque_map.power_limit_torque_rpm, rpm, sizeof(rpm));
     memcpy(params.torque_map.power_limit_torque_nm, torque, sizeof(torque));
@@ -96,9 +96,9 @@ TEST_F(TorqueMapTest, OneDimensionalPowerLimitTableInterpolatesByRpm) {
 
   torque_map_evaluate(&in, &out, &state, &params, 10);
 
-  EXPECT_FLOAT_EQ(out.torque_lookup_output, 122.0f);
-  EXPECT_FLOAT_EQ(out.debug.power_limit_feedforward_torque_nm, 122.0f);
-  EXPECT_FLOAT_EQ(out.torque_cmd, 122.0f);
+  EXPECT_FLOAT_EQ(out.torque_lookup_output, 127.0f);
+  EXPECT_FLOAT_EQ(out.debug.power_limit_feedforward_torque_nm, 127.0f);
+  EXPECT_FLOAT_EQ(out.torque_cmd, 127.0f);
 }
 
 TEST_F(TorqueMapTest, CurrentLimitScalesAvailableTorque) {
@@ -108,7 +108,7 @@ TEST_F(TorqueMapTest, CurrentLimitScalesAvailableTorque) {
 
   torque_map_evaluate(&in, &out, &state, &params, 10);
 
-  const float expected_scale = 40000.0f / 75000.0f;
+  const float expected_scale = 40000.0f / 78000.0f;
   EXPECT_FLOAT_EQ(out.debug.active_power_limit_w, 40000.0f);
   EXPECT_NEAR(out.torque_derated, 220.0f * expected_scale, 0.01f);
   EXPECT_NEAR(out.torque_cmd, 220.0f * expected_scale, 0.01f);
@@ -117,13 +117,25 @@ TEST_F(TorqueMapTest, CurrentLimitScalesAvailableTorque) {
 TEST_F(TorqueMapTest, TrimPidUsesLiveMeasuredPowerToReduceTorque) {
   out.accel_pedal_travel = 1.0f;
   in.motor_speed_rpm = 6000.0f;
-  in.inverter_dc_bus_current_a = 195.0f;
+  in.inverter_dc_bus_current_a = 200.0f;
 
   torque_map_evaluate(&in, &out, &state, &params, 10);
 
-  EXPECT_FLOAT_EQ(out.debug.measured_power_w, 78000.0f);
-  EXPECT_NEAR(out.debug.power_limit_feedback_p_nm, -6.0f, 0.01f);
-  EXPECT_NEAR(out.torque_cmd, 97.0f, 0.01f);
+  EXPECT_FLOAT_EQ(out.debug.measured_power_w, 80000.0f);
+  EXPECT_NEAR(out.debug.power_limit_feedback_p_nm, -4.0f, 0.01f);
+  EXPECT_NEAR(out.torque_cmd, 103.0f, 0.01f);
+}
+
+TEST_F(TorqueMapTest, TrimPidDoesNotAddTorqueBelowPowerTarget) {
+  out.accel_pedal_travel = 1.0f;
+  in.motor_speed_rpm = 6000.0f;
+  in.inverter_dc_bus_current_a = 0.0f;
+
+  torque_map_evaluate(&in, &out, &state, &params, 10);
+
+  EXPECT_GT(out.debug.power_limit_feedback_p_nm, 0.0f);
+  EXPECT_FLOAT_EQ(out.debug.power_limit_feedback_torque_nm, 0.0f);
+  EXPECT_FLOAT_EQ(out.torque_cmd, 107.0f);
 }
 
 TEST_F(TorqueMapTest, InvalidInverterInputsFailClosed) {
@@ -179,7 +191,7 @@ TEST_F(TorqueMapTest, MinCellOcvOnlyAffectsLowVoltageDerate) {
   torque_map_evaluate(&in, &out, &state, &params, 10);
 
   EXPECT_NEAR(out.derate_factor_cell_voltage, 0.5f, 0.01f);
-  EXPECT_NEAR(out.debug.active_power_limit_w, 75000.0f, 0.01f);
+  EXPECT_NEAR(out.debug.active_power_limit_w, 78000.0f, 0.01f);
   EXPECT_NEAR(out.torque_derated, 110.0f, 0.5f);
   EXPECT_NEAR(out.torque_cmd, 110.0f, 0.5f);
 }

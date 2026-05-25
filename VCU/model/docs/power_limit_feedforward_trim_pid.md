@@ -139,12 +139,12 @@ evaluated.
     trim_torque_nm = Kp * error + Ki * integral(error) - Kd * rising_power_rate
     ```
 
-    Positive error means measured power is below target, so trim may add torque
-    up to `power_limit_trim_limit_nm`. Negative error means measured power is
-    above target, so trim removes torque immediately. The derivative term only
-    reacts to rising measured power, so it cannot add torque. The integral term
-    uses anti-windup and resets when pedal is nearly zero or the derated table
-    torque is zero.
+    Negative error means measured power is above target, so trim removes torque
+    immediately. Positive trim is clamped to zero, so the PID trim cannot add
+    torque above the calibrated table. The derivative term only reacts to rising
+    measured power, so it also cannot add torque. The integral term uses
+    anti-windup and resets when pedal is nearly zero or the derated table torque
+    is zero.
 
 11. Compute available torque.
 
@@ -181,14 +181,14 @@ Example at 400 V bus:
 
 ```text
 current_power_limit_w = 400 V * 200 A = 80,000 W
-active_power_limit_w = min(75,000 W, 80,000 W) = 75,000 W
+active_power_limit_w = min(78,000 W, 80,000 W) = 78,000 W
 ```
 
 At 350 V bus:
 
 ```text
 current_power_limit_w = 350 V * 200 A = 70,000 W
-active_power_limit_w = min(75,000 W, 70,000 W) = 70,000 W
+active_power_limit_w = min(78,000 W, 70,000 W) = 70,000 W
 ```
 
 So at lower bus voltage the soft current limit reduces available torque before
@@ -205,7 +205,7 @@ torque_nm = min(max_torque_nm,
                 power_limit_w * estimated_efficiency / motor_omega_rad_s)
 ```
 
-The firmware default table is calibrated for `power_limit_w = 75,000 W`,
+The firmware default table is calibrated for `power_limit_w = 78,000 W`,
 `max_torque_nm = 220 Nm`, and approximate efficiency values from the supplied
 EMRAX efficiency plot. If `power_limit_w` is changed substantially, this table
 should be recalculated from the same efficiency map.
@@ -219,12 +219,12 @@ should be recalculated from the same efficiency map.
 | 2000 | 220 Nm |
 | 2500 | 220 Nm |
 | 3000 | 220 Nm |
-| 3500 | 192 Nm |
-| 4000 | 166 Nm |
-| 4500 | 145 Nm |
-| 5000 | 129 Nm |
-| 5500 | 115 Nm |
-| 6000 | 103 Nm |
+| 3500 | 200 Nm |
+| 4000 | 173 Nm |
+| 4500 | 151 Nm |
+| 5000 | 134 Nm |
+| 5500 | 120 Nm |
+| 6000 | 107 Nm |
 
 The controller interpolates linearly between points. Below the first point it
 uses the first torque value. Above the last point it uses the last torque value.
@@ -272,7 +272,7 @@ Firmware defaults:
 | --- | ---: |
 | `max_torque_nm` | 220 Nm |
 | `pedal_exponent` | 1.6 |
-| `power_limit_w` | 75,000 W |
+| `power_limit_w` | 78,000 W |
 | `current_limit_a` | 200 A |
 | `hard_current_cut_a` | 240 A |
 | `hard_power_cut_w` | 80,000 W |
