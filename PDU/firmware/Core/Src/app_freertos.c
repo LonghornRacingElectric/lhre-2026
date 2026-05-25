@@ -186,6 +186,16 @@ void StartDefaultTask(void *argument)
 
   /* Infinite loop */
   for (;;) {
+    line_lock_shutdown_sense_t sdwn = line_lock_shutdown_sense();
+
+    log_printf(LOG_INFO,
+               "[PDU] Line Lock | BSE3: %.3f V | SDWN 11:%u 12:%u 13:%u "
+               "14:%u 15:%u | closed:%u\n",
+               (double)line_lock_bse3_voltage(), (unsigned)sdwn.leg_11,
+               (unsigned)sdwn.leg_12, (unsigned)sdwn.leg_13,
+               (unsigned)sdwn.leg_14, (unsigned)sdwn.leg_15,
+               (unsigned)line_lock_shutdown_closed());
+
     osDelay(200);
   }
   /* USER CODE END StartDefaultTask */
