@@ -169,6 +169,7 @@ static vcu_parameters_t s_params = {
 
 static vcu_model_context_t ctx = {0};
 
+
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
