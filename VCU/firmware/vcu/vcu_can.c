@@ -282,7 +282,7 @@ static float compute_brake_bias_pct(const vcu_outputs_t *out) {
   static float remembered_brake_bias = 0.0f;
   float total = out->bse1_psi + out->bse2_psi;
 
-  if (total <= 100.0f) {
+  if (total <= 1000.0f) {
     return remembered_brake_bias;
   } else {
     remembered_brake_bias = out->bse1_psi / total;

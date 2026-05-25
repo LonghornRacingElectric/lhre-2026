@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include <stdint.h>
+#include "Lookup1D.h"
 #include "Lookup2D.h"
 
 typedef struct {
@@ -58,8 +59,8 @@ typedef struct {
   } bse;
 
   struct {
-    float torque_map[LOOKUP2D_POINTS_Y][LOOKUP2D_POINTS_X];
-    float max_torque_nm; // maximum torque request allowed in Nm
+    float power_limit_torque[LOOKUP1D_POINTS];
+    float pedal_curve_exponent;
     float low_cell_derate_start_v;
     float low_cell_cutoff_v;
   } torque_map;
