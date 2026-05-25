@@ -199,12 +199,16 @@ model dynamics {
   gps_speed            Float?
   accel_pedal_travel   Float?
   steer_col_angle      Float?
+  bl_gyro              Float[]
   bl_sprung_accel      Float[]
   bl_unsprung_accel    Float[]
+  br_gyro              Float[]
   br_sprung_accel      Float[]
   br_unsprung_accel    Float[]
+  fl_gyro              Float[]
   fl_sprung_accel      Float[]
   fl_unsprung_accel    Float[]
+  fr_gyro              Float[]
   fr_sprung_accel      Float[]
   fr_unsprung_accel    Float[]
   bl_ride_height       Float?
@@ -258,6 +262,7 @@ model controls {
   motor_angle          Float?
   direction            Boolean?
   enable               Boolean?
+  line_lock_enabled    Boolean?
   torque_shudder       Float?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
@@ -267,6 +272,7 @@ model pack {
   packet_id BigInt @id
   bus_voltage          Float?
   lv_boards_current    Float?
+  soc_estimate         Float?
   cells_v              Float[]
   dc_bus_v             Float?
   delta_resolver_angle Float?
@@ -375,6 +381,8 @@ model thermal {
   gate_driver_temp     Float?
   inverter_hotspot_temp Float?
   inverter_temp        Float?
+  max_cell_voltage     Float?
+  min_cell_voltage     Float?
   module_a_temp        Float?
   module_b_temp        Float?
   module_c_temp        Float?
