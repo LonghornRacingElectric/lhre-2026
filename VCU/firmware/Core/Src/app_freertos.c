@@ -158,10 +158,10 @@ static vcu_parameters_t s_params = {
         },
     .power_limit =
       {
-          .power_limit_w = 75000.0f,
+          .power_limit_w = 70000.0f,
           .power_limit_trim_kp = 0.006f,
           .power_limit_trim_ki = 0.6f,
-          .power_limit_trim_integral_max = 1000.0f,
+          .power_limit_trim_integral_max = 20000.0f,
       },
     .buzzer_duration_ms = 1200u,
     .brake_enable_threshold = 0.1f,
