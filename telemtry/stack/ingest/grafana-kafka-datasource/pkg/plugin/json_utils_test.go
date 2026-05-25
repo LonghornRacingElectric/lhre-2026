@@ -66,8 +66,12 @@ func TestFlattenJSON(t *testing.T) {
 				},
 			},
 			expected: map[string]interface{}{
-				"tags":        `["prod","web","us-east"]`,
-				"data.values": `[1,2,3]`,
+				"tags.0":        "prod",
+				"tags.1":        "web",
+				"tags.2":        "us-east",
+				"data.values.0": 1,
+				"data.values.1": 2,
+				"data.values.2": 3,
 			},
 			maxDepth: 5,
 			maxCap:   100,
@@ -311,7 +315,8 @@ func TestFlattenJSONWithKeyPrefix(t *testing.T) {
 			},
 			prefix: "key",
 			expected: map[string]interface{}{
-				"key.tags": `["prod","web"]`,
+				"key.tags.0": "prod",
+				"key.tags.1": "web",
 			},
 		},
 	}
