@@ -54,12 +54,14 @@ const ScreenOne: React.FC = () => {
     const prndl = data?.can.prndl ?? null;
 
     // HV status from HVC 0x131. posContactor=1 means energized (ready
-    // to drive). prechargeContactor=1 means we're sequencing — display
-    // a blinking bolt so the driver waits. negContactor=0 means shutdown
-    // circuit is open (dash should switch to shutdown screen entirely;
-    // TODO not implemented here).
+    // to drive). We derive "precharging / wait" from negContactor=1 &&
+    // posContactor=0 (shutdown closed, HV side not yet engaged) instead
+    // of the prechargeContactor CAN field — the latter is transient and
+    // not reliably observable, but the neg-closed-pos-open window is a
+    // clean indicator of the precharge sequence. When neg=0 the dash
+    // should switch to the shutdown screen entirely (TODO not yet done).
     const posContactor = data?.can.posContactor ?? null;
-    const prechargeContactor = data?.can.prechargeContactor ?? null;
+    const negContactor = data?.can.negContactor ?? null;
 
     // Derived: alerts from temperature thresholds (60 °C cell limit).
     // The shutdown-circuit alert is intentionally absent: shutdown_leg
@@ -542,8 +544,9 @@ const ScreenOne: React.FC = () => {
                     </div>
 
                     {/* HV pill — amber border/bg when posContactor=1
-                        (energized). Whole pill blinks 1Hz when
-                        prechargeContactor=1 (driver wait). */}
+                        (energized). Whole pill blinks 1Hz when negContactor
+                        is closed but posContactor is not yet engaged
+                        (driver wait / precharge sequence). */}
                     <div style={{
                         height: '26px',
                         padding: '0 14px',
@@ -554,7 +557,7 @@ const ScreenOne: React.FC = () => {
                         justifyContent: 'space-between',
                         alignItems: 'center',
                         gap: '8px',
-                        animation: !posContactor && prechargeContactor
+                        animation: !posContactor && negContactor
                             ? 'hv-precharge-blink 1s steps(1, end) infinite'
                             : 'none'
                     }}>
@@ -569,7 +572,7 @@ const ScreenOne: React.FC = () => {
                                 ? '—'
                                 : posContactor
                                     ? 'ON'
-                                    : prechargeContactor
+                                    : negContactor
                                         ? 'WAIT'
                                         : 'OFF'}
                         </span>
