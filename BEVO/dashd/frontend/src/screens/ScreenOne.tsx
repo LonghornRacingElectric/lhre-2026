@@ -535,53 +535,54 @@ const ScreenOne: React.FC = () => {
                     )}
                 </div>
 
-                {/* PRNDL + HV bolt cluster — just left of System.
-                    PRNDL chip on top (green pill in DRIVE, gray in PARK);
-                    HV bolt below (solid amber when pos=1 energized,
-                    blinking when precharge=1, dimmed otherwise). Together
-                    they tell the driver "you're in drive AND HV is up,
-                    safe to press the pedal." TODO: when negContactor is
-                    false, shutdown circuit is open and the dash should
-                    switch to ScreenTwo entirely; not implemented yet. */}
+                {/* HV lightning bolt — just left of System, full tray
+                    height. Flat SVG, currentColor driven. States: solid
+                    amber when posContactor=1 (energized), blinking 1Hz
+                    when prechargeContactor=1 (wait), dimmed when off.
+                    TODO: negContactor=0 → shutdown open, dash should
+                    route to ScreenTwo (separate change). */}
                 <div style={{
                     position: 'absolute',
-                    right: '142px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
+                    right: '140px',
+                    top: 0,
+                    bottom: 0,
                     width: '60px',
                     display: 'flex',
-                    flexDirection: 'column',
                     alignItems: 'center',
-                    gap: '4px'
+                    justifyContent: 'center',
+                    color: posContactor ? '#FFD700' : 'var(--fg-muted)',
+                    opacity: posContactor || prechargeContactor ? 1 : 0.3,
+                    animation: !posContactor && prechargeContactor
+                        ? 'hv-precharge-blink 1s steps(1, end) infinite'
+                        : 'none'
                 }}>
-                    <div style={{
-                        padding: '2px 10px',
-                        borderRadius: '5px',
-                        fontSize: '1.1rem',
-                        fontWeight: 'bold',
-                        letterSpacing: '2px',
-                        lineHeight: 1,
-                        minWidth: '32px',
-                        textAlign: 'center',
-                        background: prndl === 'D' ? 'rgba(0, 204, 102, 0.25)' : 'var(--card-bg)',
-                        border: `2px solid ${prndl === 'D' ? '#00CC66' : 'var(--card-border)'}`,
-                        color: prndl === 'D' ? '#00FF66' : 'var(--fg-muted)',
-                        textShadow: prndl === 'D' ? '0 0 6px rgba(0, 255, 100, 0.5)' : 'none'
-                    }}>
-                        {prndl ?? '--'}
-                    </div>
-                    <div style={{
-                        fontSize: '1.6rem',
-                        lineHeight: 1,
-                        color: posContactor ? '#FFD700' : 'var(--fg-muted)',
-                        textShadow: posContactor ? '0 0 8px rgba(255, 215, 0, 0.7)' : 'none',
-                        opacity: posContactor || prechargeContactor ? 1 : 0.3,
-                        animation: !posContactor && prechargeContactor
-                            ? 'hv-precharge-blink 1s steps(1, end) infinite'
-                            : 'none'
-                    }}>
-                        ⚡
-                    </div>
+                    <svg viewBox="0 0 24 32" width="46" height="68" style={{ display: 'block' }}>
+                        <path d="M14 0 L0 18 L10 18 L8 32 L24 12 L14 12 L16 0 Z" fill="currentColor" />
+                    </svg>
+                </div>
+
+                {/* PRNDL chip — to the left of the bolt. Green pill in
+                    DRIVE, gray in PARK or unknown. Color carries the
+                    meaning; letter is redundancy. */}
+                <div style={{
+                    position: 'absolute',
+                    right: '215px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    padding: '4px 12px',
+                    borderRadius: '6px',
+                    fontSize: '1.4rem',
+                    fontWeight: 'bold',
+                    letterSpacing: '3px',
+                    lineHeight: 1,
+                    minWidth: '36px',
+                    textAlign: 'center',
+                    background: prndl === 'D' ? 'rgba(0, 204, 102, 0.25)' : 'var(--card-bg)',
+                    border: `2px solid ${prndl === 'D' ? '#00CC66' : 'var(--card-border)'}`,
+                    color: prndl === 'D' ? '#00FF66' : 'var(--fg-muted)',
+                    textShadow: prndl === 'D' ? '0 0 6px rgba(0, 255, 100, 0.5)' : 'none'
+                }}>
+                    {prndl ?? '--'}
                 </div>
 
                 {/* Energy Delta (Center) — label stacked above value so the
@@ -664,8 +665,10 @@ const ScreenOne: React.FC = () => {
                     )}
                 </div>
 
-                {/* Connectivity (just left of System status) */}
-                <div style={{ position: 'absolute', right: '170px', top: '50%', transform: 'translateY(-50%)' }}>
+                {/* Connectivity — moved leftward, sits just right of the
+                    TC/REGEN cluster (which ends at ~14+160=174 px from
+                    the left edge). */}
+                <div style={{ position: 'absolute', left: '190px', top: '50%', transform: 'translateY(-50%)' }}>
                     <ConnectivityIndicator />
                 </div>
             </div>
