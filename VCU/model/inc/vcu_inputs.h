@@ -23,6 +23,14 @@ typedef struct {
 
   float battery_voltage_v;
   float battery_current_a;
+  float battery_soc_pct;
+  float min_cell_temp_c;
+  float max_cell_temp_c;
+
+  bool motor_speed_valid;
+  bool inverter_voltage_valid;
+  bool inverter_current_valid;
+  bool battery_pack_status_valid;
 
   /*  can add more later:
    *  float dc_bus_voltage;

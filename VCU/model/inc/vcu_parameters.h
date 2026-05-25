@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "Lookup1D.h"
 #include "Lookup2D.h"
@@ -80,6 +81,30 @@ typedef struct {
     float min_soe_cell_voltage;
     float max_soe_cell_voltage;
   } battery;
+
+  struct {
+    bool disable;
+    bool dc_bus_current_regen_is_negative;
+
+    float rear_pressure_zero_torque_psi;
+    float rear_pressure_reference_psi;
+    float regen_torque_at_reference_pressure_nm;
+    float absolute_regen_torque_cap_nm;
+
+    float pack_current_limit_a;
+    float hard_cut_margin_pct;
+    float hard_cut_reset_pressure_psi;
+
+    float pack_terminal_voltage_limit_v;
+    float pack_resistance_ohm;
+    float dynamic_voltage_reserve_v;
+    float pack_ocv_enable_v;
+    float pack_ocv_disable_hysteresis_v;
+
+    float min_cell_temp_c;
+    float max_cell_temp_c;
+    float min_motor_speed_rpm;
+  } regen_linelock;
 } vcu_parameters_t;
 
 #ifdef __cplusplus

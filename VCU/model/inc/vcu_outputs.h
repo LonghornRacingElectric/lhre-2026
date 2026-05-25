@@ -20,6 +20,16 @@ typedef struct {
   float torque_power_limited; // torque after power limit trim loop (Nm)
   float torque_cmd;           // final torque command (Nm)
 
+  /* Regen linelock */
+  bool linelock_enabled;
+  bool regen_available;
+  float regen_pressure_requested_torque_nm;
+  float regen_torque_limit_nm;
+  float regen_torque_cmd_nm;
+  float regen_pack_current_limit_a;
+  float regen_measured_pack_current_a;
+  float regen_estimated_pack_ocv_v;
+
   float derate_factor_cell_voltage;
   float derate_factor_cell_temp;
 
@@ -63,6 +73,14 @@ typedef struct {
 
     bool brake_latched;
     bool brake_any_fault;
+
+    bool regen_linelock_input_invalid;
+    bool regen_linelock_ocv_too_high;
+    bool regen_linelock_pack_temp_low;
+    bool regen_linelock_pack_temp_high;
+    bool regen_linelock_motor_speed_low;
+    bool regen_linelock_current_hard_cut;
+    bool regen_linelock_any_fault;
 
     bool any_fault;
   } faults;
