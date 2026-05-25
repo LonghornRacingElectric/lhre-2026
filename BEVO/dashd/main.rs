@@ -488,16 +488,16 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                 }
                             };
 
-                            // DEBUG (driveday): sample the JSON sent to chromium
-                            // once every ~100 ticks so we can verify power is in
-                            // the payload. Revert when kW=0 bug is diagnosed.
+                            // DEBUG (driveday): log just the power value that's
+                            // about to be sent to chromium, every ~10 ticks
+                            // (~3 Hz at 30Hz sender) so we catch transient
+                            // accel/regen moments. Revert when kW=0 bug found.
                             {
                                 use std::sync::atomic::{AtomicU32, Ordering};
                                 static JSON_TICK: AtomicU32 = AtomicU32::new(0);
                                 let n = JSON_TICK.fetch_add(1, Ordering::Relaxed);
-                                if n % 100 == 0 {
-                                    let preview: String = json.chars().take(280).collect();
-                                    eprintln!("[DASHD-JSON] {}", preview);
+                                if n % 10 == 0 {
+                                    eprintln!("[DASHD-OUT] seq={} power={:?}", message.seq, message.can.power);
                                 }
                             }
 
