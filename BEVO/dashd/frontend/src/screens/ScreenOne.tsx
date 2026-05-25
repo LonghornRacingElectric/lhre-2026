@@ -14,7 +14,6 @@ const ScreenOne: React.FC = () => {
     const power = data?.can.power;
     const charge = data?.can.soc;
     const temp = data?.can.temperature;
-    const shutdown = data?.can.shutdown;
     const lapDelta = data?.mqtt.lapDelta;
     const energyDelta = data?.mqtt.energyDelta;
     const lapsRemaining = data?.mqtt.lapsRemaining;
@@ -62,22 +61,14 @@ const ScreenOne: React.FC = () => {
     const posContactor = data?.can.posContactor ?? null;
     const prechargeContactor = data?.can.prechargeContactor ?? null;
 
-    // Derived: system status from shutdown circuit (any false = FAULT).
-    // DRIVEDAY 2026-05-24: shutdown_leg signal is firing false FAULTs (root
-    // cause not yet known). Force OK on the main screen so drivers aren't
-    // distracted. Pit/diag screens still read data.can.shutdown directly and
-    // surface the real per-leg state. To restore real fault display, revert
-    // this line to: `shutdown ? shutdown.every(Boolean) : null`.
-    const systemOk: boolean | null = shutdown ? true : null;
-
-    // Derived: alerts from temperature thresholds (60 °C cell limit)
+    // Derived: alerts from temperature thresholds (60 °C cell limit).
+    // The shutdown-circuit alert is intentionally absent: shutdown_leg
+    // signals are firing false FAULTs (driveday 2026-05-24). Pit/diag
+    // screens still surface real per-leg state via data.can.shutdown.
     const alerts: string[] = [];
     if (temp !== null && temp !== undefined && temp > 55) {
         alerts.push("High Battery Temp");
     }
-    // Shutdown-circuit alert disabled — to restore, change systemOk above
-    // back to `shutdown.every(Boolean)` and add:
-    //   if (systemOk === false) alerts.push("Shutdown Circuit Fault");
 
     // -------------------------------------------------------------------------
     // RENDER HELPERS
@@ -512,77 +503,77 @@ const ScreenOne: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Vertical divider — separates center cluster from System */}
+                {/* Right cluster: GEAR + HV, mirroring TC/REGEN on the
+                    left. Same pill format (26px tall, label left + value
+                    right). Replaces the old System OK widget which was
+                    always-OK / dead info. TODO: negContactor=0 → shutdown
+                    open, dash should route to ScreenTwo entirely. */}
                 <div style={{
                     position: 'absolute',
-                    right: '130px',
+                    right: '14px',
                     top: '50%',
                     transform: 'translateY(-50%)',
-                    height: '60%',
-                    width: '1px',
-                    background: 'var(--card-border)'
-                }} />
-
-                {/* System Status — far right of bottom tray */}
-                <div style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', textAlign: 'center', width: '110px' }}>
-                    <div className="label-small" style={{ marginBottom: 0 }}>System</div>
-                    {systemOk === null ? (
-                        <div className="value-display" style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--fg-muted)', lineHeight: 1 }}>--</div>
-                    ) : systemOk ? (
-                        <div className="value-display" style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#00FF66', textShadow: '0 0 5px rgba(0,255,100,0.5)', lineHeight: 1 }}>OK</div>
-                    ) : (
-                        <div className="value-display" style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#FF3333', textShadow: '0 0 5px rgba(255,50,50,0.5)', lineHeight: 1 }}>FAULT</div>
-                    )}
-                </div>
-
-                {/* HV lightning bolt — just left of System, full tray
-                    height. Flat SVG, currentColor driven. States: solid
-                    amber when posContactor=1 (energized), blinking 1Hz
-                    when prechargeContactor=1 (wait), dimmed when off.
-                    TODO: negContactor=0 → shutdown open, dash should
-                    route to ScreenTwo (separate change). */}
-                <div style={{
-                    position: 'absolute',
-                    right: '140px',
-                    top: 0,
-                    bottom: 0,
-                    width: '60px',
+                    width: '160px',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: posContactor ? '#FFD700' : 'var(--fg-muted)',
-                    opacity: posContactor || prechargeContactor ? 1 : 0.3,
-                    animation: !posContactor && prechargeContactor
-                        ? 'hv-precharge-blink 1s steps(1, end) infinite'
-                        : 'none'
+                    flexDirection: 'column',
+                    gap: '4px'
                 }}>
-                    <svg viewBox="0 0 24 32" width="46" height="68" style={{ display: 'block' }}>
-                        <path d="M14 0 L0 18 L10 18 L8 32 L24 12 L14 12 L16 0 Z" fill="currentColor" />
-                    </svg>
-                </div>
+                    {/* GEAR pill */}
+                    <div style={{
+                        height: '26px',
+                        padding: '0 14px',
+                        borderRadius: '5px',
+                        border: `2px solid ${prndl === 'D' ? '#00CC66' : 'var(--card-border-hover)'}`,
+                        background: prndl === 'D' ? 'rgba(0,204,102,0.20)' : 'var(--card-bg)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        <span className="label-small" style={{ marginBottom: 0, fontSize: '0.9rem', letterSpacing: '2px' }}>GEAR</span>
+                        <span className="value-display" style={{
+                            fontSize: '1.3rem',
+                            fontWeight: 'bold',
+                            lineHeight: 1,
+                            color: prndl === 'D' ? 'var(--fg-primary)' : 'var(--fg-muted)'
+                        }}>
+                            {prndl ?? '—'}
+                        </span>
+                    </div>
 
-                {/* PRNDL chip — to the left of the bolt. Green pill in
-                    DRIVE, gray in PARK or unknown. Color carries the
-                    meaning; letter is redundancy. */}
-                <div style={{
-                    position: 'absolute',
-                    right: '215px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    padding: '4px 12px',
-                    borderRadius: '6px',
-                    fontSize: '1.4rem',
-                    fontWeight: 'bold',
-                    letterSpacing: '3px',
-                    lineHeight: 1,
-                    minWidth: '36px',
-                    textAlign: 'center',
-                    background: prndl === 'D' ? 'rgba(0, 204, 102, 0.25)' : 'var(--card-bg)',
-                    border: `2px solid ${prndl === 'D' ? '#00CC66' : 'var(--card-border)'}`,
-                    color: prndl === 'D' ? '#00FF66' : 'var(--fg-muted)',
-                    textShadow: prndl === 'D' ? '0 0 6px rgba(0, 255, 100, 0.5)' : 'none'
-                }}>
-                    {prndl ?? '--'}
+                    {/* HV pill — amber border/bg when posContactor=1
+                        (energized). Whole pill blinks 1Hz when
+                        prechargeContactor=1 (driver wait). */}
+                    <div style={{
+                        height: '26px',
+                        padding: '0 14px',
+                        borderRadius: '5px',
+                        border: `2px solid ${posContactor ? '#FFD700' : 'var(--card-border-hover)'}`,
+                        background: posContactor ? 'rgba(255,215,0,0.20)' : 'var(--card-bg)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '8px',
+                        animation: !posContactor && prechargeContactor
+                            ? 'hv-precharge-blink 1s steps(1, end) infinite'
+                            : 'none'
+                    }}>
+                        <span className="label-small" style={{ marginBottom: 0, fontSize: '0.9rem', letterSpacing: '2px' }}>HV</span>
+                        <span className="value-display" style={{
+                            fontSize: '1.3rem',
+                            fontWeight: 'bold',
+                            lineHeight: 1,
+                            color: posContactor ? 'var(--fg-primary)' : 'var(--fg-muted)'
+                        }}>
+                            {posContactor === null
+                                ? '—'
+                                : posContactor
+                                    ? 'ON'
+                                    : prechargeContactor
+                                        ? 'WAIT'
+                                        : 'OFF'}
+                        </span>
+                    </div>
                 </div>
 
                 {/* Energy Delta (Center) — label stacked above value so the
