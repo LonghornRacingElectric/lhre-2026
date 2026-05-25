@@ -665,7 +665,7 @@ const ScreenOne: React.FC = () => {
                     icons sit above. */}
                 <div style={{
                     position: 'absolute',
-                    right: '184px',
+                    right: '215px',
                     top: '50%',
                     transform: 'translateY(-50%)',
                     zIndex: 110
