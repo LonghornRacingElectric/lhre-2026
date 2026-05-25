@@ -289,7 +289,7 @@ void StartAccelRideHeightTask(void *argument)
         imu_data.accel.x,
         imu_data.accel.y,
         imu_data.accel.z,
-        distance_mm
+        imu_data.accel.y
     );
 
     csm_can_update_gyro(

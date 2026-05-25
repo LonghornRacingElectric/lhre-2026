@@ -16,8 +16,8 @@
 #define LSM6DSV32X_OUTX_L_G         0x22
 #define LSM6DSV32X_OUTX_L_A         0x28
 
-#define CTRL1_XL_CONFIG    0x54   // 208Hz, ±4g
-#define CTRL2_G_CONFIG     0x5C   // 208Hz ±4000dps
+#define CTRL1_XL_CONFIG    0x74   // 208Hz, ±4g
+#define CTRL2_G_CONFIG     0x0C   // 208Hz ±4000dps
 #define ACCEL_LSB    0.001197f  // ±4g: 0.122 mg/LSB
 #define GYRO_LSB           0.002443f
 
