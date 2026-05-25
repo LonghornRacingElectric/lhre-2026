@@ -160,6 +160,14 @@ struct CanData {
     wheel_speed_rl: Option<f32>,
     #[serde(rename = "wheelSpeedRR")]
     wheel_speed_rr: Option<f32>,
+
+    /// Regen-armed state. Wire source is byte 5 of packet 0x1C7, which
+    /// the CSV labels `line_lock_enabled` but actually carries the
+    /// regen-enabled bit per the VCU team. Stored under the field's
+    /// CSV name in the proto; renamed here for the frontend's
+    /// `regenEnabled` pill.
+    #[serde(rename = "regenEnabled")]
+    regen_enabled: Option<bool>,
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -396,6 +404,11 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
         wheel_speed_fr: dynamics.map(|d| d.frw_speed),
         wheel_speed_rl: dynamics.map(|d| d.blw_speed),
         wheel_speed_rr: dynamics.map(|d| d.brw_speed),
+
+        // CSV byte 5 is named `line_lock_enabled` but the VCU team
+        // confirmed it carries the regen-enabled bit. Plumb to the
+        // frontend's regenEnabled pill.
+        regen_enabled: diag_high.map(|d| d.line_lock_enabled),
     }
 }
 
