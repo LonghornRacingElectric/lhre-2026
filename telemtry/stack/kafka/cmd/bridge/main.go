@@ -719,11 +719,14 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["phase_b_current"] = p.PhaseBCurrent
 		m["phase_c_current"] = p.PhaseCCurrent
 
+		m["power_kw"] = float64(p.HvPackV) * float64(p.HvC) / 1000.0
+
 		if len(p.CellsV) > 0 {
 			avg, min, max := statsFromFloat32Slice(p.CellsV)
 			m["avg_cell_v_stat"] = avg
 			m["max_cell_v"] = max
 			m["min_cell_v"] = min
+			m["cell_v_delta"] = float64(max - min)
 		}
 		if len(p.CellsTemps) > 0 {
 			avg, min, max := statsFromFloat32Slice(p.CellsTemps)

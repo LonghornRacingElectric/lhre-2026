@@ -11,7 +11,9 @@ protected:
   vcu_outputs_t out;
 
   void SetUp() override {
-    params.torque_map.max_torque_nm = 100.0f;
+    float temp_torque_map[11] = {100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f};
+    memcpy(params.torque_map.power_limit_torque, temp_torque_map, sizeof(temp_torque_map));
+    params.torque_map.pedal_curve_exponent = 2.0f;
     in = {0};
     out = {0};
     in.min_cell_voltage_v = 4.0f;
@@ -25,10 +27,10 @@ TEST_F(TorqueMapTest, BasicMapping) {
   torque_map_evaluate(&in, &out, &params, 10);
   EXPECT_FLOAT_EQ(out.torque_lookup_output, 0.0f);
 
-  // 50% pedal -> 50 torque
+  // 50% pedal -> 25 torque (0.5^2)
   out.accel_pedal_travel = 0.5f;
   torque_map_evaluate(&in, &out, &params, 10);
-  EXPECT_FLOAT_EQ(out.torque_lookup_output, 50.0f);
+  EXPECT_FLOAT_EQ(out.torque_lookup_output, 25.0f);
 
   // 100% pedal -> 100 torque
   out.accel_pedal_travel = 1.0f;

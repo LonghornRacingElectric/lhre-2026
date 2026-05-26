@@ -270,32 +270,36 @@ message OrionDynamics {
     float gps_speed = 3;
     float accel_pedal_travel = 4;
     float steer_col_angle = 5;
-    repeated float bl_sprung_accel = 6;
-    repeated float bl_unsprung_accel = 7;
-    repeated float br_sprung_accel = 8;
-    repeated float br_unsprung_accel = 9;
-    repeated float fl_sprung_accel = 10;
-    repeated float fl_unsprung_accel = 11;
-    repeated float fr_sprung_accel = 12;
-    repeated float fr_unsprung_accel = 13;
-    float bl_ride_height = 14;
-    float bl_strain_gauge_v = 15;
-    float bl_sus_pot_v = 16;
-    float blw_speed = 17;
-    float br_ride_height = 18;
-    float br_strain_gauge_v = 19;
-    float br_sus_pot_v = 20;
-    float brw_speed = 21;
-    float fl_ride_height = 22;
-    float fl_strain_gauge_v = 23;
-    float fl_sus_pot_v = 24;
-    float flw_speed = 25;
-    float fr_ride_height = 26;
-    float fr_strain_gauge_v = 27;
-    float fr_sus_pot_v = 28;
-    float frw_speed = 29;
-    float ride_height = 30;
-    float wheel_speed = 31;
+    repeated float bl_gyro = 6;
+    repeated float bl_sprung_accel = 7;
+    repeated float bl_unsprung_accel = 8;
+    repeated float br_gyro = 9;
+    repeated float br_sprung_accel = 10;
+    repeated float br_unsprung_accel = 11;
+    repeated float fl_gyro = 12;
+    repeated float fl_sprung_accel = 13;
+    repeated float fl_unsprung_accel = 14;
+    repeated float fr_gyro = 15;
+    repeated float fr_sprung_accel = 16;
+    repeated float fr_unsprung_accel = 17;
+    float bl_ride_height = 18;
+    float bl_strain_gauge_v = 19;
+    float bl_sus_pot_v = 20;
+    float blw_speed = 21;
+    float br_ride_height = 22;
+    float br_strain_gauge_v = 23;
+    float br_sus_pot_v = 24;
+    float brw_speed = 25;
+    float fl_ride_height = 26;
+    float fl_strain_gauge_v = 27;
+    float fl_sus_pot_v = 28;
+    float flw_speed = 29;
+    float fr_ride_height = 30;
+    float fr_strain_gauge_v = 31;
+    float fr_sus_pot_v = 32;
+    float frw_speed = 33;
+    float ride_height = 34;
+    float wheel_speed = 35;
 }
 
 message OrionControls {
@@ -326,31 +330,33 @@ message OrionControls {
     float motor_angle = 25;
     bool direction = 26;
     bool enable = 27;
-    float torque_shudder = 28;
+    bool line_lock_enabled = 28;
+    float torque_shudder = 29;
 }
 
 message OrionPack {
     float bus_voltage = 1;
     float lv_boards_current = 2;
-    repeated float cells_v = 3;
-    float dc_bus_v = 4;
-    float delta_resolver_angle = 5;
-    float inverter_freq = 6;
-    float neutral_output_v = 7;
-    float time_since_on = 8;
-    float vab_vq_v = 9;
-    float vbc_vd_v = 10;
-    repeated float cells_temps = 11;
-    float dc_bus_current = 12;
-    float hv_c = 13;
-    float hv_pack_v = 14;
-    float hv_soc = 15;
-    float lv_batt_c = 16;
-    float lv_batt_t = 17;
-    float lv_batt_v = 18;
-    float phase_a_current = 19;
-    float phase_b_current = 20;
-    float phase_c_current = 21;
+    float soc_estimate = 3;
+    repeated float cells_v = 4;
+    float dc_bus_v = 5;
+    float delta_resolver_angle = 6;
+    float inverter_freq = 7;
+    float neutral_output_v = 8;
+    float time_since_on = 9;
+    float vab_vq_v = 10;
+    float vbc_vd_v = 11;
+    repeated float cells_temps = 12;
+    float dc_bus_current = 13;
+    float hv_c = 14;
+    float hv_pack_v = 15;
+    float hv_soc = 16;
+    float lv_batt_c = 17;
+    float lv_batt_t = 18;
+    float lv_batt_v = 19;
+    float phase_a_current = 20;
+    float phase_b_current = 21;
+    float phase_c_current = 22;
 }
 
 message OrionDiagnosticsHigh {
@@ -431,18 +437,20 @@ message OrionThermal {
     float gate_driver_temp = 18;
     float inverter_hotspot_temp = 19;
     float inverter_temp = 20;
-    float module_a_temp = 21;
-    float module_b_temp = 22;
-    float module_c_temp = 23;
-    float motor_loop_inverter_temp = 24;
-    float motor_loop_motor_temp = 25;
-    float motor_loop_rad_temp = 26;
-    bool temp_ams_1 = 27;
-    bool temp_ams_2 = 28;
-    bool temp_command_1 = 29;
-    bool temp_command_2 = 30;
-    bool temp_output_1 = 31;
-    bool temp_output_2 = 32;
+    float max_cell_voltage = 21;
+    float min_cell_voltage = 22;
+    float module_a_temp = 23;
+    float module_b_temp = 24;
+    float module_c_temp = 25;
+    float motor_loop_inverter_temp = 26;
+    float motor_loop_motor_temp = 27;
+    float motor_loop_rad_temp = 28;
+    bool temp_ams_1 = 29;
+    bool temp_ams_2 = 30;
+    bool temp_command_1 = 31;
+    bool temp_command_2 = 32;
+    bool temp_output_1 = 33;
+    bool temp_output_2 = 34;
 }
 
 message OrionBoardStatus {
