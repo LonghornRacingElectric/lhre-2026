@@ -1,5 +1,4 @@
 {
-<<<<<<< HEAD
   "configurations": [
     {
       "name": "Firmware",
@@ -12,31 +11,4 @@
     }
   ],
   "version": 4
-=======
-    "configurations": [
-        {
-            "name": "STM32",
-            "includePath": [
-                "${workspaceFolder}/**",
-                "${workspaceFolder}/CSM/firmware/Core/Inc",
-                "${workspaceFolder}/CSM/firmware/Core/Src",
-                "${workspaceFolder}/CSM/firmware/Libs/AFBR-S50",
-                "${workspaceFolder}/CSM/firmware/Libs/AFBR-S50/Include",
-                "${workspaceFolder}/CSM/firmware/Drivers/STM32G4xx_HAL_Driver/Inc",
-                "${workspaceFolder}/CSM/firmware/Drivers/CMSIS/Device/ST/STM32G4xx/Include",
-                "${workspaceFolder}/CSM/firmware/Drivers/CMSIS/Include",
-                "${workspaceFolder}/CSM/firmware/Middlewares/Third_Party/FreeRTOS/Source/include",
-                "${workspaceFolder}/CSM/firmware/Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2"
-            ],
-            "defines": [
-                "STM32G491xx",
-                "USE_HAL_DRIVER"
-            ],
-            "compilerPath": "arm-none-eabi-gcc",
-            "cStandard": "c11",
-            "intelliSenseMode": "gcc-arm"
-        }
-    ],
-    "version": 4
->>>>>>> 00f9461c (Added suspension potentiometer, strain gauge, and imu code)
 }
