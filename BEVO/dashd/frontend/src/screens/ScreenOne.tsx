@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ConnectivityIndicator from '../components/ConnectivityIndicator';
 import { useDash } from '../context/DashContext';
 import './ScreenOne.css';
@@ -8,8 +8,12 @@ import './ScreenOne.css';
 // this test). Drop the whole STEER_* block + the rendered SVG below
 // when reverting.
 const STEER_HISTORY_SECONDS = 5;
+const STEER_LOOKAHEAD_SECONDS = 5; // refs project this far past "now"
 const STEER_SAMPLE_HZ = 30; // dashd WS rate; oversample is harmless
 const STEER_MAX_SAMPLES = STEER_HISTORY_SECONDS * STEER_SAMPLE_HZ;
+const STEER_TOTAL_SECONDS = STEER_HISTORY_SECONDS + STEER_LOOKAHEAD_SECONDS;
+const STEER_VIEWBOX_WIDTH = STEER_TOTAL_SECONDS * STEER_SAMPLE_HZ;
+const STEER_NOW_X = STEER_HISTORY_SECONDS * STEER_SAMPLE_HZ; // "now" tick mark
 // Visual y-axis range depends on which reference set is showing. Switch
 // at runtime via dashd: `echo ramp > /tmp/dash_chart_mode` (or "sine").
 const STEER_SINE_AMPLITUDE_DEG = 10;
@@ -27,22 +31,34 @@ const RAMP_CHART_MAX = 50;
 const ScreenOne: React.FC = () => {
     const { data } = useDash();
 
-    // TEMP: rolling buffer of the speed-field-as-steering for the chart.
-    // Re-keys on data.seq so we tick once per WS frame even if the angle
-    // sample is unchanged (otherwise the trace would flatline mid-buffer
-    // when the wheel is held still).
-    const [steerHistory, setSteerHistory] = useState<number[]>([]);
+    // TEMP: rolling timestamped buffer of the speed-field-as-steering.
+    // Why timestamped + wall-clock driven (not data.seq driven): if speed
+    // ever momentarily becomes null while seq keeps ticking, a seq-driven
+    // buffer would stop advancing while the references (which use
+    // Date.now() every render) keep scrolling — so the orange trace
+    // appears frozen against moving refs. Driving on setInterval keeps
+    // the trace ticking even across brief CAN/WS hiccups.
+    const [steerHistory, setSteerHistory] = useState<Array<{ t: number; v: number }>>([]);
+    const latestSampleRef = useRef<number | null>(null);
     useEffect(() => {
         const v = data?.can.speed;
-        if (typeof v !== 'number') return;
-        setSteerHistory(prev => {
-            const next = prev.concat(v);
-            return next.length > STEER_MAX_SAMPLES
-                ? next.slice(-STEER_MAX_SAMPLES)
-                : next;
-        });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [data?.seq]);
+        if (typeof v === 'number') latestSampleRef.current = v;
+    }, [data?.seq, data?.can.speed]);
+    useEffect(() => {
+        const id = setInterval(() => {
+            const t = Date.now() / 1000;
+            const cutoff = t - STEER_HISTORY_SECONDS;
+            const v = latestSampleRef.current;
+            setSteerHistory(prev => {
+                const trimmed = prev[0] && prev[0].t < cutoff
+                    ? prev.filter(p => p.t >= cutoff)
+                    : prev;
+                if (typeof v !== 'number') return trimmed === prev ? prev : trimmed;
+                return [...trimmed, { t, v }];
+            });
+        }, 1000 / STEER_SAMPLE_HZ);
+        return () => clearInterval(id);
+    }, []);
 
     // Extract values with null fallback
     const speed = data?.can.speed;
@@ -740,8 +756,8 @@ const ScreenOne: React.FC = () => {
                     letterSpacing: '2px',
                 }}>
                     {data?.chartMode === 'ramp'
-                        ? <>STEER (DEG) — 5s · <span style={{ color: '#CC00AA' }}>RAMP</span> 0→45° / 10s · range −5°..50°</>
-                        : <>STEER (DEG) — 5s · <span style={{ color: '#000000' }}>0.5 Hz</span> · <span style={{ color: '#0066FF' }}>1 Hz</span> ±10°</>
+                        ? <>STEER (DEG) — 5s back · 5s ahead · <span style={{ color: '#CC00AA' }}>RAMP</span> 0→45° / 10s · range −5°..50°</>
+                        : <>STEER (DEG) — 5s back · 5s ahead · <span style={{ color: '#000000' }}>0.5 Hz</span> · <span style={{ color: '#0066FF' }}>1 Hz</span> ±10°</>
                     }
                 </div>
                 {(() => {
@@ -758,10 +774,15 @@ const ScreenOne: React.FC = () => {
                         return 5 + ((chartMax - c) / (chartMax - chartMin)) * 190;
                     };
                     const nowSec = Date.now() / 1000;
+                    // x ∈ [0, STEER_VIEWBOX_WIDTH] maps to time
+                    // [nowSec - HISTORY, nowSec + LOOKAHEAD]. "now" sits at
+                    // STEER_NOW_X (the middle when history==lookahead).
                     const timeForX = (x: number) =>
-                        nowSec - (STEER_MAX_SAMPLES - x) / STEER_SAMPLE_HZ;
+                        nowSec - STEER_HISTORY_SECONDS + x / STEER_SAMPLE_HZ;
+                    const xForTime = (t: number) =>
+                        (t - (nowSec - STEER_HISTORY_SECONDS)) * STEER_SAMPLE_HZ;
                     const sinePoints = (freqHz: number) =>
-                        Array.from({ length: STEER_MAX_SAMPLES + 1 }, (_, x) => {
+                        Array.from({ length: STEER_VIEWBOX_WIDTH + 1 }, (_, x) => {
                             const t = timeForX(x);
                             const deg = STEER_SINE_AMPLITUDE_DEG * Math.sin(2 * Math.PI * freqHz * t);
                             return `${x},${degToY(deg)}`;
@@ -769,7 +790,7 @@ const ScreenOne: React.FC = () => {
                     // Sawtooth ramp: linear 0 → STEER_RAMP_AMPLITUDE_DEG over
                     // STEER_RAMP_PERIOD_S, then snaps back to 0.
                     const rampPoints = Array.from(
-                        { length: STEER_MAX_SAMPLES + 1 },
+                        { length: STEER_VIEWBOX_WIDTH + 1 },
                         (_, x) => {
                             const t = timeForX(x);
                             const phase = ((t % STEER_RAMP_PERIOD_S) + STEER_RAMP_PERIOD_S) % STEER_RAMP_PERIOD_S;
@@ -779,7 +800,7 @@ const ScreenOne: React.FC = () => {
                     ).join(' ');
                     return (
                         <svg
-                            viewBox={`0 0 ${STEER_MAX_SAMPLES} 200`}
+                            viewBox={`0 0 ${STEER_VIEWBOX_WIDTH} 200`}
                             preserveAspectRatio="none"
                             style={{ width: '100%', height: '100%', display: 'block' }}
                         >
@@ -787,7 +808,7 @@ const ScreenOne: React.FC = () => {
                             {chartMin <= 0 && chartMax >= 0 && (
                                 <line
                                     x1={0} y1={degToY(0)}
-                                    x2={STEER_MAX_SAMPLES} y2={degToY(0)}
+                                    x2={STEER_VIEWBOX_WIDTH} y2={degToY(0)}
                                     stroke="var(--card-border)"
                                     strokeWidth={1}
                                     vectorEffect="non-scaling-stroke"
@@ -798,7 +819,7 @@ const ScreenOne: React.FC = () => {
                                 <>
                                     <line
                                         x1={0} y1={degToY(STEER_SINE_AMPLITUDE_DEG)}
-                                        x2={STEER_MAX_SAMPLES} y2={degToY(STEER_SINE_AMPLITUDE_DEG)}
+                                        x2={STEER_VIEWBOX_WIDTH} y2={degToY(STEER_SINE_AMPLITUDE_DEG)}
                                         stroke="var(--card-border)"
                                         strokeWidth={0.5}
                                         strokeDasharray="2,4"
@@ -806,7 +827,7 @@ const ScreenOne: React.FC = () => {
                                     />
                                     <line
                                         x1={0} y1={degToY(-STEER_SINE_AMPLITUDE_DEG)}
-                                        x2={STEER_MAX_SAMPLES} y2={degToY(-STEER_SINE_AMPLITUDE_DEG)}
+                                        x2={STEER_VIEWBOX_WIDTH} y2={degToY(-STEER_SINE_AMPLITUDE_DEG)}
                                         stroke="var(--card-border)"
                                         strokeWidth={0.5}
                                         strokeDasharray="2,4"
@@ -817,13 +838,23 @@ const ScreenOne: React.FC = () => {
                             {mode === 'ramp' && (
                                 <line
                                     x1={0} y1={degToY(STEER_RAMP_AMPLITUDE_DEG)}
-                                    x2={STEER_MAX_SAMPLES} y2={degToY(STEER_RAMP_AMPLITUDE_DEG)}
+                                    x2={STEER_VIEWBOX_WIDTH} y2={degToY(STEER_RAMP_AMPLITUDE_DEG)}
                                     stroke="var(--card-border)"
                                     strokeWidth={0.5}
                                     strokeDasharray="2,4"
                                     vectorEffect="non-scaling-stroke"
                                 />
                             )}
+                            {/* "now" marker — trace ends here, refs continue right */}
+                            <line
+                                x1={STEER_NOW_X} y1={0}
+                                x2={STEER_NOW_X} y2={200}
+                                stroke="var(--card-border)"
+                                strokeWidth={1}
+                                strokeDasharray="4,4"
+                                vectorEffect="non-scaling-stroke"
+                            />
+
                             {/* References — only the active mode's set */}
                             {mode === 'sine' && (
                                 <>
@@ -852,10 +883,12 @@ const ScreenOne: React.FC = () => {
                                     vectorEffect="non-scaling-stroke"
                                 />
                             )}
-                            {/* Driver trace — same dynamic scale */}
+                            {/* Driver trace — positioned by sample time so it
+                                ends at the "now" marker; refs project to the
+                                right of it. */}
                             <polyline
                                 points={steerHistory
-                                    .map((v, i) => `${i},${degToY(v)}`)
+                                    .map(({ t, v }) => `${xForTime(t)},${degToY(v)}`)
                                     .join(' ')}
                                 fill="none"
                                 stroke="var(--brand)"
