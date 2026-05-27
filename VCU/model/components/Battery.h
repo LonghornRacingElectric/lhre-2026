@@ -12,6 +12,7 @@ extern "C" {
 
 typedef struct {
   ema_filter_t cell_voltage_filter;
+  float remembered_open_circuit_cell_voltage;
 } battery_state_t;
 
 void battery_init(battery_state_t *state, const vcu_parameters_t *params);
