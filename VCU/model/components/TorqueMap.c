@@ -11,6 +11,7 @@
 #define PI_F                  3.14159265f
 
 static Lookup1D torque_lookup;
+static Lookup1D pedal_lookup;
 
 static float calc_max_torque_at_rpm(float rpm, float max_torque_nm) {
   const float mech_power_w = BATTERY_POWER_W * EFFICIENCY;
@@ -37,6 +38,10 @@ void torque_map_init(const vcu_parameters_t *params) {
                 0.0f,
                 MAX_MOTOR_RPM,
                 params->torque_map.power_limit_torque);
+  Lookup1D_init(&pedal_lookup,
+                0.0f,
+                1.0f,
+                params->torque_map.pedal_map);
 }
 
 static float compute_low_cell_voltage_derate(const vcu_inputs_t *in,
@@ -66,7 +71,9 @@ void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   float rpm = clamp_f(in->motor_speed_rpm, 0.0f, MAX_MOTOR_RPM);
 
   float available_torque = Lookup1D_evaluate(&torque_lookup, rpm);
-  float pedal_percent_of_available_torque = powf(apps, params->torque_map.pedal_curve_exponent);
+  float pedal_remapped = Lookup1D_evaluate(&pedal_lookup, apps);
+  float pedal_percent_of_available_torque = powf(pedal_remapped, params->torque_map.pedal_curve_exponent);
+  
   out->torque_lookup_output = available_torque * pedal_percent_of_available_torque;
 
   out->derate_factor_cell_voltage = compute_low_cell_voltage_derate(in, params);

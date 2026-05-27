@@ -35,6 +35,11 @@
 
 #include "vcu_can.h"
 
+#include "params/acceleration_params.h"
+#include "params/autocross_params.h"
+#include "params/endurance_params.h"
+#include "params/skidpad_params.h"
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <math.h>
@@ -74,14 +79,12 @@ const osThreadAttr_t controlTask_attributes = {
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define SELECTED_PARAMS autocross_params
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define ADC_MAX_VAL ((1u << 12) - 1u)
 #define ADC_APPS_SCALE_V 3.3f
-#define ADC_BSE_SCALE_V 3.2837f
 #define ADC_STEERING_SCALE_V 3.3f
 #define STEERING_DIVIDER_R_TOP_OHMS 5100.0f
 #define STEERING_DIVIDER_R_BOTTOM_OHMS 10000.0f
@@ -97,75 +100,7 @@ const osThreadAttr_t controlTask_attributes = {
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
 
-static vcu_parameters_t s_params = {
-    .apps =
-        {
-            .apps1_min_adc_v = 1.750f,
-            .apps1_max_adc_v = 1.520f,
-
-            .apps2_min_adc_v = 0.190f,
-            .apps2_max_adc_v = -0.020f,
-
-            .implaus_debounce_time_ms = 100u,
-            .max_allowable_diff = 0.15f,
-            // .min_travel_threshold = 0.10f,
-            // .max_travel_restore_threshold = 0.05f,
-
-            .min_travel_deadzone = 0.09f,
-            .max_travel_deadzone = 0.88f,
-            .pedal_ema_alpha = 0.35f,
-        },
-    .bse =
-        {
-            .bse_off_psi = 30.0f,
-            .bse_on_psi = 50.0f,
-            .bse1_adc_at_min_psi_v =
-                ((397.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
-            .bse1_adc_at_max_psi_v =
-                ((2267.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
-            .bse2_adc_at_min_psi_v =
-                ((397.0f * ADC_BSE_SCALE_V) /
-                 ADC_MAX_VAL), 
-            .bse2_adc_at_max_psi_v =
-                ((2017.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
-            .bse_max_psi = 3000.0f,
-            .max_pedal_while_braking = 0.25f,
-            .max_pedal_restore_threshold = 0.05f,
-            .min_psi_deadzone = 0.4f,
-            .max_psi_deadzone = 1.0f,
-            .bse_ema_alpha = 0.10f,
-            .brake_light_min_pct = 0.0f,
-            .brake_light_max_pct = 0.30f,
-        },
-    .torque_map =
-        {
-            .power_limit_torque = {
-              /* rpm=    0 */ 210.0f,
-              /* rpm=  600 */ 210.0f,
-              /* rpm= 1200 */ 210.0f,
-              /* rpm= 1800 */ 210.0f,
-              /* rpm= 2400 */ 210.0f,
-              /* rpm= 3000 */ 192.0f,
-              /* rpm= 3600 */ 166.0f,
-              /* rpm= 4200 */ 145.0f,
-              /* rpm= 4800 */ 129.0f,
-              /* rpm= 5400 */ 115.0f,
-              /* rpm= 6000 */ 103.0f
-            },
-            .pedal_curve_exponent = 2.0f,
-            .low_cell_derate_start_v = 3.2f,
-            .low_cell_cutoff_v = 3.0f,
-        },
-    .power_limit =
-      {
-          .power_limit_w = 70000.0f,
-          .power_limit_trim_kp = 0.006f,
-          .power_limit_trim_ki = 0.6f,
-          .power_limit_trim_integral_max = 20000.0f,
-      },
-    .buzzer_duration_ms = 1200u,
-    .brake_enable_threshold = 0.1f,
-};
+static vcu_parameters_t s_params;
 
 static vcu_model_context_t ctx = {0};
 
@@ -357,6 +292,7 @@ void StartControlTask(void *argument) {
   vcu_inputs_t in = {0};
   vcu_outputs_t out = {0};
 
+  s_params = SELECTED_PARAMS;
   vcu_model_init(&ctx, &s_params);
 
   uint32_t adc1_val = 0; // steering ADC1 read
