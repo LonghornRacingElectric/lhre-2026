@@ -20,6 +20,8 @@ firmware_project_g4(
     extra_srcs = glob([
         "Libs/AFBR-S50/Include/platform/*.c",
         "Libs/AFBR-S50/Test/*.c",
+        "Libs/AFBR-S50/Include/**/*.h",
+        "Libs/AFBR-S50/Test/**/*.h",
     ]),
     extra_deps = [
         "//CSM/firmware/Libs/AFBR-S50/Lib:afbrs50",
