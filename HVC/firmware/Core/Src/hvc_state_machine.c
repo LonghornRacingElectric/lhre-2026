@@ -208,7 +208,7 @@ const char* get_state_name(hvc_state_t state) {
 }
 
 
-__attribute__((weak)) bool is_charge_enable_active(void) {
+bool is_charge_enable_active(void) {
     // Charger board reports plug status over CAN. We treat both PLUGGED and
     // READY as "charge-enable" for entering CHARGING_PRECHARGING; the actual
     // current draw won't start until charger comms are healthy and the
@@ -217,7 +217,7 @@ __attribute__((weak)) bool is_charge_enable_active(void) {
 }
 
 
-__attribute__((weak)) float get_pack_voltage(void) {
+float get_pack_voltage(void) {
     // Default: return pack voltage (read from BMS) in volts
     extern float getPackVoltage_v(void);
     float pack_v = getPackVoltage_v();

@@ -265,8 +265,6 @@ void StartStateMachineTask(void *argument) {
     update_state_machine(any_faults);
     hvc_update_contactor_status();
     charger_update();   // CC/CV algo + Charge Command TX, after state machine
-    // log_printf(LOG_INFO, "Responsive BMS ICs: %d\n",
-    // bms_get_num_responsive_ics());
 
     log_printf(LOG_INFO,
                "Pack Voltage: %.2f, Tractive Voltage: %.2f V, Raw: %.2f, State "

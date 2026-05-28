@@ -52,6 +52,7 @@
  * ========================================================================== */
 
 static uint8_t  tx_seq = 0;
+static bool     charge_done = false;
 
 /* Latest snapshot from the Charger Status mailbox; refreshed at the top of
  * each charger_update() so all queries within the same tick see a consistent
@@ -113,19 +114,7 @@ static float compute_current_limit_a(void)
 
     /* Thermal cutoff overrides everything. */
     if (max_temp >= CUTOFF_TEMP_C) return 0.0f;
-
-    /* Start with hardware max, taper as max cell approaches target. */
-    float limit_a = CHARGER_MAX_A * cv_taper_fraction(max_cell,
-                                                      CELL_TAPER_START_V,
-                                                      CELL_TARGET_V);
-
-    /* Above target → CV phase: hold a small standing current that the charger
-     * regulates to keep max cell at target. Real CV control is the charger's
-     * job once we're here; we just ask it for "a little". */
-    if (max_cell >= CELL_TARGET_V) {
-        limit_a = TERMINATION_CURRENT_A;
-    }
-
+    float limit_a = CHARGER_MAX_A * cv_taper_fraction(max_cell, CELL_TAPER_START_V, CELL_TARGET_V);
     if (limit_a < 0.0f) limit_a = 0.0f;
     return limit_a;
 }
@@ -146,10 +135,10 @@ void charger_update(void)
      * shutdown loop; the charger output must stay off until that completes. */
     bool charging_active = (hvc_state == HVC_STATE_CHARGING);
 
-    /* Hard stop: any fault that should kill the charger immediately. The
-     * shutdown-loop check matches the state machine — if a shutdown leg
-     * opens, the contactors physically open and we must stop commanding
-     * current within one tick to avoid lying to the charger. */
+    if (!charger_is_plugged()) {
+        charge_done = false;
+    }
+
     bool hard_stop = bms_check_disconnection() ||
                      bms_check_overtemp() ||
                      (bms_get_max_voltage() > CELL_HARD_OV_V) ||
@@ -161,9 +150,17 @@ void charger_update(void)
     float current_limit_a = 0.0f;
     uint8_t flags         = 0;
 
-    if (charging_active && !hard_stop && charger_is_ready() && charger_comms_ok()) {
+    if (charging_active && !hard_stop && charger_is_ready() && charger_comms_ok() && !charge_done) {
         current_limit_a = compute_current_limit_a();
         flags |= CHG_FLAG_ENABLE;
+        bool cv_complete = (bms_get_max_voltage() >= CELL_TARGET_V) &&
+                           (cur_c < TERMINATION_CURRENT_A) &&
+                           (cur_state == CHARGER_STATE_CC || cur_state == CHARGER_STATE_CV);
+        if (cv_complete) {
+            charge_done = true;
+            flags &= ~CHG_FLAG_ENABLE;
+            current_limit_a = 0.0f;
+        }
     }
 
     if (hard_stop) {
