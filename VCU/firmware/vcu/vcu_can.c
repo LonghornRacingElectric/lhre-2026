@@ -253,6 +253,8 @@ void vcu_can_set_model_outputs(const vcu_outputs_t *out) {
   vcu_state_mailbox.prndl_state = out->prndl_state;
   vcu_state_mailbox.stomp_fault = out->faults.brake_latched;
   vcu_state_mailbox.ready_to_drive_buzzer = out->buzzer_active;
+  vcu_state_mailbox.state_of_charge_estimate = out->soe_pct;
+  vcu_state_mailbox.line_lock_enabled = false; // TODO out->line_lock_enabled;
 
   led_set(out->brake_pressed, is_drive_switch_pressed(),
           out->accel_pedal_travel == 0);
