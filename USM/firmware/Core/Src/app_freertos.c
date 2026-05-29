@@ -60,7 +60,7 @@
 static dfu_config dfu_conf = {
     .delay_fn = (Delay_fn)osDelay,
     .gpiox = GPIOB,
-    .pin = GPIO_PIN_7,
+    .pin = GPIO_PIN_9,
     .pin_set_fn = (PinSet_fn)HAL_GPIO_WritePin,
     .reset_fn = (SystemReset_fn)HAL_NVIC_SystemReset,
     .set_bank1_fn = (SetBank1_fn)ota_set_bank1,
