@@ -241,7 +241,7 @@ float bms_get_min_voltage(void) {
 }
 
 float bms_get_max_voltage(void) {
-    float max_v = FLT_MIN;
+    float max_v = -FLT_MAX;
     for (int i = 0; i < TOTAL_IC * CELLS_PER_IC; i++) {
         if (cell_voltages[i] > max_v) {
             max_v = cell_voltages[i];
