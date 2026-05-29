@@ -59,7 +59,7 @@ def select_port() -> str:
 
 
 class BMSLogger:
-    def __init__(self, port: str, debug: bool = False):
+    def __init__(self, port: str, debug: bool = False, resume: bool = False):
         self._debug = debug
         self.ser = serial.Serial(port, BAUD_RATE, timeout=1)
 
@@ -76,11 +76,44 @@ class BMSLogger:
 
         out_dir = Path(__file__).parent / 'out'
         out_dir.mkdir(exist_ok=True)
-        csv_path = out_dir / f"{datetime.now().strftime('%Y-%m-%d_%H%M%S')}.csv"
-        self._csvf   = open(csv_path, 'w', newline='')
-        self._writer = csv.writer(self._csvf)
-        self._write_header()
-        print(f"Logging → {csv_path}")
+
+        if resume:
+            candidates = sorted(out_dir.glob('*.csv'))
+            resume_path = candidates[-1] if candidates else None
+        else:
+            resume_path = None
+
+        if resume_path is not None:
+            self._load_existing(resume_path)
+            self._csvf   = open(resume_path, 'a', newline='')
+            self._writer = csv.writer(self._csvf)
+            print(f"Resuming → {resume_path}")
+        else:
+            csv_path     = out_dir / f"{datetime.now().strftime('%Y-%m-%d_%H%M%S')}.csv"
+            self._csvf   = open(csv_path, 'w', newline='')
+            self._writer = csv.writer(self._csvf)
+            self._write_header()
+            print(f"Logging → {csv_path}")
+
+    def _load_existing(self, path: Path) -> None:
+        n_cells = TOTAL_IC * CELLS_PER_IC
+        with open(path, newline='') as f:
+            reader = csv.reader(f)
+            header = next(reader)
+            ts_col  = header.index('timestamp_ms')
+            v_start = header.index('cell_1_1_v')
+            b_start = header.index('cell_1_1_bal')
+            rows = list(reader)
+        if not rows:
+            return
+        self._t0_ms = int(rows[0][ts_col])
+        for row in rows:
+            t_s = (int(row[ts_col]) - self._t0_ms) / 1000.0
+            for i in range(n_cells):
+                self._times.append(t_s)
+                self._volts.append(float(row[v_start + i]))
+                self._bals.append(bool(int(row[b_start + i])))
+        print(f"  loaded {len(rows)} existing rows ({len(self._times)} points)")
 
     def _write_header(self) -> None:
         cell_v = [f'cell_{ic}_{c}_v'   for ic in range(1, TOTAL_IC+1) for c in range(1, CELLS_PER_IC+1)]
@@ -183,11 +216,12 @@ class BMSLogger:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description='BMS serial logger')
-    parser.add_argument('--debug', action='store_true', help='print every received line as repr()')
+    parser.add_argument('--debug',    action='store_true', help='print every received line as repr()')
+    parser.add_argument('--continue', action='store_true', dest='resume', help='append to and resume the last CSV')
     args = parser.parse_args()
 
     port   = select_port()
-    logger = BMSLogger(port, debug=args.debug)
+    logger = BMSLogger(port, debug=args.debug, resume=args.resume)
 
     threading.Thread(target=logger.run, daemon=True).start()
 
