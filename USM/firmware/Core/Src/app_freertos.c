@@ -38,6 +38,10 @@
 #include "ota/ota_flash.h"
 
 #include "usm_can.h"
+#include "wheel_speed.h"
+#include "imu.h"
+#include "spi.h"
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -76,6 +80,12 @@ static rainbow_led_t led_conf = {
     .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
     .timer_handle = &htim2,
 };
+
+osThreadId_t wheelSpeedTaskHandle;
+const osThreadAttr_t wheelSpeedTask_attributes = {
+    .name = "wheelSpeedTask",
+    .priority = (osPriority_t)osPriorityNormal,
+    .stack_size = 128 * 8};
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -88,9 +98,7 @@ const osThreadAttr_t defaultTask_attributes = {
 /* USER CODE BEGIN FunctionPrototypes */
 osThreadId_t ledHandle;
 
-extern osThreadId_t wheelSpeedTaskHandle;
-extern const osThreadAttr_t wheelSpeedTask_attributes;
-extern void StartWheelSpeedTask(void *argument);
+void StartWheelSpeedTask(void *argument);
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
@@ -172,5 +180,28 @@ void StartDefaultTask(void *argument) {
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+void StartWheelSpeedTask(void *argument) {
+  osDelay(2000); // wait for USB CDC to enumerate
+  WheelSpeed_Init(&hspi2);
+  IMU_Init(&hspi2);
+  char buf[80];
+  imu_data_t imu = {0};
+  for (;;) {
+    WheelSpeed_Update();
 
+    float rpm = WheelSpeed_GetRPM();
+    float rads = rpm * 2.0f * 3.14159f / 60.0f;
+    float mph = WheelSpeed_GetMPH();
+    usm_can_update_wheel_speed(rads);
+
+    IMU_Read(&imu);
+    usm_can_update_accel(imu.accel_x, imu.accel_y, imu.accel_z);
+
+    int len = snprintf(buf, sizeof(buf),
+                       "RPM:%.1f MPH:%.2f Ax:%.2f Ay:%.2f Az:%.2f\r\n", rpm,
+                       mph, imu.accel_x, imu.accel_y, imu.accel_z);
+    CDC_Transmit_FS((uint8_t *)buf, (uint16_t)len);
+    osDelay(200);
+  }
+}
 /* USER CODE END Application */
