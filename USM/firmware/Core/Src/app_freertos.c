@@ -189,16 +189,14 @@ void StartWheelSpeedTask(void *argument) {
   for (;;) {
     WheelSpeed_Update();
 
-    float rpm = WheelSpeed_GetRPM();
-    float rads = rpm * 2.0f * 3.14159f / 60.0f;
-    float mph = WheelSpeed_GetMPH();
-    usm_can_update_wheel_speed(rads);
+    float speed = WheelSpeed_GetSpeed();
+    usm_can_update_wheel_speed(speed);
 
     IMU_Read(&imu);
     usm_can_update_accel(imu.accel_x, imu.accel_y, imu.accel_z);
 
-    log_printf(LOG_INFO, "RPM:%.1f MPH:%.2f Ax:%.2f Ay:%.2f Az:%.2f\r\n", rpm,
-               mph, imu.accel_x, imu.accel_y, imu.accel_z);
+    // log_printf(LOG_INFO, "RPM:%.1f MPH:%.2f Ax:%.2f Ay:%.2f Az:%.2f\r\n", rpm,
+    //            mph, imu.accel_x, imu.accel_y, imu.accel_z);
     osDelay(1);
   }
 }
