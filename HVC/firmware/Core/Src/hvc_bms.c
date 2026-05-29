@@ -276,7 +276,7 @@ float bms_get_ic_die_temp(uint8_t ic) {
 }
 
 float bms_get_max_die_temp(void) {
-    float max_t = FLT_MIN;
+    float max_t = -FLT_MAX;
     for (int i = 0; i < TOTAL_IC; i++) {
         if (ic_die_temps[i] > max_t) max_t = ic_die_temps[i];
     }
