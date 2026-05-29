@@ -9,12 +9,12 @@
     width: 100%;
     height: 60px;
     z-index: 100;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--card-bg);
     backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--card-border);
     border-top: none;
     border-radius: 0 0 12px 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--card-shadow);
     padding: 0 24px;
     box-sizing: border-box;
     display: flex;
@@ -36,6 +36,6 @@
     justify-content: flex-end;
     font-size: 0.85rem;
     letter-spacing: 4px;
-    color: #aaa;
+    color: var(--fg-secondary);
     text-transform: uppercase;
 }

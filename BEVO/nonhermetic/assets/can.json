@@ -1798,6 +1798,51 @@
         "bytes": []
     },
     {
+        "packet_id": 310,
+        "packet_name": "Battery Cell Limits",
+        "from": [
+            "HVC"
+        ],
+        "to": [
+            "VCU"
+        ],
+        "data_length": 3,
+        "frequency_ms": 100,
+        "frequency": 10.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Min Cell Voltage",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "min_cell_voltage",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Max Cell Voltage",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 0.02,
+                "protobuf": {
+                    "type": "float",
+                    "field": "max_cell_voltage",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
         "packet_id": 320,
         "packet_name": "VCU Shutdown Status",
         "from": [
@@ -3351,7 +3396,7 @@
         "to": [
             "Pi"
         ],
-        "data_length": 3,
+        "data_length": 6,
         "frequency_ms": 3,
         "frequency": 333.0,
         "quantity": 1,
@@ -3395,6 +3440,34 @@
                 "protobuf": {
                     "type": "bool",
                     "field": "r2d_buzzer",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 3,
+                "name": "State of Charge Estimate",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "soc_estimate",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 4,
+                "start_byte": 5,
+                "name": "Line Lock Enabled",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "bool",
+                    "field": "line_lock_enabled",
                     "repeated": false,
                     "field_index": null
                 }
@@ -4178,6 +4251,242 @@
                     "field": "br_sus_pot_v",
                     "repeated": false,
                     "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1288,
+        "packet_name": "FL Gyro",
+        "from": [
+            "CSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 6,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "X",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_gyro",
+                    "repeated": true,
+                    "field_index": 0
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Y",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_gyro",
+                    "repeated": true,
+                    "field_index": 1
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Z",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_gyro",
+                    "repeated": true,
+                    "field_index": 2
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1289,
+        "packet_name": "FR Gyro",
+        "from": [
+            "CSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 6,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "X",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_gyro",
+                    "repeated": true,
+                    "field_index": 0
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Y",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_gyro",
+                    "repeated": true,
+                    "field_index": 1
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Z",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_gyro",
+                    "repeated": true,
+                    "field_index": 2
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1290,
+        "packet_name": "RL Gyro",
+        "from": [
+            "CSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 6,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "X",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_gyro",
+                    "repeated": true,
+                    "field_index": 0
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Y",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_gyro",
+                    "repeated": true,
+                    "field_index": 1
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Z",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_gyro",
+                    "repeated": true,
+                    "field_index": 2
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1291,
+        "packet_name": "RR Gyro",
+        "from": [
+            "CSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 6,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "X",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "br_gyro",
+                    "repeated": true,
+                    "field_index": 0
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Y",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "br_gyro",
+                    "repeated": true,
+                    "field_index": 1
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Z",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "br_gyro",
+                    "repeated": true,
+                    "field_index": 2
                 }
             }
         ]

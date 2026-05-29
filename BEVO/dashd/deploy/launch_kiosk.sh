@@ -28,10 +28,21 @@ for _ in $(seq 1 30); do
 done
 
 # Pi OS bookworm ships `chromium`, older releases `chromium-browser`.
+# Flags worth flagging:
+#   --incognito          — no disk cache or profile persists, so a frontend
+#                          rebuild is picked up immediately. Without it,
+#                          Chromium served a stale index.html from disk
+#                          cache on driveday and we saw the old bundle.
+#   --ozone-platform=wayland — labwc autostart inherits the right XDG env
+#                          so this can be omitted there, but launching by
+#                          hand from SSH (where DISPLAY/WAYLAND_DISPLAY
+#                          weren't set up the same way) needs it explicit.
 for bin in chromium-browser chromium; do
     if command -v "$bin" >/dev/null 2>&1; then
         exec "$bin" \
             --kiosk \
+            --incognito \
+            --ozone-platform=wayland \
             --noerrdialogs \
             --disable-restore-session-state \
             --disable-infobars \

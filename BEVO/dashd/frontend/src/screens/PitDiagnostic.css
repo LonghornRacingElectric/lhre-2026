@@ -15,10 +15,10 @@
     left: 0;
     width: 100%;
     z-index: 100;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--card-bg);
     backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--card-shadow);
     padding: 0 24px;
     box-sizing: border-box;
     display: flex;
@@ -51,7 +51,7 @@
 .pit-tray-right {
     font-size: 0.85rem;
     letter-spacing: 4px;
-    color: #aaa;
+    color: var(--fg-secondary);
 }
 
 .fault-light {
@@ -71,7 +71,7 @@
 }
 
 .fault-light.unknown {
-    background: #555;
+    background: var(--fg-muted);
 }
 
 .fault-summary {
@@ -96,12 +96,12 @@
 }
 
 .fault-summary-status.unknown {
-    color: #888;
+    color: var(--fg-muted);
 }
 
 .fault-summary-name {
     font-size: 0.9rem;
-    color: #aaa;
+    color: var(--fg-secondary);
     text-transform: uppercase;
     letter-spacing: 1.5px;
 }
@@ -129,9 +129,9 @@
 .pit-section-title {
     font-size: 0.8rem;
     letter-spacing: 2.5px;
-    color: #aaa;
+    color: var(--fg-secondary);
     padding-bottom: 6px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--card-border);
     margin-bottom: 6px;
 }
 
@@ -178,7 +178,7 @@
 }
 
 .diag-fault-row.empty {
-    color: #555;
+    color: var(--fg-muted);
     text-shadow: none;
 }
 

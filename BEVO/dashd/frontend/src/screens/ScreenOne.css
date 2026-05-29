@@ -1,25 +1,25 @@
 .modern-dash-container {
-    background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+    background: var(--bg-gradient);
     font-family: 'Segoe UI', 'Roboto', sans-serif;
-    color: #fff;
+    color: var(--fg-primary);
     overflow: hidden;
 }
 
 /* Glassmorphism Cards */
 .dash-card {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--card-bg);
     backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--card-border);
     border-radius: 12px;
     padding: 10px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.5); /* Enhanced shadow */
+    box-shadow: var(--card-shadow);
     transition: all 0.3s ease;
 }
 
 .dash-card:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.2);
-    box-shadow: 0 4px 25px rgba(0,0,0,0.6);
+    background: var(--card-bg-hover);
+    border-color: var(--card-border-hover);
+    box-shadow: var(--card-shadow-hover);
 }
 
 /* Gauge Glows */
@@ -29,11 +29,11 @@
 
 /* Specific glows based on color logic in TSX */
 .glow-orange .gauge-progress {
-    filter: drop-shadow(0 0 10px #BF5700);
+    filter: drop-shadow(0 0 10px var(--brand));
 }
 
 .glow-yellow .gauge-progress {
-    filter: drop-shadow(0 0 10px #FFD700);
+    filter: drop-shadow(0 0 10px var(--accent-gold));
 }
 
 .glow-gradient .gauge-progress {
@@ -49,20 +49,20 @@
 .value-display {
     font-family: 'Consolas', 'Monaco', monospace; /* Tabular numbers */
     letter-spacing: -1px;
-    text-shadow: 0 0 10px rgba(255,255,255,0.2); /* Subtle glow */
+    text-shadow: var(--value-glow);
 }
 
 .label-small {
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    color: #888;
+    color: var(--fg-muted);
     margin-bottom: 2px;
 }
 
 .unit-label {
     font-size: 1rem;
-    color: #aaa;
+    color: var(--fg-secondary);
     margin-left: 4px;
 }
 
@@ -100,6 +100,14 @@
     border-bottom-right-radius: 12px;
     border-top-left-radius: 0;
     border-top-right-radius: 0;
+}
+
+/* HV-energized lightning bolt blink — used while contactors are
+   precharging (driver waits). Hard step-function at ~1 Hz, not a
+   smooth fade, so the urgency is unmistakable. */
+@keyframes hv-precharge-blink {
+    0%, 49.9% { opacity: 1; }
+    50%, 100% { opacity: 0.15; }
 }
 
 /* Layout Utilities */

@@ -40,8 +40,9 @@ fn env_or_default(name: &str, default: &str) -> String {
 
 #[derive(Serialize, Clone, Default)]
 struct CanData {
-    /// Vehicle speed in MPH from dynamics.gps_speed (NMEA knots * 1.15078).
-    /// Source: GPS module via cand NMEA parser (RMC/VTG sentences).
+    /// Vehicle speed in MPH derived from motor RPM via drivetrain geometry:
+    /// `motor_speed * 2*pi/60 * 13/43 * 0.201 * 2.237` (rpm→rad/s, motor→wheel
+    /// gear ratio, wheel radius m, m/s→mph). Source: controls.motor_speed.
     speed: Option<f32>,
 
     /// Electrical power in kW, derived as dc_bus_v * dc_bus_current / 1000.
@@ -52,12 +53,18 @@ struct CanData {
     /// confirmed first. Always null.
     odometer: Option<f32>,
 
-    /// State of charge (0–100%) from pack.hv_soc.
+    /// Estimated SOC from the inverter's DC bus voltage:
+    /// `(dc_bus_v - 390) / (546 / 390)`. Only refreshed while the bus
+    /// current magnitude is below 1.0 A (so we're sampling cell EMF, not
+    /// IR drop). Held at the last qualified value otherwise. Used because
+    /// HVC firmware does not currently broadcast packet 0x132 carrying
+    /// pack.hv_soc; once 0x132 is back, prefer that.
     soc: Option<f32>,
 
-    /// Pack temperature in °C — currently sourced from thermal.cell_top_temp.
-    /// Frontend's main TEMP gauge reads this. Hottest-cell semantics live on
-    /// `cellTempMax` below for the diag screen.
+    /// Pack temperature in °C — max of all reported cell temps
+    /// (pack.cells_temps from packet 0x100). Was thermal.cell_top_temp,
+    /// but that field arrives in packet 0x132 which HVC does not
+    /// currently emit. Same value as `cellTempMax` below.
     temperature: Option<f32>,
 
     /// NOT AVAILABLE — 5G signal strength is not on the CAN bus. Always null.
@@ -71,6 +78,24 @@ struct CanData {
     /// element is false. The 16-name mapping originally expected by the
     /// frontend has been collapsed to these four legs in SHUTDOWN_NAMES.
     shutdown: Option<Vec<bool>>,
+
+    /// PRNDL state from diagnostics_high.prndl_state. "P" for PARK (0),
+    /// "D" for DRIVE (1), None when no diag data or unknown value. Other
+    /// gears (R/N/L) aren't implemented in VCU firmware; matches the
+    /// VCU enum in VCU/model/components/PRNDL.h.
+    prndl: Option<&'static str>,
+
+    /// HV contactor states from HVC packet 0x131 (Contactor Status) via
+    /// diagnostics_high.{pos_hv_contactor, neg_hv_contactor,
+    /// precharge_contactor}. Frontend combines pos+neg into a single
+    /// "HV UP/DOWN" indicator; precharge is exposed separately for pit
+    /// diagnostics use.
+    #[serde(rename = "posContactor")]
+    pos_contactor: Option<bool>,
+    #[serde(rename = "negContactor")]
+    neg_contactor: Option<bool>,
+    #[serde(rename = "prechargeContactor")]
+    precharge_contactor: Option<bool>,
 
     // ---------------------------------------------------------------
     // Pit / extended driver-thread fields — all sourced from the same
@@ -135,6 +160,14 @@ struct CanData {
     wheel_speed_rl: Option<f32>,
     #[serde(rename = "wheelSpeedRR")]
     wheel_speed_rr: Option<f32>,
+
+    /// Regen-armed state. Wire source is byte 5 of packet 0x1C7, which
+    /// the CSV labels `line_lock_enabled` but actually carries the
+    /// regen-enabled bit per the VCU team. Stored under the field's
+    /// CSV name in the proto; renamed here for the frontend's
+    /// `regenEnabled` pill.
+    #[serde(rename = "regenEnabled")]
+    regen_enabled: Option<bool>,
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -154,6 +187,12 @@ struct DashMessage {
     seq: u64,
     can: CanData,
     mqtt: MqttData,
+    /// Driveday TEMP: which reference set the steering chart should
+    /// render. Set by writing "sine" or "ramp" to
+    /// `/tmp/dash_chart_mode` over SSH; dashd re-reads each WS frame.
+    /// Frontend defaults to "sine" if absent.
+    #[serde(rename = "chartMode")]
+    chart_mode: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -204,6 +243,10 @@ struct DashState {
     /// Wall-clock time of the most recent successful IPC decode. Used by the
     /// WS sender to null out CanData once cand has stopped publishing.
     last_can_update: Instant,
+    /// Most recent SOC estimate that satisfied the current-qualification
+    /// gate (|dc_bus_current| < 1.0 A). Reused while the gate is open so
+    /// the bar doesn't twitch under load. None until first qualified read.
+    last_qualified_soc: Option<f32>,
     mqtt: MqttState,
 }
 
@@ -211,11 +254,7 @@ struct DashState {
 // Protobuf -> CanData extraction
 // ---------------------------------------------------------------------------
 
-fn extract_can_data(data: &OrionSensorData) -> CanData {
-    // GPS speed is in knots (from NMEA RMC/VTG), convert to MPH
-    const KNOTS_TO_MPH: f32 = 1.15078;
-    let speed = data.dynamics.as_ref().map(|d| d.gps_speed * KNOTS_TO_MPH);
-
+fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>) -> CanData {
     let pack = data.pack.as_ref();
     let thermal = data.thermal.as_ref();
     let controls = data.controls.as_ref();
@@ -223,9 +262,50 @@ fn extract_can_data(data: &OrionSensorData) -> CanData {
     let diag_low = data.diagnostics_low.as_ref();
     let diag_high = data.diagnostics_high.as_ref();
 
+    // TEMP (driveday test): surface steering column angle in the big
+    // speed display so the driver can read handwheel input directly.
+    // Frontend label switched MPH → DEG to match. Restore vehicle speed
+    // by re-enabling this block:
+    //   const MOTOR_RPM_TO_MPH: f32 = 0.014233265;
+    //   let speed = controls.map(|c| c.motor_speed * MOTOR_RPM_TO_MPH);
+    let speed = dynamics.map(|d| d.steer_col_angle);
+
     let power = pack.map(|p| p.dc_bus_v * p.dc_bus_current / 1000.0);
-    let soc = pack.map(|p| p.hv_soc);
-    let temperature = thermal.map(|t| t.cell_top_temp);
+
+    // DEBUG (driveday): user reports kW value stuck at 0 even during
+    // hard driving (CSV shows up to 204 A peak). Trace what dashd
+    // actually reads/computes. Revert when bug found.
+    {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        static TICK: AtomicU32 = AtomicU32::new(0);
+        let n = TICK.fetch_add(1, Ordering::Relaxed);
+        if n % 100 == 0 {
+            eprintln!(
+                "[DASHD-PWR] pack.is_some={} dc_v={:?} dc_i={:?} power={:?}",
+                pack.is_some(),
+                pack.map(|p| p.dc_bus_v),
+                pack.map(|p| p.dc_bus_current),
+                power,
+            );
+        }
+    }
+
+    // Update the dc-bus-derived fallback (kept for when VCU isn't
+    // broadcasting yet or reads 0). Same qualification + floor as before.
+    if let Some(p) = pack {
+        if p.dc_bus_current.abs() < 1.0 {
+            let raw = (p.dc_bus_v - 390.0) / (546.0 / 390.0);
+            *last_qualified_soc = Some(raw.max(0.0));
+        }
+    }
+
+    // VCU-only SOC for now. Per driveday request: dc_bus fallback is
+    // commented out so the dash shows exactly what VCU broadcasts on
+    // packet 0x1C7 (mm/vcu-soc). To restore the fallback, swap to:
+    //   let soc = diag_high
+    //       .and_then(|d| if d.soc_estimate > 0.0 { Some(d.soc_estimate) } else { None })
+    //       .or(*last_qualified_soc);
+    let soc = diag_high.map(|d| d.soc_estimate);
 
     // Per-cell temp aggregates — None when cand has not received cell-temp
     // packets yet (empty vec).
@@ -239,6 +319,9 @@ fn extract_can_data(data: &OrionSensorData) -> CanData {
             (Some(max), Some(avg), Some(min))
         })
         .unwrap_or((None, None, None));
+
+    // Pack temp = hottest cell. Bound to cell_temp_max above; same source.
+    let temperature = cell_temp_max;
 
     // Shutdown array — packed in the order SHUTDOWN_NAMES expects.
     // Convention: true = OK, false = FAULT. Source fields are normalized to
@@ -273,6 +356,15 @@ fn extract_can_data(data: &OrionSensorData) -> CanData {
         _ => None,
     };
 
+    // PRNDL: float on the wire but VCU's enum only emits 0 (PARK) or
+    // 1 (DRIVE) — see VCU/model/components/PRNDL.h. Anything else is
+    // unexpected, so map to None.
+    let prndl: Option<&'static str> = diag_high.and_then(|d| match d.prndl_state as i32 {
+        0 => Some("P"),
+        1 => Some("D"),
+        _ => None,
+    });
+
     CanData {
         speed,
         power,
@@ -281,8 +373,17 @@ fn extract_can_data(data: &OrionSensorData) -> CanData {
         odometer: None,
         signal_strength: None,
         shutdown,
+        prndl,
+        pos_contactor: diag_high.map(|d| d.pos_hv_contactor),
+        neg_contactor: diag_high.map(|d| d.neg_hv_contactor),
+        precharge_contactor: diag_high.map(|d| d.precharge_contactor),
 
-        brake_bias: controls.map(|c| c.brake_bias),
+        // Workaround: the can.json precision on brake_bias is 0.01, so a
+        // raw VCU byte of 45 (meaning 45%) decodes to 0.45 and the dash
+        // rounds to "0%". Multiply back to 0..100 here. Proper fix is in
+        // longhorn-lib's can_packets.csv (set precision to 1.0); remove
+        // this scaling once that lands and can.json refreshes.
+        brake_bias: controls.map(|c| c.brake_bias * 100.0),
         apps: controls.map(|c| c.apps1_travel),
         bpps: controls.map(|c| c.bpps1_travel),
         brake_pressure_front: controls.map(|c| c.brake_pressure_f),
@@ -309,6 +410,11 @@ fn extract_can_data(data: &OrionSensorData) -> CanData {
         wheel_speed_fr: dynamics.map(|d| d.frw_speed),
         wheel_speed_rl: dynamics.map(|d| d.blw_speed),
         wheel_speed_rr: dynamics.map(|d| d.brw_speed),
+
+        // CSV byte 5 is named `line_lock_enabled` but the VCU team
+        // confirmed it carries the regen-enabled bit. Plumb to the
+        // frontend's regenEnabled pill.
+        regen_enabled: diag_high.map(|d| d.line_lock_enabled),
     }
 }
 
@@ -340,8 +446,8 @@ fn ipc_reader_loop(state: Arc<Mutex<DashState>>) {
 
                     match OrionSensorData::decode(&msg_buf[..]) {
                         Ok(data) => {
-                            let can_data = extract_can_data(&data);
                             let mut locked = state.lock().unwrap();
+                            let can_data = extract_can_data(&data, &mut locked.last_qualified_soc);
                             locked.can = can_data;
                             locked.last_can_update = Instant::now();
                         }
@@ -391,10 +497,20 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                 } else {
                                     locked.can.clone()
                                 };
+                                // Reads `/tmp/dash_chart_mode` each frame
+                                // ("sine" / "ramp"). Falls back to "sine"
+                                // if file missing or unreadable. Cheap I/O,
+                                // single-digit µs per WS tick.
+                                let chart_mode = std::fs::read_to_string("/tmp/dash_chart_mode")
+                                    .ok()
+                                    .map(|s| s.trim().to_string())
+                                    .filter(|s| !s.is_empty())
+                                    .unwrap_or_else(|| "sine".to_string());
                                 DashMessage {
                                     seq,
                                     can,
                                     mqtt: locked.mqtt.to_mqtt_data(),
+                                    chart_mode,
                                 }
                             };
 
@@ -405,6 +521,19 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                     continue;
                                 }
                             };
+
+                            // DEBUG (driveday): log just the power value that's
+                            // about to be sent to chromium, every ~10 ticks
+                            // (~3 Hz at 30Hz sender) so we catch transient
+                            // accel/regen moments. Revert when kW=0 bug found.
+                            {
+                                use std::sync::atomic::{AtomicU32, Ordering};
+                                static JSON_TICK: AtomicU32 = AtomicU32::new(0);
+                                let n = JSON_TICK.fetch_add(1, Ordering::Relaxed);
+                                if n % 10 == 0 {
+                                    eprintln!("[DASHD-OUT] seq={} power={:?}", message.seq, message.can.power);
+                                }
+                            }
 
                             if ws.send(tungstenite::Message::Text(json)).is_err() {
                                 println!("[DASHD] WebSocket client disconnected");
@@ -533,6 +662,7 @@ fn main() -> Result<()> {
         can: CanData::default(),
         // Start stale so the dash shows "--" until cand actually connects.
         last_can_update: Instant::now() - CAN_STALE_TIMEOUT,
+        last_qualified_soc: None,
         mqtt: MqttState::new(),
     }));
 
