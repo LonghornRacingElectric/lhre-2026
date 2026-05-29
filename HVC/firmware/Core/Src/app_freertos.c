@@ -271,25 +271,28 @@ void StartStateMachineTask(void *argument) {
     float delta_mv = (max_v - min_v) * 1000.0f;
     float min_temp_c = bms_get_min_temp();
     float max_temp_c = bms_get_max_temp();
+    float max_die_temp_c = bms_get_max_die_temp();
     uint8_t responsive_ics = bms_get_num_responsive_ics();
     uint8_t balance_count = bms_get_balance_count();
     bool bms_disc = bms_check_disconnection();
     bool bms_uv = bms_check_undervoltage();
     bool bms_ov = bms_check_overvoltage();
     bool bms_ot = bms_check_overtemp();
-
+    
     log_printf(LOG_INFO,
-               "Pack: %.2f V, Tractive: %.2f V, I: %.1f A, RawVS: %.3f V, "
-               "Faults[live:0x%08lX latched:0x%08lX], "
+               "Pack: %.2f V, Faults[live:0x%08lX latched:0x%08lX], "
                "Cell[min:%.3f max:%.3f dV:%.1f mV], Temp[min:%.1f max:%.1f], "
+               "DieTemp[max:%.1f], "
                "BMS[resp:%u disc:%u uv:%u ov:%u ot:%u], "
                "State:%d Shutdown:%d BalCnt:%u\n",
-               pack_v, tractive_v, tractive_a, raw_vsense_v,
+               pack_v,
                current_fault_vector, latched_fault_vector,
                min_v, max_v, delta_mv, min_temp_c, max_temp_c,
+               max_die_temp_c,
                responsive_ics, bms_disc, bms_uv, bms_ov, bms_ot,
                get_current_state(), is_shutdown_closed(), balance_count);
     osDelay(task_period_ms);
+    bms_print_all_cells();
   }
 }
 

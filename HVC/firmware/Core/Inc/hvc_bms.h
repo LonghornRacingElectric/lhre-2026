@@ -33,6 +33,9 @@ float bms_get_max_voltage(void);
 float bms_get_min_temp(void);
 float bms_get_max_temp(void);
 float bms_get_ic_die_temp(uint8_t ic);
+float bms_get_max_die_temp(void);
+
+void bms_print_all_cells(void);
 
 void StartBmsTask(void *argument);
 

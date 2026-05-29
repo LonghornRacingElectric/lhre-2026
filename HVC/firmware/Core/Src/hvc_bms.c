@@ -53,8 +53,8 @@
 #define ADBMS_ITMP_LSB_V         0.000150f
 #define ADBMS_ITMP_OFFSET_V      1.5f
 #define ADBMS_ITMP_SCALE_V_PER_C 0.0075f
-#define BAL_DIE_TEMP_REDUCE_C    80.0f  // cap drops to BAL_DIE_TEMP_REDUCE_MAX above here
-#define BAL_DIE_TEMP_STOP_C      90.0f  // balancing disabled for that IC above here
+#define BAL_DIE_TEMP_REDUCE_C    90.0f  // cap drops to BAL_DIE_TEMP_REDUCE_MAX above here
+#define BAL_DIE_TEMP_STOP_C      100.0f  // balancing disabled for that IC above here
 #define BAL_DIE_TEMP_REDUCE_MAX  2
 
 // Conservative conversion waits. The ADBMS6830B C-ADC and AUX ADC complete
@@ -192,7 +192,7 @@ uint8_t bms_get_balance_count(void) {
 bool bms_check_undervoltage(void)
 {
     for (int i = 0; i < NUM_CELLS; i++) {
-        if (cell_voltages[i] > 0.0f && cell_voltages[i] < CELL_UNDERVOLTAGE_THRESHOLD) {
+        if (cell_voltages[i] < CELL_UNDERVOLTAGE_THRESHOLD) {
             return true;
         }
     }
@@ -272,6 +272,14 @@ float bms_get_ic_die_temp(uint8_t ic) {
     return ic_die_temps[ic];
 }
 
+float bms_get_max_die_temp(void) {
+    float max_t = FLT_MIN;
+    for (int i = 0; i < TOTAL_IC; i++) {
+        if (ic_die_temps[i] > max_t) max_t = ic_die_temps[i];
+    }
+    return max_t;
+}
+
 // Per-IC balancing cap based on die temperature.
 static uint8_t ic_bal_cap(uint8_t ic)
 {
@@ -349,7 +357,7 @@ static bool bms_balance_gates_failed(void)
 {
     bool driving     = (get_current_state() == HVC_STATE_ENERGIZED);
     int32_t pack_mA  = (int32_t)(get_tractive_current() * 1000.0f);
-    bool overcurrent = (pack_mA > PACK_I_MAX_MA) || (pack_mA < -PACK_I_MAX_MA);
+    bool overcurrent = false;//(pack_mA > PACK_I_MAX_MA) || (pack_mA < -PACK_I_MAX_MA);
     bool fault       = bms_check_disconnection() || bms_check_undervoltage() || bms_check_overtemp();
     bool overtemp    = (bms_get_max_temp() >= BAL_TEMP_CUTOFF_C);
     return fault || driving || overcurrent || overtemp;
@@ -591,6 +599,27 @@ void bms_update(void)
     }
 
     bms_update_discharge_mute();
+}
+
+void bms_print_all_cells() {
+    char buf[160];
+    for (uint8_t ic = 0; ic < TOTAL_IC; ic++) {
+        uint16_t base = (uint16_t)ic * CELLS_PER_IC;
+        uint8_t bal_count = 0;
+        for (uint8_t cell = 0; cell < CELLS_PER_IC; cell++) {
+            if (bal_cmd[base + cell]) bal_count++;
+        }
+        int pos = snprintf(buf, sizeof(buf), "BMB %u (die: %.1fC, bal: %u) |",
+            ic + 1, ic_die_temps[ic], bal_count);
+        for (uint8_t cell = 0; cell < CELLS_PER_IC; cell++) {
+            pos += snprintf(buf + pos, sizeof(buf) - pos, "\t%8.5f%s",
+                cell_voltages[base + cell],
+                bal_cmd[base + cell] ? "*" : " ");
+        }
+        snprintf(buf + pos, sizeof(buf) - pos, "\r\n");
+        log_printf(LOG_INFO, "%s", buf);
+        osDelay(1);
+    }
 }
 
 void StartBmsTask(void *argument)
