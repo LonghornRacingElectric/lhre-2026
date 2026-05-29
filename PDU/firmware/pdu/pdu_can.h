@@ -52,8 +52,6 @@ bool hvc_bms_fault(void);
 bool hvc_imd_timeout(void);
 bool hvc_bms_timeout(void);
 
-float brake_light_pct(void);
-
 #ifdef __cplusplus
 }
 #endif

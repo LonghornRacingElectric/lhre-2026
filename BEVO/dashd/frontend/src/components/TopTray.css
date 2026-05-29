@@ -1,0 +1,41 @@
+/* Standard top tray header used by PitDiagnostic, Shutdown, and Settings.
+   Matches the visual language of ScreenOne's top lap-delta tray exactly:
+   same background, border, blur, shadow, and bottom-rounded corners. */
+
+.top-tray {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 60px;
+    z-index: 100;
+    background: var(--card-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--card-border);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    box-shadow: var(--card-shadow);
+    padding: 0 24px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+}
+
+.top-tray-section {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+}
+
+.top-tray-center {
+    justify-content: center;
+}
+
+.top-tray-right {
+    justify-content: flex-end;
+    font-size: 0.85rem;
+    letter-spacing: 4px;
+    color: var(--fg-secondary);
+    text-transform: uppercase;
+}

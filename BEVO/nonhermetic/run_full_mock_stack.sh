@@ -10,12 +10,12 @@ CAN_JSON_PATH="$BEVO_ROOT/nonhermetic/assets/can.json"
 CAN_IFACE="${CAND_CAN_INTERFACE:-can0}"
 
 cleanup() {
-  kill "${MOCK_PID:-}" "${CAND_PID:-}" "${DASHD_PID:-}" "${LOGGERD_PID:-}" "${PUBLISHD_PID:-}" >/dev/null 2>&1 || true
+  kill "${MOCK_PID:-}" "${MOCK_MAIN_PID:-}" "${DEBUGD_PID:-}" "${DASHD_PID:-}" "${LOGGERD_PID:-}" "${PUBLISHD_PID:-}" >/dev/null 2>&1 || true
   rm -f /tmp/BEVO_publishd_ready /tmp/BEVO_cand.sock /tmp/BEVO_cand_publishd.sock
 }
 trap cleanup EXIT INT TERM
 
-for bin in "$BIN_DIR/cand" "$BIN_DIR/dashd" "$BIN_DIR/loggerd" "$BIN_DIR/publishd"; do
+for bin in "$BIN_DIR/mock_main" "$BIN_DIR/dashd" "$BIN_DIR/loggerd" "$BIN_DIR/publishd" "$BIN_DIR/debugd"; do
   if [[ ! -x "$bin" ]]; then
     echo "Missing binary: $bin" >&2
     echo "Run BEVO/nonhermetic/setup_local_env.sh first." >&2
@@ -40,15 +40,18 @@ PUBLISHD_REQUIRE_SERVER_PACKET_ID="${PUBLISHD_REQUIRE_SERVER_PACKET_ID:-1}" "$BI
 PUBLISHD_PID=$!
 
 # launch the remaining daemons
+"$BIN_DIR/debugd" &
+DEBUGD_PID=$!
+
 "$BIN_DIR/dashd" &
 DASHD_PID=$!
 
 "$BIN_DIR/loggerd" &
 LOGGERD_PID=$!
 
-# cand in mock mode
-CAND_USE_MOCK=1 CAND_CAN_JSON_PATH="$CAN_JSON_PATH" "$BIN_DIR/cand" &
-CAND_PID=$!
+# mock_main publishes directly to the cand IPC sockets
+CAND_CAN_JSON_PATH="$CAN_JSON_PATH" CAND_MOCK_PUBLISH_TARGETS="cand,publishd" "$BIN_DIR/mock_main" &
+MOCK_MAIN_PID=$!
 
 # wait on dashd as the primary process
 wait "$DASHD_PID"

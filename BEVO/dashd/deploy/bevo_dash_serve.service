@@ -1,0 +1,19 @@
+[Unit]
+Description=BEVO Dash static frontend (React build over HTTP)
+After=network.target
+# Runs in parallel with bevo_telemetry.service. The browser kiosk connects
+# to this server (port 8080) for the HTML/JS, and to dashd (port 8001) for
+# live WebSocket data.
+
+[Service]
+Type=simple
+User=lhre
+WorkingDirectory=__BEVO_REPO__/BEVO/dashd/frontend/build
+ExecStart=/usr/bin/python3 -m http.server 8080 --bind 127.0.0.1
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

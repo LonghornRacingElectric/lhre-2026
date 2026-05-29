@@ -1,0 +1,8 @@
+#!/bin/sh
+# BEVO dash-mode labwc autostart. Overrides /etc/xdg/labwc/autostart for the
+# lhre user. Drops pcmanfm-pi (desktop / wallpaper) and wf-panel-pi (taskbar)
+# so nothing visible renders before the Chromium kiosk takes over. Keeps
+# kanshi (monitor hotplug) and the XDG autostart runner so dash-kiosk.desktop
+# still fires.
+/usr/bin/kanshi &
+/usr/bin/lxsession-xdg-autostart

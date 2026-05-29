@@ -1,0 +1,62 @@
+# Derived fields for the Orion real-time Kafka feed.
+# These are computed from grafana_data_orion and published to grafana_data_orion_derived.
+#
+# Rules:
+#   - name:  field name that appears in Grafana
+#   - expr:  Python math expression; can reference any scalar/list field in the source message
+#             and all math.* functions (sqrt, log, sin, ...), abs, min, max, round, len
+#   - Earlier fields are available to later expressions in the same message.
+#
+# Examples of what's available in source message (scalars): hv_pack_v, hv_c, hv_soc,
+#   max_cell_v, min_cell_v, avg_cell_v_stat, motor_speed, torque_feedback, torque_request,
+#   torque_command, torque_limit, brake_pressure_f, accel_pedal_travel, steer_col_angle,
+#   flw_speed, frw_speed, blw_speed, brw_speed, coolant_temp, motor_temp, gate_driver_temp, ...
+# Arrays (accessible as lists): cells_v, cells_temps, gps, gps_imu
+
+fields:
+  # --- Powertrain ---
+  - name: power_kw
+    expr: "hv_pack_v * hv_c / 1000.0"
+
+  - name: regen_active
+    expr: "1 if hv_c < 0 else 0"
+
+  - name: lv_power_w
+    expr: "lv_batt_v * lv_batt_c if lv_batt_v and lv_batt_c else 0"
+
+  # --- Battery health ---
+  - name: cell_v_delta
+    expr: "max_cell_v - min_cell_v if max_cell_v and min_cell_v else 0"
+
+  - name: cell_v_spread_pct
+    expr: "((max_cell_v - min_cell_v) / avg_cell_v_stat) * 100 if avg_cell_v_stat and avg_cell_v_stat > 0 else 0"
+
+  - name: max_cell_temp
+    expr: "max(cells_temps) if cells_temps and len(cells_temps) > 0 else 0"
+
+  - name: min_cell_temp
+    expr: "min(cells_temps) if cells_temps and len(cells_temps) > 0 else 0"
+
+  - name: cell_temp_delta
+    expr: "max_cell_temp - min_cell_temp"
+
+  # --- Drivetrain ---
+  - name: torque_efficiency_pct
+    expr: "abs(torque_feedback / torque_request) * 100 if torque_request and abs(torque_request) > 1 else 0"
+
+  - name: wheel_speed_avg
+    expr: "(flw_speed + frw_speed + blw_speed + brw_speed) / 4.0 if flw_speed is not None else 0"
+
+  - name: wheel_speed_lr_delta
+    expr: "((flw_speed + blw_speed) / 2.0) - ((frw_speed + brw_speed) / 2.0) if flw_speed is not None else 0"
+
+  # --- Acceleration from GPS IMU ---
+  # gps_imu[0] = longitudinal accel (m/s²), gps_imu[1] = lateral accel (m/s²)
+  - name: total_g
+    expr: "math.sqrt(gps_imu[0]**2 + gps_imu[1]**2) if gps_imu and len(gps_imu) >= 2 else 0"
+
+  - name: long_g
+    expr: "gps_imu[0] if gps_imu and len(gps_imu) > 0 else 0"
+
+  - name: lat_g
+    expr: "gps_imu[1] if gps_imu and len(gps_imu) > 1 else 0"

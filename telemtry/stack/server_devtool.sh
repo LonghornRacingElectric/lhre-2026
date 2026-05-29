@@ -10,6 +10,7 @@ echo -e "\tW) Delete the existing server and processors images"
 echo -e "\tE) Delete the lap timer processors images"
 echo -e "\tF) Delete the gps classifier processors images"
 echo -e "\tH) Delete the track mapper processors images"
+echo -e "\tI) Start field enricher processor (derived real-time fields)"
 echo -e "\tS) Stop everything currently running"
 echo
 
@@ -23,6 +24,7 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INGEST_DIR="$SCRIPT_DIR/ingest"
+DASHBOARD_SOURCE_DIR="$SCRIPT_DIR/../analysis/database/dashboards"
 
 remove_images_matching() {
     local pattern="$1"
@@ -51,6 +53,15 @@ compose_down_if_present() {
     )
 }
 
+ensure_grafana_dashboards_exist() {
+    if [[ ! -d "$DASHBOARD_SOURCE_DIR" ]]; then
+        echo "Grafana dashboard source directory not found: $DASHBOARD_SOURCE_DIR"
+        return 1
+    fi
+
+    echo "Grafana dashboards found and ready for auto-provisioning."
+}
+
 stop_everything_running() {
     compose_down_if_present "$SCRIPT_DIR/ingest" "ingest services"
     compose_down_if_present "$SCRIPT_DIR/kafka" "kafka services"
@@ -59,6 +70,7 @@ stop_everything_running() {
     compose_down_if_present "$SCRIPT_DIR/processors/gps_classifier" "gps classifier processor"
     compose_down_if_present "$SCRIPT_DIR/processors/track_mapper" "track mapper processor"
     compose_down_if_present "$SCRIPT_DIR/processors/kafka_test" "kafka test processor"
+    compose_down_if_present "$SCRIPT_DIR/processors/field_enricher" "field enricher processor"
 
     echo "Stopped all telemetry stack services."
 }
@@ -75,6 +87,12 @@ do
     else
         brew services stop postgresql
     fi
+
+    case $opt in
+        1|2|3|4|q|Q|w|W|z|Z)
+            ensure_grafana_dashboards_exist || exit 1
+            ;;
+    esac
     
     case $opt in
         1)
@@ -86,23 +104,27 @@ do
             cd ../kafka || (echo "Failed to find kafka" && exit)
             $SUDO docker compose down
             $SUDO docker rmi "$($SUDO docker image ls | grep kafka-bridge | awk '{print $3}')"
-            $SUDO docker compose up -d
-            cd ../ingest || (echo "Failed to find ingest" && exit)
+            $SUDO docker compose up --build -d
+            cd ../processors/field_enricher || (echo "Failed to find field_enricher" && exit)
             $SUDO docker compose down
-            remove_images_matching "telemetry_backend"
-            $SUDO docker compose up
+            $SUDO docker compose up --build -d
+            cd ../../ingest || (echo "Failed to find ingest" && exit)
+            $SUDO docker compose down
+            $SUDO docker compose up --build
             break
             ;;
         3)
             cd ../kafka || (echo "Failed to find kafka" && exit)
             $SUDO docker compose down
             $SUDO docker rmi "$($SUDO docker image ls | grep kafka-bridge | awk '{print $3}')"
-            $SUDO docker compose up -d
-            cd ../ingest || (echo "Failed to find ingest" && exit)
+            $SUDO docker compose up --build -d
+            cd ../processors/field_enricher || (echo "Failed to find field_enricher" && exit)
             $SUDO docker compose down
-            remove_images_matching "telemetry_backend"
-            $SUDO docker volume rm telemetry_db && $SUDO docker volume create telemetry_db
-            $SUDO docker compose up
+            $SUDO docker compose up --build -d
+            cd ../../ingest || (echo "Failed to find ingest" && exit)
+            $SUDO docker compose down
+            $SUDO docker volume rm telemetry_db 2>/dev/null; $SUDO docker volume create telemetry_db
+            $SUDO docker compose up --build
             break
             ;;
         4)
@@ -115,10 +137,9 @@ do
                 case $yn in
                     Y|y)
                         $SUDO docker compose down
-                        remove_images_matching "telemetry_backend"
-                        $SUDO docker volume rm telemetry_db && $SUDO docker volume create telemetry_db
-                        $SUDO docker volume rm grafana_storage && $SUDO docker volume create grafana_storage
-                        $SUDO docker compose up
+                        $SUDO docker volume rm telemetry_db 2>/dev/null; $SUDO docker volume create telemetry_db
+                        $SUDO docker volume rm grafana_storage 2>/dev/null; $SUDO docker volume create grafana_storage
+                        $SUDO docker compose up --build
                         break
                         ;;
                     N|n)
@@ -134,10 +155,10 @@ do
             ;;
         q|Q)
             $SUDO docker compose down
-            $SUDO docker compose up -d
+            $SUDO docker compose up --build -d
             cd ../processors || (echo "Failed to find processors" && exit)
             $SUDO docker compose down
-            $SUDO docker compose up -d
+            $SUDO docker compose up --build -d
             echo "Processor container ID: $($SUDO docker container ls | grep telemetry_processors | awk '{print $1}')"
             cd ../ingest
             $SUDO docker compose logs -f
@@ -145,12 +166,10 @@ do
             ;;
         w|W)
             $SUDO docker compose down
-            remove_images_matching "telemetry_backend"
-            remove_images_matching "telemetry_processors"
-            $SUDO docker compose up -d
+            $SUDO docker compose up --build -d
             cd ../processors || (echo "Failed to find processors" && exit)
             $SUDO docker compose down
-            $SUDO docker compose up -d
+            $SUDO docker compose up --build -d
             echo "Processor container ID: $($SUDO docker container ls | grep telemetry_processors | awk '{print $1}')"
             cd ../ingest
             $SUDO docker compose logs -f
@@ -159,29 +178,32 @@ do
         e|E)
             cd ../processors/lap_timer || (echo "Failed to find processors" && exit)
             $SUDO docker compose down
-            remove_images_matching "lap_timer"
-            $SUDO docker compose up
+            $SUDO docker compose up --build
             break
             ;;
         f|F)
             cd ../processors/gps_classifier || (echo "Failed to find processors" && exit)
             $SUDO docker compose down
-            remove_images_matching "gps_classifier"
-            $SUDO docker compose up
+            $SUDO docker compose up --build
             break
             ;;
         g|G)
             cd ../processors/kafka_test || (echo "Failed to find processors" && exit)
             $SUDO docker compose down
-            remove_images_matching "kafka_test"
-            $SUDO docker compose up
+            $SUDO docker compose up --build
             break
             ;;
         h|H)
             cd ../processors/track_mapper || (echo "Failed to find processors" && exit)
             $SUDO docker compose down
-            remove_images_matching "track_mapper"
-            $SUDO docker compose up
+            $SUDO docker compose up --build
+            break
+            ;;
+        i|I)
+            cd ../processors/field_enricher || (echo "Failed to find field_enricher" && exit)
+            $SUDO docker compose down
+            $SUDO docker compose up --build -d
+            echo "Field enricher container ID: $($SUDO docker container ls | grep field_enricher_processor | awk '{print $1}')"
             break
             ;;
         s|S)
@@ -190,17 +212,14 @@ do
             ;;
         z|Z)
             $SUDO docker compose down
-            remove_images_matching "telemetry_backend"
-            $SUDO docker volume rm telemetry_db && $SUDO docker volume create telemetry_db
-            $SUDO docker compose up -d
+            $SUDO docker volume rm telemetry_db 2>/dev/null; $SUDO docker volume create telemetry_db
+            $SUDO docker compose up --build -d
             cd ../processors/lap_timer || (echo "Failed to find processors" && exit)
             $SUDO docker compose down
-            remove_images_matching "lap_timer"
-            $SUDO docker compose up -d
+            $SUDO docker compose up --build -d
             cd ../gps_classifier || (echo "Failed to find processors" && exit)
             $SUDO docker compose down
-            remove_images_matching "gps_classifier"
-            $SUDO docker compose up
+            $SUDO docker compose up --build
             # cd ../../ingest
             # $SUDO docker compose logs -f
             

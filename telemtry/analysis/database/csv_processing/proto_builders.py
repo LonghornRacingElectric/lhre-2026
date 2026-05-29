@@ -115,7 +115,7 @@ def build_orion_sensor_data_proto(row_dict_list, idx):
     payload = _build_payload(
         row_dict_list,
         idx,
-        ["dynamics", "controls", "pack", "diagnostics_high", "diagnostics_low", "thermal"],
+        ["dynamics", "controls", "pack", "diagnostics_high", "diagnostics_low", "thermal", "board_status"],
     )
     _assign_message(msg, payload)
     return msg

@@ -9,12 +9,10 @@
 extern "C" {
 #endif
 
-/**
- * @brief Calculates torque request given a set of parameters and inputs
- * @note the torque command is in Nm
- */
+void torque_map_init(const vcu_parameters_t *params);
+
 void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
-                         vcu_parameters_t *params, uint32_t dt_ms);
+                         const vcu_parameters_t *params, uint32_t dt_ms);
 
 #ifdef __cplusplus
 }

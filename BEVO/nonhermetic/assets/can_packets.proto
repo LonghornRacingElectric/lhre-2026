@@ -10,6 +10,18 @@ message OrionSensorData {
     DiagnosticsHigh diagnostics_high = 6;
     DiagnosticsLow diagnostics_low = 7;
     Thermal thermal = 8;
+    BoardStatus board_status = 9;
+}
+
+message BoardStatus {
+    float csm_last_seen_s = 1;
+    float dui_last_seen_s = 2;
+    float hvc_last_seen_s = 3;
+    float inverter_last_seen_s = 4;
+    float pdu_last_seen_s = 5;
+    float tsm_last_seen_s = 6;
+    float usm_last_seen_s = 7;
+    float vcu_last_seen_s = 8;
 }
 
 message Dynamics {
@@ -18,32 +30,36 @@ message Dynamics {
     float gps_speed = 3;
     float accel_pedal_travel = 4;
     float steer_col_angle = 5;
-    repeated float bl_sprung_accel = 6;
-    repeated float bl_unsprung_accel = 7;
-    repeated float br_sprung_accel = 8;
-    repeated float br_unsprung_accel = 9;
-    repeated float fl_sprung_accel = 10;
-    repeated float fl_unsprung_accel = 11;
-    repeated float fr_sprung_accel = 12;
-    repeated float fr_unsprung_accel = 13;
-    float bl_ride_height = 14;
-    float bl_strain_gauge_v = 15;
-    float bl_sus_pot_v = 16;
-    float blw_speed = 17;
-    float br_ride_height = 18;
-    float br_strain_gauge_v = 19;
-    float br_sus_pot_v = 20;
-    float brw_speed = 21;
-    float fl_ride_height = 22;
-    float fl_strain_gauge_v = 23;
-    float fl_sus_pot_v = 24;
-    float flw_speed = 25;
-    float fr_ride_height = 26;
-    float fr_strain_gauge_v = 27;
-    float fr_sus_pot_v = 28;
-    float frw_speed = 29;
-    float ride_height = 30;
-    float wheel_speed = 31;
+    repeated float bl_gyro = 6;
+    repeated float bl_sprung_accel = 7;
+    repeated float bl_unsprung_accel = 8;
+    repeated float br_gyro = 9;
+    repeated float br_sprung_accel = 10;
+    repeated float br_unsprung_accel = 11;
+    repeated float fl_gyro = 12;
+    repeated float fl_sprung_accel = 13;
+    repeated float fl_unsprung_accel = 14;
+    repeated float fr_gyro = 15;
+    repeated float fr_sprung_accel = 16;
+    repeated float fr_unsprung_accel = 17;
+    float bl_ride_height = 18;
+    float bl_strain_gauge_v = 19;
+    float bl_sus_pot_v = 20;
+    float blw_speed = 21;
+    float br_ride_height = 22;
+    float br_strain_gauge_v = 23;
+    float br_sus_pot_v = 24;
+    float brw_speed = 25;
+    float fl_ride_height = 26;
+    float fl_strain_gauge_v = 27;
+    float fl_sus_pot_v = 28;
+    float flw_speed = 29;
+    float fr_ride_height = 30;
+    float fr_strain_gauge_v = 31;
+    float fr_sus_pot_v = 32;
+    float frw_speed = 33;
+    float ride_height = 34;
+    float wheel_speed = 35;
 }
 
 message Controls {
@@ -74,31 +90,33 @@ message Controls {
     float motor_angle = 25;
     bool direction = 26;
     bool enable = 27;
-    float torque_shudder = 28;
+    bool line_lock_enabled = 28;
+    float torque_shudder = 29;
 }
 
 message Pack {
     float bus_voltage = 1;
     float lv_boards_current = 2;
-    repeated float cells_v = 3;
-    float dc_bus_v = 4;
-    float delta_resolver_angle = 5;
-    float inverter_freq = 6;
-    float neutral_output_v = 7;
-    float time_since_on = 8;
-    float vab_vq_v = 9;
-    float vbc_vd_v = 10;
-    repeated float cells_temps = 11;
-    float dc_bus_current = 12;
-    float hv_c = 13;
-    float hv_pack_v = 14;
-    float hv_soc = 15;
-    float lv_batt_c = 16;
-    float lv_batt_t = 17;
-    float lv_batt_v = 18;
-    float phase_a_current = 19;
-    float phase_b_current = 20;
-    float phase_c_current = 21;
+    float soc_estimate = 3;
+    repeated float cells_v = 4;
+    float dc_bus_v = 5;
+    float delta_resolver_angle = 6;
+    float inverter_freq = 7;
+    float neutral_output_v = 8;
+    float time_since_on = 9;
+    float vab_vq_v = 10;
+    float vbc_vd_v = 11;
+    repeated float cells_temps = 12;
+    float dc_bus_current = 13;
+    float hv_c = 14;
+    float hv_pack_v = 15;
+    float hv_soc = 16;
+    float lv_batt_c = 17;
+    float lv_batt_t = 18;
+    float lv_batt_v = 19;
+    float phase_a_current = 20;
+    float phase_b_current = 21;
+    float phase_c_current = 22;
 }
 
 message DiagnosticsHigh {
@@ -107,11 +125,39 @@ message DiagnosticsHigh {
     float hvc_state_machine = 3;
     float post_faults = 4;
     float run_faults = 5;
-    bool r2d_buzzer = 6;
-    bool stomp_fault = 7;
-    bool neg_hv_contactor = 8;
-    bool pos_hv_contactor = 9;
-    bool precharge_contactor = 10;
+    bool apps1_disconnect = 6;
+    bool apps1_out_range = 7;
+    bool apps2_disconnect = 8;
+    bool apps2_out_range = 9;
+    bool apps_implause = 10;
+    bool apps_mismatch = 11;
+    bool batt_fans_fuse = 12;
+    bool batt_pump_fuse = 13;
+    bool boards_fuse = 14;
+    bool bpps1_disconnect = 15;
+    bool bpps1_out_range = 16;
+    bool bpps2_disconnect = 17;
+    bool bpps2_out_range = 18;
+    bool bpps_mismatch = 19;
+    bool brake_light_fuse = 20;
+    bool bse1_disconnect = 21;
+    bool bse1_out_range = 22;
+    bool bse2_disconnect = 23;
+    bool bse2_out_range = 24;
+    bool ll_fuse = 25;
+    bool motor_pump_fuse = 26;
+    bool r2d_buzzer = 27;
+    bool rtd_fuse = 28;
+    bool shtdn_fuse = 29;
+    bool shutdown_bspd_status = 30;
+    bool shutdown_emeter_status = 31;
+    bool spare_fuse = 32;
+    bool stomp_fault = 33;
+    bool tssi_green_fuse = 34;
+    bool tssi_red_fuse = 35;
+    bool neg_hv_contactor = 36;
+    bool pos_hv_contactor = 37;
+    bool precharge_contactor = 38;
 }
 
 message DiagnosticsLow {
@@ -124,6 +170,10 @@ message DiagnosticsLow {
     bool shutdown_leg2 = 7;
     bool shutdown_leg3 = 8;
     bool shutdown_leg4 = 9;
+    bool temp_imd_1 = 10;
+    bool temp_imd_2 = 11;
+    bool temp_shutdown_1 = 12;
+    bool temp_shutdown_2 = 13;
 }
 
 message Thermal {
@@ -147,10 +197,18 @@ message Thermal {
     float gate_driver_temp = 18;
     float inverter_hotspot_temp = 19;
     float inverter_temp = 20;
-    float module_a_temp = 21;
-    float module_b_temp = 22;
-    float module_c_temp = 23;
-    float motor_loop_inverter_temp = 24;
-    float motor_loop_motor_temp = 25;
-    float motor_loop_rad_temp = 26;
+    float max_cell_voltage = 21;
+    float min_cell_voltage = 22;
+    float module_a_temp = 23;
+    float module_b_temp = 24;
+    float module_c_temp = 25;
+    float motor_loop_inverter_temp = 26;
+    float motor_loop_motor_temp = 27;
+    float motor_loop_rad_temp = 28;
+    bool temp_ams_1 = 29;
+    bool temp_ams_2 = 30;
+    bool temp_command_1 = 31;
+    bool temp_command_2 = 32;
+    bool temp_output_1 = 33;
+    bool temp_output_2 = 34;
 }

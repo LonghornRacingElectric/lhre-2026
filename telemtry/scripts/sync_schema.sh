@@ -84,6 +84,13 @@ if [ "$CAR_NAME" = "Orion" ]; then
   mkdir -p "$VIEWER_PROTO_DIR"
   cp "$PROTO_FILE" "$VIEWER_ORION_PROTO_OUT"
   echo "Synced viewer runtime proto: $VIEWER_ORION_PROTO_OUT"
+  
+  # Update sensor.proto with Orion schema from can_packets.proto
+  SENSOR_PROTO="$TELEMTRY_ROOT/stack/kafka/proto/sensor/sensor.proto"
+  if [ -f "$SENSOR_PROTO" ]; then
+    python3 "$SCRIPT_DIR/update_sensor_proto.py" "$SENSOR_PROTO" "$PROTO_FILE"
+    echo "Updated Orion schema in: $SENSOR_PROTO"
+  fi
 fi
 
 echo "Step 4: Cleaning up..."

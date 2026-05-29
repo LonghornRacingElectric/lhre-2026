@@ -1,0 +1,87 @@
+/* Layout-only styles. Visual language (cards, typography, colors) is
+   inherited from ScreenOne.css via dash-card / value-display / label-small. */
+
+.settings-screen {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    padding: 70px 18px 14px 18px;  /* 60 tray + 10 gap on top */
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    gap: 10px;
+    flex: 1;
+    min-height: 0;
+}
+
+.setting-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 10px 12px;
+    cursor: pointer;
+    overflow: hidden;
+    /* Inherit bg/border/shadow from .dash-card so cards match the
+       top/bottom trays on ScreenOne exactly. No hover/focus override
+       to bg or border. */
+}
+
+.setting-card:hover {
+    background: var(--card-bg);
+    border-color: var(--card-border);
+}
+
+.setting-card.focused {
+    /* Same bg + border as the trays. Focus is shown via brighter arrows. */
+    background: var(--card-bg);
+    border-color: var(--card-border);
+}
+
+.setting-card-control {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    flex: 1;
+}
+
+.setting-arrow {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: var(--fg-muted);
+    width: 18px;
+    text-align: center;
+    user-select: none;
+    transition: color 0.1s;
+}
+
+.setting-card.focused .setting-arrow {
+    color: var(--fg-primary);
+    text-shadow: 0 0 8px var(--value-glow);
+}
+
+.setting-card-value {
+    font-size: 1.1rem;
+    font-weight: bold;
+    flex: 1;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.settings-footer {
+    text-align: center;
+    font-size: 0.65rem;
+    color: var(--fg-muted);
+    letter-spacing: 1.5px;
+    margin: 0;
+}

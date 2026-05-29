@@ -251,7 +251,13 @@ fn main() -> Result<()> {
         .ok()
         .and_then(|value| value.parse::<u16>().ok())
         .unwrap_or(MQTT_PORT);
-    let mqtt_client_id = env_or_default("PUBLISHD_MQTT_CLIENT_ID", MQTT_CLIENT_ID);
+    // Append PID so multiple publishd instances (e.g. orphan from a botched
+    // test kill, or dev laptop + on-car) don't collide on the same MQTT
+    // client_id and kick each other off the broker in a reconnect loop. The
+    // server-side device identity is carried in announce_payload (which keeps
+    // using MQTT_ANNOUNCE_CLIENT_ID verbatim), so this is broker-level only.
+    let mqtt_client_id_base = env_or_default("PUBLISHD_MQTT_CLIENT_ID", MQTT_CLIENT_ID);
+    let mqtt_client_id = format!("{}-{}", mqtt_client_id_base, std::process::id());
     let announce_payload = packet_id_announce_payload(MQTT_ANNOUNCE_CLIENT_ID);
 
     let mqtt_client = MqttClient::new(&mqtt_host, mqtt_port, &mqtt_client_id)?;
