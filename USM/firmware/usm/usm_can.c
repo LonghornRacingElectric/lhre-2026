@@ -39,24 +39,20 @@ static can_interface_t data_acq_bus;
    CAN Message Mailboxes
    =============================== */
 
-/* Wheel Speeds (ID 1024) */
-static msg_wheel_speeds_t wheel_speeds_mailbox = {0};
-static can_message_t *wheel_speeds_handle = NULL;
-
 /* Acceleration Unsprung FL (ID 1026) */
-static msg_acceleration_vector_unsprung_fl_t accel_fl_mailbox = {0};
+static msg_acceleration_vector_unsprung_wheel_speed_fl_t accel_fl_mailbox = {0};
 static can_message_t *accel_fl_handle = NULL;
 
 /* Acceleration Unsprung FR (ID 1027) */
-static msg_acceleration_vector_unsprung_fr_t accel_fr_mailbox = {0};
+static msg_acceleration_vector_unsprung_wheel_speed_fr_t accel_fr_mailbox = {0};
 static can_message_t *accel_fr_handle = NULL;
 
 /* Acceleration Unsprung RL (ID 1028) */
-static msg_acceleration_vector_unsprung_rl_t accel_rl_mailbox = {0};
+static msg_acceleration_vector_unsprung_wheel_speed_rl_t accel_rl_mailbox = {0};
 static can_message_t *accel_rl_handle = NULL;
 
 /* Acceleration Unsprung RR (ID 1029) */
-static msg_acceleration_vector_unsprung_rr_t accel_rr_mailbox = {0};
+static msg_acceleration_vector_unsprung_wheel_speed_rr_t accel_rr_mailbox = {0};
 static can_message_t *accel_rr_handle = NULL;
 
 /* ===============================
@@ -124,58 +120,52 @@ void usm_can_init(void) {
    =============================== */
 
 static void usm_can_add_send_handlers(void) {
-  /* Wheel Speeds (ID 1024) */
-  wheel_speeds_handle = can_get_message_handle(
-      &wheel_speeds_mailbox, WHEEL_SPEEDS_ID, WHEEL_SPEEDS_FREQ,
-      WHEEL_SPEEDS_DLC, (CAN_pack_message_fn)pack_wheel_speeds);
 
-  can_rtos_register_send_packet(&data_acq_bus, wheel_speeds_handle);
-
-  log_printf(LOG_INFO, "[USM] CAN send handler for wheel speeds registered\n");
-
+#if defined(BOARD_FL)
   /* Acceleration Unsprung FL (ID 1026) */
   accel_fl_handle = can_get_message_handle(
-      &accel_fl_mailbox, ACCELERATION_VECTOR_UNSPRUNG_FL_ID,
-      ACCELERATION_VECTOR_UNSPRUNG_FL_FREQ, ACCELERATION_VECTOR_UNSPRUNG_FL_DLC,
-      (CAN_pack_message_fn)pack_acceleration_vector_unsprung_fl);
+      &accel_fl_mailbox, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FL_ID,
+      ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FL_FREQ, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FL_DLC,
+      (CAN_pack_message_fn)pack_acceleration_vector_unsprung_wheel_speed_fl);
 
   can_rtos_register_send_packet(&data_acq_bus, accel_fl_handle);
 
   log_printf(LOG_INFO,
              "[USM] CAN send handler for acceleration FL registered\n");
-
+#elif defined(BOARD_FR)
   /* Acceleration Unsprung FR (ID 1027) */
   accel_fr_handle = can_get_message_handle(
-      &accel_fr_mailbox, ACCELERATION_VECTOR_UNSPRUNG_FR_ID,
-      ACCELERATION_VECTOR_UNSPRUNG_FR_FREQ, ACCELERATION_VECTOR_UNSPRUNG_FR_DLC,
-      (CAN_pack_message_fn)pack_acceleration_vector_unsprung_fr);
+      &accel_fr_mailbox, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FR_ID,
+      ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FR_FREQ, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FR_DLC,
+      (CAN_pack_message_fn)pack_acceleration_vector_unsprung_wheel_speed_fr);
 
   can_rtos_register_send_packet(&data_acq_bus, accel_fr_handle);
 
   log_printf(LOG_INFO,
              "[USM] CAN send handler for acceleration FR registered\n");
-
+#elif defined(BOARD_RL)
   /* Acceleration Unsprung RL (ID 1028) */
   accel_rl_handle = can_get_message_handle(
-      &accel_rl_mailbox, ACCELERATION_VECTOR_UNSPRUNG_RL_ID,
-      ACCELERATION_VECTOR_UNSPRUNG_RL_FREQ, ACCELERATION_VECTOR_UNSPRUNG_RL_DLC,
-      (CAN_pack_message_fn)pack_acceleration_vector_unsprung_rl);
+      &accel_rl_mailbox, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RL_ID,
+      ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RL_FREQ, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RL_DLC,
+      (CAN_pack_message_fn)pack_acceleration_vector_unsprung_wheel_speed_rl);
 
   can_rtos_register_send_packet(&data_acq_bus, accel_rl_handle);
 
   log_printf(LOG_INFO,
              "[USM] CAN send handler for acceleration RL registered\n");
-
+#elif defined(BOARD_RR)
   /* Acceleration Unsprung RR (ID 1029) */
   accel_rr_handle = can_get_message_handle(
-      &accel_rr_mailbox, ACCELERATION_VECTOR_UNSPRUNG_RR_ID,
-      ACCELERATION_VECTOR_UNSPRUNG_RR_FREQ, ACCELERATION_VECTOR_UNSPRUNG_RR_DLC,
-      (CAN_pack_message_fn)pack_acceleration_vector_unsprung_rr);
+      &accel_rr_mailbox, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RR_ID,
+      ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RR_FREQ, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RR_DLC,
+      (CAN_pack_message_fn)pack_acceleration_vector_unsprung_wheel_speed_rr);
 
   can_rtos_register_send_packet(&data_acq_bus, accel_rr_handle);
 
   log_printf(LOG_INFO,
              "[USM] CAN send handler for acceleration RR registered\n");
+#endif
 }
 
 /* ===============================
@@ -191,25 +181,13 @@ void usm_can_update_wheel_speed(float wheel_speed_rads) {
   taskENTER_CRITICAL();
 
 #if defined(BOARD_FL)
-  wheel_speeds_mailbox.front_left_speed = wheel_speed_rads;
-  wheel_speeds_mailbox.front_right_speed = 0.0f;
-  wheel_speeds_mailbox.back_left_speed = 0.0f;
-  wheel_speeds_mailbox.back_right_speed = 0.0f;
+  accel_fl_mailbox.wheel_speed = wheel_speed_rads;
 #elif defined(BOARD_FR)
-  wheel_speeds_mailbox.front_left_speed = 0.0f;
-  wheel_speeds_mailbox.front_right_speed = wheel_speed_rads;
-  wheel_speeds_mailbox.back_left_speed = 0.0f;
-  wheel_speeds_mailbox.back_right_speed = 0.0f;
+  accel_fr_mailbox.wheel_speed = wheel_speed_rads;
 #elif defined(BOARD_RL)
-  wheel_speeds_mailbox.front_left_speed = 0.0f;
-  wheel_speeds_mailbox.front_right_speed = 0.0f;
-  wheel_speeds_mailbox.back_left_speed = wheel_speed_rads;
-  wheel_speeds_mailbox.back_right_speed = 0.0f;
+  accel_rl_mailbox.wheel_speed = wheel_speed_rads;
 #elif defined(BOARD_RR)
-  wheel_speeds_mailbox.front_left_speed = 0.0f;
-  wheel_speeds_mailbox.front_right_speed = 0.0f;
-  wheel_speeds_mailbox.back_left_speed = 0.0f;
-  wheel_speeds_mailbox.back_right_speed = wheel_speed_rads;
+  accel_rr_mailbox.wheel_speed = wheel_speed_rads;
 #endif
 
   taskEXIT_CRITICAL();
