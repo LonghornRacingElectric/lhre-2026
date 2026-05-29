@@ -140,7 +140,7 @@ static void bms_init_config(void)
 
     for (uint8_t ic = 0; ic < TOTAL_IC; ic++) {
         IC[ic].tx_cfga.refon = PWR_UP;
-        IC[ic].tx_cfga.gpo = 0x3FE;
+        IC[ic].tx_cfga.gpo = 0x3FF; // 0x3FE for LED on
 
         IC[ic].tx_cfgb.vov = SetOverVoltageThreshold(CELL_OVERVOLTAGE_THRESHOLD);
         IC[ic].tx_cfgb.vuv = SetUnderVoltageThreshold(CELL_UNDERVOLTAGE_THRESHOLD);
