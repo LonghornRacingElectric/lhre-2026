@@ -95,5 +95,29 @@ void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 2 */
+bool hvc_gpio_is_imd_error_active(void)
+{
+  return HAL_GPIO_ReadPin(IMD_Error_GPIO_Port, IMD_Error_Pin) == GPIO_PIN_SET;
+}
+
+bool hvc_gpio_is_shutdown_leg1_closed(void)
+{
+  return HAL_GPIO_ReadPin(Shutdown_Sense_1_GPIO_Port, Shutdown_Sense_1_Pin) == GPIO_PIN_SET;
+}
+
+bool hvc_gpio_is_shutdown_leg2_closed(void)
+{
+  return HAL_GPIO_ReadPin(Shutdown_Sense_2_GPIO_Port, Shutdown_Sense_2_Pin) == GPIO_PIN_SET;
+}
+
+bool hvc_gpio_is_shutdown_leg3_closed(void)
+{
+  return HAL_GPIO_ReadPin(Shutdown_Sense_3_GPIO_Port, Shutdown_Sense_3_Pin) == GPIO_PIN_SET;
+}
+
+bool hvc_gpio_is_shutdown_leg4_closed(void)
+{
+  return HAL_GPIO_ReadPin(Shutdown_Sense_4_GPIO_Port, Shutdown_Sense_4_Pin) == GPIO_PIN_SET;
+}
 
 /* USER CODE END 2 */
