@@ -261,7 +261,7 @@ float bms_get_min_temp(void) {
 }
 
 float bms_get_max_temp(void) {
-    float max_t = FLT_MIN;
+    float max_t = -FLT_MAX;
     for (int i = 0; i < TOTAL_IC * THERMISTORS_PER_IC; i++) {
         if (cell_temps[i] > max_t) {
             max_t = cell_temps[i];
