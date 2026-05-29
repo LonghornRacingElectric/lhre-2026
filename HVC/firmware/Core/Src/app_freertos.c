@@ -33,6 +33,7 @@
 #include "adc.h"
 #include "can.h"
 #include "fdcan.h"
+#include "gpio.h"
 #include "longhorn/rtos/dfu.h"
 #include "longhorn/rtos/led.h"
 #include "longhorn/rtos/logger.h"
@@ -256,6 +257,16 @@ void StartStateMachineTask(void *argument) {
     uint32_t current_fault_vector = get_faults();
     latched_fault_vector |= current_fault_vector;
     set_bms_fault_pin(current_fault_vector != 0);
+    bool bms_indicator_error =
+        (current_fault_vector &
+         (FAULT_BMS_COMMS | FAULT_BMS_OVERVOLTAGE |
+          FAULT_BMS_UNDERVOLTAGE | FAULT_BMS_OVERTEMP)) != 0;
+    hvc_set_indicator_status(bms_indicator_error,
+                             hvc_gpio_is_imd_error_active(),
+                             hvc_gpio_is_shutdown_leg1_closed(),
+                             hvc_gpio_is_shutdown_leg2_closed(),
+                             hvc_gpio_is_shutdown_leg3_closed(),
+                             hvc_gpio_is_shutdown_leg4_closed());
     bool any_faults = (latched_fault_vector != 0) ||
                       (osKernelGetTickCount() < 5000);
 

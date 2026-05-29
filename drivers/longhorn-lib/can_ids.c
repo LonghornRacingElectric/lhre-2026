@@ -1129,6 +1129,11 @@ int pack_battery_cell_limits(const msg_battery_cell_limits_t* msg, uint8_t* tx_b
     tx_buf[0 + 0] = (uint8_t)(raw_min_cell_voltage & 0xFF);
     tx_buf[0 + 1] = (uint8_t)((raw_min_cell_voltage >> 8) & 0xFF);
 
+    // Pack: Max Cell Voltage
+    uint16_t raw_max_cell_voltage = (uint16_t)(msg->max_cell_voltage / 0.0001f);
+    tx_buf[2 + 0] = (uint8_t)(raw_max_cell_voltage & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((raw_max_cell_voltage >> 8) & 0xFF);
+
     return 0;
 }
 
@@ -1138,6 +1143,12 @@ int unpack_battery_cell_limits(const uint8_t* rx_buf, msg_battery_cell_limits_t*
     raw_min_cell_voltage = (uint16_t)rx_buf[0 + 0];
     raw_min_cell_voltage |= (uint16_t)(rx_buf[0 + 1] << 8);
     msg->min_cell_voltage = (float)raw_min_cell_voltage * 0.0001f;
+
+    // Unpack: Max Cell Voltage
+    uint16_t raw_max_cell_voltage = 0;
+    raw_max_cell_voltage = (uint16_t)rx_buf[2 + 0];
+    raw_max_cell_voltage |= (uint16_t)(rx_buf[2 + 1] << 8);
+    msg->max_cell_voltage = (float)raw_max_cell_voltage * 0.0001f;
 
     return 0;
 }
@@ -1823,6 +1834,14 @@ int pack_vcu_state(const msg_vcu_state_t* msg, uint8_t* tx_buf) {
     // Pack: Ready To Drive Buzzer
     tx_buf[2] = (uint8_t)msg->ready_to_drive_buzzer;
 
+    // Pack: State of Charge Estimate
+    uint16_t raw_state_of_charge_estimate = (uint16_t)(msg->state_of_charge_estimate / 0.1f);
+    tx_buf[3 + 0] = (uint8_t)(raw_state_of_charge_estimate & 0xFF);
+    tx_buf[3 + 1] = (uint8_t)((raw_state_of_charge_estimate >> 8) & 0xFF);
+
+    // Pack: Line Lock Enabled
+    tx_buf[5] = (uint8_t)msg->line_lock_enabled;
+
     return 0;
 }
 
@@ -1835,6 +1854,15 @@ int unpack_vcu_state(const uint8_t* rx_buf, msg_vcu_state_t* msg) {
 
     // Unpack: Ready To Drive Buzzer
     msg->ready_to_drive_buzzer = (uint8_t)rx_buf[2];
+
+    // Unpack: State of Charge Estimate
+    uint16_t raw_state_of_charge_estimate = 0;
+    raw_state_of_charge_estimate = (uint16_t)rx_buf[3 + 0];
+    raw_state_of_charge_estimate |= (uint16_t)(rx_buf[3 + 1] << 8);
+    msg->state_of_charge_estimate = (float)raw_state_of_charge_estimate * 0.1f;
+
+    // Unpack: Line Lock Enabled
+    msg->line_lock_enabled = (uint8_t)rx_buf[5];
 
     return 0;
 }

@@ -29,6 +29,7 @@ extern "C" {
 #include "main.h"
 
 /* USER CODE BEGIN Includes */
+#include <stdbool.h>
 
 /* USER CODE END Includes */
 
@@ -39,6 +40,11 @@ extern "C" {
 void MX_GPIO_Init(void);
 
 /* USER CODE BEGIN Prototypes */
+bool hvc_gpio_is_imd_error_active(void);
+bool hvc_gpio_is_shutdown_leg1_closed(void);
+bool hvc_gpio_is_shutdown_leg2_closed(void);
+bool hvc_gpio_is_shutdown_leg3_closed(void);
+bool hvc_gpio_is_shutdown_leg4_closed(void);
 
 /* USER CODE END Prototypes */
 

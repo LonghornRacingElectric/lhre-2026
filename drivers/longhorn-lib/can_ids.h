@@ -843,16 +843,20 @@ int unpack_allow_balance_command(const uint8_t* rx_buf, msg_allow_balance_comman
 // From: HVC
 // To:   VCU
 #define BATTERY_CELL_LIMITS_ID 310
-#define BATTERY_CELL_LIMITS_DLC 2
+#define BATTERY_CELL_LIMITS_DLC 4
 #define BATTERY_CELL_LIMITS_FREQ 100
 #define BATTERY_CELL_LIMITS_TIMEOUT_MS 200
 
 typedef struct {
     float min_cell_voltage;
+    float max_cell_voltage;
 } msg_battery_cell_limits_t;
 
 // Signal: Min Cell Voltage
 #define BATTERY_CELL_LIMITS_MIN_CELL_VOLTAGE_PREC 0.0001f
+
+// Signal: Max Cell Voltage
+#define BATTERY_CELL_LIMITS_MAX_CELL_VOLTAGE_PREC 0.0001f
 
 int pack_battery_cell_limits(const msg_battery_cell_limits_t* msg, uint8_t* tx_buf);
 int unpack_battery_cell_limits(const uint8_t* rx_buf, msg_battery_cell_limits_t* msg);
@@ -1419,7 +1423,7 @@ int unpack_steering_column(const uint8_t* rx_buf, msg_steering_column_t* msg);
 // From: VCU
 // To:   Pi
 #define VCU_STATE_ID 455
-#define VCU_STATE_DLC 3
+#define VCU_STATE_DLC 6
 #define VCU_STATE_FREQ 3
 #define VCU_STATE_TIMEOUT_MS 6
 
@@ -1427,6 +1431,8 @@ typedef struct {
     uint8_t prndl_state;
     uint8_t stomp_fault;
     uint8_t ready_to_drive_buzzer;
+    float state_of_charge_estimate;
+    uint8_t line_lock_enabled;
 } msg_vcu_state_t;
 
 // Signal: PRNDL State
@@ -1437,6 +1443,12 @@ typedef struct {
 
 // Signal: Ready To Drive Buzzer
 #define VCU_STATE_READY_TO_DRIVE_BUZZER_PREC 1.0f
+
+// Signal: State of Charge Estimate
+#define VCU_STATE_STATE_OF_CHARGE_ESTIMATE_PREC 0.1f
+
+// Signal: Line Lock Enabled
+#define VCU_STATE_LINE_LOCK_ENABLED_PREC 1.0f
 
 int pack_vcu_state(const msg_vcu_state_t* msg, uint8_t* tx_buf);
 int unpack_vcu_state(const uint8_t* rx_buf, msg_vcu_state_t* msg);
