@@ -605,7 +605,7 @@ void bms_update(void)
 }
 
 void bms_print_all_cells() {
-    char buf[160];
+    char buf[256];
     for (uint8_t ic = 0; ic < TOTAL_IC; ic++) {
         uint16_t base = (uint16_t)ic * CELLS_PER_IC;
         uint8_t bal_count = 0;
