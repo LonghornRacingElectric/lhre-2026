@@ -1,7 +1,6 @@
 #include "wheel_speed.h"
 #include <string.h>
 #include <math.h>
-#include "longhorn/rtos/logger.h"
 
 // ── MLX90395 Commands ─────────────────────────────────────
 #define MLX_CMD_START_BURST   0x1E
@@ -131,13 +130,6 @@ void WheelSpeed_Update(void)
     }
     if (most_recent != 0 && (now - most_recent) > WS_TIMEOUT_MS) {
         _wheel_rpm = 0.0f;
-    }
-
-    static int count = 0;
-    count++;
-    if(count == 100) {
-        count = 0;
-        log_printf(LOG_INFO, "RPM: %.1f\n", _wheel_rpm);
     }
 }
 
