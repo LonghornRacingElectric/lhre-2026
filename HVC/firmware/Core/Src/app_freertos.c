@@ -292,7 +292,10 @@ void StartStateMachineTask(void *argument) {
                responsive_ics, bms_disc, bms_uv, bms_ov, bms_ot,
                get_current_state(), is_shutdown_closed(), balance_count);
     osDelay(task_period_ms);
-    bms_print_all_cells();
+
+    if(get_current_state() != HVC_STATE_ENERGIZED) {
+      bms_print_all_cells();
+    }
   }
 }
 
