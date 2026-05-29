@@ -38,8 +38,8 @@
 
 // BMS Balance Thresholds
 #define MAX_BAL_CELLS_PER_BOARD 6
-#define BAL_START_MV      15
-#define BAL_STOP_MV       7
+#define BAL_START_MV      5
+#define BAL_STOP_MV       2
 #define BAL_MIN_CELL_MV   3900
 #define PACK_I_MAX_MA     5000
 #define BAL_TEMP_CUTOFF_C 60.0f
