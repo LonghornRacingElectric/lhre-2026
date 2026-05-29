@@ -1,6 +1,7 @@
 #include "wheel_speed.h"
 #include <string.h>
 #include <math.h>
+#include <longhorn/rtos/logger.h>
 
 // ── MLX90395 Commands ─────────────────────────────────────
 #define MLX_CMD_START_BURST   0x1E
@@ -116,9 +117,17 @@ static void process_sensor(SensorState *s)
 // ── Public: call from FreeRTOS task every WS_POLL_RATE_MS ─
 void WheelSpeed_Update(void)
 {
+    static int count = 0;
     for (int i = 0; i < WS_NUM_SENSORS; i++) {
         mlx_read(&_sensors[i]);
         process_sensor(&_sensors[i]);
+        if(i==0) {
+            count++;
+            if(count == 100) {
+                count = 0;
+                log_printf(LOG_INFO, "Magnitude: %.5f\n", _sensors[i].magnitude);
+            }
+        }
     }
 
     // If no sensor has triggered in WS_TIMEOUT_MS, decay RPM to zero

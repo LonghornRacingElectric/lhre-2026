@@ -196,10 +196,9 @@ void StartWheelSpeedTask(void *argument)
     IMU_Read(&imu);
     usm_can_update_accel(imu.accel_x, imu.accel_y, imu.accel_z);
 
-    int len = snprintf(buf, sizeof(buf), "RPM:%.1f MPH:%.2f Ax:%.2f Ay:%.2f Az:%.2f\r\n",
-                       rpm, mph, imu.accel_x, imu.accel_y, imu.accel_z);
-    CDC_Transmit_FS((uint8_t *)buf, (uint16_t)len);
-    osDelay(200);
+    // int len = snprintf(buf, sizeof(buf), "RPM:%.1f MPH:%.2f Ax:%.2f Ay:%.2f Az:%.2f\r\n",
+    //                    rpm, mph, imu.accel_x, imu.accel_y, imu.accel_z);
+    // CDC_Transmit_FS((uint8_t *)buf, (uint16_t)len);
   }
 }
 /* USER CODE END 4 */
