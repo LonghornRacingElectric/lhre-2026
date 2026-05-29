@@ -241,7 +241,7 @@ float bms_get_min_voltage(void) {
 }
 
 float bms_get_max_voltage(void) {
-    float max_v = FLT_MIN;
+    float max_v = -FLT_MAX;
     for (int i = 0; i < TOTAL_IC * CELLS_PER_IC; i++) {
         if (cell_voltages[i] > max_v) {
             max_v = cell_voltages[i];
@@ -261,7 +261,7 @@ float bms_get_min_temp(void) {
 }
 
 float bms_get_max_temp(void) {
-    float max_t = FLT_MIN;
+    float max_t = -FLT_MAX;
     for (int i = 0; i < TOTAL_IC * THERMISTORS_PER_IC; i++) {
         if (cell_temps[i] > max_t) {
             max_t = cell_temps[i];
@@ -276,7 +276,7 @@ float bms_get_ic_die_temp(uint8_t ic) {
 }
 
 float bms_get_max_die_temp(void) {
-    float max_t = FLT_MIN;
+    float max_t = -FLT_MAX;
     for (int i = 0; i < TOTAL_IC; i++) {
         if (ic_die_temps[i] > max_t) max_t = ic_die_temps[i];
     }
