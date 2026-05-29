@@ -4,6 +4,7 @@
  */
 
 #include "hvc_bms.h"
+#include "can.h"
 #include "hvc_thermistors.h"
 #include "hvc_vct_sense.h"
 #include "hvc_state_machine.h"
@@ -83,6 +84,8 @@ extern uint8_t UNMUTE[2];
 static cell_asic IC[TOTAL_IC];
 static uint8_t discharge_active = 0;
 static uint8_t bms_responsive_ics = 0;
+static float min_cell_voltage_v = 0.0f;
+static float max_cell_voltage_v = 0.0f;
 
 static float cell_temps[TOTAL_IC * THERMISTORS_PER_IC];
 static float cell_voltages[NUM_CELLS];

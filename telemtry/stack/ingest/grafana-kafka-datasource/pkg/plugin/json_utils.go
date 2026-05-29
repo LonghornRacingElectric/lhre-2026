@@ -27,14 +27,20 @@ func FlattenJSON(prefix string, in interface{}, out map[string]interface{}, dept
 			FlattenJSON(key, v, out, depth+1, maxDepth, fieldCap)
 		}
 	case []interface{}:
-		// Represent arrays as stringified JSON to keep plugin schema-free.
-		if prefix != "" && len(out) < fieldCap {
-			if jsonBytes, err := json.Marshal(val); err == nil {
-				out[prefix] = string(jsonBytes)
-			} else {
-				// Fallback to fmt.Sprintf if marshaling fails
-				out[prefix] = fmt.Sprintf("%v", val)
+		// Expand arrays as indexed dotted-key fields (e.g. cells_v.0, gps_imu.1)
+		// so individual elements are queryable as Grafana fields.
+		// Scalar arrays (numbers/bools) become flat numeric fields; nested arrays/objects
+		// recurse via the same depth limit.
+		// Empty arrays are skipped to avoid polluting the field list.
+		if prefix == "" || len(val) == 0 {
+			break
+		}
+		for i, elem := range val {
+			if len(out) >= fieldCap {
+				break
 			}
+			key := fmt.Sprintf("%s.%d", prefix, i)
+			FlattenJSON(key, elem, out, depth+1, maxDepth, fieldCap)
 		}
 	default:
 		if prefix != "" && len(out) < fieldCap {

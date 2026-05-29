@@ -20,7 +20,7 @@ void apps_init(apps_state_t *state) {
 }
 
 void apps_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
-                   apps_state_t *state, vcu_parameters_t *params,
+                   apps_state_t *state, const vcu_parameters_t *params,
                    uint32_t dt_ms) {
   out->apps1_travel =
       apps_adc_to_travel(in->apps1_raw, params->apps.apps1_min_adc_v,
@@ -62,7 +62,7 @@ void apps_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
 }
 
 bool apps_implausible(float travel1, float travel2, apps_state_t *state,
-                      vcu_parameters_t *params, uint32_t dt_ms) {
+                      const vcu_parameters_t *params, uint32_t dt_ms) {
 
   // if our APPS sensors have a diff > than our threshold, we start counting
   if (fabsf(travel1 - travel2) > params->apps.max_allowable_diff) {

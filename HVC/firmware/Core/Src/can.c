@@ -21,6 +21,7 @@ static msg_contactor_status_t contactor_status_tx;
 // static msg_vcu_current_sense_t vcu_current_tx;
 
 static msg_indicators_shutdown_status_t indicator_status_tx = {0};
+static msg_battery_cell_limits_t battery_cell_limits_tx = {0};
 
 // Cell temperature messages (23 packets total: 22 with 4 temps, 1 with 2 temps)
 static msg_cell_temperatures_t cell_temps_tx[23] = {0};
@@ -75,6 +76,12 @@ void hvc_can_init(void) {
       (CAN_pack_message_fn)pack_indicators_shutdown_status);
   can_rtos_register_send_packet(&critical_can_bus, indicator_status_handle);
 
+  can_message_t *battery_cell_limits_handle = can_get_message_handle(
+      &battery_cell_limits_tx, BATTERY_CELL_LIMITS_ID,
+      BATTERY_CELL_LIMITS_FREQ, BATTERY_CELL_LIMITS_DLC,
+      (CAN_pack_message_fn)pack_battery_cell_limits);
+  can_rtos_register_send_packet(&critical_can_bus, battery_cell_limits_handle);
+  
   // TX: cell temperatures (23 packets with lower priority via 1000ms frequency)
   for (uint8_t i = 0; i < 23; i++) {
     can_message_t *cell_temp_handle = can_get_message_handle(
@@ -124,6 +131,19 @@ void hvc_set_indicator_status(bool bms_error, bool imd_error,
 
   taskEXIT_CRITICAL();
 }
+
+void hvc_set_min_cell_voltage(float min_cell_voltage_v) {
+  taskENTER_CRITICAL();
+  battery_cell_limits_tx.min_cell_voltage = min_cell_voltage_v;
+  taskEXIT_CRITICAL();
+}
+
+void hvc_set_max_cell_voltage(float max_cell_voltage_v) {
+  taskENTER_CRITICAL();
+  battery_cell_limits_tx.max_cell_voltage = max_cell_voltage_v;
+  taskEXIT_CRITICAL();
+}
+
 
 /**
  * hvc_set_cell_temperatures - Update cell temperature values for CAN transmission

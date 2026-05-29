@@ -1,0 +1,34 @@
+Window.SetBackgroundTopColor(0.0, 0.0, 0.0);
+Window.SetBackgroundBottomColor(0.0, 0.0, 0.0);
+
+splash_image = Image("splash.png").Scale(380, 380);
+splash_sprite = Sprite(splash_image);
+splash_sprite.SetX((Window.GetWidth() - splash_image.GetWidth()) / 2);
+# Plymouth runs at framebuffer-native resolution (here 800x600) but the
+# BEVO panel only scans the bottom 480 rows of the framebuffer (the top
+# ~120 rows are physically not displayed). Center the splash in that
+# visible region rather than the full framebuffer so it doesn't get cut.
+PANEL_VISIBLE_HEIGHT = 480;
+splash_sprite.SetY((PANEL_VISIBLE_HEIGHT - splash_image.GetHeight()) / 2);
+
+fun refresh_callback() {}
+fun boot_progress_callback(duration, progress) {}
+fun root_mounted_callback() {}
+fun update_status_callback(status) {}
+fun display_normal_callback() {}
+fun display_password_callback(prompt, bullets) {}
+fun display_question_callback(prompt, entry) {}
+fun display_message_callback(text) {}
+fun hide_message_callback(text) {}
+fun quit_callback() {}
+
+Plymouth.SetRefreshFunction(refresh_callback);
+Plymouth.SetBootProgressFunction(boot_progress_callback);
+Plymouth.SetRootMountedFunction(root_mounted_callback);
+Plymouth.SetUpdateStatusFunction(update_status_callback);
+Plymouth.SetDisplayNormalFunction(display_normal_callback);
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+Plymouth.SetDisplayQuestionFunction(display_question_callback);
+Plymouth.SetMessageFunction(display_message_callback);
+Plymouth.SetHideMessageFunction(hide_message_callback);
+Plymouth.SetQuitFunction(quit_callback);

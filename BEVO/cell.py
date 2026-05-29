@@ -9,7 +9,11 @@ PORT = "/dev/ttyUSB2"
 BAUDRATE = 115200
 
 # GPIO setup
-FULL_CARD_POWER_OFF = 16
+# Pin 26 is what's wired to the Quectel RM520N-GL's W_DISABLE / power-off on
+# the BEVO board. Verified empirically 2026-05-22: pin 16 does not power the
+# modem; pin 26 brings it up cleanly (USB enumerates as Quectel 2c7c:0801,
+# ttyUSB0-3 appear, RNDIS usb0 DHCPs onto T-Mobile 5G).
+FULL_CARD_POWER_OFF = 26
 CHIP = 0  # Default GPIO chip on Raspberry Pi 5
 
 # Open GPIO chip

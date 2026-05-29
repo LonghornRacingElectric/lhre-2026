@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=BEVO Dash Kiosk
+Comment=Full-screen Chromium pointing at the dash frontend
+Exec=__BEVO_REPO__/BEVO/dashd/deploy/launch_kiosk.sh
+X-GNOME-Autostart-enabled=true
+NoDisplay=false
+Terminal=false

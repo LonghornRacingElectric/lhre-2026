@@ -166,6 +166,7 @@ func defaultSeedMap(carType string) map[string]interface{} {
 			DiagnosticsHigh: &sensor.OrionDiagnosticsHigh{},
 			DiagnosticsLow:  &sensor.OrionDiagnosticsLow{},
 			Thermal:         &sensor.OrionThermal{},
+			BoardStatus:     &sensor.OrionBoardStatus{},
 		})
 	default:
 		m = nightwatchToMap(&sensor.SensorData{
@@ -718,11 +719,14 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["phase_b_current"] = p.PhaseBCurrent
 		m["phase_c_current"] = p.PhaseCCurrent
 
+		m["power_kw"] = float64(p.HvPackV) * float64(p.HvC) / 1000.0
+
 		if len(p.CellsV) > 0 {
 			avg, min, max := statsFromFloat32Slice(p.CellsV)
 			m["avg_cell_v_stat"] = avg
 			m["max_cell_v"] = max
 			m["min_cell_v"] = min
+			m["cell_v_delta"] = float64(max - min)
 		}
 		if len(p.CellsTemps) > 0 {
 			avg, min, max := statsFromFloat32Slice(p.CellsTemps)
@@ -738,8 +742,36 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["hvc_state_machine"] = dh.HvcStateMachine
 		m["post_faults"] = dh.PostFaults
 		m["run_faults"] = dh.RunFaults
+		m["apps1_disconnect"] = dh.Apps1Disconnect
+		m["apps1_out_range"] = dh.Apps1OutRange
+		m["apps2_disconnect"] = dh.Apps2Disconnect
+		m["apps2_out_range"] = dh.Apps2OutRange
+		m["apps_implause"] = dh.AppsImplause
+		m["apps_mismatch"] = dh.AppsMismatch
+		m["batt_fans_fuse"] = dh.BattFansFuse
+		m["batt_pump_fuse"] = dh.BattPumpFuse
+		m["boards_fuse"] = dh.BoardsFuse
+		m["bpps1_disconnect"] = dh.Bpps1Disconnect
+		m["bpps1_out_range"] = dh.Bpps1OutRange
+		m["bpps2_disconnect"] = dh.Bpps2Disconnect
+		m["bpps2_out_range"] = dh.Bpps2OutRange
+		m["bpps_mismatch"] = dh.BppsMismatch
+		m["brake_light_fuse"] = dh.BrakeLightFuse
+		m["bse1_disconnect"] = dh.Bse1Disconnect
+		m["bse1_out_range"] = dh.Bse1OutRange
+		m["bse2_disconnect"] = dh.Bse2Disconnect
+		m["bse2_out_range"] = dh.Bse2OutRange
+		m["ll_fuse"] = dh.LlFuse
+		m["motor_pump_fuse"] = dh.MotorPumpFuse
 		m["r2d_buzzer"] = dh.R2DBuzzer
+		m["rtd_fuse"] = dh.RtdFuse
+		m["shtdn_fuse"] = dh.ShtdnFuse
+		m["shutdown_bspd_status"] = dh.ShutdownBspdStatus
+		m["shutdown_emeter_status"] = dh.ShutdownEmeterStatus
+		m["spare_fuse"] = dh.SpareFuse
 		m["stomp_fault"] = dh.StompFault
+		m["tssi_green_fuse"] = dh.TssiGreenFuse
+		m["tssi_red_fuse"] = dh.TssiRedFuse
 		m["neg_hv_contactor"] = dh.NegHvContactor
 		m["pos_hv_contactor"] = dh.PosHvContactor
 		m["precharge_contactor"] = dh.PrechargeContactor
@@ -765,13 +797,16 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["batt_loop_batt_temp"] = t.BattLoopBattTemp
 		m["batt_loop_rad_fan_speed"] = t.BattLoopRadFanSpeed
 		m["batt_loop_rad_temp"] = t.BattLoopRadTemp
+		m["battery_fan_rpm"] = t.BatteryFanRpm
 		m["bus_bar_temp1"] = t.BusBarTemp1
 		m["bus_bar_temp2"] = t.BusBarTemp2
 		m["bus_bar_temp3"] = t.BusBarTemp3
 		m["cell_bottom_temp"] = t.CellBottomTemp
 		m["cell_top_temp"] = t.CellTopTemp
+		m["coolant_flow_lpm"] = t.CoolantFlowLpm
 		m["coolant_temp"] = t.CoolantTemp
 		m["discharge_r_temp"] = t.DischargeRTemp
+		m["fan_rpm"] = t.FanRpm
 		m["gate_driver_temp"] = t.GateDriverTemp
 		m["inverter_hotspot_temp"] = t.InverterHotspotTemp
 		m["inverter_temp"] = t.InverterTemp
@@ -780,8 +815,18 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["module_c_temp"] = t.ModuleCTemp
 		m["motor_loop_inverter_temp"] = t.MotorLoopInverterTemp
 		m["motor_loop_motor_temp"] = t.MotorLoopMotorTemp
-		m["motor_loop_rad_fan_speed"] = t.MotorLoopRadFanSpeed
 		m["motor_loop_rad_temp"] = t.MotorLoopRadTemp
+	}
+
+	if bs := msg.BoardStatus; bs != nil {
+		m["csm_last_seen_s"] = bs.CsmLastSeenS
+		m["dui_last_seen_s"] = bs.DuiLastSeenS
+		m["hvc_last_seen_s"] = bs.HvcLastSeenS
+		m["inverter_last_seen_s"] = bs.InverterLastSeenS
+		m["pdu_last_seen_s"] = bs.PduLastSeenS
+		m["tsm_last_seen_s"] = bs.TsmLastSeenS
+		m["usm_last_seen_s"] = bs.UsmLastSeenS
+		m["vcu_last_seen_s"] = bs.VcuLastSeenS
 	}
 
 	return m
