@@ -37,11 +37,12 @@
 #include "longhorn/usb_base.h"
 #include "ota/ota_flash.h"
 
-#include "usm_can.h"
-#include "wheel_speed.h"
 #include "imu.h"
 #include "spi.h"
+#include "usm_can.h"
+#include "wheel_speed.h"
 #include <stdio.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -85,7 +86,7 @@ osThreadId_t wheelSpeedTaskHandle;
 const osThreadAttr_t wheelSpeedTask_attributes = {
     .name = "wheelSpeedTask",
     .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 128 * 8};
+    .stack_size = 512 * 8};
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -184,7 +185,6 @@ void StartWheelSpeedTask(void *argument) {
   osDelay(2000); // wait for USB CDC to enumerate
   WheelSpeed_Init(&hspi2);
   IMU_Init(&hspi2);
-  char buf[80];
   imu_data_t imu = {0};
   for (;;) {
     WheelSpeed_Update();
@@ -197,11 +197,9 @@ void StartWheelSpeedTask(void *argument) {
     IMU_Read(&imu);
     usm_can_update_accel(imu.accel_x, imu.accel_y, imu.accel_z);
 
-    int len = snprintf(buf, sizeof(buf),
-                       "RPM:%.1f MPH:%.2f Ax:%.2f Ay:%.2f Az:%.2f\r\n", rpm,
-                       mph, imu.accel_x, imu.accel_y, imu.accel_z);
-    CDC_Transmit_FS((uint8_t *)buf, (uint16_t)len);
-    osDelay(200);
+    log_printf(LOG_INFO, "RPM:%.1f MPH:%.2f Ax:%.2f Ay:%.2f Az:%.2f\r\n", rpm,
+               mph, imu.accel_x, imu.accel_y, imu.accel_z);
+    osDelay(1);
   }
 }
 /* USER CODE END Application */
