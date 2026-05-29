@@ -1,0 +1,17 @@
+# Derived fields for the Angelique real-time Kafka feed.
+
+fields:
+  - name: power_kw
+    expr: "hv_power / 1000.0 if hv_power else (hv_pack_v * hv_c / 1000.0 if hv_pack_v and hv_c else 0)"
+
+  - name: lv_power_w
+    expr: "lv_power if lv_power else 0"
+
+  - name: cell_v_delta
+    expr: "max_cell_v - min_cell_v if max_cell_v and min_cell_v else 0"
+
+  - name: cell_v_spread_pct
+    expr: "((max_cell_v - min_cell_v) / avg_cell_v_stat) * 100 if avg_cell_v_stat and avg_cell_v_stat > 0 else 0"
+
+  - name: wheel_speed_avg
+    expr: "(flw_speed + frw_speed + blw_speed + brw_speed) / 4.0 if flw_speed is not None else 0"

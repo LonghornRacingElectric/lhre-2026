@@ -2,18 +2,34 @@ load("//tools:outputs/build_outputs.bzl", "firmware_project_g4")
 
 firmware_project_g4(
     name = "csm_firmware_2026",
-    linker_script = "STM32G474XX_FLASH.ld",
-    startup_script = "startup_stm32g474xx.s",
+    linker_script = "STM32G491XX_FLASH.ld",
+    startup_script = "startup_stm32g491xx.s",
     defines = [
         "STM32G474xx",
     ],
+    enable_dfu = True,
     enable_freertos = True,
     enable_usb = True,
     usb_device_name = "Corner Sensor Module",
+    extra_includes = [
+        "Core/Inc",
+        "Libs/AFBR-S50/Include",
+        "Libs/AFBR-S50/Include/platform",
+        "Libs/AFBR-S50/Test",
+    ],
+    extra_srcs = glob([
+        "Libs/AFBR-S50/Include/platform/*.c",
+        "Libs/AFBR-S50/Test/*.c",
+        "Libs/AFBR-S50/Include/**/*.h",
+        "Libs/AFBR-S50/Test/**/*.h",
+    ]),
+    extra_deps = [
+        "//CSM/firmware/Libs/AFBR-S50/Lib:afbrs50",
+    ],
     locations = [
-    "RR",
-    "RL",
-    "FR",
-    "FL",
+        "RR",
+        "RL",
+        "FR",
+        "FL",
     ],
 )

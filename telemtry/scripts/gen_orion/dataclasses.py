@@ -8,12 +8,16 @@ class OrionDynamics:
     gps_speed: Optional[float] = None
     accel_pedal_travel: Optional[float] = None
     steer_col_angle: Optional[float] = None
+    bl_gyro: List[float] = field(default_factory=list)
     bl_sprung_accel: List[float] = field(default_factory=list)
     bl_unsprung_accel: List[float] = field(default_factory=list)
+    br_gyro: List[float] = field(default_factory=list)
     br_sprung_accel: List[float] = field(default_factory=list)
     br_unsprung_accel: List[float] = field(default_factory=list)
+    fl_gyro: List[float] = field(default_factory=list)
     fl_sprung_accel: List[float] = field(default_factory=list)
     fl_unsprung_accel: List[float] = field(default_factory=list)
+    fr_gyro: List[float] = field(default_factory=list)
     fr_sprung_accel: List[float] = field(default_factory=list)
     fr_unsprung_accel: List[float] = field(default_factory=list)
     bl_ride_height: Optional[float] = None
@@ -64,12 +68,14 @@ class OrionControls:
     motor_angle: Optional[float] = None
     direction: Optional[bool] = None
     enable: Optional[bool] = None
+    line_lock_enabled: Optional[bool] = None
     torque_shudder: Optional[float] = None
 
 @dataclass
 class OrionPack:
     bus_voltage: Optional[float] = None
     lv_boards_current: Optional[float] = None
+    soc_estimate: Optional[float] = None
     cells_v: List[float] = field(default_factory=list)
     dc_bus_v: Optional[float] = None
     delta_resolver_angle: Optional[float] = None
@@ -169,6 +175,8 @@ class OrionThermal:
     gate_driver_temp: Optional[float] = None
     inverter_hotspot_temp: Optional[float] = None
     inverter_temp: Optional[float] = None
+    max_cell_voltage: Optional[float] = None
+    min_cell_voltage: Optional[float] = None
     module_a_temp: Optional[float] = None
     module_b_temp: Optional[float] = None
     module_c_temp: Optional[float] = None

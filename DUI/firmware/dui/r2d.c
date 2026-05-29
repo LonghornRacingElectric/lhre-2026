@@ -25,14 +25,8 @@ void r2d_task(void *argument) {
     dui_set_r2d(r2d_enabled);
     osDelay(pdMS_TO_TICKS(10));
 
-    dui_can_debug_state_t can_debug = dui_can_get_debug_state();
-    log_printf(LOG_INFO,
-               "R2D: %u vcu_prndl=%u vcu_r2d_buzzer=%u vcu_timeout=%u "
-               "buzzer_active=%u\n",
-               (unsigned)r2d_enabled, (unsigned)can_debug.prndl_state,
-               (unsigned)can_debug.ready_to_drive_buzzer,
-               (unsigned)can_debug.vcu_state_timed_out,
-               (unsigned)can_debug.buzzer_active);
+    log_printf(LOG_INFO, "R2D: %u vcu_r2d_buzzer=%u\n",
+               (unsigned)r2d_enabled, (unsigned)dui_r2d_buzzer_active());
   }
 }
 

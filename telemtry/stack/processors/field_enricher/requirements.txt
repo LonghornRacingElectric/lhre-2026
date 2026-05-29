@@ -1,0 +1,2 @@
+kafka-python==2.2.15
+pyyaml==6.0

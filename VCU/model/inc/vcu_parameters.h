@@ -60,6 +60,7 @@ typedef struct {
 
   struct {
     float power_limit_torque[LOOKUP1D_POINTS];
+    float pedal_map[LOOKUP1D_POINTS];
     float pedal_curve_exponent;
     float low_cell_derate_start_v;
     float low_cell_cutoff_v;
