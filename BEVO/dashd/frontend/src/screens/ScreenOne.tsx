@@ -1,64 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import ConnectivityIndicator from '../components/ConnectivityIndicator';
 import { useDash } from '../context/DashContext';
 import './ScreenOne.css';
-
-// TEMP (driveday): 5-second time-series buffer of the value currently
-// in CanData.speed (which dashd is sourcing from steer_col_angle for
-// this test). Drop the whole STEER_* block + the rendered SVG below
-// when reverting.
-const STEER_HISTORY_SECONDS = 5;
-const STEER_LOOKAHEAD_SECONDS = 5; // refs project this far past "now"
-const STEER_SAMPLE_HZ = 30; // dashd WS rate; oversample is harmless
-const STEER_MAX_SAMPLES = STEER_HISTORY_SECONDS * STEER_SAMPLE_HZ;
-const STEER_TOTAL_SECONDS = STEER_HISTORY_SECONDS + STEER_LOOKAHEAD_SECONDS;
-const STEER_VIEWBOX_WIDTH = STEER_TOTAL_SECONDS * STEER_SAMPLE_HZ;
-const STEER_NOW_X = STEER_HISTORY_SECONDS * STEER_SAMPLE_HZ; // "now" tick mark
-// Visual y-axis range depends on which reference set is showing. Switch
-// at runtime via dashd: `echo ramp > /tmp/dash_chart_mode` (or "sine").
-const STEER_SINE_AMPLITUDE_DEG = 10;
-const STEER_RAMP_AMPLITUDE_DEG = 45;
-const STEER_RAMP_PERIOD_S = 10;
-// Ranges include a small margin past the reference amplitudes.
-const SINE_CHART_MIN = -15;
-const SINE_CHART_MAX = 15;
-const RAMP_CHART_MIN = -5;
-const RAMP_CHART_MAX = 50;
 
 // Screen One: Main Dashboard (Modern EV Style)
 // Resolution: 800 x 480
 
 const ScreenOne: React.FC = () => {
     const { data } = useDash();
-
-    // TEMP: rolling timestamped buffer of the speed-field-as-steering.
-    // Why timestamped + wall-clock driven (not data.seq driven): if speed
-    // ever momentarily becomes null while seq keeps ticking, a seq-driven
-    // buffer would stop advancing while the references (which use
-    // Date.now() every render) keep scrolling — so the orange trace
-    // appears frozen against moving refs. Driving on setInterval keeps
-    // the trace ticking even across brief CAN/WS hiccups.
-    const [steerHistory, setSteerHistory] = useState<Array<{ t: number; v: number }>>([]);
-    const latestSampleRef = useRef<number | null>(null);
-    useEffect(() => {
-        const v = data?.can.speed;
-        if (typeof v === 'number') latestSampleRef.current = v;
-    }, [data?.seq, data?.can.speed]);
-    useEffect(() => {
-        const id = setInterval(() => {
-            const t = Date.now() / 1000;
-            const cutoff = t - STEER_HISTORY_SECONDS;
-            const v = latestSampleRef.current;
-            setSteerHistory(prev => {
-                const trimmed = prev[0] && prev[0].t < cutoff
-                    ? prev.filter(p => p.t >= cutoff)
-                    : prev;
-                if (typeof v !== 'number') return trimmed === prev ? prev : trimmed;
-                return [...trimmed, { t, v }];
-            });
-        }, 1000 / STEER_SAMPLE_HZ);
-        return () => clearInterval(id);
-    }, []);
 
     // Extract values with null fallback
     const speed = data?.can.speed;
@@ -383,10 +332,7 @@ const ScreenOne: React.FC = () => {
                     <div className="value-display" style={{ fontSize: '11rem', fontWeight: 'bold', lineHeight: 0.85 }}>
                         {fmt(speed)}
                     </div>
-                    {/* TEMP: dashd is currently sending steer_col_angle in
-                        place of speed for driveday testing. Restore "MPH"
-                        when dashd swaps back to motor_speed-derived. */}
-                    <div className="label-small" style={{ fontSize: '1.2rem', letterSpacing: '4px', marginTop: '4px' }}>DEG</div>
+                    <div className="label-small" style={{ fontSize: '1.2rem', letterSpacing: '4px', marginTop: '4px' }}>MPH</div>
                 </div>
 
                 {/* TR: Lap-times table (2x2): CURR | Δ / BEST | LAST */}
@@ -729,175 +675,6 @@ const ScreenOne: React.FC = () => {
                 }}>
                     <ConnectivityIndicator />
                 </div>
-            </div>
-
-            {/* TEMP: live steering-angle trace, 5s rolling window.
-                Overlays the lower inner-grid (power bar + kW/BB row).
-                Drop this whole block when reverting. */}
-            <div style={{
-                position: 'absolute',
-                left: '100px',
-                right: '100px',
-                bottom: '90px',
-                height: '160px',
-                background: 'var(--card-bg)',
-                backdropFilter: 'blur(8px)',
-                border: '1px solid var(--card-border)',
-                borderRadius: '8px',
-                zIndex: 95,
-                overflow: 'hidden',
-            }}>
-                <div className="label-small" style={{
-                    position: 'absolute',
-                    top: '4px',
-                    left: '10px',
-                    margin: 0,
-                    fontSize: '0.7rem',
-                    letterSpacing: '2px',
-                }}>
-                    {data?.chartMode === 'ramp'
-                        ? <>STEER (DEG) — 5s back · 5s ahead · <span style={{ color: '#CC00AA' }}>RAMP</span> 0→45° / 10s · range −5°..50°</>
-                        : <>STEER (DEG) — 5s back · 5s ahead · <span style={{ color: '#000000' }}>0.5 Hz</span> · <span style={{ color: '#0066FF' }}>1 Hz</span> ±10°</>
-                    }
-                </div>
-                {(() => {
-                    // Switch which reference set is drawn + the chart's
-                    // vertical range to fit it. Mode is set by writing
-                    // "sine" or "ramp" to /tmp/dash_chart_mode on BEVO.
-                    const mode = data?.chartMode === 'ramp' ? 'ramp' : 'sine';
-                    const [chartMin, chartMax] = mode === 'ramp'
-                        ? [RAMP_CHART_MIN, RAMP_CHART_MAX]
-                        : [SINE_CHART_MIN, SINE_CHART_MAX];
-                    // Linear deg → viewBox y in [5, 195] (small padding off the rails).
-                    const degToY = (deg: number): number => {
-                        const c = Math.max(chartMin, Math.min(chartMax, deg));
-                        return 5 + ((chartMax - c) / (chartMax - chartMin)) * 190;
-                    };
-                    const nowSec = Date.now() / 1000;
-                    // x ∈ [0, STEER_VIEWBOX_WIDTH] maps to time
-                    // [nowSec - HISTORY, nowSec + LOOKAHEAD]. "now" sits at
-                    // STEER_NOW_X (the middle when history==lookahead).
-                    const timeForX = (x: number) =>
-                        nowSec - STEER_HISTORY_SECONDS + x / STEER_SAMPLE_HZ;
-                    const xForTime = (t: number) =>
-                        (t - (nowSec - STEER_HISTORY_SECONDS)) * STEER_SAMPLE_HZ;
-                    const sinePoints = (freqHz: number) =>
-                        Array.from({ length: STEER_VIEWBOX_WIDTH + 1 }, (_, x) => {
-                            const t = timeForX(x);
-                            const deg = STEER_SINE_AMPLITUDE_DEG * Math.sin(2 * Math.PI * freqHz * t);
-                            return `${x},${degToY(deg)}`;
-                        }).join(' ');
-                    // Sawtooth ramp: linear 0 → STEER_RAMP_AMPLITUDE_DEG over
-                    // STEER_RAMP_PERIOD_S, then snaps back to 0.
-                    const rampPoints = Array.from(
-                        { length: STEER_VIEWBOX_WIDTH + 1 },
-                        (_, x) => {
-                            const t = timeForX(x);
-                            const phase = ((t % STEER_RAMP_PERIOD_S) + STEER_RAMP_PERIOD_S) % STEER_RAMP_PERIOD_S;
-                            const deg = (phase / STEER_RAMP_PERIOD_S) * STEER_RAMP_AMPLITUDE_DEG;
-                            return `${x},${degToY(deg)}`;
-                        },
-                    ).join(' ');
-                    return (
-                        <svg
-                            viewBox={`0 0 ${STEER_VIEWBOX_WIDTH} 200`}
-                            preserveAspectRatio="none"
-                            style={{ width: '100%', height: '100%', display: 'block' }}
-                        >
-                            {/* zero line (only when 0 is inside the visible range) */}
-                            {chartMin <= 0 && chartMax >= 0 && (
-                                <line
-                                    x1={0} y1={degToY(0)}
-                                    x2={STEER_VIEWBOX_WIDTH} y2={degToY(0)}
-                                    stroke="var(--card-border)"
-                                    strokeWidth={1}
-                                    vectorEffect="non-scaling-stroke"
-                                />
-                            )}
-                            {/* amplitude bound markers for the active mode */}
-                            {mode === 'sine' && (
-                                <>
-                                    <line
-                                        x1={0} y1={degToY(STEER_SINE_AMPLITUDE_DEG)}
-                                        x2={STEER_VIEWBOX_WIDTH} y2={degToY(STEER_SINE_AMPLITUDE_DEG)}
-                                        stroke="var(--card-border)"
-                                        strokeWidth={0.5}
-                                        strokeDasharray="2,4"
-                                        vectorEffect="non-scaling-stroke"
-                                    />
-                                    <line
-                                        x1={0} y1={degToY(-STEER_SINE_AMPLITUDE_DEG)}
-                                        x2={STEER_VIEWBOX_WIDTH} y2={degToY(-STEER_SINE_AMPLITUDE_DEG)}
-                                        stroke="var(--card-border)"
-                                        strokeWidth={0.5}
-                                        strokeDasharray="2,4"
-                                        vectorEffect="non-scaling-stroke"
-                                    />
-                                </>
-                            )}
-                            {mode === 'ramp' && (
-                                <line
-                                    x1={0} y1={degToY(STEER_RAMP_AMPLITUDE_DEG)}
-                                    x2={STEER_VIEWBOX_WIDTH} y2={degToY(STEER_RAMP_AMPLITUDE_DEG)}
-                                    stroke="var(--card-border)"
-                                    strokeWidth={0.5}
-                                    strokeDasharray="2,4"
-                                    vectorEffect="non-scaling-stroke"
-                                />
-                            )}
-                            {/* "now" marker — trace ends here, refs continue right */}
-                            <line
-                                x1={STEER_NOW_X} y1={0}
-                                x2={STEER_NOW_X} y2={200}
-                                stroke="var(--card-border)"
-                                strokeWidth={1}
-                                strokeDasharray="4,4"
-                                vectorEffect="non-scaling-stroke"
-                            />
-
-                            {/* References — only the active mode's set */}
-                            {mode === 'sine' && (
-                                <>
-                                    <polyline
-                                        points={sinePoints(0.5)}
-                                        fill="none"
-                                        stroke="#000000"
-                                        strokeWidth={2}
-                                        vectorEffect="non-scaling-stroke"
-                                    />
-                                    <polyline
-                                        points={sinePoints(1.0)}
-                                        fill="none"
-                                        stroke="#0066FF"
-                                        strokeWidth={2}
-                                        vectorEffect="non-scaling-stroke"
-                                    />
-                                </>
-                            )}
-                            {mode === 'ramp' && (
-                                <polyline
-                                    points={rampPoints}
-                                    fill="none"
-                                    stroke="#CC00AA"
-                                    strokeWidth={2}
-                                    vectorEffect="non-scaling-stroke"
-                                />
-                            )}
-                            {/* Driver trace — positioned by sample time so it
-                                ends at the "now" marker; refs project to the
-                                right of it. */}
-                            <polyline
-                                points={steerHistory
-                                    .map(({ t, v }) => `${xForTime(t)},${degToY(v)}`)
-                                    .join(' ')}
-                                fill="none"
-                                stroke="var(--brand)"
-                                strokeWidth={2}
-                                vectorEffect="non-scaling-stroke"
-                            />
-                        </svg>
-                    );
-                })()}
             </div>
         </div>
     );
