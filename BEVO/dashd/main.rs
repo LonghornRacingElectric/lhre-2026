@@ -302,10 +302,11 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
     // VCU-only SOC for now. Per driveday request: dc_bus fallback is
     // commented out so the dash shows exactly what VCU broadcasts on
     // packet 0x1C7 (mm/vcu-soc). To restore the fallback, swap to:
-    //   let soc = diag_high
-    //       .and_then(|d| if d.soc_estimate > 0.0 { Some(d.soc_estimate) } else { None })
+    //   let soc = pack
+    //       .and_then(|p| if p.soc_estimate > 0.0 { Some(p.soc_estimate) } else { None })
     //       .or(*last_qualified_soc);
-    let soc = diag_high.map(|d| d.soc_estimate);
+    // NOTE: soc_estimate lives on the Pack message (not DiagnosticsHigh).
+    let soc = pack.map(|p| p.soc_estimate);
 
     // Per-cell temp aggregates — None when cand has not received cell-temp
     // packets yet (empty vec).
@@ -413,8 +414,8 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
 
         // CSV byte 5 is named `line_lock_enabled` but the VCU team
         // confirmed it carries the regen-enabled bit. Plumb to the
-        // frontend's regenEnabled pill.
-        regen_enabled: diag_high.map(|d| d.line_lock_enabled),
+        // frontend's regenEnabled pill. Lives on the Controls message.
+        regen_enabled: controls.map(|c| c.line_lock_enabled),
     }
 }
 
