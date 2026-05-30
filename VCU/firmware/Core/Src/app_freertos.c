@@ -353,8 +353,10 @@ void StartControlTask(void *argument) {
     wheel_speeds_t ws = vcu_can_get_wheel_speeds();
     in.wheel_speed_fl_rads = ws.front_left;
     in.wheel_speed_fr_rads = ws.front_right;
-    in.wheel_speed_rl_rads = ws.back_left;
-    in.wheel_speed_rr_rads = ws.back_right;
+    // in.wheel_speed_rl_rads = ws.back_left;
+    // in.wheel_speed_rr_rads = ws.back_right;
+    in.wheel_speed_rl_rads = in.motor_speed_rpm * 2.0f * M_PI / 60.0f * (13.0f / 43.0f);
+    in.wheel_speed_rr_rads = in.wheel_speed_rl_rads;
     in.min_cell_voltage_v = vcu_can_get_min_cell_voltage_v();
     if (in.min_cell_voltage_v <= 0.0f) {
       in.min_cell_voltage_v = s_params.torque_map.low_cell_derate_start_v;
