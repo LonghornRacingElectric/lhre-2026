@@ -8,6 +8,7 @@
 
 void charging_init(int a);
 void charging_periodic(float dt);
-bool getAmsError();
+bool getBmsError();
 bool getImdError();
+bool getEnabled();
 #endif //CHARGING_H
