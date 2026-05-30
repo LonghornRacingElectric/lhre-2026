@@ -70,7 +70,7 @@ bool is_shutdown_closed(void);
  * @brief Check if charge enable is active
  * @return true if charge enable active, false otherwise
  */
-bool is_charge_enable_active(void);
+bool is_charger_connected(void);
 
 /**
  * @brief Get tractive system voltage (V)
