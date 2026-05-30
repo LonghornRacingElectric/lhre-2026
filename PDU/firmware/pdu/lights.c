@@ -56,19 +56,11 @@ void lights_init(void) {
 }
 
 void set_red_light(bool on) {
-  if (on) {
-    setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.07f);
-  } else {
-    setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.0f);
-  }
+  set_light(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, on);
 }
 
 void set_green_light(bool on) {
-  if (on) {
-    setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.07f);
-  } else {
-    setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.0f);
-  }
+  set_light(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, on);
 }
 
 static bool blink_is_on(uint32_t tick, uint32_t half_period_ms) {
@@ -160,6 +152,12 @@ float normalizeLightWithVoltage(float nominalPctAt24V, float curVoltage) {
   adjustedPct = MAX(adjustedPct, 0.0f);
 
   return adjustedPct;
+}
+
+void set_light(TIM_HandleTypeDef *htim, uint32_t channel, bool on) {
+  uint32_t period = __HAL_TIM_GET_AUTORELOAD(htim);
+  uint32_t ccr_value = on ? period : 0U;
+  __HAL_TIM_SET_COMPARE(htim, channel, ccr_value);
 }
 
 void setPWM(TIM_HandleTypeDef *htim, uint32_t channel, float percentage) {
