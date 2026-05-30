@@ -107,7 +107,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(pack.hv_soc) AS \"hvc/hv_soc [%]\" FROM pack JOIN packet ON packet.packet_id = pack.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS (\n  SELECT MIN(p.start_time) AS effective_start, MAX(p.end_time) AS effective_end\n  FROM partitions p\n  WHERE p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n),\ngranularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT\n  to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n  AVG(pack.hv_soc) AS \"hvc/hv_soc [%]\"\nFROM pack\nJOIN packet ON packet.packet_id = pack.packet_id\nCROSS JOIN bounds\nCROSS JOIN granularity\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\nGROUP BY 1\nORDER BY time;",
           "refId": "A"
         }
       ],
@@ -200,7 +200,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ), cell_t AS ( SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, UNNEST(pack.cells_temps) AS value FROM pack JOIN packet ON packet.packet_id = pack.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end ) SELECT time, AVG(value) AS \"hvc/cells_temp_avg [C]\" FROM cell_t GROUP BY time ORDER BY time;",
+          "rawSql": "WITH bounds AS (\n  SELECT MIN(p.start_time) AS effective_start, MAX(p.end_time) AS effective_end\n  FROM partitions p\n  WHERE p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n),\ngranularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n),\ncell_t AS (\n  SELECT\n    to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n    UNNEST(pack.cells_temps) AS value\n  FROM pack\n  JOIN packet ON packet.packet_id = pack.packet_id\n  CROSS JOIN bounds\n  CROSS JOIN granularity\n  WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\n)\nSELECT time, AVG(value) AS \"hvc/cells_temp_avg [C]\"\nFROM cell_t\nGROUP BY time\nORDER BY time;",
           "refId": "A"
         }
       ],
