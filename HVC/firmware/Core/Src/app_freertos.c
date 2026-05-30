@@ -236,6 +236,7 @@ void StartDefaultTask(void *argument)
  * @details Runs at 10Hz to manage HVC states, precharge, and contactor control
  * @param argument Not used
  */
+
 void StartStateMachineTask(void *argument) {
   // Wait for USB
   osDelay(3500);
@@ -250,12 +251,11 @@ void StartStateMachineTask(void *argument) {
 
   // Task loop - 10Hz update rate (100ms period)
   const uint32_t task_period_ms = 100;
-  uint32_t latched_fault_vector = 0;
 
   for (;;) {
     // Update state machine
     uint32_t current_fault_vector = get_faults();
-    latched_fault_vector |= current_fault_vector;
+    latch_faults(current_fault_vector);
     set_bms_fault_pin(current_fault_vector != 0);
     bool bms_indicator_error =
         (current_fault_vector &
@@ -267,7 +267,7 @@ void StartStateMachineTask(void *argument) {
                              hvc_gpio_is_shutdown_leg2_closed(),
                              hvc_gpio_is_shutdown_leg3_closed(),
                              hvc_gpio_is_shutdown_leg4_closed());
-    bool any_faults = (latched_fault_vector != 0) ||
+    bool any_faults = (get_latched_faults() != 0) ||
                       (osKernelGetTickCount() < 5000);
 
     update_state_machine(any_faults);
@@ -299,7 +299,7 @@ void StartStateMachineTask(void *argument) {
                "BMS[resp:%u disc:%u uv:%u ov:%u ot:%u], "
                "State:%d Shutdown:%d BalCnt:%u\n",
                pack_v,
-               current_fault_vector, latched_fault_vector,
+               current_fault_vector, get_latched_faults(),
                min_v, max_v, delta_mv, min_temp_c, max_temp_c,
                max_die_temp_c,
                responsive_ics, bms_disc, bms_uv, bms_ov, bms_ot,

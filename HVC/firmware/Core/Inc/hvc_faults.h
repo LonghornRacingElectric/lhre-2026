@@ -61,6 +61,10 @@ void faults_init();
  */
 uint32_t get_faults();
 
+void latch_faults(uint32_t faults);
+
+uint32_t get_latched_faults();
+
 void set_bms_fault_pin(bool faulted);
 
 #ifdef __cplusplus

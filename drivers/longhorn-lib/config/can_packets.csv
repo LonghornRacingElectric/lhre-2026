@@ -64,5 +64,7 @@ CAN ID,CAN ID Binary,From,To,Packet Info,Frequency (Hz),Data Length Code (DLC),Q
 0x026,100011,Pi,CSM,CSM Enter Bootloader,NA,1,1,Enable,unused,unused,unused,unused,unused,unused,unused,Critical,,
 0x027,100100,Pi,HVC,HVC Enter Bootloader,NA,1,1,Enable,unused,unused,unused,unused,unused,unused,unused,Critical,,
 0x028,100101,Pi,USM,USM Enter Bootloader,NA,1,1,Enable,unused,unused,unused,unused,unused,unused,unused,Critical,,
+0x050,1010000,HVC,Charger,HVC Charger Command,10,7,1,"Max Charge Voltage (uint16, 0.01V); max_charge_voltage (float)",,"Max Charge Current (uint16, 0.01A); max_charge_current (float)",,"IMD LED State (uint8, bool); imd_led (bool)","BMS LED State (uint8, bool); bms_led (bool)","Charger Enable (uint8, bool); charger_enable (bool)",unused,Critical,,
+0x051,1010001,Charger,HVC,Charger Status,10,5,1,"Actual Voltage (uint16, 0.01V); charger_voltage (float)",,"Actual Current (uint16, 0.01A); charger_current (float)",,"Charger Enabled (uint8, bool); charger_enabled (bool)",unused,unused,unused,Critical,,
 0x030,110000,Pi,HVC,HVC Bounds Parameters,NA,,,,,,,,,,,,,
 0x1C8,111001000,PDU,VCU,BSE 3,100,2,1,"Brake Pressure 3 (uint16, 0.05 psi); bse3 (float)",unused,unused,unused,unused,unused,unused,Critical,,

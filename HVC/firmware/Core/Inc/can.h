@@ -15,4 +15,8 @@ void hvc_set_max_cell_voltage(float max_cell_voltage_v);
 void hvc_set_cell_temperatures(float *cell_temps);
 
 void hvc_set_cell_voltages(float *cell_voltages);
+
+void hvc_set_charger_command(float max_charge_v, float max_charge_a,
+                             bool imd_led, bool bms_led, bool enable);
+void hvc_get_charger_status(float *voltage, float *current, bool *enabled);
 #endif
