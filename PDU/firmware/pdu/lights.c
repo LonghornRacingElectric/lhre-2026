@@ -88,17 +88,15 @@ static void set_tssi_fault(uint32_t tick) {
 }
 
 static void set_tssi_no_comms(uint32_t tick, uint32_t startup_tick) {
-  const uint32_t flash_half_period_ms = 300U;
-  const uint32_t grace_period_ms = 3000U;
+  const uint32_t startup_grace_period_ms = 8000U;
 
-  set_red_light(false);
-
-  if (tick - startup_tick < grace_period_ms) {
-    set_green_light(false);
+  if (tick - startup_tick < startup_grace_period_ms) {
+    set_tssi_normal();
     return;
   }
 
-  set_green_light(blink_is_on(tick, flash_half_period_ms));
+  set_red_light(false);
+  set_green_light(false);
 }
 
 void lights_update(void *argument) {
