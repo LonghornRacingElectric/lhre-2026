@@ -19,7 +19,10 @@
 /* ---- Pack geometry --------------------------------------------------------*/
 #define NUM_SERIES_CELLS     130
 #define CELL_MAX_V           4.2f
-#define MAX_PACK_VOLTAGE_V   (NUM_SERIES_CELLS * CELL_MAX_V)
+// Elcon hardware max may be lower than the theoretical cell limit;
+// the original hard-coded command used 535.0 V.  Raise only after
+// confirming the charger unit accepts the higher value.
+#define MAX_PACK_VOLTAGE_V   535.0f
 
 /* ---- Charging limits ------------------------------------------------------*/
 // Cell voltage at which we begin tapering the commanded pack voltage.

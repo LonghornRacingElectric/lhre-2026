@@ -43,7 +43,7 @@ static float    elcon_current_A = 0.0f;
 static uint8_t  elcon_status    = 0xFF; // 0x00 = charging normally
 
 // ---- Error flags (read by main.c for LED blinking) -------------------------
-static uint8_t amsError = 0;
+static uint8_t bmsError = 0;
 static uint8_t imdError = 0;
 
 
@@ -117,7 +117,7 @@ static void recv_hvc_command(void)
         // Mirror HVC-commanded LED states to the local error flags so that
         // main.c keeps the IMD / BMS indicator LEDs in sync with the HVC.
         imdError = cmd_imd_led;
-        amsError = cmd_bms_led;
+        bmsError = cmd_bms_led;
     }
 }
 
@@ -235,5 +235,6 @@ void charging_periodic(float dt)
 }
 
 
-bool getAmsError(void) { return amsError != 0; }
+bool getBmsError(void) { return bmsError != 0; }
 bool getImdError(void) { return imdError != 0; }
+bool getEnabled() { return cmd_enable; }
