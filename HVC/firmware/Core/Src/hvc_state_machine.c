@@ -54,7 +54,6 @@ void update_state_machine(bool any_faults) {
     
     // Check for faults - immediately return to NOT_ENERGIZED if fault detected
     if (any_faults) {
-        // set_positive_contactor((osKernelGetTickCount() % 2000) < 1000); // TODO false
         set_positive_contactor(false);
         current_state = HVC_STATE_NOT_ENERGIZED;
         return;
@@ -63,6 +62,8 @@ void update_state_machine(bool any_faults) {
     float tractive_voltage = get_tractive_voltage();
     float pack_voltage = bms_get_pack_voltage();
     float precharge_threshold = pack_voltage * HVC_PRECHARGE_THRESHOLD_PERCENT;
+    bool shutdown_closed = is_shutdown_closed();
+    bool charger_connected = is_charger_connected();
     
     // State machine logic
     switch (current_state) {
@@ -70,11 +71,11 @@ void update_state_machine(bool any_faults) {
             // Stay open until shutdown is closed
             set_positive_contactor(false);
             
-            if (is_shutdown_closed() && !is_charge_enable_active()) {
+            if (shutdown_closed && !charger_connected) {
                 // Transition to precharging
                 precharge_start_time = current_time;
                 current_state = HVC_STATE_PRECHARGING;
-            } else if (is_charge_enable_active()) {
+            } else if (shutdown_closed && charger_connected) {
                 // Transition to charging precharge
                 precharge_start_time = current_time;
                 current_state = HVC_STATE_CHARGING_PRECHARGING;
@@ -98,7 +99,7 @@ void update_state_machine(bool any_faults) {
             }
 
             // Check if shutdown is closed
-            if (!is_shutdown_closed()) {
+            if (!shutdown_closed) {
                 set_positive_contactor(false);
                 current_state = HVC_STATE_NOT_ENERGIZED;
             }
@@ -107,7 +108,7 @@ void update_state_machine(bool any_faults) {
         case HVC_STATE_ENERGIZED:
             // Stay energized while TS_Enable is active
             // log_printf(LOG_INFO, "energized - shutdown closed: %d\n", is_shutdown_closed());
-            if (!is_shutdown_closed()) {
+            if (!shutdown_closed) {
                 set_positive_contactor(false);
                 current_state = HVC_STATE_NOT_ENERGIZED;
             }
@@ -129,7 +130,7 @@ void update_state_machine(bool any_faults) {
             }
             
             // Check if charge enable released
-            if (!is_charge_enable_active()) {
+            if (!charger_connected) {
                 set_positive_contactor(false);
                 current_state = HVC_STATE_NOT_ENERGIZED;
             }
@@ -137,7 +138,7 @@ void update_state_machine(bool any_faults) {
             
         case HVC_STATE_CHARGING:
             // Stay in charging while charge enable is active
-            if (!is_charge_enable_active()) {
+            if (!charger_connected) {
                 set_positive_contactor(false);
                 current_state = HVC_STATE_NOT_ENERGIZED;
             }
@@ -211,7 +212,7 @@ const char* get_state_name(hvc_state_t state) {
 }
 
 
-__attribute__((weak)) bool is_charge_enable_active(void) {
+__attribute__((weak)) bool is_charger_connected(void) {
     // Default: return false (not charging)
     return false;
 }
