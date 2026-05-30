@@ -39,6 +39,10 @@ osThreadAttr_t lightsTask_attributes = {.name = "lightsTask",
                                         .stack_size = 128 * 8};
 
 void lights_update(void *argument);
+static bool blink_is_on(uint32_t tick, uint32_t half_period_ms);
+static void set_tssi_normal(void);
+static void set_tssi_fault(uint32_t tick);
+static void set_tssi_no_comms(uint32_t tick, uint32_t startup_tick);
 
 void lights_init(void) {
   // Initialize PWM on LEDs
@@ -52,67 +56,54 @@ void lights_init(void) {
 }
 
 void set_red_light(bool on) {
-  if (on) {
-    setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.07f);
-  } else {
-    setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.0f);
-  }
+  set_light(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, on);
 }
 
 void set_green_light(bool on) {
-  if (on) {
-    setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.07f);
-  } else {
-    setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.0f);
-  }
+  set_light(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, on);
 }
 
-void toggleRed() {
-  static bool red_on = false;
-  if (red_on) {
-    // Turn it off
-    set_red_light(false);
-  } else {
-    // Turn it on
-    set_red_light(true);
-  }
-  red_on = !red_on;
+static bool blink_is_on(uint32_t tick, uint32_t half_period_ms) {
+  return ((tick / half_period_ms) % 2U) == 0U;
 }
 
-void toggleGreen() {
-  static bool green_on = false;
-  if (green_on) {
-    // Turn it off
-    set_green_light(false);
-  } else {
-    // Turn it on
-    set_green_light(true);
+static void set_tssi_normal(void) {
+  set_green_light(true);
+  set_red_light(false);
+}
+
+static void set_tssi_fault(uint32_t tick) {
+  const uint32_t flash_half_period_ms = 200U;
+
+  set_green_light(false);
+  set_red_light(blink_is_on(tick, flash_half_period_ms));
+}
+
+static void set_tssi_no_comms(uint32_t tick, uint32_t startup_tick) {
+  const uint32_t startup_grace_period_ms = 3500U;
+
+  if (tick - startup_tick < startup_grace_period_ms) {
+    set_tssi_normal();
+    return;
   }
-  green_on = !green_on;
+
+  set_red_light(false);
+  set_green_light(false);
 }
 
 void lights_update(void *argument) {
   // Update LED states based on CAN messages
-  static uint32_t previous_tick = 0;
+  const uint32_t startup_tick = osKernelGetTickCount();
+
   while (1) {
+    const uint32_t current_tick = osKernelGetTickCount();
+
     if (hvc_imd_fault() || hvc_bms_fault()) {
-      // Turn on Red LED and Disable Green LED
-      set_green_light(false);
-      if (osKernelGetTickCount() - previous_tick >= 300) {
-        toggleRed();
-        previous_tick = osKernelGetTickCount();
-      }
+      set_tssi_fault(current_tick);
     } else if (hvc_imd_timeout() || hvc_bms_timeout()) {
-      // if anything times out, we just flash green
-      set_red_light(false);
-      if (osKernelGetTickCount() - previous_tick >= 300) {
-        toggleGreen();
-        previous_tick = osKernelGetTickCount();
-      }
+      set_tssi_no_comms(current_tick, startup_tick);
     } else {
-      // Normal state
-      set_green_light(true);
-      set_red_light(false);
+      set_tssi_normal();
     }
 
     // Brake Light
@@ -161,6 +152,12 @@ float normalizeLightWithVoltage(float nominalPctAt24V, float curVoltage) {
   adjustedPct = MAX(adjustedPct, 0.0f);
 
   return adjustedPct;
+}
+
+void set_light(TIM_HandleTypeDef *htim, uint32_t channel, bool on) {
+  uint32_t period = __HAL_TIM_GET_AUTORELOAD(htim);
+  uint32_t ccr_value = on ? period : 0U;
+  __HAL_TIM_SET_COMPARE(htim, channel, ccr_value);
 }
 
 void setPWM(TIM_HandleTypeDef *htim, uint32_t channel, float percentage) {
