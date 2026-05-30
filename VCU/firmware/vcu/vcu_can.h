@@ -49,8 +49,16 @@ typedef struct {
     float vbc_vd;
 } inverter_voltages_t;
 
+typedef struct {
+    float front_left;
+    float front_right;
+    float back_left;
+    float back_right;
+} wheel_speeds_t;
+
 inverter_currents_t vcu_can_get_inverter_currents(void);
 inverter_voltages_t vcu_can_get_inverter_voltages(void);
+wheel_speeds_t vcu_can_get_wheel_speeds(void);
 
 // Inverter feedback variables (populated automatically)
 extern float inverter_torque_fb;   // Nm

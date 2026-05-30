@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "Lookup1D.h"
 #include "Lookup2D.h"
@@ -72,6 +73,14 @@ typedef struct {
     float power_limit_trim_ki;
     float power_limit_trim_integral_max;
   } power_limit;
+
+  struct {
+    bool enable;
+    float target_slip_ratio;
+    float tc_trim_kp;
+    float tc_trim_ki;
+    float tc_trim_integral_max;
+  } traction_control;
 
   struct {
     float cell_voltage_ema_alpha;

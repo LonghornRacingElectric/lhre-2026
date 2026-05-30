@@ -76,6 +76,13 @@
         .power_limit_trim_ki           = 0.6f, \
         .power_limit_trim_integral_max = 20000.0f, \
     }, \
+    .traction_control = { \
+        .enable                = false, \
+        .target_slip_ratio     = 0.10f, \
+        .tc_trim_kp            = 200.0f, \
+        .tc_trim_ki            = 50.0f, \
+        .tc_trim_integral_max  = 5000.0f, \
+    }, \
     .battery = { \
         .cell_voltage_ema_alpha = 0.05f, \
         .soe_from_cell_voltage  = { \

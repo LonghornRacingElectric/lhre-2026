@@ -18,6 +18,7 @@ typedef struct {
   float torque_lookup_output; // raw torque from the lookup table (Nm)
   float torque_derated;       // torque from lookup table after derates are applied (Nm)
   float torque_power_limited; // torque after power limit trim loop (Nm)
+  float torque_tc_limited;    // torque after traction control trim loop (Nm)
   float torque_cmd;           // final torque command (Nm)
 
   float derate_factor_cell_voltage;

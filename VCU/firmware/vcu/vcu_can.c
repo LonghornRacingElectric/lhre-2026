@@ -48,6 +48,9 @@ static can_receive_message_t *inverter_current_mailbox_handle = NULL;
 
 static msg_inverter_voltage_t inverter_voltage_mailbox = {0};
 static can_receive_message_t *inverter_voltage_mailbox_handle = NULL;
+
+static msg_wheel_speeds_t wheel_speeds_mailbox = {0};
+static can_receive_message_t *wheel_speeds_mailbox_handle = NULL;
 // #define DUI_R2D_STATUS_TIMEOUT_MS 1000u
 
 // static bool dui_r2d_timed_out_logged = false;
@@ -377,6 +380,15 @@ inverter_voltages_t vcu_can_get_inverter_voltages(void) {
   };
 }
 
+wheel_speeds_t vcu_can_get_wheel_speeds(void) {
+  return (wheel_speeds_t){
+      .front_left  = wheel_speeds_mailbox.front_left_speed,
+      .front_right = wheel_speeds_mailbox.front_right_speed,
+      .back_left   = wheel_speeds_mailbox.back_left_speed,
+      .back_right  = wheel_speeds_mailbox.back_right_speed,
+  };
+}
+
 /**
  * @brief Creates the CAN receive handlers and registers them with the CAN lib
  *
@@ -441,4 +453,11 @@ void vcu_can_add_receive_handlers(void) {
                                    inverter_voltage_mailbox_handle);
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for inverter voltage registered\n");
+
+  wheel_speeds_mailbox_handle = can_get_receive_message_handle(
+      &wheel_speeds_mailbox, WHEEL_SPEEDS_ID,
+      (CAN_unpack_message_fn)unpack_wheel_speeds);
+  can_rtos_register_receive_packet(&data_acq_bus, wheel_speeds_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for wheel speeds registered\n");
 }

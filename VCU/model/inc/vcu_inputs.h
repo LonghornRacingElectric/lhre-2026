@@ -19,6 +19,10 @@ typedef struct {
   bool contactors_closed;
 
   float motor_speed_rpm;
+  float wheel_speed_fl_rads; // front-left wheel speed (rad/s)
+  float wheel_speed_fr_rads; // front-right wheel speed (rad/s)
+  float wheel_speed_rl_rads; // rear-left wheel speed (rad/s)
+  float wheel_speed_rr_rads; // rear-right wheel speed (rad/s)
   float min_cell_voltage_v;
 
   float battery_voltage_v;
