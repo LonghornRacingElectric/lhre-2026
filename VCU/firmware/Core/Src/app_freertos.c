@@ -341,8 +341,8 @@ void StartControlTask(void *argument) {
     steering_angle_deg = ((steering_angle_pct - 0.02f) / 0.62f - 0.5f) * 230.0f + 7.0f;  // TODO chud temp tuning
 
     // Read pedal sensors from DMA buffers
-    in.apps1_raw = ((float)adc3_dma_buf[0] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
-    in.apps2_raw = ((float)adc3_dma_buf[1] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
+    in.apps1_raw = ((float)adc3_dma_buf[1] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
+    in.apps2_raw = ((float)adc3_dma_buf[0] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
     in.bse1_raw = ((float)adc2_dma_buf[0] * ADC_BSE_SCALE_V) / ADC_MAX_VAL;
     in.bse2_raw = ((float)adc2_dma_buf[1] * ADC_BSE_SCALE_V) / ADC_MAX_VAL;
 
