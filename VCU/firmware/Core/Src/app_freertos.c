@@ -226,6 +226,7 @@ static float steering_sensor_voltage_to_angle_deg(float sensor_voltage_v) {
   float raw_angle_deg = (angle_pct * STEERING_SENSOR_ANGLE_RANGE_DEG) -
          (0.5f * STEERING_SENSOR_ANGLE_RANGE_DEG);
   float adjusted_angle_deg = raw_angle_deg + STEERING_SENSOR_ANGLE_OFFSET_DEG;
+  return adjusted_angle_deg;
 }
 
 static float steering_sensor_voltage_to_percent(float sensor_voltage_v) {
@@ -363,41 +364,14 @@ void StartControlTask(void *argument) {
     vcu_can_set_model_outputs(&out);
     vcu_can_set_steering_angle_deg(steering_angle_deg);
 
-    float delta_resolver_angle_deg = vcu_can_get_delta_resolver_angle_deg();
-    float motor_angle_deg = vcu_can_get_motor_angle_deg();
-    float torque_derate_pct = 1.0f;
-    if (in.min_cell_voltage_v <= s_params.torque_map.low_cell_cutoff_v) {
-      torque_derate_pct = 0.0f;
-    } else if (in.min_cell_voltage_v <
-                s_params.torque_map.low_cell_derate_start_v) {
-      torque_derate_pct =
-          (in.min_cell_voltage_v - s_params.torque_map.low_cell_cutoff_v) /
-          (s_params.torque_map.low_cell_derate_start_v -
-            s_params.torque_map.low_cell_cutoff_v);
-    // log_printf(LOG_INFO,
-    //          "TICK:%lu | RPM:%.0f DRA:%.1f ANG:%.1f PED:%.3f TQ:%.1f | "
-    //          "MIN:%.4f DRT:%.2f | STR_RAW:%lu AV:%.3f SV:%.3f SPCT:%.3f "
-    //          "STR_DEG:%.1f | "
-    //          "PRNDL:%u INV:%u | "
-    //          "DRV_IN:%u TR:%u | APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
-    //          (unsigned long)current_tick, (double)in.motor_speed_rpm,
-    //          (double)delta_resolver_angle_deg, (double)motor_angle_deg,
-    //          (double)out.accel_pedal_travel, (double)out.torque_cmd,
-    //          (double)in.min_cell_voltage_v, (double)torque_derate_pct,
-    //          (unsigned long)adc1_val, (double)steering_adc_voltage_v,
-    //          (double)steering_sensor_voltage_v,
-    //          (double)steering_angle_pct, (double)steering_angle_deg,
-    //          (unsigned)out.prndl_state, (unsigned)out.inverter_enable,
-    //          (unsigned)in.drive_switch, (unsigned)in.contactors_closed,
-    //          (unsigned)out.faults.apps_any_fault,
-    //          (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault);
+
     
-      log_printf(LOG_INFO,
-             "\nAPPS1_RAW:%.3f APPS1_PCT:%.3f\nAPPS2_RAW:%.3f APPS2_PCT:%.3f\nAPPS: %.3f\n\n",
-             (double)in.apps1_raw, (double)out.apps1_travel,
-             (double)in.apps2_raw, (double)out.apps2_travel,
-             (double)out.accel_pedal_travel);
-    }
+    log_printf(LOG_INFO,
+               "\nAPPS1_RAW:%.3f APPS1_PCT:%.3f\nAPPS2_RAW:%.3f "
+               "APPS2_PCT:%.3f\nAPPS: %.3f\n\n",
+               (double)in.apps1_raw, (double)out.apps1_travel,
+               (double)in.apps2_raw, (double)out.apps2_travel,
+               (double)out.accel_pedal_travel);
 
     // 3 ms control loop (333 Hz)
     osDelay(pdMS_TO_TICKS(CONTROL_LOOP_PERIOD_MS));
