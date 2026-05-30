@@ -371,6 +371,7 @@ void StartControlTask(void *argument) {
     in.inverter_voltage_valid = vcu_can_is_inverter_voltage_valid();
     in.inverter_current_valid = vcu_can_is_inverter_current_valid();
     in.battery_pack_status_valid = pack_status.valid;
+    wheel_speeds_t wheel_speeds = vcu_can_get_wheel_speeds();
 
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
