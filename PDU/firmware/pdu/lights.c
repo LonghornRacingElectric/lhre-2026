@@ -7,51 +7,48 @@
 #include "pdu_can.h"
 #include "tim.h"
 
-/**
- * TSSI Light Declarations
- */
-
-// RED LED
 #define PWM_TSSI_R_INSTANCE htim2
 #define PWM_TSSI_R_CHANNEL TIM_CHANNEL_1
 
-// GREEN LED
 #define PWM_TSSI_G_INSTANCE htim2
 #define PWM_TSSI_G_CHANNEL TIM_CHANNEL_3
 
 #define PWM_BRAKE_LIGHT_INSTANCE htim5
 #define PWM_BRAKE_LIGHT_CHANNEL TIM_CHANNEL_2
 
-/**
- * Helper Defines
- */
+#define TSSI_FAULT_BLINK_HALF_PERIOD_MS 200U
+#define TSSI_NO_COMMS_GRACE_PERIOD_MS 4000U
+#define LIGHTS_UPDATE_PERIOD_MS 100U
+
+#define LIGHTS_NOMINAL_VOLTAGE 24.0f
+#define LIGHTS_MINIMUM_VOLTAGE 12.0f
+#define LIGHTS_VOLTAGE_EXPONENT 2.0f
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
-/**
- * Light Task
- */
+static const osThreadAttr_t lightsTask_attributes = {
+    .name = "lightsTask",
+    .priority = (osPriority_t)osPriorityHigh,
+    .stack_size = 128 * 8,
+};
 
-osThreadAttr_t lightsTask_attributes = {.name = "lightsTask",
-                                        .priority =
-                                            (osPriority_t)osPriorityHigh,
-                                        .stack_size = 128 * 8};
-
-void lights_update(void *argument);
+static void lights_update(void *argument);
 static bool blink_is_on(uint32_t tick, uint32_t half_period_ms);
+static bool hvc_fault_active(void);
+static bool hvc_comms_timed_out(void);
+static void update_tssi(uint32_t tick, uint32_t startup_tick);
 static void set_tssi_normal(void);
 static void set_tssi_fault(uint32_t tick);
 static void set_tssi_no_comms(uint32_t tick, uint32_t startup_tick);
 
+static bool tssi_fault_latched = false;
+
 void lights_init(void) {
-  // Initialize PWM on LEDs
   HAL_TIM_PWM_Start(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL);
-  // Start Task for updating LEDs based on CAN messages
   HAL_TIM_PWM_Start(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL);
   HAL_TIM_PWM_Start(&PWM_BRAKE_LIGHT_INSTANCE, PWM_BRAKE_LIGHT_CHANNEL);
 
-  // Start LED Task
   osThreadNew(lights_update, NULL, &lightsTask_attributes);
 }
 
@@ -67,22 +64,40 @@ static bool blink_is_on(uint32_t tick, uint32_t half_period_ms) {
   return ((tick / half_period_ms) % 2U) == 0U;
 }
 
+static bool hvc_fault_active(void) {
+  return hvc_imd_fault() || hvc_bms_fault();
+}
+
+static bool hvc_comms_timed_out(void) {
+  return hvc_imd_timeout() || hvc_bms_timeout();
+}
+
+static void update_tssi(uint32_t tick, uint32_t startup_tick) {
+  if (hvc_fault_active()) {
+    tssi_fault_latched = true;
+  }
+
+  if (tssi_fault_latched) {
+    set_tssi_fault(tick);
+  } else if (hvc_comms_timed_out()) {
+    set_tssi_no_comms(tick, startup_tick);
+  } else {
+    set_tssi_normal();
+  }
+}
+
 static void set_tssi_normal(void) {
   set_green_light(true);
   set_red_light(false);
 }
 
 static void set_tssi_fault(uint32_t tick) {
-  const uint32_t flash_half_period_ms = 200U;
-
   set_green_light(false);
-  set_red_light(blink_is_on(tick, flash_half_period_ms));
+  set_red_light(blink_is_on(tick, TSSI_FAULT_BLINK_HALF_PERIOD_MS));
 }
 
 static void set_tssi_no_comms(uint32_t tick, uint32_t startup_tick) {
-  const uint32_t startup_grace_period_ms = 3500U;
-
-  if (tick - startup_tick < startup_grace_period_ms) {
+  if (tick - startup_tick < TSSI_NO_COMMS_GRACE_PERIOD_MS) {
     set_tssi_normal();
     return;
   }
@@ -91,26 +106,18 @@ static void set_tssi_no_comms(uint32_t tick, uint32_t startup_tick) {
   set_green_light(false);
 }
 
-void lights_update(void *argument) {
-  // Update LED states based on CAN messages
+static void lights_update(void *argument) {
+  (void)argument;
+
   const uint32_t startup_tick = osKernelGetTickCount();
 
   while (1) {
-    const uint32_t current_tick = osKernelGetTickCount();
+    update_tssi(osKernelGetTickCount(), startup_tick);
 
-    if (hvc_imd_fault() || hvc_bms_fault()) {
-      set_tssi_fault(current_tick);
-    } else if (hvc_imd_timeout() || hvc_bms_timeout()) {
-      set_tssi_no_comms(current_tick, startup_tick);
-    } else {
-      set_tssi_normal();
-    }
-
-    // Brake Light
     setPWM(&PWM_BRAKE_LIGHT_INSTANCE, PWM_BRAKE_LIGHT_CHANNEL,
            brake_light_pct());
 
-    osDelay(100);
+    osDelay(LIGHTS_UPDATE_PERIOD_MS);
   }
 }
 
@@ -128,30 +135,19 @@ void lights_update(void *argument) {
  * curVoltage.
  */
 float normalizeLightWithVoltage(float nominalPctAt24V, float curVoltage) {
-  const float nominalVoltage = 24.0f;
-  const float voltageExponent = 2.0f; // Need to tune
-
-  // 0, so doesn't matter, output 0
   if (nominalPctAt24V <= 0.0f) {
     return 0.0f;
   }
 
-  if (curVoltage < 12.0f) {
-    // LV is dead, don't PWM
+  if (curVoltage < LIGHTS_MINIMUM_VOLTAGE) {
     return 0.0f;
   }
 
-  // Scaling the voltage
-  float voltageRatio = nominalVoltage / curVoltage;
-  float scalingFactor = powf(voltageRatio, voltageExponent);
+  const float voltageRatio = LIGHTS_NOMINAL_VOLTAGE / curVoltage;
+  const float scalingFactor = powf(voltageRatio, LIGHTS_VOLTAGE_EXPONENT);
+  const float adjustedPct = nominalPctAt24V * scalingFactor;
 
-  float adjustedPct = nominalPctAt24V * scalingFactor;
-
-  // clamping output
-  adjustedPct = MIN(adjustedPct, 1.0f);
-  adjustedPct = MAX(adjustedPct, 0.0f);
-
-  return adjustedPct;
+  return MAX(MIN(adjustedPct, 1.0f), 0.0f);
 }
 
 void set_light(TIM_HandleTypeDef *htim, uint32_t channel, bool on) {
