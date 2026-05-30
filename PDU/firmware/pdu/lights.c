@@ -81,7 +81,7 @@ static void set_tssi_normal(void) {
 }
 
 static void set_tssi_fault(uint32_t tick) {
-  const uint32_t flash_half_period_ms = 250U;
+  const uint32_t flash_half_period_ms = 200U;
 
   set_green_light(false);
   set_red_light(blink_is_on(tick, flash_half_period_ms));
