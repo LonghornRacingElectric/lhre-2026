@@ -15,6 +15,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "hvc_state_machine.h"
+#include "hvc_charging.h"
 #include "hvc_bms.h"
 #include "hvc_contactors.h"
 #include "cmsis_os.h"
@@ -137,9 +138,11 @@ void update_state_machine(bool any_faults) {
             break;
             
         case HVC_STATE_CHARGING:
+            hvc_control_charging(true);
             // Stay in charging while charge enable is active
-            if (!charger_connected) {
+            if (!charger_connected || !shutdown_closed) {
                 set_positive_contactor(false);
+                hvc_control_charging(false);
                 current_state = HVC_STATE_NOT_ENERGIZED;
             }
             break;
@@ -212,7 +215,3 @@ const char* get_state_name(hvc_state_t state) {
 }
 
 
-__attribute__((weak)) bool is_charger_connected(void) {
-    // Default: return false (not charging)
-    return false;
-}
