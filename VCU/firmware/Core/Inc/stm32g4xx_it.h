@@ -57,6 +57,8 @@ void DMA1_Channel2_IRQHandler(void);
 void USB_LP_IRQHandler(void);
 void FDCAN1_IT0_IRQHandler(void);
 void FDCAN1_IT1_IRQHandler(void);
+void FDCAN2_IT0_IRQHandler(void);
+void FDCAN2_IT1_IRQHandler(void);
 void DMA2_Channel1_IRQHandler(void);
 void TIM20_UP_IRQHandler(void);
 /* USER CODE BEGIN EFP */

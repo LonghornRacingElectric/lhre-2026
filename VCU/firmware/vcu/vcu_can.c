@@ -48,6 +48,18 @@ static can_receive_message_t *inverter_current_mailbox_handle = NULL;
 
 static msg_inverter_voltage_t inverter_voltage_mailbox = {0};
 static can_receive_message_t *inverter_voltage_mailbox_handle = NULL;
+
+static msg_acceleration_vector_unsprung_wheel_speed_fl_t fl_usm_mailbox = {0};
+static can_receive_message_t *fl_usm_mailbox_handle = NULL;
+
+static msg_acceleration_vector_unsprung_wheel_speed_fr_t fr_usm_mailbox = {0};
+static can_receive_message_t *fr_usm_mailbox_handle = NULL;
+
+static msg_acceleration_vector_unsprung_wheel_speed_rl_t bl_usm_mailbox = {0};
+static can_receive_message_t *bl_usm_mailbox_handle = NULL;
+
+static msg_acceleration_vector_unsprung_wheel_speed_rr_t br_usm_mailbox = {0};
+static can_receive_message_t *br_usm_mailbox_handle = NULL;
 // #define DUI_R2D_STATUS_TIMEOUT_MS 1000u
 
 // static bool dui_r2d_timed_out_logged = false;
@@ -377,6 +389,24 @@ inverter_voltages_t vcu_can_get_inverter_voltages(void) {
   };
 }
 
+wheel_speeds_t vcu_can_get_wheel_speeds(void) {
+  return (wheel_speeds_t){
+      .front_left = fl_usm_mailbox.wheel_speed,
+      .front_right = fr_usm_mailbox.wheel_speed,
+      .back_left = bl_usm_mailbox.wheel_speed,
+      .back_right = br_usm_mailbox.wheel_speed,
+  };
+}
+
+unsprung_accel_t vcu_can_get_unsprung_accel(void) {
+  return (unsprung_accel_t){
+      .front_left = {fl_usm_mailbox.x, fl_usm_mailbox.y, fl_usm_mailbox.z},
+      .front_right = {fr_usm_mailbox.x, fr_usm_mailbox.y, fr_usm_mailbox.z},
+      .back_left = {bl_usm_mailbox.x, bl_usm_mailbox.y, bl_usm_mailbox.z},
+      .back_right = {br_usm_mailbox.x, br_usm_mailbox.y, br_usm_mailbox.z},
+  };
+}
+
 /**
  * @brief Creates the CAN receive handlers and registers them with the CAN lib
  *
@@ -441,4 +471,32 @@ void vcu_can_add_receive_handlers(void) {
                                    inverter_voltage_mailbox_handle);
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for inverter voltage registered\n");
+
+  fl_usm_mailbox_handle = can_get_receive_message_handle(
+      &fl_usm_mailbox, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FL_ID,
+      (CAN_unpack_message_fn)unpack_acceleration_vector_unsprung_wheel_speed_fl);
+  can_rtos_register_receive_packet(&data_acq_bus, fl_usm_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for FL wheel speed registered\n");
+
+  fr_usm_mailbox_handle = can_get_receive_message_handle(
+      &fr_usm_mailbox, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FR_ID,
+      (CAN_unpack_message_fn)unpack_acceleration_vector_unsprung_wheel_speed_fr);
+  can_rtos_register_receive_packet(&data_acq_bus, fr_usm_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for FR wheel speed registered\n");
+
+  bl_usm_mailbox_handle = can_get_receive_message_handle(
+      &bl_usm_mailbox, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RL_ID,
+      (CAN_unpack_message_fn)unpack_acceleration_vector_unsprung_wheel_speed_rl);
+  can_rtos_register_receive_packet(&data_acq_bus, bl_usm_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for BL wheel speed registered\n");
+
+  br_usm_mailbox_handle = can_get_receive_message_handle(
+      &br_usm_mailbox, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RR_ID,
+      (CAN_unpack_message_fn)unpack_acceleration_vector_unsprung_wheel_speed_rr);
+  can_rtos_register_receive_packet(&data_acq_bus, br_usm_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for BR wheel speed registered\n");
 }
