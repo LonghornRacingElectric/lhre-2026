@@ -356,6 +356,7 @@ void StartControlTask(void *argument) {
     }
     in.battery_voltage_v = vcu_can_get_inverter_voltages().dc_bus;
     in.battery_current_a = vcu_can_get_inverter_currents().dc_bus;
+    wheel_speeds_t wheel_speeds = vcu_can_get_wheel_speeds();
 
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
@@ -368,10 +369,11 @@ void StartControlTask(void *argument) {
     
     log_printf(LOG_INFO,
                "\nAPPS1_RAW:%.3f APPS1_PCT:%.3f\nAPPS2_RAW:%.3f "
-               "APPS2_PCT:%.3f\nAPPS: %.3f\n\n",
+               "APPS2_PCT:%.3f\nAPPS: %.3f\nFR_WHEEL_SPEED:%.3f rad/s\n\n",
                (double)in.apps1_raw, (double)out.apps1_travel,
                (double)in.apps2_raw, (double)out.apps2_travel,
-               (double)out.accel_pedal_travel);
+               (double)out.accel_pedal_travel,
+               (double)wheel_speeds.front_right);
 
     // 3 ms control loop (333 Hz)
     osDelay(pdMS_TO_TICKS(CONTROL_LOOP_PERIOD_MS));
