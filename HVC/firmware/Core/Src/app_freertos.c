@@ -279,6 +279,8 @@ void StartStateMachineTask(void *argument) {
     float raw_vsense_v = hvc_adc_read_voltage_sense_v();
     float min_v = bms_get_min_voltage();
     float max_v = bms_get_max_voltage();
+    hvc_set_min_cell_voltage(min_v);
+    hvc_set_max_cell_voltage(max_v);
     float delta_mv = (max_v - min_v) * 1000.0f;
     float min_temp_c = bms_get_min_temp();
     float max_temp_c = bms_get_max_temp();
