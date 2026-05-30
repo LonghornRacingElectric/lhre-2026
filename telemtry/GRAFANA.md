@@ -1,6 +1,8 @@
 # Adding Grafana Dashboards
 lhrelectric.org/grafana/ (dm any of the Telemetry members for password access)
 
+Dashboards in `analysis/database/dashboards/<car>/<mode>/*.json` are auto-provisioned by Grafana when `stack/server_devtool.sh` starts ingest (options 1/2/3/4/Q/W/Z).
+
 ## Realtime Dashboards
 1. Create a regular new dashboard
 2. Select "Real Time Data" as Data Source

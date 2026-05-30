@@ -1,7 +1,6 @@
 import { PrismaClient } from "../../../.prisma/angelique-client";
 
 declare global {
-  // eslint-disable-next-line no-var
   var angelique_prisma: PrismaClient | undefined;
 }
 

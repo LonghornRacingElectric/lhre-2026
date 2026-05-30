@@ -148,13 +148,16 @@ Tests are located in `telemtry/stack/tests/`. To add a new test:
 
 To add a new Kafka consumer processor:
 
-1. Create directory: `telemtry/stack/processors/my_processor/`
-2. Add Python files and Dockerfile
+1. Start from template: copy `telemtry/stack/processors/kafka_base/` to `telemtry/stack/processors/my_processor/`
+2. Update Python files and Docker metadata for your processor
 3. Create `BUILD.bazel` following the pattern in `gps_classifier/BUILD.bazel`
 4. Add to the aggregate targets in:
    - `telemtry/stack/processors/BUILD.bazel`
    - `telemtry/stack/BUILD.bazel`
    - `telemtry/BUILD.bazel`
+
+Template guidance and processor best practices are documented in:
+`telemtry/stack/processors/kafka_base/README.md`
 
 ## Environment Configuration
 

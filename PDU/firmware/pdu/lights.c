@@ -53,7 +53,7 @@ void lights_init(void) {
 
 void set_red_light(bool on) {
   if (on) {
-    setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.05f);
+    setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.07f);
   } else {
     setPWM(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL, 0.0f);
   }
@@ -61,7 +61,7 @@ void set_red_light(bool on) {
 
 void set_green_light(bool on) {
   if (on) {
-    setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.05f);
+    setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.07f);
   } else {
     setPWM(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL, 0.0f);
   }

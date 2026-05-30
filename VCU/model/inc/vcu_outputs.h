@@ -15,7 +15,17 @@ typedef struct {
   float accel_pedal_travel; // middle of apps1 and apps2 in percent
 
   /* Torque command */
-  float torque_cmd; // torque command in Nm
+  float torque_lookup_output; // raw torque from the lookup table (Nm)
+  float torque_derated;       // torque from lookup table after derates are applied (Nm)
+  float torque_power_limited; // torque after power limit trim loop (Nm)
+  float torque_cmd;           // final torque command (Nm)
+
+  float derate_factor_cell_voltage;
+  float derate_factor_cell_temp;
+
+  float open_circuit_cell_voltage;
+  float soe_pct;
+
   bool inverter_enable;
 
   /* Status flags */

@@ -1,0 +1,20 @@
+apiVersion: 1
+
+datasources:
+  - name: kafka-provisioned
+    type: lhre-kafka-datasource
+    access: proxy
+    isDefault: True
+    editable: True
+    jsonData:
+      bootstrapServers: 'kafka:9092'
+      schemaRegistryUrl: 'http://schema-registry:8081'
+      # Uncomment the below lines to enable SASL authentication or other configurations
+      # securityProtocol: "PLAINTEXT"
+      # saslMechanisms: "PLAIN"
+      # saslUsername: ""
+      # logLevel: "debug"
+      # healthcheckTimeout: 3000
+    # secureJsonData:
+    #   saslPassword: ""
+    #   apiKey: ""

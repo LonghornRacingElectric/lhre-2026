@@ -1,0 +1,23 @@
+services:
+  field_enricher:
+    build:
+      context: ../../..
+      dockerfile: ./stack/processors/field_enricher/Dockerfile
+    image: field_enricher
+    container_name: field_enricher_processor
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: 1
+      IN_DOCKER: 1
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      KAFKA_CAR: "${KAFKA_CAR:-orion}"
+      KAFKA_SOURCE_TOPIC: "grafana_data_${KAFKA_CAR:-orion}"
+      KAFKA_OUTPUT_TOPIC: "grafana_data_${KAFKA_CAR:-orion}_derived"
+      ENRICHER_CONFIG: "/app/stack/processors/field_enricher/config/${KAFKA_CAR:-orion}.yaml"
+      LOGLEVEL: "INFO"
+    networks:
+      - telemetry_network
+
+networks:
+  telemetry_network:
+    external: true

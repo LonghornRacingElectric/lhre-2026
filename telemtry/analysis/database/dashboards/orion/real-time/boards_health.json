@@ -1,0 +1,546 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "decimals": 2,
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": { "text": "NO DATA", "color": "red" }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "99999": { "text": "NO DATA", "color": "orange" }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 0,
+                "to": 1,
+                "result": { "text": "ACTIVE", "color": "green" }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1.0 }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "noValue": "NO DATA"
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE((SELECT ROUND((bs.csm_last_seen_s + GREATEST(EXTRACT(EPOCH FROM clock_timestamp()) - (p.time / 1000.0), 0))::numeric, 2) FROM board_status bs JOIN packet p ON p.packet_id = bs.packet_id ORDER BY p.time DESC LIMIT 1), 99999.0) AS csm_last_seen_s;",
+          "refId": "A"
+        }
+      ],
+      "title": "CSM",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "decimals": 2,
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": { "text": "NO DATA", "color": "red" }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "99999": { "text": "NO DATA", "color": "orange" }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 0,
+                "to": 1,
+                "result": { "text": "ACTIVE", "color": "green" }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1.0 }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "noValue": "NO DATA"
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE((SELECT ROUND((bs.dui_last_seen_s + GREATEST(EXTRACT(EPOCH FROM clock_timestamp()) - (p.time / 1000.0), 0))::numeric, 2) FROM board_status bs JOIN packet p ON p.packet_id = bs.packet_id ORDER BY p.time DESC LIMIT 1), 99999.0) AS dui_last_seen_s;",
+          "refId": "A"
+        }
+      ],
+      "title": "DUI",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "decimals": 2,
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": { "text": "NO DATA", "color": "red" }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "99999": { "text": "NO DATA", "color": "orange" }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 0,
+                "to": 1,
+                "result": { "text": "ACTIVE", "color": "green" }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1.0 }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "id": 3,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "noValue": "NO DATA"
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE((SELECT ROUND((bs.hvc_last_seen_s + GREATEST(EXTRACT(EPOCH FROM clock_timestamp()) - (p.time / 1000.0), 0))::numeric, 2) FROM board_status bs JOIN packet p ON p.packet_id = bs.packet_id ORDER BY p.time DESC LIMIT 1), 99999.0) AS hvc_last_seen_s;",
+          "refId": "A"
+        }
+      ],
+      "title": "HVC",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "decimals": 2,
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": { "text": "NO DATA", "color": "red" }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "99999": { "text": "NO DATA", "color": "orange" }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 0,
+                "to": 1,
+                "result": { "text": "ACTIVE", "color": "green" }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1.0 }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "id": 4,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "noValue": "NO DATA"
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE((SELECT ROUND((bs.inverter_last_seen_s + GREATEST(EXTRACT(EPOCH FROM clock_timestamp()) - (p.time / 1000.0), 0))::numeric, 2) FROM board_status bs JOIN packet p ON p.packet_id = bs.packet_id ORDER BY p.time DESC LIMIT 1), 99999.0) AS inverter_last_seen_s;",
+          "refId": "A"
+        }
+      ],
+      "title": "Inverter",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "decimals": 2,
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": { "text": "NO DATA", "color": "red" }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "99999": { "text": "NO DATA", "color": "orange" }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 0,
+                "to": 1,
+                "result": { "text": "ACTIVE", "color": "green" }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1.0 }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 5 },
+      "id": 5,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "noValue": "NO DATA"
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE((SELECT ROUND((bs.pdu_last_seen_s + GREATEST(EXTRACT(EPOCH FROM clock_timestamp()) - (p.time / 1000.0), 0))::numeric, 2) FROM board_status bs JOIN packet p ON p.packet_id = bs.packet_id ORDER BY p.time DESC LIMIT 1), 99999.0) AS pdu_last_seen_s;",
+          "refId": "A"
+        }
+      ],
+      "title": "PDU",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "decimals": 2,
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": { "text": "NO DATA", "color": "red" }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "99999": { "text": "NO DATA", "color": "orange" }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 0,
+                "to": 1,
+                "result": { "text": "ACTIVE", "color": "green" }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1.0 }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 5 },
+      "id": 6,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "noValue": "NO DATA"
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE((SELECT ROUND((bs.tsm_last_seen_s + GREATEST(EXTRACT(EPOCH FROM clock_timestamp()) - (p.time / 1000.0), 0))::numeric, 2) FROM board_status bs JOIN packet p ON p.packet_id = bs.packet_id ORDER BY p.time DESC LIMIT 1), 99999.0) AS tsm_last_seen_s;",
+          "refId": "A"
+        }
+      ],
+      "title": "TSM",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "decimals": 2,
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": { "text": "NO DATA", "color": "red" }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "99999": { "text": "NO DATA", "color": "orange" }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 0,
+                "to": 1,
+                "result": { "text": "ACTIVE", "color": "green" }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1.0 }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 5 },
+      "id": 7,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "noValue": "NO DATA"
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE((SELECT ROUND((bs.usm_last_seen_s + GREATEST(EXTRACT(EPOCH FROM clock_timestamp()) - (p.time / 1000.0), 0))::numeric, 2) FROM board_status bs JOIN packet p ON p.packet_id = bs.packet_id ORDER BY p.time DESC LIMIT 1), 99999.0) AS usm_last_seen_s;",
+          "refId": "A"
+        }
+      ],
+      "title": "USM",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "orion" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "decimals": 2,
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": { "text": "NO DATA", "color": "red" }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "99999": { "text": "NO DATA", "color": "orange" }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 0,
+                "to": 1,
+                "result": { "text": "ACTIVE", "color": "green" }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1.0 }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 5 },
+      "id": 8,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "noValue": "NO DATA"
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE((SELECT ROUND((bs.vcu_last_seen_s + GREATEST(EXTRACT(EPOCH FROM clock_timestamp()) - (p.time / 1000.0), 0))::numeric, 2) FROM board_status bs JOIN packet p ON p.packet_id = bs.packet_id ORDER BY p.time DESC LIMIT 1), 99999.0) AS vcu_last_seen_s;",
+          "refId": "A"
+        }
+      ],
+      "title": "VCU",
+      "type": "stat"
+    }
+  ],
+  "preload": false,
+  "refresh": "1s",
+  "schemaVersion": 40,
+  "tags": ["orion", "real-time", "use-case", "boards-health"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Boards Health - Orion (Real-Time)",
+  "uid": "orion_boards_health_rt_v1",
+  "version": 52,
+  "weekStart": ""
+}

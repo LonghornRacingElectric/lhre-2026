@@ -36,14 +36,18 @@ protected:
     params.bse.bse_max_psi = 1000.0f;
     params.bse.bse_off_psi = 30.0f;
     params.bse.bse_on_psi = 50.0f;
-    params.bse.max_pedal_while_braking = 0.25f;
+    params.bse.max_pedal_while_braking = 0.30f;
     params.bse.max_pedal_restore_threshold = 0.05f;
-
-    // Basic torque map
-    params.torque_map.max_torque_nm = 100.0f;
 
     // Buzzer
     params.buzzer_duration_ms = 3000;
+
+    // Torque map
+    float temp_torque_map[11] = {100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f};
+    memcpy(params.torque_map.power_limit_torque, temp_torque_map, sizeof(temp_torque_map));
+    float temp_pedal_map[11] = {0.0f, 0.10f, 0.20f, 0.30f, 0.40f, 0.50f, 0.60f, 0.70f, 0.80f, 0.90f, 1.0f};
+    memcpy(params.torque_map.pedal_map, temp_pedal_map, sizeof(temp_pedal_map));
+    params.torque_map.pedal_curve_exponent = 1.0f;
 
     in = {0};
     out = {0};
@@ -137,7 +141,7 @@ TEST_F(VCUModelTest, BrakeLatchDisablesTorque) {
   vcu_model_step(&ctx, &in, &out, 10);
   EXPECT_FLOAT_EQ(out.torque_cmd, 50.0f);
 
-  // Now press brake while pedal is > 25%
+  // Now press brake while pedal is > 30%
   in.bse1_raw = 900; // Max psi
   in.bse2_raw = 950;
   vcu_model_step(&ctx, &in, &out, 10);
