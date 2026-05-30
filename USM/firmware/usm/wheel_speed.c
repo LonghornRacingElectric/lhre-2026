@@ -2,6 +2,7 @@
 #include <string.h>
 #include <math.h>
 #include <longhorn/rtos/logger.h>
+#include "cmsis_os.h"
 
 // ── MLX90395 Commands ─────────────────────────────────────
 #define MLX_CMD_START_BURST   0x1E
@@ -90,10 +91,16 @@ void WheelSpeed_Init(SPI_HandleTypeDef *hspi)
 // ── Peak detection + RPM math ─────────────────────────────
 static void process_sensor(SensorState *s)
 {
-    // first device is rotated
+    
     float value;
+#if defined(BOARD_RL) || defined(BOARD_RR)
+    // all are X-radial are rotated on rears
+    value = s->x;
+#else
+    // first device is X-radial on fronts, otherwise Y-radial
     if(s->id == 0) value = s->x;
     else value = s->y;
+#endif
 
     uint8_t cross = 0;
     if(s->direction == 1) {
