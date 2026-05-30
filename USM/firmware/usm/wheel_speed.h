@@ -8,7 +8,7 @@
 // ── Config ────────────────────────────────────────────────
 #define WS_NUM_SENSORS        4
 #define WS_MAGNETS_PER_REV    6      //6 magnets on wheel
-#define WS_SENSOR_SPACING_DEG 15.0f  //sensors 15° apart (fact check??)
+#define WS_SENSOR_SPACING_DEG 15.0f  //sensors 15° apart
 #define WS_HYSTERESIS         3.0f
 #define WS_EMA_ALPHA          0.05f
 
