@@ -293,7 +293,7 @@ class TestDataGenerator:
             if hasattr(data, 'dynamics'):
                 if car == "Orion":
                     data.dynamics.steer_col_angle = float(self.rng.random() * 2.5)
-                    data.dynamics.flw_speed = float(self.rng.random() * 100)
+                    data.dynamics.fl_wheel_speed = float(self.rng.random() * 100)
                 elif car != "Angelique":
                     data.dynamics.f_gps_velocity = float(self.rng.random() * 100)
                     data.dynamics.f_gps_heading = float(self.rng.random() * 360)

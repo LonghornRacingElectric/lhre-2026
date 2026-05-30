@@ -6,36 +6,36 @@ class OrionDynamics:
     gps: List[float] = field(default_factory=list)
     gps_imu: List[float] = field(default_factory=list)
     gps_speed: Optional[float] = None
+    bl_unsprung_accel: List[float] = field(default_factory=list)
+    br_unsprung_accel: List[float] = field(default_factory=list)
+    fl_unsprung_accel: List[float] = field(default_factory=list)
+    fr_unsprung_accel: List[float] = field(default_factory=list)
     accel_pedal_travel: Optional[float] = None
+    bl_wheel_speed: Optional[float] = None
+    br_wheel_speed: Optional[float] = None
+    fl_wheel_speed: Optional[float] = None
+    fr_wheel_speed: Optional[float] = None
     steer_col_angle: Optional[float] = None
     bl_gyro: List[float] = field(default_factory=list)
     bl_sprung_accel: List[float] = field(default_factory=list)
-    bl_unsprung_accel: List[float] = field(default_factory=list)
     br_gyro: List[float] = field(default_factory=list)
     br_sprung_accel: List[float] = field(default_factory=list)
-    br_unsprung_accel: List[float] = field(default_factory=list)
     fl_gyro: List[float] = field(default_factory=list)
     fl_sprung_accel: List[float] = field(default_factory=list)
-    fl_unsprung_accel: List[float] = field(default_factory=list)
     fr_gyro: List[float] = field(default_factory=list)
     fr_sprung_accel: List[float] = field(default_factory=list)
-    fr_unsprung_accel: List[float] = field(default_factory=list)
     bl_ride_height: Optional[float] = None
     bl_strain_gauge_v: Optional[float] = None
     bl_sus_pot_v: Optional[float] = None
-    blw_speed: Optional[float] = None
     br_ride_height: Optional[float] = None
     br_strain_gauge_v: Optional[float] = None
     br_sus_pot_v: Optional[float] = None
-    brw_speed: Optional[float] = None
     fl_ride_height: Optional[float] = None
     fl_strain_gauge_v: Optional[float] = None
     fl_sus_pot_v: Optional[float] = None
-    flw_speed: Optional[float] = None
     fr_ride_height: Optional[float] = None
     fr_strain_gauge_v: Optional[float] = None
     fr_sus_pot_v: Optional[float] = None
-    frw_speed: Optional[float] = None
     ride_height: Optional[float] = None
     wheel_speed: Optional[float] = None
 
