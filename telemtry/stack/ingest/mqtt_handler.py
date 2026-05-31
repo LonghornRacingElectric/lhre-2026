@@ -15,6 +15,7 @@ import grpc
 from paho.mqtt import client as mqtt_client
 from google.protobuf.json_format import MessageToDict
 from pathlib import Path
+from sqlalchemy import text
 
 sys.path.append(str(Path(__file__).parents[2]))
 
@@ -82,7 +83,7 @@ class MQTTHandler:
         self.db_queues = {
             "Nightwatch": queue.Queue(maxsize=4096),
             "Angelique": queue.Queue(maxsize=4096),
-            "Orion": queue.Queue(maxsize=15000),
+            "Orion": queue.Queue(maxsize=30000),
         }
         self.db_workers = {
             car: threading.Thread(target=self._db_worker, args=(car,), daemon=True)
@@ -184,6 +185,9 @@ class MQTTHandler:
                 return
 
             try:
+                # Tier 1 throughput: don't block this commit on a WAL fsync. Durability tradeoff is
+                # acceptable — car-side CSV is the source of truth and gaps are backfillable.
+                session_obj.execute(text("SET LOCAL synchronous_commit = off"))
                 QueryBuilder.execute_insert(session_obj, jobs, self.table_specs[car], car, commit=False)
 
                 packet_times = sorted({
@@ -243,7 +247,11 @@ class MQTTHandler:
                 jobs.extend(job)
                 pending_acks += 1
 
-                if len(jobs) >= 40:
+                # Tier 1 throughput: larger batches mean far fewer commits. Each packet contributes
+                # ~8 job-tuples, so ~1000 jobs ≈ 125 packets/commit (~1-2s of data at live rates).
+                # The 5s queue-timeout flush above bounds worst-case latency for low-rate streams.
+                # Single FIFO worker + ordered jobs list => packet_ids still insert strictly in order.
+                if len(jobs) >= 1000:
                     flush_batch(session)
                     while pending_acks > 0:
                         self.db_queues[car].task_done()
@@ -569,6 +577,19 @@ class MQTTHandler:
             row = template_pb2.SensorData()
         row.ParseFromString(payload)
         row = MessageToDict(row, preserving_proto_field_name=True, always_print_fields_with_no_presence=True)
+        if car == "Orion" and isinstance(row.get("dynamics"), dict):
+            # The Orion proto names these fields blw_speed/brw_speed/flw_speed/frw_speed,
+            # but the dynamics table columns are bl_wheel_speed/.../fr_wheel_speed.
+            # Remap so the live insert populates the columns instead of writing NULL.
+            dyn = row["dynamics"]
+            for proto_name, db_name in (
+                ("blw_speed", "bl_wheel_speed"),
+                ("brw_speed", "br_wheel_speed"),
+                ("flw_speed", "fl_wheel_speed"),
+                ("frw_speed", "fr_wheel_speed"),
+            ):
+                if proto_name in dyn:
+                    dyn[db_name] = dyn.pop(proto_name)
         # logging.debug(row)
         return row
 
