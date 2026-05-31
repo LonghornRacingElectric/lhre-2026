@@ -109,6 +109,7 @@ void pdu_can_add_receive_handlers(void) {
       (CAN_unpack_message_fn)unpack_vcu_state);
 
   can_rtos_register_receive_packet(&critical_bus, vcu_state_mailbox_handle);
+  vcu_state_mailbox.line_lock_enabled = 0;
 
   log_printf(LOG_INFO, "[PDU] CAN VCU State handler registered\n");
 
@@ -128,6 +129,10 @@ bool vehicle_in_park(void) {
 }
 
 bool vehicle_in_drive(void) { return !vehicle_in_park(); }
+
+bool line_lock_enabled(void) {
+  return vcu_state_mailbox.line_lock_enabled != 0;
+}
 
 /**
  * @brief Check if there are faults. Checks the mailbox that is updated by the
