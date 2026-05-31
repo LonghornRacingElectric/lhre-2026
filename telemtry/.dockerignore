@@ -1,0 +1,46 @@
+# Build-context excludes for the telemetry stack.
+#
+# Both `ingest` and every processor image (field_enricher, gps_classifier,
+# lap_timer, track_mapper, gg_plot) use this directory (telmtry/) as their
+# Docker build context. Without this file the whole 3.4 GB tree — including the
+# 1.1 GB Next.js node_modules and 546 MB of runtime logs — is tarred and shipped
+# to the daemon on EVERY build, and churning files (logs, node_modules) bust the
+# layer cache. None of the entries below are ever COPYed into these images:
+#   * node_modules / .next  → frontend only; these are Python images
+#   * logs                  → mounted as a runtime volume, not built in
+#   * __pycache__ / *.pyc   → regenerated inside the image
+#   * .git                  → never needed at build time
+#
+# If a future image legitimately needs something excluded here, whitelist it
+# with a `!pattern` line at the bottom rather than deleting this file.
+
+# --- frontend / JS build artifacts (the big one: ~1.1 GB) ---
+**/node_modules
+**/.next
+**/.turbo
+**/dist
+**/.cache
+**/coverage
+
+# --- runtime logs (~546 MB) ---
+logs/
+**/*.log
+
+# --- python caches ---
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.venv
+**/venv
+
+# --- vcs / editor / os cruft ---
+.git
+.gitignore
+**/.DS_Store
+**/.idea
+**/.vscode
+
+# --- this tooling itself doesn't need to be in the image ---
+**/*.md
