@@ -78,7 +78,7 @@
         .power_limit_trim_integral_max = 20000.0f, \
     }, \
     .battery = { \
-        .cell_voltage_ema_alpha = 0.05f, \
+        .cell_voltage_ema_alpha = 0.005f, \
         .soe_from_cell_voltage  = { \
             0.0f,  1.0f,  3.0f,  6.0f, 10.0f, \
             17.0f, 28.0f, 46.0f, 68.0f, 86.0f, 100.0f \
@@ -93,7 +93,7 @@
         .rear_pressure_zero_torque_psi       = 0.0f, \
         .rear_pressure_reference_psi         = 500.0f, \
         .rear_pressure_min_engage_psi        = 10.0f, \
-        .regen_torque_at_reference_pressure_nm = 76.0f, \
+        .regen_torque_at_reference_pressure_nm = 5.0f, \
         .absolute_regen_torque_cap_nm        = 230.0f, \
         .pedal_torque_release_threshold_nm   = 20.0f, \
         .linelock_close_delay_ms             = 200u, \

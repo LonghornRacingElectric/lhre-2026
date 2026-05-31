@@ -27,7 +27,7 @@ Regen demand comes from the rear BSE/pre-lock pressure, `out->bse2_psi`.
 Default mapping:
 
 - `0 psi -> 0 Nm`
-- `500 psi -> 76 Nm`
+- `500 psi -> 5 Nm`
 - Linear slope between and beyond those points
 - In normal mode, final command is clipped by the dynamic pack/motor regen limit
   and by the absolute inverter safety cap
@@ -256,7 +256,7 @@ under:
     .rear_pressure_zero_torque_psi = 0.0f,
     .rear_pressure_reference_psi = 500.0f,
     .rear_pressure_min_engage_psi = 10.0f,
-    .regen_torque_at_reference_pressure_nm = 76.0f,
+    .regen_torque_at_reference_pressure_nm = 5.0f,
     .absolute_regen_torque_cap_nm = 230.0f,
     .pedal_torque_release_threshold_nm = 20.0f,
     .linelock_close_delay_ms = 200u,
