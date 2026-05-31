@@ -8,10 +8,10 @@ protected:
   vcu_inputs_t in = {};
   vcu_outputs_t out = {};
   vcu_parameters_t params = {};
-  params.bse.brake_light_min_pct = 0.0f;
 
   void SetUp() override {
     state = {};
+    params.bse.brake_light_min_pct = 0.0f;
     prndl_init(&state);
   }
 };
