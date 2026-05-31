@@ -95,7 +95,7 @@
         .rear_pressure_min_engage_psi        = 10.0f, \
         .regen_torque_at_reference_pressure_nm = 5.0f, \
         .absolute_regen_torque_cap_nm        = 230.0f, \
-        .pedal_torque_release_threshold_nm   = 20.0f, \
+        .pedal_torque_release_threshold_nm   = 100.0f, \
         .linelock_close_delay_ms             = 200u, \
         .pack_current_limit_a                = 45.0f, \
         .hard_cut_margin_pct                 = 0.20f, \
