@@ -18,7 +18,7 @@ protected:
     params.regen_linelock.absolute_regen_torque_cap_nm = 230.0f;
     params.regen_linelock.pack_current_limit_a = 45.0f;
     params.regen_linelock.hard_cut_margin_pct = 0.20f;
-    params.regen_linelock.hard_cut_reset_pressure_psi = 30.0f;
+    params.regen_linelock.hard_cut_reset_pressure_psi = 100.0f;
     params.regen_linelock.pack_terminal_voltage_limit_v = 546.0f;
     params.regen_linelock.pack_resistance_ohm = 0.442f;
     params.regen_linelock.dynamic_voltage_reserve_v = 6.0f;
@@ -113,7 +113,7 @@ TEST_F(RegenLinelockTest, HardCurrentCutZerosTorqueAndResetsBelowPressure) {
 
   in.battery_current_a = 0.0f;
   out = {};
-  out.bse2_psi = 20.0f;
+  out.bse2_psi = 90.0f;
 
   regen_linelock_evaluate(&in, &out, &state, &params, 3);
 

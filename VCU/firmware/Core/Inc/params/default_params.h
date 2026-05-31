@@ -95,7 +95,7 @@
         .absolute_regen_torque_cap_nm        = 230.0f, \
         .pack_current_limit_a                = 45.0f, \
         .hard_cut_margin_pct                 = 0.20f, \
-        .hard_cut_reset_pressure_psi         = 30.0f, \
+        .hard_cut_reset_pressure_psi         = 100.0f, \
         .pack_terminal_voltage_limit_v       = 546.0f, \
         .pack_resistance_ohm                 = 0.442f, \
         .dynamic_voltage_reserve_v           = 6.0f, \

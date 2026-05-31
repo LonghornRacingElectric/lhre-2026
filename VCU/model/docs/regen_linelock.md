@@ -95,7 +95,7 @@ Motor RPM is used directly as the speed source.
 Regen/linelock can only activate when all of these are true:
 
 - `params.regen_linelock.disable == false`
-- Rear pressure is above `hard_cut_reset_pressure_psi` (`30 psi` default)
+- Rear pressure is above `hard_cut_reset_pressure_psi` (`100 psi` default)
 - Battery Pack Status, inverter voltage, inverter current, and motor speed
   inputs are valid
 - Min cell temperature is above `10 C`
@@ -124,14 +124,14 @@ Default:
 hard_cut_current = 45 A * (1 + 0.20) = 54 A
 ```
 
-If rear pressure is above `30 psi` and measured regen current exceeds `54 A`,
+If rear pressure is above `100 psi` and measured regen current exceeds `54 A`,
 the VCU immediately:
 
 - sets torque command to `0 Nm`
 - disables linelock
 - latches `regen_linelock_current_hard_cut`
 
-The latch clears automatically once rear pressure falls to or below `30 psi`.
+The latch clears automatically once rear pressure falls to or below `100 psi`.
 
 ## VCU/PDU Command
 
@@ -166,7 +166,7 @@ under:
     .absolute_regen_torque_cap_nm = 230.0f,
     .pack_current_limit_a = 45.0f,
     .hard_cut_margin_pct = 0.20f,
-    .hard_cut_reset_pressure_psi = 30.0f,
+    .hard_cut_reset_pressure_psi = 100.0f,
     .pack_terminal_voltage_limit_v = 546.0f,
     .pack_resistance_ohm = 0.442f,
     .dynamic_voltage_reserve_v = 6.0f,
