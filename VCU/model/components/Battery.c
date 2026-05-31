@@ -34,5 +34,5 @@ void battery_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   }
 
   out->soe_pct = Lookup1D_evaluate(&soe_from_cell_voltage_lookup,
-                                   in->min_cell_voltage_v);
+                                   out->max_open_circuit_cell_voltage);
 }
