@@ -27,7 +27,6 @@
 /* USER CODE BEGIN Includes */
 #include "bse3.h"
 #include "cooling.h"
-#include "line_lock.h"
 #include "lights.h"
 #include "lv_battery.h"
 #include "longhorn/rtos/dfu.h"
@@ -146,9 +145,6 @@ void MX_FREERTOS_Init(void) {
   // Initialize Cooling subsystem
   cooling_init();
 
-  // Initialize Line Lock subsystem
-  line_lock_init();
-
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
 
@@ -190,6 +186,9 @@ void StartDefaultTask(void *argument)
 
   // Enable shutdown
   HAL_GPIO_WritePin(EN_SDWN_GPIO_Port, EN_SDWN_Pin, GPIO_PIN_SET);
+
+  // turn off line lock
+  HAL_GPIO_WritePin(Line_Lock_EN_GPIO_Port, Line_Lock_EN_Pin, GPIO_PIN_RESET);
 
   /* Infinite loop */
   for (;;) {
