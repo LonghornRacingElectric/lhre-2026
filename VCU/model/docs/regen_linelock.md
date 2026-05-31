@@ -118,9 +118,9 @@ Regen/linelock can only activate when all of these are true:
 
 - `params.regen_linelock.disable == false`
 - Rear pressure is at least `10 psi`
-- No positive drive torque is being requested while rear pressure is asking for
-  regen. If this happens, the VCU commands `0 Nm`, keeps linelock open, and does
-  not allow regen.
+- Pre-regen pedal torque request is at or below `20 Nm`. Above `20 Nm`, the VCU
+  keeps linelock open and does not allow regen so the valve can cool and any rear
+  caliper-side pressure can release mechanically.
 - Inverter current and motor speed inputs are valid
 - Motor speed is above `219.49 rpm`, equivalent to about `5 kph` with a
   `43:13` motor-to-wheel ratio and `7.87 in` loaded tire radius
@@ -223,6 +223,7 @@ under:
     .rear_pressure_min_engage_psi = 10.0f,
     .regen_torque_at_reference_pressure_nm = 76.0f,
     .absolute_regen_torque_cap_nm = 230.0f,
+    .pedal_torque_release_threshold_nm = 20.0f,
     .pack_current_limit_a = 45.0f,
     .hard_cut_margin_pct = 0.20f,
     .hard_cut_reset_pressure_psi = 100.0f,

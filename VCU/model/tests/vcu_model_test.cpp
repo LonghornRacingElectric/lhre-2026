@@ -58,6 +58,7 @@ protected:
     params.regen_linelock.rear_pressure_min_engage_psi = 10.0f;
     params.regen_linelock.regen_torque_at_reference_pressure_nm = 76.0f;
     params.regen_linelock.absolute_regen_torque_cap_nm = 230.0f;
+    params.regen_linelock.pedal_torque_release_threshold_nm = 20.0f;
     params.regen_linelock.pack_current_limit_a = 45.0f;
     params.regen_linelock.pack_terminal_voltage_limit_v = 546.0f;
     params.regen_linelock.pack_series_cell_count = 130.0f;
@@ -141,7 +142,7 @@ TEST_F(VCUModelTest, AppsImplausibilityDisablesTorque) {
   EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
 }
 
-TEST_F(VCUModelTest, BrakePressureCutsPositiveTorqueButLatchDoesNot) {
+TEST_F(VCUModelTest, BrakePressureOpensLinelockAbovePedalTorqueThreshold) {
   TransitionToDrive();
 
   // Release brake
@@ -161,9 +162,10 @@ TEST_F(VCUModelTest, BrakePressureCutsPositiveTorqueButLatchDoesNot) {
   vcu_model_step(&ctx, &in, &out, 10);
 
   EXPECT_TRUE(out.faults.brake_latched);
-  EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
+  EXPECT_FLOAT_EQ(out.torque_cmd, 50.0f);
+  EXPECT_FALSE(out.linelock_enabled);
 
-  // Releasing brake removes the positive-torque cut. The brake latch remains
+  // Releasing brake removes the linelock release gate. The brake latch remains
   // telemetry only and no longer globally disables torque.
   in.bse1_raw = 100;
   in.bse2_raw = 150;

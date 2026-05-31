@@ -201,6 +201,9 @@ PYBIND11_MODULE(vcu_model_sim, m) {
                          regen_torque_at_reference_pressure_nm)
       .def_readwrite("absolute_regen_torque_cap_nm",
                      &regen_linelock_params_t::absolute_regen_torque_cap_nm)
+      .def_readwrite("pedal_torque_release_threshold_nm",
+                     &regen_linelock_params_t::
+                         pedal_torque_release_threshold_nm)
       .def_readwrite("pack_current_limit_a",
                      &regen_linelock_params_t::pack_current_limit_a)
       .def_readwrite("hard_cut_margin_pct",

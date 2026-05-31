@@ -92,6 +92,7 @@ typedef struct {
     float rear_pressure_min_engage_psi;
     float regen_torque_at_reference_pressure_nm;
     float absolute_regen_torque_cap_nm;
+    float pedal_torque_release_threshold_nm;
 
     float pack_current_limit_a;
     float hard_cut_margin_pct;
