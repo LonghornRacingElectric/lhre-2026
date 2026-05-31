@@ -190,19 +190,9 @@ void StartDefaultTask(void *argument)
   // turn off line lock
   HAL_GPIO_WritePin(Line_Lock_EN_GPIO_Port, Line_Lock_EN_Pin, GPIO_PIN_RESET);
 
-  bool line_lock_on = false;
-  uint32_t last_line_lock_toggle_ms = HAL_GetTick();
-
   /* Infinite loop */
   for (;;) {
-    (void)line_lock_enabled();
-
-    uint32_t now_ms = HAL_GetTick();
-    if ((now_ms - last_line_lock_toggle_ms) >= 5000u) {
-      line_lock_on = !line_lock_on;
-      last_line_lock_toggle_ms = now_ms;
-    }
-
+    bool line_lock_on = line_lock_enabled();
     HAL_GPIO_WritePin(Line_Lock_EN_GPIO_Port, Line_Lock_EN_Pin,
                       line_lock_on ? GPIO_PIN_SET : GPIO_PIN_RESET);
 

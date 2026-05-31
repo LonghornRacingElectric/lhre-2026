@@ -109,6 +109,7 @@ void pdu_can_add_receive_handlers(void) {
       (CAN_unpack_message_fn)unpack_vcu_state);
 
   can_rtos_register_receive_packet(&critical_bus, vcu_state_mailbox_handle);
+  vcu_state_mailbox.line_lock_enabled = 0;
 
   log_printf(LOG_INFO, "[PDU] CAN VCU State handler registered\n");
 
