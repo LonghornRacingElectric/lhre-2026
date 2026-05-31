@@ -55,7 +55,9 @@ void lights_init(void) {
   HAL_TIM_PWM_Start(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL);
   HAL_TIM_PWM_Start(&PWM_BRAKE_LIGHT_INSTANCE, PWM_BRAKE_LIGHT_CHANNEL);
 
-  osThreadNew(lights_update, NULL, &lightsTask_attributes);
+  if (osThreadNew(lights_update, NULL, &lightsTask_attributes) == NULL) {
+      Error_Handler();
+}
 }
 
 void set_red_light(bool on) {
@@ -67,6 +69,10 @@ void set_green_light(bool on) {
 }
 
 static bool blink_is_on(uint32_t tick, uint32_t half_period_ms) {
+  if (half_period_ms == 0U) {
+    return false;
+  }
+
   return ((tick / half_period_ms) % 2U) == 0U;
 }
 
