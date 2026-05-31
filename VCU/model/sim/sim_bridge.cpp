@@ -52,8 +52,7 @@ PYBIND11_MODULE(vcu_model_sim, m) {
                      &vcu_outputs_t::regen_pressure_requested_torque_nm)
       .def_readwrite("regen_torque_limit_nm",
                      &vcu_outputs_t::regen_torque_limit_nm)
-      .def_readwrite("regen_torque_cmd_nm",
-                     &vcu_outputs_t::regen_torque_cmd_nm)
+      .def_readwrite("regen_torque_cmd_nm", &vcu_outputs_t::regen_torque_cmd_nm)
       .def_readwrite("regen_pack_current_limit_a",
                      &vcu_outputs_t::regen_pack_current_limit_a)
       .def_readwrite("regen_measured_pack_current_a",
@@ -111,6 +110,8 @@ PYBIND11_MODULE(vcu_model_sim, m) {
                      &faults_t::regen_linelock_motor_speed_low)
       .def_readwrite("regen_linelock_current_hard_cut",
                      &faults_t::regen_linelock_current_hard_cut)
+      .def_readwrite("regen_linelock_command_mismatch",
+                     &faults_t::regen_linelock_command_mismatch)
       .def_readwrite("regen_linelock_any_fault",
                      &faults_t::regen_linelock_any_fault)
       .def_readwrite("any_fault", &faults_t::any_fault);
@@ -177,10 +178,10 @@ PYBIND11_MODULE(vcu_model_sim, m) {
       .def_readwrite("brake_light_min_pct", &bse_params_t::brake_light_min_pct)
       .def_readwrite("brake_light_max_pct", &bse_params_t::brake_light_max_pct);
 
-//   using torque_map_params_t = decltype(vcu_parameters_t::torque_map);
-//   py::class_<torque_map_params_t>(params, "TorqueMapParams")
-//       .def(py::init<>())
-//       .def_readwrite("max_torque_nm", &torque_map_params_t::max_torque_nm);
+  //   using torque_map_params_t = decltype(vcu_parameters_t::torque_map);
+  //   py::class_<torque_map_params_t>(params, "TorqueMapParams")
+  //       .def(py::init<>())
+  //       .def_readwrite("max_torque_nm", &torque_map_params_t::max_torque_nm);
 
   using regen_linelock_params_t = decltype(vcu_parameters_t::regen_linelock);
   py::class_<regen_linelock_params_t>(params, "RegenLinelockParams")
@@ -196,14 +197,16 @@ PYBIND11_MODULE(vcu_model_sim, m) {
                      &regen_linelock_params_t::rear_pressure_reference_psi)
       .def_readwrite("rear_pressure_min_engage_psi",
                      &regen_linelock_params_t::rear_pressure_min_engage_psi)
-      .def_readwrite("regen_torque_at_reference_pressure_nm",
-                     &regen_linelock_params_t::
-                         regen_torque_at_reference_pressure_nm)
+      .def_readwrite(
+          "regen_torque_at_reference_pressure_nm",
+          &regen_linelock_params_t::regen_torque_at_reference_pressure_nm)
       .def_readwrite("absolute_regen_torque_cap_nm",
                      &regen_linelock_params_t::absolute_regen_torque_cap_nm)
-      .def_readwrite("pedal_torque_release_threshold_nm",
-                     &regen_linelock_params_t::
-                         pedal_torque_release_threshold_nm)
+      .def_readwrite(
+          "pedal_torque_release_threshold_nm",
+          &regen_linelock_params_t::pedal_torque_release_threshold_nm)
+      .def_readwrite("linelock_close_delay_ms",
+                     &regen_linelock_params_t::linelock_close_delay_ms)
       .def_readwrite("pack_current_limit_a",
                      &regen_linelock_params_t::pack_current_limit_a)
       .def_readwrite("hard_cut_margin_pct",
@@ -221,8 +224,7 @@ PYBIND11_MODULE(vcu_model_sim, m) {
       .def_readwrite("pack_ocv_enable_v",
                      &regen_linelock_params_t::pack_ocv_enable_v)
       .def_readwrite("pack_ocv_disable_hysteresis_v",
-                     &regen_linelock_params_t::
-                         pack_ocv_disable_hysteresis_v)
+                     &regen_linelock_params_t::pack_ocv_disable_hysteresis_v)
       .def_readwrite("min_cell_temp_c",
                      &regen_linelock_params_t::min_cell_temp_c)
       .def_readwrite("max_cell_temp_c",

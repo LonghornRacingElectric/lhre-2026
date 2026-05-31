@@ -44,9 +44,12 @@ protected:
     params.buzzer_duration_ms = 3000;
 
     // Torque map
-    float temp_torque_map[11] = {100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f};
-    memcpy(params.torque_map.power_limit_torque, temp_torque_map, sizeof(temp_torque_map));
-    float temp_pedal_map[11] = {0.0f, 0.10f, 0.20f, 0.30f, 0.40f, 0.50f, 0.60f, 0.70f, 0.80f, 0.90f, 1.0f};
+    float temp_torque_map[11] = {100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f,
+                                 100.0f, 100.0f, 100.0f, 100.0f, 100.0f};
+    memcpy(params.torque_map.power_limit_torque, temp_torque_map,
+           sizeof(temp_torque_map));
+    float temp_pedal_map[11] = {0.0f,  0.10f, 0.20f, 0.30f, 0.40f, 0.50f,
+                                0.60f, 0.70f, 0.80f, 0.90f, 1.0f};
     memcpy(params.torque_map.pedal_map, temp_pedal_map, sizeof(temp_pedal_map));
     params.torque_map.pedal_curve_exponent = 1.0f;
 
@@ -59,6 +62,7 @@ protected:
     params.regen_linelock.regen_torque_at_reference_pressure_nm = 76.0f;
     params.regen_linelock.absolute_regen_torque_cap_nm = 230.0f;
     params.regen_linelock.pedal_torque_release_threshold_nm = 20.0f;
+    params.regen_linelock.linelock_close_delay_ms = 100u;
     params.regen_linelock.pack_current_limit_a = 45.0f;
     params.regen_linelock.pack_terminal_voltage_limit_v = 546.0f;
     params.regen_linelock.pack_series_cell_count = 130.0f;

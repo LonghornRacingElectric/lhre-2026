@@ -33,6 +33,16 @@ bool any_fault_exists(vcu_outputs_t *out) {
   return out->faults.any_fault;
 }
 
+static void enforce_regen_linelock_torque_invariant(vcu_outputs_t *out) {
+  if (out->torque_cmd < 0.0f && !out->linelock_enabled) {
+    out->torque_cmd = 0.0f;
+    out->regen_torque_cmd_nm = 0.0f;
+    out->regen_available = false;
+    out->faults.regen_linelock_command_mismatch = true;
+    out->faults.regen_linelock_any_fault = true;
+  }
+}
+
 void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
                     vcu_outputs_t *out, uint32_t dt_ms) {
   ctx->time_ms += dt_ms;
@@ -48,6 +58,7 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
   prndl_evaluate(&ctx->prndl_machine, in, out, &ctx->params, ctx->time_ms);
   regen_linelock_evaluate(in, out, &ctx->regen_linelock_state, &ctx->params,
                           dt_ms);
+  enforce_regen_linelock_torque_invariant(out);
   cooling_evaluate(in, out, &ctx->cooling_state, &ctx->params, dt_ms);
 
   switch (out->prndl_state) {

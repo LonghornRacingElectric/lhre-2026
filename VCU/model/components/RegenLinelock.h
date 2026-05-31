@@ -12,6 +12,7 @@ extern "C" {
 typedef struct {
   bool ocv_regen_allowed;
   bool current_hard_cut_latched;
+  uint32_t linelock_commanded_closed_ms;
 } regen_linelock_state_t;
 
 void regen_linelock_init(regen_linelock_state_t *state,
@@ -24,8 +25,8 @@ float regen_linelock_estimated_pack_ocv_v(float terminal_voltage_v,
                                           float dc_bus_current_a,
                                           const vcu_parameters_t *params);
 
-float regen_linelock_available_pack_current_a(
-    float pack_ocv_v, const vcu_parameters_t *params);
+float regen_linelock_available_pack_current_a(float pack_ocv_v,
+                                              const vcu_parameters_t *params);
 
 float regen_linelock_torque_limit_nm(float motor_speed_rpm, float pack_ocv_v,
                                      const vcu_parameters_t *params);

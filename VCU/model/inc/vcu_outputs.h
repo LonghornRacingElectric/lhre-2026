@@ -16,7 +16,8 @@ typedef struct {
 
   /* Torque command */
   float torque_lookup_output; // raw torque from the lookup table (Nm)
-  float torque_derated;       // torque from lookup table after derates are applied (Nm)
+  float
+      torque_derated; // torque from lookup table after derates are applied (Nm)
   float torque_power_limited; // torque after power limit trim loop (Nm)
   float torque_cmd;           // final torque command (Nm)
 
@@ -81,6 +82,7 @@ typedef struct {
     bool regen_linelock_pack_temp_high;
     bool regen_linelock_motor_speed_low;
     bool regen_linelock_current_hard_cut;
+    bool regen_linelock_command_mismatch;
     bool regen_linelock_any_fault;
 
     bool any_fault;

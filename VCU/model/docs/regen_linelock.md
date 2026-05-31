@@ -50,8 +50,9 @@ regen_torque = -clamp(rear_pressure_based_torque, 0 Nm, absolute_regen_torque_ca
 ```
 
 `out->linelock_enabled` is true whenever the pressure-based torque request is
-positive. The normal global disable flag and measured DC bus current hard cut
-are still active.
+positive, but negative torque is held at `0 Nm` until the linelock command has
+been continuously active for `linelock_close_delay_ms`. The normal global
+disable flag and measured DC bus current hard cut are still active.
 
 Set `.pressure_only_test_mode = true` only for controlled bring-up when the
 normal validation logic below needs to be bypassed temporarily.
@@ -121,6 +122,9 @@ Regen/linelock can only activate when all of these are true:
 - Pre-regen pedal torque request is at or below `20 Nm`. Above `20 Nm`, the VCU
   keeps linelock open and does not allow regen so the valve can cool and any rear
   caliper-side pressure can release mechanically.
+- The linelock command has been continuously true for `100 ms`. Before that
+  delay expires, the VCU may command the linelock closed but keeps regen torque
+  at `0 Nm`.
 - Inverter current and motor speed inputs are valid
 - Motor speed is above `219.49 rpm`, equivalent to about `5 kph` with a
   `43:13` motor-to-wheel ratio and `7.87 in` loaded tire radius
@@ -158,6 +162,25 @@ The latch clears automatically once rear pressure falls to or below `100 psi`.
 
 The hard cut is armed whenever the pressure-based regen torque request is
 positive.
+
+## Linelock/Regen Coupling
+
+The VCU has two software protections against commanding regen while its own
+linelock command is open:
+
+- Regen torque is delayed until `out->linelock_enabled` has been true
+  continuously for `linelock_close_delay_ms`.
+- A final model invariant forces negative `torque_cmd` back to `0 Nm` and sets
+  `regen_linelock_command_mismatch` if any later code path ever leaves
+  `torque_cmd < 0` while `out->linelock_enabled == false`.
+
+This is a software-command check only. It does not prove that the PDU actually
+energized PF2 or that the valve moved. Physical confirmation requires a PDU
+feedback signal, such as linelock output voltage/current or a PDU-side active
+acknowledge bit, and the VCU should gate regen on that signal once it exists.
+Until the PDU firmware is confirmed to consume `VCU State.line_lock_enabled` and
+drive the valve, regen testing should be treated as unsafe or
+`.regen_linelock.disable` should be set true.
 
 ## CAN Inputs
 
@@ -225,6 +248,7 @@ under:
     .regen_torque_at_reference_pressure_nm = 76.0f,
     .absolute_regen_torque_cap_nm = 230.0f,
     .pedal_torque_release_threshold_nm = 20.0f,
+    .linelock_close_delay_ms = 100u,
     .pack_current_limit_a = 45.0f,
     .hard_cut_margin_pct = 0.20f,
     .hard_cut_reset_pressure_psi = 100.0f,
