@@ -285,7 +285,9 @@ void StartSystemTask(void *argument) {
 // ControlTask: main 10ms loop (ADC -> model -> CAN -> logging) --------------
 void StartControlTask(void *argument) {
   // Let system init (USB, DFU, CAN, DMA) finish
-  osDelay(pdMS_TO_TICKS(200));
+  osDelay(pdMS_TO_TICKS(1000));
+
+  vcu_can_clear_inverter_faults();
 
   static uint32_t last_tick = 0;
   last_tick = osKernelGetTickCount();

@@ -207,6 +207,18 @@ void vcu_can_add_send_handlers(void) {
   log_printf(LOG_INFO, "[VCU] CAN send handler for VCU state registered\n");
 }
 
+void vcu_can_clear_inverter_faults(void) {
+  msg_inverter_parameter_request_t fault_clear = {
+      .parameter_address = 20,
+      .r_w = 1,
+  };
+  can_message_t *msg = can_get_message_handle(
+      &fault_clear, INVERTER_PARAMETER_REQUEST_ID, 0,
+      INVERTER_PARAMETER_REQUEST_DLC,
+      (CAN_pack_message_fn)pack_inverter_parameter_request);
+  can_rtos_send_immediate(&critical_bus, msg);
+}
+
 void vcu_init_inverter() {
   // send can packet with all 0s
   inverter_torque_command_mailbox.torque_request = 0.0f;

@@ -16,6 +16,9 @@ void vcu_can_init(void);
 // Send torque request in Nm
 void vcu_can_set_torque(float torque_nm);
 
+// Clear all inverter faults (parameter 20, write 0)
+void vcu_can_clear_inverter_faults(void);
+
 // Read inverter feedback
 void vcu_can_read_feedback(void);
 

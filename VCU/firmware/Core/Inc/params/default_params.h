@@ -68,7 +68,7 @@
         }, \
         .pedal_curve_exponent    = 2.0f, \
         .low_cell_derate_start_v = 3.2f, \
-        .low_cell_cutoff_v       = 3.0f, \
+        .low_cell_cutoff_v       = 2.8f, \
     }, \
     .power_limit = { \
         .power_limit_w                 = 70000.0f, \
