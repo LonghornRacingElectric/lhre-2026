@@ -29,8 +29,7 @@ bool can_timed_out() { return false; }
 
 bool any_fault_exists(vcu_outputs_t *out) {
   out->faults.any_fault =
-      out->faults.apps_any_fault || out->faults.brake_any_fault ||
-      out->faults.regen_linelock_any_fault;
+      out->faults.apps_any_fault || out->faults.regen_linelock_any_fault;
   return out->faults.any_fault;
 }
 

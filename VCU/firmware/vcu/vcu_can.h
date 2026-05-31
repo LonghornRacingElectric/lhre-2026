@@ -39,7 +39,6 @@ float vcu_can_get_motor_angle_deg(void);
 float vcu_can_get_min_cell_voltage_v(void);
 float vcu_can_get_max_cell_voltage_v(void);
 bool vcu_can_is_motor_speed_valid(void);
-bool vcu_can_is_battery_cell_limits_valid(void);
 bool vcu_can_is_inverter_current_valid(void);
 bool vcu_can_is_inverter_voltage_valid(void);
 

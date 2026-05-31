@@ -42,8 +42,8 @@ as a negative `torque_request`.
 The current test build disables `pressure_only_test_mode`.
 
 This mode is intentionally basic for bring-up. When enabled, the VCU ignores the
-OCV gate, pack temperature gates, motor speed gate, CAN-validity gates, and
-APPS/BSE fault gates inside the regen linelock component. The regen command is:
+OCV gate, motor speed gate, inverter CAN-validity gates, and APPS fault gate
+inside the regen linelock component. The regen command is:
 
 ```text
 regen_torque = -clamp(rear_pressure_based_torque, 0 Nm, absolute_regen_torque_cap_nm)
@@ -118,24 +118,24 @@ Regen/linelock can only activate when all of these are true:
 
 - `params.regen_linelock.disable == false`
 - Rear pressure is at least `10 psi`
-- Existing positive drive torque command is `0 Nm` or less
-- Battery Cell Limits, Battery Pack Status, inverter current, and motor speed
-  inputs are valid
-- Min cell temperature is above `10 C`
-- Max cell temperature is below `55 C`
+- No positive drive torque is being requested while rear pressure is asking for
+  regen. If this happens, the VCU commands `0 Nm`, keeps linelock open, and does
+  not allow regen.
+- Inverter current and motor speed inputs are valid
 - Motor speed is above `219.49 rpm`, equivalent to about `5 kph` with a
   `43:13` motor-to-wheel ratio and `7.87 in` loaded tire radius
 - Estimated pack OCV has fallen below `520.11 V`
-- No APPS/BSE brake fault is active
+- No APPS fault is active
 - No regen hard-current-cut latch is active
 
 The OCV gate has hysteresis. Once regen becomes available below `520.11 V`, it
 stays available until estimated OCV rises above `522.11 V` by default. This
 prevents chatter around the pack-voltage knee.
 
-The lower temperature bound protects against lithium plating during charge. The
-`10 C` default is deliberately conservative for first validation; below this
-temperature the rear brakes remain mechanical.
+Pack temperature is not currently used as a regen cut condition because the
+available `Battery Pack Status` packet is not fully implemented. The parameter
+default remains `55 C` for the future high-temperature cutoff, but that cutoff
+must be connected to a verified cell-temperature source before it is used.
 
 ## Hard Current Cut
 
@@ -161,32 +161,34 @@ positive.
 
 ## CAN Inputs
 
-The regen/linelock checks use CAN packets that the VCU currently registers as
-receive handlers:
+The regen/linelock checks intentionally avoid HVC, PDU, and VCU CAN timeout
+gates. The only CAN timeout gates used for cutting regen are inverter feedback
+timeouts:
 
-- `Battery Cell Limits` (`0x136`, HVC to VCU, 100 Hz, 200 ms timeout): min and
-  max cell voltage. Regen uses max cell voltage for the OCV gate.
-- `Battery Pack Status` (`0x132`, HVC to PDU in the CSV, 100 Hz, 200 ms
-  timeout): pack voltage, SOC, top and bottom cell temperatures. CAN is
-  broadcast, and the VCU has a receive handler for this packet.
 - `Inverter Current` (`0x0A6`, 100 Hz, 200 ms timeout): DC bus current for the
   regen current hard cut and low-current OCV sampling.
 - `Inverter Speed` (`0x0B0`) or `Inverter Status` (`0x0A5`): motor speed for
   the low-speed cutoff. The VCU accepts either packet as the speed source.
 
+Other inputs are values only, not timeout gates:
+
+- `Battery Cell Limits` (`0x136`) provides max cell voltage for the max-cell OCV
+  estimator, but its CAN timeout is not used to cut regen.
+- `Battery Pack Status` (`0x132`) is not used by regen/linelock because it is
+  not fully implemented.
+
 ## APPS/BSE Faults
 
-The regen/linelock component still respects the model's existing APPS/BSE fault
-flags, and the top-level VCU model also zeros torque and opens linelock if any
-fault exists.
+The regen/linelock component respects APPS faults. The top-level VCU model also
+zeros torque and opens linelock on APPS fault or regen hard-current-cut fault.
 
 - APPS faults are active: sensor mismatch over `0.15` for more than `100 ms`,
   APPS travel over `1.0`, or APPS travel under `-0.5`.
-- BSE voltage range faults are currently disabled in code, so they cannot block
-  regen.
-- The active BSE-related fault is the brake/accelerator latch: if brake is
-  considered pressed and accelerator travel is above `0.25`, torque is latched
-  off until accelerator travel drops below `0.05`.
+- BSE voltage range faults are currently disabled in code.
+- The brake/accelerator latch still exists in the BSE component for telemetry,
+  but regen/linelock does not use `brake_any_fault` as a cut condition. This
+  keeps rear brake pressure available for regen demand while positive drive
+  torque during a regen pressure request is cut separately.
 
 ## VCU/PDU Command
 
@@ -198,8 +200,11 @@ Current CAN placeholder behavior:
   (`0x143`, VCU to PDU)
 - `out->linelock_enabled == false` clears the switch command
 
-This is intentionally isolated to the VCU side. The PDU firmware still needs to
-map the final linelock command bit to the real output channel.
+This is not verified as the final PDU drive path. In the current repository,
+the PDU firmware does not receive or act on `Switch Command`, the bit is still
+named `Temp Command 1` in the CAN bitfield CSV, and the generated PDU pin labels
+show `SW_SPARE` on `PC1`; no checked-in firmware evidence ties this command to
+PF2. The PDU side still needs the real linelock command mapping.
 
 ## Main Parameters
 

@@ -29,7 +29,6 @@ typedef struct {
   float max_cell_temp_c;
 
   bool motor_speed_valid;
-  bool battery_cell_limits_valid;
   bool inverter_voltage_valid;
   bool inverter_current_valid;
   bool battery_pack_status_valid;

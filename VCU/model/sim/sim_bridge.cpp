@@ -29,8 +29,6 @@ PYBIND11_MODULE(vcu_model_sim, m) {
       .def_readwrite("min_cell_temp_c", &vcu_inputs_t::min_cell_temp_c)
       .def_readwrite("max_cell_temp_c", &vcu_inputs_t::max_cell_temp_c)
       .def_readwrite("motor_speed_valid", &vcu_inputs_t::motor_speed_valid)
-      .def_readwrite("battery_cell_limits_valid",
-                     &vcu_inputs_t::battery_cell_limits_valid)
       .def_readwrite("inverter_voltage_valid",
                      &vcu_inputs_t::inverter_voltage_valid)
       .def_readwrite("inverter_current_valid",

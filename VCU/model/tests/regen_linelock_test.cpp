@@ -37,7 +37,6 @@ protected:
     in.max_cell_voltage_v = 4.0f;
     in.min_cell_temp_c = 30.0f;
     in.max_cell_temp_c = 30.0f;
-    in.battery_cell_limits_valid = true;
     in.battery_pack_status_valid = true;
     in.inverter_current_valid = true;
     in.motor_speed_valid = true;
@@ -81,15 +80,18 @@ TEST_F(RegenLinelockTest, HighOcvKeepsRearBrakesMechanical) {
   EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
 }
 
-TEST_F(RegenLinelockTest, LowCellTemperatureKeepsRearBrakesMechanical) {
-  in.min_cell_temp_c = 5.0f;
+TEST_F(RegenLinelockTest, PackStatusDoesNotBlockRegen) {
+  in.battery_pack_status_valid = false;
+  in.min_cell_temp_c = -10.0f;
+  in.max_cell_temp_c = 80.0f;
 
   regen_linelock_evaluate(&in, &out, &state, &params, 3);
 
-  EXPECT_FALSE(out.regen_available);
-  EXPECT_FALSE(out.linelock_enabled);
-  EXPECT_TRUE(out.faults.regen_linelock_pack_temp_low);
-  EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
+  EXPECT_TRUE(out.regen_available);
+  EXPECT_TRUE(out.linelock_enabled);
+  EXPECT_FALSE(out.faults.regen_linelock_pack_temp_low);
+  EXPECT_FALSE(out.faults.regen_linelock_pack_temp_high);
+  EXPECT_NEAR(out.torque_cmd, -38.0f, 0.001f);
 }
 
 TEST_F(RegenLinelockTest, LowMotorSpeedKeepsRearBrakesMechanical) {
@@ -121,12 +123,23 @@ TEST_F(RegenLinelockTest, PositiveTorqueCommandOverridesRegen) {
   EXPECT_FALSE(out.regen_available);
   EXPECT_FALSE(out.linelock_enabled);
   EXPECT_FLOAT_EQ(out.regen_torque_cmd_nm, 0.0f);
+  EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
+}
+
+TEST_F(RegenLinelockTest, PositiveTorquePassesThroughWithoutRegenPressure) {
+  out.bse2_psi = 0.0f;
+  out.torque_cmd = 12.0f;
+
+  regen_linelock_evaluate(&in, &out, &state, &params, 3);
+
+  EXPECT_FALSE(out.regen_available);
+  EXPECT_FALSE(out.linelock_enabled);
+  EXPECT_FLOAT_EQ(out.regen_torque_cmd_nm, 0.0f);
   EXPECT_FLOAT_EQ(out.torque_cmd, 12.0f);
 }
 
 TEST_F(RegenLinelockTest, PressureOnlyTestModeBypassesAvailabilityGates) {
   params.regen_linelock.pressure_only_test_mode = true;
-  in.battery_cell_limits_valid = false;
   in.battery_pack_status_valid = false;
   in.inverter_current_valid = false;
   in.motor_speed_valid = false;
@@ -171,4 +184,26 @@ TEST_F(RegenLinelockTest, HardCurrentCutZerosTorqueAndResetsBelowPressure) {
 
   EXPECT_FALSE(out.faults.regen_linelock_current_hard_cut);
   EXPECT_FALSE(out.linelock_enabled);
+}
+
+TEST_F(RegenLinelockTest, InverterCurrentTimeoutBlocksRegen) {
+  in.inverter_current_valid = false;
+
+  regen_linelock_evaluate(&in, &out, &state, &params, 3);
+
+  EXPECT_FALSE(out.regen_available);
+  EXPECT_FALSE(out.linelock_enabled);
+  EXPECT_TRUE(out.faults.regen_linelock_input_invalid);
+  EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
+}
+
+TEST_F(RegenLinelockTest, MotorSpeedTimeoutBlocksRegen) {
+  in.motor_speed_valid = false;
+
+  regen_linelock_evaluate(&in, &out, &state, &params, 3);
+
+  EXPECT_FALSE(out.regen_available);
+  EXPECT_FALSE(out.linelock_enabled);
+  EXPECT_TRUE(out.faults.regen_linelock_input_invalid);
+  EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
 }

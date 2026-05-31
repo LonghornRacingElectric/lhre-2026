@@ -368,7 +368,6 @@ void StartControlTask(void *argument) {
     in.battery_soc_pct = pack_status.state_of_charge_pct;
     in.min_cell_temp_c = pack_status.min_cell_temp_c;
     in.max_cell_temp_c = pack_status.max_cell_temp_c;
-    in.battery_cell_limits_valid = vcu_can_is_battery_cell_limits_valid();
     in.inverter_voltage_valid = vcu_can_is_inverter_voltage_valid();
     in.inverter_current_valid = vcu_can_is_inverter_current_valid();
     in.battery_pack_status_valid = pack_status.valid;

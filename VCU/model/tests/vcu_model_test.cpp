@@ -50,6 +50,19 @@ protected:
     memcpy(params.torque_map.pedal_map, temp_pedal_map, sizeof(temp_pedal_map));
     params.torque_map.pedal_curve_exponent = 1.0f;
 
+    // Regen linelock positive-torque override parameters
+    params.regen_linelock.disable = false;
+    params.regen_linelock.pressure_only_test_mode = false;
+    params.regen_linelock.rear_pressure_zero_torque_psi = 0.0f;
+    params.regen_linelock.rear_pressure_reference_psi = 500.0f;
+    params.regen_linelock.rear_pressure_min_engage_psi = 10.0f;
+    params.regen_linelock.regen_torque_at_reference_pressure_nm = 76.0f;
+    params.regen_linelock.absolute_regen_torque_cap_nm = 230.0f;
+    params.regen_linelock.pack_current_limit_a = 45.0f;
+    params.regen_linelock.pack_terminal_voltage_limit_v = 546.0f;
+    params.regen_linelock.pack_series_cell_count = 130.0f;
+    params.regen_linelock.pack_ocv_enable_v = 520.11f;
+
     in = {0};
     out = {0};
     ctx = {};
@@ -128,7 +141,7 @@ TEST_F(VCUModelTest, AppsImplausibilityDisablesTorque) {
   EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
 }
 
-TEST_F(VCUModelTest, BrakeLatchDisablesTorque) {
+TEST_F(VCUModelTest, BrakePressureCutsPositiveTorqueButLatchDoesNot) {
   TransitionToDrive();
 
   // Release brake
@@ -149,6 +162,15 @@ TEST_F(VCUModelTest, BrakeLatchDisablesTorque) {
 
   EXPECT_TRUE(out.faults.brake_latched);
   EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
+
+  // Releasing brake removes the positive-torque cut. The brake latch remains
+  // telemetry only and no longer globally disables torque.
+  in.bse1_raw = 100;
+  in.bse2_raw = 150;
+  vcu_model_step(&ctx, &in, &out, 10);
+
+  EXPECT_TRUE(out.faults.brake_latched);
+  EXPECT_FLOAT_EQ(out.torque_cmd, 50.0f);
 }
 
 TEST_F(VCUModelTest, TransitionToParkOnContactorLoss) {

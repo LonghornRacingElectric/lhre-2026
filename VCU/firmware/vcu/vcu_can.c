@@ -405,11 +405,6 @@ bool vcu_can_is_motor_speed_valid(void) {
                             INVERTER_STATUS_TIMEOUT_MS);
 }
 
-bool vcu_can_is_battery_cell_limits_valid(void) {
-  return !message_timed_out(battery_cell_limits_mailbox_handle,
-                            BATTERY_CELL_LIMITS_TIMEOUT_MS);
-}
-
 bool vcu_can_is_inverter_current_valid(void) {
   return !message_timed_out(inverter_current_mailbox_handle,
                             INVERTER_CURRENT_TIMEOUT_MS);
