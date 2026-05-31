@@ -380,8 +380,6 @@ void StartControlTask(void *argument) {
     if (post_faults || run_faults) {
       log_printf(LOG_ERROR, "[INV] POST_FAULTS:0x%08lX RUN_FAULTS:0x%08lX\n",
                  post_faults, run_faults);
-    } else {
-      log_printf(LOG_INFO, "[INV] No faults");
     }
 
     // 3 ms control loop (333 Hz)
