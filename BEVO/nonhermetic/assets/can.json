@@ -1806,7 +1806,7 @@
         "to": [
             "VCU"
         ],
-        "data_length": 3,
+        "data_length": 4,
         "frequency_ms": 100,
         "frequency": 10.0,
         "quantity": 1,
@@ -1830,9 +1830,9 @@
                 "index": 1,
                 "start_byte": 2,
                 "name": "Max Cell Voltage",
-                "length": 1,
-                "conv_type": "uint8",
-                "precision": 0.02,
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
                 "protobuf": {
                     "type": "float",
                     "field": "max_cell_voltage",
@@ -3475,8 +3475,8 @@
         ]
     },
     {
-        "packet_id": 1024,
-        "packet_name": "Wheel Speeds",
+        "packet_id": 1026,
+        "packet_name": "Acceleration Vector Unsprung + Wheel Speed FL",
         "from": [
             "USM"
         ],
@@ -3484,81 +3484,8 @@
             "Pi"
         ],
         "data_length": 8,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bus": "Data Acq",
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Front Left Speed",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "flw_speed",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Front Right Speed",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "frw_speed",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Back Left Speed",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "blw_speed",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 3,
-                "start_byte": 6,
-                "name": "Back Right Speed",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "brw_speed",
-                    "repeated": false,
-                    "field_index": null
-                }
-            }
-        ]
-    },
-    {
-        "packet_id": 1026,
-        "packet_name": "Acceleration Vector Unsprung FL",
-        "from": [
-            "USM"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 6,
-        "frequency_ms": 10,
-        "frequency": 100.0,
+        "frequency_ms": 3,
+        "frequency": 333.0,
         "quantity": 1,
         "bus": "Data Acq",
         "bytes": [
@@ -3602,22 +3529,36 @@
                     "field": "fl_unsprung_accel",
                     "repeated": true,
                     "field_index": 2
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Wheel Speed",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_wheel_speed",
+                    "repeated": false,
+                    "field_index": null
                 }
             }
         ]
     },
     {
         "packet_id": 1027,
-        "packet_name": "Acceleration Vector Unsprung FR",
+        "packet_name": "Acceleration Vector Unsprung + Wheel Speed FR",
         "from": [
             "USM"
         ],
         "to": [
             "Pi"
         ],
-        "data_length": 6,
-        "frequency_ms": 10,
-        "frequency": 100.0,
+        "data_length": 8,
+        "frequency_ms": 3,
+        "frequency": 333.0,
         "quantity": 1,
         "bus": "Data Acq",
         "bytes": [
@@ -3661,22 +3602,36 @@
                     "field": "fr_unsprung_accel",
                     "repeated": true,
                     "field_index": 2
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Wheel Speed",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_wheel_speed",
+                    "repeated": false,
+                    "field_index": null
                 }
             }
         ]
     },
     {
         "packet_id": 1028,
-        "packet_name": "Acceleration Vector Unsprung RL",
+        "packet_name": "Acceleration Vector Unsprung + Wheel Speed RL",
         "from": [
             "USM"
         ],
         "to": [
             "Pi"
         ],
-        "data_length": 6,
-        "frequency_ms": 10,
-        "frequency": 100.0,
+        "data_length": 8,
+        "frequency_ms": 3,
+        "frequency": 333.0,
         "quantity": 1,
         "bus": "Data Acq",
         "bytes": [
@@ -3720,22 +3675,36 @@
                     "field": "bl_unsprung_accel",
                     "repeated": true,
                     "field_index": 2
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Wheel Speed",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_wheel_speed",
+                    "repeated": false,
+                    "field_index": null
                 }
             }
         ]
     },
     {
         "packet_id": 1029,
-        "packet_name": "Acceleration Vector Unsprung RR",
+        "packet_name": "Acceleration Vector Unsprung + Wheel Speed RR",
         "from": [
             "USM"
         ],
         "to": [
             "Pi"
         ],
-        "data_length": 6,
-        "frequency_ms": 10,
-        "frequency": 100.0,
+        "data_length": 8,
+        "frequency_ms": 3,
+        "frequency": 333.0,
         "quantity": 1,
         "bus": "Data Acq",
         "bytes": [
@@ -3779,6 +3748,20 @@
                     "field": "br_unsprung_accel",
                     "repeated": true,
                     "field_index": 2
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Wheel Speed",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "br_wheel_speed",
+                    "repeated": false,
+                    "field_index": null
                 }
             }
         ]

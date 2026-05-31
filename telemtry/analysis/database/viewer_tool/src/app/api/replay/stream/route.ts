@@ -86,10 +86,11 @@ async function buildReplayState(
       is_end: isEnd,
       car_visualization: {
         dynamics: {
-          flwSpeed: d.flw_speed ?? d.flwSpeed ?? null,
-          frwSpeed: d.frw_speed ?? d.frwSpeed ?? null,
-          blwSpeed: d.blw_speed ?? d.blwSpeed ?? null,
-          brwSpeed: d.brw_speed ?? d.brwSpeed ?? null,
+          // Orion uses fl/fr/bl/br_wheel_speed; Nightwatch/Angelique still use the legacy flw/frw/blw/brw_speed.
+          flwSpeed: d.fl_wheel_speed ?? d.flw_speed ?? d.flwSpeed ?? null,
+          frwSpeed: d.fr_wheel_speed ?? d.frw_speed ?? d.frwSpeed ?? null,
+          blwSpeed: d.bl_wheel_speed ?? d.blw_speed ?? d.blwSpeed ?? null,
+          brwSpeed: d.br_wheel_speed ?? d.brw_speed ?? d.brwSpeed ?? null,
         },
       },
       map_data: {
