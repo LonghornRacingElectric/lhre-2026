@@ -180,7 +180,9 @@ void StartDefaultTask(void *argument) {
 
   /* Infinite loop */
   for (;;) {
-    osDelay(200);
+    HAL_GPIO_WritePin(LINELOCK_GPIO_Port, LINELOCK_Pin,
+                      line_lock_enabled() ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    osDelay(5);
   }
   /* USER CODE END StartDefaultTask */
 }

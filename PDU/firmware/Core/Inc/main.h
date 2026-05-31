@@ -61,6 +61,8 @@ void Error_Handler(void);
 #define LATCH_TSSI_G_GPIO_Port GPIOC
 #define SW_PUMPS_Pin GPIO_PIN_10
 #define SW_PUMPS_GPIO_Port GPIOF
+#define LINELOCK_Pin GPIO_PIN_2
+#define LINELOCK_GPIO_Port GPIOF
 #define EN_SDWN_Pin GPIO_PIN_0
 #define EN_SDWN_GPIO_Port GPIOC
 #define SW_SPARE_Pin GPIO_PIN_1

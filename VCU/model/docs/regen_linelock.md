@@ -194,17 +194,14 @@ zeros torque and opens linelock on APPS fault or regen hard-current-cut fault.
 
 The VCU now exposes `out->linelock_enabled`.
 
-Current CAN placeholder behavior:
+Current CAN/output behavior:
 
-- `out->linelock_enabled == true` sets bit `Temp Command 1` in `Switch Command`
-  (`0x143`, VCU to PDU)
-- `out->linelock_enabled == false` clears the switch command
-
-This is not verified as the final PDU drive path. In the current repository,
-the PDU firmware does not receive or act on `Switch Command`, the bit is still
-named `Temp Command 1` in the CAN bitfield CSV, and the generated PDU pin labels
-show `SW_SPARE` on `PC1`; no checked-in firmware evidence ties this command to
-PF2. The PDU side still needs the real linelock command mapping.
+- VCU sends `out->linelock_enabled` as `Line Lock Enabled` in `VCU State`
+  (`0x1C7`, VCU to Pi/PDU).
+- PDU receives `VCU State` and drives `LINELOCK` on `PF2` high when
+  `line_lock_enabled == true`, low otherwise.
+- The previous `Switch Command` / `Temp Command 1` placeholder is no longer sent
+  by the VCU for linelock.
 
 ## Main Parameters
 

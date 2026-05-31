@@ -84,9 +84,6 @@ static can_message_t *steering_column_mailbox_handle = NULL;
 static msg_vcu_state_t vcu_state_mailbox = {0};
 static can_message_t *vcu_state_mailbox_handle = NULL;
 
-static msg_switch_command_t switch_command_mailbox = {0};
-static can_message_t *switch_command_mailbox_handle = NULL;
-
 void vcu_can_add_receive_handlers(void);
 void vcu_can_add_send_handlers(void);
 void vcu_init_inverter(void);
@@ -214,14 +211,6 @@ void vcu_can_add_send_handlers(void) {
                              (CAN_pack_message_fn)pack_vcu_state);
   can_rtos_register_send_packet(&critical_bus, vcu_state_mailbox_handle);
   log_printf(LOG_INFO, "[VCU] CAN send handler for VCU state registered\n");
-
-  switch_command_mailbox_handle =
-      can_get_message_handle(&switch_command_mailbox, SWITCH_COMMAND_ID,
-                             SWITCH_COMMAND_FREQ, SWITCH_COMMAND_DLC,
-                             (CAN_pack_message_fn)pack_switch_command);
-  can_rtos_register_send_packet(&critical_bus, switch_command_mailbox_handle);
-  log_printf(LOG_INFO,
-             "[VCU] CAN send handler for switch command registered\n");
 }
 
 void vcu_can_clear_inverter_faults(void) {
@@ -284,12 +273,6 @@ void vcu_can_set_model_outputs(const vcu_outputs_t *out) {
   vcu_state_mailbox.ready_to_drive_buzzer = out->buzzer_active;
   vcu_state_mailbox.state_of_charge_estimate = out->soe_pct;
   vcu_state_mailbox.line_lock_enabled = out->linelock_enabled;
-
-  switch_command_mailbox.switch_command = 0u;
-  if (out->linelock_enabled) {
-    switch_command_mailbox.switch_command |=
-        (uint8_t)(1u << SWITCH_COMMAND_SWITCH_COMMAND_TEMP_COMMAND_1_IDX);
-  }
 
   led_set(out->brake_pressed, is_drive_switch_pressed(),
           out->accel_pedal_travel == 0);
