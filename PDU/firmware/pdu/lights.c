@@ -7,19 +7,24 @@
 #include "pdu_can.h"
 #include "tim.h"
 
+// TSSI red LED PWM output
 #define PWM_TSSI_R_INSTANCE htim2
 #define PWM_TSSI_R_CHANNEL TIM_CHANNEL_1
 
+// TSSI green LED PWM output
 #define PWM_TSSI_G_INSTANCE htim2
 #define PWM_TSSI_G_CHANNEL TIM_CHANNEL_3
 
+// Brake light PWM output
 #define PWM_BRAKE_LIGHT_INSTANCE htim5
 #define PWM_BRAKE_LIGHT_CHANNEL TIM_CHANNEL_2
 
+// TSSI behavior timing
 #define TSSI_FAULT_BLINK_HALF_PERIOD_MS 200U
 #define TSSI_NO_COMMS_GRACE_PERIOD_MS 4000U
 #define LIGHTS_UPDATE_PERIOD_MS 100U
 
+// Brake light voltage compensation
 #define LIGHTS_NOMINAL_VOLTAGE 24.0f
 #define LIGHTS_MINIMUM_VOLTAGE 12.0f
 #define LIGHTS_VOLTAGE_EXPONENT 2.0f
@@ -45,6 +50,7 @@ static void set_tssi_no_comms(uint32_t tick, uint32_t startup_tick);
 static bool tssi_fault_latched = false;
 
 void lights_init(void) {
+  // Start PWM outputs before the update task begins writing duty cycles.
   HAL_TIM_PWM_Start(&PWM_TSSI_R_INSTANCE, PWM_TSSI_R_CHANNEL);
   HAL_TIM_PWM_Start(&PWM_TSSI_G_INSTANCE, PWM_TSSI_G_CHANNEL);
   HAL_TIM_PWM_Start(&PWM_BRAKE_LIGHT_INSTANCE, PWM_BRAKE_LIGHT_CHANNEL);
@@ -73,6 +79,7 @@ static bool hvc_comms_timed_out(void) {
 }
 
 static void update_tssi(uint32_t tick, uint32_t startup_tick) {
+  // IMD/BMS faults require a manual reset, so keep indicating them once seen.
   if (hvc_fault_active()) {
     tssi_fault_latched = true;
   }
