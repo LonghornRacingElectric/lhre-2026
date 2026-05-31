@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 typedef struct {
+    bool leg_1;
     bool leg_11;
     bool leg_12;
     bool leg_13;

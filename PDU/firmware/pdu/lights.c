@@ -3,6 +3,7 @@
 #include <math.h>
 
 #include "cmsis_os.h"
+#include "lv_battery.h"
 #include "main.h"
 #include "pdu_can.h"
 #include "tim.h"
@@ -167,8 +168,8 @@ void setPWM(TIM_HandleTypeDef *htim, uint32_t channel, float percentage) {
   // Get timer period and calculate CCR based on duty cycle percentage
   uint32_t period = __HAL_TIM_GET_AUTORELOAD(htim);
 
-  // TODO: implement voltage sense so we can use the real measured voltage
   uint32_t ccr_value =
-      (uint32_t)(normalizeLightWithVoltage(percentage, 24.0f) * period);
+      (uint32_t)(normalizeLightWithVoltage(percentage, lv_battery_voltage()) *
+                 period);
   __HAL_TIM_SET_COMPARE(htim, channel, ccr_value);
 }

@@ -35,6 +35,7 @@ extern "C" {
 extern ADC_HandleTypeDef hadc3;
 
 extern ADC_HandleTypeDef hadc5;
+extern DMA_HandleTypeDef hdma_adc5;
 
 /* USER CODE BEGIN Private defines */
 

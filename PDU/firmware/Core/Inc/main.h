@@ -89,6 +89,8 @@ void Error_Handler(void);
 #define SDWN_11_Sense_GPIO_Port GPIOD
 #define SDWN_15_Sense_Pin GPIO_PIN_9
 #define SDWN_15_Sense_GPIO_Port GPIOC
+#define SDWN_1_Sense_Pin GPIO_PIN_8
+#define SDWN_1_Sense_GPIO_Port GPIOA
 #define BSE_3_Pin GPIO_PIN_9
 #define BSE_3_GPIO_Port GPIOA
 #define SDWN_14_Sense_Pin GPIO_PIN_15

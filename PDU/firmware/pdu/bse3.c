@@ -1,9 +1,7 @@
 #include "bse3.h"
 
-#include "adc.h"
+#include "pdu_adc.h"
 
-#define ADC_MAX_VAL ((1u << 12) - 1u)
-#define ADC_BSE_SCALE_V 3.2837f
 #define BSE3_DIVIDER_TOP_OHMS 10000.0f
 #define BSE3_DIVIDER_BOTTOM_OHMS 27000.0f
 #define BSE3_SENSOR_MIN_V 0.5f
@@ -23,15 +21,7 @@ static float clamp_f(float value, float min, float max) {
 }
 
 float bse3_voltage(void) {
-    uint32_t adc_value = 0U;
-
-    HAL_ADC_Start(&hadc5);
-    if (HAL_ADC_PollForConversion(&hadc5, 10) == HAL_OK) {
-        adc_value = HAL_ADC_GetValue(&hadc5);
-    }
-    HAL_ADC_Stop(&hadc5);
-
-    return ((float)adc_value * ADC_BSE_SCALE_V) / ADC_MAX_VAL;
+    return pdu_adc5_bse3_voltage();
 }
 
 float bse3_sensor_voltage(void) {
