@@ -190,18 +190,19 @@ zeros torque and opens linelock on APPS fault or regen hard-current-cut fault.
   keeps rear brake pressure available for regen demand while positive drive
   torque during a regen pressure request is cut separately.
 
-## VCU/PDU Command
+## VCU Command
 
 The VCU now exposes `out->linelock_enabled`.
 
-Current CAN/output behavior:
+Current CAN behavior:
 
 - VCU sends `out->linelock_enabled` as `Line Lock Enabled` in `VCU State`
   (`0x1C7`, VCU to Pi/PDU).
-- PDU receives `VCU State` and drives `Line_Lock_EN` on `PF2` high when
-  `line_lock_enabled == true`, low otherwise.
 - The previous `Switch Command` / `Temp Command 1` placeholder is no longer sent
   by the VCU for linelock.
+- PDU output handling is intentionally not included in this branch. The PDU
+  firmware should consume `VCU State.line_lock_enabled` and drive the real
+  linelock output in its own branch/change.
 
 ## Main Parameters
 

@@ -32,14 +32,6 @@ bool vehicle_in_park(void);
 bool vehicle_in_drive(void);
 
 /**
- * @brief Returns the linelock command from the latest VCU State packet.
- *
- * @return true if the VCU is commanding the rear linelock closed
- * @return false if the VCU is commanding the rear linelock open
- */
-bool line_lock_enabled(void);
-
-/**
  * @brief Returns whether or not the HVC has an IMD fault from the HVC
  *
  * @return true if there is an IMD fault
