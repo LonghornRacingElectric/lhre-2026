@@ -17,7 +17,8 @@ void battery_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
                       uint32_t dt_ms) {
   (void)dt_ms;
 
-  if(in->battery_current_a > -1.0f && in->battery_current_a < 1.0f) {
+  if (in->inverter_current_valid && in->battery_current_a > -1.0f &&
+      in->battery_current_a < 1.0f) {
     out->open_circuit_cell_voltage = ema_filter_evaluate(
         &state->cell_voltage_filter, in->min_cell_voltage_v,
         params->battery.cell_voltage_ema_alpha);
