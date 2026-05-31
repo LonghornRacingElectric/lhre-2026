@@ -92,7 +92,7 @@
         .dc_bus_current_regen_is_negative    = true, \
         .rear_pressure_zero_torque_psi       = 0.0f, \
         .rear_pressure_reference_psi         = 500.0f, \
-        .regen_torque_at_reference_pressure_nm = 50.0f, \
+        .regen_torque_at_reference_pressure_nm = 60.0f, \
         .absolute_regen_torque_cap_nm        = 230.0f, \
         .pack_current_limit_a                = 45.0f, \
         .hard_cut_margin_pct                 = 0.20f, \

@@ -15,7 +15,7 @@ protected:
     params.regen_linelock.dc_bus_current_regen_is_negative = true;
     params.regen_linelock.rear_pressure_zero_torque_psi = 0.0f;
     params.regen_linelock.rear_pressure_reference_psi = 500.0f;
-    params.regen_linelock.regen_torque_at_reference_pressure_nm = 50.0f;
+    params.regen_linelock.regen_torque_at_reference_pressure_nm = 60.0f;
     params.regen_linelock.absolute_regen_torque_cap_nm = 230.0f;
     params.regen_linelock.pack_current_limit_a = 45.0f;
     params.regen_linelock.hard_cut_margin_pct = 0.20f;
@@ -50,8 +50,8 @@ TEST_F(RegenLinelockTest, CommandsNegativeTorqueAndLinelockWhenAllowed) {
 
   EXPECT_TRUE(out.regen_available);
   EXPECT_TRUE(out.linelock_enabled);
-  EXPECT_NEAR(out.regen_pressure_requested_torque_nm, 25.0f, 0.001f);
-  EXPECT_NEAR(out.torque_cmd, -25.0f, 0.001f);
+  EXPECT_NEAR(out.regen_pressure_requested_torque_nm, 30.0f, 0.001f);
+  EXPECT_NEAR(out.torque_cmd, -30.0f, 0.001f);
 }
 
 TEST_F(RegenLinelockTest, ClipsTorqueByPackCurrentAndMotorSpeed) {
@@ -119,8 +119,8 @@ TEST_F(RegenLinelockTest, PressureOnlyTestModeBypassesAvailabilityGates) {
 
   EXPECT_TRUE(out.regen_available);
   EXPECT_TRUE(out.linelock_enabled);
-  EXPECT_NEAR(out.regen_pressure_requested_torque_nm, 25.0f, 0.001f);
-  EXPECT_NEAR(out.torque_cmd, -25.0f, 0.001f);
+  EXPECT_NEAR(out.regen_pressure_requested_torque_nm, 30.0f, 0.001f);
+  EXPECT_NEAR(out.torque_cmd, -30.0f, 0.001f);
 }
 
 TEST_F(RegenLinelockTest, PressureOnlyTestModeKeepsHardCurrentCut) {
