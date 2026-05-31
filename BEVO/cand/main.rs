@@ -405,7 +405,13 @@ fn nmea_listener_loop(external_dynamics: Arc<Mutex<ExternalDynamicsData>>, liste
                             break;
                         }
                     };
-                    update_external_dynamics_from_sentence(&external_dynamics, sentence.trim());
+                    let trimmed = sentence.trim();
+                    // DEBUG (driveday): log every NMEA sentence ChudPi sends
+                    // so we can see which types are emitted. parse_nmea_gps
+                    // only handles GGA and RMC; GLL/GNS/vendor frames would
+                    // arrive but never decode. Revert when diagnosis done.
+                    eprintln!("[CAND-NMEA-DBG] {}", trimmed);
+                    update_external_dynamics_from_sentence(&external_dynamics, trimmed);
                 }
             }
             Err(e) => {

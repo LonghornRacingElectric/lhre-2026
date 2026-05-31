@@ -79,9 +79,21 @@ impl CsvLogger {
 fn canonical_csv_headers() -> Vec<String> {
     // Build a fully-populated OrionSensorData template (all sub-messages
     // present as Some(default)) so that flatten_json_value enumerates every
-    // reachable scalar key once. Repeated fields stay empty and contribute
-    // no indexed columns; this only fixes the nested-message-presence gap.
-    let template = OrionSensorData {
+    // reachable scalar key once. Also pre-seed the repeated fields with N
+    // default entries so flatten emits e.g. `pack.cells_temps[0..91]`
+    // columns. Without this, repeated arrays start empty at file creation,
+    // the header locks without indexed columns, and every per-cell value
+    // is silently dropped from the CSV at runtime.
+    //
+    // Counts are hardcoded from the current can.json schema:
+    //   - pack.cells_v   : 35 packets x 4 cells   = 140
+    //   - pack.cells_temps: 23 packets x 4 cells   =  92
+    //   - dynamics.*_accel: 1 per axis (xyz)       =   3 each
+    //   - dynamics.gps    : (lat, lon)             =   2  (set by cand NMEA)
+    //   - dynamics.gps_imu: (x, y, z)              =   3  (set by cand NMEA)
+    // If the schema changes, update these or — better — derive at startup
+    // from the loaded can.json.
+    let mut template = OrionSensorData {
         time: 0,
         packet_id: 0,
         dynamics: Some(Dynamics::default()),
@@ -92,6 +104,22 @@ fn canonical_csv_headers() -> Vec<String> {
         thermal: Some(Thermal::default()),
         board_status: Some(BoardStatus::default()),
     };
+    if let Some(p) = template.pack.as_mut() {
+        p.cells_v = vec![0.0; 140];
+        p.cells_temps = vec![0.0; 92];
+    }
+    if let Some(d) = template.dynamics.as_mut() {
+        d.gps = vec![0.0; 2];
+        d.gps_imu = vec![0.0; 3];
+        d.bl_sprung_accel = vec![0.0; 3];
+        d.bl_unsprung_accel = vec![0.0; 3];
+        d.br_sprung_accel = vec![0.0; 3];
+        d.br_unsprung_accel = vec![0.0; 3];
+        d.fl_sprung_accel = vec![0.0; 3];
+        d.fl_unsprung_accel = vec![0.0; 3];
+        d.fr_sprung_accel = vec![0.0; 3];
+        d.fr_unsprung_accel = vec![0.0; 3];
+    }
     let value = serde_json::to_value(&template)
         .expect("OrionSensorData::default() must always serialize to JSON");
     let mut row = BTreeMap::new();

@@ -648,19 +648,19 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["bl_ride_height"] = d.BlRideHeight
 		m["bl_strain_gauge_v"] = d.BlStrainGaugeV
 		m["bl_sus_pot_v"] = d.BlSusPotV
-		m["blw_speed"] = d.BlwSpeed
+		m["bl_wheel_speed"] = d.BlWheelSpeed
 		m["br_ride_height"] = d.BrRideHeight
 		m["br_strain_gauge_v"] = d.BrStrainGaugeV
 		m["br_sus_pot_v"] = d.BrSusPotV
-		m["brw_speed"] = d.BrwSpeed
+		m["br_wheel_speed"] = d.BrWheelSpeed
 		m["fl_ride_height"] = d.FlRideHeight
 		m["fl_strain_gauge_v"] = d.FlStrainGaugeV
 		m["fl_sus_pot_v"] = d.FlSusPotV
-		m["flw_speed"] = d.FlwSpeed
+		m["fl_wheel_speed"] = d.FlWheelSpeed
 		m["fr_ride_height"] = d.FrRideHeight
 		m["fr_strain_gauge_v"] = d.FrStrainGaugeV
 		m["fr_sus_pot_v"] = d.FrSusPotV
-		m["frw_speed"] = d.FrwSpeed
+		m["fr_wheel_speed"] = d.FrWheelSpeed
 		m["ride_height"] = d.RideHeight
 		m["wheel_speed"] = d.WheelSpeed
 	}
@@ -719,11 +719,14 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["phase_b_current"] = p.PhaseBCurrent
 		m["phase_c_current"] = p.PhaseCCurrent
 
+		m["power_kw"] = float64(p.HvPackV) * float64(p.HvC) / 1000.0
+
 		if len(p.CellsV) > 0 {
 			avg, min, max := statsFromFloat32Slice(p.CellsV)
 			m["avg_cell_v_stat"] = avg
 			m["max_cell_v"] = max
 			m["min_cell_v"] = min
+			m["cell_v_delta"] = float64(max - min)
 		}
 		if len(p.CellsTemps) > 0 {
 			avg, min, max := statsFromFloat32Slice(p.CellsTemps)

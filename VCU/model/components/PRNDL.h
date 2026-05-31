@@ -29,7 +29,7 @@ void prndl_init(prndl_machine_t *machine);
  * Returns the current state of the machine.
  */
 void prndl_evaluate(prndl_machine_t *machine, const vcu_inputs_t *in,
-                    vcu_outputs_t *out, uint32_t time_ms);
+                    vcu_outputs_t *out, const vcu_parameters_t *params, uint32_t time_ms);
 
 #ifdef __cplusplus
 }

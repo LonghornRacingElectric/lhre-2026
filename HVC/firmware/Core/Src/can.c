@@ -26,6 +26,9 @@ static msg_battery_cell_limits_t battery_cell_limits_tx = {0};
 // Cell temperature messages (23 packets total: 22 with 4 temps, 1 with 2 temps)
 static msg_cell_temperatures_t cell_temps_tx[23] = {0};
 
+// Cell voltage messages (33 packets total: 32 with 4 volts, 1 with 2 volts)
+static msg_cell_voltages_t cell_voltages_tx[33] = {0};
+
 can_interface_t critical_can_bus = {
     .handle = &hfdcan1,
 };
@@ -87,6 +90,14 @@ void hvc_can_init(void) {
     can_rtos_register_send_packet(&critical_can_bus, cell_temp_handle);
   }
 
+  // TX: cell voltages (33 packets with lower priority via 1000ms frequency)
+  for (uint8_t i = 0; i < 33; i++) {
+    can_message_t *cell_voltage_handle = can_get_message_handle(
+        &cell_voltages_tx[i], (CELL_VOLTAGES_ID + i), CELL_VOLTAGES_FREQ,
+        CELL_VOLTAGES_DLC, (CAN_pack_message_fn)pack_cell_voltages);
+    can_rtos_register_send_packet(&critical_can_bus, cell_voltage_handle);
+  }
+
   can_rtos_start_interface(&critical_can_bus);
 
   // Start tasks LAST
@@ -127,6 +138,12 @@ void hvc_set_min_cell_voltage(float min_cell_voltage_v) {
   taskEXIT_CRITICAL();
 }
 
+void hvc_set_max_cell_voltage(float max_cell_voltage_v) {
+  taskENTER_CRITICAL();
+  battery_cell_limits_tx.max_cell_voltage = max_cell_voltage_v;
+  taskEXIT_CRITICAL();
+}
+
 
 /**
  * hvc_set_cell_temperatures - Update cell temperature values for CAN transmission
@@ -160,5 +177,23 @@ void hvc_set_cell_temperatures(float *cell_temps) {
   taskEXIT_CRITICAL();
 }
 
-/* USER CODE END 0 */
+void hvc_set_cell_voltages(float *cell_voltages) {
+  taskENTER_CRITICAL();
 
+  uint16_t volt_idx = 0;
+
+  for(uint8_t packet = 0; packet < 32; packet++) {
+    cell_voltages_tx[packet].voltage_i = cell_voltages[volt_idx++];
+    cell_voltages_tx[packet].voltage_i_1 = cell_voltages[volt_idx++];
+    cell_voltages_tx[packet].voltage_i_2 = cell_voltages[volt_idx++];
+    cell_voltages_tx[packet].voltage_i_3 = cell_voltages[volt_idx++];
+  }
+
+  cell_voltages_tx[32].voltage_i = cell_voltages[volt_idx++];
+  cell_voltages_tx[32].voltage_i_1 = cell_voltages[volt_idx++];
+  cell_voltages_tx[32].voltage_i_2 = 0.0f; // Unused, set to 0
+  cell_voltages_tx[32].voltage_i_3 = 0.0f; // Unused, set to 0
+
+  taskEXIT_CRITICAL();    
+}
+/* USER CODE END 0 */

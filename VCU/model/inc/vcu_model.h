@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 #include "APPS.h"
+#include "Battery.h"
 #include "BSE.h"
 #include "Cooling.h"
 #include "PRNDL.h"
@@ -21,6 +22,7 @@ typedef struct {
   uint32_t time_ms;
   vcu_parameters_t params;
   apps_state_t apps_state;
+  battery_state_t battery_state;
   bse_state_t bse_state;
   cooling_state_t cooling_state;
   power_limit_state_t power_limit_state;

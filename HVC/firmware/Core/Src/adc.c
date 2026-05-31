@@ -337,14 +337,12 @@ uint16_t hvc_adc_read_voltage_sense_raw(void) {
 
 float hvc_adc_read_voltage_sense_v(void) {
   /* Read differential voltage and convert to volts.
-   * Differential ADC range: -2048 to 2047 (2^12 / 2 total range)
+   * Differential ADC data is unsigned offset-binary, centered at 2048.
    * Reference voltage: 3300 mV (3.3V)
    * Voltage per LSB: 3.3V / 4096 = 0.000805 V/LSB for full differential range
    */
-  int16_t raw = (int16_t)hvc_adc_read_voltage_sense_raw();
-  // Convert from differential range (-2048 to 2047) to voltage
-  // Full scale differential = 3.3V
-  float voltage_v = (float)raw * (3.3f / 4096.0f);
+  uint16_t raw = hvc_adc_read_voltage_sense_raw();
+  float voltage_v = ((float)raw - 2048.0f) * (3.3f / 4096.0f);
   return voltage_v;
 }
 
@@ -360,7 +358,7 @@ uint16_t hvc_adc_read_current_sense_raw(void) {
 
 float hvc_adc_read_current_sense_a(void) {
   /* Read differential current and convert to amperes.
-   * Differential ADC range: -2048 to 2047
+   * Differential ADC data is unsigned offset-binary, centered at 2048.
    * Reference voltage: 3300 mV (3.3V)
    * Assuming a current sense amplifier with gain (adjust based on actual
    * design): If using a 1mV/A sensor with 10x gain amplifier: 10mV/A output
@@ -371,9 +369,8 @@ float hvc_adc_read_current_sense_a(void) {
    * Adjust the scaling factor (10.0f) based on your actual amplifier gain and
    * sensor output.
    */
-  int16_t raw = (int16_t)hvc_adc_read_current_sense_raw();
-  // Convert from differential ADC to voltage
-  float voltage_v = (float)raw * (3.3f / 4096.0f);
+  uint16_t raw = hvc_adc_read_current_sense_raw();
+  float voltage_v = ((float)raw - 2048.0f) * (3.3f / 4096.0f);
   // Convert voltage to current (adjust gain factor for your specific design)
   // Example: for 10mV/A output, divide by 0.01 to get amperes
   float current_a =

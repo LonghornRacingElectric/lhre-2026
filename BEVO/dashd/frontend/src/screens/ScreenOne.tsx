@@ -14,7 +14,6 @@ const ScreenOne: React.FC = () => {
     const power = data?.can.power;
     const charge = data?.can.soc;
     const temp = data?.can.temperature;
-    const shutdown = data?.can.shutdown;
     const lapDelta = data?.mqtt.lapDelta;
     const energyDelta = data?.mqtt.energyDelta;
     const lapsRemaining = data?.mqtt.lapsRemaining;
@@ -51,16 +50,26 @@ const ScreenOne: React.FC = () => {
     const lapDeltaRate = data?.mqtt.lapDeltaRate ?? null;
     const LAP_DELTA_RATE_MAX = 0.5; // ±0.5 s/s pegs the bar end-to-end
 
-    // Derived: system status from shutdown circuit (any false = FAULT)
-    const systemOk = shutdown ? shutdown.every(Boolean) : null;
+    // VCU PRNDL state — "P" or "D". Null = no diagnostics_high data yet.
+    const prndl = data?.can.prndl ?? null;
 
-    // Derived: alerts from temperature thresholds (60 °C cell limit)
+    // HV status from HVC 0x131. posContactor=1 means energized (ready
+    // to drive). We derive "precharging / wait" from negContactor=1 &&
+    // posContactor=0 (shutdown closed, HV side not yet engaged) instead
+    // of the prechargeContactor CAN field — the latter is transient and
+    // not reliably observable, but the neg-closed-pos-open window is a
+    // clean indicator of the precharge sequence. When neg=0 the dash
+    // should switch to the shutdown screen entirely (TODO not yet done).
+    const posContactor = data?.can.posContactor ?? null;
+    const negContactor = data?.can.negContactor ?? null;
+
+    // Derived: alerts from temperature thresholds (60 °C cell limit).
+    // The shutdown-circuit alert is intentionally absent: shutdown_leg
+    // signals are firing false FAULTs (driveday 2026-05-24). Pit/diag
+    // screens still surface real per-leg state via data.can.shutdown.
     const alerts: string[] = [];
     if (temp !== null && temp !== undefined && temp > 55) {
         alerts.push("High Battery Temp");
-    }
-    if (systemOk === false) {
-        alerts.push("Shutdown Circuit Fault");
     }
 
     // -------------------------------------------------------------------------
@@ -68,7 +77,7 @@ const ScreenOne: React.FC = () => {
     // -------------------------------------------------------------------------
 
     const getDeltaColor = (val: number | null | undefined, inverse: boolean = false) => {
-        if (val === null || val === undefined || val === 0) return "#888";
+        if (val === null || val === undefined || val === 0) return "var(--fg-muted)";
         if (val < 0) return inverse ? "#FF3333" : "#00FF66";
         return inverse ? "#00FF66" : "#FF3333";
     };
@@ -125,11 +134,11 @@ const ScreenOne: React.FC = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: '0',
-                background: 'rgba(255, 255, 255, 0.05)',
+                background: 'var(--card-bg)',
                 backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
+                border: '1px solid var(--card-border)',
                 borderTop: 'none',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
+                boxShadow: 'var(--card-shadow)'
             }}>
                 {/* Left: SES laps remaining (fixed value width to avoid layout shift) */}
                 <div style={{ position: 'absolute', left: '30px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'baseline', gap: '10px' }}>
@@ -154,9 +163,9 @@ const ScreenOne: React.FC = () => {
                     padding: '0 8px'
                 }}>
                     <span className="label-small" style={{ marginBottom: 0, flexShrink: 0 }}>S/S</span>
-                    <div style={{ flex: 1, height: '26px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ flex: 1, height: '26px', background: 'var(--bar-track)', borderRadius: '4px', position: 'relative', overflow: 'hidden' }}>
                         {/* Zero marker (dead center) */}
-                        <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '2px', background: 'rgba(255,255,255,0.3)', transform: 'translateX(-50%)', zIndex: 2 }} />
+                        <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '2px', background: 'var(--bar-center)', transform: 'translateX(-50%)', zIndex: 2 }} />
                         {/* Fill */}
                         <div style={{
                             position: 'absolute',
@@ -195,10 +204,10 @@ const ScreenOne: React.FC = () => {
                 zIndex: 100,
                 width: '90px',
                 borderRadius: '0',
-                background: 'rgba(255, 255, 255, 0.05)',
+                background: 'var(--card-bg)',
                 backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                border: '1px solid var(--card-border)',
+                boxShadow: 'var(--card-shadow)',
                 padding: 0,
                 overflow: 'hidden',
                 display: 'flex',
@@ -226,8 +235,8 @@ const ScreenOne: React.FC = () => {
                     marginBottom: 0,
                     fontSize: '1rem',
                     letterSpacing: '2px',
-                    color: '#fff',
-                    textShadow: '0 1px 3px rgba(0,0,0,0.7)'
+                    color: 'var(--fg-primary)',
+                    textShadow: 'var(--text-shadow)'
                 }}>TEMP</div>
 
                 <div className="text-center value-display" style={{
@@ -237,11 +246,11 @@ const ScreenOne: React.FC = () => {
                     fontSize: '2.4rem',
                     fontWeight: 'bold',
                     lineHeight: 1,
-                    color: '#fff',
-                    textShadow: '0 1px 4px rgba(0,0,0,0.8)'
+                    color: 'var(--fg-primary)',
+                    textShadow: 'var(--text-shadow-strong)'
                 }}>
                     {temp !== null && temp !== undefined ? Math.round(temp) : "--"}
-                    <span style={{ fontSize: '1rem', marginLeft: '4px', color: 'rgba(255,255,255,0.85)' }}>°C</span>
+                    <span style={{ fontSize: '1rem', marginLeft: '4px', color: 'var(--fg-secondary)' }}>°C</span>
                 </div>
             </div>
 
@@ -255,10 +264,10 @@ const ScreenOne: React.FC = () => {
                 zIndex: 100,
                 width: '90px',
                 borderRadius: '0',
-                background: 'rgba(255, 255, 255, 0.05)',
+                background: 'var(--card-bg)',
                 backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                border: '1px solid var(--card-border)',
+                boxShadow: 'var(--card-shadow)',
                 padding: 0,
                 overflow: 'hidden',
                 display: 'flex',
@@ -285,8 +294,8 @@ const ScreenOne: React.FC = () => {
                     marginBottom: 0,
                     fontSize: '1rem',
                     letterSpacing: '2px',
-                    color: '#fff',
-                    textShadow: '0 1px 3px rgba(0,0,0,0.7)'
+                    color: 'var(--fg-primary)',
+                    textShadow: 'var(--text-shadow)'
                 }}>SOC</div>
 
                 <div className="text-center value-display" style={{
@@ -296,11 +305,11 @@ const ScreenOne: React.FC = () => {
                     fontSize: '2.4rem',
                     fontWeight: 'bold',
                     lineHeight: 1,
-                    color: '#fff',
-                    textShadow: '0 1px 4px rgba(0,0,0,0.8)'
+                    color: 'var(--fg-primary)',
+                    textShadow: 'var(--text-shadow-strong)'
                 }}>
                     {fmt(charge)}
-                    <span style={{ fontSize: '1rem', marginLeft: '4px', color: 'rgba(255,255,255,0.85)' }}>%</span>
+                    <span style={{ fontSize: '1rem', marginLeft: '4px', color: 'var(--fg-secondary)' }}>%</span>
                 </div>
             </div>
 
@@ -352,19 +361,19 @@ const ScreenOne: React.FC = () => {
                             justifyContent: 'center',
                             alignItems: 'flex-start',
                             paddingLeft: '12px',
-                            borderLeft: '2px solid rgba(255, 255, 255, 0.08)'
+                            borderLeft: '2px solid var(--divider)'
                         }}>
                             <div className="label-small" style={{
                                 fontSize: '0.95rem',
                                 letterSpacing: '2px',
                                 marginBottom: '4px',
-                                color: cell.labelColor ?? '#888'
+                                color: cell.labelColor ?? 'var(--fg-muted)'
                             }}>{cell.label}</div>
                             <div className="value-display" style={{
                                 fontSize: '2.1rem',
                                 fontWeight: 'bold',
                                 lineHeight: 1,
-                                color: cell.valueColor ?? '#fff'
+                                color: cell.valueColor ?? 'var(--fg-primary)'
                             }}>
                                 {cell.value}
                             </div>
@@ -387,7 +396,7 @@ const ScreenOne: React.FC = () => {
                             {fmt(power)}
                             <span className="label-small" style={{ fontSize: '0.9rem', marginLeft: '6px' }}>kW</span>
                         </div>
-                        <div className="value-display" style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#aaa', lineHeight: 1 }}>
+                        <div className="value-display" style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--fg-secondary)', lineHeight: 1 }}>
                             <span className="label-small" style={{ fontSize: '0.9rem', marginRight: '6px' }}>BB</span>
                             {brakeBias !== null && brakeBias !== undefined ? brakeBias.toFixed(0) : '--'}
                             <span className="label-small" style={{ fontSize: '0.9rem', marginLeft: '3px' }}>%</span>
@@ -395,9 +404,9 @@ const ScreenOne: React.FC = () => {
                     </div>
 
                     {/* Big power bar — 20% regen on the left, 80% drive on the right */}
-                    <div style={{ width: '95%', height: '22px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ width: '95%', height: '22px', background: 'var(--bar-track)', borderRadius: '4px', position: 'relative', overflow: 'hidden' }}>
                         {/* Zero marker (where regen meets drive) */}
-                        <div style={{ position: 'absolute', left: `${REGEN_PCT}%`, top: 0, bottom: 0, width: '2px', background: 'rgba(255,255,255,0.3)', transform: 'translateX(-50%)', zIndex: 2 }} />
+                        <div style={{ position: 'absolute', left: `${REGEN_PCT}%`, top: 0, bottom: 0, width: '2px', background: 'var(--bar-center)', transform: 'translateX(-50%)', zIndex: 2 }} />
                         {/* Fill */}
                         <div style={{
                             position: 'absolute',
@@ -424,10 +433,10 @@ const ScreenOne: React.FC = () => {
                 height: '80px',
                 width: '100%',
                 borderRadius: '0',
-                background: 'rgba(255, 255, 255, 0.05)',
+                background: 'var(--card-bg)',
                 backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                border: '1px solid var(--card-border)',
+                boxShadow: 'var(--card-shadow)',
                 padding: 0
             }}>
                 {/* Driver-armable flags (TC + REGEN) — left side, vertically
@@ -448,8 +457,8 @@ const ScreenOne: React.FC = () => {
                         height: '26px',
                         padding: '0 14px',
                         borderRadius: '5px',
-                        border: `2px solid ${tcEnabled ? '#BF5700' : 'rgba(255,255,255,0.15)'}`,
-                        background: tcEnabled ? 'rgba(191,87,0,0.20)' : 'rgba(255,255,255,0.04)',
+                        border: `2px solid ${tcEnabled ? '#BF5700' : 'var(--card-border-hover)'}`,
+                        background: tcEnabled ? 'rgba(191,87,0,0.20)' : 'var(--card-bg)',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
@@ -460,7 +469,7 @@ const ScreenOne: React.FC = () => {
                             fontSize: '1.3rem',
                             fontWeight: 'bold',
                             lineHeight: 1,
-                            color: tcEnabled ? '#fff' : '#666'
+                            color: tcEnabled ? 'var(--fg-primary)' : 'var(--fg-muted)'
                         }}>
                             {tcEnabled === null || tcEnabled === undefined
                                 ? '—'
@@ -475,8 +484,8 @@ const ScreenOne: React.FC = () => {
                         height: '26px',
                         padding: '0 14px',
                         borderRadius: '5px',
-                        border: `2px solid ${regenEnabled ? '#00CC66' : 'rgba(255,255,255,0.15)'}`,
-                        background: regenEnabled ? 'rgba(0,204,102,0.20)' : 'rgba(255,255,255,0.04)',
+                        border: `2px solid ${regenEnabled ? '#00CC66' : 'var(--card-border-hover)'}`,
+                        background: regenEnabled ? 'rgba(0,204,102,0.20)' : 'var(--card-bg)',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
@@ -487,7 +496,7 @@ const ScreenOne: React.FC = () => {
                             fontSize: '1.3rem',
                             fontWeight: 'bold',
                             lineHeight: 1,
-                            color: regenEnabled ? '#fff' : '#666'
+                            color: regenEnabled ? 'var(--fg-primary)' : 'var(--fg-muted)'
                         }}>
                             {regenEnabled === null || regenEnabled === undefined
                                 ? '—'
@@ -496,27 +505,78 @@ const ScreenOne: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Vertical divider — separates center cluster from System */}
+                {/* Right cluster: GEAR + HV, mirroring TC/REGEN on the
+                    left. Same pill format (26px tall, label left + value
+                    right). Replaces the old System OK widget which was
+                    always-OK / dead info. TODO: negContactor=0 → shutdown
+                    open, dash should route to ScreenTwo entirely. */}
                 <div style={{
                     position: 'absolute',
-                    right: '130px',
+                    right: '14px',
                     top: '50%',
                     transform: 'translateY(-50%)',
-                    height: '60%',
-                    width: '1px',
-                    background: 'rgba(255, 255, 255, 0.1)'
-                }} />
+                    width: '160px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                }}>
+                    {/* GEAR pill */}
+                    <div style={{
+                        height: '26px',
+                        padding: '0 14px',
+                        borderRadius: '5px',
+                        border: `2px solid ${prndl === 'D' ? '#00CC66' : 'var(--card-border-hover)'}`,
+                        background: prndl === 'D' ? 'rgba(0,204,102,0.20)' : 'var(--card-bg)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        <span className="label-small" style={{ marginBottom: 0, fontSize: '0.9rem', letterSpacing: '2px' }}>GEAR</span>
+                        <span className="value-display" style={{
+                            fontSize: '1.3rem',
+                            fontWeight: 'bold',
+                            lineHeight: 1,
+                            color: prndl === 'D' ? 'var(--fg-primary)' : 'var(--fg-muted)'
+                        }}>
+                            {prndl ?? '—'}
+                        </span>
+                    </div>
 
-                {/* System Status — far right of bottom tray */}
-                <div style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', textAlign: 'center', width: '110px' }}>
-                    <div className="label-small" style={{ marginBottom: 0 }}>System</div>
-                    {systemOk === null ? (
-                        <div className="value-display" style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#888', lineHeight: 1 }}>--</div>
-                    ) : systemOk ? (
-                        <div className="value-display" style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#00FF66', textShadow: '0 0 5px rgba(0,255,100,0.5)', lineHeight: 1 }}>OK</div>
-                    ) : (
-                        <div className="value-display" style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#FF3333', textShadow: '0 0 5px rgba(255,50,50,0.5)', lineHeight: 1 }}>FAULT</div>
-                    )}
+                    {/* HV pill — amber border/bg when posContactor=1
+                        (energized). Whole pill blinks 1Hz when negContactor
+                        is closed but posContactor is not yet engaged
+                        (driver wait / precharge sequence). */}
+                    <div style={{
+                        height: '26px',
+                        padding: '0 14px',
+                        borderRadius: '5px',
+                        border: `2px solid ${posContactor ? '#FFD700' : 'var(--card-border-hover)'}`,
+                        background: posContactor ? 'rgba(255,215,0,0.20)' : 'var(--card-bg)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '8px',
+                        animation: !posContactor && negContactor
+                            ? 'hv-precharge-blink 1s steps(1, end) infinite'
+                            : 'none'
+                    }}>
+                        <span className="label-small" style={{ marginBottom: 0, fontSize: '0.9rem', letterSpacing: '2px' }}>HV</span>
+                        <span className="value-display" style={{
+                            fontSize: '1.3rem',
+                            fontWeight: 'bold',
+                            lineHeight: 1,
+                            color: posContactor ? 'var(--fg-primary)' : 'var(--fg-muted)'
+                        }}>
+                            {posContactor === null
+                                ? '—'
+                                : posContactor
+                                    ? 'ON'
+                                    : negContactor
+                                        ? 'WAIT'
+                                        : 'OFF'}
+                        </span>
+                    </div>
                 </div>
 
                 {/* Energy Delta (Center) — label stacked above value so the
@@ -591,16 +651,28 @@ const ScreenOne: React.FC = () => {
                                 textAlign: 'left',
                                 whiteSpace: 'nowrap'
                             }}>
-                                {Math.abs(energyDelta).toFixed(1).split('.')[1]} <span style={{fontSize: '1.5rem', marginLeft: '5px', verticalAlign: 'middle', color: '#888'}}>Wh</span>
+                                {Math.abs(energyDelta).toFixed(1).split('.')[1]} <span style={{fontSize: '1.5rem', marginLeft: '5px', verticalAlign: 'middle', color: 'var(--fg-muted)'}}>Wh</span>
                             </div>
                         </div>
                     ) : (
-                        <div style={{ position: 'absolute', left: '50%', top: 'calc(50% + 10px)', transform: 'translate(-50%, -50%)', fontSize: '3rem', fontWeight: 'bold', color: '#888' }}>--</div>
+                        <div style={{ position: 'absolute', left: '50%', top: 'calc(50% + 10px)', transform: 'translate(-50%, -50%)', fontSize: '3rem', fontWeight: 'bold', color: 'var(--fg-muted)' }}>--</div>
                     )}
                 </div>
 
-                {/* Connectivity (just left of System status) */}
-                <div style={{ position: 'absolute', right: '170px', top: '50%', transform: 'translateY(-50%)' }}>
+                {/* Connectivity — right-anchored so its right edge sits
+                    just before the GEAR/HV cluster (which starts at
+                    right=174). Overlaps the Energy Delta container on
+                    the left but Energy's actual digits are centered
+                    narrowly inside the 360-wide container so the
+                    rendered overlap is minimal. zIndex bumped so the
+                    icons sit above. */}
+                <div style={{
+                    position: 'absolute',
+                    right: '215px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    zIndex: 110
+                }}>
                     <ConnectivityIndicator />
                 </div>
             </div>

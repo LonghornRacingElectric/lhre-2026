@@ -48,6 +48,9 @@ static can_receive_message_t *inverter_current_mailbox_handle = NULL;
 
 static msg_inverter_voltage_t inverter_voltage_mailbox = {0};
 static can_receive_message_t *inverter_voltage_mailbox_handle = NULL;
+
+static msg_inverter_faults_t inverter_faults_mailbox = {0};
+static can_receive_message_t *inverter_faults_mailbox_handle = NULL;
 // #define DUI_R2D_STATUS_TIMEOUT_MS 1000u
 
 // static bool dui_r2d_timed_out_logged = false;
@@ -207,6 +210,18 @@ void vcu_can_add_send_handlers(void) {
   log_printf(LOG_INFO, "[VCU] CAN send handler for VCU state registered\n");
 }
 
+void vcu_can_clear_inverter_faults(void) {
+  msg_inverter_parameter_request_t fault_clear = {
+      .parameter_address = 20,
+      .r_w = 1,
+  };
+  can_message_t *msg = can_get_message_handle(
+      &fault_clear, INVERTER_PARAMETER_REQUEST_ID, 0,
+      INVERTER_PARAMETER_REQUEST_DLC,
+      (CAN_pack_message_fn)pack_inverter_parameter_request);
+  can_rtos_send_immediate(&critical_bus, msg);
+}
+
 void vcu_init_inverter() {
   // send can packet with all 0s
   inverter_torque_command_mailbox.torque_request = 0.0f;
@@ -253,6 +268,8 @@ void vcu_can_set_model_outputs(const vcu_outputs_t *out) {
   vcu_state_mailbox.prndl_state = out->prndl_state;
   vcu_state_mailbox.stomp_fault = out->faults.brake_latched;
   vcu_state_mailbox.ready_to_drive_buzzer = out->buzzer_active;
+  vcu_state_mailbox.state_of_charge_estimate = out->soe_pct;
+  vcu_state_mailbox.line_lock_enabled = false; // TODO out->line_lock_enabled;
 
   led_set(out->brake_pressed, is_drive_switch_pressed(),
           out->accel_pedal_travel == 0);
@@ -282,7 +299,7 @@ static float compute_brake_bias_pct(const vcu_outputs_t *out) {
   static float remembered_brake_bias = 0.0f;
   float total = out->bse1_psi + out->bse2_psi;
 
-  if (total <= 100.0f) {
+  if (total <= 1000.0f) {
     return remembered_brake_bias;
   } else {
     remembered_brake_bias = out->bse1_psi / total;
@@ -375,6 +392,14 @@ inverter_voltages_t vcu_can_get_inverter_voltages(void) {
   };
 }
 
+uint32_t vcu_can_get_inverter_post_faults(void) {
+  return inverter_faults_mailbox.post_faults;
+}
+
+uint32_t vcu_can_get_inverter_run_faults(void) {
+  return inverter_faults_mailbox.run_faults;
+}
+
 /**
  * @brief Creates the CAN receive handlers and registers them with the CAN lib
  *
@@ -439,4 +464,12 @@ void vcu_can_add_receive_handlers(void) {
                                    inverter_voltage_mailbox_handle);
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for inverter voltage registered\n");
+
+  inverter_faults_mailbox_handle = can_get_receive_message_handle(
+      &inverter_faults_mailbox, INVERTER_FAULTS_ID,
+      (CAN_unpack_message_fn)unpack_inverter_faults);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   inverter_faults_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for inverter faults registered\n");
 }

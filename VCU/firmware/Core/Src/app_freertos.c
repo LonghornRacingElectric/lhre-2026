@@ -35,6 +35,11 @@
 
 #include "vcu_can.h"
 
+#include "params/acceleration_params.h"
+#include "params/autocross_params.h"
+#include "params/endurance_params.h"
+#include "params/skidpad_params.h"
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <math.h>
@@ -74,14 +79,12 @@ const osThreadAttr_t controlTask_attributes = {
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define SELECTED_PARAMS autocross_params
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define ADC_MAX_VAL ((1u << 12) - 1u)
 #define ADC_APPS_SCALE_V 3.3f
-#define ADC_BSE_SCALE_V 3.2837f
 #define ADC_STEERING_SCALE_V 3.3f
 #define STEERING_DIVIDER_R_TOP_OHMS 5100.0f
 #define STEERING_DIVIDER_R_BOTTOM_OHMS 10000.0f
@@ -97,77 +100,10 @@ const osThreadAttr_t controlTask_attributes = {
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
 
-static vcu_parameters_t s_params = {
-    .apps =
-        {
-            .apps1_min_adc_v = 1.750f,
-            .apps1_max_adc_v = 1.520f,
-
-            .apps2_min_adc_v = 0.190f,
-            .apps2_max_adc_v = -0.020f,
-
-            .implaus_debounce_time_ms = 100u,
-            .max_allowable_diff = 0.15f,
-            // .min_travel_threshold = 0.10f,
-            // .max_travel_restore_threshold = 0.05f,
-
-            .min_travel_deadzone = 0.09f,
-            .max_travel_deadzone = 0.88f,
-            .pedal_ema_alpha = 0.35f,
-        },
-    .bse =
-        {
-            .bse_off_psi = 30.0f,
-            .bse_on_psi = 50.0f,
-            .bse1_adc_at_min_psi_v =
-                ((397.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
-            .bse1_adc_at_max_psi_v =
-                ((2267.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
-            .bse2_adc_at_min_psi_v =
-                ((397.0f * ADC_BSE_SCALE_V) /
-                 ADC_MAX_VAL), 
-            .bse2_adc_at_max_psi_v =
-                ((2017.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL),
-            .bse_max_psi = 3000.0f,
-            .max_pedal_while_braking = 0.25f,
-            .max_pedal_restore_threshold = 0.05f,
-            .min_psi_deadzone = 0.4f,
-            .max_psi_deadzone = 1.0f,
-            .bse_ema_alpha = 0.10f,
-            .brake_light_min_pct = 0.0f,
-            .brake_light_max_pct = 0.30f,
-        },
-    .torque_map =
-        {
-            .torque_map = {
-              /* rpm=    0 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 100.0f, 110.0f, 120.0f, 130.0f,  140.0f,  150.00f },
-              /* rpm=  600 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 100.0f, 110.0f, 120.0f, 130.0f,  140.0f,  150.00f },
-              /* rpm= 1200 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 120.0f, 130.0f, 150.0f,  160.0f,  170.00f },
-              /* rpm= 1800 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 120.0f, 130.0f, 150.0f,  170.0f,  190.00f },
-              /* rpm= 2400 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 176.0f,  188.0f,  200.00f },
-              /* rpm= 3000 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 176.0f,  198.0f,  220.00f },
-              /* rpm= 3600 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 176.0f,  198.0f,  203.72f },
-              /* rpm= 4200 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 154.0f, 174.62f, 174.62f, 174.62f },
-              /* rpm= 4800 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 152.79f, 152.79f, 152.79f, 152.79f },
-              /* rpm= 5400 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 132.0f, 135.81f, 135.81f, 135.81f, 135.81f },
-              /* rpm= 6000 */ {   0.0f,  22.0f,  44.0f,  66.0f,  88.0f, 110.0f, 122.23f, 122.23f, 122.23f, 122.23f, 122.23f },
-            },
-            .max_torque_nm = 220.0f,
-            .low_cell_derate_start_v = 3.2f,
-            .low_cell_cutoff_v = 3.0f,
-        },
-    .power_limit =
-      {
-          .power_limit_w = 75000.0f,
-          .power_limit_trim_kp = 0.006f,
-          .power_limit_trim_ki = 0.6f,
-          .power_limit_trim_integral_max = 1000.0f,
-      },
-    .buzzer_duration_ms = 1200u,
-    .brake_enable_threshold = 0.1f,
-};
+static vcu_parameters_t s_params;
 
 static vcu_model_context_t ctx = {0};
+
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
@@ -290,6 +226,7 @@ static float steering_sensor_voltage_to_angle_deg(float sensor_voltage_v) {
   float raw_angle_deg = (angle_pct * STEERING_SENSOR_ANGLE_RANGE_DEG) -
          (0.5f * STEERING_SENSOR_ANGLE_RANGE_DEG);
   float adjusted_angle_deg = raw_angle_deg + STEERING_SENSOR_ANGLE_OFFSET_DEG;
+  return adjusted_angle_deg;
 }
 
 static float steering_sensor_voltage_to_percent(float sensor_voltage_v) {
@@ -348,7 +285,9 @@ void StartSystemTask(void *argument) {
 // ControlTask: main 10ms loop (ADC -> model -> CAN -> logging) --------------
 void StartControlTask(void *argument) {
   // Let system init (USB, DFU, CAN, DMA) finish
-  osDelay(pdMS_TO_TICKS(200));
+  osDelay(pdMS_TO_TICKS(1000));
+
+  vcu_can_clear_inverter_faults();
 
   static uint32_t last_tick = 0;
   last_tick = osKernelGetTickCount();
@@ -356,6 +295,7 @@ void StartControlTask(void *argument) {
   vcu_inputs_t in = {0};
   vcu_outputs_t out = {0};
 
+  s_params = SELECTED_PARAMS;
   vcu_model_init(&ctx, &s_params);
 
   uint32_t adc1_val = 0; // steering ADC1 read
@@ -403,8 +343,8 @@ void StartControlTask(void *argument) {
     steering_angle_deg = ((steering_angle_pct - 0.02f) / 0.62f - 0.5f) * 230.0f + 7.0f;  // TODO chud temp tuning
 
     // Read pedal sensors from DMA buffers
-    in.apps1_raw = ((float)adc3_dma_buf[0] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
-    in.apps2_raw = ((float)adc3_dma_buf[1] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
+    in.apps1_raw = ((float)adc3_dma_buf[1] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
+    in.apps2_raw = ((float)adc3_dma_buf[0] * ADC_APPS_SCALE_V) / ADC_MAX_VAL;
     in.bse1_raw = ((float)adc2_dma_buf[0] * ADC_BSE_SCALE_V) / ADC_MAX_VAL;
     in.bse2_raw = ((float)adc2_dma_buf[1] * ADC_BSE_SCALE_V) / ADC_MAX_VAL;
 
@@ -426,40 +366,20 @@ void StartControlTask(void *argument) {
     vcu_can_set_model_outputs(&out);
     vcu_can_set_steering_angle_deg(steering_angle_deg);
 
-    float delta_resolver_angle_deg = vcu_can_get_delta_resolver_angle_deg();
-    float motor_angle_deg = vcu_can_get_motor_angle_deg();
-    float torque_derate_pct = 1.0f;
-    if (in.min_cell_voltage_v <= s_params.torque_map.low_cell_cutoff_v) {
-      torque_derate_pct = 0.0f;
-    } else if (in.min_cell_voltage_v <
-                s_params.torque_map.low_cell_derate_start_v) {
-      torque_derate_pct =
-          (in.min_cell_voltage_v - s_params.torque_map.low_cell_cutoff_v) /
-          (s_params.torque_map.low_cell_derate_start_v -
-            s_params.torque_map.low_cell_cutoff_v);
-    // log_printf(LOG_INFO,
-    //          "TICK:%lu | RPM:%.0f DRA:%.1f ANG:%.1f PED:%.3f TQ:%.1f | "
-    //          "MIN:%.4f DRT:%.2f | STR_RAW:%lu AV:%.3f SV:%.3f SPCT:%.3f "
-    //          "STR_DEG:%.1f | "
-    //          "PRNDL:%u INV:%u | "
-    //          "DRV_IN:%u TR:%u | APPS_IMPL:%u BRAKE:%u ANYFLT:%u\n",
-    //          (unsigned long)current_tick, (double)in.motor_speed_rpm,
-    //          (double)delta_resolver_angle_deg, (double)motor_angle_deg,
-    //          (double)out.accel_pedal_travel, (double)out.torque_cmd,
-    //          (double)in.min_cell_voltage_v, (double)torque_derate_pct,
-    //          (unsigned long)adc1_val, (double)steering_adc_voltage_v,
-    //          (double)steering_sensor_voltage_v,
-    //          (double)steering_angle_pct, (double)steering_angle_deg,
-    //          (unsigned)out.prndl_state, (unsigned)out.inverter_enable,
-    //          (unsigned)in.drive_switch, (unsigned)in.contactors_closed,
-    //          (unsigned)out.faults.apps_any_fault,
-    //          (unsigned)out.brake_pressed, (unsigned)out.faults.any_fault);
+
     
-      log_printf(LOG_INFO,
-             "\nAPPS1_RAW:%.3f APPS1_PCT:%.3f\nAPPS2_RAW:%.3f APPS2_PCT:%.3f\nAPPS: %.3f\n\n",
-             (double)in.apps1_raw, (double)out.apps1_travel,
-             (double)in.apps2_raw, (double)out.apps2_travel,
-             (double)out.accel_pedal_travel);
+    // log_printf(LOG_INFO,
+    //            "\nAPPS1_RAW:%.3f APPS1_PCT:%.3f\nAPPS2_RAW:%.3f "
+    //            "APPS2_PCT:%.3f\nAPPS: %.3f\n\n",
+    //            (double)in.apps1_raw, (double)out.apps1_travel,
+    //            (double)in.apps2_raw, (double)out.apps2_travel,
+    //            (double)out.accel_pedal_travel);
+
+    uint32_t post_faults = vcu_can_get_inverter_post_faults();
+    uint32_t run_faults  = vcu_can_get_inverter_run_faults();
+    if (post_faults || run_faults) {
+      log_printf(LOG_ERROR, "[INV] POST_FAULTS:0x%08lX RUN_FAULTS:0x%08lX\n",
+                 post_faults, run_faults);
     }
 
     // 3 ms control loop (333 Hz)

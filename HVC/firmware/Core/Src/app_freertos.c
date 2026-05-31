@@ -33,6 +33,7 @@
 #include "adc.h"
 #include "can.h"
 #include "fdcan.h"
+#include "gpio.h"
 #include "longhorn/rtos/dfu.h"
 #include "longhorn/rtos/led.h"
 #include "longhorn/rtos/logger.h"
@@ -72,12 +73,12 @@ osThreadId_t bmsTaskHandle;
 const osThreadAttr_t bmsTask_attributes = {
     .name = "bms_Task",
     .priority = (osPriority_t)osPriorityHigh2,
-    .stack_size = 256 * 8 * 2 * 2};
+    .stack_size = 8192};
 osThreadId_t stateMachineTaskHandle;
 const osThreadAttr_t stateMachineTask_attributes = {
     .name = "stateMachine",
     .priority = (osPriority_t)osPriorityHigh,
-    .stack_size = 128 * 8 * 2};
+    .stack_size = 4096};
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
@@ -256,25 +257,59 @@ void StartStateMachineTask(void *argument) {
     uint32_t current_fault_vector = get_faults();
     latched_fault_vector |= current_fault_vector;
     set_bms_fault_pin(current_fault_vector != 0);
+    bool bms_indicator_error =
+        (current_fault_vector &
+         (FAULT_BMS_COMMS | FAULT_BMS_OVERVOLTAGE |
+          FAULT_BMS_UNDERVOLTAGE | FAULT_BMS_OVERTEMP)) != 0;
+    hvc_set_indicator_status(bms_indicator_error,
+                             hvc_gpio_is_imd_error_active(),
+                             hvc_gpio_is_shutdown_leg1_closed(),
+                             hvc_gpio_is_shutdown_leg2_closed(),
+                             hvc_gpio_is_shutdown_leg3_closed(),
+                             hvc_gpio_is_shutdown_leg4_closed());
     bool any_faults = (latched_fault_vector != 0) ||
-                      (osKernelGetTickCount() <
-                       5000); // decreasing may introduce race condition
+                      (osKernelGetTickCount() < 5000);
 
     update_state_machine(any_faults);
     hvc_update_contactor_status();
-    // log_printf(LOG_INFO, "Responsive BMS ICs: %d\n",
-    // bms_get_num_responsive_ics());
 
+    float pack_v = bms_get_pack_voltage();
+    float tractive_v = get_tractive_voltage();
+    float tractive_a = get_tractive_current();
+    float raw_vsense_v = hvc_adc_read_voltage_sense_v();
+    float min_v = bms_get_min_voltage();
+    float max_v = bms_get_max_voltage();
+    hvc_set_min_cell_voltage(min_v);
+    hvc_set_max_cell_voltage(max_v);
+    float delta_mv = (max_v - min_v) * 1000.0f;
+    float min_temp_c = bms_get_min_temp();
+    float max_temp_c = bms_get_max_temp();
+    float max_die_temp_c = bms_get_max_die_temp();
+    uint8_t responsive_ics = bms_get_num_responsive_ics();
+    uint8_t balance_count = bms_get_balance_count();
+    bool bms_disc = bms_check_disconnection();
+    bool bms_uv = bms_check_undervoltage();
+    bool bms_ov = bms_check_overvoltage();
+    bool bms_ot = bms_check_overtemp();
+    
     log_printf(LOG_INFO,
-               "Pack Voltage: %.2f, Tractive Voltage: %.2f V, Raw: %.2f, State "
-               "Machine: %d, Shutdown: %d, BMS Responsive: %d\n", 
-               get_pack_voltage(), get_tractive_voltage(),
-               hvc_adc_read_voltage_sense_v(), get_current_state(),
-               // get_state_name(get_current_state()),
-               is_shutdown_closed(), bms_get_num_responsive_ics());
+               "Pack: %.2f V, Faults[live:0x%08lX latched:0x%08lX], "
+               "Cell[min:%.3f max:%.3f dV:%.1f mV], Temp[min:%.1f max:%.1f], "
+               "DieTemp[max:%.1f], "
+               "BMS[resp:%u disc:%u uv:%u ov:%u ot:%u], "
+               "State:%d Shutdown:%d BalCnt:%u\n",
+               pack_v,
+               current_fault_vector, latched_fault_vector,
+               min_v, max_v, delta_mv, min_temp_c, max_temp_c,
+               max_die_temp_c,
+               responsive_ics, bms_disc, bms_uv, bms_ov, bms_ot,
+               get_current_state(), is_shutdown_closed(), balance_count);
     osDelay(task_period_ms);
+
+    if(get_current_state() != HVC_STATE_ENERGIZED) {
+      bms_print_all_cells();
+    }
   }
 }
 
 /* USER CODE END Application */
-

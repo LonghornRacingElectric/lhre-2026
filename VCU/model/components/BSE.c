@@ -22,10 +22,12 @@ void bse_init(bse_state_t *state) {
   ema_filter_init(&state->bse_filter);
 }
 
-/**
- * @brief Checks if brake is active based on pressure threshold
- */
-bool bse_is_active(float psi, bse_state_t *state, vcu_parameters_t *params) {
+bool bse_should_enable_brake_light(float psi, vcu_parameters_t *params) {
+  return psi >= params->bse.bse_brake_light_psi;
+}
+
+bool bse_should_trigger_stompp(float psi, bse_state_t *state,
+                               vcu_parameters_t *params) {
   // lagging hysteresis
   if (state->brake_pressed && psi < params->bse.bse_off_psi) {
     state->brake_pressed = false;
@@ -82,10 +84,11 @@ void bse_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   out->bse_psi = ema_filter_evaluate(&state->bse_filter, raw_average_psi,
                                      params->bse.bse_ema_alpha);
 
-  out->brake_pressed = bse_is_active(out->bse_psi, state, params);
+  out->brake_pressed = bse_should_trigger_stompp(out->bse_psi, state, params);
 
-  out->brake_light_pct = out->brake_pressed ? params->bse.brake_light_max_pct
-                                            : params->bse.brake_light_min_pct;
+  out->brake_light_pct = bse_should_enable_brake_light(out->bse_psi, params)
+                             ? params->bse.brake_light_max_pct
+                             : params->bse.brake_light_min_pct;
 
   out->faults.brake_latched = bse_is_latched(
       out->brake_pressed, out->accel_pedal_travel, state, params);

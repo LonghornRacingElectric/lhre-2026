@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { DRIVERS, useSettings } from '../context/SettingsContext';
+import { DRIVERS, THEMES, useSettings } from '../context/SettingsContext';
 import TopTray from '../components/TopTray';
 import './ScreenOne.css';
 import './Settings.css';
@@ -12,7 +12,7 @@ interface SettingDef {
 }
 
 const Settings: React.FC = () => {
-    const { settings, setActiveDriver } = useSettings();
+    const { settings, setActiveDriver, setTheme } = useSettings();
     const [focusIndex, setFocusIndex] = useState(0);
 
     // Add new settings by appending to this array.
@@ -22,6 +22,12 @@ const Settings: React.FC = () => {
             options: DRIVERS,
             value: settings.activeDriver,
             onChange: (next) => setActiveDriver(next as typeof DRIVERS[number]),
+        },
+        {
+            label: 'Theme',
+            options: THEMES,
+            value: settings.theme,
+            onChange: (next) => setTheme(next as typeof THEMES[number]),
         },
     ];
 
