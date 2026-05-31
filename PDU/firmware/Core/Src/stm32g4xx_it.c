@@ -57,7 +57,7 @@
 /* External variables --------------------------------------------------------*/
 extern PCD_HandleTypeDef hpcd_USB_FS;
 extern FDCAN_HandleTypeDef hfdcan1;
-extern TIM_HandleTypeDef htim20;
+extern TIM_HandleTypeDef htim7;
 
 /* USER CODE BEGIN EV */
 
@@ -204,17 +204,17 @@ void FDCAN1_IT1_IRQHandler(void)
 }
 
 /**
-  * @brief This function handles TIM20 update interrupt.
+  * @brief This function handles TIM7 global interrupt, DAC2 and DAC4 channel underrun error interrupts.
   */
-void TIM20_UP_IRQHandler(void)
+void TIM7_DAC_IRQHandler(void)
 {
-  /* USER CODE BEGIN TIM20_UP_IRQn 0 */
+  /* USER CODE BEGIN TIM7_DAC_IRQn 0 */
 
-  /* USER CODE END TIM20_UP_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim20);
-  /* USER CODE BEGIN TIM20_UP_IRQn 1 */
+  /* USER CODE END TIM7_DAC_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim7);
+  /* USER CODE BEGIN TIM7_DAC_IRQn 1 */
 
-  /* USER CODE END TIM20_UP_IRQn 1 */
+  /* USER CODE END TIM7_DAC_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
