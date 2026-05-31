@@ -190,21 +190,36 @@ void StartDefaultTask(void *argument)
   // turn off line lock
   HAL_GPIO_WritePin(Line_Lock_EN_GPIO_Port, Line_Lock_EN_Pin, GPIO_PIN_RESET);
 
+  bool line_lock_on = false;
+  uint32_t last_line_lock_toggle_ms = HAL_GetTick();
+
   /* Infinite loop */
   for (;;) {
+    (void)line_lock_enabled();
+
+    uint32_t now_ms = HAL_GetTick();
+    if ((now_ms - last_line_lock_toggle_ms) >= 5000u) {
+      line_lock_on = !line_lock_on;
+      last_line_lock_toggle_ms = now_ms;
+    }
+
+    HAL_GPIO_WritePin(Line_Lock_EN_GPIO_Port, Line_Lock_EN_Pin,
+                      line_lock_on ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
     shutdown_sense_t sdwn = shutdown_sense_read();
 
     log_printf(LOG_INFO,
                "\nBSE3_ADC_V:%.3f BSE3_SENSOR_V:%.3f BSE3_PSI:%.1f\n"
                "LV_BATTERY_V:%.3f\n"
                "SDWN1:%u SDWN11:%u SDWN12:%u SDWN13:%u SDWN14:%u SDWN15:%u\n"
-               "SDWN_CLOSED:%u\n\n",
+               "SDWN_CLOSED:%u LINE_LOCK:%u\n\n",
                (double)bse3_voltage(), (double)bse3_sensor_voltage(),
                (double)bse3_pressure_psi(),
                (double)lv_battery_voltage(), (unsigned)sdwn.leg_1,
                (unsigned)sdwn.leg_11, (unsigned)sdwn.leg_12,
                (unsigned)sdwn.leg_13, (unsigned)sdwn.leg_14,
-               (unsigned)sdwn.leg_15, (unsigned)shutdown_sense_closed());
+               (unsigned)sdwn.leg_15, (unsigned)shutdown_sense_closed(),
+               (unsigned)line_lock_on);
 
     osDelay(200);
   }

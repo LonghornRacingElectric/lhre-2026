@@ -129,6 +129,10 @@ bool vehicle_in_park(void) {
 
 bool vehicle_in_drive(void) { return !vehicle_in_park(); }
 
+bool line_lock_enabled(void) {
+  return vcu_state_mailbox.line_lock_enabled != 0;
+}
+
 /**
  * @brief Check if there are faults. Checks the mailbox that is updated by the
  * CAN RTOS tasks. Then, returns true if there is a fault present OR if there
