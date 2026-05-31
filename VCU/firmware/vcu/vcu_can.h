@@ -54,6 +54,8 @@ typedef struct {
 
 inverter_currents_t vcu_can_get_inverter_currents(void);
 inverter_voltages_t vcu_can_get_inverter_voltages(void);
+uint32_t vcu_can_get_inverter_post_faults(void);
+uint32_t vcu_can_get_inverter_run_faults(void);
 
 // Inverter feedback variables (populated automatically)
 extern float inverter_torque_fb;   // Nm

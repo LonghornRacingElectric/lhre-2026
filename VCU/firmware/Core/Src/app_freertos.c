@@ -368,12 +368,21 @@ void StartControlTask(void *argument) {
 
 
     
-    log_printf(LOG_INFO,
-               "\nAPPS1_RAW:%.3f APPS1_PCT:%.3f\nAPPS2_RAW:%.3f "
-               "APPS2_PCT:%.3f\nAPPS: %.3f\n\n",
-               (double)in.apps1_raw, (double)out.apps1_travel,
-               (double)in.apps2_raw, (double)out.apps2_travel,
-               (double)out.accel_pedal_travel);
+    // log_printf(LOG_INFO,
+    //            "\nAPPS1_RAW:%.3f APPS1_PCT:%.3f\nAPPS2_RAW:%.3f "
+    //            "APPS2_PCT:%.3f\nAPPS: %.3f\n\n",
+    //            (double)in.apps1_raw, (double)out.apps1_travel,
+    //            (double)in.apps2_raw, (double)out.apps2_travel,
+    //            (double)out.accel_pedal_travel);
+
+    uint32_t post_faults = vcu_can_get_inverter_post_faults();
+    uint32_t run_faults  = vcu_can_get_inverter_run_faults();
+    if (post_faults || run_faults) {
+      log_printf(LOG_ERROR, "[INV] POST_FAULTS:0x%08lX RUN_FAULTS:0x%08lX\n",
+                 post_faults, run_faults);
+    } else {
+      log_printf(LOG_INFO, "[INV] No faults");
+    }
 
     // 3 ms control loop (333 Hz)
     osDelay(pdMS_TO_TICKS(CONTROL_LOOP_PERIOD_MS));

@@ -24,8 +24,8 @@
         .pedal_ema_alpha          = 0.35f, \
     }, \
     .bse = { \
-        .bse_off_psi                 = 30.0f, \
-        .bse_on_psi                  = 50.0f, \
+        .bse_off_psi                 = 250.0f, \
+        .bse_on_psi                  = 300.0f, \
         .bse1_adc_at_min_psi_v       = ((397.0f  * ADC_BSE_SCALE_V) / ADC_MAX_VAL), \
         .bse1_adc_at_max_psi_v       = ((2267.0f * ADC_BSE_SCALE_V) / ADC_MAX_VAL), \
         .bse2_adc_at_min_psi_v       = ((397.0f  * ADC_BSE_SCALE_V) / ADC_MAX_VAL), \
