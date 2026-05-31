@@ -130,11 +130,11 @@ Regen/linelock can only activate when all of these are true:
 - Pre-regen pedal torque request is at or below `20 Nm`. Above `20 Nm`, the VCU
   keeps linelock open and does not allow regen so the valve can cool and any rear
   caliper-side pressure can release mechanically.
-- The linelock command has been continuously true for `500 ms`. Before that
+- The linelock command has been continuously true for `200 ms`. Before that
   delay expires, the VCU may command the linelock closed but keeps regen torque
-  at `0 Nm`. This delay is intentionally longer than the current PDU linelock
-  loop in `ad/pdu-linelock`, which polls `VCU State.line_lock_enabled` and
-  updates the GPIO every `200 ms`.
+  at `0 Nm`. This delay gives the current PDU linelock branch one polling period
+  because `ad/pdu-linelock` polls `VCU State.line_lock_enabled` and updates the
+  GPIO every `200 ms`.
 - Inverter current and motor speed inputs are valid
 - Motor speed is above `219.49 rpm`, equivalent to about `5 kph` with a
   `43:13` motor-to-wheel ratio and `7.87 in` loaded tire radius
@@ -259,7 +259,7 @@ under:
     .regen_torque_at_reference_pressure_nm = 76.0f,
     .absolute_regen_torque_cap_nm = 230.0f,
     .pedal_torque_release_threshold_nm = 20.0f,
-    .linelock_close_delay_ms = 500u,
+    .linelock_close_delay_ms = 200u,
     .pack_current_limit_a = 45.0f,
     .hard_cut_margin_pct = 0.20f,
     .hard_cut_reset_pressure_psi = 100.0f,
