@@ -29,11 +29,32 @@ Default mapping:
 - `0 psi -> 0 Nm`
 - `500 psi -> 76 Nm`
 - Linear slope between and beyond those points
-- Final command is always clipped by the dynamic pack/motor regen limit and by
-  the absolute inverter safety cap
+- In normal mode, final command is clipped by the dynamic pack/motor regen limit
+  and by the absolute inverter safety cap
+- In pressure-only test mode, final command is clipped only by the absolute
+  inverter safety cap
 
 The inverter command remains on the normal direction pin setting. Regen is sent
 as a negative `torque_request`.
+
+## Pressure-Only Test Mode
+
+The current test build enables `pressure_only_test_mode`.
+
+This mode is intentionally basic for bring-up. When enabled, the VCU ignores the
+OCV gate, pack temperature gates, motor speed gate, CAN-validity gates, and
+APPS/BSE fault gates inside the regen linelock component. The regen command is:
+
+```text
+regen_torque = -clamp(rear_pressure_based_torque, 0 Nm, absolute_regen_torque_cap_nm)
+```
+
+`out->linelock_enabled` is true whenever the pressure-based torque request is
+positive. The normal global disable flag and measured DC bus current hard cut
+are still active.
+
+Set `.pressure_only_test_mode = false` to restore the full validation logic
+described below.
 
 ## Pack Regen Limit
 
@@ -124,14 +145,17 @@ Default:
 hard_cut_current = 45 A * (1 + 0.20) = 54 A
 ```
 
-If rear pressure is above `100 psi` and measured regen current exceeds `54 A`,
-the VCU immediately:
+In normal mode, if rear pressure is above `100 psi` and measured regen current
+exceeds `54 A`, the VCU immediately:
 
 - sets torque command to `0 Nm`
 - disables linelock
 - latches `regen_linelock_current_hard_cut`
 
 The latch clears automatically once rear pressure falls to or below `100 psi`.
+
+In pressure-only test mode, the hard cut is armed whenever the pressure-based
+regen torque request is positive.
 
 ## VCU/PDU Command
 
@@ -159,6 +183,7 @@ under:
 ```c
 .regen_linelock = {
     .disable = false,
+    .pressure_only_test_mode = true,
     .dc_bus_current_regen_is_negative = true,
     .rear_pressure_zero_torque_psi = 0.0f,
     .rear_pressure_reference_psi = 500.0f,

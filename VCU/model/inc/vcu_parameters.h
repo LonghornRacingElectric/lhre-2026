@@ -84,6 +84,7 @@ typedef struct {
 
   struct {
     bool disable;
+    bool pressure_only_test_mode;
     bool dc_bus_current_regen_is_negative;
 
     float rear_pressure_zero_torque_psi;

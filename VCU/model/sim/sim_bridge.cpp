@@ -183,6 +183,8 @@ PYBIND11_MODULE(vcu_model_sim, m) {
   py::class_<regen_linelock_params_t>(params, "RegenLinelockParams")
       .def(py::init<>())
       .def_readwrite("disable", &regen_linelock_params_t::disable)
+      .def_readwrite("pressure_only_test_mode",
+                     &regen_linelock_params_t::pressure_only_test_mode)
       .def_readwrite("dc_bus_current_regen_is_negative",
                      &regen_linelock_params_t::dc_bus_current_regen_is_negative)
       .def_readwrite("rear_pressure_zero_torque_psi",

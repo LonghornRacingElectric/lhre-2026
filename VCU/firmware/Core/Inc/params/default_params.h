@@ -88,6 +88,7 @@
     }, \
     .regen_linelock = { \
         .disable                              = false, \
+        .pressure_only_test_mode             = true, \
         .dc_bus_current_regen_is_negative    = true, \
         .rear_pressure_zero_torque_psi       = 0.0f, \
         .rear_pressure_reference_psi         = 500.0f, \

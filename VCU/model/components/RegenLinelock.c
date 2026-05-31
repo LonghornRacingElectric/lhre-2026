@@ -155,6 +155,10 @@ void regen_linelock_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   out->regen_torque_limit_nm =
       regen_linelock_torque_limit_nm(motor_speed_rpm, pack_ocv_v, params);
 
+  const float pressure_only_torque_nm =
+      clamp_f(out->regen_pressure_requested_torque_nm, 0.0f,
+              params->regen_linelock.absolute_regen_torque_cap_nm);
+
   if (state->current_hard_cut_latched &&
       rear_pressure_psi <=
           params->regen_linelock.hard_cut_reset_pressure_psi) {
@@ -164,12 +168,38 @@ void regen_linelock_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   const float hard_cut_current_a =
       params->regen_linelock.pack_current_limit_a *
       (1.0f + params->regen_linelock.hard_cut_margin_pct);
+  const bool hard_cut_armed =
+      params->regen_linelock.pressure_only_test_mode
+          ? pressure_only_torque_nm > 0.0f
+          : rear_pressure_psi >
+                params->regen_linelock.hard_cut_reset_pressure_psi;
   if (!params->regen_linelock.disable &&
-      rear_pressure_psi >
-          params->regen_linelock.hard_cut_reset_pressure_psi &&
-      hard_cut_current_a > 0.0f &&
+      hard_cut_armed && hard_cut_current_a > 0.0f &&
       measured_regen_current_a > hard_cut_current_a) {
     state->current_hard_cut_latched = true;
+  }
+
+  if (params->regen_linelock.pressure_only_test_mode) {
+    out->faults.regen_linelock_current_hard_cut =
+        state->current_hard_cut_latched;
+    out->faults.regen_linelock_any_fault = state->current_hard_cut_latched;
+    out->regen_available = !params->regen_linelock.disable &&
+                           !state->current_hard_cut_latched;
+
+    if (params->regen_linelock.disable ||
+        state->current_hard_cut_latched || pressure_only_torque_nm <= 0.0f) {
+      if (state->current_hard_cut_latched) {
+        out->torque_cmd = 0.0f;
+      }
+      out->linelock_enabled = false;
+      out->regen_torque_cmd_nm = 0.0f;
+      return;
+    }
+
+    out->linelock_enabled = true;
+    out->regen_torque_cmd_nm = -pressure_only_torque_nm;
+    out->torque_cmd = out->regen_torque_cmd_nm;
+    return;
   }
 
   regen_linelock_update_ocv_latch(state, pack_ocv_v, params);
@@ -180,10 +210,12 @@ void regen_linelock_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
                            in->inverter_current_valid &&
                            in->motor_speed_valid &&
                            in->battery_voltage_v > 0.0f;
-  const bool temp_low =
-      input_valid && in->min_cell_temp_c <= params->regen_linelock.min_cell_temp_c;
-  const bool temp_high =
-      input_valid && in->max_cell_temp_c >= params->regen_linelock.max_cell_temp_c;
+  const bool temp_low = input_valid &&
+                        in->min_cell_temp_c <=
+                            params->regen_linelock.min_cell_temp_c;
+  const bool temp_high = input_valid &&
+                         in->max_cell_temp_c >=
+                             params->regen_linelock.max_cell_temp_c;
   const bool motor_speed_low =
       input_valid && motor_speed_rpm < params->regen_linelock.min_motor_speed_rpm;
 
