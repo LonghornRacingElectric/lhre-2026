@@ -22,12 +22,15 @@ PYBIND11_MODULE(vcu_model_sim, m) {
       .def_readwrite("contactors_closed", &vcu_inputs_t::contactors_closed)
       .def_readwrite("motor_speed_rpm", &vcu_inputs_t::motor_speed_rpm)
       .def_readwrite("min_cell_voltage_v", &vcu_inputs_t::min_cell_voltage_v)
+      .def_readwrite("max_cell_voltage_v", &vcu_inputs_t::max_cell_voltage_v)
       .def_readwrite("battery_voltage_v", &vcu_inputs_t::battery_voltage_v)
       .def_readwrite("battery_current_a", &vcu_inputs_t::battery_current_a)
       .def_readwrite("battery_soc_pct", &vcu_inputs_t::battery_soc_pct)
       .def_readwrite("min_cell_temp_c", &vcu_inputs_t::min_cell_temp_c)
       .def_readwrite("max_cell_temp_c", &vcu_inputs_t::max_cell_temp_c)
       .def_readwrite("motor_speed_valid", &vcu_inputs_t::motor_speed_valid)
+      .def_readwrite("battery_cell_limits_valid",
+                     &vcu_inputs_t::battery_cell_limits_valid)
       .def_readwrite("inverter_voltage_valid",
                      &vcu_inputs_t::inverter_voltage_valid)
       .def_readwrite("inverter_current_valid",
@@ -59,6 +62,8 @@ PYBIND11_MODULE(vcu_model_sim, m) {
                      &vcu_outputs_t::regen_measured_pack_current_a)
       .def_readwrite("regen_estimated_pack_ocv_v",
                      &vcu_outputs_t::regen_estimated_pack_ocv_v)
+      .def_readwrite("max_open_circuit_cell_voltage",
+                     &vcu_outputs_t::max_open_circuit_cell_voltage)
       .def_readwrite("inverter_enable", &vcu_outputs_t::inverter_enable)
       // Status flags
       .def_readwrite("brake_pressed", &vcu_outputs_t::brake_pressed)
@@ -191,6 +196,8 @@ PYBIND11_MODULE(vcu_model_sim, m) {
                      &regen_linelock_params_t::rear_pressure_zero_torque_psi)
       .def_readwrite("rear_pressure_reference_psi",
                      &regen_linelock_params_t::rear_pressure_reference_psi)
+      .def_readwrite("rear_pressure_min_engage_psi",
+                     &regen_linelock_params_t::rear_pressure_min_engage_psi)
       .def_readwrite("regen_torque_at_reference_pressure_nm",
                      &regen_linelock_params_t::
                          regen_torque_at_reference_pressure_nm)
@@ -206,6 +213,8 @@ PYBIND11_MODULE(vcu_model_sim, m) {
                      &regen_linelock_params_t::pack_terminal_voltage_limit_v)
       .def_readwrite("pack_resistance_ohm",
                      &regen_linelock_params_t::pack_resistance_ohm)
+      .def_readwrite("pack_series_cell_count",
+                     &regen_linelock_params_t::pack_series_cell_count)
       .def_readwrite("dynamic_voltage_reserve_v",
                      &regen_linelock_params_t::dynamic_voltage_reserve_v)
       .def_readwrite("pack_ocv_enable_v",

@@ -89,6 +89,7 @@ typedef struct {
 
     float rear_pressure_zero_torque_psi;
     float rear_pressure_reference_psi;
+    float rear_pressure_min_engage_psi;
     float regen_torque_at_reference_pressure_nm;
     float absolute_regen_torque_cap_nm;
 
@@ -98,6 +99,7 @@ typedef struct {
 
     float pack_terminal_voltage_limit_v;
     float pack_resistance_ohm;
+    float pack_series_cell_count;
     float dynamic_voltage_reserve_v;
     float pack_ocv_enable_v;
     float pack_ocv_disable_hysteresis_v;

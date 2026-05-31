@@ -394,11 +394,20 @@ float vcu_can_get_min_cell_voltage_v(void) {
   return battery_cell_limits_mailbox.min_cell_voltage;
 }
 
+float vcu_can_get_max_cell_voltage_v(void) {
+  return battery_cell_limits_mailbox.max_cell_voltage;
+}
+
 bool vcu_can_is_motor_speed_valid(void) {
   return !message_timed_out(inverter_speed_mailbox_handle,
                             INVERTER_SPEED_TIMEOUT_MS) ||
          !message_timed_out(inverter_status_mailbox_handle,
                             INVERTER_STATUS_TIMEOUT_MS);
+}
+
+bool vcu_can_is_battery_cell_limits_valid(void) {
+  return !message_timed_out(battery_cell_limits_mailbox_handle,
+                            BATTERY_CELL_LIMITS_TIMEOUT_MS);
 }
 
 bool vcu_can_is_inverter_current_valid(void) {

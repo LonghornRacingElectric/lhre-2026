@@ -39,7 +39,7 @@ as a negative `torque_request`.
 
 ## Pressure-Only Test Mode
 
-The current test build enables `pressure_only_test_mode`.
+The current test build disables `pressure_only_test_mode`.
 
 This mode is intentionally basic for bring-up. When enabled, the VCU ignores the
 OCV gate, pack temperature gates, motor speed gate, CAN-validity gates, and
@@ -53,8 +53,8 @@ regen_torque = -clamp(rear_pressure_based_torque, 0 Nm, absolute_regen_torque_ca
 positive. The normal global disable flag and measured DC bus current hard cut
 are still active.
 
-Set `.pressure_only_test_mode = false` to restore the full validation logic
-described below.
+Set `.pressure_only_test_mode = true` only for controlled bring-up when the
+normal validation logic below needs to be bypassed temporarily.
 
 ## Pack Regen Limit
 
@@ -84,14 +84,15 @@ The default OCV knee is:
 546 V - 6 V - 45 A * 0.442 ohm = 520.11 V
 ```
 
-The VCU estimates pack OCV as:
+The VCU estimates pack OCV from the max cell voltage seen at low current:
 
 ```text
-estimated_ocv = inverter_dc_bus_voltage - measured_regen_current * pack_resistance
+max_cell_ocv = filtered max_cell_voltage when -1 A < dc_bus_current < 1 A
+estimated_pack_ocv = max_cell_ocv * 130 series cells
 ```
 
-where measured regen current is `-inverter_dc_bus_current` by default because
-regen current is expected to be negative on the inverter CAN signal.
+This matches the existing min-cell OCV estimator used by the battery model, but
+uses the max cell because regen over-voltage risk is set by the highest cell.
 
 Available pack current is:
 
@@ -116,13 +117,14 @@ Motor RPM is used directly as the speed source.
 Regen/linelock can only activate when all of these are true:
 
 - `params.regen_linelock.disable == false`
-- Rear pressure is above `hard_cut_reset_pressure_psi` (`100 psi` default)
-- Battery Pack Status, inverter voltage, inverter current, and motor speed
+- Rear pressure is at least `10 psi`
+- Existing positive drive torque command is `0 Nm` or less
+- Battery Cell Limits, Battery Pack Status, inverter current, and motor speed
   inputs are valid
 - Min cell temperature is above `10 C`
-- Max cell temperature is below `50 C`
-- Motor speed is above `215.4 rpm`, equivalent to about `5 kph` with a
-  `3.3:1` motor-to-wheel ratio and `16 in` tire diameter
+- Max cell temperature is below `55 C`
+- Motor speed is above `219.49 rpm`, equivalent to about `5 kph` with a
+  `43:13` motor-to-wheel ratio and `7.87 in` loaded tire radius
 - Estimated pack OCV has fallen below `520.11 V`
 - No APPS/BSE brake fault is active
 - No regen hard-current-cut latch is active
@@ -145,7 +147,7 @@ Default:
 hard_cut_current = 45 A * (1 + 0.20) = 54 A
 ```
 
-In normal mode, if rear pressure is above `100 psi` and measured regen current
+If a pressure-based regen torque request is positive and measured regen current
 exceeds `54 A`, the VCU immediately:
 
 - sets torque command to `0 Nm`
@@ -154,8 +156,37 @@ exceeds `54 A`, the VCU immediately:
 
 The latch clears automatically once rear pressure falls to or below `100 psi`.
 
-In pressure-only test mode, the hard cut is armed whenever the pressure-based
-regen torque request is positive.
+The hard cut is armed whenever the pressure-based regen torque request is
+positive.
+
+## CAN Inputs
+
+The regen/linelock checks use CAN packets that the VCU currently registers as
+receive handlers:
+
+- `Battery Cell Limits` (`0x136`, HVC to VCU, 100 Hz, 200 ms timeout): min and
+  max cell voltage. Regen uses max cell voltage for the OCV gate.
+- `Battery Pack Status` (`0x132`, HVC to PDU in the CSV, 100 Hz, 200 ms
+  timeout): pack voltage, SOC, top and bottom cell temperatures. CAN is
+  broadcast, and the VCU has a receive handler for this packet.
+- `Inverter Current` (`0x0A6`, 100 Hz, 200 ms timeout): DC bus current for the
+  regen current hard cut and low-current OCV sampling.
+- `Inverter Speed` (`0x0B0`) or `Inverter Status` (`0x0A5`): motor speed for
+  the low-speed cutoff. The VCU accepts either packet as the speed source.
+
+## APPS/BSE Faults
+
+The regen/linelock component still respects the model's existing APPS/BSE fault
+flags, and the top-level VCU model also zeros torque and opens linelock if any
+fault exists.
+
+- APPS faults are active: sensor mismatch over `0.15` for more than `100 ms`,
+  APPS travel over `1.0`, or APPS travel under `-0.5`.
+- BSE voltage range faults are currently disabled in code, so they cannot block
+  regen.
+- The active BSE-related fault is the brake/accelerator latch: if brake is
+  considered pressed and accelerator travel is above `0.25`, torque is latched
+  off until accelerator travel drops below `0.05`.
 
 ## VCU/PDU Command
 
@@ -183,10 +214,11 @@ under:
 ```c
 .regen_linelock = {
     .disable = false,
-    .pressure_only_test_mode = true,
+    .pressure_only_test_mode = false,
     .dc_bus_current_regen_is_negative = true,
     .rear_pressure_zero_torque_psi = 0.0f,
     .rear_pressure_reference_psi = 500.0f,
+    .rear_pressure_min_engage_psi = 10.0f,
     .regen_torque_at_reference_pressure_nm = 76.0f,
     .absolute_regen_torque_cap_nm = 230.0f,
     .pack_current_limit_a = 45.0f,
@@ -194,12 +226,13 @@ under:
     .hard_cut_reset_pressure_psi = 100.0f,
     .pack_terminal_voltage_limit_v = 546.0f,
     .pack_resistance_ohm = 0.442f,
+    .pack_series_cell_count = 130.0f,
     .dynamic_voltage_reserve_v = 6.0f,
     .pack_ocv_enable_v = 520.11f,
     .pack_ocv_disable_hysteresis_v = 2.0f,
     .min_cell_temp_c = 10.0f,
-    .max_cell_temp_c = 50.0f,
-    .min_motor_speed_rpm = 215.4f,
+    .max_cell_temp_c = 55.0f,
+    .min_motor_speed_rpm = 219.49f,
 }
 ```
 

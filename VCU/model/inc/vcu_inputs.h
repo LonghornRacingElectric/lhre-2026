@@ -20,6 +20,7 @@ typedef struct {
 
   float motor_speed_rpm;
   float min_cell_voltage_v;
+  float max_cell_voltage_v;
 
   float battery_voltage_v;
   float battery_current_a;
@@ -28,6 +29,7 @@ typedef struct {
   float max_cell_temp_c;
 
   bool motor_speed_valid;
+  bool battery_cell_limits_valid;
   bool inverter_voltage_valid;
   bool inverter_current_valid;
   bool battery_pack_status_valid;

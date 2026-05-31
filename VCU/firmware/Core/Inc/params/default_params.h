@@ -88,10 +88,11 @@
     }, \
     .regen_linelock = { \
         .disable                              = false, \
-        .pressure_only_test_mode             = true, \
+        .pressure_only_test_mode             = false, \
         .dc_bus_current_regen_is_negative    = true, \
         .rear_pressure_zero_torque_psi       = 0.0f, \
         .rear_pressure_reference_psi         = 500.0f, \
+        .rear_pressure_min_engage_psi        = 10.0f, \
         .regen_torque_at_reference_pressure_nm = 76.0f, \
         .absolute_regen_torque_cap_nm        = 230.0f, \
         .pack_current_limit_a                = 45.0f, \
@@ -99,12 +100,13 @@
         .hard_cut_reset_pressure_psi         = 100.0f, \
         .pack_terminal_voltage_limit_v       = 546.0f, \
         .pack_resistance_ohm                 = 0.442f, \
+        .pack_series_cell_count              = 130.0f, \
         .dynamic_voltage_reserve_v           = 6.0f, \
         .pack_ocv_enable_v                   = 520.11f, \
         .pack_ocv_disable_hysteresis_v       = 2.0f, \
         .min_cell_temp_c                     = 10.0f, \
-        .max_cell_temp_c                     = 50.0f, \
-        .min_motor_speed_rpm                 = 215.4f, \
+        .max_cell_temp_c                     = 55.0f, \
+        .min_motor_speed_rpm                 = 219.49f, \
     }, \
     .buzzer_duration_ms     = 1200u, \
     .brake_enable_threshold = 0.1f

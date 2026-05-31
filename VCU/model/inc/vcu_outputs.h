@@ -34,6 +34,7 @@ typedef struct {
   float derate_factor_cell_temp;
 
   float open_circuit_cell_voltage;
+  float max_open_circuit_cell_voltage;
   float soe_pct;
 
   bool inverter_enable;

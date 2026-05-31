@@ -15,6 +15,7 @@ protected:
     params.regen_linelock.dc_bus_current_regen_is_negative = true;
     params.regen_linelock.rear_pressure_zero_torque_psi = 0.0f;
     params.regen_linelock.rear_pressure_reference_psi = 500.0f;
+    params.regen_linelock.rear_pressure_min_engage_psi = 10.0f;
     params.regen_linelock.regen_torque_at_reference_pressure_nm = 76.0f;
     params.regen_linelock.absolute_regen_torque_cap_nm = 230.0f;
     params.regen_linelock.pack_current_limit_a = 45.0f;
@@ -22,23 +23,26 @@ protected:
     params.regen_linelock.hard_cut_reset_pressure_psi = 100.0f;
     params.regen_linelock.pack_terminal_voltage_limit_v = 546.0f;
     params.regen_linelock.pack_resistance_ohm = 0.442f;
+    params.regen_linelock.pack_series_cell_count = 130.0f;
     params.regen_linelock.dynamic_voltage_reserve_v = 6.0f;
     params.regen_linelock.pack_ocv_enable_v = 520.11f;
     params.regen_linelock.pack_ocv_disable_hysteresis_v = 2.0f;
     params.regen_linelock.min_cell_temp_c = 10.0f;
-    params.regen_linelock.max_cell_temp_c = 50.0f;
-    params.regen_linelock.min_motor_speed_rpm = 215.4f;
+    params.regen_linelock.max_cell_temp_c = 55.0f;
+    params.regen_linelock.min_motor_speed_rpm = 219.49f;
 
     in.battery_voltage_v = 520.0f;
     in.battery_current_a = 0.0f;
     in.motor_speed_rpm = 3000.0f;
+    in.max_cell_voltage_v = 4.0f;
     in.min_cell_temp_c = 30.0f;
     in.max_cell_temp_c = 30.0f;
+    in.battery_cell_limits_valid = true;
     in.battery_pack_status_valid = true;
-    in.inverter_voltage_valid = true;
     in.inverter_current_valid = true;
     in.motor_speed_valid = true;
 
+    out.max_open_circuit_cell_voltage = 4.0f;
     out.bse2_psi = 250.0f;
 
     regen_linelock_init(&state, &params);
@@ -67,53 +71,68 @@ TEST_F(RegenLinelockTest, ClipsTorqueByPackCurrentAndMotorSpeed) {
 }
 
 TEST_F(RegenLinelockTest, HighOcvKeepsRearBrakesMechanical) {
-  in.battery_voltage_v = 530.0f;
-  out.torque_cmd = 12.0f;
+  out.max_open_circuit_cell_voltage = 530.0f / 130.0f;
 
   regen_linelock_evaluate(&in, &out, &state, &params, 3);
 
   EXPECT_FALSE(out.regen_available);
   EXPECT_FALSE(out.linelock_enabled);
   EXPECT_TRUE(out.faults.regen_linelock_ocv_too_high);
-  EXPECT_FLOAT_EQ(out.torque_cmd, 12.0f);
+  EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
 }
 
 TEST_F(RegenLinelockTest, LowCellTemperatureKeepsRearBrakesMechanical) {
   in.min_cell_temp_c = 5.0f;
-
-  out.torque_cmd = 12.0f;
 
   regen_linelock_evaluate(&in, &out, &state, &params, 3);
 
   EXPECT_FALSE(out.regen_available);
   EXPECT_FALSE(out.linelock_enabled);
   EXPECT_TRUE(out.faults.regen_linelock_pack_temp_low);
-  EXPECT_FLOAT_EQ(out.torque_cmd, 12.0f);
+  EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
 }
 
 TEST_F(RegenLinelockTest, LowMotorSpeedKeepsRearBrakesMechanical) {
   in.motor_speed_rpm = 200.0f;
-  out.torque_cmd = 12.0f;
 
   regen_linelock_evaluate(&in, &out, &state, &params, 3);
 
   EXPECT_FALSE(out.regen_available);
   EXPECT_FALSE(out.linelock_enabled);
   EXPECT_TRUE(out.faults.regen_linelock_motor_speed_low);
+  EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
+}
+
+TEST_F(RegenLinelockTest, LowRearPressureKeepsRearBrakesMechanical) {
+  out.bse2_psi = 9.0f;
+
+  regen_linelock_evaluate(&in, &out, &state, &params, 3);
+
+  EXPECT_FALSE(out.regen_available);
+  EXPECT_FALSE(out.linelock_enabled);
+  EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
+}
+
+TEST_F(RegenLinelockTest, PositiveTorqueCommandOverridesRegen) {
+  out.torque_cmd = 12.0f;
+
+  regen_linelock_evaluate(&in, &out, &state, &params, 3);
+
+  EXPECT_FALSE(out.regen_available);
+  EXPECT_FALSE(out.linelock_enabled);
+  EXPECT_FLOAT_EQ(out.regen_torque_cmd_nm, 0.0f);
   EXPECT_FLOAT_EQ(out.torque_cmd, 12.0f);
 }
 
 TEST_F(RegenLinelockTest, PressureOnlyTestModeBypassesAvailabilityGates) {
   params.regen_linelock.pressure_only_test_mode = true;
+  in.battery_cell_limits_valid = false;
   in.battery_pack_status_valid = false;
-  in.inverter_voltage_valid = false;
   in.inverter_current_valid = false;
   in.motor_speed_valid = false;
-  in.battery_voltage_v = 530.0f;
   in.motor_speed_rpm = 0.0f;
   in.min_cell_temp_c = 0.0f;
   in.max_cell_temp_c = 80.0f;
-  out.torque_cmd = 12.0f;
 
   regen_linelock_evaluate(&in, &out, &state, &params, 3);
 
