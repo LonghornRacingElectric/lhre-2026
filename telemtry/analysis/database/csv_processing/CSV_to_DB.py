@@ -240,7 +240,11 @@ class CSVToDB():
                 elif (column == "time"):
                     if self.car == "Orion":
                         # Orion CSV has a standalone 'time' column, not prefixed by table name
-                        convert[table][column] = df["time"].astype(int)
+                        if 'time' in df:
+                            convert[table][column] = df["time"].astype(int)
+                        else:
+                            csv_col_name = f"{table}.{column}"
+                            convert[table][column] = df[csv_col_name].astype(int)
                     else:
                         df.Year += 2000
                         first_dt = df.iloc[0]
