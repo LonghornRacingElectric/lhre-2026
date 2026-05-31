@@ -16,36 +16,36 @@ model dynamics {
   gps                  Float[]
   gps_imu              Float[]
   gps_speed            Float?
+  bl_unsprung_accel    Float[]
+  br_unsprung_accel    Float[]
+  fl_unsprung_accel    Float[]
+  fr_unsprung_accel    Float[]
   accel_pedal_travel   Float?
+  bl_wheel_speed       Float?
+  br_wheel_speed       Float?
+  fl_wheel_speed       Float?
+  fr_wheel_speed       Float?
   steer_col_angle      Float?
   bl_gyro              Float[]
   bl_sprung_accel      Float[]
-  bl_unsprung_accel    Float[]
   br_gyro              Float[]
   br_sprung_accel      Float[]
-  br_unsprung_accel    Float[]
   fl_gyro              Float[]
   fl_sprung_accel      Float[]
-  fl_unsprung_accel    Float[]
   fr_gyro              Float[]
   fr_sprung_accel      Float[]
-  fr_unsprung_accel    Float[]
   bl_ride_height       Float?
   bl_strain_gauge_v    Float?
   bl_sus_pot_v         Float?
-  blw_speed            Float?
   br_ride_height       Float?
   br_strain_gauge_v    Float?
   br_sus_pot_v         Float?
-  brw_speed            Float?
   fl_ride_height       Float?
   fl_strain_gauge_v    Float?
   fl_sus_pot_v         Float?
-  flw_speed            Float?
   fr_ride_height       Float?
   fr_strain_gauge_v    Float?
   fr_sus_pot_v         Float?
-  frw_speed            Float?
   ride_height          Float?
   wheel_speed          Float?
 

@@ -16,6 +16,9 @@ void vcu_can_init(void);
 // Send torque request in Nm
 void vcu_can_set_torque(float torque_nm);
 
+// Clear all inverter faults (parameter 20, write 0)
+void vcu_can_clear_inverter_faults(void);
+
 // Read inverter feedback
 void vcu_can_read_feedback(void);
 
@@ -51,6 +54,8 @@ typedef struct {
 
 inverter_currents_t vcu_can_get_inverter_currents(void);
 inverter_voltages_t vcu_can_get_inverter_voltages(void);
+uint32_t vcu_can_get_inverter_post_faults(void);
+uint32_t vcu_can_get_inverter_run_faults(void);
 
 // Inverter feedback variables (populated automatically)
 extern float inverter_torque_fb;   // Nm

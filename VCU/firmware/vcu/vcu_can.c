@@ -48,6 +48,9 @@ static can_receive_message_t *inverter_current_mailbox_handle = NULL;
 
 static msg_inverter_voltage_t inverter_voltage_mailbox = {0};
 static can_receive_message_t *inverter_voltage_mailbox_handle = NULL;
+
+static msg_inverter_faults_t inverter_faults_mailbox = {0};
+static can_receive_message_t *inverter_faults_mailbox_handle = NULL;
 // #define DUI_R2D_STATUS_TIMEOUT_MS 1000u
 
 // static bool dui_r2d_timed_out_logged = false;
@@ -205,6 +208,18 @@ void vcu_can_add_send_handlers(void) {
                              (CAN_pack_message_fn)pack_vcu_state);
   can_rtos_register_send_packet(&critical_bus, vcu_state_mailbox_handle);
   log_printf(LOG_INFO, "[VCU] CAN send handler for VCU state registered\n");
+}
+
+void vcu_can_clear_inverter_faults(void) {
+  msg_inverter_parameter_request_t fault_clear = {
+      .parameter_address = 20,
+      .r_w = 1,
+  };
+  can_message_t *msg = can_get_message_handle(
+      &fault_clear, INVERTER_PARAMETER_REQUEST_ID, 0,
+      INVERTER_PARAMETER_REQUEST_DLC,
+      (CAN_pack_message_fn)pack_inverter_parameter_request);
+  can_rtos_send_immediate(&critical_bus, msg);
 }
 
 void vcu_init_inverter() {
@@ -377,6 +392,14 @@ inverter_voltages_t vcu_can_get_inverter_voltages(void) {
   };
 }
 
+uint32_t vcu_can_get_inverter_post_faults(void) {
+  return inverter_faults_mailbox.post_faults;
+}
+
+uint32_t vcu_can_get_inverter_run_faults(void) {
+  return inverter_faults_mailbox.run_faults;
+}
+
 /**
  * @brief Creates the CAN receive handlers and registers them with the CAN lib
  *
@@ -441,4 +464,12 @@ void vcu_can_add_receive_handlers(void) {
                                    inverter_voltage_mailbox_handle);
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for inverter voltage registered\n");
+
+  inverter_faults_mailbox_handle = can_get_receive_message_handle(
+      &inverter_faults_mailbox, INVERTER_FAULTS_ID,
+      (CAN_unpack_message_fn)unpack_inverter_faults);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   inverter_faults_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for inverter faults registered\n");
 }

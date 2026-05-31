@@ -56,6 +56,7 @@ typedef struct {
 
     float brake_light_min_pct; // minimum brake light percentage
     float brake_light_max_pct; // maximum brake light percentage
+    float bse_brake_light_psi; // pressure threshold to enable brake light
   } bse;
 
   struct {

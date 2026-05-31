@@ -81,9 +81,6 @@ export interface DashMessage {
     seq: number;
     can: CanData;
     mqtt: MqttData;
-    // Driveday TEMP: chart-reference set for the steering trace.
-    // Defaults to "sine" if dashd doesn't send it.
-    chartMode?: 'sine' | 'ramp' | string;
 }
 
 // Shutdown circuit / safety-fault items, in the order dashd emits them.

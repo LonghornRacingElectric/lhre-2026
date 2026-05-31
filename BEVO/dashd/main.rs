@@ -187,12 +187,6 @@ struct DashMessage {
     seq: u64,
     can: CanData,
     mqtt: MqttData,
-    /// Driveday TEMP: which reference set the steering chart should
-    /// render. Set by writing "sine" or "ramp" to
-    /// `/tmp/dash_chart_mode` over SSH; dashd re-reads each WS frame.
-    /// Frontend defaults to "sine" if absent.
-    #[serde(rename = "chartMode")]
-    chart_mode: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -262,33 +256,11 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
     let diag_low = data.diagnostics_low.as_ref();
     let diag_high = data.diagnostics_high.as_ref();
 
-    // TEMP (driveday test): surface steering column angle in the big
-    // speed display so the driver can read handwheel input directly.
-    // Frontend label switched MPH → DEG to match. Restore vehicle speed
-    // by re-enabling this block:
-    //   const MOTOR_RPM_TO_MPH: f32 = 0.014233265;
-    //   let speed = controls.map(|c| c.motor_speed * MOTOR_RPM_TO_MPH);
-    let speed = dynamics.map(|d| d.steer_col_angle);
+    // Vehicle speed from motor RPM (inverter feedback).
+    const MOTOR_RPM_TO_MPH: f32 = 0.014233265;
+    let speed = controls.map(|c| c.motor_speed * MOTOR_RPM_TO_MPH);
 
     let power = pack.map(|p| p.dc_bus_v * p.dc_bus_current / 1000.0);
-
-    // DEBUG (driveday): user reports kW value stuck at 0 even during
-    // hard driving (CSV shows up to 204 A peak). Trace what dashd
-    // actually reads/computes. Revert when bug found.
-    {
-        use std::sync::atomic::{AtomicU32, Ordering};
-        static TICK: AtomicU32 = AtomicU32::new(0);
-        let n = TICK.fetch_add(1, Ordering::Relaxed);
-        if n % 100 == 0 {
-            eprintln!(
-                "[DASHD-PWR] pack.is_some={} dc_v={:?} dc_i={:?} power={:?}",
-                pack.is_some(),
-                pack.map(|p| p.dc_bus_v),
-                pack.map(|p| p.dc_bus_current),
-                power,
-            );
-        }
-    }
 
     // Update the dc-bus-derived fallback (kept for when VCU isn't
     // broadcasting yet or reads 0). Same qualification + floor as before.
@@ -302,10 +274,11 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
     // VCU-only SOC for now. Per driveday request: dc_bus fallback is
     // commented out so the dash shows exactly what VCU broadcasts on
     // packet 0x1C7 (mm/vcu-soc). To restore the fallback, swap to:
-    //   let soc = diag_high
-    //       .and_then(|d| if d.soc_estimate > 0.0 { Some(d.soc_estimate) } else { None })
+    //   let soc = pack
+    //       .and_then(|p| if p.soc_estimate > 0.0 { Some(p.soc_estimate) } else { None })
     //       .or(*last_qualified_soc);
-    let soc = diag_high.map(|d| d.soc_estimate);
+    // NOTE: soc_estimate lives on the Pack message (not DiagnosticsHigh).
+    let soc = pack.map(|p| p.soc_estimate);
 
     // Per-cell temp aggregates — None when cand has not received cell-temp
     // packets yet (empty vec).
@@ -413,8 +386,8 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
 
         // CSV byte 5 is named `line_lock_enabled` but the VCU team
         // confirmed it carries the regen-enabled bit. Plumb to the
-        // frontend's regenEnabled pill.
-        regen_enabled: diag_high.map(|d| d.line_lock_enabled),
+        // frontend's regenEnabled pill. Lives on the Controls message.
+        regen_enabled: controls.map(|c| c.line_lock_enabled),
     }
 }
 
@@ -497,20 +470,10 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                 } else {
                                     locked.can.clone()
                                 };
-                                // Reads `/tmp/dash_chart_mode` each frame
-                                // ("sine" / "ramp"). Falls back to "sine"
-                                // if file missing or unreadable. Cheap I/O,
-                                // single-digit µs per WS tick.
-                                let chart_mode = std::fs::read_to_string("/tmp/dash_chart_mode")
-                                    .ok()
-                                    .map(|s| s.trim().to_string())
-                                    .filter(|s| !s.is_empty())
-                                    .unwrap_or_else(|| "sine".to_string());
                                 DashMessage {
                                     seq,
                                     can,
                                     mqtt: locked.mqtt.to_mqtt_data(),
-                                    chart_mode,
                                 }
                             };
 

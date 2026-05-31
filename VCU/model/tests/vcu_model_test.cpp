@@ -38,6 +38,7 @@ protected:
     params.bse.bse_on_psi = 50.0f;
     params.bse.max_pedal_while_braking = 0.30f;
     params.bse.max_pedal_restore_threshold = 0.05f;
+    params.bse.bse_brake_light_psi = 30.0f;
 
     // Buzzer
     params.buzzer_duration_ms = 3000;

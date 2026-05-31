@@ -23,10 +23,10 @@ void bse_init(bse_state_t *state);
  */
 float bse_adc_to_psi(float adc, float min_adc, float max_adc, float max_psi);
 
-/**
- * @brief Checks if brake is active based on pressure threshold
- */
-bool bse_is_active(float psi, bse_state_t *state, vcu_parameters_t *params);
+bool bse_should_enable_brake_light(float psi, vcu_parameters_t *params);
+
+bool bse_should_trigger_stompp(float psi, bse_state_t *state,
+                               vcu_parameters_t *params);
 
 /**
  * @brief Steps through the BSE logic and updates outputs

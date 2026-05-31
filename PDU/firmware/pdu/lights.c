@@ -169,6 +169,12 @@ void set_light(TIM_HandleTypeDef *htim, uint32_t channel, bool on) {
   __HAL_TIM_SET_COMPARE(htim, channel, ccr_value);
 }
 
+void set_light(TIM_HandleTypeDef *htim, uint32_t channel, bool on) {
+  uint32_t period = __HAL_TIM_GET_AUTORELOAD(htim);
+  uint32_t ccr_value = on ? period : 0U;
+  __HAL_TIM_SET_COMPARE(htim, channel, ccr_value);
+}
+
 void setPWM(TIM_HandleTypeDef *htim, uint32_t channel, float percentage) {
   // Get timer period and calculate CCR based on duty cycle percentage
   uint32_t period = __HAL_TIM_GET_AUTORELOAD(htim);
