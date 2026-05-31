@@ -105,6 +105,7 @@ typedef struct {
     float dynamic_voltage_reserve_v;
     float pack_ocv_enable_v;
     float pack_ocv_disable_hysteresis_v;
+    float max_cell_voltage_regen_disable_v;
 
     float min_cell_temp_c;
     float max_cell_temp_c;

@@ -56,6 +56,7 @@ protected:
     // Regen linelock positive-torque override parameters
     params.regen_linelock.disable = false;
     params.regen_linelock.pressure_only_test_mode = false;
+    params.regen_linelock.dc_bus_current_regen_is_negative = true;
     params.regen_linelock.rear_pressure_zero_torque_psi = 0.0f;
     params.regen_linelock.rear_pressure_reference_psi = 500.0f;
     params.regen_linelock.rear_pressure_min_engage_psi = 10.0f;
@@ -64,9 +65,18 @@ protected:
     params.regen_linelock.pedal_torque_release_threshold_nm = 20.0f;
     params.regen_linelock.linelock_close_delay_ms = 100u;
     params.regen_linelock.pack_current_limit_a = 45.0f;
+    params.regen_linelock.hard_cut_margin_pct = 0.20f;
+    params.regen_linelock.hard_cut_reset_pressure_psi = 100.0f;
     params.regen_linelock.pack_terminal_voltage_limit_v = 546.0f;
+    params.regen_linelock.pack_resistance_ohm = 0.442f;
     params.regen_linelock.pack_series_cell_count = 130.0f;
+    params.regen_linelock.dynamic_voltage_reserve_v = 6.0f;
     params.regen_linelock.pack_ocv_enable_v = 520.11f;
+    params.regen_linelock.pack_ocv_disable_hysteresis_v = 2.0f;
+    params.regen_linelock.max_cell_voltage_regen_disable_v = 4.05f;
+    params.regen_linelock.min_cell_temp_c = 10.0f;
+    params.regen_linelock.max_cell_temp_c = 55.0f;
+    params.regen_linelock.min_motor_speed_rpm = 219.49f;
 
     in = {0};
     out = {0};

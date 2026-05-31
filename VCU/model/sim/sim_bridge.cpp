@@ -102,6 +102,8 @@ PYBIND11_MODULE(vcu_model_sim, m) {
                      &faults_t::regen_linelock_input_invalid)
       .def_readwrite("regen_linelock_ocv_too_high",
                      &faults_t::regen_linelock_ocv_too_high)
+      .def_readwrite("regen_linelock_live_cell_voltage_high",
+                     &faults_t::regen_linelock_live_cell_voltage_high)
       .def_readwrite("regen_linelock_pack_temp_low",
                      &faults_t::regen_linelock_pack_temp_low)
       .def_readwrite("regen_linelock_pack_temp_high",
@@ -225,6 +227,8 @@ PYBIND11_MODULE(vcu_model_sim, m) {
                      &regen_linelock_params_t::pack_ocv_enable_v)
       .def_readwrite("pack_ocv_disable_hysteresis_v",
                      &regen_linelock_params_t::pack_ocv_disable_hysteresis_v)
+      .def_readwrite("max_cell_voltage_regen_disable_v",
+                     &regen_linelock_params_t::max_cell_voltage_regen_disable_v)
       .def_readwrite("min_cell_temp_c",
                      &regen_linelock_params_t::min_cell_temp_c)
       .def_readwrite("max_cell_temp_c",

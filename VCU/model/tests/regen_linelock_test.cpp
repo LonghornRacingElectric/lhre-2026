@@ -29,6 +29,7 @@ protected:
     params.regen_linelock.dynamic_voltage_reserve_v = 6.0f;
     params.regen_linelock.pack_ocv_enable_v = 520.11f;
     params.regen_linelock.pack_ocv_disable_hysteresis_v = 2.0f;
+    params.regen_linelock.max_cell_voltage_regen_disable_v = 4.05f;
     params.regen_linelock.min_cell_temp_c = 10.0f;
     params.regen_linelock.max_cell_temp_c = 55.0f;
     params.regen_linelock.min_motor_speed_rpm = 219.49f;
@@ -112,6 +113,18 @@ TEST_F(RegenLinelockTest, HighOcvKeepsRearBrakesMechanical) {
   EXPECT_FALSE(out.regen_available);
   EXPECT_FALSE(out.linelock_enabled);
   EXPECT_TRUE(out.faults.regen_linelock_ocv_too_high);
+  EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
+}
+
+TEST_F(RegenLinelockTest, LiveMaxCellVoltageKeepsRearBrakesMechanical) {
+  in.max_cell_voltage_v = 4.093f;
+  out.max_open_circuit_cell_voltage = 4.0f;
+
+  regen_linelock_evaluate(&in, &out, &state, &params, 100);
+
+  EXPECT_FALSE(out.regen_available);
+  EXPECT_FALSE(out.linelock_enabled);
+  EXPECT_TRUE(out.faults.regen_linelock_live_cell_voltage_high);
   EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
 }
 

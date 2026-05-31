@@ -78,6 +78,7 @@ typedef struct {
 
     bool regen_linelock_input_invalid;
     bool regen_linelock_ocv_too_high;
+    bool regen_linelock_live_cell_voltage_high;
     bool regen_linelock_pack_temp_low;
     bool regen_linelock_pack_temp_high;
     bool regen_linelock_motor_speed_low;

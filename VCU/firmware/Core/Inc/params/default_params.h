@@ -96,7 +96,7 @@
         .regen_torque_at_reference_pressure_nm = 76.0f, \
         .absolute_regen_torque_cap_nm        = 230.0f, \
         .pedal_torque_release_threshold_nm   = 20.0f, \
-        .linelock_close_delay_ms             = 100u, \
+        .linelock_close_delay_ms             = 500u, \
         .pack_current_limit_a                = 45.0f, \
         .hard_cut_margin_pct                 = 0.20f, \
         .hard_cut_reset_pressure_psi         = 100.0f, \
@@ -106,6 +106,7 @@
         .dynamic_voltage_reserve_v           = 6.0f, \
         .pack_ocv_enable_v                   = 520.11f, \
         .pack_ocv_disable_hysteresis_v       = 2.0f, \
+        .max_cell_voltage_regen_disable_v    = 4.05f, \
         .min_cell_temp_c                     = 10.0f, \
         .max_cell_temp_c                     = 55.0f, \
         .min_motor_speed_rpm                 = 219.49f, \

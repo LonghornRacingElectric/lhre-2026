@@ -169,15 +169,31 @@ void regen_linelock_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
                                                    params);
   const float pack_ocv_v = out->max_open_circuit_cell_voltage *
                            params->regen_linelock.pack_series_cell_count;
+  const bool live_max_cell_voltage_valid =
+      in->max_cell_voltage_v > 0.0f &&
+      params->regen_linelock.pack_series_cell_count > 0.0f;
+  const float live_max_cell_pack_voltage_v =
+      live_max_cell_voltage_valid
+          ? in->max_cell_voltage_v *
+                params->regen_linelock.pack_series_cell_count
+          : 0.0f;
+  const float voltage_limit_pack_ocv_v =
+      live_max_cell_pack_voltage_v > pack_ocv_v ? live_max_cell_pack_voltage_v
+                                                : pack_ocv_v;
+  const bool live_max_cell_voltage_high =
+      params->regen_linelock.max_cell_voltage_regen_disable_v > 0.0f &&
+      live_max_cell_voltage_valid &&
+      in->max_cell_voltage_v >=
+          params->regen_linelock.max_cell_voltage_regen_disable_v;
 
   out->regen_measured_pack_current_a = measured_regen_current_a;
   out->regen_estimated_pack_ocv_v = pack_ocv_v;
   out->regen_pack_current_limit_a =
-      regen_linelock_available_pack_current_a(pack_ocv_v, params);
+      regen_linelock_available_pack_current_a(voltage_limit_pack_ocv_v, params);
   out->regen_pressure_requested_torque_nm =
       regen_linelock_pressure_request_nm(rear_pressure_psi, params);
-  out->regen_torque_limit_nm =
-      regen_linelock_torque_limit_nm(motor_speed_rpm, pack_ocv_v, params);
+  out->regen_torque_limit_nm = regen_linelock_torque_limit_nm(
+      motor_speed_rpm, voltage_limit_pack_ocv_v, params);
   out->linelock_enabled = false;
   out->regen_available = false;
   out->regen_torque_cmd_nm = 0.0f;
@@ -210,6 +226,8 @@ void regen_linelock_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   }
 
   if (params->regen_linelock.pressure_only_test_mode) {
+    out->faults.regen_linelock_live_cell_voltage_high =
+        live_max_cell_voltage_high;
     out->faults.regen_linelock_current_hard_cut =
         state->current_hard_cut_latched;
     out->faults.regen_linelock_any_fault = state->current_hard_cut_latched;
@@ -217,8 +235,9 @@ void regen_linelock_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
                            !state->current_hard_cut_latched &&
                            !pedal_torque_opens_linelock;
 
-    if (params->regen_linelock.disable || state->current_hard_cut_latched ||
-        pedal_torque_opens_linelock || pressure_only_torque_nm <= 0.0f) {
+    if (params->regen_linelock.disable || live_max_cell_voltage_high ||
+        state->current_hard_cut_latched || pedal_torque_opens_linelock ||
+        pressure_only_torque_nm <= 0.0f) {
       if (state->current_hard_cut_latched) {
         out->torque_cmd = 0.0f;
       }
@@ -235,6 +254,7 @@ void regen_linelock_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
       return;
     }
 
+    out->regen_available = true;
     out->regen_torque_cmd_nm = -pressure_only_torque_nm;
     out->torque_cmd = out->regen_torque_cmd_nm;
     return;
@@ -253,6 +273,8 @@ void regen_linelock_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
 
   out->faults.regen_linelock_input_invalid = !input_valid;
   out->faults.regen_linelock_ocv_too_high = !state->ocv_regen_allowed;
+  out->faults.regen_linelock_live_cell_voltage_high =
+      live_max_cell_voltage_high;
   out->faults.regen_linelock_pack_temp_low = temp_low;
   out->faults.regen_linelock_pack_temp_high = temp_high;
   out->faults.regen_linelock_motor_speed_low = motor_speed_low;
@@ -261,9 +283,10 @@ void regen_linelock_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
 
   const bool regen_eligible =
       !params->regen_linelock.disable && input_valid &&
-      state->ocv_regen_allowed && !temp_low && !temp_high && !motor_speed_low &&
-      !state->current_hard_cut_latched && !out->faults.apps_any_fault &&
-      !pedal_torque_opens_linelock && regen_pressure_requested;
+      state->ocv_regen_allowed && !live_max_cell_voltage_high && !temp_low &&
+      !temp_high && !motor_speed_low && !state->current_hard_cut_latched &&
+      !out->faults.apps_any_fault && !pedal_torque_opens_linelock &&
+      regen_pressure_requested;
 
   if (state->current_hard_cut_latched || pedal_torque_opens_linelock) {
     if (state->current_hard_cut_latched) {

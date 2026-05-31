@@ -113,6 +113,14 @@ torque_limit = terminal_voltage * available_current / omega
 
 Motor RPM is used directly as the speed source.
 
+The torque/current limit now uses the larger of:
+
+- filtered max-cell OCV estimate
+- live max cell voltage multiplied by `130`
+
+This prevents a stale low-current OCV estimate from allowing too much regen when
+the live max cell voltage has risen.
+
 ## Availability Gates
 
 Regen/linelock can only activate when all of these are true:
@@ -122,13 +130,17 @@ Regen/linelock can only activate when all of these are true:
 - Pre-regen pedal torque request is at or below `20 Nm`. Above `20 Nm`, the VCU
   keeps linelock open and does not allow regen so the valve can cool and any rear
   caliper-side pressure can release mechanically.
-- The linelock command has been continuously true for `100 ms`. Before that
+- The linelock command has been continuously true for `500 ms`. Before that
   delay expires, the VCU may command the linelock closed but keeps regen torque
-  at `0 Nm`.
+  at `0 Nm`. This delay is intentionally longer than the current PDU linelock
+  loop in `ad/pdu-linelock`, which polls `VCU State.line_lock_enabled` and
+  updates the GPIO every `200 ms`.
 - Inverter current and motor speed inputs are valid
 - Motor speed is above `219.49 rpm`, equivalent to about `5 kph` with a
   `43:13` motor-to-wheel ratio and `7.87 in` loaded tire radius
 - Estimated pack OCV has fallen below `520.11 V`
+- Live max cell voltage is below `4.05 V`. This is a separate hard block from
+  the filtered OCV latch. A live max cell voltage of `4.093 V` blocks regen.
 - No APPS fault is active
 - No regen hard-current-cut latch is active
 
@@ -174,13 +186,12 @@ linelock command is open:
   `regen_linelock_command_mismatch` if any later code path ever leaves
   `torque_cmd < 0` while `out->linelock_enabled == false`.
 
-This is a software-command check only. It does not prove that the PDU actually
-energized PF2 or that the valve moved. Physical confirmation requires a PDU
-feedback signal, such as linelock output voltage/current or a PDU-side active
-acknowledge bit, and the VCU should gate regen on that signal once it exists.
-Until the PDU firmware is confirmed to consume `VCU State.line_lock_enabled` and
-drive the valve, regen testing should be treated as unsafe or
-`.regen_linelock.disable` should be set true.
+The current `ad/pdu-linelock` PDU branch does not publish a linelock feedback or
+acknowledge bit. With that PDU code, the VCU cannot prove the physical valve is
+closed; it can only request `VCU State.line_lock_enabled`, wait longer than the
+PDU control loop, and then allow regen. A true physical guarantee requires a PDU
+feedback signal from the actual linelock output voltage/current or a validated
+PDU-side active acknowledge bit.
 
 ## CAN Inputs
 
@@ -248,7 +259,7 @@ under:
     .regen_torque_at_reference_pressure_nm = 76.0f,
     .absolute_regen_torque_cap_nm = 230.0f,
     .pedal_torque_release_threshold_nm = 20.0f,
-    .linelock_close_delay_ms = 100u,
+    .linelock_close_delay_ms = 500u,
     .pack_current_limit_a = 45.0f,
     .hard_cut_margin_pct = 0.20f,
     .hard_cut_reset_pressure_psi = 100.0f,
@@ -258,6 +269,7 @@ under:
     .dynamic_voltage_reserve_v = 6.0f,
     .pack_ocv_enable_v = 520.11f,
     .pack_ocv_disable_hysteresis_v = 2.0f,
+    .max_cell_voltage_regen_disable_v = 4.05f,
     .min_cell_temp_c = 10.0f,
     .max_cell_temp_c = 55.0f,
     .min_motor_speed_rpm = 219.49f,
