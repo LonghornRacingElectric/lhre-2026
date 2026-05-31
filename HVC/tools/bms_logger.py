@@ -68,10 +68,13 @@ class BMSLogger:
         self._bmbs: dict[int, dict]  = {}
 
         # Plot data — guarded by _lock
-        self._lock   = threading.Lock()
+        self._lock      = threading.Lock()
         self._times: list[float] = []
         self._volts: list[float] = []
         self._bals:  list[bool]  = []
+        self._min_times: list[float] = []
+        self._min_volts: list[float] = []
+        self._max_volts: list[float] = []
         self._t0_ms: int | None  = None
 
         out_dir = Path(__file__).parent / 'out'
@@ -164,8 +167,19 @@ class BMSLogger:
     def handle_line(self, line: str) -> None:
         m = RE_PACK.search(line)
         if m:
-            self._pack_data = m.groupdict()
-            self._bmbs = {}
+            if int(m.group('state')) == 2:
+                # No BMB lines follow in State 2 — record min/max from pack summary directly
+                ts_ms = int(m.group('ts'))
+                if self._t0_ms is None:
+                    self._t0_ms = ts_ms
+                t_s = (ts_ms - self._t0_ms) / 1000.0
+                with self._lock:
+                    self._min_times.append(t_s)
+                    self._min_volts.append(float(m.group('cmin')))
+                    self._max_volts.append(float(m.group('cmax')))
+            else:
+                self._pack_data = m.groupdict()
+                self._bmbs = {}
             return
 
         if self._pack_data is None:
@@ -200,7 +214,7 @@ class BMSLogger:
                 prev_snaps = snaps
                 self.handle_line(line)
                 with self._lock:
-                    snaps = len(self._times) // (TOTAL_IC * CELLS_PER_IC)
+                    snaps = len(self._times) // (TOTAL_IC * CELLS_PER_IC) + len(self._min_times)
                 if snaps != prev_snaps:
                     print(f"  snapshot #{snaps}", flush=True)
         except KeyboardInterrupt:
@@ -212,6 +226,10 @@ class BMSLogger:
     def plot_snapshot(self) -> tuple[list, list, list]:
         with self._lock:
             return list(self._times), list(self._volts), list(self._bals)
+
+    def minmax_snapshot(self) -> tuple[list, list, list]:
+        with self._lock:
+            return list(self._min_times), list(self._min_volts), list(self._max_volts)
 
 
 def main() -> None:
@@ -229,23 +247,41 @@ def main() -> None:
     ax.set_xlabel('Time (s)')
     ax.set_ylabel('Cell Voltage (V)')
     ax.set_title('Live Cell Voltages')
-    sc_idle = ax.scatter([], [], s=2, c='blue', linewidths=0, label='idle')
-    sc_bal  = ax.scatter([], [], s=2, c='red',  linewidths=0, label='balancing')
+    sc_idle = ax.scatter([], [], s=2, c='steelblue',   linewidths=0, label='idle')
+    sc_bal  = ax.scatter([], [], s=2, c='tomato',      linewidths=0, label='balancing')
+    ln_min, = ax.plot([], [], '-', color='royalblue',  lw=1.5, label='cell min (State 2)')
+    ln_max, = ax.plot([], [], '-', color='orangered',  lw=1.5, label='cell max (State 2)')
     ax.legend(loc='upper left', markerscale=4, framealpha=0.7)
     ax.grid(True, linestyle='--', alpha=0.5)
 
     def update(_frame):
         times, volts, bals = logger.plot_snapshot()
-        if not times:
-            return
-        t = np.asarray(times)
-        v = np.asarray(volts)
-        b = np.asarray(bals, dtype=bool)
-        idle, bal = ~b, b
-        sc_idle.set_offsets(np.column_stack([t[idle], v[idle]]) if idle.any() else np.empty((0, 2)))
-        sc_bal.set_offsets( np.column_stack([t[bal],  v[bal]])  if bal.any()  else np.empty((0, 2)))
-        ax.set_xlim(0, t[-1] + 1)
-        ax.set_ylim(v.min() - 0.005, v.max() + 0.005)
+        mt, mv_min, mv_max = logger.minmax_snapshot()
+
+        all_t: list[float] = []
+        all_v: list[float] = []
+
+        if times:
+            t = np.asarray(times)
+            v = np.asarray(volts)
+            b = np.asarray(bals, dtype=bool)
+            idle, bal = ~b, b
+            sc_idle.set_offsets(np.column_stack([t[idle], v[idle]]) if idle.any() else np.empty((0, 2)))
+            sc_bal.set_offsets( np.column_stack([t[bal],  v[bal]])  if bal.any()  else np.empty((0, 2)))
+            all_t.extend(times)
+            all_v.extend(volts)
+
+        if mt:
+            mt_arr = np.asarray(mt)
+            ln_min.set_data(mt_arr, np.asarray(mv_min))
+            ln_max.set_data(mt_arr, np.asarray(mv_max))
+            all_t.extend(mt)
+            all_v.extend(mv_min)
+            all_v.extend(mv_max)
+
+        if all_t:
+            ax.set_xlim(0, max(all_t) + 1)
+            ax.set_ylim(min(all_v) - 0.005, max(all_v) + 0.005)
 
     _ani = animation.FuncAnimation(fig, update, interval=500)
     plt.tight_layout()

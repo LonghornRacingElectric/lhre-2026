@@ -44,7 +44,7 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
   bse_evaluate(in, out, &ctx->bse_state, &ctx->params, dt_ms);
   torque_map_evaluate(in, out, &ctx->params, dt_ms);
   power_limit_evaluate(in, out, &ctx->power_limit_state, &ctx->params, dt_ms);
-  prndl_evaluate(&ctx->prndl_machine, in, out, ctx->time_ms);
+  prndl_evaluate(&ctx->prndl_machine, in, out, &ctx->params, ctx->time_ms);
   cooling_evaluate(in, out, &ctx->cooling_state, &ctx->params, dt_ms);
 
   switch (out->prndl_state) {
