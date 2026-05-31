@@ -198,7 +198,7 @@ Current CAN/output behavior:
 
 - VCU sends `out->linelock_enabled` as `Line Lock Enabled` in `VCU State`
   (`0x1C7`, VCU to Pi/PDU).
-- PDU receives `VCU State` and drives `LINELOCK` on `PF2` high when
+- PDU receives `VCU State` and drives `Line_Lock_EN` on `PF2` high when
   `line_lock_enabled == true`, low otherwise.
 - The previous `Switch Command` / `Temp Command 1` placeholder is no longer sent
   by the VCU for linelock.

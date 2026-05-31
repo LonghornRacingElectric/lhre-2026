@@ -178,9 +178,12 @@ void StartDefaultTask(void *argument) {
   // Enable shutdown
   HAL_GPIO_WritePin(EN_SDWN_GPIO_Port, EN_SDWN_Pin, GPIO_PIN_SET);
 
+  // Turn off line lock until the VCU command is received.
+  HAL_GPIO_WritePin(Line_Lock_EN_GPIO_Port, Line_Lock_EN_Pin, GPIO_PIN_RESET);
+
   /* Infinite loop */
   for (;;) {
-    HAL_GPIO_WritePin(LINELOCK_GPIO_Port, LINELOCK_Pin,
+    HAL_GPIO_WritePin(Line_Lock_EN_GPIO_Port, Line_Lock_EN_Pin,
                       line_lock_enabled() ? GPIO_PIN_SET : GPIO_PIN_RESET);
     osDelay(5);
   }
