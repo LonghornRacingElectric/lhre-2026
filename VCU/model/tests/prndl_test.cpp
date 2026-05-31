@@ -18,7 +18,7 @@ TEST_F(PRNDLTest, InitialStateIsPark) { EXPECT_EQ(state.state, PRNDL_PARK); }
 
 TEST_F(PRNDLTest, CorrectlyTransitionToDrive) {
   // Evaluate with brake pressed and pedal at 0 but drive switch off
-  out.brake_pressed = true;
+  out.brake_light_pct = 0.10f;
   out.accel_pedal_travel = 0.0f;
   in.contactors_closed = true;
 
@@ -30,7 +30,7 @@ TEST_F(PRNDLTest, CorrectlyTransitionToDrive) {
 
 TEST_F(PRNDLTest, CorrectlyTransitionToParkOnContactorLoss) {
   // Start in Drive
-  out.brake_pressed = true;
+  out.brake_light_pct = 0.10f;
   out.accel_pedal_travel = 0.0f;
   in.contactors_closed = true;
   in.drive_switch = true;
@@ -45,7 +45,7 @@ TEST_F(PRNDLTest, CorrectlyTransitionToParkOnContactorLoss) {
 
 TEST_F(PRNDLTest, CorrectlyTransitionToParkOnDriveSwitchLoss) {
   // Start in Drive
-  out.brake_pressed = true;
+  out.brake_light_pct = 0.10f;
   out.accel_pedal_travel = 0.0f;
   in.contactors_closed = true;
   in.drive_switch = true;
@@ -72,7 +72,7 @@ TEST_F(PRNDLTest, DoesNotTransitionToDriveWithoutBrake) {
 
 TEST_F(PRNDLTest, DoesNotTransitionToDriveWithAccel) {
   // Evaluate with brake pressed and pedal at 0 but drive switch off
-  out.brake_pressed = true;
+  out.brake_light_pct = 0.10f;
   out.accel_pedal_travel = 0.01f;
   in.contactors_closed = true;
 
