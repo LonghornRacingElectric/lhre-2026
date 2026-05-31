@@ -27,7 +27,7 @@ Regen demand comes from the rear BSE/pre-lock pressure, `out->bse2_psi`.
 Default mapping:
 
 - `0 psi -> 0 Nm`
-- `500 psi -> 5 Nm`
+- `500 psi -> 76 Nm`
 - Linear slope between and beyond those points
 - In normal mode, final command is clipped by the dynamic pack/motor regen limit
   and by the absolute inverter safety cap
@@ -127,9 +127,6 @@ The linelock valve is pre-closed before braking so rear caliper pressure is
 blocked early. The VCU commands the valve closed whenever these gates are true:
 
 - `params.regen_linelock.disable == false`
-- Pre-regen pedal torque request is at or below `100 Nm`. Above `100 Nm`, the VCU
-  keeps linelock open and does not allow regen so the valve can cool and any rear
-  caliper-side pressure can release mechanically.
 - Inverter current and motor speed inputs are valid
 - Motor speed is above `219.49 rpm`, equivalent to about `5 kph` with a
   `43:13` motor-to-wheel ratio and `7.87 in` loaded tire radius
@@ -138,6 +135,13 @@ blocked early. The VCU commands the valve closed whenever these gates are true:
   the filtered OCV latch. A live max cell voltage of `4.093 V` blocks regen.
 - No APPS fault is active
 - No regen hard-current-cut latch is active
+
+The pedal torque request no longer holds the valve open continuously. Instead,
+when pre-regen pedal torque crosses above `70 Nm` on a rising edge, the VCU opens
+the linelock and disables regen for `500 ms`. After that pulse, the VCU
+re-closes the valve as soon as the gates above are still valid. This vents any
+possible rear caliper-side pressure during an acceleration event while keeping
+the default state closed before the next braking zone.
 
 Negative regen torque additionally requires rear pressure at or above `10 psi`
 and a positive pressure-based regen torque request. The linelock command must
@@ -259,9 +263,10 @@ under:
     .rear_pressure_zero_torque_psi = 0.0f,
     .rear_pressure_reference_psi = 500.0f,
     .rear_pressure_min_engage_psi = 10.0f,
-    .regen_torque_at_reference_pressure_nm = 5.0f,
+    .regen_torque_at_reference_pressure_nm = 76.0f,
     .absolute_regen_torque_cap_nm = 230.0f,
-    .pedal_torque_release_threshold_nm = 100.0f,
+    .pedal_torque_open_pulse_threshold_nm = 70.0f,
+    .linelock_open_pulse_ms = 500u,
     .linelock_close_delay_ms = 200u,
     .pack_current_limit_a = 45.0f,
     .hard_cut_margin_pct = 0.20f,

@@ -13,6 +13,8 @@ typedef struct {
   bool ocv_regen_allowed;
   bool current_hard_cut_latched;
   uint32_t linelock_commanded_closed_ms;
+  uint32_t linelock_open_pulse_remaining_ms;
+  float previous_pedal_torque_cmd_nm;
 } regen_linelock_state_t;
 
 void regen_linelock_init(regen_linelock_state_t *state,
