@@ -151,7 +151,7 @@ struct CanData {
     #[serde(rename = "lvCurrent")]
     lv_current: Option<f32>,
 
-    /// Per-wheel speed in same units as `wheel_speed` (dynamics.flw/frw/blw/brw_speed).
+    /// Per-wheel speed in same units as `wheel_speed` (dynamics.fl/fr/bl/br_wheel_speed).
     #[serde(rename = "wheelSpeedFL")]
     wheel_speed_fl: Option<f32>,
     #[serde(rename = "wheelSpeedFR")]
@@ -379,10 +379,10 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
         lv_voltage: pack.map(|p| p.lv_batt_v),
         lv_current: pack.map(|p| p.lv_batt_c),
 
-        wheel_speed_fl: dynamics.map(|d| d.flw_speed),
-        wheel_speed_fr: dynamics.map(|d| d.frw_speed),
-        wheel_speed_rl: dynamics.map(|d| d.blw_speed),
-        wheel_speed_rr: dynamics.map(|d| d.brw_speed),
+        wheel_speed_fl: dynamics.map(|d| d.fl_wheel_speed),
+        wheel_speed_fr: dynamics.map(|d| d.fr_wheel_speed),
+        wheel_speed_rl: dynamics.map(|d| d.bl_wheel_speed),
+        wheel_speed_rr: dynamics.map(|d| d.br_wheel_speed),
 
         // CSV byte 5 is named `line_lock_enabled` but the VCU team
         // confirmed it carries the regen-enabled bit. Plumb to the

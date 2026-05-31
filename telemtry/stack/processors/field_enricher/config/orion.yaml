@@ -10,7 +10,7 @@
 # Examples of what's available in source message (scalars): hv_pack_v, hv_c, hv_soc,
 #   max_cell_v, min_cell_v, avg_cell_v_stat, motor_speed, torque_feedback, torque_request,
 #   torque_command, torque_limit, brake_pressure_f, accel_pedal_travel, steer_col_angle,
-#   flw_speed, frw_speed, blw_speed, brw_speed, coolant_temp, motor_temp, gate_driver_temp, ...
+#   fl_wheel_speed, fr_wheel_speed, bl_wheel_speed, br_wheel_speed, coolant_temp, motor_temp, gate_driver_temp, ...
 # Arrays (accessible as lists): cells_v, cells_temps, gps, gps_imu
 
 fields:
@@ -45,10 +45,10 @@ fields:
     expr: "abs(torque_feedback / torque_request) * 100 if torque_request and abs(torque_request) > 1 else 0"
 
   - name: wheel_speed_avg
-    expr: "(flw_speed + frw_speed + blw_speed + brw_speed) / 4.0 if flw_speed is not None else 0"
+    expr: "(fl_wheel_speed + fr_wheel_speed + bl_wheel_speed + br_wheel_speed) / 4.0 if fl_wheel_speed is not None else 0"
 
   - name: wheel_speed_lr_delta
-    expr: "((flw_speed + blw_speed) / 2.0) - ((frw_speed + brw_speed) / 2.0) if flw_speed is not None else 0"
+    expr: "((fl_wheel_speed + bl_wheel_speed) / 2.0) - ((fr_wheel_speed + br_wheel_speed) / 2.0) if fl_wheel_speed is not None else 0"
 
   # --- Acceleration from GPS IMU ---
   # gps_imu[0] = longitudinal accel (m/s²), gps_imu[1] = lateral accel (m/s²)
