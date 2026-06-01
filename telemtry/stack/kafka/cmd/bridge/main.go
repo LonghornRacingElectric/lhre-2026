@@ -343,6 +343,32 @@ func statsFromFloat32Slice(vals []float32) (avg float64, min float32, max float3
 	return avg, min, max
 }
 
+// statsFromFloat32SliceNonZero is like statsFromFloat32Slice but skips zero
+// entries. The firmware uses 0 as a sentinel for cells that did not report in
+// this packet (cells_v is a fixed-length, zero-padded array), so a naive min
+// would otherwise collapse to 0. If there are no non-zero values it returns 0, 0, 0.
+func statsFromFloat32SliceNonZero(vals []float32) (avg float64, min float32, max float32) {
+	var sum float64
+	n := 0
+	for _, v := range vals {
+		if v == 0 {
+			continue
+		}
+		if n == 0 || v < min {
+			min = v
+		}
+		if n == 0 || v > max {
+			max = v
+		}
+		sum += float64(v)
+		n++
+	}
+	if n == 0 {
+		return 0, 0, 0
+	}
+	return sum / float64(n), min, max
+}
+
 func nightwatchToMap(msg *sensor.SensorData) map[string]interface{} {
 	m := make(map[string]interface{})
 	m["time"] = msg.Time
@@ -592,7 +618,7 @@ func angeliqueToMap(msg *sensor.AngeliqueSensorData) map[string]interface{} {
 		m["hv_charge_state"] = dg.HvChargeState
 		m["lv_charge_state"] = dg.LvChargeState
 		if len(dg.CellsV) > 0 {
-			avg, min, max := statsFromFloat32Slice(dg.CellsV)
+			avg, min, max := statsFromFloat32SliceNonZero(dg.CellsV)
 			m["avg_cell_v_stat"] = avg
 			m["max_cell_v"] = max
 			m["min_cell_v"] = min
@@ -722,7 +748,7 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["power_kw"] = float64(p.HvPackV) * float64(p.HvC) / 1000.0
 
 		if len(p.CellsV) > 0 {
-			avg, min, max := statsFromFloat32Slice(p.CellsV)
+			avg, min, max := statsFromFloat32SliceNonZero(p.CellsV)
 			m["avg_cell_v_stat"] = avg
 			m["max_cell_v"] = max
 			m["min_cell_v"] = min
@@ -813,6 +839,10 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["module_a_temp"] = t.ModuleATemp
 		m["module_b_temp"] = t.ModuleBTemp
 		m["module_c_temp"] = t.ModuleCTemp
+		// Authoritative per-pack min/max cell voltage from the HVC/BMS; not
+		// derived from the zero-padded cells_v array, so correct with partial cells.
+		m["min_cell_voltage"] = t.MinCellVoltage
+		m["max_cell_voltage"] = t.MaxCellVoltage
 		m["motor_loop_inverter_temp"] = t.MotorLoopInverterTemp
 		m["motor_loop_motor_temp"] = t.MotorLoopMotorTemp
 		m["motor_loop_rad_temp"] = t.MotorLoopRadTemp
