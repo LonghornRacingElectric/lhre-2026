@@ -146,18 +146,27 @@ class TestBevoAndDatabaseIntegration(unittest.TestCase):
 
         client = mqtt_client.Client(client_id="orion-integration-publisher")
         client.connect(self.config.mqtt_host, self.config.mqtt_port, 60)
-        client.publish("orion/data", payload.SerializeToString(), qos=0)
-        client.disconnect()
-
-        timeout = 10
-        start_time = time.time()
+        # Run the network loop and confirm delivery: a QoS 0 publish without a
+        # running loop can be dropped when disconnect() closes the socket first,
+        # which made this test flaky. QoS 1 + wait_for_publish guarantees the
+        # broker received the packet before we poll the DB.
+        client.loop_start()
         after_count = before_count
-        while (time.time() - start_time) < timeout:
-            with get_db("Orion") as session:
-                after_count = session.query(OrionPacket).count()
-            if after_count > before_count:
-                break
-            time.sleep(0.25)
+        try:
+            info = client.publish("orion/data", payload.SerializeToString(), qos=1)
+            info.wait_for_publish(timeout=5)
+
+            timeout = 15
+            start_time = time.time()
+            while (time.time() - start_time) < timeout:
+                with get_db("Orion") as session:
+                    after_count = session.query(OrionPacket).count()
+                if after_count > before_count:
+                    break
+                time.sleep(0.25)
+        finally:
+            client.loop_stop()
+            client.disconnect()
 
         self.assertGreater(
             after_count,
