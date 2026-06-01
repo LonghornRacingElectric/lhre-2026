@@ -60,7 +60,7 @@ protected:
     params.regen_linelock.rear_pressure_zero_torque_psi = 0.0f;
     params.regen_linelock.rear_pressure_reference_psi = 500.0f;
     params.regen_linelock.rear_pressure_min_engage_psi = 10.0f;
-    params.regen_linelock.regen_torque_at_reference_pressure_nm = 76.0f;
+    params.regen_linelock.regen_torque_at_reference_pressure_nm = 67.0f;
     params.regen_linelock.absolute_regen_torque_cap_nm = 230.0f;
     params.regen_linelock.pedal_torque_open_pulse_threshold_nm = 70.0f;
     params.regen_linelock.pedal_torque_open_pulse_cancel_threshold_nm = 50.0f;

@@ -93,7 +93,7 @@
         .rear_pressure_zero_torque_psi       = 0.0f, \
         .rear_pressure_reference_psi         = 500.0f, \
         .rear_pressure_min_engage_psi        = 10.0f, \
-        .regen_torque_at_reference_pressure_nm = 76.0f, \
+        .regen_torque_at_reference_pressure_nm = 67.0f, \
         .absolute_regen_torque_cap_nm        = 230.0f, \
         .pedal_torque_open_pulse_threshold_nm = 70.0f, \
         .pedal_torque_open_pulse_cancel_threshold_nm = 50.0f, \
