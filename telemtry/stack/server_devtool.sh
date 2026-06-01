@@ -51,6 +51,8 @@ DASHBOARD_SOURCE_DIR="$SCRIPT_DIR/../analysis/database/dashboards"
 
 NETWORK="telemetry_network"        # external in every compose file → we own it
 EXTERNAL_VOLUMES="telemetry_db grafana_storage"
+# telemetry_db is bind-mounted onto the SSD so Postgres data lives on /mnt, not the root disk.
+TELEMETRY_DB_DIR="${TELEMETRY_DB_DIR:-/mnt/server_ssd/app_data/telemetry_db}"
 
 # component registry:  name | directory (relative to SCRIPT_DIR)
 # (gg_plot is optional; kafka_base is a base image and grafana-kafka-datasource
@@ -192,12 +194,23 @@ ensure_network() {
     info "Creating missing external network: $NETWORK"
     dk network create "$NETWORK" >/dev/null
 }
+# telemetry_db must be SSD-backed (bind mount); other external volumes are plain.
+create_external_volume() {
+    local v="$1"
+    if [[ "$v" == "telemetry_db" ]]; then
+        $SUDO mkdir -p "$TELEMETRY_DB_DIR"
+        dk volume create --driver local \
+            --opt type=none --opt o=bind --opt device="$TELEMETRY_DB_DIR" "$v" >/dev/null
+    else
+        dk volume create "$v" >/dev/null
+    fi
+}
 ensure_volumes() {
     local v
     for v in $EXTERNAL_VOLUMES; do
         if ! dk volume inspect "$v" >/dev/null 2>&1; then
             info "Creating missing external volume: $v"
-            dk volume create "$v" >/dev/null
+            create_external_volume "$v"
         fi
     done
 }
@@ -340,7 +353,11 @@ confirm() {
 reset_volume() {
     local v="$1"
     dk volume rm "$v" >/dev/null 2>&1 || true
-    dk volume create "$v" >/dev/null
+    if [[ "$v" == "telemetry_db" ]]; then
+        # Bind-mounted on the SSD: `docker volume rm` leaves the data dir, so wipe it explicitly.
+        $SUDO rm -rf "$TELEMETRY_DB_DIR"
+    fi
+    create_external_volume "$v"
     ok "recreated volume $v"
 }
 cmd_reset_db() {
