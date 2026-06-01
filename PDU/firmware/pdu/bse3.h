@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+void bse3_init(void);
 float bse3_voltage(void);
 float bse3_sensor_voltage(void);
 float bse3_pressure_psi(void);

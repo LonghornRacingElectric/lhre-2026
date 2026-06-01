@@ -48,6 +48,7 @@ bool line_lock_enabled(void);
 bool hvc_imd_fault(void);
 
 float brake_light_pct(void);
+void pdu_can_set_bse3_pressure(float psi);
 
 /**
  * @brief Returns whether or not the HVC has a BMS fault from the HVC

@@ -139,6 +139,9 @@ void MX_FREERTOS_Init(void) {
   // Initialize shared ADC access
   pdu_adc_init();
 
+  // Initialize BSE3 task
+  bse3_init();
+
   // Initialize Light subsystem
   lights_init();
 

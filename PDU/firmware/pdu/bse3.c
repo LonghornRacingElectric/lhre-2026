@@ -1,6 +1,8 @@
 #include "bse3.h"
 
+#include "cmsis_os.h"
 #include "pdu_adc.h"
+#include "pdu_can.h"
 
 #define BSE3_DIVIDER_TOP_OHMS 10000.0f
 #define BSE3_DIVIDER_BOTTOM_OHMS 27000.0f
@@ -18,6 +20,24 @@ static float clamp_f(float value, float min, float max) {
     }
 
     return value;
+}
+
+static void bse3_task(void *arg);
+static osThreadAttr_t bse3_task_attributes = {
+    .name = "bse3Task",
+    .priority = (osPriority_t)osPriorityNormal,
+    .stack_size = 128 * 4,
+};
+
+void bse3_init(void) {
+    osThreadNew(bse3_task, NULL, &bse3_task_attributes);
+}
+
+static void bse3_task(void *arg) {
+    while (1) {
+        pdu_can_set_bse3_pressure(bse3_pressure_psi());
+        osDelay(3);
+    }
 }
 
 float bse3_voltage(void) {
