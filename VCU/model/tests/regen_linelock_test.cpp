@@ -16,9 +16,11 @@ protected:
     params.regen_linelock.rear_pressure_zero_torque_psi = 0.0f;
     params.regen_linelock.rear_pressure_reference_psi = 500.0f;
     params.regen_linelock.rear_pressure_min_engage_psi = 10.0f;
-    params.regen_linelock.regen_torque_at_reference_pressure_nm = 76.0f;
+    params.regen_linelock.regen_torque_at_reference_pressure_nm = 67.0f;
     params.regen_linelock.absolute_regen_torque_cap_nm = 230.0f;
-    params.regen_linelock.pedal_torque_release_threshold_nm = 20.0f;
+    params.regen_linelock.pedal_torque_open_pulse_threshold_nm = 70.0f;
+    params.regen_linelock.pedal_torque_open_pulse_cancel_threshold_nm = 50.0f;
+    params.regen_linelock.linelock_open_pulse_ms = 250u;
     params.regen_linelock.linelock_close_delay_ms = 200u;
     params.regen_linelock.pack_current_limit_a = 45.0f;
     params.regen_linelock.hard_cut_margin_pct = 0.20f;
@@ -56,7 +58,7 @@ TEST_F(RegenLinelockTest, CommandsLinelockBeforeNegativeTorque) {
 
   EXPECT_FALSE(out.regen_available);
   EXPECT_TRUE(out.linelock_enabled);
-  EXPECT_NEAR(out.regen_pressure_requested_torque_nm, 38.0f, 0.001f);
+  EXPECT_NEAR(out.regen_pressure_requested_torque_nm, 33.5f, 0.001f);
   EXPECT_FLOAT_EQ(out.regen_torque_cmd_nm, 0.0f);
   EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
 }
@@ -73,8 +75,8 @@ TEST_F(RegenLinelockTest, CommandsNegativeTorqueAndLinelockWhenAllowed) {
 
   EXPECT_TRUE(out.regen_available);
   EXPECT_TRUE(out.linelock_enabled);
-  EXPECT_NEAR(out.regen_pressure_requested_torque_nm, 38.0f, 0.001f);
-  EXPECT_NEAR(out.torque_cmd, -38.0f, 0.001f);
+  EXPECT_NEAR(out.regen_pressure_requested_torque_nm, 33.5f, 0.001f);
+  EXPECT_NEAR(out.torque_cmd, -33.5f, 0.001f);
 }
 
 TEST_F(RegenLinelockTest, ClipsTorqueByPackCurrentAndMotorSpeed) {
@@ -97,7 +99,8 @@ TEST_F(RegenLinelockTest, CloseDelayResetsWhenLinelockCommandDrops) {
 
   out = {};
   out.max_open_circuit_cell_voltage = 4.0f;
-  out.bse2_psi = 0.0f;
+  out.bse2_psi = 250.0f;
+  in.max_cell_voltage_v = 4.093f;
   regen_linelock_evaluate(&in, &out, &state, &params, 10);
 
   EXPECT_FALSE(out.linelock_enabled);
@@ -105,6 +108,7 @@ TEST_F(RegenLinelockTest, CloseDelayResetsWhenLinelockCommandDrops) {
   out = {};
   out.max_open_circuit_cell_voltage = 4.0f;
   out.bse2_psi = 250.0f;
+  in.max_cell_voltage_v = 4.0f;
   regen_linelock_evaluate(&in, &out, &state, &params, 60);
 
   EXPECT_TRUE(out.linelock_enabled);
@@ -146,7 +150,7 @@ TEST_F(RegenLinelockTest, PackStatusDoesNotBlockRegen) {
   EXPECT_TRUE(out.linelock_enabled);
   EXPECT_FALSE(out.faults.regen_linelock_pack_temp_low);
   EXPECT_FALSE(out.faults.regen_linelock_pack_temp_high);
-  EXPECT_NEAR(out.torque_cmd, -38.0f, 0.001f);
+  EXPECT_NEAR(out.torque_cmd, -33.5f, 0.001f);
 }
 
 TEST_F(RegenLinelockTest, LowMotorSpeedKeepsRearBrakesMechanical) {
@@ -166,51 +170,114 @@ TEST_F(RegenLinelockTest, LowRearPressureKeepsRearBrakesMechanical) {
   regen_linelock_evaluate(&in, &out, &state, &params, 200);
 
   EXPECT_FALSE(out.regen_available);
-  EXPECT_FALSE(out.linelock_enabled);
+  EXPECT_TRUE(out.linelock_enabled);
   EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
 }
 
-TEST_F(RegenLinelockTest, PedalTorqueBelowReleaseThresholdAllowsRegen) {
+TEST_F(RegenLinelockTest, PedalTorqueBelowOpenPulseThresholdAllowsRegen) {
   out.torque_cmd = 12.0f;
 
   regen_linelock_evaluate(&in, &out, &state, &params, 200);
 
   EXPECT_TRUE(out.regen_available);
   EXPECT_TRUE(out.linelock_enabled);
-  EXPECT_NEAR(out.regen_torque_cmd_nm, -38.0f, 0.001f);
-  EXPECT_NEAR(out.torque_cmd, -38.0f, 0.001f);
+  EXPECT_NEAR(out.regen_torque_cmd_nm, -33.5f, 0.001f);
+  EXPECT_NEAR(out.torque_cmd, -33.5f, 0.001f);
 }
 
-TEST_F(RegenLinelockTest, PedalTorqueAtReleaseThresholdAllowsRegen) {
-  out.torque_cmd = 20.0f;
+TEST_F(RegenLinelockTest, PedalTorqueAtOpenPulseThresholdAllowsRegen) {
+  out.torque_cmd = 70.0f;
 
   regen_linelock_evaluate(&in, &out, &state, &params, 200);
 
   EXPECT_TRUE(out.regen_available);
   EXPECT_TRUE(out.linelock_enabled);
-  EXPECT_NEAR(out.regen_torque_cmd_nm, -38.0f, 0.001f);
-  EXPECT_NEAR(out.torque_cmd, -38.0f, 0.001f);
+  EXPECT_NEAR(out.regen_torque_cmd_nm, -33.5f, 0.001f);
+  EXPECT_NEAR(out.torque_cmd, -33.5f, 0.001f);
 }
 
-TEST_F(RegenLinelockTest, PedalTorqueAboveReleaseThresholdOpensValve) {
-  out.torque_cmd = 20.1f;
+TEST_F(RegenLinelockTest, PedalTorqueRisingEdgeAboveThresholdPulsesValveOpen) {
+  out.torque_cmd = 70.1f;
 
   regen_linelock_evaluate(&in, &out, &state, &params, 200);
 
   EXPECT_FALSE(out.regen_available);
   EXPECT_FALSE(out.linelock_enabled);
   EXPECT_FLOAT_EQ(out.regen_torque_cmd_nm, 0.0f);
-  EXPECT_NEAR(out.torque_cmd, 20.1f, 0.001f);
+  EXPECT_NEAR(out.torque_cmd, 70.1f, 0.001f);
 }
 
-TEST_F(RegenLinelockTest, PositiveTorquePassesThroughWithoutRegenPressure) {
+TEST_F(RegenLinelockTest, PedalTorqueHeldAboveThresholdClosesAfterOpenPulse) {
+  out.torque_cmd = 70.1f;
+  regen_linelock_evaluate(&in, &out, &state, &params, 1);
+
+  EXPECT_FALSE(out.linelock_enabled);
+
+  out = {};
+  out.max_open_circuit_cell_voltage = 4.0f;
+  out.bse2_psi = 250.0f;
+  out.torque_cmd = 70.1f;
+  regen_linelock_evaluate(&in, &out, &state, &params, 249);
+
+  EXPECT_FALSE(out.linelock_enabled);
+  EXPECT_FALSE(out.regen_available);
+
+  out = {};
+  out.max_open_circuit_cell_voltage = 4.0f;
+  out.bse2_psi = 250.0f;
+  out.torque_cmd = 70.1f;
+  regen_linelock_evaluate(&in, &out, &state, &params, 199);
+
+  EXPECT_TRUE(out.linelock_enabled);
+  EXPECT_FALSE(out.regen_available);
+
+  out = {};
+  out.max_open_circuit_cell_voltage = 4.0f;
+  out.bse2_psi = 250.0f;
+  out.torque_cmd = 70.1f;
+  regen_linelock_evaluate(&in, &out, &state, &params, 1);
+
+  EXPECT_TRUE(out.regen_available);
+  EXPECT_TRUE(out.linelock_enabled);
+  EXPECT_NEAR(out.regen_torque_cmd_nm, -33.5f, 0.001f);
+}
+
+TEST_F(RegenLinelockTest, PedalTorqueDropBelowCancelThresholdClosesImmediately) {
+  out.torque_cmd = 70.1f;
+  regen_linelock_evaluate(&in, &out, &state, &params, 1);
+
+  EXPECT_FALSE(out.linelock_enabled);
+  EXPECT_FALSE(out.regen_available);
+
+  out = {};
+  out.max_open_circuit_cell_voltage = 4.0f;
+  out.bse2_psi = 250.0f;
+  out.torque_cmd = 49.9f;
+  regen_linelock_evaluate(&in, &out, &state, &params, 1);
+
+  EXPECT_TRUE(out.linelock_enabled);
+  EXPECT_FALSE(out.regen_available);
+  EXPECT_FLOAT_EQ(out.regen_torque_cmd_nm, 0.0f);
+
+  out = {};
+  out.max_open_circuit_cell_voltage = 4.0f;
+  out.bse2_psi = 250.0f;
+  out.torque_cmd = 49.9f;
+  regen_linelock_evaluate(&in, &out, &state, &params, 199);
+
+  EXPECT_TRUE(out.regen_available);
+  EXPECT_TRUE(out.linelock_enabled);
+  EXPECT_NEAR(out.regen_torque_cmd_nm, -33.5f, 0.001f);
+}
+
+TEST_F(RegenLinelockTest, PositiveTorqueBelowThresholdPreclosesWithoutRegenPressure) {
   out.bse2_psi = 0.0f;
   out.torque_cmd = 12.0f;
 
   regen_linelock_evaluate(&in, &out, &state, &params, 200);
 
   EXPECT_FALSE(out.regen_available);
-  EXPECT_FALSE(out.linelock_enabled);
+  EXPECT_TRUE(out.linelock_enabled);
   EXPECT_FLOAT_EQ(out.regen_torque_cmd_nm, 0.0f);
   EXPECT_FLOAT_EQ(out.torque_cmd, 12.0f);
 }
@@ -228,8 +295,8 @@ TEST_F(RegenLinelockTest, PressureOnlyTestModeBypassesAvailabilityGates) {
 
   EXPECT_TRUE(out.regen_available);
   EXPECT_TRUE(out.linelock_enabled);
-  EXPECT_NEAR(out.regen_pressure_requested_torque_nm, 38.0f, 0.001f);
-  EXPECT_NEAR(out.torque_cmd, -38.0f, 0.001f);
+  EXPECT_NEAR(out.regen_pressure_requested_torque_nm, 33.5f, 0.001f);
+  EXPECT_NEAR(out.torque_cmd, -33.5f, 0.001f);
 }
 
 TEST_F(RegenLinelockTest, PressureOnlyTestModeStillWaitsForCloseDelay) {
@@ -255,16 +322,16 @@ TEST_F(RegenLinelockTest, PressureOnlyTestModeKeepsHardCurrentCut) {
   EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
 }
 
-TEST_F(RegenLinelockTest, PressureOnlyTestModeStillOpensAbovePedalThreshold) {
+TEST_F(RegenLinelockTest, PressureOnlyTestModeStillPulsesOpenAbovePedalThreshold) {
   params.regen_linelock.pressure_only_test_mode = true;
-  out.torque_cmd = 20.1f;
+  out.torque_cmd = 70.1f;
 
   regen_linelock_evaluate(&in, &out, &state, &params, 200);
 
   EXPECT_FALSE(out.regen_available);
   EXPECT_FALSE(out.linelock_enabled);
   EXPECT_FLOAT_EQ(out.regen_torque_cmd_nm, 0.0f);
-  EXPECT_NEAR(out.torque_cmd, 20.1f, 0.001f);
+  EXPECT_NEAR(out.torque_cmd, 70.1f, 0.001f);
 }
 
 TEST_F(RegenLinelockTest, HardCurrentCutZerosTorqueAndResetsBelowPressure) {

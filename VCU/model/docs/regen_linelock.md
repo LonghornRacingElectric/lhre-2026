@@ -27,7 +27,7 @@ Regen demand comes from the rear BSE/pre-lock pressure, `out->bse2_psi`.
 Default mapping:
 
 - `0 psi -> 0 Nm`
-- `500 psi -> 5 Nm`
+- `500 psi -> 67 Nm`
 - Linear slope between and beyond those points
 - In normal mode, final command is clipped by the dynamic pack/motor regen limit
   and by the absolute inverter safety cap
@@ -123,18 +123,10 @@ the live max cell voltage has risen.
 
 ## Availability Gates
 
-Regen/linelock can only activate when all of these are true:
+The linelock valve is pre-closed before braking so rear caliper pressure is
+blocked early. The VCU commands the valve closed whenever these gates are true:
 
 - `params.regen_linelock.disable == false`
-- Rear pressure is at least `10 psi`
-- Pre-regen pedal torque request is at or below `20 Nm`. Above `20 Nm`, the VCU
-  keeps linelock open and does not allow regen so the valve can cool and any rear
-  caliper-side pressure can release mechanically.
-- The linelock command has been continuously true for `200 ms`. Before that
-  delay expires, the VCU may command the linelock closed but keeps regen torque
-  at `0 Nm`. This delay gives the current PDU linelock branch one polling period
-  because `ad/pdu-linelock` polls `VCU State.line_lock_enabled` and updates the
-  GPIO every `200 ms`.
 - Inverter current and motor speed inputs are valid
 - Motor speed is above `219.49 rpm`, equivalent to about `5 kph` with a
   `43:13` motor-to-wheel ratio and `7.87 in` loaded tire radius
@@ -143,6 +135,25 @@ Regen/linelock can only activate when all of these are true:
   the filtered OCV latch. A live max cell voltage of `4.093 V` blocks regen.
 - No APPS fault is active
 - No regen hard-current-cut latch is active
+
+The pedal torque request no longer holds the valve open continuously. Instead,
+when pre-regen pedal torque crosses above `70 Nm` on a rising edge, the VCU opens
+the linelock and disables regen for `250 ms`. After that pulse, the VCU
+re-closes the valve as soon as the gates above are still valid. This vents any
+possible rear caliper-side pressure during an acceleration event while keeping
+the default state closed before the next braking zone.
+
+If pre-regen pedal torque drops to or below `50 Nm` during the open pulse, the
+VCU cancels the pulse immediately and commands the valve closed. Regen torque is
+still held at `0 Nm` until the normal `200 ms` close delay has elapsed.
+
+Negative regen torque additionally requires rear pressure at or above `10 psi`
+and a positive pressure-based regen torque request. The linelock command must
+also have been continuously true for `200 ms` before negative torque is allowed.
+Before that delay expires, the VCU may command the linelock closed but keeps
+regen torque at `0 Nm`. This delay gives the current PDU linelock branch one
+polling period because `ad/pdu-linelock` polls `VCU State.line_lock_enabled` and
+updates the GPIO every `200 ms`.
 
 The OCV gate has hysteresis. Once regen becomes available below `520.11 V`, it
 stays available until estimated OCV rises above `522.11 V` by default. This
@@ -256,9 +267,11 @@ under:
     .rear_pressure_zero_torque_psi = 0.0f,
     .rear_pressure_reference_psi = 500.0f,
     .rear_pressure_min_engage_psi = 10.0f,
-    .regen_torque_at_reference_pressure_nm = 5.0f,
+    .regen_torque_at_reference_pressure_nm = 67.0f,
     .absolute_regen_torque_cap_nm = 230.0f,
-    .pedal_torque_release_threshold_nm = 20.0f,
+    .pedal_torque_open_pulse_threshold_nm = 70.0f,
+    .pedal_torque_open_pulse_cancel_threshold_nm = 50.0f,
+    .linelock_open_pulse_ms = 250u,
     .linelock_close_delay_ms = 200u,
     .pack_current_limit_a = 45.0f,
     .hard_cut_margin_pct = 0.20f,

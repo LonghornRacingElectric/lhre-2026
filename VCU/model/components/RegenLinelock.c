@@ -14,7 +14,10 @@ static bool regen_linelock_params_valid(const vcu_parameters_t *params) {
          params->regen_linelock.rear_pressure_reference_psi >
              params->regen_linelock.rear_pressure_zero_torque_psi &&
          params->regen_linelock.regen_torque_at_reference_pressure_nm > 0.0f &&
-         params->regen_linelock.pedal_torque_release_threshold_nm >= 0.0f &&
+         params->regen_linelock.pedal_torque_open_pulse_threshold_nm >= 0.0f &&
+         params->regen_linelock.pedal_torque_open_pulse_cancel_threshold_nm >=
+             0.0f &&
+         params->regen_linelock.linelock_open_pulse_ms > 0u &&
          params->regen_linelock.linelock_close_delay_ms > 0u;
 }
 
@@ -59,6 +62,8 @@ void regen_linelock_init(regen_linelock_state_t *state,
   state->ocv_regen_allowed = false;
   state->current_hard_cut_latched = false;
   state->linelock_commanded_closed_ms = 0u;
+  state->linelock_open_pulse_remaining_ms = 0u;
+  state->previous_pedal_torque_cmd_nm = 0.0f;
 }
 
 static bool regen_linelock_close_delay_elapsed(regen_linelock_state_t *state,
@@ -84,6 +89,40 @@ static bool regen_linelock_close_delay_elapsed(regen_linelock_state_t *state,
 
 static void regen_linelock_reset_command_delay(regen_linelock_state_t *state) {
   state->linelock_commanded_closed_ms = 0u;
+}
+
+static bool regen_linelock_open_pulse_active(regen_linelock_state_t *state,
+                                             float pedal_torque_cmd_nm,
+                                             uint32_t dt_ms,
+                                             const vcu_parameters_t *params) {
+  const float threshold_nm =
+      params->regen_linelock.pedal_torque_open_pulse_threshold_nm;
+  const float cancel_threshold_nm =
+      params->regen_linelock.pedal_torque_open_pulse_cancel_threshold_nm;
+  if (pedal_torque_cmd_nm <= cancel_threshold_nm) {
+    state->linelock_open_pulse_remaining_ms = 0u;
+    state->previous_pedal_torque_cmd_nm = pedal_torque_cmd_nm;
+    return false;
+  }
+
+  const bool rising_edge = state->previous_pedal_torque_cmd_nm <= threshold_nm &&
+                           pedal_torque_cmd_nm > threshold_nm;
+
+  if (rising_edge) {
+    state->linelock_open_pulse_remaining_ms =
+        params->regen_linelock.linelock_open_pulse_ms;
+  }
+
+  const bool active = state->linelock_open_pulse_remaining_ms > 0u;
+  if (active) {
+    state->linelock_open_pulse_remaining_ms =
+        dt_ms >= state->linelock_open_pulse_remaining_ms
+            ? 0u
+            : state->linelock_open_pulse_remaining_ms - dt_ms;
+  }
+
+  state->previous_pedal_torque_cmd_nm = pedal_torque_cmd_nm;
+  return active;
 }
 
 float regen_linelock_measured_pack_regen_current_a(
@@ -205,10 +244,8 @@ void regen_linelock_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
       rear_pressure_psi >=
           params->regen_linelock.rear_pressure_min_engage_psi &&
       out->regen_pressure_requested_torque_nm > 0.0f;
-  const bool pedal_torque_opens_linelock =
-      regen_pressure_requested &&
-      out->torque_cmd >
-          params->regen_linelock.pedal_torque_release_threshold_nm;
+  const bool pedal_torque_open_pulse_active = regen_linelock_open_pulse_active(
+      state, out->torque_cmd, dt_ms, params);
 
   if (state->current_hard_cut_latched &&
       rear_pressure_psi <= params->regen_linelock.hard_cut_reset_pressure_psi) {
@@ -233,10 +270,10 @@ void regen_linelock_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
     out->faults.regen_linelock_any_fault = state->current_hard_cut_latched;
     out->regen_available = !params->regen_linelock.disable &&
                            !state->current_hard_cut_latched &&
-                           !pedal_torque_opens_linelock;
+                           !pedal_torque_open_pulse_active;
 
     if (params->regen_linelock.disable || live_max_cell_voltage_high ||
-        state->current_hard_cut_latched || pedal_torque_opens_linelock ||
+        state->current_hard_cut_latched || pedal_torque_open_pulse_active ||
         pressure_only_torque_nm <= 0.0f) {
       if (state->current_hard_cut_latched) {
         out->torque_cmd = 0.0f;
@@ -285,10 +322,15 @@ void regen_linelock_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
       !params->regen_linelock.disable && input_valid &&
       state->ocv_regen_allowed && !live_max_cell_voltage_high && !temp_low &&
       !temp_high && !motor_speed_low && !state->current_hard_cut_latched &&
-      !out->faults.apps_any_fault && !pedal_torque_opens_linelock &&
+      !out->faults.apps_any_fault && !pedal_torque_open_pulse_active &&
       regen_pressure_requested;
+  const bool linelock_eligible =
+      !params->regen_linelock.disable && input_valid &&
+      state->ocv_regen_allowed && !live_max_cell_voltage_high && !temp_low &&
+      !temp_high && !motor_speed_low && !state->current_hard_cut_latched &&
+      !out->faults.apps_any_fault && !pedal_torque_open_pulse_active;
 
-  if (state->current_hard_cut_latched || pedal_torque_opens_linelock) {
+  if (state->current_hard_cut_latched || pedal_torque_open_pulse_active) {
     if (state->current_hard_cut_latched) {
       out->torque_cmd = 0.0f;
     }
@@ -301,11 +343,17 @@ void regen_linelock_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
 
   const float regen_torque_nm = clamp_f(out->regen_pressure_requested_torque_nm,
                                         0.0f, out->regen_torque_limit_nm);
-  const bool command_linelock = regen_eligible && regen_torque_nm > 0.0f;
+  const bool command_linelock = linelock_eligible;
   out->linelock_enabled = command_linelock;
 
   if (!regen_linelock_close_delay_elapsed(state, command_linelock, dt_ms,
                                           params)) {
+    out->regen_available = false;
+    out->regen_torque_cmd_nm = 0.0f;
+    return;
+  }
+
+  if (!regen_eligible || regen_torque_nm <= 0.0f) {
     out->regen_available = false;
     out->regen_torque_cmd_nm = 0.0f;
     return;

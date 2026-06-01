@@ -205,8 +205,13 @@ PYBIND11_MODULE(vcu_model_sim, m) {
       .def_readwrite("absolute_regen_torque_cap_nm",
                      &regen_linelock_params_t::absolute_regen_torque_cap_nm)
       .def_readwrite(
-          "pedal_torque_release_threshold_nm",
-          &regen_linelock_params_t::pedal_torque_release_threshold_nm)
+          "pedal_torque_open_pulse_threshold_nm",
+          &regen_linelock_params_t::pedal_torque_open_pulse_threshold_nm)
+      .def_readwrite(
+          "pedal_torque_open_pulse_cancel_threshold_nm",
+          &regen_linelock_params_t::pedal_torque_open_pulse_cancel_threshold_nm)
+      .def_readwrite("linelock_open_pulse_ms",
+                     &regen_linelock_params_t::linelock_open_pulse_ms)
       .def_readwrite("linelock_close_delay_ms",
                      &regen_linelock_params_t::linelock_close_delay_ms)
       .def_readwrite("pack_current_limit_a",
