@@ -19,7 +19,22 @@ PYBIND11_MODULE(vcu_model_sim, m) {
       .def_readwrite("bse1_raw", &vcu_inputs_t::bse1_raw)
       .def_readwrite("bse2_raw", &vcu_inputs_t::bse2_raw)
       .def_readwrite("drive_switch", &vcu_inputs_t::drive_switch)
-      .def_readwrite("contactors_closed", &vcu_inputs_t::contactors_closed);
+      .def_readwrite("contactors_closed", &vcu_inputs_t::contactors_closed)
+      .def_readwrite("motor_speed_rpm", &vcu_inputs_t::motor_speed_rpm)
+      .def_readwrite("min_cell_voltage_v", &vcu_inputs_t::min_cell_voltage_v)
+      .def_readwrite("max_cell_voltage_v", &vcu_inputs_t::max_cell_voltage_v)
+      .def_readwrite("battery_voltage_v", &vcu_inputs_t::battery_voltage_v)
+      .def_readwrite("battery_current_a", &vcu_inputs_t::battery_current_a)
+      .def_readwrite("battery_soc_pct", &vcu_inputs_t::battery_soc_pct)
+      .def_readwrite("min_cell_temp_c", &vcu_inputs_t::min_cell_temp_c)
+      .def_readwrite("max_cell_temp_c", &vcu_inputs_t::max_cell_temp_c)
+      .def_readwrite("motor_speed_valid", &vcu_inputs_t::motor_speed_valid)
+      .def_readwrite("inverter_voltage_valid",
+                     &vcu_inputs_t::inverter_voltage_valid)
+      .def_readwrite("inverter_current_valid",
+                     &vcu_inputs_t::inverter_current_valid)
+      .def_readwrite("battery_pack_status_valid",
+                     &vcu_inputs_t::battery_pack_status_valid);
 
   // ── vcu_outputs_t (nested faults / debug) ─────────────────────────────
   py::class_<vcu_outputs_t> outputs(m, "VcuOutputs");
@@ -31,6 +46,21 @@ PYBIND11_MODULE(vcu_model_sim, m) {
       .def_readwrite("accel_pedal_travel", &vcu_outputs_t::accel_pedal_travel)
       // Torque command
       .def_readwrite("torque_cmd", &vcu_outputs_t::torque_cmd)
+      .def_readwrite("linelock_enabled", &vcu_outputs_t::linelock_enabled)
+      .def_readwrite("regen_available", &vcu_outputs_t::regen_available)
+      .def_readwrite("regen_pressure_requested_torque_nm",
+                     &vcu_outputs_t::regen_pressure_requested_torque_nm)
+      .def_readwrite("regen_torque_limit_nm",
+                     &vcu_outputs_t::regen_torque_limit_nm)
+      .def_readwrite("regen_torque_cmd_nm", &vcu_outputs_t::regen_torque_cmd_nm)
+      .def_readwrite("regen_pack_current_limit_a",
+                     &vcu_outputs_t::regen_pack_current_limit_a)
+      .def_readwrite("regen_measured_pack_current_a",
+                     &vcu_outputs_t::regen_measured_pack_current_a)
+      .def_readwrite("regen_estimated_pack_ocv_v",
+                     &vcu_outputs_t::regen_estimated_pack_ocv_v)
+      .def_readwrite("max_open_circuit_cell_voltage",
+                     &vcu_outputs_t::max_open_circuit_cell_voltage)
       .def_readwrite("inverter_enable", &vcu_outputs_t::inverter_enable)
       // Status flags
       .def_readwrite("brake_pressed", &vcu_outputs_t::brake_pressed)
@@ -68,6 +98,24 @@ PYBIND11_MODULE(vcu_model_sim, m) {
       .def_readwrite("bse2_over_range", &faults_t::bse2_over_range)
       .def_readwrite("brake_latched", &faults_t::brake_latched)
       .def_readwrite("brake_any_fault", &faults_t::brake_any_fault)
+      .def_readwrite("regen_linelock_input_invalid",
+                     &faults_t::regen_linelock_input_invalid)
+      .def_readwrite("regen_linelock_ocv_too_high",
+                     &faults_t::regen_linelock_ocv_too_high)
+      .def_readwrite("regen_linelock_live_cell_voltage_high",
+                     &faults_t::regen_linelock_live_cell_voltage_high)
+      .def_readwrite("regen_linelock_pack_temp_low",
+                     &faults_t::regen_linelock_pack_temp_low)
+      .def_readwrite("regen_linelock_pack_temp_high",
+                     &faults_t::regen_linelock_pack_temp_high)
+      .def_readwrite("regen_linelock_motor_speed_low",
+                     &faults_t::regen_linelock_motor_speed_low)
+      .def_readwrite("regen_linelock_current_hard_cut",
+                     &faults_t::regen_linelock_current_hard_cut)
+      .def_readwrite("regen_linelock_command_mismatch",
+                     &faults_t::regen_linelock_command_mismatch)
+      .def_readwrite("regen_linelock_any_fault",
+                     &faults_t::regen_linelock_any_fault)
       .def_readwrite("any_fault", &faults_t::any_fault);
 
   using debug_t = decltype(vcu_outputs_t::debug);
@@ -87,7 +135,8 @@ PYBIND11_MODULE(vcu_model_sim, m) {
                      &vcu_parameters_t::buzzer_duration_ms)
       .def_readwrite("apps", &vcu_parameters_t::apps)
       .def_readwrite("bse", &vcu_parameters_t::bse)
-      .def_readwrite("torque_map", &vcu_parameters_t::torque_map);
+      .def_readwrite("torque_map", &vcu_parameters_t::torque_map)
+      .def_readwrite("regen_linelock", &vcu_parameters_t::regen_linelock);
 
   using apps_params_t = decltype(vcu_parameters_t::apps);
   py::class_<apps_params_t>(params, "AppsParams")
@@ -131,10 +180,66 @@ PYBIND11_MODULE(vcu_model_sim, m) {
       .def_readwrite("brake_light_min_pct", &bse_params_t::brake_light_min_pct)
       .def_readwrite("brake_light_max_pct", &bse_params_t::brake_light_max_pct);
 
-//   using torque_map_params_t = decltype(vcu_parameters_t::torque_map);
-//   py::class_<torque_map_params_t>(params, "TorqueMapParams")
-//       .def(py::init<>())
-//       .def_readwrite("max_torque_nm", &torque_map_params_t::max_torque_nm);
+  //   using torque_map_params_t = decltype(vcu_parameters_t::torque_map);
+  //   py::class_<torque_map_params_t>(params, "TorqueMapParams")
+  //       .def(py::init<>())
+  //       .def_readwrite("max_torque_nm", &torque_map_params_t::max_torque_nm);
+
+  using regen_linelock_params_t = decltype(vcu_parameters_t::regen_linelock);
+  py::class_<regen_linelock_params_t>(params, "RegenLinelockParams")
+      .def(py::init<>())
+      .def_readwrite("disable", &regen_linelock_params_t::disable)
+      .def_readwrite("pressure_only_test_mode",
+                     &regen_linelock_params_t::pressure_only_test_mode)
+      .def_readwrite("dc_bus_current_regen_is_negative",
+                     &regen_linelock_params_t::dc_bus_current_regen_is_negative)
+      .def_readwrite("rear_pressure_zero_torque_psi",
+                     &regen_linelock_params_t::rear_pressure_zero_torque_psi)
+      .def_readwrite("rear_pressure_reference_psi",
+                     &regen_linelock_params_t::rear_pressure_reference_psi)
+      .def_readwrite("rear_pressure_min_engage_psi",
+                     &regen_linelock_params_t::rear_pressure_min_engage_psi)
+      .def_readwrite(
+          "regen_torque_at_reference_pressure_nm",
+          &regen_linelock_params_t::regen_torque_at_reference_pressure_nm)
+      .def_readwrite("absolute_regen_torque_cap_nm",
+                     &regen_linelock_params_t::absolute_regen_torque_cap_nm)
+      .def_readwrite(
+          "pedal_torque_open_pulse_threshold_nm",
+          &regen_linelock_params_t::pedal_torque_open_pulse_threshold_nm)
+      .def_readwrite(
+          "pedal_torque_open_pulse_cancel_threshold_nm",
+          &regen_linelock_params_t::pedal_torque_open_pulse_cancel_threshold_nm)
+      .def_readwrite("linelock_open_pulse_ms",
+                     &regen_linelock_params_t::linelock_open_pulse_ms)
+      .def_readwrite("linelock_close_delay_ms",
+                     &regen_linelock_params_t::linelock_close_delay_ms)
+      .def_readwrite("pack_current_limit_a",
+                     &regen_linelock_params_t::pack_current_limit_a)
+      .def_readwrite("hard_cut_margin_pct",
+                     &regen_linelock_params_t::hard_cut_margin_pct)
+      .def_readwrite("hard_cut_reset_pressure_psi",
+                     &regen_linelock_params_t::hard_cut_reset_pressure_psi)
+      .def_readwrite("pack_terminal_voltage_limit_v",
+                     &regen_linelock_params_t::pack_terminal_voltage_limit_v)
+      .def_readwrite("pack_resistance_ohm",
+                     &regen_linelock_params_t::pack_resistance_ohm)
+      .def_readwrite("pack_series_cell_count",
+                     &regen_linelock_params_t::pack_series_cell_count)
+      .def_readwrite("dynamic_voltage_reserve_v",
+                     &regen_linelock_params_t::dynamic_voltage_reserve_v)
+      .def_readwrite("pack_ocv_enable_v",
+                     &regen_linelock_params_t::pack_ocv_enable_v)
+      .def_readwrite("pack_ocv_disable_hysteresis_v",
+                     &regen_linelock_params_t::pack_ocv_disable_hysteresis_v)
+      .def_readwrite("max_cell_voltage_regen_disable_v",
+                     &regen_linelock_params_t::max_cell_voltage_regen_disable_v)
+      .def_readwrite("min_cell_temp_c",
+                     &regen_linelock_params_t::min_cell_temp_c)
+      .def_readwrite("max_cell_temp_c",
+                     &regen_linelock_params_t::max_cell_temp_c)
+      .def_readwrite("min_motor_speed_rpm",
+                     &regen_linelock_params_t::min_motor_speed_rpm);
 
   // ── vcu_model_context_t ───────────────────────────────────────────────
   py::class_<vcu_model_context_t>(m, "VcuModelContext")

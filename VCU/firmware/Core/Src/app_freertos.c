@@ -101,9 +101,7 @@ const osThreadAttr_t controlTask_attributes = {
 /* USER CODE BEGIN Variables */
 
 static vcu_parameters_t s_params;
-
 static vcu_model_context_t ctx = {0};
-
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
@@ -351,13 +349,28 @@ void StartControlTask(void *argument) {
     in.drive_switch = is_drive_switch_pressed();
 
     in.contactors_closed = hvc_tractive_ready();
+    inverter_voltages_t inverter_voltages = vcu_can_get_inverter_voltages();
+    inverter_currents_t inverter_currents = vcu_can_get_inverter_currents();
+    vcu_battery_pack_status_t pack_status = vcu_can_get_battery_pack_status();
+
     in.motor_speed_rpm = fabsf(vcu_can_get_motor_speed_rpm());
+    in.motor_speed_valid = vcu_can_is_motor_speed_valid();
     in.min_cell_voltage_v = vcu_can_get_min_cell_voltage_v();
+    in.max_cell_voltage_v = vcu_can_get_max_cell_voltage_v();
     if (in.min_cell_voltage_v <= 0.0f) {
       in.min_cell_voltage_v = s_params.torque_map.low_cell_derate_start_v;
     }
-    in.battery_voltage_v = vcu_can_get_inverter_voltages().dc_bus;
-    in.battery_current_a = vcu_can_get_inverter_currents().dc_bus;
+    if (in.max_cell_voltage_v <= 0.0f) {
+      in.max_cell_voltage_v = in.min_cell_voltage_v;
+    }
+    in.battery_voltage_v = inverter_voltages.dc_bus;
+    in.battery_current_a = inverter_currents.dc_bus;
+    in.battery_soc_pct = pack_status.state_of_charge_pct;
+    in.min_cell_temp_c = pack_status.min_cell_temp_c;
+    in.max_cell_temp_c = pack_status.max_cell_temp_c;
+    in.inverter_voltage_valid = vcu_can_is_inverter_voltage_valid();
+    in.inverter_current_valid = vcu_can_is_inverter_current_valid();
+    in.battery_pack_status_valid = pack_status.valid;
 
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
