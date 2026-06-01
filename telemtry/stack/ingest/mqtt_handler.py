@@ -97,10 +97,18 @@ class MQTTHandler:
         self.csv_worker = threading.Thread(target=self._csv_worker, daemon=True)
         self.csv_worker.start()
         
-        # gRPC bridge client instead of Kafka
-        bridge_addr = 'kafka-bridge:50051' if os.getenv("IN_DOCKER") else 'localhost:50051'
-        self.grpc_channel = grpc.insecure_channel(bridge_addr)
+        # gRPC bridge client instead of Kafka. A single startup channel used to
+        # wedge silently after an MQTT reconnect (DB kept flowing, realtime feed
+        # stalled), so the channel now uses keepalive and is recreated on error by
+        # a dedicated worker thread. Sends are queued off the paho MQTT loop so a
+        # bad channel can never block that thread (which previously tripped the
+        # keepalive timeout -> rc16 disconnects).
+        self.bridge_addr = 'kafka-bridge:50051' if os.getenv("IN_DOCKER") else 'localhost:50051'
+        self.grpc_channel = self._make_bridge_channel()
         self.bridge_stub = bridge_pb2_grpc.BridgeServiceStub(self.grpc_channel)
+        self.bridge_queue = queue.Queue(maxsize=30000)
+        self.bridge_worker = threading.Thread(target=self._bridge_worker, daemon=True)
+        self.bridge_worker.start()
 
     @staticmethod
     def on_connect(client: mqtt_client.Client, userdata, flags: dict, rc: int):
@@ -172,6 +180,10 @@ class MQTTHandler:
                 pass
         try:
             self.csv_queue.put_nowait(None)
+        except queue.Full:
+            pass
+        try:
+            self.bridge_queue.put_nowait(None)
         except queue.Full:
             pass
 
@@ -374,25 +386,63 @@ class MQTTHandler:
         else:
             logging.warning(f'No corresponding topic found for {msg.topic}')
     
+    def _make_bridge_channel(self):
+        '''
+        Create a keepalive-enabled gRPC channel to the bridge. Keepalive keeps an
+        idle channel healthy; the worker recreates the channel on RpcError so a
+        dropped connection self-heals instead of silently stalling the realtime feed.
+        '''
+        return grpc.insecure_channel(self.bridge_addr, options=[
+            ('grpc.keepalive_time_ms', 10000),
+            ('grpc.keepalive_timeout_ms', 5000),
+            ('grpc.keepalive_permit_without_calls', 1),
+            ('grpc.max_reconnect_backoff_ms', 5000),
+        ])
+
     def _send_to_bridge(self, payload: bytes, car: str):
         '''
-        Send protobuf payload to the Go bridge service via gRPC asynchronously.
-        This is non-blocking from the caller's perspective but uses a fast IPC.
+        Hand the protobuf payload to the bridge-forward worker. Non-blocking: this
+        runs on the paho MQTT thread, so it must never do network I/O — a wedged
+        channel here previously stalled forwarding AND tripped MQTT keepalive (rc16).
 
         :param payload:     bytes       protobuf encoded payload
-        :param car:         str         car type ("Nightwatch" or "Angelique")
+        :param car:         str         car type ("Orion" / "Nightwatch" / "Angelique")
         '''
-        request = bridge_pb2.SensorDataRequest(payload=payload, car_type=car)
-        future = self.bridge_stub.SendSensorData.future(request)
-        future.add_done_callback(self._grpc_callback)
-
-    def _grpc_callback(self, future):
         try:
-            response = future.result()
-            if not response.success:
-                logging.warning(f'Bridge returned failure: {response.message}')
-        except grpc.RpcError as e:
-            logging.error(f'gRPC error sending to bridge: {e.code()} - {e.details()}')
+            self.bridge_queue.put_nowait((payload, car))
+        except queue.Full:
+            logging.error(f'Bridge queue full; dropping realtime forward for {car}')
+
+    def _bridge_worker(self):
+        '''
+        Dedicated thread that drains the bridge queue and forwards to the Go bridge
+        over gRPC. On RpcError it recreates the channel/stub so the realtime path
+        self-heals (the prior fire-and-forget futures wedged silently on reconnect,
+        leaving Grafana with no data while DB ingest kept flowing).
+        '''
+        while True:
+            item = self.bridge_queue.get()
+            if item is None:
+                self.bridge_queue.task_done()
+                break
+            payload, car = item
+            try:
+                request = bridge_pb2.SensorDataRequest(payload=payload, car_type=car)
+                response = self.bridge_stub.SendSensorData(request, timeout=2)
+                if not response.success:
+                    logging.warning(f'Bridge returned failure: {response.message}')
+            except grpc.RpcError as e:
+                logging.error(f'gRPC error sending to bridge: {e.code()} - {e.details()}; recreating channel')
+                try:
+                    self.grpc_channel.close()
+                except Exception:
+                    pass
+                self.grpc_channel = self._make_bridge_channel()
+                self.bridge_stub = bridge_pb2_grpc.BridgeServiceStub(self.grpc_channel)
+            except Exception as e:
+                logging.error(f'Unexpected error forwarding to bridge: {e}')
+            finally:
+                self.bridge_queue.task_done()
 
     def _flask_handler(self, payload):
         '''
