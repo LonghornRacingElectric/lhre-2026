@@ -93,6 +93,7 @@ typedef struct {
     float regen_torque_at_reference_pressure_nm;
     float absolute_regen_torque_cap_nm;
     float pedal_torque_open_pulse_threshold_nm;
+    float pedal_torque_open_pulse_cancel_threshold_nm;
     uint32_t linelock_open_pulse_ms;
     uint32_t linelock_close_delay_ms;
 

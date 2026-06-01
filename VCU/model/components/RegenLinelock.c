@@ -15,6 +15,8 @@ static bool regen_linelock_params_valid(const vcu_parameters_t *params) {
              params->regen_linelock.rear_pressure_zero_torque_psi &&
          params->regen_linelock.regen_torque_at_reference_pressure_nm > 0.0f &&
          params->regen_linelock.pedal_torque_open_pulse_threshold_nm >= 0.0f &&
+         params->regen_linelock.pedal_torque_open_pulse_cancel_threshold_nm >=
+             0.0f &&
          params->regen_linelock.linelock_open_pulse_ms > 0u &&
          params->regen_linelock.linelock_close_delay_ms > 0u;
 }
@@ -95,6 +97,14 @@ static bool regen_linelock_open_pulse_active(regen_linelock_state_t *state,
                                              const vcu_parameters_t *params) {
   const float threshold_nm =
       params->regen_linelock.pedal_torque_open_pulse_threshold_nm;
+  const float cancel_threshold_nm =
+      params->regen_linelock.pedal_torque_open_pulse_cancel_threshold_nm;
+  if (pedal_torque_cmd_nm <= cancel_threshold_nm) {
+    state->linelock_open_pulse_remaining_ms = 0u;
+    state->previous_pedal_torque_cmd_nm = pedal_torque_cmd_nm;
+    return false;
+  }
+
   const bool rising_edge = state->previous_pedal_torque_cmd_nm <= threshold_nm &&
                            pedal_torque_cmd_nm > threshold_nm;
 

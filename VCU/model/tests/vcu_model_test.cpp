@@ -63,7 +63,8 @@ protected:
     params.regen_linelock.regen_torque_at_reference_pressure_nm = 76.0f;
     params.regen_linelock.absolute_regen_torque_cap_nm = 230.0f;
     params.regen_linelock.pedal_torque_open_pulse_threshold_nm = 70.0f;
-    params.regen_linelock.linelock_open_pulse_ms = 500u;
+    params.regen_linelock.pedal_torque_open_pulse_cancel_threshold_nm = 50.0f;
+    params.regen_linelock.linelock_open_pulse_ms = 250u;
     params.regen_linelock.linelock_close_delay_ms = 200u;
     params.regen_linelock.pack_current_limit_a = 45.0f;
     params.regen_linelock.hard_cut_margin_pct = 0.20f;

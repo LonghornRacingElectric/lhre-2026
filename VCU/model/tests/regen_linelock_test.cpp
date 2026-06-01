@@ -19,7 +19,8 @@ protected:
     params.regen_linelock.regen_torque_at_reference_pressure_nm = 76.0f;
     params.regen_linelock.absolute_regen_torque_cap_nm = 230.0f;
     params.regen_linelock.pedal_torque_open_pulse_threshold_nm = 70.0f;
-    params.regen_linelock.linelock_open_pulse_ms = 500u;
+    params.regen_linelock.pedal_torque_open_pulse_cancel_threshold_nm = 50.0f;
+    params.regen_linelock.linelock_open_pulse_ms = 250u;
     params.regen_linelock.linelock_close_delay_ms = 200u;
     params.regen_linelock.pack_current_limit_a = 45.0f;
     params.regen_linelock.hard_cut_margin_pct = 0.20f;
@@ -99,7 +100,7 @@ TEST_F(RegenLinelockTest, CloseDelayResetsWhenLinelockCommandDrops) {
   out = {};
   out.max_open_circuit_cell_voltage = 4.0f;
   out.bse2_psi = 250.0f;
-  out.torque_cmd = 71.0f;
+  in.max_cell_voltage_v = 4.093f;
   regen_linelock_evaluate(&in, &out, &state, &params, 10);
 
   EXPECT_FALSE(out.linelock_enabled);
@@ -107,13 +108,7 @@ TEST_F(RegenLinelockTest, CloseDelayResetsWhenLinelockCommandDrops) {
   out = {};
   out.max_open_circuit_cell_voltage = 4.0f;
   out.bse2_psi = 250.0f;
-  regen_linelock_evaluate(&in, &out, &state, &params, 490);
-
-  EXPECT_FALSE(out.linelock_enabled);
-
-  out = {};
-  out.max_open_circuit_cell_voltage = 4.0f;
-  out.bse2_psi = 250.0f;
+  in.max_cell_voltage_v = 4.0f;
   regen_linelock_evaluate(&in, &out, &state, &params, 60);
 
   EXPECT_TRUE(out.linelock_enabled);
@@ -222,7 +217,7 @@ TEST_F(RegenLinelockTest, PedalTorqueHeldAboveThresholdClosesAfterOpenPulse) {
   out.max_open_circuit_cell_voltage = 4.0f;
   out.bse2_psi = 250.0f;
   out.torque_cmd = 70.1f;
-  regen_linelock_evaluate(&in, &out, &state, &params, 499);
+  regen_linelock_evaluate(&in, &out, &state, &params, 249);
 
   EXPECT_FALSE(out.linelock_enabled);
   EXPECT_FALSE(out.regen_available);
@@ -241,6 +236,34 @@ TEST_F(RegenLinelockTest, PedalTorqueHeldAboveThresholdClosesAfterOpenPulse) {
   out.bse2_psi = 250.0f;
   out.torque_cmd = 70.1f;
   regen_linelock_evaluate(&in, &out, &state, &params, 1);
+
+  EXPECT_TRUE(out.regen_available);
+  EXPECT_TRUE(out.linelock_enabled);
+  EXPECT_NEAR(out.regen_torque_cmd_nm, -38.0f, 0.001f);
+}
+
+TEST_F(RegenLinelockTest, PedalTorqueDropBelowCancelThresholdClosesImmediately) {
+  out.torque_cmd = 70.1f;
+  regen_linelock_evaluate(&in, &out, &state, &params, 1);
+
+  EXPECT_FALSE(out.linelock_enabled);
+  EXPECT_FALSE(out.regen_available);
+
+  out = {};
+  out.max_open_circuit_cell_voltage = 4.0f;
+  out.bse2_psi = 250.0f;
+  out.torque_cmd = 49.9f;
+  regen_linelock_evaluate(&in, &out, &state, &params, 1);
+
+  EXPECT_TRUE(out.linelock_enabled);
+  EXPECT_FALSE(out.regen_available);
+  EXPECT_FLOAT_EQ(out.regen_torque_cmd_nm, 0.0f);
+
+  out = {};
+  out.max_open_circuit_cell_voltage = 4.0f;
+  out.bse2_psi = 250.0f;
+  out.torque_cmd = 49.9f;
+  regen_linelock_evaluate(&in, &out, &state, &params, 199);
 
   EXPECT_TRUE(out.regen_available);
   EXPECT_TRUE(out.linelock_enabled);
