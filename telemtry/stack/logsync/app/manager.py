@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from .config import config
 from .models import FileProgress, Job, JobState, RemoteFile
 from .motion import MotionMonitor
-from .rsync import RSYNC_OK_CODES, Progress, RsyncRun, build_cmd
+from .rsync import RSYNC_OK_CODES, RSYNC_TRANSIENT_CODES, Progress, RsyncRun, build_cmd
 from .store import Store
 
 
@@ -123,12 +123,16 @@ class JobManager:
         ctrl = self._controls.get(job_id)
         if not job or not ctrl:
             return False
-        if job.state not in (JobState.PAUSED, JobState.PAUSED_MOTION, JobState.QUEUED):
+        # FAILED is resumable too: the partial is still on disk under the same
+        # job id, so re-running continues from it (rsync --append-verify).
+        if job.state not in (JobState.PAUSED, JobState.PAUSED_MOTION,
+                             JobState.QUEUED, JobState.FAILED):
             return False
         ctrl.paused = False
         ctrl.resume.set()
-        # If it had yielded the worker (manual pause), put it back in line.
-        if job.state == JobState.PAUSED:
+        # If it had yielded the worker (manual pause / failure), put it back in line.
+        if job.state in (JobState.PAUSED, JobState.FAILED):
+            job.error = None
             self._set_state(job, JobState.QUEUED)
             self._queue.put_nowait(job.id)
         return True
@@ -228,8 +232,11 @@ class JobManager:
             self._set_state(job, JobState.COMPLETED)
             return
 
-        last_progress_bytes = -1
+        # Measure progress from where we actually are (a resumed job already has
+        # its partial on disk), so the first error isn't miscounted as progress.
+        last_progress_bytes = job.transferred_bytes
         stalled_rounds = 0
+        consecutive_fail = 0   # consecutive no-progress rsync errors (reset on progress)
 
         while True:
             if ctrl.cancel.is_set():
@@ -267,6 +274,7 @@ class JobManager:
 
             # --- transfer ---
             job.attempts += 1
+            job.error = None   # clear any stale "waiting to reconnect" note
             self._set_state(job, JobState.RUNNING)
 
             def on_progress(p: Progress) -> None:
@@ -299,13 +307,44 @@ class JobManager:
                 last_progress_bytes = job.transferred_bytes
                 continue
 
-            # rsync error — retry with backoff, then give up.
-            if job.attempts >= config.rsync_max_retries:
-                job.error = f"rsync failed (exit {rc}): {run.stderr_tail}"
-                self._set_state(job, JobState.FAILED)
-                return
+            # rsync exited with an error.
+            progressed = job.transferred_bytes > last_progress_bytes
+            last_progress_bytes = job.transferred_bytes
+            job.rate_bps = 0.0
+            if progressed:
+                consecutive_fail = 0
+
+            if rc in RSYNC_TRANSIENT_CODES:
+                # The car went away (cellular drop / LV power cycle). This is
+                # expected — wait and keep retrying forever; rsync --append-verify
+                # picks up the partial when the Pi comes back. Never fail here.
+                if not progressed:
+                    consecutive_fail += 1
+                job.error = f"car unreachable (rsync exit {rc}); waiting to reconnect…"
+                self._set_state(job, JobState.RUNNING)
+                backoff = min(config.rsync_max_backoff_s,
+                              config.rsync_retry_backoff_s * max(1, consecutive_fail))
+                await self._interruptible_sleep(backoff, ctrl)
+                continue
+
+            # Non-transient error. If we still made progress, just retry; only
+            # give up after several consecutive no-progress attempts.
+            if not progressed:
+                consecutive_fail += 1
+                if consecutive_fail >= config.rsync_max_retries:
+                    job.error = f"rsync failed (exit {rc}): {run.stderr_tail}"
+                    self._set_state(job, JobState.FAILED)
+                    return
             self._persist(job)
-            await asyncio.sleep(config.rsync_retry_backoff_s)
+            await self._interruptible_sleep(config.rsync_retry_backoff_s, ctrl)
+
+    async def _interruptible_sleep(self, seconds: float, ctrl: _Control) -> None:
+        """Sleep up to `seconds`, but wake early on cancel/pause so the worker
+        (single-threaded, one job at a time) stays responsive during long
+        'waiting to reconnect' backoffs."""
+        end = time.monotonic() + seconds
+        while time.monotonic() < end and not ctrl.cancel.is_set() and not ctrl.paused:
+            await asyncio.sleep(min(0.5, max(0.0, end - time.monotonic())))
 
     async def _supervise(self, job: Job, ctrl: _Control, run: RsyncRun) -> int | None:
         """Wait for rsync, preempting on cancel / manual pause / motion.

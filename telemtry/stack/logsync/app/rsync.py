@@ -150,3 +150,15 @@ class RsyncRun:
 # rsync exit codes that are safe to treat as "succeeded for our purposes".
 # 0 = ok; 24 = some source files vanished (a rotated/closed log) which is benign.
 RSYNC_OK_CODES = {0, 24}
+
+# Exit codes meaning the source / transport went away rather than a real fault:
+#   5  = error starting client-server protocol
+#   10 = error in socket I/O
+#   12 = error in rsync protocol data stream
+#   30 = timeout in data send/receive
+#   35 = timeout waiting for daemon connection
+#   255 = ssh transport failure (host unreachable / connection refused or closed)
+# This is the EXPECTED failure for a car Pi on a cellular link or being power-
+# cycled overnight. The worker waits and retries these indefinitely (auto-resuming
+# via --append-verify when the Pi returns) instead of failing the job.
+RSYNC_TRANSIENT_CODES = {5, 10, 12, 30, 35, 255}
