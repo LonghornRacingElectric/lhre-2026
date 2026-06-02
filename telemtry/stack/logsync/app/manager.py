@@ -232,7 +232,9 @@ class JobManager:
             self._set_state(job, JobState.COMPLETED)
             return
 
-        last_progress_bytes = -1
+        # Measure progress from where we actually are (a resumed job already has
+        # its partial on disk), so the first error isn't miscounted as progress.
+        last_progress_bytes = job.transferred_bytes
         stalled_rounds = 0
         consecutive_fail = 0   # consecutive no-progress rsync errors (reset on progress)
 
@@ -322,7 +324,7 @@ class JobManager:
                 self._set_state(job, JobState.RUNNING)
                 backoff = min(config.rsync_max_backoff_s,
                               config.rsync_retry_backoff_s * max(1, consecutive_fail))
-                await asyncio.sleep(backoff)
+                await self._interruptible_sleep(backoff, ctrl)
                 continue
 
             # Non-transient error. If we still made progress, just retry; only
@@ -334,7 +336,15 @@ class JobManager:
                     self._set_state(job, JobState.FAILED)
                     return
             self._persist(job)
-            await asyncio.sleep(config.rsync_retry_backoff_s)
+            await self._interruptible_sleep(config.rsync_retry_backoff_s, ctrl)
+
+    async def _interruptible_sleep(self, seconds: float, ctrl: _Control) -> None:
+        """Sleep up to `seconds`, but wake early on cancel/pause so the worker
+        (single-threaded, one job at a time) stays responsive during long
+        'waiting to reconnect' backoffs."""
+        end = time.monotonic() + seconds
+        while time.monotonic() < end and not ctrl.cancel.is_set() and not ctrl.paused:
+            await asyncio.sleep(min(0.5, max(0.0, end - time.monotonic())))
 
     async def _supervise(self, job: Job, ctrl: _Control, run: RsyncRun) -> int | None:
         """Wait for rsync, preempting on cancel / manual pause / motion.
