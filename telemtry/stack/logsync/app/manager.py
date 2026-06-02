@@ -103,7 +103,8 @@ class JobManager:
             state=JobState.QUEUED,
             created_ms=_now_ms(),
             updated_ms=_now_ms(),
-            files=[FileProgress(name=f.name, size=f.size) for f in files],
+            files=[FileProgress(name=f.name, size=f.size,
+                                start_ms=f.start_ms, end_ms=f.end_ms) for f in files],
             total_bytes=sum(f.size for f in files),
         )
         self._jobs[job_id] = job
