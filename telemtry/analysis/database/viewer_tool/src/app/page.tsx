@@ -5,10 +5,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { AppState } from '@/lib/types';
 
-const SplashBox = ({ href, title, imageUrl, textColor }: { href: string; title: string; imageUrl: string; textColor?: string }) => (
+const SplashBox = ({ href, title, imageUrl, textColor, gradient }: { href: string; title: string; imageUrl?: string; textColor?: string; gradient?: string }) => (
   <Link href={href} className="flex-grow">
-    <div className={`relative flex items-center justify-center h-full rounded-lg shadow-lg cursor-pointer overflow-hidden group`}>
-      <Image src={imageUrl} alt={title} fill style={{ objectFit: "cover" }} className="transition-transform duration-300 group-hover:scale-105" />
+    <div className={`relative flex items-center justify-center h-full min-h-[180px] rounded-lg shadow-lg cursor-pointer overflow-hidden group ${gradient ?? ''}`}>
+      {imageUrl && <Image src={imageUrl} alt={title} fill style={{ objectFit: "cover" }} className="transition-transform duration-300 group-hover:scale-105" />}
       <span className={`relative text-3xl font-bold text-center z-20 ${textColor || 'text-white'}`}>{title}</span>
     </div>
   </Link>
@@ -44,6 +44,7 @@ export default function SplashPage() {
         <SplashBox href="/replay" title="Replay Mode" imageUrl="/images/replay.png" textColor="text-black" />
         <SplashBox href="/tune" title="Texas Tune" imageUrl="/tune.png" textColor="text-black" />
         <SplashBox href="/dashboards" title="Grafana & Database" imageUrl="/graph.png" />
+        <SplashBox href="/log-sync" title="Log Sync" gradient="bg-gradient-to-br from-slate-700 to-slate-900 group-hover:from-slate-600 group-hover:to-slate-800 transition-colors" />
       </div>
     </div>
   );
