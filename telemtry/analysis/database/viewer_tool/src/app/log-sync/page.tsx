@@ -113,9 +113,11 @@ export default function LogSyncPage() {
   }, []);
 
   const doPreview = async () => {
+    const f = fromMs(), t = toMs();
+    if (Number.isNaN(f) || Number.isNaN(t)) { toast.error('Invalid start or end time'); return; }
     setBusy(true);
     try {
-      const r = await fetch(`/api/logsync/logs?from_ms=${fromMs()}&to_ms=${toMs()}`);
+      const r = await fetch(`/api/logsync/logs?from_ms=${f}&to_ms=${t}`);
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail ?? r.statusText);
       const data = await r.json();
       setPreview({ count: data.count, total_bytes: data.total_bytes });
@@ -128,10 +130,12 @@ export default function LogSyncPage() {
   };
 
   const startJob = async () => {
-    if (toMs() <= fromMs()) { toast.error('End time must be after start time'); return; }
+    const f = fromMs(), t = toMs();
+    if (Number.isNaN(f) || Number.isNaN(t)) { toast.error('Invalid start or end time'); return; }
+    if (t <= f) { toast.error('End time must be after start time'); return; }
     setBusy(true);
     try {
-      const body: Record<string, number> = { from_ms: fromMs(), to_ms: toMs() };
+      const body: Record<string, number> = { from_ms: f, to_ms: t };
       if (bwlimit.trim()) body.bwlimit_kbps = Number(bwlimit);
       const res = await fetch('/api/logsync/jobs', {
         method: 'POST',

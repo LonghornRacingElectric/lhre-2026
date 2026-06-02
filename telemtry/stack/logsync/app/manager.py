@@ -73,6 +73,11 @@ class JobManager:
     async def stop(self) -> None:
         if self._worker_task:
             self._worker_task.cancel()
+            # Await so the worker's finally blocks (rsync cleanup) run to completion.
+            try:
+                await self._worker_task
+            except asyncio.CancelledError:
+                pass
         await self.motion.close()
 
     # ----- public API used by the HTTP layer -----
@@ -332,6 +337,8 @@ class JobManager:
         finally:
             if not wait_task.done():
                 wait_task.cancel()
+            # If we're being cancelled (e.g. shutdown), don't leave rsync orphaned.
+            run.terminate_sync()
 
     async def _wait_motion_clear(self, job: Job, ctrl: _Control) -> None:
         """Block while the car is moving; return once stationary and stable."""

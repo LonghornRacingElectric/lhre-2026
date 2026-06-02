@@ -121,6 +121,17 @@ class RsyncRun:
     def stderr_tail(self) -> str:
         return "\n".join(self._stderr_tail[-10:])
 
+    def terminate_sync(self) -> None:
+        """Best-effort SIGTERM without awaiting — safe to call from a finally
+        during task cancellation, where awaiting may be unreliable. Prevents
+        orphaned rsync processes on shutdown."""
+        if self._proc is None or self._proc.returncode is not None:
+            return
+        try:
+            self._proc.terminate()
+        except ProcessLookupError:
+            pass
+
     async def terminate(self) -> None:
         """Stop the transfer. --partial keeps progress for the next run."""
         if self._proc is None or self._proc.returncode is not None:

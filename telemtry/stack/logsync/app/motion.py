@@ -8,6 +8,7 @@ competing for cellular bandwidth, so transferring is safe.
 """
 from __future__ import annotations
 
+import asyncio
 import time
 from dataclasses import dataclass
 
@@ -52,13 +53,17 @@ class Motion:
 class MotionMonitor:
     def __init__(self) -> None:
         self._pool: asyncpg.Pool | None = None
+        self._lock = asyncio.Lock()
 
     async def _get_pool(self) -> asyncpg.Pool:
-        if self._pool is None:
-            self._pool = await asyncpg.create_pool(
-                dsn=config.resolved_pg_dsn, min_size=1, max_size=2, command_timeout=5
-            )
-        return self._pool
+        # Lock so concurrent callers (UI /motion poll + worker loop) don't each
+        # build a pool across the create_pool await and leak one.
+        async with self._lock:
+            if self._pool is None:
+                self._pool = await asyncpg.create_pool(
+                    dsn=config.resolved_pg_dsn, min_size=1, max_size=2, command_timeout=5
+                )
+            return self._pool
 
     async def close(self) -> None:
         if self._pool is not None:

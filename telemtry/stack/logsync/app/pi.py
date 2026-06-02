@@ -47,7 +47,17 @@ async def list_remote_logs() -> list[RemoteFile]:
     proc = await asyncio.create_subprocess_exec(
         *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
-    out, err = await proc.communicate()
+    # Bound the call so a hung cellular link can't wedge the request indefinitely
+    # (SSH keepalives would eventually bail too, but this is the hard ceiling).
+    try:
+        out, err = await asyncio.wait_for(proc.communicate(), timeout=45.0)
+    except asyncio.TimeoutError:
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            pass
+        await proc.communicate()
+        raise RuntimeError("timed out listing remote logs over SSH")
     if proc.returncode != 0:
         raise RuntimeError(
             f"Failed to list remote logs (exit {proc.returncode}): "
