@@ -40,7 +40,7 @@ const fmtTime = (ms: number) => new Date(ms).toLocaleString();
 // Session start parsed from the loggerd filename (orion_<startMs>.csv) as a
 // fallback for jobs created before start_ms/end_ms were stored.
 const startMsFromName = (name: string): number => {
-  const m = name.match(/_(\d{10,})\./);
+  const m = name.match(/_(\d{10,13})\./);   // a millisecond epoch (through ~year 2286)
   const ms = m ? Number(m[1]) : NaN;
   return Number.isFinite(ms) ? ms : 0;
 };

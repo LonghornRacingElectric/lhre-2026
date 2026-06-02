@@ -191,6 +191,11 @@ class JobManager:
                             os.replace(src, dst)   # atomic on the same filesystem
                         except OSError:
                             continue
+                    else:
+                        try:
+                            os.remove(src)         # already in the store — drop the dup so the dir can be removed
+                        except OSError:
+                            pass
                 else:
                     try:
                         os.remove(src)             # stale .files-from etc.
