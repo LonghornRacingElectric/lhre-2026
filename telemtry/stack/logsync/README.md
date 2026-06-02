@@ -54,20 +54,21 @@ possible future enhancement.
 
 2. **Confirm `rsync` is on the Pi** (it is on the current image: rsync 3.4.1).
 
-3. **Bring it up** (db from the ingest stack must already be running so
-   `localhost:5432` resolves):
+3. **Bring it up via the dev tool** (db from the ingest stack must already be
+   running so `localhost:5432` resolves). logsync is a registered component, so:
    ```bash
-   cd telemtry/stack/logsync
-   docker compose up -d --build
+   cd telemtry/stack
+   ./server_devtool.sh enable logsync      # or `apps` for viewer + logsync
    curl localhost:8090/health
+   ./server_devtool.sh status              # logsync shows in the health table
    ```
+   The dev tool points staging at the SSD automatically (`LOGSYNC_DATA_DIR`,
+   defaulting to `/mnt/server_ssd/logsync` when present).
 
-4. **Point the viewer at it.** Set in the viewer's environment:
-   ```
-   LOGSYNC_URL=http://localhost:8090
-   ```
-   (or the server's address if the viewer runs elsewhere). The viewer exposes
-   the UI at `/log-sync` and a tile on the splash page.
+4. **Point the viewer at it.** The viewer reads `LOGSYNC_URL` (default
+   `http://localhost:8090`, set in its `ecosystem.config.js`). The viewer
+   exposes the UI at `/log-sync` and a tile on the splash page. Rebuild/restart
+   it with `./server_devtool.sh build viewer`.
 
 ### Tuning (env)
 See `.env.example`. Key knobs: `LOGSYNC_SPEED_THRESHOLD_MPS`,
@@ -75,9 +76,11 @@ See `.env.example`. Key knobs: `LOGSYNC_SPEED_THRESHOLD_MPS`,
 `BEVO_SSH_TARGET`, `BEVO_LOG_DIR`.
 
 ### Storage
-The staging volume (`logsync_staging`) holds the copied CSVs — the current log
-set is ~40 GB, individual files up to ~4 GB. Back it with roomy disk. The
-worker refuses a job that wouldn't fit in free space.
+Staging + state are bind-mounted from `${LOGSYNC_DATA_DIR}/{staging,state}`
+(default `./data` locally; the dev tool sets it to the SSD on the deploy box).
+The copied CSVs are large — the current log set is ~40 GB, individual files up
+to ~4 GB — so keep it on roomy storage, not the root disk. The worker refuses a
+job that wouldn't fit in free space.
 
 ## Networking note (host mode)
 

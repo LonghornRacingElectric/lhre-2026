@@ -480,3 +480,13 @@ CREATE TABLE public.board_status (
     vcu_last_seen_s      real,
     CONSTRAINT fk_board_status_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
+
+-- Generated Indexes
+CREATE INDEX IF NOT EXISTS idx_packet_time ON public.packet ("time" DESC);
+CREATE INDEX IF NOT EXISTS idx_dynamics_packet_id ON public.dynamics (packet_id);
+CREATE INDEX IF NOT EXISTS idx_controls_packet_id ON public.controls (packet_id);
+CREATE INDEX IF NOT EXISTS idx_pack_packet_id ON public.pack (packet_id);
+CREATE INDEX IF NOT EXISTS idx_diagnostics_high_packet_id ON public.diagnostics_high (packet_id);
+CREATE INDEX IF NOT EXISTS idx_diagnostics_low_packet_id ON public.diagnostics_low (packet_id);
+CREATE INDEX IF NOT EXISTS idx_thermal_packet_id ON public.thermal (packet_id);
+CREATE INDEX IF NOT EXISTS idx_board_status_packet_id ON public.board_status (packet_id);

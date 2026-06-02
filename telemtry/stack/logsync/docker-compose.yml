@@ -42,12 +42,7 @@ services:
     volumes:
       # Private key authorized as lhre@ on the Pi. Provision per README.
       - ./keys:/keys:ro
-      # Staged CSVs — can be tens of GB; back it with roomy storage.
-      - logsync_staging:/data/staging
-      - logsync_state:/data/state
-
-volumes:
-  logsync_staging:
-    driver: local
-  logsync_state:
-    driver: local
+      # Staged CSVs can be tens of GB — point LOGSYNC_DATA_DIR at roomy storage.
+      # On the deploy box, server_devtool.sh sets it to the SSD automatically.
+      - ${LOGSYNC_DATA_DIR:-./data}/staging:/data/staging
+      - ${LOGSYNC_DATA_DIR:-./data}/state:/data/state

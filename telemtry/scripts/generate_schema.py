@@ -261,6 +261,19 @@ def generate_artifacts_from_proto(messages, root_msg_name):
             sql_lines.append(");\n")
             sensor_tables.append(table_name)
 
+    # Indexes. `packet` is the time spine; every sensor table joins back to it
+    # by packet_id. packet_id is the de-facto key of each sensor row, but the
+    # DDL only carries it as a FK, so without an explicit index the latest-sample
+    # and time-range queries seq-scan multi-million-row tables.
+    sql_lines.append("-- Generated Indexes")
+    sql_lines.append('CREATE INDEX IF NOT EXISTS idx_packet_time ON public.packet ("time" DESC);')
+    for table_name in sensor_tables:
+        sql_lines.append(
+            f"CREATE INDEX IF NOT EXISTS idx_{table_name}_packet_id "
+            f"ON public.{table_name} (packet_id);"
+        )
+    sql_lines.append("")
+
     return "\n".join(sql_lines), sensor_tables
 
 def generate_sqlalchemy_from_proto(messages, root_msg_name, prefix=""):
