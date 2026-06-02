@@ -63,6 +63,9 @@ class Config:
     default_bwlimit_kbps: int = _int("LOGSYNC_DEFAULT_BWLIMIT_KBPS", 0)
     rsync_max_retries: int = _int("LOGSYNC_RSYNC_MAX_RETRIES", 5)
     rsync_retry_backoff_s: float = _float("LOGSYNC_RSYNC_RETRY_BACKOFF_S", 5.0)
+    # Cap on the (linear) backoff between retries. Transient "car unreachable"
+    # failures retry forever, so this bounds how often they poll for the Pi.
+    rsync_max_backoff_s: float = _float("LOGSYNC_RSYNC_MAX_BACKOFF_S", 60.0)
 
     # --- Motion detection (Postgres orion DB) ---
     pg_dsn: str = _str("LOGSYNC_PG_DSN", "")  # if set, overrides the parts below
