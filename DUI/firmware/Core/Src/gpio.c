@@ -61,8 +61,12 @@ void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_10, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : PE2 PE3 */
-  GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_3;
+  /*Configure GPIO pins : PE2 PE3 Switch_Top_L_UP_Pin Switch_Top_L_DOWN_Pin
+                           Switch_Top_R_UP_Pin Switch_Top_R_DOWN_Pin Switch_Bottom_R_UP_Pin Switch_Bottom_L_DOWN_Pin
+                           Switch_Bottom_R_DOWN_Pin Switch_Bottom_L_UP_Pin SDWN_Sense_Inertia_SW_Pin */
+  GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_3|Switch_Top_L_UP_Pin|Switch_Top_L_DOWN_Pin
+                          |Switch_Top_R_UP_Pin|Switch_Top_R_DOWN_Pin|Switch_Bottom_R_UP_Pin|Switch_Bottom_L_DOWN_Pin
+                          |Switch_Bottom_R_DOWN_Pin|Switch_Bottom_L_UP_Pin|SDWN_Sense_Inertia_SW_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
@@ -80,6 +84,12 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : SDSW_Sense_EStop_Pin */
+  GPIO_InitStruct.Pin = SDSW_Sense_EStop_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(SDSW_Sense_EStop_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : RTD_SWITCH_Pin */
   GPIO_InitStruct.Pin = RTD_SWITCH_Pin;
