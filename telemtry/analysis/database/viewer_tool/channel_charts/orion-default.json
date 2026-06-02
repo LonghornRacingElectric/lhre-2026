@@ -1,0 +1,921 @@
+{
+  "name": "Orion Default",
+  "slug": "orion-default",
+  "notes": "Initial Orion chart built from the Angelique channel chart convention: channel_name, quantity_type, unit, notes. Includes current Orion live DB channel labels refreshed 2026-05-25; older aliases kept for compatibility.",
+  "entries": [
+    {
+      "channel_name": "Motor Speed",
+      "quantity_type": "Angular Speed",
+      "unit": "rpm",
+      "notes": "Orion controls.motor_speed"
+    },
+    {
+      "channel_name": "Motor RPM",
+      "quantity_type": "Angular Speed",
+      "unit": "rpm",
+      "notes": "Legacy Orion export name"
+    },
+    {
+      "channel_name": "RPM Request",
+      "quantity_type": "Angular Speed",
+      "unit": "rpm",
+      "notes": "Requested motor speed"
+    },
+    {
+      "channel_name": "RPM",
+      "quantity_type": "Angular Speed",
+      "unit": "rpm",
+      "notes": "Angelique-compatible motor speed alias"
+    },
+    {
+      "channel_name": "Inverter RPM",
+      "quantity_type": "Angular Speed",
+      "unit": "rpm",
+      "notes": "Dynamic Orion inverter speed alias"
+    },
+    {
+      "channel_name": "Wheel Speed",
+      "quantity_type": "Angular Speed",
+      "unit": "rad/s",
+      "notes": "Generic wheel speed"
+    },
+    {
+      "channel_name": "Front Left Wheel Speed",
+      "quantity_type": "Angular Speed",
+      "unit": "rad/s",
+      "notes": ""
+    },
+    {
+      "channel_name": "Front Right Wheel Speed",
+      "quantity_type": "Angular Speed",
+      "unit": "rad/s",
+      "notes": ""
+    },
+    {
+      "channel_name": "Back Left Wheel Speed",
+      "quantity_type": "Angular Speed",
+      "unit": "rad/s",
+      "notes": ""
+    },
+    {
+      "channel_name": "Back Right Wheel Speed",
+      "quantity_type": "Angular Speed",
+      "unit": "rad/s",
+      "notes": ""
+    },
+    {
+      "channel_name": "GPS Speed",
+      "quantity_type": "Speed",
+      "unit": "m/s",
+      "notes": "Orion live schema dynamics.gps_speed (dynamics_gps_speed)"
+    },
+    {
+      "channel_name": "GPS Latitude",
+      "quantity_type": "GPS Latitude",
+      "unit": "deg",
+      "notes": "Orion live schema dynamics.gps[1] (dynamics_gps_latitude)"
+    },
+    {
+      "channel_name": "GPS Longitude",
+      "quantity_type": "GPS Longitude",
+      "unit": "deg",
+      "notes": "Orion live schema dynamics.gps[2] (dynamics_gps_longitude)"
+    },
+    {
+      "channel_name": "APPS 1 Travel",
+      "quantity_type": "Unitless",
+      "unit": "%",
+      "notes": ""
+    },
+    {
+      "channel_name": "APPS 2 Travel",
+      "quantity_type": "Unitless",
+      "unit": "%",
+      "notes": ""
+    },
+    {
+      "channel_name": "APPS 1 Voltage",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": ""
+    },
+    {
+      "channel_name": "APPS 2 Voltage",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": ""
+    },
+    {
+      "channel_name": "BSE 1 Voltage",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": ""
+    },
+    {
+      "channel_name": "BSE 2 Voltage",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": ""
+    },
+    {
+      "channel_name": "Steer Voltage",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": ""
+    },
+    {
+      "channel_name": "Steering Column Angle",
+      "quantity_type": "Angle",
+      "unit": "deg",
+      "notes": ""
+    },
+    {
+      "channel_name": "Steering Wheel Telemetry",
+      "quantity_type": "Angle",
+      "unit": "deg",
+      "notes": "Angelique-compatible steering name"
+    },
+    {
+      "channel_name": "Brake Pressure Front",
+      "quantity_type": "Pressure",
+      "unit": "psi",
+      "notes": ""
+    },
+    {
+      "channel_name": "Torque Request",
+      "quantity_type": "Torque",
+      "unit": "Nm",
+      "notes": "Orion live schema controls.torque_request (controls_torque_request)"
+    },
+    {
+      "channel_name": "Torque Feedback",
+      "quantity_type": "Torque",
+      "unit": "Nm",
+      "notes": "Orion live schema controls.torque_feedback (controls_torque_feedback)"
+    },
+    {
+      "channel_name": "Commanded Torque",
+      "quantity_type": "Torque",
+      "unit": "Nm",
+      "notes": "Orion live schema controls.commanded_torque (controls_commanded_torque)"
+    },
+    {
+      "channel_name": "Actual Torque",
+      "quantity_type": "Torque",
+      "unit": "Nm",
+      "notes": "Angelique-compatible torque name"
+    },
+    {
+      "channel_name": "Torque Command",
+      "quantity_type": "Torque",
+      "unit": "Nm",
+      "notes": "Angelique-compatible torque name"
+    },
+    {
+      "channel_name": "HV Pack Voltage",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": ""
+    },
+    {
+      "channel_name": "HV Current",
+      "quantity_type": "Current",
+      "unit": "A",
+      "notes": ""
+    },
+    {
+      "channel_name": "HV State Of Charge",
+      "quantity_type": "Unitless",
+      "unit": "%",
+      "notes": ""
+    },
+    {
+      "channel_name": "State of Charge",
+      "quantity_type": "Unitless",
+      "unit": "%",
+      "notes": "Angelique-compatible SoC name"
+    },
+    {
+      "channel_name": "DC Bus Voltage",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": ""
+    },
+    {
+      "channel_name": "DC Bus Current",
+      "quantity_type": "Current",
+      "unit": "A",
+      "notes": "Orion live schema pack.dc_bus_current (pack_dc_bus_current)"
+    },
+    {
+      "channel_name": "Voltage",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Generic voltage alias"
+    },
+    {
+      "channel_name": "Current",
+      "quantity_type": "Current",
+      "unit": "A",
+      "notes": "Generic current alias"
+    },
+    {
+      "channel_name": "Pack Voltage Mean",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": ""
+    },
+    {
+      "channel_name": "Pack Voltage Minimum",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": ""
+    },
+    {
+      "channel_name": "Pack Voltage Maximum",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": ""
+    },
+    {
+      "channel_name": "Cell Voltage Mean",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": ""
+    },
+    {
+      "channel_name": "Cell Voltage Max",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": ""
+    },
+    {
+      "channel_name": "Cell Voltage Min",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": ""
+    },
+    {
+      "channel_name": "Motor Temp",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.motor_temp (thermal_motor_temp)"
+    },
+    {
+      "channel_name": "Inverter Temp",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.inverter_temp (thermal_inverter_temp)"
+    },
+    {
+      "channel_name": "Coolant Temp",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.coolant_temp (thermal_coolant_temp)"
+    },
+    {
+      "channel_name": "Ambient Temp",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.ambient_temp (thermal_ambient_temp)"
+    },
+    {
+      "channel_name": "Pack Temp Mean",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": ""
+    },
+    {
+      "channel_name": "Pack Temp Minimum",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": ""
+    },
+    {
+      "channel_name": "Pack Temp Maximum",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": ""
+    },
+    {
+      "channel_name": "Cell Temps Mean",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": ""
+    },
+    {
+      "channel_name": "Cell Temps Max",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": ""
+    },
+    {
+      "channel_name": "Cell Temps Min",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": ""
+    },
+    {
+      "channel_name": "Water Temp Inverter",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": ""
+    },
+    {
+      "channel_name": "Water Temp Motor",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": ""
+    },
+    {
+      "channel_name": "Water Temp Radiator",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": ""
+    },
+    {
+      "channel_name": "Vehicle Acceleration X",
+      "quantity_type": "Acceleration",
+      "unit": "m/s/s",
+      "notes": ""
+    },
+    {
+      "channel_name": "Vehicle Acceleration Y",
+      "quantity_type": "Acceleration",
+      "unit": "m/s/s",
+      "notes": ""
+    },
+    {
+      "channel_name": "Vehicle Acceleration Z",
+      "quantity_type": "Acceleration",
+      "unit": "m/s/s",
+      "notes": ""
+    },
+    {
+      "channel_name": "VCU Acceleration X",
+      "quantity_type": "Acceleration",
+      "unit": "m/s/s",
+      "notes": ""
+    },
+    {
+      "channel_name": "VCU Acceleration Y",
+      "quantity_type": "Acceleration",
+      "unit": "m/s/s",
+      "notes": ""
+    },
+    {
+      "channel_name": "VCU Acceleration Z",
+      "quantity_type": "Acceleration",
+      "unit": "m/s/s",
+      "notes": ""
+    },
+    {
+      "channel_name": "Motor Angle",
+      "quantity_type": "Angle",
+      "unit": "deg",
+      "notes": "Orion live schema controls.motor_angle (controls_motor_angle)"
+    },
+    {
+      "channel_name": "Phase A Current",
+      "quantity_type": "Current",
+      "unit": "A",
+      "notes": "Orion live schema pack.phase_a_current (pack_phase_a_current)"
+    },
+    {
+      "channel_name": "Phase B Current",
+      "quantity_type": "Current",
+      "unit": "A",
+      "notes": "Orion live schema pack.phase_b_current (pack_phase_b_current)"
+    },
+    {
+      "channel_name": "Phase C Current",
+      "quantity_type": "Current",
+      "unit": "A",
+      "notes": "Orion live schema pack.phase_c_current (pack_phase_c_current)"
+    },
+    {
+      "channel_name": "Inverter Frequency",
+      "quantity_type": "Frequency",
+      "unit": "Hz",
+      "notes": ""
+    },
+    {
+      "channel_name": "Fault Vector",
+      "quantity_type": "Unitless",
+      "unit": "",
+      "notes": ""
+    },
+    {
+      "channel_name": "State Vector",
+      "quantity_type": "Unitless",
+      "unit": "",
+      "notes": ""
+    },
+    {
+      "channel_name": "Inverter Enabled",
+      "quantity_type": "Unitless",
+      "unit": "",
+      "notes": ""
+    },
+    {
+      "channel_name": "Ready To Drive Buzzer",
+      "quantity_type": "Unitless",
+      "unit": "",
+      "notes": ""
+    },
+    {
+      "channel_name": "Brake Light",
+      "quantity_type": "Unitless",
+      "unit": "",
+      "notes": ""
+    },
+    {
+      "channel_name": "Apps1 Travel",
+      "quantity_type": "Unitless",
+      "unit": "%",
+      "notes": "Orion live schema controls.apps1_travel (controls_apps1_travel)"
+    },
+    {
+      "channel_name": "Apps1 V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema controls.apps1_v (controls_apps1_v)"
+    },
+    {
+      "channel_name": "Apps2 Travel",
+      "quantity_type": "Unitless",
+      "unit": "%",
+      "notes": "Orion live schema controls.apps2_travel (controls_apps2_travel)"
+    },
+    {
+      "channel_name": "Apps2 V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema controls.apps2_v (controls_apps2_v)"
+    },
+    {
+      "channel_name": "Bpps1 Travel",
+      "quantity_type": "Unitless",
+      "unit": "%",
+      "notes": "Orion live schema controls.bpps1_travel (controls_bpps1_travel)"
+    },
+    {
+      "channel_name": "Bpps1 V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema controls.bpps1_v (controls_bpps1_v)"
+    },
+    {
+      "channel_name": "Bpps2 Travel",
+      "quantity_type": "Unitless",
+      "unit": "%",
+      "notes": "Orion live schema controls.bpps2_travel (controls_bpps2_travel)"
+    },
+    {
+      "channel_name": "Bpps2 V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema controls.bpps2_v (controls_bpps2_v)"
+    },
+    {
+      "channel_name": "Brake Bias",
+      "quantity_type": "Unitless",
+      "unit": "%",
+      "notes": "Orion live schema controls.brake_bias (controls_brake_bias)"
+    },
+    {
+      "channel_name": "Brake Light Pct",
+      "quantity_type": "Unitless",
+      "unit": "%",
+      "notes": "Orion live schema controls.brake_light_pct (controls_brake_light_pct)"
+    },
+    {
+      "channel_name": "Brake Pressure F",
+      "quantity_type": "Pressure",
+      "unit": "psi",
+      "notes": "Orion live schema controls.brake_pressure_f (controls_brake_pressure_f)"
+    },
+    {
+      "channel_name": "Brake Pressure Rall",
+      "quantity_type": "Pressure",
+      "unit": "psi",
+      "notes": "Orion live schema controls.brake_pressure_rall (controls_brake_pressure_rall)"
+    },
+    {
+      "channel_name": "Brake Pressure Rbll",
+      "quantity_type": "Pressure",
+      "unit": "psi",
+      "notes": "Orion live schema controls.brake_pressure_rbll (controls_brake_pressure_rbll)"
+    },
+    {
+      "channel_name": "Bse1 V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema controls.bse1_v (controls_bse1_v)"
+    },
+    {
+      "channel_name": "Bse2 V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema controls.bse2_v (controls_bse2_v)"
+    },
+    {
+      "channel_name": "Bse3 V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema controls.bse3_v (controls_bse3_v)"
+    },
+    {
+      "channel_name": "Lights Current",
+      "quantity_type": "Current",
+      "unit": "A",
+      "notes": "Orion live schema controls.lights_current (controls_lights_current)"
+    },
+    {
+      "channel_name": "Torque Limit",
+      "quantity_type": "Torque",
+      "unit": "Nm",
+      "notes": "Orion live schema controls.torque_limit (controls_torque_limit)"
+    },
+    {
+      "channel_name": "Torque Shudder",
+      "quantity_type": "Torque",
+      "unit": "Nm",
+      "notes": "Orion live schema controls.torque_shudder (controls_torque_shudder)"
+    },
+    {
+      "channel_name": "Prndl State",
+      "quantity_type": "Unitless",
+      "unit": "",
+      "notes": "Orion live schema diagnostics_high.prndl_state (diagnostics_high_prndl_state)"
+    },
+    {
+      "channel_name": "Shutdown Current",
+      "quantity_type": "Current",
+      "unit": "A",
+      "notes": "Orion live schema diagnostics_high.shutdown_current (diagnostics_high_shutdown_current)"
+    },
+    {
+      "channel_name": "Hvc State Machine",
+      "quantity_type": "Unitless",
+      "unit": "",
+      "notes": "Orion live schema diagnostics_high.hvc_state_machine (diagnostics_high_hvc_state_machine)"
+    },
+    {
+      "channel_name": "Post Faults",
+      "quantity_type": "Unitless",
+      "unit": "",
+      "notes": "Orion live schema diagnostics_high.post_faults (diagnostics_high_post_faults)"
+    },
+    {
+      "channel_name": "Run Faults",
+      "quantity_type": "Unitless",
+      "unit": "",
+      "notes": "Orion live schema diagnostics_high.run_faults (diagnostics_high_run_faults)"
+    },
+    {
+      "channel_name": "Precharge R Temp",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema diagnostics_low.precharge_r_temp (diagnostics_low_precharge_r_temp)"
+    },
+    {
+      "channel_name": "Accel Pedal Travel",
+      "quantity_type": "Unitless",
+      "unit": "%",
+      "notes": "Orion live schema dynamics.accel_pedal_travel (dynamics_accel_pedal_travel)"
+    },
+    {
+      "channel_name": "Steer Col Angle",
+      "quantity_type": "Angle",
+      "unit": "deg",
+      "notes": "Orion live schema dynamics.steer_col_angle (dynamics_steer_col_angle)"
+    },
+    {
+      "channel_name": "Bl Ride Height",
+      "quantity_type": "Distance",
+      "unit": "",
+      "notes": "Orion live schema dynamics.bl_ride_height (dynamics_bl_ride_height)"
+    },
+    {
+      "channel_name": "Bl Strain Gauge V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema dynamics.bl_strain_gauge_v (dynamics_bl_strain_gauge_v)"
+    },
+    {
+      "channel_name": "Bl Sus Pot V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema dynamics.bl_sus_pot_v (dynamics_bl_sus_pot_v)"
+    },
+    {
+      "channel_name": "Blw Speed",
+      "quantity_type": "Angular Speed",
+      "unit": "rad/s",
+      "notes": "Orion live schema dynamics.blw_speed (dynamics_blw_speed)"
+    },
+    {
+      "channel_name": "Br Ride Height",
+      "quantity_type": "Distance",
+      "unit": "",
+      "notes": "Orion live schema dynamics.br_ride_height (dynamics_br_ride_height)"
+    },
+    {
+      "channel_name": "Br Strain Gauge V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema dynamics.br_strain_gauge_v (dynamics_br_strain_gauge_v)"
+    },
+    {
+      "channel_name": "Br Sus Pot V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema dynamics.br_sus_pot_v (dynamics_br_sus_pot_v)"
+    },
+    {
+      "channel_name": "Brw Speed",
+      "quantity_type": "Angular Speed",
+      "unit": "rad/s",
+      "notes": "Orion live schema dynamics.brw_speed (dynamics_brw_speed)"
+    },
+    {
+      "channel_name": "Fl Ride Height",
+      "quantity_type": "Distance",
+      "unit": "",
+      "notes": "Orion live schema dynamics.fl_ride_height (dynamics_fl_ride_height)"
+    },
+    {
+      "channel_name": "Fl Strain Gauge V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema dynamics.fl_strain_gauge_v (dynamics_fl_strain_gauge_v)"
+    },
+    {
+      "channel_name": "Fl Sus Pot V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema dynamics.fl_sus_pot_v (dynamics_fl_sus_pot_v)"
+    },
+    {
+      "channel_name": "Flw Speed",
+      "quantity_type": "Angular Speed",
+      "unit": "rad/s",
+      "notes": "Orion live schema dynamics.flw_speed (dynamics_flw_speed)"
+    },
+    {
+      "channel_name": "Fr Ride Height",
+      "quantity_type": "Distance",
+      "unit": "",
+      "notes": "Orion live schema dynamics.fr_ride_height (dynamics_fr_ride_height)"
+    },
+    {
+      "channel_name": "Fr Strain Gauge V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema dynamics.fr_strain_gauge_v (dynamics_fr_strain_gauge_v)"
+    },
+    {
+      "channel_name": "Fr Sus Pot V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema dynamics.fr_sus_pot_v (dynamics_fr_sus_pot_v)"
+    },
+    {
+      "channel_name": "Frw Speed",
+      "quantity_type": "Angular Speed",
+      "unit": "rad/s",
+      "notes": "Orion live schema dynamics.frw_speed (dynamics_frw_speed)"
+    },
+    {
+      "channel_name": "Ride Height",
+      "quantity_type": "Distance",
+      "unit": "",
+      "notes": "Orion live schema dynamics.ride_height (dynamics_ride_height)"
+    },
+    {
+      "channel_name": "Bus Voltage",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema pack.bus_voltage (pack_bus_voltage)"
+    },
+    {
+      "channel_name": "Lv Boards Current",
+      "quantity_type": "Current",
+      "unit": "A",
+      "notes": "Orion live schema pack.lv_boards_current (pack_lv_boards_current)"
+    },
+    {
+      "channel_name": "Dc Bus V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema pack.dc_bus_v (pack_dc_bus_v)"
+    },
+    {
+      "channel_name": "Delta Resolver Angle",
+      "quantity_type": "Angle",
+      "unit": "deg",
+      "notes": "Orion live schema pack.delta_resolver_angle (pack_delta_resolver_angle)"
+    },
+    {
+      "channel_name": "Inverter Freq",
+      "quantity_type": "Frequency",
+      "unit": "Hz",
+      "notes": "Orion live schema pack.inverter_freq (pack_inverter_freq)"
+    },
+    {
+      "channel_name": "Neutral Output V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema pack.neutral_output_v (pack_neutral_output_v)"
+    },
+    {
+      "channel_name": "Time Since On",
+      "quantity_type": "Time",
+      "unit": "s",
+      "notes": "Orion live schema pack.time_since_on (pack_time_since_on)"
+    },
+    {
+      "channel_name": "Vab Vq V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema pack.vab_vq_v (pack_vab_vq_v)"
+    },
+    {
+      "channel_name": "Vbc Vd V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema pack.vbc_vd_v (pack_vbc_vd_v)"
+    },
+    {
+      "channel_name": "Hv C",
+      "quantity_type": "Current",
+      "unit": "A",
+      "notes": "Orion live schema pack.hv_c (pack_hv_c)"
+    },
+    {
+      "channel_name": "Hv Pack V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema pack.hv_pack_v (pack_hv_pack_v)"
+    },
+    {
+      "channel_name": "Hv Soc",
+      "quantity_type": "Unitless",
+      "unit": "%",
+      "notes": "Orion live schema pack.hv_soc (pack_hv_soc)"
+    },
+    {
+      "channel_name": "Lv Batt C",
+      "quantity_type": "Current",
+      "unit": "A",
+      "notes": "Orion live schema pack.lv_batt_c (pack_lv_batt_c)"
+    },
+    {
+      "channel_name": "Lv Batt T",
+      "quantity_type": "Unitless",
+      "unit": "",
+      "notes": "Orion live schema pack.lv_batt_t (pack_lv_batt_t)"
+    },
+    {
+      "channel_name": "Lv Batt V",
+      "quantity_type": "Voltage",
+      "unit": "V",
+      "notes": "Orion live schema pack.lv_batt_v (pack_lv_batt_v)"
+    },
+    {
+      "channel_name": "Batt Cooling Current",
+      "quantity_type": "Current",
+      "unit": "A",
+      "notes": "Orion live schema thermal.batt_cooling_current (thermal_batt_cooling_current)"
+    },
+    {
+      "channel_name": "Motor Cooling Current",
+      "quantity_type": "Current",
+      "unit": "A",
+      "notes": "Orion live schema thermal.motor_cooling_current (thermal_motor_cooling_current)"
+    },
+    {
+      "channel_name": "Batt Loop Batt Temp",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.batt_loop_batt_temp (thermal_batt_loop_batt_temp)"
+    },
+    {
+      "channel_name": "Batt Loop Rad Fan Speed",
+      "quantity_type": "Angular Speed",
+      "unit": "rpm",
+      "notes": "Orion live schema thermal.batt_loop_rad_fan_speed (thermal_batt_loop_rad_fan_speed)"
+    },
+    {
+      "channel_name": "Batt Loop Rad Temp",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.batt_loop_rad_temp (thermal_batt_loop_rad_temp)"
+    },
+    {
+      "channel_name": "Battery Fan Rpm",
+      "quantity_type": "Angular Speed",
+      "unit": "rpm",
+      "notes": "Orion live schema thermal.battery_fan_rpm (thermal_battery_fan_rpm)"
+    },
+    {
+      "channel_name": "Bus Bar Temp1",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.bus_bar_temp1 (thermal_bus_bar_temp1)"
+    },
+    {
+      "channel_name": "Bus Bar Temp2",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.bus_bar_temp2 (thermal_bus_bar_temp2)"
+    },
+    {
+      "channel_name": "Bus Bar Temp3",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.bus_bar_temp3 (thermal_bus_bar_temp3)"
+    },
+    {
+      "channel_name": "Cell Bottom Temp",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.cell_bottom_temp (thermal_cell_bottom_temp)"
+    },
+    {
+      "channel_name": "Cell Top Temp",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.cell_top_temp (thermal_cell_top_temp)"
+    },
+    {
+      "channel_name": "Coolant Flow Lpm",
+      "quantity_type": "Flow Rate",
+      "unit": "L/min",
+      "notes": "Orion live schema thermal.coolant_flow_lpm (thermal_coolant_flow_lpm)"
+    },
+    {
+      "channel_name": "Discharge R Temp",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.discharge_r_temp (thermal_discharge_r_temp)"
+    },
+    {
+      "channel_name": "Fan Rpm",
+      "quantity_type": "Angular Speed",
+      "unit": "rpm",
+      "notes": "Orion live schema thermal.fan_rpm (thermal_fan_rpm)"
+    },
+    {
+      "channel_name": "Gate Driver Temp",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.gate_driver_temp (thermal_gate_driver_temp)"
+    },
+    {
+      "channel_name": "Inverter Hotspot Temp",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.inverter_hotspot_temp (thermal_inverter_hotspot_temp)"
+    },
+    {
+      "channel_name": "Module A Temp",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.module_a_temp (thermal_module_a_temp)"
+    },
+    {
+      "channel_name": "Module B Temp",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.module_b_temp (thermal_module_b_temp)"
+    },
+    {
+      "channel_name": "Module C Temp",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.module_c_temp (thermal_module_c_temp)"
+    },
+    {
+      "channel_name": "Motor Loop Inverter Temp",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.motor_loop_inverter_temp (thermal_motor_loop_inverter_temp)"
+    },
+    {
+      "channel_name": "Motor Loop Motor Temp",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.motor_loop_motor_temp (thermal_motor_loop_motor_temp)"
+    },
+    {
+      "channel_name": "Motor Loop Rad Temp",
+      "quantity_type": "Temperature",
+      "unit": "C",
+      "notes": "Orion live schema thermal.motor_loop_rad_temp (thermal_motor_loop_rad_temp)"
+    }
+  ],
+  "created_at": "2026-04-27T07:50:23.906320+00:00",
+  "updated_at": "2026-05-25T12:34:06.864906+00:00"
+}

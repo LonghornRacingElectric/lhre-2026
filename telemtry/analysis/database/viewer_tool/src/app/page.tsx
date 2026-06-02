@@ -44,6 +44,7 @@ export default function SplashPage() {
         <SplashBox href="/replay" title="Replay Mode" imageUrl="/images/replay.png" textColor="text-black" />
         <SplashBox href="/tune" title="Texas Tune" imageUrl="/tune.png" textColor="text-black" />
         <SplashBox href="/dashboards" title="Grafana & Database" imageUrl="/graph.png" />
+        <SplashBox href="/trackside-live" title="Trackside Live" gradient="bg-gradient-to-br from-teal-700 to-emerald-900 group-hover:from-teal-600 group-hover:to-emerald-800 transition-colors" />
         <SplashBox href="/log-sync" title="Log Sync" gradient="bg-gradient-to-br from-slate-700 to-slate-900 group-hover:from-slate-600 group-hover:to-slate-800 transition-colors" />
       </div>
     </div>
