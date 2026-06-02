@@ -37,6 +37,14 @@ const fmtBytes = (b: number) => {
 };
 const fmtRate = (bps: number) => (bps > 0 ? `${fmtBytes(bps)}/s` : '—');
 const fmtTime = (ms: number) => new Date(ms).toLocaleString();
+// loggerd names files orion_<sessionStartMs>.csv — render that start time in the
+// viewer's local timezone. Returns '' if the name doesn't carry a timestamp.
+const fileLocalTime = (name: string): string => {
+  const m = name.match(/_(\d{10,})\./);
+  if (!m) return '';
+  const ms = Number(m[1]);
+  return Number.isFinite(ms) ? new Date(ms).toLocaleString() : '';
+};
 const toLocalInput = (d: Date) => {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
@@ -313,6 +321,7 @@ function JobCard({
             <div key={f.name} className="flex items-center justify-between text-xs">
               <span className="font-mono truncate mr-3">{f.name}</span>
               <span className="flex items-center gap-3 shrink-0 text-muted-foreground">
+                <span className="hidden sm:inline tabular-nums">{fileLocalTime(f.name)}</span>
                 <span>{fmtBytes(f.transferred)} / {fmtBytes(f.size)}</span>
                 {f.done ? (
                   <a className="underline hover:text-foreground"

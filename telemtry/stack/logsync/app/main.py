@@ -130,10 +130,11 @@ async def cancel_job(job_id: str):
 
 
 def _safe_file(job, name: str) -> str:
-    """Resolve a requested filename to a path inside the job's staging dir."""
+    """Resolve a requested filename to a path in the shared store, after
+    confirming the name belongs to this job."""
     if name not in {f.name for f in job.files}:
         raise HTTPException(404, "file not part of this job")
-    dest = _mgr().staging_path(job.id)
+    dest = _mgr().store_dir
     path = os.path.realpath(os.path.join(dest, name))
     if not path.startswith(os.path.realpath(dest) + os.sep):
         raise HTTPException(400, "invalid filename")
@@ -156,7 +157,7 @@ async def download_archive(job_id: str):
     done = [f for f in job.files if f.done]
     if not done:
         raise HTTPException(409, "no completed files to archive yet")
-    dest = _mgr().staging_path(job.id)
+    mgr = _mgr()
 
     try:
         from zipstream import ZipStream  # zipstream-ng
@@ -165,7 +166,7 @@ async def download_archive(job_id: str):
 
     zs = ZipStream(sized=False)
     for f in done:
-        zs.add_path(os.path.join(dest, f.name), f.name)
+        zs.add_path(mgr.file_path(f.name), f.name)
 
     return StreamingResponse(
         zs,
