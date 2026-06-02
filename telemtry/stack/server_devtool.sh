@@ -155,13 +155,16 @@ ensure_node() {
 }
 # logsync data dir: default to the SSD on the deploy box, else compose's ./data
 ensure_logsync_dirs() {
-    if [[ -z "${LOGSYNC_DATA_DIR:-}" && -d /mnt/server_ssd ]]; then
-        LOGSYNC_DATA_DIR=/mnt/server_ssd/logsync
+    if [[ -z "${LOGSYNC_DATA_DIR:-}" ]]; then
+        if [[ -d /mnt/server_ssd ]]; then
+            LOGSYNC_DATA_DIR=/mnt/server_ssd/logsync     # deploy box: stage on the SSD
+        else
+            LOGSYNC_DATA_DIR="$SCRIPT_DIR/logsync/data"   # local dev: user-owned, matches compose ./data
+        fi
     fi
-    if [[ -n "${LOGSYNC_DATA_DIR:-}" ]]; then
-        export LOGSYNC_DATA_DIR
-        mkdir -p "$LOGSYNC_DATA_DIR/staging" "$LOGSYNC_DATA_DIR/state" 2>/dev/null || true
-    fi
+    # Pre-create as the current user so docker doesn't make them root-owned.
+    export LOGSYNC_DATA_DIR
+    mkdir -p "$LOGSYNC_DATA_DIR/staging" "$LOGSYNC_DATA_DIR/state" 2>/dev/null || true
 }
 # compose's default project name is the lowercased dir basename with [^a-z0-9_-] stripped
 comp_project() {
@@ -269,6 +272,10 @@ up_pm2_component() {  # up_pm2_component <name> <dir> <build>
     app="$(comp_pm2name "$name")"; app="${app:-$name}"
     ensure_node || return 1
     if [[ "$build" == "1" ]]; then
+        if [[ ! -d "$dir/node_modules" ]]; then
+            info "Installing $name dependencies (npm ci) ..."
+            ( cd "$dir" && { npm ci || npm install; } ) || { err "$name dependency install failed"; return 1; }
+        fi
         info "Building $name (npm run build) ..."
         ( cd "$dir" && npm run build ) || { err "$name build failed"; return 1; }
     fi
@@ -301,7 +308,8 @@ down_component() {
     info "Stopping $name ..."
     if [[ "$(comp_type "$name")" == "pm2" ]]; then
         local app; app="$(comp_pm2name "$name")"; app="${app:-$name}"
-        ensure_node && pm2 stop "$app" >/dev/null 2>&1 || true
+        # delete (not stop) so it leaves pm2's list entirely, mirroring `compose down`
+        ensure_node && pm2 delete "$app" >/dev/null 2>&1 || true
         return 0
     fi
     compose_in "$dir" down
@@ -391,6 +399,7 @@ print(next((p.get('pm2_env',{}).get('status','?') for p in d if p.get('name')=='
             case "$pstate" in
                 online)          pcolor="$C_GRN" ;;
                 stopped|errored) pcolor="$C_RED"; degraded=1 ;;
+                "not started")   pcolor="$C_DIM" ;;   # absent, like docker "not created"
                 *)               pcolor="$C_YLW" ;;
             esac
             printf '%-16s %-26s %s%-12s%s\n' "$name" "$app (pm2)" "$pcolor" "$pstate" "$C_RESET"
