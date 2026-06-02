@@ -137,15 +137,11 @@ void dui_can_add_send_handlers(void) {
  * @return false
  */
 bool hvc_imd_fault(void) {
-  return indicator_status_mailbox.imd_error ||
-         message_timed_out(indicator_status_mailbox_handle,
-                           INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS * 4);
+  return indicator_status_mailbox.imd_error;
 }
 
 bool hvc_bms_fault(void) {
-  return indicator_status_mailbox.bms_error ||
-         message_timed_out(indicator_status_mailbox_handle,
-                           INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS * 4);
+  return indicator_status_mailbox.bms_error;
 }
 
 void dui_set_r2d(bool enabled) { r2d_status_mailbox.r2d_status = enabled; }

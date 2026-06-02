@@ -42,6 +42,7 @@
 #include <buzzer.h>
 #include "cmsis_os2.h"
 #include <dui_can.h>
+#include <indicator_lights.h>
 #include <r2d.h>
 /* USER CODE END Includes */
 
@@ -168,6 +169,8 @@ void StartDefaultTask(void *argument)
   dui_r2d_init();
 
   dui_can_init();
+
+  dui_indicator_lights_init();
 
   dui_buzzer_init();
 

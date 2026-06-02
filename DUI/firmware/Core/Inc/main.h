@@ -57,10 +57,12 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define BMS_Error_SW_Pin GPIO_PIN_0
+#define BMS_Error_SW_GPIO_Port GPIOB
+#define IMD_Error_SW_Pin GPIO_PIN_1
+#define IMD_Error_SW_GPIO_Port GPIOB
 #define RTD_SWITCH_Pin GPIO_PIN_11
 #define RTD_SWITCH_GPIO_Port GPIOB
-#define SPEAKER_Pin GPIO_PIN_15
-#define SPEAKER_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
