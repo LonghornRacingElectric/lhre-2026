@@ -1,0 +1,53 @@
+# logsync — pulls BEVO loggerd CSVs from the car Pi within a time range and
+# serves them for download from the viewer tool.
+#
+# Host networking is deliberate: the worker needs to reach BOTH the Pi over the
+# host's Tailscale interface (100.64.x) AND the db container on localhost:5432
+# (published by the ingest stack). See README for a tailscaled-sidecar
+# alternative if host networking is not acceptable on your server.
+services:
+  logsync:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: telemetry_logsync
+    container_name: logsync
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      # ELECTRIC_PWD (DB password) lives in the shared stack .env.
+      - path: ../../.env
+        required: false
+    environment:
+      LOGSYNC_HOST: 0.0.0.0
+      LOGSYNC_PORT: 8090
+      BEVO_SSH_TARGET: ${BEVO_SSH_TARGET:-lhre@100.64.195.68}
+      BEVO_SSH_KEY: /keys/id_logsync
+      BEVO_LOG_DIR: ${BEVO_LOG_DIR:-Documents/lhre/lhre-2026/BEVO/loggerd/logs}
+      # Persist the host key in the writable state volume (mount is read-only).
+      BEVO_SSH_OPTS: >-
+        -o BatchMode=yes -o StrictHostKeyChecking=accept-new
+        -o UserKnownHostsFile=/data/state/known_hosts
+        -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o ConnectTimeout=15
+      # db is published on the host at localhost:5432 by the ingest stack.
+      LOGSYNC_PG_HOST: 127.0.0.1
+      LOGSYNC_PG_PORT: 5432
+      LOGSYNC_PG_DB: orion
+      LOGSYNC_PG_USER: ${LOGSYNC_PG_USER:-electric}
+      # Password defaults to $ELECTRIC_PWD from the env_file.
+      LOGSYNC_SPEED_THRESHOLD_MPS: ${LOGSYNC_SPEED_THRESHOLD_MPS:-0.5}
+      LOGSYNC_DEFAULT_BWLIMIT_KBPS: ${LOGSYNC_DEFAULT_BWLIMIT_KBPS:-0}
+      LOGSYNC_STAGING_DIR: /data/staging
+      LOGSYNC_STATE_DB: /data/state/logsync.db
+    volumes:
+      # Private key authorized as lhre@ on the Pi. Provision per README.
+      - ./keys:/keys:ro
+      # Staged CSVs — can be tens of GB; back it with roomy storage.
+      - logsync_staging:/data/staging
+      - logsync_state:/data/state
+
+volumes:
+  logsync_staging:
+    driver: local
+  logsync_state:
+    driver: local
