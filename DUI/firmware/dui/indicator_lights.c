@@ -28,8 +28,8 @@ static void indicator_lights_task(void *argument) {
 
   while (true) {
     // Turn each light on when its error bit is set in packet 0x134.
-    set_light(BMS_Error_SW_GPIO_Port, BMS_Error_SW_Pin, hvc_bms_fault());
-    set_light(IMD_Error_SW_GPIO_Port, IMD_Error_SW_Pin, hvc_imd_fault());
+    set_light(BMS_Error_SW_GPIO_Port, BMS_Error_SW_Pin, !hvc_bms_fault());
+    set_light(IMD_Error_SW_GPIO_Port, IMD_Error_SW_Pin, !hvc_imd_fault());
 
     // Check often, but do not busy-wait.
     osDelay(pdMS_TO_TICKS(INDICATOR_LIGHTS_PERIOD_MS));
