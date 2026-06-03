@@ -20,6 +20,17 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # KRaft logs live on the NVMe SSD (via the bind mount below), off the small
+      # root disk where they previously filled the container layer. Retention is
+      # bounded so the realtime buffer can't grow unbounded — Postgres is the
+      # system of record; kafka here is just live + recent history.
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_LOG_RETENTION_MS: ${KAFKA_LOG_RETENTION_MS:-21600000}          # 6h
+      KAFKA_LOG_RETENTION_BYTES: ${KAFKA_LOG_RETENTION_BYTES:-1073741824}  # 1 GiB/partition cap
+    volumes:
+      # Defaults to ./kafka-data locally; server_devtool.sh points it at the NVMe
+      # (/mnt/server_ssd/kafka-data) on the deploy box.
+      - ${KAFKA_DATA_DIR:-./kafka-data}:/var/lib/kafka/data
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
       interval: 10s

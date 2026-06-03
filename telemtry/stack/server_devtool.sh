@@ -82,6 +82,8 @@ ALL_ORDER="kafka ingest field_enricher gps_classifier lap_timer track_mapper kaf
 
 # logsync stages multi-GB CSVs; keep them off the small root disk.
 LOGSYNC_DATA_DIR="${LOGSYNC_DATA_DIR:-}"
+# kafka's KRaft log dir — keep it off root (it grows fast) and on the NVMe.
+KAFKA_DATA_DIR="${KAFKA_DATA_DIR:-}"
 
 # ----------------------------------------------------------------------------- colors
 if [[ -t 1 ]]; then
@@ -165,6 +167,19 @@ ensure_logsync_dirs() {
     # Pre-create as the current user so docker doesn't make them root-owned.
     export LOGSYNC_DATA_DIR
     mkdir -p "$LOGSYNC_DATA_DIR/staging" "$LOGSYNC_DATA_DIR/state" 2>/dev/null || true
+}
+# kafka data dir: default to the NVMe SSD on the deploy box, else compose's ./kafka-data
+ensure_kafka_dirs() {
+    if [[ -z "${KAFKA_DATA_DIR:-}" ]]; then
+        if [[ -d /mnt/server_ssd ]]; then
+            KAFKA_DATA_DIR=/mnt/server_ssd/kafka-data
+        else
+            KAFKA_DATA_DIR="$SCRIPT_DIR/kafka/kafka-data"
+        fi
+    fi
+    # Created by the current user (uid 1000) — matches kafka's appuser so it's writable.
+    export KAFKA_DATA_DIR
+    mkdir -p "$KAFKA_DATA_DIR" 2>/dev/null || true
 }
 # compose's default project name is the lowercased dir basename with [^a-z0-9_-] stripped
 comp_project() {
@@ -294,6 +309,7 @@ up_component() {  # up_component <name> <build:1|0>
         ensure_volumes; ensure_dashboards; free_db_port
     fi
     [[ "$name" == "logsync" ]] && ensure_logsync_dirs
+    [[ "$name" == "kafka" ]] && ensure_kafka_dirs
     if [[ "$build" == "1" ]]; then
         preflight_disk
         info "Building + starting $name ..."
