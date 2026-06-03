@@ -83,6 +83,8 @@ void Error_Handler(void);
 #define SDSW_Sense_EStop_GPIO_Port GPIOB
 #define RTD_SWITCH_Pin GPIO_PIN_11
 #define RTD_SWITCH_GPIO_Port GPIOB
+#define SPEAKER_Pin GPIO_PIN_15
+#define SPEAKER_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

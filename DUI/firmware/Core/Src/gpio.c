@@ -56,7 +56,7 @@ void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, BMS_Error_SW_Pin|IMD_Error_SW_Pin|GPIO_PIN_7, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, BMS_Error_SW_Pin|IMD_Error_SW_Pin|SPEAKER_Pin|GPIO_PIN_7, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_10, GPIO_PIN_RESET);
@@ -78,8 +78,8 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : BMS_Error_SW_Pin IMD_Error_SW_Pin PB7 */
-  GPIO_InitStruct.Pin = BMS_Error_SW_Pin|IMD_Error_SW_Pin|GPIO_PIN_7;
+  /*Configure GPIO pins : BMS_Error_SW_Pin IMD_Error_SW_Pin SPEAKER_Pin PB7 */
+  GPIO_InitStruct.Pin = BMS_Error_SW_Pin|IMD_Error_SW_Pin|SPEAKER_Pin|GPIO_PIN_7;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
