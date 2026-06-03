@@ -206,6 +206,31 @@ topic on the **existing shared consumer/bus** and forwards state events — **no
 new Kafka consumer**, same approach the merged trackside bridge uses. (No
 dependency on `AppState`/`event-sync` or any drive-day state.)
 
+### 4.3a Live-tunable thresholds (one authoritative classifier)
+The right cutoffs (what rpm counts as "moving", what voltage counts as "HV live")
+only become clear watching the real car, so thresholds are **adjustable live from
+the UI** — without redeploying and without duplicating the classify logic in
+TypeScript:
+
+```
+ /car-status sliders ──POST──► /api/car-status/config ──► car_status_config (Kafka)
+                                                              │
+                          car_status processor consumes it ───┘
+                          → applies overrides to every car's state machine
+                          → next frame reclassifies with new thresholds
+                          → each car_status event ECHOES the active thresholds
+ /car-status SSE ◄───────────────────────────────────────────┘  (UI shows effect live)
+```
+
+- The processor subscribes to **both** `sensor_data` and `car_status_config`. A
+  config message is a partial `{key: number}` map; unknown/non-numeric keys are
+  ignored (`Thresholds.from_overrides`), so a bad payload can never crash it.
+- Because the **single Python classifier** stays authoritative, there is no TS
+  reimplementation to drift. The UI only *sends* thresholds and *displays* the
+  ones echoed back — it never classifies.
+- Defaults live in `Thresholds` (processor) and are surfaced on the page; sliders
+  seed from the values the processor echoes, so the UI always reflects reality.
+
 ### 4.4 History + "moving windows" query API
 `/api/car-status/history?car=orion&from=<ms>&to=<ms>` reads
 `car_status_segment` → returns ordered segments with durations, plus a derived
@@ -293,11 +318,16 @@ coupling (that infrastructure is abandoned).
 
 ## 8. Phased delivery plan
 
-- **Phase 1 — classifier + live**
-  - `car_status/classifier.py` (pure, unit-tested) + processor wiring.
-  - `car_status` Kafka topic; `/api/car-status/stream` SSE bridge (shared bus).
-  - `/car-status` page: live badge, HV SoC, LV voltage, reason chips.
-  - Register in `server_devtool.sh`. **No DB writes yet** (prove classification).
+- **Phase 1 — classifier + live · IMPLEMENTED (this branch)**
+  - `car_status/classifier.py` (pure, 20 unit tests passing) + processor
+    `main.py` (decode → classify → emit `car_status` topic on transitions +
+    heartbeat; hot-reloads `car_status_config`).
+  - Viewer: `/api/car-status/stream` SSE bridge (shared bus) + `/api/car-status/
+    config` POST (publishes to `car_status_config` via a shared KafkaJS producer).
+  - `/car-status` page (client-only `ssr:false`): live state badge, HV SoC, LV
+    voltage, reason chips, **live threshold sliders**. Home-page `SplashBox` link.
+  - Registered in `server_devtool.sh` (`STACK_COMPONENTS` + `ALL_ORDER`); enable
+    with `./server_devtool.sh enable car_status`. **No DB writes yet.**
 - **Phase 2 — persistence + history**
   - Create the standalone `car_status_segment` table; write segments to it.
   - `/api/car-status/history` (by car + time range) + the history timeline/table.

@@ -1,0 +1,24 @@
+services:
+  car_status:
+    build:
+      # Build context = repo root so COPY can reach files under stack/.
+      context: ../../..
+      dockerfile: stack/processors/car_status/Dockerfile
+    image: car_status_processor
+    container_name: car_status_processor
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: 1
+      IN_DOCKER: 1
+      LOGLEVEL: INFO
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_INPUT_TOPIC: sensor_data
+      KAFKA_CONFIG_TOPIC: car_status_config
+      KAFKA_OUTPUT_TOPIC: car_status
+      KAFKA_GROUP_ID: car-status-group
+    networks:
+      - telemetry_network
+
+networks:
+  telemetry_network:
+    external: true
