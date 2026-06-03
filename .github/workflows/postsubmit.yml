@@ -50,6 +50,7 @@ jobs:
           docker network create telemetry_network || true
           docker volume create grafana_storage || true
           docker volume create telemetry_db || true
+          docker volume create kafka_data || true
 
       - name: Create .env file for Docker
         run: |

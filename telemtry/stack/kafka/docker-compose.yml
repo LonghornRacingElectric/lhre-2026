@@ -28,9 +28,12 @@ services:
       KAFKA_LOG_RETENTION_MS: ${KAFKA_LOG_RETENTION_MS:-21600000}          # 6h
       KAFKA_LOG_RETENTION_BYTES: ${KAFKA_LOG_RETENTION_BYTES:-1073741824}  # 1 GiB/partition cap
     volumes:
-      # Defaults to ./kafka-data locally; server_devtool.sh points it at the NVMe
-      # (/mnt/server_ssd/kafka-data) on the deploy box.
-      - ${KAFKA_DATA_DIR:-./kafka-data}:/var/lib/kafka/data
+      # A NAMED volume (not a host bind): an empty named volume inherits the
+      # image's /var/lib/kafka/data ownership (appuser, uid 1000), so kafka can
+      # write. A bind mount to a fresh host dir would be root-owned and kafka
+      # would crash-loop. server_devtool.sh backs this with the NVMe SSD on the
+      # deploy box; elsewhere docker auto-creates it (CI, local dev).
+      - kafka_data:/var/lib/kafka/data
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
       interval: 10s
@@ -54,6 +57,13 @@ services:
       kafka:
         condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  # External (like telemetry_db): created out-of-band — CI's "Create volumes"
+  # step makes it plain (inherits the image's appuser ownership); server_devtool
+  # makes it NVMe-backed on the deploy box.
+  kafka_data:
+    external: true
 
 networks:
   telemetry_network:

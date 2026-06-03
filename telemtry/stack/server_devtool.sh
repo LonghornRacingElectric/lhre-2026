@@ -52,7 +52,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DASHBOARD_SOURCE_DIR="$SCRIPT_DIR/../analysis/database/dashboards"
 
 NETWORK="telemetry_network"        # external in every compose file → we own it
-EXTERNAL_VOLUMES="telemetry_db grafana_storage"
+EXTERNAL_VOLUMES="telemetry_db grafana_storage kafka_data"
 # telemetry_db is bind-mounted onto the SSD so Postgres data lives on /mnt, not the root disk.
 TELEMETRY_DB_DIR="${TELEMETRY_DB_DIR:-/mnt/server_ssd/app_data/telemetry_db}"
 
@@ -168,23 +168,10 @@ ensure_logsync_dirs() {
     export LOGSYNC_DATA_DIR
     mkdir -p "$LOGSYNC_DATA_DIR/staging" "$LOGSYNC_DATA_DIR/state" 2>/dev/null || true
 }
-# kafka data dir: default to the NVMe SSD on the deploy box, else compose's ./kafka-data
+# Ensure the external kafka_data volume exists before bringing kafka up (it's
+# NVMe-backed on the deploy box — see create_external_volume).
 ensure_kafka_dirs() {
-    if [[ -z "${KAFKA_DATA_DIR:-}" ]]; then
-        if [[ -d /mnt/server_ssd ]]; then
-            KAFKA_DATA_DIR=/mnt/server_ssd/kafka-data
-        else
-            KAFKA_DATA_DIR="$SCRIPT_DIR/kafka/kafka-data"
-        fi
-    fi
-    # Created by the current user (uid 1000) — matches kafka's appuser so it's
-    # writable. Don't swallow a real failure: if the dir can't be created (e.g.
-    # a root-owned mount), say so loudly — otherwise docker makes it root-owned
-    # and kafka (uid 1000) silently crash-loops on permission-denied.
-    export KAFKA_DATA_DIR
-    if ! mkdir -p "$KAFKA_DATA_DIR" 2>/dev/null; then
-        warn "could not create kafka data dir $KAFKA_DATA_DIR — create it writable by uid 1000 (kafka's appuser), or kafka will fail to start"
-    fi
+    dk volume inspect kafka_data >/dev/null 2>&1 || create_external_volume kafka_data
 }
 # compose's default project name is the lowercased dir basename with [^a-z0-9_-] stripped
 comp_project() {
@@ -257,7 +244,17 @@ create_external_volume() {
         $SUDO mkdir -p "$TELEMETRY_DB_DIR"
         dk volume create --driver local \
             --opt type=none --opt o=bind --opt device="$TELEMETRY_DB_DIR" "$v" >/dev/null
+    elif [[ "$v" == "kafka_data" && -d /mnt/server_ssd ]]; then
+        # NVMe-backed on the deploy box (KRaft logs off the small root disk).
+        # The dir is owned by the current user (uid 1000 = kafka's appuser).
+        KAFKA_DATA_DIR="${KAFKA_DATA_DIR:-/mnt/server_ssd/kafka-data}"
+        if ! mkdir -p "$KAFKA_DATA_DIR" 2>/dev/null; then
+            warn "could not create $KAFKA_DATA_DIR — make it writable by uid 1000, or kafka will fail to start"
+        fi
+        dk volume create --driver local \
+            --opt type=none --opt o=bind --opt device="$KAFKA_DATA_DIR" "$v" >/dev/null
     else
+        # plain volume — kafka_data inherits the image's appuser ownership here
         dk volume create "$v" >/dev/null
     fi
 }
