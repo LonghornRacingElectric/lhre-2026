@@ -369,11 +369,15 @@ void StartControlTask(void *argument) {
     
     log_printf(LOG_INFO,
                "\nAPPS1_RAW:%.3f APPS1_PCT:%.3f\nAPPS2_RAW:%.3f "
-               "APPS2_PCT:%.3f\nAPPS: %.3f\nFR_WHEEL_SPEED:%.3f rad/s\n\n",
+               "APPS2_PCT:%.3f\nAPPS: %.3f\n"
+               "WHEEL_SPEEDS rad/s FL:%.3f FR:%.3f RL:%.3f RR:%.3f\n\n",
                (double)in.apps1_raw, (double)out.apps1_travel,
                (double)in.apps2_raw, (double)out.apps2_travel,
                (double)out.accel_pedal_travel,
-               (double)wheel_speeds.front_right);
+               (double)wheel_speeds.front_left,
+               (double)wheel_speeds.front_right,
+               (double)wheel_speeds.back_left,
+               (double)wheel_speeds.back_right);
 
     // 3 ms control loop (333 Hz)
     osDelay(pdMS_TO_TICKS(CONTROL_LOOP_PERIOD_MS));
