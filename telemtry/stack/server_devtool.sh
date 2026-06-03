@@ -52,7 +52,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DASHBOARD_SOURCE_DIR="$SCRIPT_DIR/../analysis/database/dashboards"
 
 NETWORK="telemetry_network"        # external in every compose file → we own it
-EXTERNAL_VOLUMES="telemetry_db grafana_storage"
+EXTERNAL_VOLUMES="telemetry_db grafana_storage kafka_data"
 # telemetry_db is bind-mounted onto the SSD so Postgres data lives on /mnt, not the root disk.
 TELEMETRY_DB_DIR="${TELEMETRY_DB_DIR:-/mnt/server_ssd/app_data/telemetry_db}"
 
@@ -82,6 +82,8 @@ ALL_ORDER="kafka ingest field_enricher gps_classifier lap_timer track_mapper kaf
 
 # logsync stages multi-GB CSVs; keep them off the small root disk.
 LOGSYNC_DATA_DIR="${LOGSYNC_DATA_DIR:-}"
+# kafka's KRaft log dir — keep it off root (it grows fast) and on the NVMe.
+KAFKA_DATA_DIR="${KAFKA_DATA_DIR:-}"
 
 # ----------------------------------------------------------------------------- colors
 if [[ -t 1 ]]; then
@@ -166,6 +168,11 @@ ensure_logsync_dirs() {
     export LOGSYNC_DATA_DIR
     mkdir -p "$LOGSYNC_DATA_DIR/staging" "$LOGSYNC_DATA_DIR/state" 2>/dev/null || true
 }
+# Ensure the external kafka_data volume exists before bringing kafka up (it's
+# NVMe-backed on the deploy box — see create_external_volume).
+ensure_kafka_dirs() {
+    dk volume inspect kafka_data >/dev/null 2>&1 || create_external_volume kafka_data
+}
 # compose's default project name is the lowercased dir basename with [^a-z0-9_-] stripped
 comp_project() {
     local dir; dir="$(comp_reldir "$1")" || return 1
@@ -237,7 +244,17 @@ create_external_volume() {
         $SUDO mkdir -p "$TELEMETRY_DB_DIR"
         dk volume create --driver local \
             --opt type=none --opt o=bind --opt device="$TELEMETRY_DB_DIR" "$v" >/dev/null
+    elif [[ "$v" == "kafka_data" && -d /mnt/server_ssd ]]; then
+        # NVMe-backed on the deploy box (KRaft logs off the small root disk).
+        # The dir is owned by the current user (uid 1000 = kafka's appuser).
+        KAFKA_DATA_DIR="${KAFKA_DATA_DIR:-/mnt/server_ssd/kafka-data}"
+        if ! mkdir -p "$KAFKA_DATA_DIR" 2>/dev/null; then
+            warn "could not create $KAFKA_DATA_DIR — make it writable by uid 1000, or kafka will fail to start"
+        fi
+        dk volume create --driver local \
+            --opt type=none --opt o=bind --opt device="$KAFKA_DATA_DIR" "$v" >/dev/null
     else
+        # plain volume — kafka_data inherits the image's appuser ownership here
         dk volume create "$v" >/dev/null
     fi
 }
@@ -294,6 +311,7 @@ up_component() {  # up_component <name> <build:1|0>
         ensure_volumes; ensure_dashboards; free_db_port
     fi
     [[ "$name" == "logsync" ]] && ensure_logsync_dirs
+    [[ "$name" == "kafka" ]] && ensure_kafka_dirs
     if [[ "$build" == "1" ]]; then
         preflight_disk
         info "Building + starting $name ..."
