@@ -85,3 +85,46 @@ class Job:
         d["file_count"] = len(self.files)
         d["files_done"] = sum(1 for f in self.files if f.done)
         return d
+
+
+# Allowed data-quality markers for a file. Empty string = unrated.
+QUALITY_VALUES = ("", "good", "bad", "corrupt")
+
+
+@dataclass
+class Annotation:
+    """Trackside notes attached to a single log file.
+
+    Keyed by the file's globally-unique loggerd name (``orion_<startMs>.csv``),
+    NOT by job: the same file can belong to several jobs (shared store), and an
+    engineer annotating "what this run was" cares about the file, not the
+    transfer that fetched it. So annotations live independently of jobs and
+    persist even after the jobs that referenced the file are gone.
+    """
+    name: str                                   # orion_<startMs>.csv (the key)
+    notes: str = ""
+    tags: list[str] = field(default_factory=list)
+    # Run context — the trackside identifiers.
+    driver: str = ""
+    track: str = ""
+    session: str = ""                           # session / run label or number
+    # Conditions.
+    weather: str = ""
+    tires: str = ""
+    setup: str = ""                             # setup change notes
+    # Quick triage flags.
+    starred: bool = False
+    quality: str = ""                           # one of QUALITY_VALUES
+    updated_ms: int = 0
+
+    def is_empty(self) -> bool:
+        """True if nothing has actually been filled in (used to prune blanks)."""
+        return not any((
+            self.notes.strip(), self.tags, self.driver.strip(),
+            self.track.strip(), self.session.strip(), self.weather.strip(),
+            self.tires.strip(), self.setup.strip(), self.starred,
+            self.quality,
+        ))
+
+    def to_dict(self) -> dict:
+        return asdict(self)
