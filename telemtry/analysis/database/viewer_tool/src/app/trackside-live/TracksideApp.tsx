@@ -4978,7 +4978,7 @@ const TOUR_STEPS: TourStep[] = [
         The <strong>Exporter</strong> tab pulls historical drive-days from the
         database to plot and export to MoTeC. <strong>Race Ops</strong> tracks
         energy budget across a stint. Pick the car and channel chart in the side
-        panels. That's the tour — have fun!
+        panels. That&apos;s the tour — have fun!
       </>
     ),
   },
