@@ -48,6 +48,8 @@ class FileProgress:
     size: int                # expected bytes (from the remote listing)
     transferred: int = 0     # bytes present locally
     done: bool = False
+    start_ms: int = 0        # session start (filename), for UI display
+    end_ms: int = 0          # last write (mtime), for UI display
 
     def to_dict(self) -> dict:
         return asdict(self)

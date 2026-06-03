@@ -53,10 +53,19 @@ class JobManager:
         self._subscribers: set[asyncio.Queue] = set()
         self._worker_task: asyncio.Task | None = None
         self._seq = 0
+        # Files are stored once, keyed by their (globally-unique) loggerd name,
+        # and shared across jobs — so a new job that overlaps an earlier one
+        # reuses what's already on disk instead of re-pulling it. Listfiles live
+        # in a sibling meta dir. Jobs run one at a time, so there's no write race.
+        self._store_dir = os.path.join(config.staging_dir, "_store")
+        self._meta_dir = os.path.join(config.staging_dir, "_meta")
 
     # ----- lifecycle -----
 
     async def start(self) -> None:
+        os.makedirs(self._store_dir, exist_ok=True)
+        os.makedirs(self._meta_dir, exist_ok=True)
+        self._migrate_legacy_staging()
         # Reload persisted jobs and resume anything that was mid-flight.
         for job in self.store.list():
             self._jobs[job.id] = job
@@ -94,7 +103,8 @@ class JobManager:
             state=JobState.QUEUED,
             created_ms=_now_ms(),
             updated_ms=_now_ms(),
-            files=[FileProgress(name=f.name, size=f.size) for f in files],
+            files=[FileProgress(name=f.name, size=f.size,
+                                start_ms=f.start_ms, end_ms=f.end_ms) for f in files],
             total_bytes=sum(f.size for f in files),
         )
         self._jobs[job_id] = job
@@ -149,8 +159,52 @@ class JobManager:
             self._set_state(job, JobState.CANCELED)
         return True
 
-    def staging_path(self, job_id: str) -> str:
-        return os.path.join(config.staging_dir, job_id)
+    @property
+    def store_dir(self) -> str:
+        return self._store_dir
+
+    def file_path(self, name: str) -> str:
+        """Absolute path of a stored file in the shared, name-keyed store."""
+        return os.path.join(self._store_dir, name)
+
+    def _migrate_legacy_staging(self) -> None:
+        """One-time: fold pre-shared-store per-job dirs (staging/<job_id>/*.csv)
+        into the shared store so their downloads keep working after upgrade."""
+        try:
+            entries = os.listdir(config.staging_dir)
+        except OSError:
+            return
+        for entry in entries:
+            if entry in ("_store", "_meta"):
+                continue
+            old = os.path.join(config.staging_dir, entry)
+            if not os.path.isdir(old):
+                continue
+            for fn in os.listdir(old):
+                src = os.path.join(old, fn)
+                if not os.path.isfile(src):
+                    continue
+                if fn.startswith(config.log_prefix) and fn.endswith(config.log_suffix):
+                    dst = self.file_path(fn)
+                    if not os.path.exists(dst):
+                        try:
+                            os.replace(src, dst)   # atomic on the same filesystem
+                        except OSError:
+                            continue
+                    else:
+                        try:
+                            os.remove(src)         # already in the store — drop the dup so the dir can be removed
+                        except OSError:
+                            pass
+                else:
+                    try:
+                        os.remove(src)             # stale .files-from etc.
+                    except OSError:
+                        pass
+            try:
+                os.rmdir(old)
+            except OSError:
+                pass
 
     # ----- SSE pub/sub -----
 
@@ -199,10 +253,9 @@ class JobManager:
                 self._set_state(job, JobState.FAILED)
 
     def _update_local_progress(self, job: Job) -> None:
-        dest = self.staging_path(job.id)
         total = 0
         for f in job.files:
-            path = os.path.join(dest, f.name)
+            path = self.file_path(f.name)
             sz = os.path.getsize(path) if os.path.exists(path) else 0
             sz = min(sz, f.size)
             f.transferred = sz
@@ -215,17 +268,18 @@ class JobManager:
     def _all_done(self, job: Job) -> bool:
         return bool(job.files) and all(f.done for f in job.files)
 
-    def _write_listfile(self, job: Job, dest: str) -> str:
-        listfile = os.path.join(dest, ".files-from")
+    def _write_listfile(self, job: Job) -> str:
+        listfile = os.path.join(self._meta_dir, f"{job.id}.files-from")
         with open(listfile, "w") as fh:
             for f in job.files:
                 fh.write(f.name + "\n")
         return listfile
 
     async def _run_job(self, job: Job, ctrl: _Control) -> None:
-        dest = self.staging_path(job.id)
+        dest = self._store_dir
         os.makedirs(dest, exist_ok=True)
-        listfile = self._write_listfile(job, dest)
+        os.makedirs(self._meta_dir, exist_ok=True)
+        listfile = self._write_listfile(job)
 
         self._update_local_progress(job)
         if self._all_done(job):

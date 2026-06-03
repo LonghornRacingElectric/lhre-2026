@@ -19,6 +19,10 @@ hogging the cellular uplink during a run.
   there is no live stream to protect, so it transfers freely.
 - **Survives restarts.** Job state is persisted to SQLite; interrupted jobs are
   re-queued and resumed on boot.
+- **Shared file store.** Files are kept once, keyed by their unique loggerd
+  name, in a store shared across jobs — so a new job that overlaps an earlier
+  one reuses what's already on disk instead of re-pulling it (rsync skips
+  complete files and only appends the new tail of a still-growing one).
 - **One transfer at a time** to keep bandwidth predictable.
 
 ### Known limitation

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 // ---- types mirrored from the worker's Job.to_dict() ----
-type FileProgress = { name: string; size: number; transferred: number; done: boolean };
+type FileProgress = { name: string; size: number; transferred: number; done: boolean; start_ms?: number; end_ms?: number };
 type Motion = { moving: boolean; speed_mps: number | null; sample_age_ms: number | null; recent: boolean; error?: string | null };
 type Job = {
   id: string;
@@ -37,6 +37,24 @@ const fmtBytes = (b: number) => {
 };
 const fmtRate = (bps: number) => (bps > 0 ? `${fmtBytes(bps)}/s` : '—');
 const fmtTime = (ms: number) => new Date(ms).toLocaleString();
+// Session start parsed from the loggerd filename (orion_<startMs>.csv) as a
+// fallback for jobs created before start_ms/end_ms were stored.
+const startMsFromName = (name: string): number => {
+  const m = name.match(/_(\d{10,13})\./);   // a millisecond epoch (through ~year 2286)
+  const ms = m ? Number(m[1]) : NaN;
+  return Number.isFinite(ms) ? ms : 0;
+};
+// "start → end" in the viewer's local timezone. End (file mtime) shows as time
+// only when it's the same day as start; omitted entirely if unknown (0).
+const fileTimeRange = (f: FileProgress): string => {
+  const start = f.start_ms && f.start_ms > 0 ? f.start_ms : startMsFromName(f.name);
+  if (!start) return '';
+  const startStr = new Date(start).toLocaleString();
+  const end = f.end_ms && f.end_ms > start ? f.end_ms : 0;
+  if (!end) return startStr;
+  const sameDay = new Date(start).toDateString() === new Date(end).toDateString();
+  return `${startStr} → ${sameDay ? new Date(end).toLocaleTimeString() : new Date(end).toLocaleString()}`;
+};
 const toLocalInput = (d: Date) => {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
@@ -313,6 +331,7 @@ function JobCard({
             <div key={f.name} className="flex items-center justify-between text-xs">
               <span className="font-mono truncate mr-3">{f.name}</span>
               <span className="flex items-center gap-3 shrink-0 text-muted-foreground">
+                <span className="hidden sm:inline tabular-nums">{fileTimeRange(f)}</span>
                 <span>{fmtBytes(f.transferred)} / {fmtBytes(f.size)}</span>
                 {f.done ? (
                   <a className="underline hover:text-foreground"
