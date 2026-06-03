@@ -254,9 +254,10 @@ export default function LogSyncPage() {
   const clearFilters = () => { setQuery(''); setStarredOnly(false); setQualityFilter(new Set()); setTagFilter(new Set()); };
 
   const jobList = Object.values(jobs).sort((a, b) => b.created_ms - a.created_ms);
-  const matchCount = filterActive
-    ? jobList.reduce((n, j) => n + j.files.filter((f) => matchFile(f.name)).length, 0)
-    : 0;
+  const matchCount = useMemo(
+    () => (filterActive ? jobList.reduce((n, j) => n + j.files.filter((f) => matchFile(f.name)).length, 0) : 0),
+    [filterActive, jobList, matchFile],
+  );
 
   // Every distinct file across all jobs (the shared store means one file can
   // appear in several jobs). Deduped by name, preferring a job that has the

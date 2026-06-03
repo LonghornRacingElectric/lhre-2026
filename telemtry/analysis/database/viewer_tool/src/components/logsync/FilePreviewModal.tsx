@@ -96,11 +96,13 @@ export function FilePreviewModal({
       return next;
     });
 
-  // Selected columns in original file order (download + preview both use this).
-  const orderedSelected = useMemo(
-    () => (head ? head.columns.filter((c) => selected.has(c)) : []),
+  // Selected columns in original file order, paired with their row index, so
+  // the preview table is a flat lookup instead of an indexOf per cell.
+  const orderedCols = useMemo(
+    () => (head ? head.columns.map((name, index) => ({ name, index })).filter((c) => selected.has(c.name)) : []),
     [head, selected],
   );
+  const orderedSelected = useMemo(() => orderedCols.map((c) => c.name), [orderedCols]);
 
   const downloadHref = (cols?: string[]) => {
     const base = `/api/logsync/jobs/${jobId}/files/${encodeURIComponent(fileName)}`;
@@ -186,17 +188,17 @@ export function FilePreviewModal({
                 <table className="text-xs border-collapse">
                   <thead>
                     <tr>
-                      {orderedSelected.map((c) => (
-                        <th key={c} className="sticky top-0 bg-card border px-2 py-1 text-left font-mono whitespace-nowrap" title={c}>{c}</th>
+                      {orderedCols.map((c) => (
+                        <th key={c.name} className="sticky top-0 bg-card border px-2 py-1 text-left font-mono whitespace-nowrap" title={c.name}>{c.name}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {head.rows.map((row, ri) => (
                       <tr key={ri}>
-                        {orderedSelected.map((c) => (
-                          <td key={c} className="border px-2 py-1 whitespace-nowrap tabular-nums">
-                            {row[head.columns.indexOf(c)] ?? ''}
+                        {orderedCols.map((c) => (
+                          <td key={c.name} className="border px-2 py-1 whitespace-nowrap tabular-nums">
+                            {row[c.index] ?? ''}
                           </td>
                         ))}
                       </tr>

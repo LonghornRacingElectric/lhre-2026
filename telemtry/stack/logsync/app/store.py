@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import threading
 from typing import Optional
 
 from .models import QUALITY_VALUES, Annotation, FileProgress, Job, JobState
@@ -88,16 +89,22 @@ class AnnotationStore:
     def __init__(self, path: str):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         self._conn = sqlite3.connect(path, check_same_thread=False)
-        self._conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS annotations (
-                name        TEXT PRIMARY KEY,
-                updated_ms  INTEGER NOT NULL,
-                data        TEXT NOT NULL
+        # The annotation endpoints are async (so calls are already serialized on
+        # the event loop), but guard the connection anyway in case a future
+        # caller hits it from Starlette's threadpool — concurrent use of one
+        # sqlite connection is unsafe.
+        self._lock = threading.Lock()
+        with self._lock:
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS annotations (
+                    name        TEXT PRIMARY KEY,
+                    updated_ms  INTEGER NOT NULL,
+                    data        TEXT NOT NULL
+                )
+                """
             )
-            """
-        )
-        self._conn.commit()
+            self._conn.commit()
 
     @staticmethod
     def _deserialize(data: str) -> Annotation:
@@ -121,24 +128,28 @@ class AnnotationStore:
         )
 
     def get(self, name: str) -> Optional[Annotation]:
-        row = self._conn.execute(
-            "SELECT data FROM annotations WHERE name=?", (name,)
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT data FROM annotations WHERE name=?", (name,)
+            ).fetchone()
         return self._deserialize(row[0]) if row else None
 
     def list(self) -> list[Annotation]:
-        rows = self._conn.execute("SELECT data FROM annotations").fetchall()
+        with self._lock:
+            rows = self._conn.execute("SELECT data FROM annotations").fetchall()
         return [self._deserialize(r[0]) for r in rows]
 
     def upsert(self, ann: Annotation) -> None:
-        self._conn.execute(
-            "INSERT INTO annotations (name, updated_ms, data) VALUES (?, ?, ?) "
-            "ON CONFLICT(name) DO UPDATE SET updated_ms=excluded.updated_ms, "
-            "data=excluded.data",
-            (ann.name, ann.updated_ms, json.dumps(ann.to_dict())),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO annotations (name, updated_ms, data) VALUES (?, ?, ?) "
+                "ON CONFLICT(name) DO UPDATE SET updated_ms=excluded.updated_ms, "
+                "data=excluded.data",
+                (ann.name, ann.updated_ms, json.dumps(ann.to_dict())),
+            )
+            self._conn.commit()
 
     def delete(self, name: str) -> None:
-        self._conn.execute("DELETE FROM annotations WHERE name=?", (name,))
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute("DELETE FROM annotations WHERE name=?", (name,))
+            self._conn.commit()

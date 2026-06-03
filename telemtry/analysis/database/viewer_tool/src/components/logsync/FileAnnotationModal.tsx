@@ -85,9 +85,11 @@ export function FileAnnotationModal({
   }, [onClose]);
 
   const commitTag = () => {
-    const t = tagDraft.trim();
-    if (!t) return;
-    if (!a.tags.includes(t)) set('tags', [...a.tags, t]);
+    // Split on whitespace/commas so a pasted "brake, endurance baseline" adds
+    // three tags at once.
+    const toAdd = tagDraft.split(/[\s,]+/).map((t) => t.trim())
+      .filter((t) => t && !a.tags.includes(t));
+    if (toAdd.length) set('tags', [...a.tags, ...toAdd]);
     setTagDraft('');
   };
   const removeTag = (t: string) => set('tags', a.tags.filter((x) => x !== t));

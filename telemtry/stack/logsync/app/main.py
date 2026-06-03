@@ -226,7 +226,7 @@ async def file_head(job_id: str, name: str, rows: int = 10):
     rows = max(1, min(rows, 100))
     columns: list[str] = []
     data: list[list[str]] = []
-    with open(path, newline="") as fh:
+    with open(path, newline="", encoding="utf-8") as fh:
         reader = csv.reader(fh)
         columns = next(reader, [])
         for i, row in enumerate(reader):
@@ -253,7 +253,7 @@ async def download_file(job_id: str, name: str, cols: str | None = None):
         return FileResponse(path, filename=name, media_type="text/csv")
 
     requested = [c.strip() for c in cols.split(",") if c.strip()]
-    with open(path, newline="") as fh:
+    with open(path, newline="", encoding="utf-8") as fh:
         header = next(csv.reader(fh), [])
     index_of = {c: i for i, c in enumerate(header)}
     indices = [index_of[c] for c in requested if c in index_of]
@@ -263,15 +263,21 @@ async def download_file(job_id: str, name: str, cols: str | None = None):
     subset_name = (name[:-4] if name.endswith(".csv") else name) + ".subset.csv"
 
     def gen():
-        with open(path, newline="") as fh:
+        # Accumulate rows and flush in ~64KB chunks: yielding per row forces a
+        # threadpool context switch through Starlette for every line, which is
+        # crippling on million-row files.
+        with open(path, newline="", encoding="utf-8") as fh:
             reader = csv.reader(fh)
             buf = io.StringIO()
             writer = csv.writer(buf)
             for row in reader:
                 writer.writerow([row[i] if i < len(row) else "" for i in indices])
+                if buf.tell() >= 65536:
+                    yield buf.getvalue()
+                    buf.seek(0)
+                    buf.truncate(0)
+            if buf.tell():
                 yield buf.getvalue()
-                buf.seek(0)
-                buf.truncate(0)
 
     return StreamingResponse(
         gen(),
