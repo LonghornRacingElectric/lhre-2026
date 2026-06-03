@@ -2,15 +2,18 @@
 
 This module is intentionally I/O-free so it can be unit-tested in isolation and
 reused anywhere. It turns a decoded telemetry frame (the nested snake_case dict
-produced by ``MessageToDict(preserving_proto_field_name=True)``) into one of five
+produced by ``MessageToDict(preserving_proto_field_name=True)``) into one of four
 high-level states, with configurable thresholds and time-based debouncing.
 
 States (priority order, first match wins):
-    FAULT    - an active fault / shutdown-open-while-HV-live condition.
     MOVING   - the car is rotating wheels / motor / moving over ground.
     READY    - ready-to-drive asserted, shutdown closed, HV live, not moving.
     ON_IDLE  - HV live but not ready and not moving.
     OFF      - HV not live.
+
+Faults are reported SEPARATELY (``active_faults`` list) and never change the
+state — a fault can be active in any of the four states. ``fault_reasons`` lists
+active fault conditions for display.
 
 Per-car field differences (Orion bool contactors / lv_batt_v vs. Angelique
 contactor_state / lv_v) are handled by reading several candidate field names.
@@ -27,9 +30,12 @@ OFF = "OFF"
 ON_IDLE = "ON_IDLE"
 READY = "READY"
 MOVING = "MOVING"
-FAULT = "FAULT"
 
-STATES = (OFF, ON_IDLE, READY, MOVING, FAULT)
+STATES = (OFF, ON_IDLE, READY, MOVING)
+
+# Faults are intentionally NOT a state (team decision): they are advisory and
+# surfaced separately as `active_faults`, so the main state stays one of the four
+# above. This keeps "what is the car doing" orthogonal to "is anything wrong".
 
 
 @dataclass(frozen=True)
@@ -196,14 +202,20 @@ def shutdown_open_while_live(frame: dict, th: Thresholds) -> bool:
     return bool(present) and not all(_truthy(v) for v in present)
 
 
-def classify_instant(frame: dict, th: Thresholds) -> tuple[str, list[str]]:
-    """Classify a single frame with no time history. Returns (state, reasons)."""
+def active_faults(frame: dict, th: Thresholds) -> list[str]:
+    """All active fault conditions (advisory only — does NOT affect the state)."""
     faults = fault_reasons(frame)
     if shutdown_open_while_live(frame, th):
         faults.append("shutdown_open")
-    if faults:
-        return FAULT, faults
+    return faults
 
+
+def classify_instant(frame: dict, th: Thresholds) -> tuple[str, list[str]]:
+    """Classify a single frame with no time history. Returns (state, reasons).
+
+    Faults are deliberately not considered here — they're reported separately via
+    ``active_faults``. The state reflects only what the car is *doing*.
+    """
     if is_moving(frame, th):
         return MOVING, ["motion"]
 
@@ -282,6 +294,8 @@ class CarStateMachine:
             "state": self.committed,
             "transition": transition,
             "reasons": list(self.last_reasons),
+            # Faults are advisory: reported alongside the state, never as a state.
+            "active_faults": active_faults(frame, self.thresholds),
             "time_in_state_ms": time_in_state_ms,
             "hv_soc": _num(_pick(frame, "pack", "hv_soc")),
             "hv_pack_v": _num(_pick(frame, "pack", "hv_pack_v")),

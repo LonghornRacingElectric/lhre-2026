@@ -12,11 +12,11 @@ from classifier import (
     CarStateMachine,
     Thresholds,
     classify_instant,
+    active_faults,
     OFF,
     ON_IDLE,
     READY,
     MOVING,
-    FAULT,
 )
 
 
@@ -99,34 +99,41 @@ class TestInstantClassification(unittest.TestCase):
         state, _ = classify_instant(f, self.th)
         self.assertEqual(state, MOVING)
 
-    def test_fault_on_run_faults(self):
+    def test_faults_are_advisory_not_a_state(self):
+        # A run_fault while ready -> state stays READY; fault is reported separately.
         f = frame(
             pack=hv_live_pack(),
             diagnostics_high={"run_faults": 4},
             diagnostics_low={**closed_shutdown(), "r2d_status": True},
         )
-        state, reasons = classify_instant(f, self.th)
-        self.assertEqual(state, FAULT)
-        self.assertIn("run_faults", reasons)
+        state, _ = classify_instant(f, self.th)
+        self.assertEqual(state, READY)
+        self.assertIn("run_faults", active_faults(f, self.th))
 
-    def test_fault_takes_priority_over_moving(self):
+    def test_fault_does_not_override_moving(self):
         f = frame(
             pack=hv_live_pack(),
             controls={"motor_speed": 2000.0},
             diagnostics_high={"run_faults": 1},
         )
         state, _ = classify_instant(f, self.th)
-        self.assertEqual(state, FAULT)
+        self.assertEqual(state, MOVING)
+        self.assertIn("run_faults", active_faults(f, self.th))
 
-    def test_shutdown_open_while_live_is_fault(self):
+    def test_shutdown_open_while_live_is_advisory_fault(self):
         f = frame(
             pack=hv_live_pack(),
             diagnostics_low={"shutdown_leg1": True, "shutdown_leg2": False,
                              "shutdown_leg3": True, "shutdown_leg4": True},
         )
-        state, reasons = classify_instant(f, self.th)
-        self.assertEqual(state, FAULT)
-        self.assertIn("shutdown_open", reasons)
+        state, _ = classify_instant(f, self.th)
+        # HV live, not moving, not ready (shutdown open) -> ON_IDLE; fault advisory.
+        self.assertEqual(state, ON_IDLE)
+        self.assertIn("shutdown_open", active_faults(f, self.th))
+
+    def test_no_faults_when_clean(self):
+        f = frame(pack=hv_live_pack(), diagnostics_low=closed_shutdown())
+        self.assertEqual(active_faults(f, self.th), [])
 
     def test_angelique_contactor_state_counts_as_hv_live(self):
         # Angelique uses contactor_state (int) instead of bool contactors.
@@ -203,6 +210,15 @@ class TestDebounce(unittest.TestCase):
         self.assertEqual(out["hv_soc"], 80.0)
         self.assertEqual(out["lv_v"], 13.2)
         self.assertIn("thresholds", out)
+
+    def test_snapshot_carries_active_faults(self):
+        sm = CarStateMachine()
+        out = sm.update(
+            frame(pack=hv_live_pack(), diagnostics_high={"run_faults": 2}),
+            t_ms=0,
+        )
+        self.assertIn("active_faults", out)
+        self.assertIn("run_faults", out["active_faults"])
 
 
 if __name__ == "__main__":

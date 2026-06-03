@@ -88,15 +88,25 @@ All fields below exist today. Names are the **decoded protobuf field names**
 
 ## 3. State model
 
-Five mutually-exclusive states, evaluated **in priority order** (first match wins):
+**Four** mutually-exclusive states, evaluated **in priority order** (first match wins):
 
 | State | Condition (conceptual) |
 |---|---|
-| **FAULT** | any of `post_faults`/`run_faults` nonzero, `imd_gnd_isolation_error`, `bmb_comm_error`, or any shutdown leg open while HV is live |
 | **MOVING** | `|motor_speed|` > MOVE_RPM **or** mean wheel speed > MOVE_WHEEL **or** `gps_speed` > MOVE_MPS |
 | **READY** | `r2d_status` true **and** all shutdown legs closed **and** HV live, but not moving |
 | **ON_IDLE** | HV live (contactors closed / `hv_pack_v` > HV_LIVE_V) but not ready and not moving |
 | **OFF** | HV not live (`hv_pack_v` < HV_LIVE_V and contactors open); LV may still be up |
+
+**Faults are NOT a state** (team decision). They are computed every frame and
+reported **separately** as an advisory `active_faults` list, so a fault can be
+present in *any* of the four states without changing "what the car is doing":
+
+| Fault reason | Condition |
+|---|---|
+| `run_faults` / `post_faults` | inverter fault bitmask nonzero |
+| `imd_isolation` | `imd_gnd_isolation_error` |
+| `bmb_comm_error` | `bmb_comm_error` |
+| `shutdown_open` | a shutdown leg open while HV is live |
 
 Notes:
 - **Thresholds are config**, not magic numbers (see §6). MOVE_RPM, MOVE_WHEEL,
@@ -106,16 +116,15 @@ Notes:
   shorter than `MAX_GAP_MS` do not end a segment.
 - **`hvc_state_machine` is out of scope** (its integer enum is undocumented in
   the repo). Classification relies only on the unambiguous booleans (contactors,
-  R2D, shutdown legs), faults, and speed.
+  R2D, shutdown legs) and speed.
 - **Per-car**: classification is identical; only field access differs.
 
-A small ASCII view of the intended transitions:
+A small ASCII view of the intended transitions (faults overlay, not shown):
 
 ```
-        ┌──────── FAULT ◄─────────┐  (any fault predicate, from any state)
-        │                          │
-   OFF ─┴─► ON_IDLE ─► READY ─► MOVING
-        ◄─────────┴────────┴────────┘  (HV drop / r2d release / stop)
+   OFF ──► ON_IDLE ──► READY ──► MOVING
+       ◄────────┴────────┴────────┘   (HV drop / r2d release / stop)
+   active_faults[] is reported alongside whatever state is active.
 ```
 
 ---

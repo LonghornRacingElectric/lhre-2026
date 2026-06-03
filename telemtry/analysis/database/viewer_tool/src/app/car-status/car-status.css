@@ -106,6 +106,19 @@
 }
 .csStatusLine { margin-left: auto; color: var(--cs-muted); font-size: 12px; }
 
+/* advisory faults (not a state) */
+.csFaults {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  border: 1px solid color-mix(in srgb, var(--cs-fault) 55%, var(--cs-border));
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 16px;
+  background: color-mix(in srgb, var(--cs-fault) 12%, var(--cs-surface));
+  color: var(--cs-text);
+}
+.csFaults > svg { color: var(--cs-fault); }
+.csFaultsLabel { color: var(--cs-fault); font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.csFaults small { color: var(--cs-muted); font-size: 12px; margin-left: auto; }
+.csChipFault { border-color: color-mix(in srgb, var(--cs-fault) 50%, transparent); }
+
 /* tuning */
 .csTune { border: 1px solid var(--cs-border); border-radius: 12px; padding: 16px; background: var(--cs-surface); }
 .csTuneHead { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }

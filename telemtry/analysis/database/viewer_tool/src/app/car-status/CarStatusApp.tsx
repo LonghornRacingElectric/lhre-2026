@@ -12,6 +12,7 @@ type CarStatusEvent = {
   car?: string;
   state?: CarState;
   reasons?: string[];
+  active_faults?: string[];
   time_in_state_ms?: number;
   hv_soc?: number | null;
   hv_pack_v?: number | null;
@@ -22,14 +23,13 @@ type CarStatusEvent = {
   t_ms?: number;
 };
 
-type CarState = "OFF" | "ON_IDLE" | "READY" | "MOVING" | "FAULT";
+type CarState = "OFF" | "ON_IDLE" | "READY" | "MOVING";
 
 const STATE_META: Record<CarState, { label: string; tone: string; icon: React.ReactNode }> = {
   OFF: { label: "Off", tone: "off", icon: <Power size={20} /> },
   ON_IDLE: { label: "On — Idle", tone: "idle", icon: <Activity size={20} /> },
   READY: { label: "Ready to Drive", tone: "ready", icon: <Radio size={20} /> },
   MOVING: { label: "Moving", tone: "moving", icon: <Gauge size={20} /> },
-  FAULT: { label: "Fault", tone: "fault", icon: <AlertTriangle size={20} /> },
 };
 
 // Slider definitions mirror the processor's Thresholds dataclass.
@@ -187,6 +187,19 @@ export default function CarStatusApp() {
         </div>
         <small className="csStatusLine">{statusMsg}</small>
       </section>
+
+      {latest?.active_faults?.length ? (
+        <section className="csFaults" role="alert">
+          <AlertTriangle size={16} />
+          <span className="csFaultsLabel">Active faults</span>
+          <div className="csChips">
+            {latest.active_faults.map((fault) => (
+              <span key={fault} className="csChip csChipFault">{fault}</span>
+            ))}
+          </div>
+          <small>Advisory — does not change the state.</small>
+        </section>
+      ) : null}
 
       <section className="csTune">
         <div className="csTuneHead">

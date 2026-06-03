@@ -157,6 +157,7 @@ def _emit(car: str, snapshot: dict, kind: str) -> None:
         "kind": kind,  # "transition" | "heartbeat"
         "state": snapshot["state"],
         "reasons": snapshot["reasons"],
+        "active_faults": snapshot.get("active_faults", []),
         "time_in_state_ms": snapshot["time_in_state_ms"],
         "hv_soc": snapshot["hv_soc"],
         "hv_pack_v": snapshot["hv_pack_v"],
@@ -212,6 +213,7 @@ try:
                     "state": sm.committed,
                     "transition": False,
                     "reasons": list(sm.last_reasons),
+                    "active_faults": [],  # advisory faults are only known on a fresh frame
                     "time_in_state_ms": (now_ms - sm.committed_since_ms) if sm.committed_since_ms else 0.0,
                     "hv_soc": None, "hv_pack_v": None, "lv_v": None, "lv_c": None, "lv_t": None,
                     "thresholds": sm.thresholds.to_dict(),
