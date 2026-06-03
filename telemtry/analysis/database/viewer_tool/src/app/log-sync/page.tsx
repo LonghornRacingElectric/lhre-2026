@@ -1,9 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import {
+  FileAnnotationModal,
+  type AnnotationData,
+  emptyAnnotation,
+  hasAnnotation,
+} from '@/components/logsync/FileAnnotationModal';
+import { FilePreviewModal } from '@/components/logsync/FilePreviewModal';
 
 // ---- types mirrored from the worker's Job.to_dict() ----
 type FileProgress = { name: string; size: number; transferred: number; done: boolean; start_ms?: number; end_ms?: number };
@@ -95,6 +103,17 @@ export default function LogSyncPage() {
   const [jobs, setJobs] = useState<Record<string, Job>>({});
   const [motion, setMotion] = useState<Motion | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Per-file trackside annotations, keyed by loggerd filename (shared across jobs).
+  const [annotations, setAnnotations] = useState<Record<string, AnnotationData>>({});
+  const [modalFile, setModalFile] = useState<{ name: string; subtitle: string } | null>(null);
+  const [previewFile, setPreviewFile] = useState<{ jobId: string; name: string; subtitle: string } | null>(null);
+  // 'jobs' = per-job cards; 'files' = flat deduped list of every file.
+  const [view, setView] = useState<'jobs' | 'files'>('jobs');
+  // File search / filtering across all jobs.
+  const [query, setQuery] = useState('');
+  const [starredOnly, setStarredOnly] = useState(false);
+  const [qualityFilter, setQualityFilter] = useState<Set<string>>(new Set());
+  const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
   const esRef = useRef<EventSource | null>(null);
 
   const fromMs = () => new Date(from).getTime();
@@ -128,6 +147,18 @@ export default function LogSyncPage() {
     tick();
     const id = setInterval(tick, 5000);
     return () => { alive = false; clearInterval(id); };
+  }, []);
+
+  // Load all file annotations once; merged into the file rows by filename.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const r = await fetch('/api/logsync/annotations');
+        if (alive && r.ok) setAnnotations(await r.json());
+      } catch {/* annotations are non-critical; ignore */}
+    })();
+    return () => { alive = false; };
   }, []);
 
   const doPreview = async () => {
@@ -186,7 +217,63 @@ export default function LogSyncPage() {
       return next;
     });
 
+  const fileSubtitle = (f: FileProgress) => [fileTimeRange(f), fmtBytes(f.size)].filter(Boolean).join(' · ');
+  const openFile = (f: FileProgress) => setModalFile({ name: f.name, subtitle: fileSubtitle(f) });
+  const openPreview = (jobId: string, f: FileProgress) =>
+    setPreviewFile({ jobId, name: f.name, subtitle: fileSubtitle(f) });
+
+  // Every tag in use, for the filter chips.
+  const allTags = useMemo(() => {
+    const s = new Set<string>();
+    Object.values(annotations).forEach((a) => a.tags.forEach((t) => s.add(t)));
+    return [...s].sort();
+  }, [annotations]);
+
+  const filterActive = query.trim() !== '' || starredOnly || qualityFilter.size > 0 || tagFilter.size > 0;
+
+  // Does a file pass the active filters? Matches filename + all annotation text.
+  const matchFile = useCallback((name: string): boolean => {
+    const a = annotations[name];
+    if (starredOnly && !a?.starred) return false;
+    if (qualityFilter.size > 0 && !(a && qualityFilter.has(a.quality))) return false;
+    if (tagFilter.size > 0 && !(a && [...tagFilter].some((t) => a.tags.includes(t)))) return false;
+    const q = query.trim().toLowerCase();
+    if (q) {
+      const hay = [name, a?.notes, a?.driver, a?.track, a?.session, a?.weather, a?.tires, a?.setup, ...(a?.tags ?? [])]
+        .filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  }, [annotations, query, starredOnly, qualityFilter, tagFilter]);
+
+  const toggleSetItem = (set: Set<string>, setter: (s: Set<string>) => void, v: string) => {
+    const next = new Set(set);
+    next.has(v) ? next.delete(v) : next.add(v);
+    setter(next);
+  };
+  const clearFilters = () => { setQuery(''); setStarredOnly(false); setQualityFilter(new Set()); setTagFilter(new Set()); };
+
   const jobList = Object.values(jobs).sort((a, b) => b.created_ms - a.created_ms);
+  const matchCount = useMemo(
+    () => (filterActive ? jobList.reduce((n, j) => n + j.files.filter((f) => matchFile(f.name)).length, 0) : 0),
+    [filterActive, jobList, matchFile],
+  );
+
+  // Every distinct file across all jobs (the shared store means one file can
+  // appear in several jobs). Deduped by name, preferring a job that has the
+  // file completed so preview/download works, and sorted newest-session-first.
+  const allFiles = useMemo(() => {
+    const m = new Map<string, { f: FileProgress; jobId: string }>();
+    for (const job of jobList) {
+      for (const f of job.files) {
+        const seen = m.get(f.name);
+        if (!seen || (!seen.f.done && f.done)) m.set(f.name, { f, jobId: job.id });
+      }
+    }
+    const startMs = (f: FileProgress) => (f.start_ms && f.start_ms > 0 ? f.start_ms : startMsFromName(f.name));
+    return [...m.values()].sort((a, b) => startMs(b.f) - startMs(a.f));
+  }, [jobList]);
+  const visibleAllFiles = filterActive ? allFiles.filter((x) => matchFile(x.f.name)) : allFiles;
 
   return (
     <div className="min-h-screen pt-20 px-6 max-w-5xl mx-auto">
@@ -228,21 +315,139 @@ export default function LogSyncPage() {
         </div>
       </div>
 
-      {/* Jobs */}
-      <h2 className="text-xl font-semibold mb-3">Jobs</h2>
-      {jobList.length === 0 && <p className="text-sm text-muted-foreground">No jobs yet.</p>}
-      <div className="flex flex-col gap-3">
-        {jobList.map((job) => (
-          <JobCard
-            key={job.id}
-            job={job}
-            expanded={expanded.has(job.id)}
-            onToggle={() => toggleExpand(job.id)}
-            onControl={control}
-          />
-        ))}
+      {/* Jobs / files */}
+      <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-semibold">{view === 'jobs' ? 'Jobs' : 'All files'}</h2>
+          {jobList.length > 0 && (
+            <div className="flex rounded-md border overflow-hidden text-xs">
+              {(['jobs', 'files'] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className={cn('px-3 py-1 transition-colors', view === v ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground')}
+                >
+                  {v === 'jobs' ? 'By job' : 'All files'}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        {filterActive && (
+          <span className="text-xs text-muted-foreground">
+            {view === 'files' ? visibleAllFiles.length : matchCount} file{(view === 'files' ? visibleAllFiles.length : matchCount) === 1 ? '' : 's'} match
+          </span>
+        )}
       </div>
+
+      {/* File search / filters */}
+      {jobList.length > 0 && (
+        <div className="rounded-lg border p-3 mb-4 bg-card/30 flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Search files — name, notes, tags, driver, track…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            {filterActive && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>Clear</Button>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <FilterChip on={starredOnly} onClick={() => setStarredOnly((v) => !v)}>★ Starred</FilterChip>
+            {(['good', 'bad', 'corrupt'] as const).map((q) => (
+              <FilterChip key={q} on={qualityFilter.has(q)} onClick={() => toggleSetItem(qualityFilter, setQualityFilter, q)}>
+                {q[0].toUpperCase() + q.slice(1)}
+              </FilterChip>
+            ))}
+            {allTags.length > 0 && <span className="mx-1 h-4 w-px bg-border" />}
+            {allTags.map((t) => (
+              <FilterChip key={t} on={tagFilter.has(t)} onClick={() => toggleSetItem(tagFilter, setTagFilter, t)}>#{t}</FilterChip>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {jobList.length === 0 && <p className="text-sm text-muted-foreground">No jobs yet.</p>}
+
+      {view === 'jobs' ? (
+        <>
+          {filterActive && matchCount === 0 && (
+            <p className="text-sm text-muted-foreground">No files match the current filters.</p>
+          )}
+          <div className="flex flex-col gap-3">
+            {jobList.map((job) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                expanded={expanded.has(job.id) || filterActive}
+                onToggle={() => toggleExpand(job.id)}
+                onControl={control}
+                annotations={annotations}
+                onOpenFile={openFile}
+                onPreviewFile={openPreview}
+                fileFilter={filterActive ? matchFile : null}
+              />
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="rounded-lg border bg-card/30 divide-y">
+          {visibleAllFiles.length === 0 ? (
+            <p className="text-sm text-muted-foreground p-4">
+              {filterActive ? 'No files match the current filters.' : 'No files yet.'}
+            </p>
+          ) : (
+            visibleAllFiles.map(({ f, jobId }) => (
+              <div key={f.name} className="px-4 py-2">
+                <FileRow jobId={jobId} f={f} ann={annotations[f.name]} onOpenFile={openFile} onPreviewFile={openPreview} />
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {modalFile && (
+        <FileAnnotationModal
+          fileName={modalFile.name}
+          subtitle={modalFile.subtitle}
+          initial={annotations[modalFile.name] ?? emptyAnnotation(modalFile.name)}
+          onClose={() => setModalFile(null)}
+          onSaved={(saved) =>
+            setAnnotations((prev) => {
+              // An emptied annotation comes back blank; drop it so badges clear.
+              const next = { ...prev };
+              if (hasAnnotation(saved)) next[saved.name] = saved;
+              else delete next[saved.name];
+              return next;
+            })
+          }
+        />
+      )}
+
+      {previewFile && (
+        <FilePreviewModal
+          jobId={previewFile.jobId}
+          fileName={previewFile.name}
+          subtitle={previewFile.subtitle}
+          onClose={() => setPreviewFile(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function FilterChip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'rounded-full border px-2.5 py-0.5 text-xs transition-colors',
+        on ? 'bg-primary/20 text-primary border-primary/40' : 'text-muted-foreground border-border hover:text-foreground',
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -261,17 +466,25 @@ function MotionChip({ motion }: { motion: Motion | null }) {
 }
 
 function JobCard({
-  job, expanded, onToggle, onControl,
+  job, expanded, onToggle, onControl, annotations, onOpenFile, onPreviewFile, fileFilter,
 }: {
   job: Job;
   expanded: boolean;
   onToggle: () => void;
   onControl: (id: string, a: 'pause' | 'resume' | 'cancel') => void;
+  annotations: Record<string, AnnotationData>;
+  onOpenFile: (f: FileProgress) => void;
+  onPreviewFile: (jobId: string, f: FileProgress) => void;
+  fileFilter: ((name: string) => boolean) | null;
 }) {
   const active = !['completed', 'failed', 'canceled'].includes(job.state);
   const canPause = ['running', 'queued', 'paused_motion'].includes(job.state);
   const canResume = ['paused'].includes(job.state);
   const hasDownloads = job.files_done > 0;
+  const visibleFiles = fileFilter ? job.files.filter((f) => fileFilter(f.name)) : job.files;
+
+  // When a filter is active, a job with no matching files drops out entirely.
+  if (fileFilter && visibleFiles.length === 0) return null;
 
   return (
     <div className="rounded-lg border p-4 bg-card/30">
@@ -327,25 +540,75 @@ function JobCard({
 
       {expanded && (
         <div className="mt-3 border-t pt-3 flex flex-col gap-1">
-          {job.files.map((f) => (
-            <div key={f.name} className="flex items-center justify-between text-xs">
-              <span className="font-mono truncate mr-3">{f.name}</span>
-              <span className="flex items-center gap-3 shrink-0 text-muted-foreground">
-                <span className="hidden sm:inline tabular-nums">{fileTimeRange(f)}</span>
-                <span>{fmtBytes(f.transferred)} / {fmtBytes(f.size)}</span>
-                {f.done ? (
-                  <a className="underline hover:text-foreground"
-                     href={`/api/logsync/jobs/${job.id}/files/${encodeURIComponent(f.name)}`}>
-                    download
-                  </a>
-                ) : (
-                  <span>{job.total_bytes ? '…' : ''}</span>
-                )}
-              </span>
-            </div>
+          {visibleFiles.map((f) => (
+            <FileRow
+              key={f.name}
+              jobId={job.id}
+              f={f}
+              ann={annotations[f.name]}
+              onOpenFile={onOpenFile}
+              onPreviewFile={onPreviewFile}
+            />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+// One file row: clickable name (→ annotation modal) with inline badges, time
+// range, size, and a preview/download action. Shared by the per-job file list
+// and the flat "All files" view.
+function FileRow({
+  jobId, f, ann, onOpenFile, onPreviewFile,
+}: {
+  jobId: string;
+  f: FileProgress;
+  ann?: AnnotationData;
+  onOpenFile: (f: FileProgress) => void;
+  onPreviewFile: (jobId: string, f: FileProgress) => void;
+}) {
+  const annotated = hasAnnotation(ann);
+  return (
+    <div className="flex items-center justify-between text-xs gap-3">
+      <button
+        onClick={() => onOpenFile(f)}
+        title="Add or edit trackside notes"
+        className="group flex items-center gap-2 min-w-0 text-left"
+      >
+        {ann?.starred && <span className="text-yellow-400 shrink-0">★</span>}
+        <span className="font-mono truncate group-hover:text-foreground group-hover:underline">{f.name}</span>
+        {annotated
+          ? <FileBadges ann={ann!} />
+          : <span className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground">✎ annotate</span>}
+      </button>
+      <span className="flex items-center gap-3 shrink-0 text-muted-foreground">
+        <span className="hidden sm:inline tabular-nums">{fileTimeRange(f)}</span>
+        <span>{fmtBytes(f.size)}</span>
+        {f.done
+          ? <button className="underline hover:text-foreground" onClick={() => onPreviewFile(jobId, f)}>preview / download</button>
+          : <span title="still transferring">…</span>}
+      </span>
+    </div>
+  );
+}
+
+// Inline annotation summary shown next to a file name: quality dot, a couple of
+// tags, and a notes indicator — enough to tell at a glance "what this file is".
+const QUALITY_DOT: Record<string, string> = {
+  good: 'bg-emerald-400', bad: 'bg-amber-400', corrupt: 'bg-red-400',
+};
+function FileBadges({ ann }: { ann: AnnotationData }) {
+  return (
+    <span className="flex items-center gap-1.5 shrink-0 min-w-0">
+      {ann.quality && (
+        <span title={`Quality: ${ann.quality}`} className={`h-1.5 w-1.5 rounded-full ${QUALITY_DOT[ann.quality] ?? 'bg-zinc-400'}`} />
+      )}
+      {ann.tags.slice(0, 2).map((t) => (
+        <span key={t} className="rounded-full bg-primary/15 text-primary border border-primary/30 px-1.5 py-px max-w-[7rem] truncate">{t}</span>
+      ))}
+      {ann.tags.length > 2 && <span className="text-muted-foreground">+{ann.tags.length - 2}</span>}
+      {ann.notes && <span title={ann.notes} className="text-muted-foreground">📝</span>}
+    </span>
   );
 }

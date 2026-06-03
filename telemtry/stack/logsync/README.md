@@ -39,10 +39,25 @@ possible future enhancement.
 | POST | `/jobs` | Create a job `{from_ms, to_ms, bwlimit_kbps?}` |
 | GET  | `/jobs` / `/jobs/{id}` | List / get jobs |
 | POST | `/jobs/{id}/pause\|resume\|cancel` | Control a job |
-| GET  | `/jobs/{id}/files/{name}` | Download one CSV |
+| GET  | `/jobs/{id}/files/{name}` | Download one CSV (add `?cols=a,b,c` to project to just those columns) |
+| GET  | `/jobs/{id}/files/{name}/head?rows=N` | Header + first N rows, for preview / column picking |
 | GET  | `/jobs/{id}/archive` | Stream a ZIP of completed files |
 | GET  | `/events` | SSE stream of job progress |
 | GET  | `/motion` | Current motion reading (debug) |
+| GET  | `/annotations` | All file annotations as a `{name: annotation}` map |
+| GET  | `/annotations/{name}` | One file's annotation (blank if none) |
+| PUT  | `/annotations/{name}` | Save trackside notes/tags/flags for a file |
+
+### File annotations
+
+Trackside notes attached to a log **file**, keyed by its loggerd name
+(`orion_<startMs>.csv`) — not by job, since the same file can belong to several
+jobs (shared store) and the notes describe the run, not the transfer. Fields:
+free-text `notes`, `tags[]`, run context (`driver`, `track`, `session`),
+conditions (`weather`, `tires`, `setup`), and quick flags (`starred`,
+`quality` ∈ `good|bad|corrupt`). Stored as JSON rows in an `annotations` table
+in the same SQLite DB as jobs; an annotation cleared back to empty is deleted.
+In the viewer, click any file in a job's file list to open the annotation modal.
 
 ## Deploy
 

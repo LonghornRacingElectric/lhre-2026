@@ -6,8 +6,11 @@ the SSE progress stream and the file/archive downloads.
 from __future__ import annotations
 
 import asyncio
+import csv
+import io
 import json
 import os
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
@@ -17,15 +20,19 @@ from pydantic import BaseModel
 
 from .config import config
 from .manager import JobManager
+from .models import QUALITY_VALUES, Annotation
 from .pi import list_remote_logs, select_in_range
+from .store import AnnotationStore
 
 manager: JobManager | None = None
+annotations: AnnotationStore | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global manager
+    global manager, annotations
     os.makedirs(config.staging_dir, exist_ok=True)
+    annotations = AnnotationStore(config.state_db)
     manager = JobManager()
     await manager.start()
     yield
@@ -44,10 +51,31 @@ def _mgr() -> JobManager:
     return manager
 
 
+def _anno() -> AnnotationStore:
+    if annotations is None:
+        raise HTTPException(503, "worker not ready")
+    return annotations
+
+
 class CreateJobBody(BaseModel):
     from_ms: int
     to_ms: int
     bwlimit_kbps: int | None = None
+
+
+class AnnotationBody(BaseModel):
+    """Editable annotation fields. All optional; omitted fields reset to blank
+    (the client always sends the full form), so a PUT fully replaces the row."""
+    notes: str = ""
+    tags: list[str] = []
+    driver: str = ""
+    track: str = ""
+    session: str = ""
+    weather: str = ""
+    tires: str = ""
+    setup: str = ""
+    starred: bool = False
+    quality: str = ""
 
 
 @app.get("/health")
@@ -91,6 +119,51 @@ async def create_job(body: CreateJobBody):
 @app.get("/jobs")
 async def list_jobs():
     return [j.to_dict() for j in _mgr().list()]
+
+
+# ----- file annotations (trackside notes, keyed by filename) -----
+
+
+@app.get("/annotations")
+async def list_annotations():
+    """All annotations as a {name: annotation} map, for the viewer to merge
+    into its file list in one fetch."""
+    return {a.name: a.to_dict() for a in _anno().list()}
+
+
+@app.get("/annotations/{name}")
+async def get_annotation(name: str):
+    ann = _anno().get(name)
+    return ann.to_dict() if ann else Annotation(name=name).to_dict()
+
+
+@app.put("/annotations/{name}")
+async def put_annotation(name: str, body: AnnotationBody):
+    if body.quality not in QUALITY_VALUES:
+        raise HTTPException(422, f"quality must be one of {QUALITY_VALUES}")
+    store = _anno()
+    ann = Annotation(
+        name=name,
+        notes=body.notes.strip(),
+        # de-dupe, drop blanks, preserve order
+        tags=list(dict.fromkeys(t.strip() for t in body.tags if t.strip())),
+        driver=body.driver.strip(),
+        track=body.track.strip(),
+        session=body.session.strip(),
+        weather=body.weather.strip(),
+        tires=body.tires.strip(),
+        setup=body.setup.strip(),
+        starred=body.starred,
+        quality=body.quality,
+        updated_ms=int(time.time() * 1000),
+    )
+    # An annotation cleared back to empty is deleted rather than stored blank,
+    # so "has notes?" stays a simple presence check on the viewer side.
+    if ann.is_empty():
+        store.delete(name)
+        return Annotation(name=name).to_dict()
+    store.upsert(ann)
+    return ann.to_dict()
 
 
 def _require_job(job_id: str):
@@ -143,11 +216,74 @@ def _safe_file(job, name: str) -> str:
     return path
 
 
-@app.get("/jobs/{job_id}/files/{name}")
-async def download_file(job_id: str, name: str):
+@app.get("/jobs/{job_id}/files/{name}/head")
+async def file_head(job_id: str, name: str, rows: int = 10):
+    """First `rows` data rows + the header, so the viewer can preview a file and
+    let the user choose columns before downloading. Reads only the head — the
+    csv reader stops early, so this is cheap even on multi-GB files."""
     job = _require_job(job_id)
     path = _safe_file(job, name)
-    return FileResponse(path, filename=name, media_type="text/csv")
+    rows = max(1, min(rows, 100))
+    columns: list[str] = []
+    data: list[list[str]] = []
+    with open(path, newline="", encoding="utf-8") as fh:
+        reader = csv.reader(fh)
+        columns = next(reader, [])
+        for i, row in enumerate(reader):
+            if i >= rows:
+                break
+            data.append(row)
+    return {
+        "columns": columns,
+        "rows": data,
+        "total_columns": len(columns),
+        "returned_rows": len(data),
+    }
+
+
+@app.get("/jobs/{job_id}/files/{name}")
+async def download_file(job_id: str, name: str, cols: str | None = None):
+    """Download a file. With `cols` (a comma-separated column list) the CSV is
+    streamed projected to just those columns, in the order requested — so an
+    engineer can pull a handful of channels instead of the whole multi-GB file.
+    Without `cols`, the original file is served as-is."""
+    job = _require_job(job_id)
+    path = _safe_file(job, name)
+    if not cols:
+        return FileResponse(path, filename=name, media_type="text/csv")
+
+    requested = [c.strip() for c in cols.split(",") if c.strip()]
+    with open(path, newline="", encoding="utf-8") as fh:
+        header = next(csv.reader(fh), [])
+    index_of = {c: i for i, c in enumerate(header)}
+    indices = [index_of[c] for c in requested if c in index_of]
+    if not indices:
+        raise HTTPException(400, "none of the requested columns exist in this file")
+
+    subset_name = (name[:-4] if name.endswith(".csv") else name) + ".subset.csv"
+
+    def gen():
+        # Accumulate rows and flush in ~64KB chunks: yielding per row forces a
+        # threadpool context switch through Starlette for every line, which is
+        # crippling on million-row files.
+        with open(path, newline="", encoding="utf-8") as fh:
+            reader = csv.reader(fh)
+            buf = io.StringIO()
+            writer = csv.writer(buf)
+            for row in reader:
+                writer.writerow([row[i] if i < len(row) else "" for i in indices])
+                if buf.tell() >= 65536:
+                    yield buf.getvalue()
+                    buf.seek(0)
+                    buf.truncate(0)
+            if buf.tell():
+                yield buf.getvalue()
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{subset_name}"'},
+    )
 
 
 @app.get("/jobs/{job_id}/archive")
