@@ -115,6 +115,80 @@ def _apply_config(overrides: dict) -> None:
     logging.info("car_status thresholds updated: %s", thresholds.to_dict())
 
 
+# --- segment accumulation for DB persistence -------------------------------
+import db_writer  # noqa: E402
+
+
+class _OpenSegment:
+    """Accumulates stats for the currently-open state segment of one car."""
+
+    __slots__ = ("car", "state", "start_time", "start_packet", "end_time",
+                 "end_packet", "_hv_sum", "_hv_n", "_lv_sum", "_lv_n", "_faults")
+
+    def __init__(self, car, state, t_ms, packet):
+        self.car = car
+        self.state = state
+        self.start_time = t_ms
+        self.start_packet = packet
+        self.end_time = t_ms
+        self.end_packet = packet
+        self._hv_sum = 0.0
+        self._hv_n = 0
+        self._lv_sum = 0.0
+        self._lv_n = 0
+        self._faults: set[str] = set()
+
+    def accumulate(self, snapshot, packet):
+        self.end_time = snapshot.get("t_ms", self.end_time)
+        if packet is not None:
+            self.end_packet = packet
+        hv = snapshot.get("hv_soc")
+        if hv is not None:
+            self._hv_sum += hv
+            self._hv_n += 1
+        lv = snapshot.get("lv_v")
+        if lv is not None:
+            self._lv_sum += lv
+            self._lv_n += 1
+        for fault in snapshot.get("active_faults", []) or []:
+            self._faults.add(fault)
+
+    def to_row(self):
+        return {
+            "car": self.car,
+            "state": self.state,
+            "start_time": int(self.start_time),
+            "end_time": int(self.end_time),
+            "start_packet": self.start_packet,
+            "end_packet": self.end_packet,
+            "hv_soc_avg": (self._hv_sum / self._hv_n) if self._hv_n else None,
+            "lv_v_avg": (self._lv_sum / self._lv_n) if self._lv_n else None,
+            "active_faults": ",".join(sorted(self._faults)) if self._faults else None,
+        }
+
+
+open_segments: dict[str, _OpenSegment] = {}
+
+
+def _on_snapshot(car_lower: str, snapshot: dict, packet):
+    """Track segment boundaries; on transition, close+persist the previous one."""
+    seg = open_segments.get(car_lower)
+    if snapshot["transition"] or seg is None or seg.state != snapshot["state"]:
+        if seg is not None:
+            db_writer.write_segment(seg.to_row())
+        open_segments[car_lower] = _OpenSegment(
+            car_lower, snapshot["state"], snapshot.get("t_ms"), packet
+        )
+    else:
+        seg.accumulate(snapshot, packet)
+
+
+def _flush_open_segments():
+    for seg in open_segments.values():
+        db_writer.write_segment(seg.to_row())
+    open_segments.clear()
+
+
 shutdown_requested = False
 
 
@@ -197,6 +271,9 @@ try:
                     t_ms = _frame_time_ms(frame, now_ms)
                     sm = _machine_for(car_type)
                     snapshot = sm.update(frame, t_ms)
+                    packet_id = frame.get("packet_id") or frame.get("packetId")
+                    # Accumulate/close DB segments (no-op if persistence disabled).
+                    _on_snapshot(car_type.lower(), snapshot, packet_id)
                     if snapshot["transition"]:
                         _emit(car_type, snapshot, "transition")
                         logging.info("car_status %s -> %s (%s)", car_type, snapshot["state"], snapshot["reasons"])
@@ -227,6 +304,11 @@ except Exception as e:
     logging.error("car_status error: %s", e)
 
 finally:
+    # Persist whatever segments are still open so the last window isn't lost.
+    try:
+        _flush_open_segments()
+    except Exception as flush_err:
+        logging.warning("car_status segment flush failed: %s", flush_err)
     try:
         producer.flush()
         producer.close()

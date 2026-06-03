@@ -8,288 +8,288 @@ datasource db {
   url      = env("TELEMETRY_DATABASE_URL")
 }
 
-// ----------------------------------------------------
-// DRIVE DAY TABLE
-// ----------------------------------------------------
 model drive_day {
-  day_id      Int      @id @default(autoincrement())
-  date        DateTime
+  day_id Int @id @default(autoincrement())
+  date DateTime
+  track_name String?
+  weather String?
+  wind_speed Float?
   power_limit Int?
   air_temperature Float?
   relative_humidity Float?
   track_temperature Float?
-
-  // Relations
-  events      event[]
+  status Int?
+  creation_time BigInt?
+  start_time BigInt?
+  end_time BigInt?
+  packet_start BigInt?
+  packet_end BigInt?
+  car_id Int?
+  driver_id Int?
+  location_id Int?
+  event_type Int?
+  car_weight Int?
+  tow_angle Float?
+  camber_front Float?
+  camber_rear Float?
+  toe_front Float?
+  toe_rear Float?
+  ride_height_front Float?
+  ride_height_rear Float?
+  ride_height Float?
+  ackerman_adjustment Float?
+  shock_dampening Int?
+  torque_limit Int?
+  frw_pressure Float?
+  flw_pressure Float?
+  brw_pressure Float?
+  blw_pressure Float?
+  frw_hot_pressure Float?
+  flw_hot_pressure Float?
+  brw_hot_pressure Float?
+  blw_hot_pressure Float?
+  fr_wear_depth Float?
+  fl_wear_depth Float?
+  rr_wear_depth Float?
+  rl_wear_depth Float?
+  fr_durometer Float?
+  fl_durometer Float?
+  rr_durometer Float?
+  rl_durometer Float?
+  fr_lsc Int?
+  fr_lsr Int?
+  fr_hsc Int?
+  fr_hsr Int?
+  fl_lsc Int?
+  fl_lsr Int?
+  fl_hsc Int?
+  fl_hsr Int?
+  rr_lsc Int?
+  rr_lsr Int?
+  rr_hsc Int?
+  rr_hsr Int?
+  rl_lsc Int?
+  rl_lsr Int?
+  rl_hsc Int?
+  rl_hsr Int?
+  front_wing_on Boolean?
+  rear_wing_on Boolean?
+  front_wing_pitch Float?
+  rear_wing_pitch Float?
+  regen_on Boolean?
+  undertray_on Boolean?
+  front_roll_spring_rate Float?
+  front_heave_spring_rate Float?
+  rear_roll_spring_rate Float?
+  rear_heave_spring_rate Float?
+  front_corner_spring_rate Float?
+  rear_corner_spring_rate Float?
+  front_arb_setting String?
+  rear_arb_setting String?
 }
 
-// ----------------------------------------------------
-// LOOKUP TABLES
-// ----------------------------------------------------
 model lut_driver {
-  driver_id     Int     @id
-  driver_name   String
+  driver_id Int @id
+  driver_name String
   driver_weight Int?
-
-  events        event[]
 }
 
 model lut_location {
-  location_id Int    @id
-  area        String
-  track       String
+  location_id Int @id
+  area String
+  track String
 
-  events      event[]
+  tracks track[]
 }
 
 model lut_car {
-  car_id   Int    @id
+  car_id Int @id
   car_name String
-
-  events   event[]
 }
 
 model lut_event_type {
-  type_id    Int    @id
+  type_id Int @id
   event_type String
-
-  events     event[]
 }
 
-// ----------------------------------------------------
-// EVENT TABLE
-// ----------------------------------------------------
-model event {
-  event_id            Int       @id @default(autoincrement())
-  day_id              Int
-  status              Int?
-  creation_time       BigInt
-  start_time          BigInt?
-  end_time            BigInt?
-  packet_start        BigInt?
-  packet_end          BigInt?
-  car_id              Int
-  driver_id           Int
-  location_id         Int
-  event_type          Int
-  event_index         Int?
-  car_weight          Int?
-  tow_angle           Float?
-  // Alignment
-  camber_front        Float?
-  camber_rear         Float?
-  toe_front           Float?
-  toe_rear            Float?
-  // Ride height per axle
-  ride_height_front   Float?
-  ride_height_rear    Float?
-  // Keep legacy field for backward compatibility
-  ride_height         Float?
-  ackerman_adjustment Float?
-  shock_dampening     Int?
-  power_limit         Int?
-  torque_limit        Int?
-  // Tire cold pressures (retain existing columns)
-  frw_pressure        Float?
-  flw_pressure        Float?
-  brw_pressure        Float?
-  blw_pressure        Float?
-  // Tire wear depth and durometer
-  fr_wear_depth       Float?
-  fl_wear_depth       Float?
-  rr_wear_depth       Float?
-  rl_wear_depth       Float?
-  fr_durometer        Float?
-  fl_durometer        Float?
-  rr_durometer        Float?
-  rl_durometer        Float?
-  // Shock damping per corner (LSC/LSR/HSC/HSR)
-  fr_lsc              Int?
-  fr_lsr              Int?
-  fr_hsc              Int?
-  fr_hsr              Int?
-  fl_lsc              Int?
-  fl_lsr              Int?
-  fl_hsc              Int?
-  fl_hsr              Int?
-  rr_lsc              Int?
-  rr_lsr              Int?
-  rr_hsc              Int?
-  rr_hsr              Int?
-  rl_lsc              Int?
-  rl_lsr              Int?
-  rl_hsc              Int?
-  rl_hsr              Int?
-  front_wing_on       Boolean?
-  rear_wing_on        Boolean?
-  front_wing_pitch    Float?
-  rear_wing_pitch     Float?
-  regen_on            Boolean?
-  undertray_on        Boolean?
-  // Angelique-only specialty springs
-  front_roll_spring_rate Float?
-  front_heave_spring_rate Float?
-  rear_roll_spring_rate  Float?
-  rear_heave_spring_rate Float?
+model track_mapping {
+  track_mapping_id Int @id @default(autoincrement())
+  name String
+  created_at BigInt
+  start_gate_lat1 String
+  start_gate_lon1 String
+  start_gate_lat2 String
+  start_gate_lon2 String
+  points Json?
+  sectors Json?
+}
 
-  // Relations
-  drive_day   drive_day     @relation(fields: [day_id], references: [day_id])
-  car         lut_car       @relation(fields: [car_id], references: [car_id])
-  driver      lut_driver    @relation(fields: [driver_id], references: [driver_id])
-  location    lut_location  @relation(fields: [location_id], references: [location_id])
-  eventType   lut_event_type @relation(fields: [event_type], references: [type_id])
-  classifiers classifier[]
+model classifier {
+  day_id BigInt
+  type String
+  start_time BigInt
+  end_time BigInt?
+  notes String?
 
-  @@index([day_id])
-  @@index([car_id])
-  @@index([driver_id])
+  @@id([event_id, type, start_time])
+}
+
+model partitions {
+  partition_name String @id
+  start_time BigInt
+  end_time BigInt
+}
+
+model car_status_segment {
+  segment_id BigInt @id @default(autoincrement())
+  car String
+  state String
+  start_time BigInt
+  end_time BigInt?
+  start_packet BigInt?
+  end_packet BigInt?
+  hv_soc_avg Float?
+  lv_v_avg Float?
+  active_faults String?
+}
+
+model track {
+  track_id Int @id @default(autoincrement())
+  name String @unique
+  location_id Int?
+  created_at DateTime @default(now())
+
+  location     lut_location?  @relation(fields: [location_id], references: [location_id])
+  sector_gates sector_gate[]
+
   @@index([location_id])
-  @@index([event_type])
 }
 
-// ----------------------------------------------------
-// PACKET TABLE
-// ----------------------------------------------------
+model sector_gate {
+  gate_id Int @id @default(autoincrement())
+  track_id Int
+  gate_index Int
+  lat1 Float
+  lon1 Float
+  lat2 Float
+  lon2 Float
+
+  track track @relation(fields: [track_id], references: [track_id])
+
+  @@unique([track_id, gate_index])
+  @@index([track_id])
+}
+
+model track_point {
+  point_id BigInt @id @default(autoincrement())
+  day_id Int
+  latitude Float
+  longitude Float
+  timestamp_ms BigInt
+
+  event event @relation(fields: [event_id], references: [event_id])
+
+  @@index([event_id])
+}
+
 model packet {
   packet_id BigInt @id
   time      BigInt
 
-  dynamics    dynamics?
-  controls    controls?
-  pack        pack?
+  dynamics dynamics?
+  controls controls?
+  pack pack?
   diagnostics diagnostics?
-  thermal     thermal?
+  thermal thermal?
 }
 
-// ----------------------------------------------------
-// DYNAMICS TABLE
-// ----------------------------------------------------
 model dynamics {
-  packet_id     BigInt @id
-  torque_request Float?
-  vcu_position   Float[]
-  vcu_velocity   Float[]
-  vcu_accel      Float[]
-  // Store as [lat, lng] numeric array (instead of Postgres point)
-  gps            Float[]
-  gps_velocity   Float?
-  gps_heading    Float?
-  body1_accel    Float[]
-  body2_accel    Float[]
-  body3_accel    Float[]
-  flw_accel      Float[]
-  frw_accel      Float[]
-  blw_accel      Float[]
-  brw_accel      Float[]
-  body1_gyro     Float[]
-  body2_gyro     Float[]
-  body3_gyro     Float[]
-  flw_speed      Float?
-  frw_speed      Float?
-  blw_speed      Float?
-  brw_speed      Float?
-  inverter_v     Float?
-  inverter_c     Float?
-  inverter_rpm   Int?
-  inverter_torque Float?
+  packet_id BigInt @id
+  torque_request       Float?
+  vcu_position         Float[]
+  vcu_velocity         Float[]
+  vcu_accel            Float[]
+  gps                  Float[]
+  gps_velocity         Float?
+  gps_heading          Float?
+  body1_accel          Float[]
+  body2_accel          Float[]
+  body3_accel          Float[]
+  flw_accel            Float[]
+  frw_accel            Float[]
+  blw_accel            Float[]
+  brw_accel            Float[]
+  body1_gyro           Float[]
+  body2_gyro           Float[]
+  body3_gyro           Float[]
+  flw_speed            Float?
+  frw_speed            Float?
+  blw_speed            Float?
+  brw_speed            Float?
+  inverter_v           Float?
+  inverter_c           Float?
+  inverter_rpm         Int?
+  inverter_torque      Float?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }
 
-// ----------------------------------------------------
-// CONTROLS TABLE
-// ----------------------------------------------------
 model controls {
-  packet_id      BigInt @id
-  vcu_flags      Bytes?
-  vcu_flags_json Json?
-  apps1_v        Float?
-  apps2_v        Float?
-  bse1_v         Float?
-  bse2_v         Float?
-  sus1_v         Float?
-  sus2_v         Float?
-  steer_v        Float?
+  packet_id BigInt @id
+  vcu_flags            Bytes?
+  vcu_flags_json       Json?
+  apps1_v              Float?
+  apps2_v              Float?
+  bse1_v               Float?
+  bse2_v               Float?
+  sus1_v               Float?
+  sus2_v               Float?
+  steer_v              Float?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }
 
-// ----------------------------------------------------
-// PACK TABLE
-// ----------------------------------------------------
 model pack {
-  packet_id       BigInt @id
-  hv_pack_v       Float?
-  hv_tractive_v   Float?
-  hv_c            Float?
-  lv_v            Float?
-  lv_c            Float?
-  contactor_state Int?
-  avg_cell_v      Float?
-  avg_cell_temp   Float?
+  packet_id BigInt @id
+  hv_pack_v            Float?
+  hv_tractive_v        Float?
+  hv_c                 Float?
+  lv_v                 Float?
+  lv_c                 Float?
+  contactor_state      Int?
+  avg_cell_v           Float?
+  avg_cell_temp        Float?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }
 
-// ----------------------------------------------------
-// DIAGNOSTICS HIGH TABLE
-// ----------------------------------------------------
 model diagnostics {
-  packet_id           BigInt @id
-  current_errors      Bytes?
-  current_errors_json Json?
-  latching_faults     Bytes?
+  packet_id BigInt @id
+  current_errors       Bytes?
+  current_errors_json  Json?
+  latching_faults      Bytes?
   latching_faults_json Json?
-  cells_v             Float[]
-  hv_charge_state     Float?
-  lv_charge_state     Float?
-  odometer            Float?
+  cells_v              Float[]
+  hv_charge_state      Float?
+  lv_charge_state      Float?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }
 
-// ----------------------------------------------------
-// THERMAL TABLE
-// ----------------------------------------------------
 model thermal {
-  packet_id        BigInt @id
-  cells_temp       Int[]
-  ambient_temp     Int?
-  inverter_temp    Int?
-  motor_temp       Int?
-  water_motor_temp Int?
-  water_inverter_temp Int?
-  water_rad_temp   Int?
-  rad_fan_set      Int?
-  rad_fan_rpm      BigInt?
-  batt_fan_set     Int?
-  batt_fan_rpm     Int?
-  flow_rate        Int?
+  packet_id BigInt @id
+  cells_temp           Int[]
+  ambient_temp         Int?
+  inverter_temp        Int?
+  motor_temp           Int?
+  water_motor_temp     Int?
+  water_inverter_temp  Int?
+  water_rad_temp       Int?
+  rad_fan_set          Int?
+  rad_fan_rpm          BigInt?
+  batt_fan_set         Int?
+  batt_fan_rpm         Int?
+  flow_rate            Int?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
-}
-
-// ----------------------------------------------------
-// CLASSIFIER TABLE
-// ----------------------------------------------------
-model classifier {
-  event_id   Int
-  type       String
-  start_time BigInt
-  end_time   BigInt?
-  notes      String?
-
-  event event @relation(fields: [event_id], references: [event_id])
-
-  @@id([event_id, type, start_time])
-  @@index([event_id])
-}
-
-// Partitions table (no explicit PK in SQL; use a composite ID here)
-model partitions {
-  partition_name String
-  start_time     BigInt
-  end_time       BigInt
-
-  @@id([partition_name, start_time])
 }

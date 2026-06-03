@@ -337,10 +337,22 @@ coupling (that infrastructure is abandoned).
     voltage, reason chips, **live threshold sliders**. Home-page `SplashBox` link.
   - Registered in `server_devtool.sh` (`STACK_COMPONENTS` + `ALL_ORDER`); enable
     with `./server_devtool.sh enable car_status`. **No DB writes yet.**
-- **Phase 2 — persistence + history**
-  - Create the standalone `car_status_segment` table; write segments to it.
-  - `/api/car-status/history` (by car + time range) + the history timeline/table.
-  - "Moving windows" summary + totals.
+- **Phase 2 — persistence + history · IMPLEMENTED (this branch)**
+  - Standalone `car_status_segment` table added **schema-driven**: defined in
+    `common_schema.sql`, ORM model in `analysis/sql_utils/models.py`, registered
+    in `query_builder.py`; `sync_schema.sh Orion/Angelique` regenerated the init
+    SQL + prisma. Standalone (car + time range), **no drive_day FK**.
+  - Processor writes one row per closed segment via `db_writer.py` (lazy `get_db`
+    + `QueryBuilder.insert`, same path as gps_classifier); avgs HV SoC / LV V and
+    rolls up `active_faults` over the segment. Degrades to a no-op if the DB is
+    unreachable, so live classification never stalls.
+  - `/api/car-status/history` (by car + time range) returns segments +
+    `movingWindows` + per-state totals. Reads via the **read-only pg pool**
+    (`ReadOnlyDatabase`), NOT prisma — `prisma generate` is currently broken on
+    `main` (pre-existing: `classifier`/`track_point` reference a missing `event`
+    model), so raw pg avoids that dependency.
+  - Page: history timeline bar + segment table + "moving" totals, with a
+    1h/24h/7d range picker.
 - **Phase 3 — CSV/MoTeC tagging**
   - Inject status segments into MoTeC `.ldx` and/or sidecar JSON at export.
   - Optional derived state channel column.

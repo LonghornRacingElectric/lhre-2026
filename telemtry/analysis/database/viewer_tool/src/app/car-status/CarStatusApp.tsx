@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Activity, AlertTriangle, BatteryCharging, Gauge, Power, Radio, SlidersHorizontal, Zap } from "lucide-react";
+import { Activity, AlertTriangle, BatteryCharging, Clock, Gauge, Power, Radio, SlidersHorizontal, Zap } from "lucide-react";
 import "./car-status.css";
 
 // Mirrors the processor's car_status message shape.
@@ -24,6 +24,28 @@ type CarStatusEvent = {
 };
 
 type CarState = "OFF" | "ON_IDLE" | "READY" | "MOVING";
+
+type HistorySegment = {
+  id: number;
+  state: CarState;
+  startMs: number;
+  endMs: number | null;
+  durationMs: number | null;
+  hvSocAvg: number | null;
+  lvVAvg: number | null;
+  activeFaults: string[];
+};
+type HistoryResponse = {
+  segments: HistorySegment[];
+  totals: { movingMs: number; movingCount: number; byState: Record<string, number> };
+  fromMs: number;
+  toMs: number;
+};
+const RANGES: { label: string; ms: number }[] = [
+  { label: "1h", ms: 60 * 60 * 1000 },
+  { label: "24h", ms: 24 * 60 * 60 * 1000 },
+  { label: "7d", ms: 7 * 24 * 60 * 60 * 1000 },
+];
 
 const STATE_META: Record<CarState, { label: string; tone: string; icon: React.ReactNode }> = {
   OFF: { label: "Off", tone: "off", icon: <Power size={20} /> },
@@ -54,6 +76,19 @@ function formatDuration(ms: number | null | undefined): string {
   return `${h}h ${m % 60}m`;
 }
 
+function formatClock(ms: number): string {
+  return new Date(ms).toLocaleString([], {
+    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+}
+
+const STATE_COLOR: Record<string, string> = {
+  OFF: "var(--cs-off)",
+  ON_IDLE: "var(--cs-idle)",
+  READY: "var(--cs-ready)",
+  MOVING: "var(--cs-moving)",
+};
+
 export default function CarStatusApp() {
   const [car, setCar] = useState<"orion" | "angelique">("orion");
   const [connected, setConnected] = useState(false);
@@ -64,6 +99,34 @@ export default function CarStatusApp() {
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const sourceRef = useRef<EventSource | null>(null);
+
+  // History
+  const [rangeMs, setRangeMs] = useState(RANGES[1].ms); // default 24h
+  const [history, setHistory] = useState<HistoryResponse | null>(null);
+  const [historyMsg, setHistoryMsg] = useState("");
+
+  const loadHistory = useCallback(async () => {
+    setHistoryMsg("Loading…");
+    try {
+      const toMs = Date.now();
+      const fromMs = toMs - rangeMs;
+      const res = await fetch(`/api/car-status/history?car=${encodeURIComponent(car)}&from=${fromMs}&to=${toMs}`);
+      if (!res.ok) {
+        setHistory(null);
+        setHistoryMsg(`History unavailable (${res.status}).`);
+        return;
+      }
+      setHistory((await res.json()) as HistoryResponse);
+      setHistoryMsg("");
+    } catch (e) {
+      setHistory(null);
+      setHistoryMsg(e instanceof Error ? e.message : String(e));
+    }
+  }, [car, rangeMs]);
+
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
 
   // Live SSE connection (reconnects when the car filter changes).
   useEffect(() => {
@@ -235,10 +298,81 @@ export default function CarStatusApp() {
         </div>
       </section>
 
-      <p className="csFootnote">
-        Phase 1: live classification only. History timeline, &ldquo;moving windows&rdquo; and
-        CSV tagging land in later phases (see the design doc).
-      </p>
+      <section className="csHistory">
+        <div className="csHistoryHead">
+          <Clock size={16} />
+          <h2>History</h2>
+          <div className="csRanges">
+            {RANGES.map((r) => (
+              <button
+                key={r.label}
+                className={rangeMs === r.ms ? "csRange csRangeOn" : "csRange"}
+                onClick={() => setRangeMs(r.ms)}
+              >
+                {r.label}
+              </button>
+            ))}
+            <button className="csTool" onClick={() => void loadHistory()}>Refresh</button>
+          </div>
+        </div>
+
+        {history?.segments?.length ? (
+          <>
+            <div className="csTimeline" title="State over time">
+              {history.segments.map((seg) => {
+                const span = Math.max(1, history.toMs - history.fromMs);
+                const start = Math.max(seg.startMs, history.fromMs);
+                const end = Math.min(seg.endMs ?? history.toMs, history.toMs);
+                const left = ((start - history.fromMs) / span) * 100;
+                const width = Math.max(0.2, ((end - start) / span) * 100);
+                return (
+                  <span
+                    key={seg.id}
+                    className="csTimelineSeg"
+                    style={{ left: `${left}%`, width: `${width}%`, background: STATE_COLOR[seg.state] ?? "var(--cs-off)" }}
+                    title={`${seg.state} · ${formatClock(seg.startMs)} · ${formatDuration(seg.durationMs)}`}
+                  />
+                );
+              })}
+            </div>
+
+            <div className="csHistTotals">
+              <span className="csTotalMoving">
+                Moving: <strong>{formatDuration(history.totals.movingMs)}</strong> across{" "}
+                {history.totals.movingCount} window{history.totals.movingCount === 1 ? "" : "s"}
+              </span>
+              {Object.entries(history.totals.byState).map(([st, ms]) => (
+                <span key={st} className="csTotalChip" style={{ borderColor: STATE_COLOR[st] ?? "var(--cs-border)" }}>
+                  {st} {formatDuration(ms)}
+                </span>
+              ))}
+            </div>
+
+            <div className="csTableWrap">
+              <table className="csTable">
+                <thead>
+                  <tr><th>State</th><th>Start</th><th>End</th><th>Duration</th><th>HV SoC</th><th>LV V</th><th>Faults</th></tr>
+                </thead>
+                <tbody>
+                  {history.segments.slice().reverse().map((seg) => (
+                    <tr key={seg.id} className={seg.state === "MOVING" ? "csRowMoving" : ""}>
+                      <td><span className="csStateDot" style={{ background: STATE_COLOR[seg.state] }} /> {seg.state}</td>
+                      <td>{formatClock(seg.startMs)}</td>
+                      <td>{seg.endMs === null ? "—" : formatClock(seg.endMs)}</td>
+                      <td>{formatDuration(seg.durationMs)}</td>
+                      <td>{fmt(seg.hvSocAvg, 1)}</td>
+                      <td>{fmt(seg.lvVAvg, 2)}</td>
+                      <td>{seg.activeFaults.length ? seg.activeFaults.join(", ") : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : (
+          <p className="csHistoryEmpty">{historyMsg || "No segments in this range."}</p>
+        )}
+      </section>
     </main>
   );
 }

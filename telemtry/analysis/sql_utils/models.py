@@ -330,6 +330,17 @@ class Thermal(BaseTelemetry):
 # Angelique Models (Generated)
 # -----------------------------
 # BEGIN GENERATED Angelique
+class AngeliquePacket(BaseAngelique):
+    __tablename__ = 'packet'
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, primary_key=True)
+    time = Column(BigInteger, nullable=False)
+    dynamics = relationship("AngeliqueDynamics", uselist=False, back_populates="packet")
+    controls = relationship("AngeliqueControls", uselist=False, back_populates="packet")
+    pack = relationship("AngeliquePack", uselist=False, back_populates="packet")
+    diagnostics = relationship("AngeliqueDiagnostics", uselist=False, back_populates="packet")
+    thermal = relationship("AngeliqueThermal", uselist=False, back_populates="packet")
+
 class AngeliqueDynamics(BaseAngelique):
     __tablename__ = 'dynamics'
     __table_args__ = {'schema': 'public', 'extend_existing': True}
@@ -356,6 +367,9 @@ class AngeliqueDynamics(BaseAngelique):
     blw_speed = Column(Float)
     brw_speed = Column(Float)
     inverter_v = Column(Float)
+    inverter_c = Column(Float)
+    inverter_rpm = Column(Integer)
+    inverter_torque = Column(Float)
     packet = relationship("AngeliquePacket", back_populates="dynamics")
 
 class AngeliqueControls(BaseAngelique):
@@ -372,6 +386,20 @@ class AngeliqueControls(BaseAngelique):
     sus2_v = Column(Float)
     steer_v = Column(Float)
     packet = relationship("AngeliquePacket", back_populates="controls")
+
+class AngeliquePack(BaseAngelique):
+    __tablename__ = 'pack'
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
+    hv_pack_v = Column(Float)
+    hv_tractive_v = Column(Float)
+    hv_c = Column(Float)
+    lv_v = Column(Float)
+    lv_c = Column(Float)
+    contactor_state = Column(Integer)
+    avg_cell_v = Column(Float)
+    avg_cell_temp = Column(Float)
+    packet = relationship("AngeliquePacket", back_populates="pack")
 
 class AngeliqueDiagnostics(BaseAngelique):
     __tablename__ = 'diagnostics'
@@ -390,44 +418,20 @@ class AngeliqueThermal(BaseAngelique):
     __tablename__ = 'thermal'
     __table_args__ = {'schema': 'public', 'extend_existing': True}
     packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
-    cells_temp = Column(ARRAY(SmallInteger))
-    ambient_temp = Column(SmallInteger)
-    inverter_temp = Column(SmallInteger)
-    motor_temp = Column(SmallInteger)
-    water_motor_temp = Column(SmallInteger)
-    water_inverter_temp = Column(SmallInteger)
-    water_rad_temp = Column(SmallInteger)
-    rad_fan_set = Column(SmallInteger)
+    cells_temp = Column(ARRAY(Integer))
+    ambient_temp = Column(Integer)
+    inverter_temp = Column(Integer)
+    motor_temp = Column(Integer)
+    water_motor_temp = Column(Integer)
+    water_inverter_temp = Column(Integer)
+    water_rad_temp = Column(Integer)
+    rad_fan_set = Column(Integer)
     rad_fan_rpm = Column(BigInteger)
-    batt_fan_set = Column(SmallInteger)
-    batt_fan_rpm = Column(SmallInteger)
-    flow_rate = Column(SmallInteger)
+    batt_fan_set = Column(Integer)
+    batt_fan_rpm = Column(Integer)
+    flow_rate = Column(Integer)
     packet = relationship("AngeliquePacket", back_populates="thermal")
 
-class AngeliquePack(BaseAngelique):
-    __tablename__ = 'pack'
-    __table_args__ = {'schema': 'public', 'extend_existing': True}
-    packet_id = Column(BigInteger, ForeignKey('public.packet.packet_id'), primary_key=True)
-    hv_pack_v = Column(Float)
-    hv_tractive_v = Column(Float)
-    hv_c = Column(Float)
-    lv_v = Column(Float)
-    lv_c = Column(Float)
-    contactor_state = Column(SmallInteger)
-    avg_cell_v = Column(Float)
-    avg_cell_temp = Column(Float)
-    packet = relationship("AngeliquePacket", back_populates="pack")
-
-class AngeliquePacket(BaseAngelique):
-    __tablename__ = 'packet'
-    __table_args__ = {'schema': 'public', 'extend_existing': True}
-    packet_id = Column(BigInteger, primary_key=True)
-    time = Column(BigInteger, nullable=False)
-    dynamics = relationship("AngeliqueDynamics", uselist=False, back_populates="packet")
-    controls = relationship("AngeliqueControls", uselist=False, back_populates="packet")
-    pack = relationship("AngeliquePack", uselist=False, back_populates="packet")
-    diagnostics = relationship("AngeliqueDiagnostics", uselist=False, back_populates="packet")
-    thermal = relationship("AngeliqueThermal", uselist=False, back_populates="packet")
 # END GENERATED Angelique
 
 class Partitions(Base):
@@ -436,6 +440,22 @@ class Partitions(Base):
     partition_name = Column(Text, primary_key=True)
     start_time = Column(BigInteger, primary_key=True)
     end_time = Column(BigInteger, nullable=False)
+
+class CarStatusSegment(Base):
+    # Written by the car_status processor: one row per closed state segment.
+    # Standalone (car + time range), no drive_day FK; active_faults are advisory.
+    __tablename__ = 'car_status_segment'
+    __table_args__ = {'schema': 'public', 'extend_existing': True}
+    segment_id = Column(BigInteger, primary_key=True, autoincrement=True)
+    car = Column(Text, nullable=False)
+    state = Column(Text, nullable=False)
+    start_time = Column(BigInteger, nullable=False)
+    end_time = Column(BigInteger)
+    start_packet = Column(BigInteger)
+    end_packet = Column(BigInteger)
+    hv_soc_avg = Column(Float)
+    lv_v_avg = Column(Float)
+    active_faults = Column(Text)
 
 # BEGIN GENERATED Orion
 class OrionPacket(BaseOrion):

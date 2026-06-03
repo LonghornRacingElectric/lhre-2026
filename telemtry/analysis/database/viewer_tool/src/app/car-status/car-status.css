@@ -140,3 +140,24 @@
 .csSaved { color: var(--cs-moving); font-size: 12px; font-weight: 600; }
 
 .csFootnote { color: var(--cs-muted); font-size: 12px; margin-top: 18px; }
+
+/* history */
+.csHistory { border: 1px solid var(--cs-border); border-radius: 12px; padding: 16px; background: var(--cs-surface); margin-top: 16px; }
+.csHistoryHead { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.csHistoryHead h2 { margin: 0; font-size: 16px; }
+.csRanges { display: flex; gap: 6px; margin-left: auto; align-items: center; }
+.csRange { border: 1px solid var(--cs-border); background: var(--cs-surface-alt); color: var(--cs-muted); border-radius: 7px; padding: 5px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+.csRange.csRangeOn { background: var(--cs-accent); color: #06231f; border-color: transparent; font-weight: 700; }
+.csTimeline { position: relative; height: 22px; border-radius: 6px; background: var(--cs-surface-alt); overflow: hidden; margin-bottom: 12px; }
+.csTimelineSeg { position: absolute; top: 0; bottom: 0; min-width: 1px; }
+.csHistTotals { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+.csTotalMoving { font-size: 14px; }
+.csTotalMoving strong { color: var(--cs-moving); }
+.csTotalChip { font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--cs-border); color: var(--cs-muted); }
+.csTableWrap { overflow-x: auto; }
+.csTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.csTable th { text-align: left; color: var(--cs-muted); font-weight: 700; font-size: 11px; text-transform: uppercase; padding: 6px 10px; border-bottom: 1px solid var(--cs-border); }
+.csTable td { padding: 6px 10px; border-bottom: 1px solid color-mix(in srgb, var(--cs-border) 50%, transparent); font-variant-numeric: tabular-nums; }
+.csRowMoving td { background: color-mix(in srgb, var(--cs-moving) 8%, transparent); }
+.csStateDot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; margin-right: 6px; vertical-align: middle; }
+.csHistoryEmpty { color: var(--cs-muted); font-size: 13px; padding: 8px 0; }
