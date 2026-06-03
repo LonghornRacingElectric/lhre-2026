@@ -104,6 +104,16 @@ export class Exporter {
       metadata.session = segMeta.session || segment.label || "";
       metadata.short_comment = segMeta.short_comment || segment.id;
 
+      // Car-status sidecar: tag this export window with the OFF/IDLE/READY/MOVING
+      // segments overlapping it, with elapsed-seconds offsets so MoTeC / analysis
+      // tooling can jump straight to motion. Best-effort (empty if unavailable).
+      const statusSidecar = await this.buildStatusSidecar(request.car, segment.start_ms, segment.end_ms);
+      if (statusSidecar) {
+        const data = Buffer.from(JSON.stringify(statusSidecar, null, 2), "utf8");
+        await fs.writeFile(path.join(outDir, `${stem}.status.json`), data);
+        fileEntries.push({ name: `${stem}.status.json`, data });
+      }
+
       if (request.export_type === "csv") {
         const data = writeCsv(log, segment.start_ms);
         await fs.writeFile(path.join(outDir, `${stem}.csv`), data);
@@ -140,6 +150,37 @@ export class Exporter {
       zip_path: zipPath,
       files: fileEntries.map((f) => f.name),
       download_url: `/api/motec/export/download?id=${encodeURIComponent(exportId)}`,
+    };
+  }
+
+  // Build the car-status sidecar for one export window. Returns null if there
+  // are no overlapping status segments (so we don't write an empty file).
+  private async buildStatusSidecar(car: string, startMs: number, endMs: number) {
+    const segments = await this.telemetry.carStatusSegments(car, startMs, endMs);
+    if (!segments.length) return null;
+    const windowMs = Math.max(1, endMs - startMs);
+    const clamped = segments.map((s) => {
+      const segStart = Math.max(s.startMs, startMs);
+      const segEnd = Math.min(s.endMs ?? endMs, endMs);
+      return {
+        state: s.state,
+        start_s: (segStart - startMs) / 1000,        // elapsed seconds into the export
+        end_s: (segEnd - startMs) / 1000,
+        start_ms: segStart,
+        end_ms: segEnd,
+        active_faults: s.activeFaults,
+      };
+    });
+    const movingMs = clamped
+      .filter((s) => s.state === "MOVING")
+      .reduce((sum, s) => sum + (s.end_ms - s.start_ms), 0);
+    return {
+      car: car.toLowerCase(),
+      window_start_ms: startMs,
+      window_end_ms: endMs,
+      window_duration_s: windowMs / 1000,
+      moving_s: movingMs / 1000,
+      segments: clamped,
     };
   }
 

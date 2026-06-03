@@ -353,9 +353,16 @@ coupling (that infrastructure is abandoned).
     model), so raw pg avoids that dependency.
   - Page: history timeline bar + segment table + "moving" totals, with a
     1h/24h/7d range picker.
-- **Phase 3 — CSV/MoTeC tagging**
-  - Inject status segments into MoTeC `.ldx` and/or sidecar JSON at export.
-  - Optional derived state channel column.
+- **Phase 3 — CSV/MoTeC tagging · IMPLEMENTED (this branch)**
+  - The MoTeC exporter writes a `*.status.json` sidecar per export segment
+    (`exporter.ts` → `buildStatusSidecar`, fed by `telemetry.carStatusSegments`).
+    It lists the OFF/IDLE/READY/MOVING windows overlapping the export, with
+    elapsed-second offsets (`start_s`/`end_s`) + absolute ms + a `moving_s` total,
+    so MoTeC/analysis tooling can jump straight to motion. Works for both `.ld`
+    and `.csv` exports; best-effort (skipped if no segments / DB unavailable).
+  - (Deferred) injecting markers into the `.ldx` lap format and a derived state
+    channel column — the sidecar covers the core need without touching the rigid
+    gate-based `.ldx` schema.
 - **Phase 4 (optional)** — Grafana panel on `car_status_segment`, extra
   per-state analytics.
 

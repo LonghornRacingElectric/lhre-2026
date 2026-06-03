@@ -208,6 +208,37 @@ export class TelemetryService {
     };
   }
 
+  /**
+   * Car-status segments (OFF/ON_IDLE/READY/MOVING) overlapping [startMs, endMs],
+   * for tagging exports. Returns [] if the table/DB is unavailable (best-effort).
+   */
+  async carStatusSegments(
+    car: string,
+    startMs: number,
+    endMs: number,
+  ): Promise<Array<{ state: string; startMs: number; endMs: number | null; activeFaults: string[] }>> {
+    if (!this.settings.usePostgres) return [];
+    try {
+      const rows = await this.db.query<{
+        state: string; start_time: string; end_time: string | null; active_faults: string | null;
+      }>(
+        `select state, start_time, end_time, active_faults
+         from car_status_segment
+         where car = $1 and start_time <= $2 and (end_time is null or end_time >= $3)
+         order by start_time asc`,
+        [car.toLowerCase(), endMs, startMs],
+      );
+      return rows.map((r) => ({
+        state: r.state,
+        startMs: Number(r.start_time),
+        endMs: r.end_time === null ? null : Number(r.end_time),
+        activeFaults: r.active_faults ? r.active_faults.split(",").filter(Boolean) : [],
+      }));
+    } catch {
+      return [];
+    }
+  }
+
   async autoSegments(startMs: number, endMs: number, channelKey = DEFAULT_CHANNEL_KEY): Promise<SegmentSummary[]> {
     if (!this.settings.usePostgres) return sample.autoSegments(startMs, endMs, channelKey);
     const series = await this.series(channelKey, startMs, endMs, 20000);
