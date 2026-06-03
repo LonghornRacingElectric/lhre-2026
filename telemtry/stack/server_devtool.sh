@@ -177,9 +177,14 @@ ensure_kafka_dirs() {
             KAFKA_DATA_DIR="$SCRIPT_DIR/kafka/kafka-data"
         fi
     fi
-    # Created by the current user (uid 1000) — matches kafka's appuser so it's writable.
+    # Created by the current user (uid 1000) — matches kafka's appuser so it's
+    # writable. Don't swallow a real failure: if the dir can't be created (e.g.
+    # a root-owned mount), say so loudly — otherwise docker makes it root-owned
+    # and kafka (uid 1000) silently crash-loops on permission-denied.
     export KAFKA_DATA_DIR
-    mkdir -p "$KAFKA_DATA_DIR" 2>/dev/null || true
+    if ! mkdir -p "$KAFKA_DATA_DIR" 2>/dev/null; then
+        warn "could not create kafka data dir $KAFKA_DATA_DIR — create it writable by uid 1000 (kafka's appuser), or kafka will fail to start"
+    fi
 }
 # compose's default project name is the lowercased dir basename with [^a-z0-9_-] stripped
 comp_project() {
