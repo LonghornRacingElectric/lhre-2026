@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
 
   const enc = new TextEncoder();
   let closed = false;
+  let cleanup = () => {};
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
         controller.enqueue(enc.encode(`: ping\n\n`));
       }, 15000);
 
-      const cleanup = () => {
+      cleanup = () => {
         if (closed) return;
         closed = true;
         clearInterval(keepAlive);
@@ -72,7 +73,7 @@ export async function GET(req: NextRequest) {
       req.signal.addEventListener("abort", cleanup);
     },
     cancel() {
-      closed = true;
+      cleanup();
     },
   });
 

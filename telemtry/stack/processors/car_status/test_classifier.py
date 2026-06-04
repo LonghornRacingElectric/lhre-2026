@@ -89,6 +89,25 @@ class TestInstantClassification(unittest.TestCase):
         state, _ = classify_instant(f, self.th)
         self.assertEqual(state, MOVING)
 
+    def test_moving_by_angelique_inverter_rpm(self):
+        # Angelique reports motor speed as dynamics.inverter_rpm (not controls).
+        f = frame(
+            pack=hv_live_pack(),
+            dynamics={"inverter_rpm": 1500.0},
+        )
+        state, _ = classify_instant(f, self.th)
+        self.assertEqual(state, MOVING)
+
+    def test_moving_by_angelique_wheel_speed(self):
+        # Angelique wheel fields are flw_speed/frw_speed/blw_speed/brw_speed.
+        f = frame(
+            pack=hv_live_pack(),
+            dynamics={"flw_speed": 12.0, "frw_speed": 12.0,
+                      "blw_speed": 11.0, "brw_speed": 11.0},
+        )
+        state, _ = classify_instant(f, self.th)
+        self.assertEqual(state, MOVING)
+
     def test_moving_takes_priority_over_ready(self):
         # Moving + ready -> MOVING (priority order).
         f = frame(

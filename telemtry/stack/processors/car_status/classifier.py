@@ -140,15 +140,17 @@ def hv_live(frame: dict, th: Thresholds) -> bool:
 
 
 def is_moving(frame: dict, th: Thresholds) -> bool:
-    motor = _num(_pick(frame, "controls", "motor_speed"), _pick(frame, "controls", "inverter_rpm"))
+    # Orion: controls.motor_speed. Angelique: dynamics.inverter_rpm.
+    motor = _num(_pick(frame, "controls", "motor_speed"), _pick(frame, "dynamics", "inverter_rpm"))
     if motor is not None and abs(motor) >= th.move_rpm:
         return True
 
+    # Orion: dynamics.fl_wheel_speed... Angelique: dynamics.flw_speed...
     wheels = [
-        _num(_pick(frame, "dynamics", "fl_wheel_speed")),
-        _num(_pick(frame, "dynamics", "fr_wheel_speed")),
-        _num(_pick(frame, "dynamics", "bl_wheel_speed")),
-        _num(_pick(frame, "dynamics", "br_wheel_speed")),
+        _num(_pick(frame, "dynamics", "fl_wheel_speed", "flw_speed")),
+        _num(_pick(frame, "dynamics", "fr_wheel_speed", "frw_speed")),
+        _num(_pick(frame, "dynamics", "bl_wheel_speed", "blw_speed")),
+        _num(_pick(frame, "dynamics", "br_wheel_speed", "brw_speed")),
     ]
     present = [w for w in wheels if w is not None]
     if present:
@@ -186,8 +188,9 @@ def ready(frame: dict) -> bool:
     )
     if not r2d:
         return False
-    # All present shutdown legs must be closed (truthy).
-    legs = [_pick(frame, "diagnostics_low", f"shutdown_leg{i}") for i in range(1, 5)]
+    # All present shutdown legs must be closed (truthy). The schema allows up to
+    # 12 legs; legs absent from a given car's frame are filtered out below.
+    legs = [_pick(frame, "diagnostics_low", f"shutdown_leg{i}") for i in range(1, 13)]
     present = [v for v in legs if v is not None]
     if present and not all(_truthy(v) for v in present):
         return False
@@ -197,7 +200,7 @@ def ready(frame: dict) -> bool:
 def shutdown_open_while_live(frame: dict, th: Thresholds) -> bool:
     if not hv_live(frame, th):
         return False
-    legs = [_pick(frame, "diagnostics_low", f"shutdown_leg{i}") for i in range(1, 5)]
+    legs = [_pick(frame, "diagnostics_low", f"shutdown_leg{i}") for i in range(1, 13)]
     present = [v for v in legs if v is not None]
     return bool(present) and not all(_truthy(v) for v in present)
 

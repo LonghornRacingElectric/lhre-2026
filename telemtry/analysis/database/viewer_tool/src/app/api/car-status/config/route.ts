@@ -23,6 +23,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
+  if (typeof body !== "object" || body === null) {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
   const overrides: Record<string, number> = {};
   for (const key of KEYS) {
     if (body[key] === undefined || body[key] === null) continue;

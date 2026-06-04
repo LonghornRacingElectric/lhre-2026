@@ -13,10 +13,16 @@ export async function getProducer(): Promise<Producer> {
     return globalThis.__viewerToolKafkaProducerReady;
   }
   globalThis.__viewerToolKafkaProducerReady = (async () => {
-    const producer = getKafka().producer();
-    await producer.connect();
-    globalThis.__viewerToolKafkaProducer = producer;
-    return producer;
+    try {
+      const producer = getKafka().producer();
+      await producer.connect();
+      globalThis.__viewerToolKafkaProducer = producer;
+      return producer;
+    } catch (err) {
+      // Don't cache a rejected promise — let the next call retry the connection.
+      globalThis.__viewerToolKafkaProducerReady = undefined;
+      throw err;
+    }
   })();
   return globalThis.__viewerToolKafkaProducerReady;
 }
