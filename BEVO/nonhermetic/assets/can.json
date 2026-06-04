@@ -1062,7 +1062,7 @@
         "data_length": 8,
         "frequency_ms": 1000,
         "frequency": 1.0,
-        "quantity": 35,
+        "quantity": 33,
         "bus": "Critical",
         "bytes": [
             {
