@@ -234,23 +234,21 @@ fn expand_repeated_arrays(leaf: &str, value: &mut Value, lengths: &HashMap<Strin
 /// column in natural (numeric-aware) order so indexed arrays read
 /// `pack.cells_v[0], [1], [2], ... [10], ... [100]` instead of lexical
 /// `[0], [1], [10], [100], [11]`.
-fn order_headers(keys: Vec<String>) -> Vec<String> {
+fn order_headers(mut keys: Vec<String>) -> Vec<String> {
     const LEADING: [&str; 2] = ["time", "packet_id"];
-    let present: std::collections::HashSet<&str> = keys.iter().map(String::as_str).collect();
 
-    let mut rest: Vec<String> = keys
-        .iter()
-        .filter(|key| !LEADING.contains(&key.as_str()))
-        .cloned()
-        .collect();
-    rest.sort_by(|a, b| natural_cmp(a, b));
-
+    // `time`, then `packet_id`, in that order, if present.
     let mut ordered: Vec<String> = LEADING
         .iter()
-        .filter(|leading| present.contains(*leading))
+        .filter(|&leading| keys.iter().any(|key| key == leading))
         .map(|leading| (*leading).to_string())
         .collect();
-    ordered.extend(rest);
+
+    // Sort the remaining columns in place (no cloning) in natural order.
+    keys.retain(|key| !LEADING.contains(&key.as_str()));
+    keys.sort_by(|a, b| natural_cmp(a, b));
+
+    ordered.extend(keys);
     ordered
 }
 
