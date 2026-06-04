@@ -12,7 +12,7 @@
 static osThreadAttr_t shutdown_sense_thread_attrs = {
     .name = "SdwnSniff",
     .priority = osPriorityNormal,
-    .stack_size = 128 * 8,
+    .stack_size = 512 * 8,
 };
 
 static void shutdown_sense_task(void *argument);
