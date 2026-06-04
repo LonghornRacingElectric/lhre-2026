@@ -180,6 +180,19 @@ struct MqttData {
 
     #[serde(rename = "lapsRemaining")]
     laps_remaining: Option<f32>,
+
+    /// Live target power budget (kW) entered by the trackside team. The dash
+    /// paces per-lap energy against this: expected_Wh = targetPower * elapsed.
+    /// Trackside republishes at ~1 Hz so it doesn't go stale between changes.
+    #[serde(rename = "targetPower")]
+    target_power: Option<f32>,
+
+    /// Monotonic lap counter. Trackside bumps it each lap; the frontend fires
+    /// the full-screen lap card and resets the per-lap energy integrator when
+    /// the value increases. It's an event, not a reading, so the frontend keys
+    /// off changes rather than freshness.
+    #[serde(rename = "lapTrigger")]
+    lap_trigger: Option<f32>,
 }
 
 #[derive(Serialize, Clone)]
@@ -197,9 +210,13 @@ struct MqttState {
     lap_delta: Option<f32>,
     energy_delta: Option<f32>,
     laps_remaining: Option<f32>,
+    target_power: Option<f32>,
+    lap_trigger: Option<f32>,
     last_lap_delta: Instant,
     last_energy_delta: Instant,
     last_laps_remaining: Instant,
+    last_target_power: Instant,
+    last_lap_trigger: Instant,
 }
 
 impl MqttState {
@@ -209,9 +226,13 @@ impl MqttState {
             lap_delta: None,
             energy_delta: None,
             laps_remaining: None,
+            target_power: None,
+            lap_trigger: None,
             last_lap_delta: epoch,
             last_energy_delta: epoch,
             last_laps_remaining: epoch,
+            last_target_power: epoch,
+            last_lap_trigger: epoch,
         }
     }
 
@@ -228,6 +249,12 @@ impl MqttState {
             laps_remaining: self
                 .laps_remaining
                 .filter(|_| now.duration_since(self.last_laps_remaining) < MQTT_STALE_TIMEOUT),
+            target_power: self
+                .target_power
+                .filter(|_| now.duration_since(self.last_target_power) < MQTT_STALE_TIMEOUT),
+            lap_trigger: self
+                .lap_trigger
+                .filter(|_| now.duration_since(self.last_lap_trigger) < MQTT_STALE_TIMEOUT),
         }
     }
 }
@@ -592,6 +619,14 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                         "lapsRemaining" => {
                             locked.mqtt.laps_remaining = Some(val);
                             locked.mqtt.last_laps_remaining = now;
+                        }
+                        "targetPower" => {
+                            locked.mqtt.target_power = Some(val);
+                            locked.mqtt.last_target_power = now;
+                        }
+                        "lapTrigger" => {
+                            locked.mqtt.lap_trigger = Some(val);
+                            locked.mqtt.last_lap_trigger = now;
                         }
                         _ => {} // ignore unknown subtopics
                     }

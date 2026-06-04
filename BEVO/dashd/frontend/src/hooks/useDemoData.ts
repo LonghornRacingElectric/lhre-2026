@@ -36,6 +36,11 @@ export function useDemoData(enabled: boolean): DashMessage | null {
         lastLap: 78.45,
         currentLapStart: Date.now(),
         lapTarget: 75 + Math.random() * 8,
+
+        // Endurance pacing demo state. lapTrigger is bumped each time the demo
+        // lap timer rolls over, so the on-dash lap card + per-lap energy reset
+        // are exercised. targetPower is a steady budget the bar paces against.
+        lapTrigger: 0,
     });
 
     useEffect(() => {
@@ -133,9 +138,14 @@ export function useDemoData(enabled: boolean): DashMessage | null {
                 if (elapsed < a.bestLap) a.bestLap = elapsed;
                 a.currentLapStart = Date.now();
                 a.lapTarget = 75 + Math.random() * 8;
+                a.lapTrigger += 1; // fire the on-dash lap card + per-lap reset
                 elapsed = 0;
             }
             const currentLapTime = elapsed;
+
+            // Steady endurance power budget for the energy-bar demo (kW). The
+            // bar drifts green/red as the simulated power runs under/over this.
+            const targetPower = 32;
 
             // Brake bias: slow drift around 55%, range ~52–58%.
             const brakeBias = 55 + Math.sin(Date.now() / 5000) * 3;
@@ -235,6 +245,8 @@ export function useDemoData(enabled: boolean): DashMessage | null {
                     lastLapTime: a.lastLap,
                     currentLapTime,
                     lapDeltaRate,
+                    targetPower,
+                    lapTrigger: a.lapTrigger,
                 },
             });
         }, 100);

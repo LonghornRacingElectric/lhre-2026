@@ -68,6 +68,14 @@ export interface MqttData {
     energyDelta: number | null;     // Energy delta vs target in Wh
     lapsRemaining: number | null;   // Estimated session laps remaining
 
+    // Endurance pacing signals from the trackside "Dash" sender tab
+    // (BEVO/dashd/MQTT_CONTRACT.md). targetPower is the live power budget the
+    // strategist dials in; lapTrigger is a monotonic counter bumped each lap.
+    // The dash integrates CAN power on-board against targetPower to drive the
+    // energy-budget bar, and fires the lap card when lapTrigger increases.
+    targetPower?: number | null;    // kW — live target power budget
+    lapTrigger?: number | null;     // monotonic lap counter (rising edge = new lap)
+
     // Optional driver-thread additions. Not yet emitted by dashd; the
     // demo data hook provides synthetic values so the layout is testable.
     lapsRemainingEnergy?: number | null; // Energy-based laps remaining
