@@ -32,6 +32,8 @@ export interface DashSignals {
     publishTargetPower: (kw: number) => void;
     /** Bump the lap counter — fires the dash's full-screen lap card + per-lap reset. */
     sendLap: () => void;
+    /** Push the start/finish gate [lat1,lon1,lat2,lon2] so the car counts laps itself (retained). */
+    publishGate: (gate: [number, number, number, number]) => void;
 }
 
 function loadBrokerUrl(): string {
@@ -121,6 +123,14 @@ export function useDashSignals(): DashSignals {
         setLapsSent(lapCounterRef.current);
     }, [publish]);
 
+    const publishGate = useCallback((gate: [number, number, number, number]) => {
+        const client = clientRef.current;
+        if (!client || !client.connected) return;
+        // Retained + QoS 1: the car re-loads the current gate on every reconnect,
+        // and a freshly-booted dash gets it without the strategist re-sending.
+        client.publish(`${TOPIC_PREFIX}sfGate`, JSON.stringify(gate), { qos: 1, retain: true });
+    }, []);
+
     const setBrokerUrl = useCallback((url: string) => {
         setBrokerUrlState(url);
         if (typeof window !== 'undefined') localStorage.setItem(BROKER_STORAGE_KEY, url);
@@ -142,5 +152,6 @@ export function useDashSignals(): DashSignals {
         disconnect,
         publishTargetPower,
         sendLap,
+        publishGate,
     };
 }

@@ -14,6 +14,9 @@ const ScreenOne: React.FC = () => {
     // trackside-set targetPower budget, resets each lap on lapTrigger, and
     // surfaces a full-screen lap card when a lap closes. See useEnergyPacing.
     const pacing = useEnergyPacing(data);
+    // Budget held last-known across a dropout — dim it + badge it so the driver
+    // knows it's no longer live rather than trusting a frozen number.
+    const targetPowerStale = data?.mqtt.targetPowerStale ?? false;
     // ±Wh that pegs the energy-budget bar end-to-end. A lap is a few hundred
     // Wh, so ~150 Wh of margin/overage is a meaningful full-scale deflection.
     const ENERGY_DELTA_MAX_WH = 150;
@@ -341,7 +344,7 @@ const ScreenOne: React.FC = () => {
                 padding: '0 20px'
             }}>
                 <span className="label-small" style={{ marginBottom: 0, flexShrink: 0 }}>NRG</span>
-                <div style={{ flex: 1, height: '22px', background: 'var(--bar-track)', borderRadius: '4px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ flex: 1, height: '22px', background: 'var(--bar-track)', borderRadius: '4px', position: 'relative', overflow: 'hidden', opacity: targetPowerStale ? 0.4 : 1 }}>
                     {/* Zero marker (dead center) */}
                     <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '2px', background: 'var(--bar-center)', transform: 'translateX(-50%)', zIndex: 2 }} />
                     {/* Fill — green left = under budget, red right = over budget */}
@@ -367,11 +370,16 @@ const ScreenOne: React.FC = () => {
                     lineHeight: 1,
                     minWidth: '128px',
                     textAlign: 'right',
-                    color: pacing.budgetDeltaWh === null
+                    color: targetPowerStale
                         ? 'var(--fg-muted)'
-                        : pacing.budgetDeltaWh < 0 ? '#00FF66' : '#FF3333',
+                        : pacing.budgetDeltaWh === null
+                            ? 'var(--fg-muted)'
+                            : pacing.budgetDeltaWh < 0 ? '#00FF66' : '#FF3333',
                     whiteSpace: 'nowrap'
                 }}>
+                    {targetPowerStale && (
+                        <span className="label-small" style={{ fontSize: '0.6rem', color: '#FF6600', marginRight: '6px', letterSpacing: '1px' }}>STALE</span>
+                    )}
                     {pacing.targetPowerKw === null ? '-- kW' : `${pacing.targetPowerKw.toFixed(0)} kW`}
                     {pacing.budgetDeltaWh !== null && (
                         <span style={{ marginLeft: '8px' }}>

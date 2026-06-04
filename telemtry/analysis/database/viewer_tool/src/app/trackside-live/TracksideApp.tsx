@@ -476,6 +476,7 @@ function App() {
   const dashSignals = useDashSignals();
   const [dashTargetPower, setDashTargetPower] = useState<number>(() => Number(localStorage.getItem("dash-target-power") || 30));
   const [dashAutoLap, setDashAutoLap] = useState(() => localStorage.getItem("dash-auto-lap") === "1");
+  const [dashGatePushed, setDashGatePushed] = useState(false);
   const dashLastLapCountRef = useRef(0);
   const liveSourceRef = useRef<EventSource | null>(null);
   const liveStateRef = useRef<LiveSessionState>(EMPTY_LIVE_STATE);
@@ -2643,6 +2644,45 @@ function App() {
               <Metric label="Last Lap NRG" value={liveState.laps.at(-1) ? `${liveState.laps.at(-1)!.energyWh.toFixed(0)} Wh` : "--"} />
               <Metric label="Best Lap" value={bestLap ? formatLapTime(bestLap.durationMs) : "--"} tone="purple" />
             </div>
+          </Panel>
+
+          <Panel title="Start/Finish — on-car laps" icon={<MapPinned size={18} />}>
+            {(() => {
+              const sfGate = track.gates.find((gate) => gate.role === "start_finish");
+              return (
+                <>
+                  <div className="opsCards">
+                    <Metric label="Track" value={track.name} />
+                    <Metric label="S/F gate" value={sfGate ? "defined" : "none"} tone={sfGate ? "good" : ""} />
+                  </div>
+                  <p style={{ marginTop: 8, opacity: 0.7, fontSize: "0.85rem" }}>
+                    Push the start/finish line so the car counts laps from its own GPS — the
+                    per-lap reset then survives any cellular dropout. Send Lap stays as a manual
+                    override. Define or edit the gate in Track Builder.
+                  </p>
+                  <div className="gateButtons" style={{ marginTop: 8 }}>
+                    <button
+                      className="primary"
+                      disabled={!sfGate || dashSignals.status !== "connected"}
+                      onClick={() => {
+                        if (!sfGate) return;
+                        dashSignals.publishGate([sfGate.lat1, sfGate.lon1, sfGate.lat2, sfGate.lon2]);
+                        setDashGatePushed(true);
+                        window.setTimeout(() => setDashGatePushed(false), 2500);
+                      }}
+                    >
+                      <Upload size={15} /> Push S/F to car
+                    </button>
+                    {dashGatePushed ? <span className="goodText">Pushed ✓ (retained)</span> : null}
+                  </div>
+                  {!sfGate ? (
+                    <p style={{ marginTop: 6, opacity: 0.7, fontSize: "0.8rem" }}>
+                      No start/finish gate on the loaded track yet — add one in the Track Builder tab.
+                    </p>
+                  ) : null}
+                </>
+              );
+            })()}
           </Panel>
         </section>
       ) : null}

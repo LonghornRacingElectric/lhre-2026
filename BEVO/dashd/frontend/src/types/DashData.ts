@@ -73,7 +73,8 @@ export interface MqttData {
     // strategist dials in; lapTrigger is a monotonic counter bumped each lap.
     // The dash integrates CAN power on-board against targetPower to drive the
     // energy-budget bar, and fires the lap card when lapTrigger increases.
-    targetPower?: number | null;    // kW — live target power budget
+    targetPower?: number | null;    // kW — live target power budget (held last-known)
+    targetPowerStale?: boolean | null; // true when the held targetPower is past staleness
     lapTrigger?: number | null;     // monotonic lap counter (rising edge = new lap)
 
     // Optional driver-thread additions. Not yet emitted by dashd; the

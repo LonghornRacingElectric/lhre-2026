@@ -183,14 +183,21 @@ struct MqttData {
 
     /// Live target power budget (kW) entered by the trackside team. The dash
     /// paces per-lap energy against this: expected_Wh = targetPower * elapsed.
-    /// Trackside republishes at ~1 Hz so it doesn't go stale between changes.
+    /// Held last-known across dropouts (NOT nulled on staleness) so a cellular
+    /// blip doesn't blank the driver's pacing reference — see target_power_stale.
     #[serde(rename = "targetPower")]
     target_power: Option<f32>,
 
-    /// Monotonic lap counter. Trackside bumps it each lap; the frontend fires
-    /// the full-screen lap card and resets the per-lap energy integrator when
-    /// the value increases. It's an event, not a reading, so the frontend keys
-    /// off changes rather than freshness.
+    /// True when the held targetPower is older than the staleness window, so
+    /// the frontend can dim it / show a "STALE" badge instead of pretending
+    /// it's live. None when there's no targetPower at all.
+    #[serde(rename = "targetPowerStale")]
+    target_power_stale: Option<bool>,
+
+    /// Monotonic lap counter (DashState.lap_count). Bumped by the on-car GPS
+    /// start/finish detector OR a trackside lapTrigger, whichever fires. The
+    /// frontend pops the lap card + resets the per-lap integrator on each
+    /// increase. Always emitted fresh — it's local state, not a network value.
     #[serde(rename = "lapTrigger")]
     lap_trigger: Option<f32>,
 }
@@ -211,12 +218,10 @@ struct MqttState {
     energy_delta: Option<f32>,
     laps_remaining: Option<f32>,
     target_power: Option<f32>,
-    lap_trigger: Option<f32>,
     last_lap_delta: Instant,
     last_energy_delta: Instant,
     last_laps_remaining: Instant,
     last_target_power: Instant,
-    last_lap_trigger: Instant,
 }
 
 impl MqttState {
@@ -227,18 +232,20 @@ impl MqttState {
             energy_delta: None,
             laps_remaining: None,
             target_power: None,
-            lap_trigger: None,
             last_lap_delta: epoch,
             last_energy_delta: epoch,
             last_laps_remaining: epoch,
             last_target_power: epoch,
-            last_lap_trigger: epoch,
         }
     }
 
-    /// Convert to the JSON-serializable MqttData, nulling out stale fields.
+    /// Convert to the JSON-serializable MqttData. Most fields null out once
+    /// stale; targetPower is the exception — it's held last-known (with a
+    /// staleness flag) so a dropout doesn't strip the driver's pacing
+    /// reference. lap_trigger is filled in by the WS sender from lap_count.
     fn to_mqtt_data(&self) -> MqttData {
         let now = Instant::now();
+        let target_power_age = now.duration_since(self.last_target_power);
         MqttData {
             lap_delta: self
                 .lap_delta
@@ -249,12 +256,13 @@ impl MqttState {
             laps_remaining: self
                 .laps_remaining
                 .filter(|_| now.duration_since(self.last_laps_remaining) < MQTT_STALE_TIMEOUT),
-            target_power: self
+            // Hold last-known; never null on staleness.
+            target_power: self.target_power,
+            target_power_stale: self
                 .target_power
-                .filter(|_| now.duration_since(self.last_target_power) < MQTT_STALE_TIMEOUT),
-            lap_trigger: self
-                .lap_trigger
-                .filter(|_| now.duration_since(self.last_lap_trigger) < MQTT_STALE_TIMEOUT),
+                .map(|_| target_power_age >= MQTT_STALE_TIMEOUT),
+            // Overwritten by the WS sender with lap_count.
+            lap_trigger: None,
         }
     }
 }
@@ -269,6 +277,76 @@ struct DashState {
     /// the bar doesn't twitch under load. None until first qualified read.
     last_qualified_soc: Option<f32>,
     mqtt: MqttState,
+
+    // ---- Endurance lap counting (link-independent) ----
+    /// Start/finish line as [lat1, lon1, lat2, lon2]. Loaded from the retained
+    /// `lhre/dash/sfGate` topic (and disk on boot). When present, the car
+    /// counts its own laps from GPS — no per-lap network dependency.
+    sf_gate: Option<[f64; 4]>,
+    /// Previous GPS fix (lat, lon), for segment-crossing detection.
+    last_gps: Option<(f64, f64)>,
+    /// Monotonic lap count — bumped by a GPS crossing or a trackside lapTrigger.
+    /// Emitted to the frontend as mqtt.lapTrigger.
+    lap_count: u64,
+    /// Last trackside lapTrigger value seen, for rising-edge detection.
+    last_offcar_trigger: Option<f32>,
+}
+
+// Path the loaded start/finish gate is cached to, so it survives a dashd or
+// car reboot even if the broker drops its retained copy. Override with
+// DASHD_SFGATE_PATH.
+const SFGATE_PATH: &str = "/tmp/BEVO_dash_sfgate.json";
+
+/// Does the car's path segment (prev->cur GPS) cross the gate line? Both car
+/// points are (lat, lon); the gate is [lat1, lon1, lat2, lon2]. Lat/lon are
+/// treated as a planar (x=lon, y=lat) frame — fine over a ~10 m gate. Returns
+/// true only on a proper crossing (segments strictly intersect).
+fn segments_cross(prev: (f64, f64), cur: (f64, f64), gate: [f64; 4]) -> bool {
+    // To (x=lon, y=lat).
+    let a = (prev.1, prev.0);
+    let b = (cur.1, cur.0);
+    let c = (gate[1], gate[0]);
+    let d = (gate[3], gate[2]);
+    // Signed area of triangle (p, q, r): >0 / <0 = r left / right of line pq.
+    let orient = |p: (f64, f64), q: (f64, f64), r: (f64, f64)| -> f64 {
+        (q.0 - p.0) * (r.1 - p.1) - (q.1 - p.1) * (r.0 - p.0)
+    };
+    let d1 = orient(c, d, a); // car-prev vs gate line
+    let d2 = orient(c, d, b); // car-cur  vs gate line
+    let d3 = orient(a, b, c); // gate-1   vs car path
+    let d4 = orient(a, b, d); // gate-2   vs car path
+    ((d1 > 0.0 && d2 < 0.0) || (d1 < 0.0 && d2 > 0.0))
+        && ((d3 > 0.0 && d4 < 0.0) || (d3 < 0.0 && d4 > 0.0))
+}
+
+fn sfgate_path() -> String {
+    env_or_default("DASHD_SFGATE_PATH", SFGATE_PATH)
+}
+
+/// Cache the gate to disk so it survives a dashd/car reboot even if the broker
+/// drops its retained copy (mosquitto without persistence).
+fn persist_sf_gate(gate: &[f64; 4]) {
+    match serde_json::to_string(gate) {
+        Ok(json) => {
+            if let Err(e) = std::fs::write(sfgate_path(), json) {
+                eprintln!("[DASHD] Failed to persist sfGate: {}", e);
+            }
+        }
+        Err(e) => eprintln!("[DASHD] Failed to serialize sfGate: {}", e),
+    }
+}
+
+/// Restore the last-known gate on boot, before the broker (re)delivers it.
+fn load_sf_gate() -> Option<[f64; 4]> {
+    let path = sfgate_path();
+    let data = std::fs::read_to_string(&path).ok()?;
+    match serde_json::from_str::<[f64; 4]>(data.trim()) {
+        Ok(gate) => {
+            println!("[DASHD] Restored start/finish gate from {}: {:?}", path, gate);
+            Some(gate)
+        }
+        Err(_) => None,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -446,10 +524,31 @@ fn ipc_reader_loop(state: Arc<Mutex<DashState>>) {
 
                     match OrionSensorData::decode(&msg_buf[..]) {
                         Ok(data) => {
+                            // GPS comes in dynamics.gps as [lat, lon] (cand NMEA).
+                            let gps = data
+                                .dynamics
+                                .as_ref()
+                                .filter(|d| d.gps.len() >= 2)
+                                .map(|d| (d.gps[0] as f64, d.gps[1] as f64))
+                                // (0,0) is the no-fix sentinel — ignore it.
+                                .filter(|&(lat, lon)| lat != 0.0 || lon != 0.0);
+
                             let mut locked = state.lock().unwrap();
                             let can_data = extract_can_data(&data, &mut locked.last_qualified_soc);
                             locked.can = can_data;
                             locked.last_can_update = Instant::now();
+
+                            // On-car lap detection: bump lap_count when the
+                            // path between consecutive fixes crosses the gate.
+                            if let Some(cur) = gps {
+                                if let (Some(gate), Some(prev)) = (locked.sf_gate, locked.last_gps) {
+                                    if segments_cross(prev, cur, gate) {
+                                        locked.lap_count += 1;
+                                        println!("[DASHD] GPS lap crossing -> lap {}", locked.lap_count);
+                                    }
+                                }
+                                locked.last_gps = Some(cur);
+                            }
                         }
                         Err(e) => eprintln!("[DASHD] Protobuf decode error: {}", e),
                     }
@@ -497,11 +596,11 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                 } else {
                                     locked.can.clone()
                                 };
-                                DashMessage {
-                                    seq,
-                                    can,
-                                    mqtt: locked.mqtt.to_mqtt_data(),
-                                }
+                                let mut mqtt = locked.mqtt.to_mqtt_data();
+                                // lap_trigger is the local monotonic lap count
+                                // (GPS- or trackside-driven). Always fresh.
+                                mqtt.lap_trigger = Some(locked.lap_count as f32);
+                                DashMessage { seq, can, mqtt }
                             };
 
                             let json = match serde_json::to_string(&message) {
@@ -594,6 +693,30 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                         Err(_) => continue,
                     };
 
+                    // sfGate carries a JSON array [lat1,lon1,lat2,lon2], not a
+                    // bare number — handle it before the numeric parse. It's
+                    // retained, so the dash re-loads the current gate on every
+                    // reconnect; we also cache it to disk for reboot survival.
+                    if field == "sfGate" {
+                        match serde_json::from_str::<[f64; 4]>(payload_str) {
+                            Ok(gate) => {
+                                {
+                                    let mut locked = state.lock().unwrap();
+                                    locked.sf_gate = Some(gate);
+                                    // Drop the last fix so swapping gates can't
+                                    // manufacture a phantom crossing.
+                                    locked.last_gps = None;
+                                }
+                                persist_sf_gate(&gate);
+                                println!("[DASHD] Loaded start/finish gate: {:?}", gate);
+                            }
+                            Err(e) => {
+                                eprintln!("[DASHD] MQTT bad sfGate payload {:?}: {}", payload_str, e)
+                            }
+                        }
+                        continue;
+                    }
+
                     let val: f32 = match payload_str.parse() {
                         Ok(v) => v,
                         Err(_) => {
@@ -625,8 +748,16 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                             locked.mqtt.last_target_power = now;
                         }
                         "lapTrigger" => {
-                            locked.mqtt.lap_trigger = Some(val);
-                            locked.mqtt.last_lap_trigger = now;
+                            // Trackside override / fallback for the on-car GPS
+                            // detector: each rising edge counts one lap. First
+                            // value just sets the baseline (no phantom lap on a
+                            // retained/stale value already on the broker).
+                            let rising = locked.last_offcar_trigger.is_some_and(|last| val > last);
+                            locked.last_offcar_trigger = Some(val);
+                            if rising {
+                                locked.lap_count += 1;
+                                println!("[DASHD] Trackside lapTrigger -> lap {}", locked.lap_count);
+                            }
                         }
                         _ => {} // ignore unknown subtopics
                     }
@@ -662,6 +793,12 @@ fn main() -> Result<()> {
         last_can_update: Instant::now() - CAN_STALE_TIMEOUT,
         last_qualified_soc: None,
         mqtt: MqttState::new(),
+        // Restore the last gate from disk; the retained MQTT topic will refresh
+        // it once the broker connects.
+        sf_gate: load_sf_gate(),
+        last_gps: None,
+        lap_count: 0,
+        last_offcar_trigger: None,
     }));
 
     let ipc_state = Arc::clone(&state);

@@ -246,6 +246,7 @@ export function useDemoData(enabled: boolean): DashMessage | null {
                     currentLapTime,
                     lapDeltaRate,
                     targetPower,
+                    targetPowerStale: false,
                     lapTrigger: a.lapTrigger,
                 },
             });
