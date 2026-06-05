@@ -36,6 +36,15 @@ export function useDemoData(enabled: boolean): DashMessage | null {
         lastLap: 78.45,
         currentLapStart: Date.now(),
         lapTarget: 75 + Math.random() * 8,
+
+        // Endurance pacing demo state. Mirrors what dashd computes on-car so the
+        // bar + lap card render in demo mode. lapTrigger is bumped each lap.
+        lapTrigger: 0,
+        lapEnergyWh: 0,
+        lapBudgetWh: 0,
+        lastLapNum: null as number | null,
+        lastLapTimeS: null as number | null,
+        lastLapEnergyWh: null as number | null,
     });
 
     useEffect(() => {
@@ -85,6 +94,14 @@ export function useDemoData(enabled: boolean): DashMessage | null {
             s.speed = Math.max(0, Math.min(s.speed, 99));
             const clampedPower = Math.min(Math.max(newPower, -80), 80);
 
+            // Endurance power budget for the energy-bar demo (kW). The bar
+            // drifts green/red as the simulated power runs under/over this.
+            const targetPower = 32;
+            // Integrate per-lap energy + budget at the 100 ms tick (Wh = kW*dt/3.6),
+            // mirroring dashd's on-car integration.
+            a.lapEnergyWh += (clampedPower * 0.1) / 3.6;
+            a.lapBudgetWh += (targetPower * 0.1) / 3.6;
+
             // Accumulate derived values
             a.charge = Math.max(0, a.charge - (newPower > 0 ? 0.005 : -0.001));
 
@@ -131,6 +148,13 @@ export function useDemoData(enabled: boolean): DashMessage | null {
             if (elapsed >= a.lapTarget) {
                 a.lastLap = elapsed;
                 if (elapsed < a.bestLap) a.bestLap = elapsed;
+                a.lapTrigger += 1; // fire the on-dash lap card + per-lap reset
+                // Snapshot the just-finished lap, then reset the integrators.
+                a.lastLapNum = a.lapTrigger;
+                a.lastLapTimeS = elapsed;
+                a.lastLapEnergyWh = a.lapEnergyWh;
+                a.lapEnergyWh = 0;
+                a.lapBudgetWh = 0;
                 a.currentLapStart = Date.now();
                 a.lapTarget = 75 + Math.random() * 8;
                 elapsed = 0;
@@ -235,6 +259,18 @@ export function useDemoData(enabled: boolean): DashMessage | null {
                     lastLapTime: a.lastLap,
                     currentLapTime,
                     lapDeltaRate,
+                    targetPower,
+                    targetPowerStale: false,
+                    lapTrigger: a.lapTrigger,
+                },
+                pacing: {
+                    lapEnergyWh: a.lapEnergyWh,
+                    budgetDeltaWh: a.lapEnergyWh - a.lapBudgetWh,
+                    lapElapsedS: currentLapTime,
+                    lapNumber: a.lapTrigger + 1,
+                    lastLapNumber: a.lastLapNum,
+                    lastLapTimeS: a.lastLapTimeS,
+                    lastLapEnergyWh: a.lastLapEnergyWh,
                 },
             });
         }, 100);

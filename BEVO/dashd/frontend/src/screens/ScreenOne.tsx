@@ -1,6 +1,7 @@
 import React from 'react';
 import ConnectivityIndicator from '../components/ConnectivityIndicator';
 import { useDash } from '../context/DashContext';
+import { useEnergyPacing } from '../hooks/useEnergyPacing';
 import './ScreenOne.css';
 
 // Screen One: Main Dashboard (Modern EV Style)
@@ -8,6 +9,17 @@ import './ScreenOne.css';
 
 const ScreenOne: React.FC = () => {
     const { data } = useDash();
+
+    // Endurance energy pacing: integrates CAN power on-board against the
+    // trackside-set targetPower budget, resets each lap on lapTrigger, and
+    // surfaces a full-screen lap card when a lap closes. See useEnergyPacing.
+    const pacing = useEnergyPacing(data);
+    // Budget held last-known across a dropout — dim it + badge it so the driver
+    // knows it's no longer live rather than trusting a frozen number.
+    const targetPowerStale = data?.mqtt.targetPowerStale ?? false;
+    // ±Wh that pegs the energy-budget bar end-to-end. A lap is a few hundred
+    // Wh, so ~150 Wh of margin/overage is a meaningful full-scale deflection.
+    const ENERGY_DELTA_MAX_WH = 150;
 
     // Extract values with null fallback
     const speed = data?.can.speed;
@@ -313,12 +325,79 @@ const ScreenOne: React.FC = () => {
                 </div>
             </div>
 
-            {/* Inner square: 2-row grid spanning between sidebars and trays.
-                Top row splits into Speed (left) + Lap-stuff table (right).
-                Bottom row hosts the big bidirectional power bar + readouts. */}
+            {/* Endurance energy-budget bar — sits at the top of the driving
+                area, between the temp/SOC sidebars. Center-zero like the power
+                and s/s bars: green grows left when banking margin (under the
+                trackside power budget), red grows right when over. Resets each
+                lap via lapTrigger. The reference rate is the live targetPower
+                the strategist dials in on the trackside Dash tab. */}
             <div style={{
                 position: 'absolute',
-                top: '60px',
+                top: '64px',
+                left: '90px',
+                right: '90px',
+                height: '24px',
+                zIndex: 100,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '0 20px'
+            }}>
+                <span className="label-small" style={{ marginBottom: 0, flexShrink: 0 }}>NRG</span>
+                <div style={{ flex: 1, height: '22px', background: 'var(--bar-track)', borderRadius: '4px', position: 'relative', overflow: 'hidden', opacity: targetPowerStale ? 0.4 : 1 }}>
+                    {/* Zero marker (dead center) */}
+                    <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '2px', background: 'var(--bar-center)', transform: 'translateX(-50%)', zIndex: 2 }} />
+                    {/* Fill — green left = under budget, red right = over budget */}
+                    {pacing.budgetDeltaWh !== null && (
+                        <div style={{
+                            position: 'absolute',
+                            top: 0, bottom: 0,
+                            left: pacing.budgetDeltaWh < 0
+                                ? `${50 - (Math.min(Math.abs(pacing.budgetDeltaWh), ENERGY_DELTA_MAX_WH) / ENERGY_DELTA_MAX_WH) * 50}%`
+                                : '50%',
+                            width: `${(Math.min(Math.abs(pacing.budgetDeltaWh), ENERGY_DELTA_MAX_WH) / ENERGY_DELTA_MAX_WH) * 50}%`,
+                            background: pacing.budgetDeltaWh < 0
+                                ? 'linear-gradient(to right, #00CC00, #00FF66)'
+                                : 'linear-gradient(to left, #FF3333, #FF6600)',
+                            transition: 'all 0.2s linear'
+                        }} />
+                    )}
+                </div>
+                {/* Right: target power + signed Wh delta (fixed width, no shift) */}
+                <span className="value-display" style={{
+                    fontSize: '1.1rem',
+                    fontWeight: 'bold',
+                    lineHeight: 1,
+                    minWidth: '128px',
+                    textAlign: 'right',
+                    color: targetPowerStale
+                        ? 'var(--fg-muted)'
+                        : pacing.budgetDeltaWh === null
+                            ? 'var(--fg-muted)'
+                            : pacing.budgetDeltaWh < 0 ? '#00FF66' : '#FF3333',
+                    whiteSpace: 'nowrap'
+                }}>
+                    {targetPowerStale && (
+                        <span className="label-small" style={{ fontSize: '0.6rem', color: '#FF6600', marginRight: '6px', letterSpacing: '1px' }}>STALE</span>
+                    )}
+                    {pacing.targetPowerKw === null ? '-- kW' : `${pacing.targetPowerKw.toFixed(0)} kW`}
+                    {pacing.budgetDeltaWh !== null && (
+                        <span style={{ marginLeft: '8px' }}>
+                            {pacing.budgetDeltaWh > 0 ? '+' : pacing.budgetDeltaWh < 0 ? '-' : ''}
+                            {Math.abs(pacing.budgetDeltaWh).toFixed(0)}
+                            <span className="label-small" style={{ fontSize: '0.7rem', marginLeft: '2px' }}>Wh</span>
+                        </span>
+                    )}
+                </span>
+            </div>
+
+            {/* Inner square: 2-row grid spanning between sidebars and trays.
+                Top row splits into Speed (left) + Lap-stuff table (right).
+                Bottom row hosts the big bidirectional power bar + readouts.
+                Top pushed to 92px to clear the energy-budget bar above. */}
+            <div style={{
+                position: 'absolute',
+                top: '92px',
                 bottom: '80px',
                 left: '90px',
                 right: '90px',
@@ -676,6 +755,36 @@ const ScreenOne: React.FC = () => {
                     <ConnectivityIndicator />
                 </div>
             </div>
+
+            {/* Full-screen lap card — pops on each lapTrigger crossing and
+                clears itself after a few seconds (LAP_CARD_MS in the hook).
+                Shows the just-finished lap's time and net energy so the driver
+                gets a clear glance as they cross start/finish. */}
+            {pacing.lapCard && (
+                <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    zIndex: 1000,
+                    background: 'rgba(8,8,10,0.92)',
+                    backdropFilter: 'blur(6px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                }}>
+                    <div className="label-small" style={{ fontSize: '1.4rem', letterSpacing: '8px', color: '#BF5700' }}>
+                        LAP {pacing.lapCard.lapNumber}
+                    </div>
+                    <div className="value-display" style={{ fontSize: '7rem', fontWeight: 'bold', lineHeight: 0.9 }}>
+                        {fmtLapTime(pacing.lapCard.timeS)}
+                    </div>
+                    <div className="value-display" style={{ fontSize: '3rem', fontWeight: 'bold', color: 'var(--fg-secondary)', lineHeight: 1 }}>
+                        {Math.round(pacing.lapCard.energyWh)}
+                        <span className="label-small" style={{ fontSize: '1.1rem', marginLeft: '8px' }}>Wh / LAP</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
