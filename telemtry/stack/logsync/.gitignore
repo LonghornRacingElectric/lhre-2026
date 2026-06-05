@@ -1,0 +1,6 @@
+# Never commit SSH keys or known_hosts
+keys/*
+!keys/.gitkeep
+.env
+__pycache__/
+*.pyc

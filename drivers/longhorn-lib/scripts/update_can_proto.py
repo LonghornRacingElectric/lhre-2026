@@ -38,13 +38,20 @@ def main() -> int:
     gen_json = gen._load_generate_can_json_module()
     bitfield_defs = gen_json.load_bitfield_definitions(bitfield_csv_path)
     packets = gen_json.process_csv(csv_path, bitfield_defs, bitfield_csv_path)
+
+    # Seed from the previously generated proto so existing field numbers are preserved.
+    existing_ids = gen.parse_existing_proto_ids(out_path)
+
     partitions = gen.parse_can_model_to_partitions(packets)
-    proto_text = gen.generate_proto_text(partitions, "Orion")
+    proto_text, id_map = gen.generate_proto_text(partitions, "Orion", existing_ids)
 
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(proto_text)
 
-    print(f"Wrote {out_path}")
+    annotated = gen.write_back_proto_ids(csv_path, id_map)
+    annotated += gen.write_back_bitfield_ids(bitfield_csv_path, id_map)
+
+    print(f"Wrote {out_path}" + (f"; annotated {annotated} CSV cell(s) with proto ids." if annotated else ""))
     return 0
 
 

@@ -23,6 +23,7 @@ protected:
     params.bse.brake_light_max_pct = 0.30f;
     params.bse.bse_max_psi = 1000.0f;
 
+    params.bse.bse_brake_light_psi = 30.0f;
     params.bse.bse_off_psi = 30.0f;
     params.bse.bse_on_psi = 50.0f;
 
@@ -48,19 +49,19 @@ TEST_F(BSETest, ADCToPSI) {
 
 TEST_F(BSETest, ActiveHysteresis) {
   // 1. Initial State: To clear static state just in case, input 0
-  EXPECT_FALSE(bse_is_active(0.0f, &state, &params));
+  EXPECT_FALSE(bse_should_trigger_stompp(0.0f, &state, &params));
 
   // 2. Rising pressure, cross off point but not on point
-  EXPECT_FALSE(bse_is_active(40.0f, &state, &params));
+  EXPECT_FALSE(bse_should_trigger_stompp(40.0f, &state, &params));
 
   // 3. Cross ON point
-  EXPECT_TRUE(bse_is_active(60.0f, &state, &params));
+  EXPECT_TRUE(bse_should_trigger_stompp(60.0f, &state, &params));
 
   // 4. Falling pressure, cross ON point but not OFF point
-  EXPECT_TRUE(bse_is_active(40.0f, &state, &params));
+  EXPECT_TRUE(bse_should_trigger_stompp(40.0f, &state, &params));
 
   // 5. Cross OFF point
-  EXPECT_FALSE(bse_is_active(20.0f, &state, &params));
+  EXPECT_FALSE(bse_should_trigger_stompp(20.0f, &state, &params));
 }
 
 TEST_F(BSETest, EvaluateLatches) {

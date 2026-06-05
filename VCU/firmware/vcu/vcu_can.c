@@ -43,11 +43,17 @@ static can_receive_message_t *inverter_speed_mailbox_handle = NULL;
 static msg_battery_cell_limits_t battery_cell_limits_mailbox = {0};
 static can_receive_message_t *battery_cell_limits_mailbox_handle = NULL;
 
+static msg_battery_pack_status_t battery_pack_status_mailbox = {0};
+static can_receive_message_t *battery_pack_status_mailbox_handle = NULL;
+
 static msg_inverter_current_t inverter_current_mailbox = {0};
 static can_receive_message_t *inverter_current_mailbox_handle = NULL;
 
 static msg_inverter_voltage_t inverter_voltage_mailbox = {0};
 static can_receive_message_t *inverter_voltage_mailbox_handle = NULL;
+
+static msg_inverter_faults_t inverter_faults_mailbox = {0};
+static can_receive_message_t *inverter_faults_mailbox_handle = NULL;
 // #define DUI_R2D_STATUS_TIMEOUT_MS 1000u
 
 // static bool dui_r2d_timed_out_logged = false;
@@ -207,6 +213,18 @@ void vcu_can_add_send_handlers(void) {
   log_printf(LOG_INFO, "[VCU] CAN send handler for VCU state registered\n");
 }
 
+void vcu_can_clear_inverter_faults(void) {
+  msg_inverter_parameter_request_t fault_clear = {
+      .parameter_address = 20,
+      .r_w = 1,
+  };
+  can_message_t *msg = can_get_message_handle(
+      &fault_clear, INVERTER_PARAMETER_REQUEST_ID, 0,
+      INVERTER_PARAMETER_REQUEST_DLC,
+      (CAN_pack_message_fn)pack_inverter_parameter_request);
+  can_rtos_send_immediate(&critical_bus, msg);
+}
+
 void vcu_init_inverter() {
   // send can packet with all 0s
   inverter_torque_command_mailbox.torque_request = 0.0f;
@@ -253,6 +271,8 @@ void vcu_can_set_model_outputs(const vcu_outputs_t *out) {
   vcu_state_mailbox.prndl_state = out->prndl_state;
   vcu_state_mailbox.stomp_fault = out->faults.brake_latched;
   vcu_state_mailbox.ready_to_drive_buzzer = out->buzzer_active;
+  vcu_state_mailbox.state_of_charge_estimate = out->soe_pct;
+  vcu_state_mailbox.line_lock_enabled = out->linelock_enabled;
 
   led_set(out->brake_pressed, is_drive_switch_pressed(),
           out->accel_pedal_travel == 0);
@@ -357,6 +377,27 @@ float vcu_can_get_min_cell_voltage_v(void) {
   return battery_cell_limits_mailbox.min_cell_voltage;
 }
 
+float vcu_can_get_max_cell_voltage_v(void) {
+  return battery_cell_limits_mailbox.max_cell_voltage;
+}
+
+bool vcu_can_is_motor_speed_valid(void) {
+  return !message_timed_out(inverter_speed_mailbox_handle,
+                            INVERTER_SPEED_TIMEOUT_MS) ||
+         !message_timed_out(inverter_status_mailbox_handle,
+                            INVERTER_STATUS_TIMEOUT_MS);
+}
+
+bool vcu_can_is_inverter_current_valid(void) {
+  return !message_timed_out(inverter_current_mailbox_handle,
+                            INVERTER_CURRENT_TIMEOUT_MS);
+}
+
+bool vcu_can_is_inverter_voltage_valid(void) {
+  return !message_timed_out(inverter_voltage_mailbox_handle,
+                            INVERTER_VOLTAGE_TIMEOUT_MS);
+}
+
 inverter_currents_t vcu_can_get_inverter_currents(void) {
   return (inverter_currents_t){
       .phase_a = inverter_current_mailbox.phase_a_current,
@@ -372,6 +413,27 @@ inverter_voltages_t vcu_can_get_inverter_voltages(void) {
       .neutral_output  = inverter_voltage_mailbox.neutral_output_voltage,
       .vab_vq          = inverter_voltage_mailbox.vab_vq_voltage,
       .vbc_vd          = inverter_voltage_mailbox.vbc_vd_voltage,
+  };
+}
+
+uint32_t vcu_can_get_inverter_post_faults(void) {
+  return inverter_faults_mailbox.post_faults;
+}
+
+uint32_t vcu_can_get_inverter_run_faults(void) {
+  return inverter_faults_mailbox.run_faults;
+}
+
+vcu_battery_pack_status_t vcu_can_get_battery_pack_status(void) {
+  const float top_temp_c = (float)battery_pack_status_mailbox.cell_top_temp;
+  const float bottom_temp_c = (float)battery_pack_status_mailbox.cell_bottom_temp;
+  return (vcu_battery_pack_status_t){
+      .pack_voltage_v = battery_pack_status_mailbox.pack_voltage,
+      .state_of_charge_pct = battery_pack_status_mailbox.state_of_charge,
+      .min_cell_temp_c = top_temp_c < bottom_temp_c ? top_temp_c : bottom_temp_c,
+      .max_cell_temp_c = top_temp_c > bottom_temp_c ? top_temp_c : bottom_temp_c,
+      .valid = !message_timed_out(battery_pack_status_mailbox_handle,
+                                  BATTERY_PACK_STATUS_TIMEOUT_MS),
   };
 }
 
@@ -424,6 +486,14 @@ void vcu_can_add_receive_handlers(void) {
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for battery cell limits registered\n");
 
+  battery_pack_status_mailbox_handle = can_get_receive_message_handle(
+      &battery_pack_status_mailbox, BATTERY_PACK_STATUS_ID,
+      (CAN_unpack_message_fn)unpack_battery_pack_status);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   battery_pack_status_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for battery pack status registered\n");
+
   inverter_current_mailbox_handle = can_get_receive_message_handle(
       &inverter_current_mailbox, INVERTER_CURRENT_ID,
       (CAN_unpack_message_fn)unpack_inverter_current);
@@ -439,4 +509,12 @@ void vcu_can_add_receive_handlers(void) {
                                    inverter_voltage_mailbox_handle);
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for inverter voltage registered\n");
+
+  inverter_faults_mailbox_handle = can_get_receive_message_handle(
+      &inverter_faults_mailbox, INVERTER_FAULTS_ID,
+      (CAN_unpack_message_fn)unpack_inverter_faults);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   inverter_faults_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for inverter faults registered\n");
 }

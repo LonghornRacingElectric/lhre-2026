@@ -1,0 +1,5 @@
+cc_import(
+    name = "afbrs50",
+    static_library = "libafbrs50_m4_fpu_os_nolog.a",
+    visibility = ["//visibility:public"],
+)

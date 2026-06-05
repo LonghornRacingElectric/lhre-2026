@@ -38,7 +38,7 @@ const ConnectivityIndicator: React.FC = () => {
             />
             <div
                 className="label-small"
-                style={{ fontSize: '0.8rem', marginBottom: 0, color: '#aaa' }}
+                style={{ fontSize: '0.8rem', marginBottom: 0, color: 'var(--fg-secondary)' }}
             >
                 5G
             </div>
@@ -58,7 +58,7 @@ const ConnectivityIndicator: React.FC = () => {
                             width: '4px',
                             height: `${bar * 25}%`,
                             backgroundColor:
-                                bar <= safeSignal ? '#fff' : 'rgba(255,255,255,0.2)',
+                                bar <= safeSignal ? 'var(--fg-primary)' : 'var(--bar-track)',
                             borderRadius: '1px',
                         }}
                     />

@@ -336,13 +336,14 @@ class DataTester:
         if lower_col in {"steer_v"}:
             return self._cast_numeric(story["steer_v"], dtype)
 
-        if lower_col in {"flw_speed"}:
+        # Orion proto renamed these to fl/fr/bl/br_wheel_speed; Nightwatch/Angelique keep the legacy names.
+        if lower_col in {"flw_speed", "fl_wheel_speed"}:
             return self._cast_numeric(story["flw_speed"], dtype)
-        if lower_col in {"frw_speed"}:
+        if lower_col in {"frw_speed", "fr_wheel_speed"}:
             return self._cast_numeric(story["frw_speed"], dtype)
-        if lower_col in {"blw_speed"}:
+        if lower_col in {"blw_speed", "bl_wheel_speed"}:
             return self._cast_numeric(story["blw_speed"], dtype)
-        if lower_col in {"brw_speed"}:
+        if lower_col in {"brw_speed", "br_wheel_speed"}:
             return self._cast_numeric(story["brw_speed"], dtype)
         if lower_col in {"wheel_speed", "dash_speed", "gps_velocity", "f_gps_velocity", "b_gps_velocity"}:
             return self._cast_numeric(story["speed_mps"], dtype)

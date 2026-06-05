@@ -10,20 +10,24 @@ extern "C" {
 #endif
 
 #include "APPS.h"
+#include "Battery.h"
 #include "BSE.h"
 #include "Cooling.h"
 #include "PRNDL.h"
-#include "TorqueMap.h"
 #include "PowerLimit.h"
+#include "RegenLinelock.h"
+#include "TorqueMap.h"
 
 typedef struct {
   prndl_machine_t prndl_machine;
   uint32_t time_ms;
   vcu_parameters_t params;
   apps_state_t apps_state;
+  battery_state_t battery_state;
   bse_state_t bse_state;
   cooling_state_t cooling_state;
   power_limit_state_t power_limit_state;
+  regen_linelock_state_t regen_linelock_state;
 } vcu_model_context_t;
 
 /* Initialize internal model state (call once at startup) */

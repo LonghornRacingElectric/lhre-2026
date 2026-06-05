@@ -180,6 +180,14 @@ export function useDemoData(enabled: boolean): DashMessage | null {
             const wheelSpeedRL = Math.max(0, s.speed + (Math.random() - 0.5) * 0.6);
             const wheelSpeedRR = Math.max(0, s.speed + (Math.random() - 0.5) * 0.6);
 
+            // PRNDL: park while stopped, drive once moving. Toy logic.
+            const prndl: string | null = s.speed > 1 ? 'D' : 'P';
+            // Contactors in demo mode: pretend HV is energized once we're
+            // in drive; cycle through a brief precharge state at startup.
+            const posContactor = s.speed > 1;
+            const prechargeContactor = !posContactor && Math.floor(Date.now() / 4000) % 2 === 0;
+            const negContactor = true; // shutdown circuit closed in demo
+
             seq.current++;
 
             setMessage({
@@ -192,6 +200,10 @@ export function useDemoData(enabled: boolean): DashMessage | null {
                     temperature: a.temp,
                     signalStrength: a.signalStrength,
                     shutdown: [...a.shutdown],
+                    prndl,
+                    posContactor,
+                    negContactor,
+                    prechargeContactor,
                     brakeBias,
                     tcLevel,
                     tcEnabled,

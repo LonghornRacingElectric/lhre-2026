@@ -1798,6 +1798,51 @@
         "bytes": []
     },
     {
+        "packet_id": 310,
+        "packet_name": "Battery Cell Limits",
+        "from": [
+            "HVC"
+        ],
+        "to": [
+            "VCU"
+        ],
+        "data_length": 4,
+        "frequency_ms": 100,
+        "frequency": 10.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Min Cell Voltage",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "min_cell_voltage",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Max Cell Voltage",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.0001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "max_cell_voltage",
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
         "packet_id": 320,
         "packet_name": "VCU Shutdown Status",
         "from": [
@@ -3351,7 +3396,7 @@
         "to": [
             "Pi"
         ],
-        "data_length": 3,
+        "data_length": 6,
         "frequency_ms": 3,
         "frequency": 333.0,
         "quantity": 1,
@@ -3398,76 +3443,31 @@
                     "repeated": false,
                     "field_index": null
                 }
-            }
-        ]
-    },
-    {
-        "packet_id": 1024,
-        "packet_name": "Wheel Speeds",
-        "from": [
-            "USM"
-        ],
-        "to": [
-            "Pi"
-        ],
-        "data_length": 8,
-        "frequency_ms": 10,
-        "frequency": 100.0,
-        "quantity": 1,
-        "bus": "Data Acq",
-        "bytes": [
-            {
-                "index": 0,
-                "start_byte": 0,
-                "name": "Front Left Speed",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "flw_speed",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 1,
-                "start_byte": 2,
-                "name": "Front Right Speed",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "frw_speed",
-                    "repeated": false,
-                    "field_index": null
-                }
-            },
-            {
-                "index": 2,
-                "start_byte": 4,
-                "name": "Back Left Speed",
-                "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
-                "protobuf": {
-                    "type": "float",
-                    "field": "blw_speed",
-                    "repeated": false,
-                    "field_index": null
-                }
             },
             {
                 "index": 3,
-                "start_byte": 6,
-                "name": "Back Right Speed",
+                "start_byte": 3,
+                "name": "State of Charge Estimate",
                 "length": 2,
-                "conv_type": "int16",
-                "precision": 0.01,
+                "conv_type": "uint16",
+                "precision": 0.1,
                 "protobuf": {
                     "type": "float",
-                    "field": "brw_speed",
+                    "field": "soc_estimate",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 4,
+                "start_byte": 5,
+                "name": "Line Lock Enabled",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "bool",
+                    "field": "line_lock_enabled",
                     "repeated": false,
                     "field_index": null
                 }
@@ -3476,16 +3476,16 @@
     },
     {
         "packet_id": 1026,
-        "packet_name": "Acceleration Vector Unsprung FL",
+        "packet_name": "Acceleration Vector Unsprung + Wheel Speed FL",
         "from": [
             "USM"
         ],
         "to": [
             "Pi"
         ],
-        "data_length": 6,
-        "frequency_ms": 10,
-        "frequency": 100.0,
+        "data_length": 8,
+        "frequency_ms": 3,
+        "frequency": 333.0,
         "quantity": 1,
         "bus": "Data Acq",
         "bytes": [
@@ -3529,22 +3529,36 @@
                     "field": "fl_unsprung_accel",
                     "repeated": true,
                     "field_index": 2
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Wheel Speed",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_wheel_speed",
+                    "repeated": false,
+                    "field_index": null
                 }
             }
         ]
     },
     {
         "packet_id": 1027,
-        "packet_name": "Acceleration Vector Unsprung FR",
+        "packet_name": "Acceleration Vector Unsprung + Wheel Speed FR",
         "from": [
             "USM"
         ],
         "to": [
             "Pi"
         ],
-        "data_length": 6,
-        "frequency_ms": 10,
-        "frequency": 100.0,
+        "data_length": 8,
+        "frequency_ms": 3,
+        "frequency": 333.0,
         "quantity": 1,
         "bus": "Data Acq",
         "bytes": [
@@ -3588,22 +3602,36 @@
                     "field": "fr_unsprung_accel",
                     "repeated": true,
                     "field_index": 2
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Wheel Speed",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_wheel_speed",
+                    "repeated": false,
+                    "field_index": null
                 }
             }
         ]
     },
     {
         "packet_id": 1028,
-        "packet_name": "Acceleration Vector Unsprung RL",
+        "packet_name": "Acceleration Vector Unsprung + Wheel Speed RL",
         "from": [
             "USM"
         ],
         "to": [
             "Pi"
         ],
-        "data_length": 6,
-        "frequency_ms": 10,
-        "frequency": 100.0,
+        "data_length": 8,
+        "frequency_ms": 3,
+        "frequency": 333.0,
         "quantity": 1,
         "bus": "Data Acq",
         "bytes": [
@@ -3647,22 +3675,36 @@
                     "field": "bl_unsprung_accel",
                     "repeated": true,
                     "field_index": 2
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Wheel Speed",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_wheel_speed",
+                    "repeated": false,
+                    "field_index": null
                 }
             }
         ]
     },
     {
         "packet_id": 1029,
-        "packet_name": "Acceleration Vector Unsprung RR",
+        "packet_name": "Acceleration Vector Unsprung + Wheel Speed RR",
         "from": [
             "USM"
         ],
         "to": [
             "Pi"
         ],
-        "data_length": 6,
-        "frequency_ms": 10,
-        "frequency": 100.0,
+        "data_length": 8,
+        "frequency_ms": 3,
+        "frequency": 333.0,
         "quantity": 1,
         "bus": "Data Acq",
         "bytes": [
@@ -3706,6 +3748,20 @@
                     "field": "br_unsprung_accel",
                     "repeated": true,
                     "field_index": 2
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Wheel Speed",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "br_wheel_speed",
+                    "repeated": false,
+                    "field_index": null
                 }
             }
         ]
@@ -4178,6 +4234,242 @@
                     "field": "br_sus_pot_v",
                     "repeated": false,
                     "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1288,
+        "packet_name": "FL Gyro",
+        "from": [
+            "CSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 6,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "X",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_gyro",
+                    "repeated": true,
+                    "field_index": 0
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Y",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_gyro",
+                    "repeated": true,
+                    "field_index": 1
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Z",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fl_gyro",
+                    "repeated": true,
+                    "field_index": 2
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1289,
+        "packet_name": "FR Gyro",
+        "from": [
+            "CSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 6,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "X",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_gyro",
+                    "repeated": true,
+                    "field_index": 0
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Y",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_gyro",
+                    "repeated": true,
+                    "field_index": 1
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Z",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "fr_gyro",
+                    "repeated": true,
+                    "field_index": 2
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1290,
+        "packet_name": "RL Gyro",
+        "from": [
+            "CSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 6,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "X",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_gyro",
+                    "repeated": true,
+                    "field_index": 0
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Y",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_gyro",
+                    "repeated": true,
+                    "field_index": 1
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Z",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bl_gyro",
+                    "repeated": true,
+                    "field_index": 2
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 1291,
+        "packet_name": "RR Gyro",
+        "from": [
+            "CSM"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 6,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Data Acq",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "X",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "br_gyro",
+                    "repeated": true,
+                    "field_index": 0
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Y",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "br_gyro",
+                    "repeated": true,
+                    "field_index": 1
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Z",
+                "length": 2,
+                "conv_type": "int16",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "br_gyro",
+                    "repeated": true,
+                    "field_index": 2
                 }
             }
         ]

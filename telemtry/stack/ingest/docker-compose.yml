@@ -70,8 +70,8 @@ services:
         required: true
     environment:
       GF_DASHBOARDS_MIN_REFRESH_INTERVAL: '250ms'     # Sets min refresh rate of grafana dashboard
-      GF_SERVER_ROOT_URL: 'http://localhost:3000'  # Adjust if using a different host or port
-      GF_SERVER_SERVE_FROM_SUB_PATH: 'false'
+      GF_SERVER_ROOT_URL: 'https://lhrelectric.org/grafana/'  # Adjust if using a different host or port
+      GF_SERVER_SERVE_FROM_SUB_PATH: 'true'
       GF_SERVER_PROTOCOL: 'http'
       GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: 'lhre-kafka-datasource'
     volumes:

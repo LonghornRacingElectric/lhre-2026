@@ -20,6 +20,20 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # KRaft logs live on the NVMe SSD (via the bind mount below), off the small
+      # root disk where they previously filled the container layer. Retention is
+      # bounded so the realtime buffer can't grow unbounded — Postgres is the
+      # system of record; kafka here is just live + recent history.
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_LOG_RETENTION_MS: ${KAFKA_LOG_RETENTION_MS:-21600000}          # 6h
+      KAFKA_LOG_RETENTION_BYTES: ${KAFKA_LOG_RETENTION_BYTES:-1073741824}  # 1 GiB/partition cap
+    volumes:
+      # A NAMED volume (not a host bind): an empty named volume inherits the
+      # image's /var/lib/kafka/data ownership (appuser, uid 1000), so kafka can
+      # write. A bind mount to a fresh host dir would be root-owned and kafka
+      # would crash-loop. server_devtool.sh backs this with the NVMe SSD on the
+      # deploy box; elsewhere docker auto-creates it (CI, local dev).
+      - kafka_data:/var/lib/kafka/data
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
       interval: 10s
@@ -43,6 +57,13 @@ services:
       kafka:
         condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  # External (like telemetry_db): created out-of-band — CI's "Create volumes"
+  # step makes it plain (inherits the image's appuser ownership); server_devtool
+  # makes it NVMe-backed on the deploy box.
+  kafka_data:
+    external: true
 
 networks:
   telemetry_network:

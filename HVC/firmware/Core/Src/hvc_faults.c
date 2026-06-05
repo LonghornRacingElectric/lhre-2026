@@ -38,11 +38,15 @@ void faults_init() {
 
 
 uint32_t get_faults() {
+    static bool initialized = false;
     static float last_time_s = 0.0f;
 
     float current_time_s = osKernelGetTickCount() / 1000.0f;
-    float delta_time_s = current_time_s - last_time_s;
+    // First call: don't credit accumulated uptime to the per-fault timers,
+    // or any fault active at boot would bypass its TIMER_BMS_* debounce.
+    float delta_time_s = initialized ? (current_time_s - last_time_s) : 0.0f;
     last_time_s = current_time_s;
+    initialized = true;
 
     uint32_t current_fault_vector = 0;
 

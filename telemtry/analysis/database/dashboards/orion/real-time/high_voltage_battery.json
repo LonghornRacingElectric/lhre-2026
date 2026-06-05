@@ -102,11 +102,11 @@
         },
         "overrides": [
           { "matcher": { "id": "byName", "options": "avg_cell_v_stat" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }, { "id": "displayName", "value": "Avg Cell V" }] },
-          { "matcher": { "id": "byName", "options": "max_cell_v" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }, { "id": "displayName", "value": "Max Cell V" }] },
-          { "matcher": { "id": "byName", "options": "min_cell_v" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }, { "id": "displayName", "value": "Min Cell V" }] },
+          { "matcher": { "id": "byName", "options": "max_cell_voltage" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }, { "id": "displayName", "value": "Max Cell V" }] },
+          { "matcher": { "id": "byName", "options": "min_cell_voltage" }, "properties": [{ "id": "custom.axisPlacement", "value": "left" }, { "id": "displayName", "value": "Min Cell V" }] },
           { "matcher": { "id": "byName", "options": "time" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
           { "matcher": { "id": "byName", "options": "packet_id" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] },
-          { "matcher": { "id": "byRegexp", "options": "/^(?!(avg_cell_v_stat|max_cell_v|min_cell_v)$).*$/" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] }
+          { "matcher": { "id": "byRegexp", "options": "/^(?!(avg_cell_v_stat|max_cell_voltage|min_cell_voltage)$).*$/" }, "properties": [{ "id": "custom.hideFrom", "value": { "legend": true, "tooltip": true, "viz": true } }] }
         ]
       },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },

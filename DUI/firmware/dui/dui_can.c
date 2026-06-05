@@ -137,38 +137,15 @@ void dui_can_add_send_handlers(void) {
  * @return false
  */
 bool hvc_imd_fault(void) {
-  return indicator_status_mailbox.imd_error ||
-         message_timed_out(indicator_status_mailbox_handle,
-                           INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS * 4);
+  return indicator_status_mailbox.imd_error;
 }
 
 bool hvc_bms_fault(void) {
-  return indicator_status_mailbox.bms_error ||
-         message_timed_out(indicator_status_mailbox_handle,
-                           INDICATORS_SHUTDOWN_STATUS_TIMEOUT_MS * 4);
+  return indicator_status_mailbox.bms_error;
 }
 
 void dui_set_r2d(bool enabled) { r2d_status_mailbox.r2d_status = enabled; }
 
 bool dui_r2d_buzzer_active(void) {
-  bool timed_out =
-      message_timed_out(vcu_state_mailbox_handle, VCU_STATE_TIMEOUT_MS * 4);
-  return vcu_state_mailbox.prndl_state == 1 &&
-         vcu_state_mailbox.ready_to_drive_buzzer && !timed_out;
-}
-
-dui_can_debug_state_t dui_can_get_debug_state(void) {
-  dui_can_debug_state_t state = {
-      .r2d_switch = r2d_status_mailbox.r2d_status,
-      .prndl_state = vcu_state_mailbox.prndl_state,
-      .ready_to_drive_buzzer = vcu_state_mailbox.ready_to_drive_buzzer,
-      .vcu_state_timed_out =
-          message_timed_out(vcu_state_mailbox_handle, VCU_STATE_TIMEOUT_MS * 4),
-  };
-
-  state.buzzer_active = state.prndl_state == 1 &&
-                        state.ready_to_drive_buzzer &&
-                        !state.vcu_state_timed_out;
-
-  return state;
+  return vcu_state_mailbox.ready_to_drive_buzzer != 0;
 }

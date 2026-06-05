@@ -34,14 +34,14 @@
 }
 
 .setting-card:hover {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.1);
+    background: var(--card-bg);
+    border-color: var(--card-border);
 }
 
 .setting-card.focused {
     /* Same bg + border as the trays. Focus is shown via brighter arrows. */
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.1);
+    background: var(--card-bg);
+    border-color: var(--card-border);
 }
 
 .setting-card-control {
@@ -56,7 +56,7 @@
     font-family: 'Consolas', 'Monaco', monospace;
     font-size: 1.4rem;
     font-weight: bold;
-    color: #555;
+    color: var(--fg-muted);
     width: 18px;
     text-align: center;
     user-select: none;
@@ -64,8 +64,8 @@
 }
 
 .setting-card.focused .setting-arrow {
-    color: #fff;
-    text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+    color: var(--fg-primary);
+    text-shadow: 0 0 8px var(--value-glow);
 }
 
 .setting-card-value {
@@ -81,7 +81,7 @@
 .settings-footer {
     text-align: center;
     font-size: 0.65rem;
-    color: #666;
+    color: var(--fg-muted);
     letter-spacing: 1.5px;
     margin: 0;
 }

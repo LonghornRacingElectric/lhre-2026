@@ -239,9 +239,12 @@ class CSVToDB():
                         convert[table][column] = df[csv_col_name].astype(dtype)
                 elif (column == "time"):
                     if self.car == "Orion":
-                        # Orion CSV columns are named as 'table.field'
-                        csv_col_name = f"{table}.{column}"
-                        convert[table][column] = df[csv_col_name].astype(int)
+                        # Orion CSV has a standalone 'time' column, not prefixed by table name
+                        if 'time' in df:
+                            convert[table][column] = df["time"].astype(int)
+                        else:
+                            csv_col_name = f"{table}.{column}"
+                            convert[table][column] = df[csv_col_name].astype(int)
                     else:
                         df.Year += 2000
                         first_dt = df.iloc[0]
@@ -331,13 +334,18 @@ class CSVToDB():
                 session.commit()
 
 
+        # Each worker checks out its own DB connection for the duration of a chunk.
+        # The SQLAlchemy engine pool allows 15 connections (pool_size 5 + max_overflow 10),
+        # so cap workers below that to avoid QueuePool timeouts on high-core machines.
+        max_workers = min(cpu_count(), 10)
+
         futures = []
-        with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             for j in tqdm(range(0, len(df.index), amt)):
                 high = min(j + amt, len(df.index))
 
                 # If too many futures are running, wait for one to finish
-                while len(futures) >= cpu_count():
+                while len(futures) >= max_workers:
                     done, not_done = wait(futures, return_when="FIRST_COMPLETED")
                     for f in done:
                         f.result()
@@ -594,8 +602,10 @@ def is_csv_valid_for_insert(csv_path, df, table_desc, car):
     for table_name, columns in table_desc.items():
         if table_name in {"controls", "dynamics", "pack", "packet", "diagnostics_high", "diagnostics_low", "thermal"}:
             if isinstance(columns, dict):
-                for col in columns.keys():
-                    expected_cols.add(f"{table_name}.{col}")
+                for col, (dtype, ndim) in columns.items():
+                    # Exclude special-cased columns and array columns (stored as indexed cols or handled gracefully)
+                    if col not in {"time", "packet_id", "f_gps", "b_gps"} and ndim == 0:
+                        expected_cols.add(f"{table_name}.{col}")
 
     df_cols = set(df.columns)
     csv_fields = set(df.columns)
@@ -705,11 +715,23 @@ if __name__ == '__main__':
                     try:
                         if idx == start_csv_index and start_row_offset > 0:
                             # Keep header row, skip already-inserted data rows.
-                            df = pd.read_csv(csv_file, skiprows=range(1, start_row_offset + 1))
+                            df = pd.read_csv(csv_file, skiprows=range(1, start_row_offset + 1), low_memory=False)
                         else:
-                            df = pd.read_csv(csv_file)
+                            df = pd.read_csv(csv_file, low_memory=False)
                     except Exception as e:
                         logging.warning("Skipping %s: could not read CSV (%s)", csv_file, e)
+                        continue
+
+                    # Drop rows with no packet timestamp (e.g. truncated final record from logger cutoff).
+                    # packet.time is non-nullable, so these rows cannot be inserted.
+                    if "time" in df.columns:
+                        before = len(df)
+                        df = df.dropna(subset=["time"]).reset_index(drop=True)
+                        dropped = before - len(df)
+                        if dropped:
+                            print(f"  Dropped {dropped} row(s) with missing time from {csv_file}")
+                    if df.empty:
+                        print(f"  No valid rows in {csv_file} after dropping missing-time rows; skipping.")
                         continue
 
                     if not is_csv_valid_for_insert(csv_file, df, table_desc, car):

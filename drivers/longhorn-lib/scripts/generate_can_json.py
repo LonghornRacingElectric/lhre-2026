@@ -20,6 +20,10 @@ pow2_pattern = re.compile(r"2\^(-?\d+)")
 # Group 3: Type
 protobuf_pattern = re.compile(r"([\w\.]+)(?:\[(\d+)\])?\s*\(([^)]+)\)")
 
+# Regex for the persistent protobuf field id annotation, e.g. "... (float) #12".
+# This is the stable wire-format tag for the field; see generate_can_proto.py.
+proto_id_pattern = re.compile(r"#\s*(\d+)\b")
+
 # --- Type Definitions ---
 type_lengths = {
     "uint8": 1,
@@ -158,12 +162,20 @@ def load_bitfield_definitions(filepath):
                     cell_content = row.get(col_name, "").strip()
                     if ";" in cell_content:
                         try:
-                            protobuf_field = cell_content.split(";", 1)[1].strip()
+                            proto_seg = cell_content.split(";", 1)[1].strip()
+                            # Strip and capture a persistent id annotation (#N) if present.
+                            proto_id = None
+                            id_match = proto_id_pattern.search(proto_seg)
+                            if id_match:
+                                proto_id = int(id_match.group(1))
+                                proto_seg = proto_seg[: id_match.start()].strip()
+                            protobuf_field = proto_seg
                             if protobuf_field:
                                 bits_list.append(
                                     {
                                         "protobuf_field": protobuf_field,
                                         "bit_index": bit_index,
+                                        "proto_id": proto_id,
                                     }
                                 )
                         except IndexError:
@@ -250,6 +262,14 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
                                     "type": proto_type,
                                     "field": proto_field,
                                 }
+                                # Capture the persistent field id (#N) if the author or a
+                                # previous generator run wrote one. Searching after the
+                                # protobuf field match avoids matching '#' inside the type.
+                                id_match = proto_id_pattern.search(
+                                    proto_part_raw, proto_match.end()
+                                )
+                                if id_match:
+                                    protobuf_info["proto_id"] = int(id_match.group(1))
                                 if proto_index_str:
                                     protobuf_info["repeated"] = True
                                     try:
@@ -387,6 +407,8 @@ def process_csv(can_filepath, bitfield_definitions, bitfield_csv_filename):
                                         "repeated": False,
                                         "field_index": None,
                                     }
+                                    if bit.get("proto_id") is not None:
+                                        proto_meta["proto_id"] = bit["proto_id"]
                                     sub_byte_def = {
                                         "index": field_index_counter,
                                         "start_byte": current_byte_index,

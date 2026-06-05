@@ -55,7 +55,8 @@
     "screenfull": "^6.0.2",
     "tailwind-merge": "^3.3.1",
     "three": "^0.180.0",
-    "ts-proto": "^2.8.3"
+    "ts-proto": "^2.8.3",
+    "uplot": "^1.6.32"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
