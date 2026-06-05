@@ -258,7 +258,7 @@ void StartStateMachineTask(void *argument) {
     latch_faults(current_fault_vector);
     set_bms_fault_pin(current_fault_vector != 0);
 
-    bool startup_debounce = (osKernelGetTickCount() > 7000);
+    bool startup_debounce = (osKernelGetTickCount() > 5000);
     bool bms_indicator_error = (current_fault_vector != 0) && startup_debounce;
     bool imd_indicator_error = hvc_gpio_is_imd_error_active() && startup_debounce;
     hvc_set_indicator_status(bms_indicator_error,
