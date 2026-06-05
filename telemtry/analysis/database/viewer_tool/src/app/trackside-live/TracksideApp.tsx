@@ -4560,10 +4560,42 @@ function formatSpeed(speed: number) {
   return `${(speed * 2.23694).toFixed(1)} mph`;
 }
 
+// Canonicalize a live-value key for matching: lowercase + drop every
+// non-alphanumeric char. This makes lookups robust to the different shapes the
+// same signal arrives as — snake (`controls_bse1_v`), camel from the protobuf
+// decoder (`controls_bse1V`), or dotted (`controls.bse1_v`) — all collapse to
+// `controlsbse1v`. Without this, decoded sensor_data (camelCased) silently
+// missed the panel's snake_case lookups, blanking steering/brake/accel.
+function normalizeLiveKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+const liveValueIndexCache = new WeakMap<Record<string, number>, Map<string, number>>();
+function liveValueIndex(values: Record<string, number>): Map<string, number> {
+  const cached = liveValueIndexCache.get(values);
+  if (cached) return cached;
+  const index = new Map<string, number>();
+  for (const [key, value] of Object.entries(values)) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      const norm = normalizeLiveKey(key);
+      if (!index.has(norm)) index.set(norm, value);
+    }
+  }
+  liveValueIndexCache.set(values, index);
+  return index;
+}
+
 function firstLiveValue(values: Record<string, number>, keys: string[]) {
+  // Fast path: exact key hit.
   for (const key of keys) {
     const value = values[key];
     if (typeof value === "number" && Number.isFinite(value)) return value;
+  }
+  // Fallback: normalized (case/separator-insensitive) match.
+  const index = liveValueIndex(values);
+  for (const key of keys) {
+    const value = index.get(normalizeLiveKey(key));
+    if (value !== undefined) return value;
   }
   return null;
 }
