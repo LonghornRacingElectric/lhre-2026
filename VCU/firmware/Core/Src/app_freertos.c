@@ -388,6 +388,13 @@ void StartControlTask(void *argument) {
     //            (double)in.apps2_raw, (double)out.apps2_travel,
     //            (double)out.accel_pedal_travel);
 
+    log_printf(LOG_INFO,
+           "\nBSE_RAW1:%.0f BSE_PSI1:%.2f\nBSE_RAW2:%.0f "
+           "BSE_PSI2:%.2f\nBRAKE_PSI: %.2f\n\n",
+           in.bse1_raw, out.bse1_psi,
+           in.bse2_raw, out.bse2_psi,
+           out.bse_psi);
+
     uint32_t post_faults = vcu_can_get_inverter_post_faults();
     uint32_t run_faults  = vcu_can_get_inverter_run_faults();
     if (post_faults || run_faults) {
