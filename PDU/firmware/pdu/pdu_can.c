@@ -34,6 +34,9 @@ static can_receive_message_t *vcu_state_mailbox_handle = NULL;
 static msg_brake_pedal_t brake_pedal_mailbox = {0};
 static can_receive_message_t *brake_pedal_mailbox_handle = NULL;
 
+static msg_bse_3_t bse3_tx_msg = {0};
+static can_message_t *bse3_tx_handle = NULL;
+
 void pdu_can_add_receive_handlers(void);
 
 /**
@@ -76,6 +79,12 @@ void pdu_can_init(void) {
 
   pdu_can_add_receive_handlers();
 
+  // BSE 3 outbound
+  bse3_tx_handle = can_get_message_handle(
+      &bse3_tx_msg, BSE_3_ID, BSE_3_FREQ, BSE_3_DLC,
+      (CAN_pack_message_fn)pack_bse_3);
+  can_rtos_register_send_packet(&critical_bus, bse3_tx_handle);
+
   can_rtos_start_interface(&critical_bus);
   can_rtos_start_interface(&data_acq_bus);
 
@@ -109,6 +118,7 @@ void pdu_can_add_receive_handlers(void) {
       (CAN_unpack_message_fn)unpack_vcu_state);
 
   can_rtos_register_receive_packet(&critical_bus, vcu_state_mailbox_handle);
+  vcu_state_mailbox.line_lock_enabled = 0;
 
   log_printf(LOG_INFO, "[PDU] CAN VCU State handler registered\n");
 
@@ -129,6 +139,10 @@ bool vehicle_in_park(void) {
 
 bool vehicle_in_drive(void) { return !vehicle_in_park(); }
 
+bool line_lock_enabled(void) {
+  return vcu_state_mailbox.line_lock_enabled != 0;
+}
+
 /**
  * @brief Check if there are faults. Checks the mailbox that is updated by the
  * CAN RTOS tasks. Then, returns true if there is a fault present OR if there
@@ -148,3 +162,7 @@ bool hvc_imd_timeout(void) {
 bool hvc_bms_timeout(void) { return hvc_imd_timeout(); }
 
 float brake_light_pct(void) { return brake_pedal_mailbox.brake_light_percent; }
+
+void pdu_can_set_bse3_pressure(float psi) {
+  bse3_tx_msg.brake_pressure_3 = psi;
+}

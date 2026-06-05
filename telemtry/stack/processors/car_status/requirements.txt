@@ -1,0 +1,9 @@
+protobuf==6.33.0
+kafka-python==2.2.15
+SQLAlchemy==2.0.0
+psycopg2-binary==2.9.9
+python-dotenv==1.1.1
+# analysis.sql_utils.query_builder imports pandas at module load; without these
+# segment persistence silently disables itself (sql_utils import fails).
+numpy==2.0.1
+pandas==2.2.2

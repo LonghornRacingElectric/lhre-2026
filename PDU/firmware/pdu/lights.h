@@ -4,12 +4,15 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
+
 #include "main.h"
 #include "tim.h"
 
 void lights_init(void);
 
-void setPWM(TIM_HandleTypeDef* htim, uint32_t channel, float percentage);
+void set_light(TIM_HandleTypeDef *htim, uint32_t channel, bool on);
+void setPWM(TIM_HandleTypeDef *htim, uint32_t channel, float percentage);
 
 #ifdef __cplusplus
 }

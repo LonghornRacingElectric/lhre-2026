@@ -5,9 +5,10 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
 #include "Lookup1D.h"
 #include "Lookup2D.h"
+#include <stdbool.h>
+#include <stdint.h>
 
 typedef struct {
   float brake_enable_threshold;
@@ -56,6 +57,7 @@ typedef struct {
 
     float brake_light_min_pct; // minimum brake light percentage
     float brake_light_max_pct; // maximum brake light percentage
+    float bse_brake_light_psi; // pressure threshold to enable brake light
   } bse;
 
   struct {
@@ -79,6 +81,38 @@ typedef struct {
     float min_soe_cell_voltage;
     float max_soe_cell_voltage;
   } battery;
+
+  struct {
+    bool disable;
+    bool pressure_only_test_mode;
+    bool dc_bus_current_regen_is_negative;
+
+    float rear_pressure_zero_torque_psi;
+    float rear_pressure_reference_psi;
+    float rear_pressure_min_engage_psi;
+    float regen_torque_at_reference_pressure_nm;
+    float absolute_regen_torque_cap_nm;
+    float pedal_torque_open_pulse_threshold_nm;
+    float pedal_torque_open_pulse_cancel_threshold_nm;
+    uint32_t linelock_open_pulse_ms;
+    uint32_t linelock_close_delay_ms;
+
+    float pack_current_limit_a;
+    float hard_cut_margin_pct;
+    float hard_cut_reset_pressure_psi;
+
+    float pack_terminal_voltage_limit_v;
+    float pack_resistance_ohm;
+    float pack_series_cell_count;
+    float dynamic_voltage_reserve_v;
+    float pack_ocv_enable_v;
+    float pack_ocv_disable_hysteresis_v;
+    float max_cell_voltage_regen_disable_v;
+
+    float min_cell_temp_c;
+    float max_cell_temp_c;
+    float min_motor_speed_rpm;
+  } regen_linelock;
 } vcu_parameters_t;
 
 #ifdef __cplusplus

@@ -23,6 +23,7 @@ from .models import (
     Thermal,
     Classifier,
     Partitions,
+    CarStatusSegment,
     AngeliquePacket,
     AngeliqueDynamics,
     AngeliqueControls,
@@ -63,6 +64,7 @@ class QueryBuilder:
             "Packet": Packet,
             "Classifier": Classifier,
             "Partitions": Partitions,
+            "CarStatusSegment": CarStatusSegment,
         }
 
         if car == "Nightwatch":

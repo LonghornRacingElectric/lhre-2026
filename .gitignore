@@ -96,3 +96,7 @@ MODULE.bazel.lock
 rust-project.json
 
 BEVO/vpn_creds.txt.claude/
+
+# Python bytecode (schema-gen scripts)
+__pycache__/
+*.pyc

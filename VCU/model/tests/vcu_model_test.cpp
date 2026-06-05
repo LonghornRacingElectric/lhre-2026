@@ -38,16 +38,47 @@ protected:
     params.bse.bse_on_psi = 50.0f;
     params.bse.max_pedal_while_braking = 0.30f;
     params.bse.max_pedal_restore_threshold = 0.05f;
+    params.bse.bse_brake_light_psi = 30.0f;
 
     // Buzzer
     params.buzzer_duration_ms = 3000;
 
     // Torque map
-    float temp_torque_map[11] = {100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f};
-    memcpy(params.torque_map.power_limit_torque, temp_torque_map, sizeof(temp_torque_map));
-    float temp_pedal_map[11] = {0.0f, 0.10f, 0.20f, 0.30f, 0.40f, 0.50f, 0.60f, 0.70f, 0.80f, 0.90f, 1.0f};
+    float temp_torque_map[11] = {100.0f, 100.0f, 100.0f, 100.0f, 100.0f, 100.0f,
+                                 100.0f, 100.0f, 100.0f, 100.0f, 100.0f};
+    memcpy(params.torque_map.power_limit_torque, temp_torque_map,
+           sizeof(temp_torque_map));
+    float temp_pedal_map[11] = {0.0f,  0.10f, 0.20f, 0.30f, 0.40f, 0.50f,
+                                0.60f, 0.70f, 0.80f, 0.90f, 1.0f};
     memcpy(params.torque_map.pedal_map, temp_pedal_map, sizeof(temp_pedal_map));
     params.torque_map.pedal_curve_exponent = 1.0f;
+
+    // Regen linelock positive-torque override parameters
+    params.regen_linelock.disable = false;
+    params.regen_linelock.pressure_only_test_mode = false;
+    params.regen_linelock.dc_bus_current_regen_is_negative = true;
+    params.regen_linelock.rear_pressure_zero_torque_psi = 0.0f;
+    params.regen_linelock.rear_pressure_reference_psi = 500.0f;
+    params.regen_linelock.rear_pressure_min_engage_psi = 10.0f;
+    params.regen_linelock.regen_torque_at_reference_pressure_nm = 67.0f;
+    params.regen_linelock.absolute_regen_torque_cap_nm = 230.0f;
+    params.regen_linelock.pedal_torque_open_pulse_threshold_nm = 70.0f;
+    params.regen_linelock.pedal_torque_open_pulse_cancel_threshold_nm = 50.0f;
+    params.regen_linelock.linelock_open_pulse_ms = 250u;
+    params.regen_linelock.linelock_close_delay_ms = 200u;
+    params.regen_linelock.pack_current_limit_a = 45.0f;
+    params.regen_linelock.hard_cut_margin_pct = 0.20f;
+    params.regen_linelock.hard_cut_reset_pressure_psi = 100.0f;
+    params.regen_linelock.pack_terminal_voltage_limit_v = 546.0f;
+    params.regen_linelock.pack_resistance_ohm = 0.442f;
+    params.regen_linelock.pack_series_cell_count = 130.0f;
+    params.regen_linelock.dynamic_voltage_reserve_v = 6.0f;
+    params.regen_linelock.pack_ocv_enable_v = 520.11f;
+    params.regen_linelock.pack_ocv_disable_hysteresis_v = 2.0f;
+    params.regen_linelock.max_cell_voltage_regen_disable_v = 4.05f;
+    params.regen_linelock.min_cell_temp_c = 10.0f;
+    params.regen_linelock.max_cell_temp_c = 55.0f;
+    params.regen_linelock.min_motor_speed_rpm = 219.49f;
 
     in = {0};
     out = {0};
@@ -127,7 +158,7 @@ TEST_F(VCUModelTest, AppsImplausibilityDisablesTorque) {
   EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
 }
 
-TEST_F(VCUModelTest, BrakeLatchDisablesTorque) {
+TEST_F(VCUModelTest, BrakePressureMaintainsTorqueWhenBrakeLatchIsTelemetryOnly) {
   TransitionToDrive();
 
   // Release brake
@@ -147,7 +178,17 @@ TEST_F(VCUModelTest, BrakeLatchDisablesTorque) {
   vcu_model_step(&ctx, &in, &out, 10);
 
   EXPECT_TRUE(out.faults.brake_latched);
-  EXPECT_FLOAT_EQ(out.torque_cmd, 0.0f);
+  EXPECT_FLOAT_EQ(out.torque_cmd, 50.0f);
+  EXPECT_FALSE(out.linelock_enabled);
+
+  // The brake latch remains telemetry only and no longer globally disables
+  // torque.
+  in.bse1_raw = 100;
+  in.bse2_raw = 150;
+  vcu_model_step(&ctx, &in, &out, 10);
+
+  EXPECT_TRUE(out.faults.brake_latched);
+  EXPECT_FLOAT_EQ(out.torque_cmd, 50.0f);
 }
 
 TEST_F(VCUModelTest, TransitionToParkOnContactorLoss) {

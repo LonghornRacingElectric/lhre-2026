@@ -3,6 +3,7 @@ import subprocess
 import sys
 import os
 import re
+import shutil
 import serial
 import serial.tools.list_ports
 import time
@@ -70,6 +71,71 @@ def run_command(command, ignore_error=False):
             exit(exit_code)
 
 
+def command_works(command):
+    try:
+        result = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+    return result.returncode == 0
+
+
+def command_output(command):
+    result = subprocess.run(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        timeout=5,
+    )
+    return result.stdout
+
+
+def resolve_dfu_util(bundled_dfu_util_path):
+    candidates = [
+        bundled_dfu_util_path,
+        shutil.which("dfu-util"),
+        "/opt/homebrew/bin/dfu-util",
+        "/usr/local/bin/dfu-util",
+    ]
+
+    seen = set()
+    for candidate in candidates:
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        if command_works([candidate, "--version"]):
+            if candidate != bundled_dfu_util_path:
+                print(
+                    f"{bcolors.WARNING}Bundled dfu-util is unavailable; using {candidate}{bcolors.ENDC}"
+                )
+            return candidate
+
+    raise RuntimeError(
+        "No working dfu-util found. Install one with `brew install dfu-util` "
+        "or fix the bundled dfu-util/libusb runtime."
+    )
+
+
+def wait_for_dfu_path(dfu_util_path, timeout_s=10.0):
+    deadline = time.time() + timeout_s
+
+    while time.time() < deadline:
+        output = command_output([dfu_util_path, "--list"])
+        dfu_path = find_first_path_for_device_regex(output)
+        if dfu_path:
+            return dfu_path
+        time.sleep(0.5)
+
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Flash a firmware file to a target using DFU Util."
@@ -83,10 +149,12 @@ def main():
 
     dfu_util_exe_actual_path = r.Rlocation(args.dfu_util_canonical_path)
     firmware_elf_actual_path = r.Rlocation(args.firmware_canonical_path)
+    resolved_dfu_util_path = resolve_dfu_util(dfu_util_exe_actual_path)
 
     print("--- Flashing Firmware (Paths resolved via Runfiles Library) ---")
     print(f"Working Directory:      {os.getcwd()}")
     print(f"Resolved DFU Util Path:  {dfu_util_exe_actual_path}")
+    print(f"Using DFU Util Path:     {resolved_dfu_util_path}")
     print(f"Resolved Firmware Path: {firmware_elf_actual_path}")
     print("-----------------------------------------------------------------")
 
@@ -155,21 +223,24 @@ def main():
                 )
                 print("Proceeding to DFU update anyway.")
 
-        process = os.popen(f"{dfu_util_exe_actual_path} --list")
-        dfu_path = find_first_path_for_device_regex(process.read())
+        print(bcolors.OKCYAN + "--- Waiting for STM32 DFU Device ---" + bcolors.ENDC)
+        dfu_path = wait_for_dfu_path(resolved_dfu_util_path)
+        if not dfu_path:
+            raise RuntimeError("No STM32 DFU device found.")
+
         # Flash to both banks so the board boots correctly regardless of
         # which bank BFB2 is currently pointing at (OTA toggles BFB2).
         # Bank 1: 0x08000000, Bank 2: 0x08040000 (STM32G4, 512K flash)
         for bank_addr in ["0x08000000"]:
             dfu_command = (
-                f'{dfu_util_exe_actual_path} -a 0 -p "{dfu_path}" '
+                f'{resolved_dfu_util_path} -a 0 -p "{dfu_path}" '
                 f'--dfuse-address {bank_addr} -D "{firmware_elf_actual_path}"'
             )
             print(f"{bcolors.OKBLUE}--- Flashing to {bank_addr} ---{bcolors.ENDC}")
             run_command(dfu_command, ignore_error=False)
 
         run_command(
-            f'{dfu_util_exe_actual_path} -a 0 -p "{dfu_path}" -s :leave',
+            f'{resolved_dfu_util_path} -a 0 -p "{dfu_path}" -s :leave',
             ignore_error=True,
         )
 

@@ -32,6 +32,14 @@ bool vehicle_in_park(void);
 bool vehicle_in_drive(void);
 
 /**
+ * @brief Returns whether the VCU is commanding line lock enabled.
+ *
+ * @return true line lock should be enabled
+ * @return false line lock should be disabled
+ */
+bool line_lock_enabled(void);
+
+/**
  * @brief Returns whether or not the HVC has an IMD fault from the HVC
  *
  * @return true if there is an IMD fault
@@ -40,6 +48,7 @@ bool vehicle_in_drive(void);
 bool hvc_imd_fault(void);
 
 float brake_light_pct(void);
+void pdu_can_set_bse3_pressure(float psi);
 
 /**
  * @brief Returns whether or not the HVC has a BMS fault from the HVC

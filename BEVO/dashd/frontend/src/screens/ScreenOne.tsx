@@ -1,29 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import ConnectivityIndicator from '../components/ConnectivityIndicator';
 import { useDash } from '../context/DashContext';
+import { useEnergyPacing } from '../hooks/useEnergyPacing';
 import './ScreenOne.css';
-
-// TEMP (driveday): 5-second time-series buffer of the value currently
-// in CanData.speed (which dashd is sourcing from steer_col_angle for
-// this test). Drop the whole STEER_* block + the rendered SVG below
-// when reverting.
-const STEER_HISTORY_SECONDS = 5;
-const STEER_LOOKAHEAD_SECONDS = 5; // refs project this far past "now"
-const STEER_SAMPLE_HZ = 30; // dashd WS rate; oversample is harmless
-const STEER_MAX_SAMPLES = STEER_HISTORY_SECONDS * STEER_SAMPLE_HZ;
-const STEER_TOTAL_SECONDS = STEER_HISTORY_SECONDS + STEER_LOOKAHEAD_SECONDS;
-const STEER_VIEWBOX_WIDTH = STEER_TOTAL_SECONDS * STEER_SAMPLE_HZ;
-const STEER_NOW_X = STEER_HISTORY_SECONDS * STEER_SAMPLE_HZ; // "now" tick mark
-// Visual y-axis range depends on which reference set is showing. Switch
-// at runtime via dashd: `echo ramp > /tmp/dash_chart_mode` (or "sine").
-const STEER_SINE_AMPLITUDE_DEG = 10;
-const STEER_RAMP_AMPLITUDE_DEG = 45;
-const STEER_RAMP_PERIOD_S = 10;
-// Ranges include a small margin past the reference amplitudes.
-const SINE_CHART_MIN = -15;
-const SINE_CHART_MAX = 15;
-const RAMP_CHART_MIN = -5;
-const RAMP_CHART_MAX = 50;
 
 // Screen One: Main Dashboard (Modern EV Style)
 // Resolution: 800 x 480
@@ -31,34 +10,16 @@ const RAMP_CHART_MAX = 50;
 const ScreenOne: React.FC = () => {
     const { data } = useDash();
 
-    // TEMP: rolling timestamped buffer of the speed-field-as-steering.
-    // Why timestamped + wall-clock driven (not data.seq driven): if speed
-    // ever momentarily becomes null while seq keeps ticking, a seq-driven
-    // buffer would stop advancing while the references (which use
-    // Date.now() every render) keep scrolling — so the orange trace
-    // appears frozen against moving refs. Driving on setInterval keeps
-    // the trace ticking even across brief CAN/WS hiccups.
-    const [steerHistory, setSteerHistory] = useState<Array<{ t: number; v: number }>>([]);
-    const latestSampleRef = useRef<number | null>(null);
-    useEffect(() => {
-        const v = data?.can.speed;
-        if (typeof v === 'number') latestSampleRef.current = v;
-    }, [data?.seq, data?.can.speed]);
-    useEffect(() => {
-        const id = setInterval(() => {
-            const t = Date.now() / 1000;
-            const cutoff = t - STEER_HISTORY_SECONDS;
-            const v = latestSampleRef.current;
-            setSteerHistory(prev => {
-                const trimmed = prev[0] && prev[0].t < cutoff
-                    ? prev.filter(p => p.t >= cutoff)
-                    : prev;
-                if (typeof v !== 'number') return trimmed === prev ? prev : trimmed;
-                return [...trimmed, { t, v }];
-            });
-        }, 1000 / STEER_SAMPLE_HZ);
-        return () => clearInterval(id);
-    }, []);
+    // Endurance energy pacing: integrates CAN power on-board against the
+    // trackside-set targetPower budget, resets each lap on lapTrigger, and
+    // surfaces a full-screen lap card when a lap closes. See useEnergyPacing.
+    const pacing = useEnergyPacing(data);
+    // Budget held last-known across a dropout — dim it + badge it so the driver
+    // knows it's no longer live rather than trusting a frozen number.
+    const targetPowerStale = data?.mqtt.targetPowerStale ?? false;
+    // ±Wh that pegs the energy-budget bar end-to-end. A lap is a few hundred
+    // Wh, so ~150 Wh of margin/overage is a meaningful full-scale deflection.
+    const ENERGY_DELTA_MAX_WH = 150;
 
     // Extract values with null fallback
     const speed = data?.can.speed;
@@ -364,12 +325,79 @@ const ScreenOne: React.FC = () => {
                 </div>
             </div>
 
-            {/* Inner square: 2-row grid spanning between sidebars and trays.
-                Top row splits into Speed (left) + Lap-stuff table (right).
-                Bottom row hosts the big bidirectional power bar + readouts. */}
+            {/* Endurance energy-budget bar — sits at the top of the driving
+                area, between the temp/SOC sidebars. Center-zero like the power
+                and s/s bars: green grows left when banking margin (under the
+                trackside power budget), red grows right when over. Resets each
+                lap via lapTrigger. The reference rate is the live targetPower
+                the strategist dials in on the trackside Dash tab. */}
             <div style={{
                 position: 'absolute',
-                top: '60px',
+                top: '64px',
+                left: '90px',
+                right: '90px',
+                height: '24px',
+                zIndex: 100,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '0 20px'
+            }}>
+                <span className="label-small" style={{ marginBottom: 0, flexShrink: 0 }}>NRG</span>
+                <div style={{ flex: 1, height: '22px', background: 'var(--bar-track)', borderRadius: '4px', position: 'relative', overflow: 'hidden', opacity: targetPowerStale ? 0.4 : 1 }}>
+                    {/* Zero marker (dead center) */}
+                    <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '2px', background: 'var(--bar-center)', transform: 'translateX(-50%)', zIndex: 2 }} />
+                    {/* Fill — green left = under budget, red right = over budget */}
+                    {pacing.budgetDeltaWh !== null && (
+                        <div style={{
+                            position: 'absolute',
+                            top: 0, bottom: 0,
+                            left: pacing.budgetDeltaWh < 0
+                                ? `${50 - (Math.min(Math.abs(pacing.budgetDeltaWh), ENERGY_DELTA_MAX_WH) / ENERGY_DELTA_MAX_WH) * 50}%`
+                                : '50%',
+                            width: `${(Math.min(Math.abs(pacing.budgetDeltaWh), ENERGY_DELTA_MAX_WH) / ENERGY_DELTA_MAX_WH) * 50}%`,
+                            background: pacing.budgetDeltaWh < 0
+                                ? 'linear-gradient(to right, #00CC00, #00FF66)'
+                                : 'linear-gradient(to left, #FF3333, #FF6600)',
+                            transition: 'all 0.2s linear'
+                        }} />
+                    )}
+                </div>
+                {/* Right: target power + signed Wh delta (fixed width, no shift) */}
+                <span className="value-display" style={{
+                    fontSize: '1.1rem',
+                    fontWeight: 'bold',
+                    lineHeight: 1,
+                    minWidth: '128px',
+                    textAlign: 'right',
+                    color: targetPowerStale
+                        ? 'var(--fg-muted)'
+                        : pacing.budgetDeltaWh === null
+                            ? 'var(--fg-muted)'
+                            : pacing.budgetDeltaWh < 0 ? '#00FF66' : '#FF3333',
+                    whiteSpace: 'nowrap'
+                }}>
+                    {targetPowerStale && (
+                        <span className="label-small" style={{ fontSize: '0.6rem', color: '#FF6600', marginRight: '6px', letterSpacing: '1px' }}>STALE</span>
+                    )}
+                    {pacing.targetPowerKw === null ? '-- kW' : `${pacing.targetPowerKw.toFixed(0)} kW`}
+                    {pacing.budgetDeltaWh !== null && (
+                        <span style={{ marginLeft: '8px' }}>
+                            {pacing.budgetDeltaWh > 0 ? '+' : pacing.budgetDeltaWh < 0 ? '-' : ''}
+                            {Math.abs(pacing.budgetDeltaWh).toFixed(0)}
+                            <span className="label-small" style={{ fontSize: '0.7rem', marginLeft: '2px' }}>Wh</span>
+                        </span>
+                    )}
+                </span>
+            </div>
+
+            {/* Inner square: 2-row grid spanning between sidebars and trays.
+                Top row splits into Speed (left) + Lap-stuff table (right).
+                Bottom row hosts the big bidirectional power bar + readouts.
+                Top pushed to 92px to clear the energy-budget bar above. */}
+            <div style={{
+                position: 'absolute',
+                top: '92px',
                 bottom: '80px',
                 left: '90px',
                 right: '90px',
@@ -383,10 +411,7 @@ const ScreenOne: React.FC = () => {
                     <div className="value-display" style={{ fontSize: '11rem', fontWeight: 'bold', lineHeight: 0.85 }}>
                         {fmt(speed)}
                     </div>
-                    {/* TEMP: dashd is currently sending steer_col_angle in
-                        place of speed for driveday testing. Restore "MPH"
-                        when dashd swaps back to motor_speed-derived. */}
-                    <div className="label-small" style={{ fontSize: '1.2rem', letterSpacing: '4px', marginTop: '4px' }}>DEG</div>
+                    <div className="label-small" style={{ fontSize: '1.2rem', letterSpacing: '4px', marginTop: '4px' }}>MPH</div>
                 </div>
 
                 {/* TR: Lap-times table (2x2): CURR | Δ / BEST | LAST */}
@@ -731,174 +756,35 @@ const ScreenOne: React.FC = () => {
                 </div>
             </div>
 
-            {/* TEMP: live steering-angle trace, 5s rolling window.
-                Overlays the lower inner-grid (power bar + kW/BB row).
-                Drop this whole block when reverting. */}
-            <div style={{
-                position: 'absolute',
-                left: '100px',
-                right: '100px',
-                bottom: '90px',
-                height: '160px',
-                background: 'var(--card-bg)',
-                backdropFilter: 'blur(8px)',
-                border: '1px solid var(--card-border)',
-                borderRadius: '8px',
-                zIndex: 95,
-                overflow: 'hidden',
-            }}>
-                <div className="label-small" style={{
+            {/* Full-screen lap card — pops on each lapTrigger crossing and
+                clears itself after a few seconds (LAP_CARD_MS in the hook).
+                Shows the just-finished lap's time and net energy so the driver
+                gets a clear glance as they cross start/finish. */}
+            {pacing.lapCard && (
+                <div style={{
                     position: 'absolute',
-                    top: '4px',
-                    left: '10px',
-                    margin: 0,
-                    fontSize: '0.7rem',
-                    letterSpacing: '2px',
+                    inset: 0,
+                    zIndex: 1000,
+                    background: 'rgba(8,8,10,0.92)',
+                    backdropFilter: 'blur(6px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
                 }}>
-                    {data?.chartMode === 'ramp'
-                        ? <>STEER (DEG) — 5s back · 5s ahead · <span style={{ color: '#CC00AA' }}>RAMP</span> 0→45° / 10s · range −5°..50°</>
-                        : <>STEER (DEG) — 5s back · 5s ahead · <span style={{ color: '#000000' }}>0.5 Hz</span> · <span style={{ color: '#0066FF' }}>1 Hz</span> ±10°</>
-                    }
+                    <div className="label-small" style={{ fontSize: '1.4rem', letterSpacing: '8px', color: '#BF5700' }}>
+                        LAP {pacing.lapCard.lapNumber}
+                    </div>
+                    <div className="value-display" style={{ fontSize: '7rem', fontWeight: 'bold', lineHeight: 0.9 }}>
+                        {fmtLapTime(pacing.lapCard.timeS)}
+                    </div>
+                    <div className="value-display" style={{ fontSize: '3rem', fontWeight: 'bold', color: 'var(--fg-secondary)', lineHeight: 1 }}>
+                        {Math.round(pacing.lapCard.energyWh)}
+                        <span className="label-small" style={{ fontSize: '1.1rem', marginLeft: '8px' }}>Wh / LAP</span>
+                    </div>
                 </div>
-                {(() => {
-                    // Switch which reference set is drawn + the chart's
-                    // vertical range to fit it. Mode is set by writing
-                    // "sine" or "ramp" to /tmp/dash_chart_mode on BEVO.
-                    const mode = data?.chartMode === 'ramp' ? 'ramp' : 'sine';
-                    const [chartMin, chartMax] = mode === 'ramp'
-                        ? [RAMP_CHART_MIN, RAMP_CHART_MAX]
-                        : [SINE_CHART_MIN, SINE_CHART_MAX];
-                    // Linear deg → viewBox y in [5, 195] (small padding off the rails).
-                    const degToY = (deg: number): number => {
-                        const c = Math.max(chartMin, Math.min(chartMax, deg));
-                        return 5 + ((chartMax - c) / (chartMax - chartMin)) * 190;
-                    };
-                    const nowSec = Date.now() / 1000;
-                    // x ∈ [0, STEER_VIEWBOX_WIDTH] maps to time
-                    // [nowSec - HISTORY, nowSec + LOOKAHEAD]. "now" sits at
-                    // STEER_NOW_X (the middle when history==lookahead).
-                    const timeForX = (x: number) =>
-                        nowSec - STEER_HISTORY_SECONDS + x / STEER_SAMPLE_HZ;
-                    const xForTime = (t: number) =>
-                        (t - (nowSec - STEER_HISTORY_SECONDS)) * STEER_SAMPLE_HZ;
-                    const sinePoints = (freqHz: number) =>
-                        Array.from({ length: STEER_VIEWBOX_WIDTH + 1 }, (_, x) => {
-                            const t = timeForX(x);
-                            const deg = STEER_SINE_AMPLITUDE_DEG * Math.sin(2 * Math.PI * freqHz * t);
-                            return `${x},${degToY(deg)}`;
-                        }).join(' ');
-                    // Sawtooth ramp: linear 0 → STEER_RAMP_AMPLITUDE_DEG over
-                    // STEER_RAMP_PERIOD_S, then snaps back to 0.
-                    const rampPoints = Array.from(
-                        { length: STEER_VIEWBOX_WIDTH + 1 },
-                        (_, x) => {
-                            const t = timeForX(x);
-                            const phase = ((t % STEER_RAMP_PERIOD_S) + STEER_RAMP_PERIOD_S) % STEER_RAMP_PERIOD_S;
-                            const deg = (phase / STEER_RAMP_PERIOD_S) * STEER_RAMP_AMPLITUDE_DEG;
-                            return `${x},${degToY(deg)}`;
-                        },
-                    ).join(' ');
-                    return (
-                        <svg
-                            viewBox={`0 0 ${STEER_VIEWBOX_WIDTH} 200`}
-                            preserveAspectRatio="none"
-                            style={{ width: '100%', height: '100%', display: 'block' }}
-                        >
-                            {/* zero line (only when 0 is inside the visible range) */}
-                            {chartMin <= 0 && chartMax >= 0 && (
-                                <line
-                                    x1={0} y1={degToY(0)}
-                                    x2={STEER_VIEWBOX_WIDTH} y2={degToY(0)}
-                                    stroke="var(--card-border)"
-                                    strokeWidth={1}
-                                    vectorEffect="non-scaling-stroke"
-                                />
-                            )}
-                            {/* amplitude bound markers for the active mode */}
-                            {mode === 'sine' && (
-                                <>
-                                    <line
-                                        x1={0} y1={degToY(STEER_SINE_AMPLITUDE_DEG)}
-                                        x2={STEER_VIEWBOX_WIDTH} y2={degToY(STEER_SINE_AMPLITUDE_DEG)}
-                                        stroke="var(--card-border)"
-                                        strokeWidth={0.5}
-                                        strokeDasharray="2,4"
-                                        vectorEffect="non-scaling-stroke"
-                                    />
-                                    <line
-                                        x1={0} y1={degToY(-STEER_SINE_AMPLITUDE_DEG)}
-                                        x2={STEER_VIEWBOX_WIDTH} y2={degToY(-STEER_SINE_AMPLITUDE_DEG)}
-                                        stroke="var(--card-border)"
-                                        strokeWidth={0.5}
-                                        strokeDasharray="2,4"
-                                        vectorEffect="non-scaling-stroke"
-                                    />
-                                </>
-                            )}
-                            {mode === 'ramp' && (
-                                <line
-                                    x1={0} y1={degToY(STEER_RAMP_AMPLITUDE_DEG)}
-                                    x2={STEER_VIEWBOX_WIDTH} y2={degToY(STEER_RAMP_AMPLITUDE_DEG)}
-                                    stroke="var(--card-border)"
-                                    strokeWidth={0.5}
-                                    strokeDasharray="2,4"
-                                    vectorEffect="non-scaling-stroke"
-                                />
-                            )}
-                            {/* "now" marker — trace ends here, refs continue right */}
-                            <line
-                                x1={STEER_NOW_X} y1={0}
-                                x2={STEER_NOW_X} y2={200}
-                                stroke="var(--card-border)"
-                                strokeWidth={1}
-                                strokeDasharray="4,4"
-                                vectorEffect="non-scaling-stroke"
-                            />
-
-                            {/* References — only the active mode's set */}
-                            {mode === 'sine' && (
-                                <>
-                                    <polyline
-                                        points={sinePoints(0.5)}
-                                        fill="none"
-                                        stroke="#000000"
-                                        strokeWidth={2}
-                                        vectorEffect="non-scaling-stroke"
-                                    />
-                                    <polyline
-                                        points={sinePoints(1.0)}
-                                        fill="none"
-                                        stroke="#0066FF"
-                                        strokeWidth={2}
-                                        vectorEffect="non-scaling-stroke"
-                                    />
-                                </>
-                            )}
-                            {mode === 'ramp' && (
-                                <polyline
-                                    points={rampPoints}
-                                    fill="none"
-                                    stroke="#CC00AA"
-                                    strokeWidth={2}
-                                    vectorEffect="non-scaling-stroke"
-                                />
-                            )}
-                            {/* Driver trace — positioned by sample time so it
-                                ends at the "now" marker; refs project to the
-                                right of it. */}
-                            <polyline
-                                points={steerHistory
-                                    .map(({ t, v }) => `${xForTime(t)},${degToY(v)}`)
-                                    .join(' ')}
-                                fill="none"
-                                stroke="var(--brand)"
-                                strokeWidth={2}
-                                vectorEffect="non-scaling-stroke"
-                            />
-                        </svg>
-                    );
-                })()}
-            </div>
+            )}
         </div>
     );
 };

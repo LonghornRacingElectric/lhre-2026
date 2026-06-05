@@ -186,6 +186,26 @@ CREATE TABLE public.partitions(
     end_time          bigint       NOT NULL
 );
 
+-- Car Status Segment table
+-- Written by the car_status processor: one row per closed state segment
+-- (OFF / ON_IDLE / READY / MOVING). Standalone — keyed by car + time range, no
+-- drive_day dependency. active_faults are advisory metadata, not the state.
+CREATE TABLE public.car_status_segment (
+    segment_id        bigserial    NOT NULL,
+    car               text         NOT NULL,
+    state             text         NOT NULL,
+    start_time        bigint       NOT NULL,
+    end_time          bigint,
+    start_packet      bigint,
+    end_packet        bigint,
+    hv_soc_avg        real,
+    lv_v_avg          real,
+    active_faults     text,
+    CONSTRAINT car_status_segment_pk PRIMARY KEY (segment_id)
+);
+CREATE INDEX idx_car_status_segment_car_time ON public.car_status_segment (car, start_time DESC);
+CREATE INDEX idx_car_status_segment_state ON public.car_status_segment (state);
+
 CREATE OR REPLACE FUNCTION public.get_partition_bounds(
     p_partition_name text,
     p_time_from timestamptz DEFAULT NULL,
@@ -266,36 +286,36 @@ CREATE TABLE public.dynamics (
     gps                  real[],
     gps_imu              real[],
     gps_speed            real,
+    bl_unsprung_accel    real[],
+    br_unsprung_accel    real[],
+    fl_unsprung_accel    real[],
+    fr_unsprung_accel    real[],
     accel_pedal_travel   real,
+    bl_wheel_speed       real,
+    br_wheel_speed       real,
+    fl_wheel_speed       real,
+    fr_wheel_speed       real,
     steer_col_angle      real,
     bl_gyro              real[],
     bl_sprung_accel      real[],
-    bl_unsprung_accel    real[],
     br_gyro              real[],
     br_sprung_accel      real[],
-    br_unsprung_accel    real[],
     fl_gyro              real[],
     fl_sprung_accel      real[],
-    fl_unsprung_accel    real[],
     fr_gyro              real[],
     fr_sprung_accel      real[],
-    fr_unsprung_accel    real[],
     bl_ride_height       real,
     bl_strain_gauge_v    real,
     bl_sus_pot_v         real,
-    blw_speed            real,
     br_ride_height       real,
     br_strain_gauge_v    real,
     br_sus_pot_v         real,
-    brw_speed            real,
     fl_ride_height       real,
     fl_strain_gauge_v    real,
     fl_sus_pot_v         real,
-    flw_speed            real,
     fr_ride_height       real,
     fr_strain_gauge_v    real,
     fr_sus_pot_v         real,
-    frw_speed            real,
     ride_height          real,
     wheel_speed          real,
     CONSTRAINT fk_dynamics_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
@@ -333,6 +353,7 @@ CREATE TABLE public.controls (
     enable               boolean,
     line_lock_enabled    boolean,
     torque_shudder       real,
+    bse3                 real,
     CONSTRAINT fk_controls_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
 
@@ -480,3 +501,13 @@ CREATE TABLE public.board_status (
     vcu_last_seen_s      real,
     CONSTRAINT fk_board_status_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
+
+-- Generated Indexes
+CREATE INDEX IF NOT EXISTS idx_packet_time ON public.packet ("time" DESC);
+CREATE INDEX IF NOT EXISTS idx_dynamics_packet_id ON public.dynamics (packet_id);
+CREATE INDEX IF NOT EXISTS idx_controls_packet_id ON public.controls (packet_id);
+CREATE INDEX IF NOT EXISTS idx_pack_packet_id ON public.pack (packet_id);
+CREATE INDEX IF NOT EXISTS idx_diagnostics_high_packet_id ON public.diagnostics_high (packet_id);
+CREATE INDEX IF NOT EXISTS idx_diagnostics_low_packet_id ON public.diagnostics_low (packet_id);
+CREATE INDEX IF NOT EXISTS idx_thermal_packet_id ON public.thermal (packet_id);
+CREATE INDEX IF NOT EXISTS idx_board_status_packet_id ON public.board_status (packet_id);

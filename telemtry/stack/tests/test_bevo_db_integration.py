@@ -130,11 +130,20 @@ class TestBevoAndDatabaseIntegration(unittest.TestCase):
         self.assertIn("packet_id", received_message, "Welcome message does not contain packet_id")
         self.assertIsInstance(received_message["packet_id"], int, "packet_id is not an integer")
 
-    def test_orion_fake_protobuf_ingest_over_mqtt(self):
-        """Publishing fake Orion protobuf bytes should insert at least one Orion packet row."""
+    def _ingest_one_orion_packet(self, client_id, disconnect_before_poll):
+        """Publish one fake Orion protobuf packet over MQTT and return
+        (before_count, after_count) of OrionPacket rows.
+
+        The publish is confirmed with wait_for_publish so the bytes have
+        actually left the client -- a bare qos=0 publish with no running network
+        loop can be dropped when disconnect() closes the socket first. When
+        disconnect_before_poll is True the publisher disconnects immediately
+        after that confirmation (before we poll the DB), mirroring the car
+        dropping its link right after sending.
+        """
         if not self._orion_schema_ready():
             self.skipTest("Orion schema not initialized in test database")
-        before_count = None
+
         with get_db("Orion") as session:
             before_count = session.query(OrionPacket).count()
 
@@ -144,25 +153,62 @@ class TestBevoAndDatabaseIntegration(unittest.TestCase):
         payload.dynamics.steer_col_angle = 1.23
         payload.controls.apps1_v = 2.34
 
-        client = mqtt_client.Client(client_id="orion-integration-publisher")
+        client = mqtt_client.Client(client_id=client_id)
         client.connect(self.config.mqtt_host, self.config.mqtt_port, 60)
-        client.publish("orion/data", payload.SerializeToString(), qos=0)
-        client.disconnect()
+        client.loop_start()
+        torn_down = False
 
-        timeout = 10
-        start_time = time.time()
+        def teardown():
+            nonlocal torn_down
+            if not torn_down:
+                client.loop_stop()
+                client.disconnect()
+                torn_down = True
+
         after_count = before_count
-        while (time.time() - start_time) < timeout:
-            with get_db("Orion") as session:
-                after_count = session.query(OrionPacket).count()
-            if after_count > before_count:
-                break
-            time.sleep(0.25)
+        try:
+            info = client.publish("orion/data", payload.SerializeToString(), qos=0)
+            info.wait_for_publish(timeout=5)
+            if disconnect_before_poll:
+                teardown()
 
+            deadline = time.time() + 15
+            while time.time() < deadline:
+                with get_db("Orion") as session:
+                    after_count = session.query(OrionPacket).count()
+                if after_count > before_count:
+                    break
+                time.sleep(0.25)
+        finally:
+            teardown()
+
+        return before_count, after_count
+
+    def test_orion_protobuf_ingest_persists_row(self):
+        """Ingest path: a published Orion protobuf packet is persisted as a DB
+        row (publisher stays connected while we poll)."""
+        before_count, after_count = self._ingest_one_orion_packet(
+            client_id="orion-ingest-publisher",
+            disconnect_before_poll=False,
+        )
         self.assertGreater(
             after_count,
             before_count,
-            "Orion packet row was not inserted after publishing fake protobuf payload",
+            "Orion packet row was not inserted after publishing protobuf payload",
+        )
+
+    def test_orion_ingest_survives_immediate_publisher_disconnect(self):
+        """Resilience: ingest still persists the packet when the publisher
+        disconnects immediately after the broker confirms the publish
+        (fire-and-forget, mirroring the car dropping its link after sending)."""
+        before_count, after_count = self._ingest_one_orion_packet(
+            client_id="orion-ingest-disconnect-publisher",
+            disconnect_before_poll=True,
+        )
+        self.assertGreater(
+            after_count,
+            before_count,
+            "Orion packet row was not inserted after the publisher disconnected immediately",
         )
 
     def test_angelique_model_query(self):

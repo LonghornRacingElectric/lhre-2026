@@ -34,13 +34,13 @@
 
 // BMS Safety Thresholds
 #define CELL_OVERVOLTAGE_THRESHOLD   4.2f  // Volts
-#define CELL_UNDERVOLTAGE_THRESHOLD  3.0f  // Volts
+#define CELL_UNDERVOLTAGE_THRESHOLD  2.8f  // Volts
 #define CELL_OVERTEMP_THRESHOLD      60.0f // Celsius
 
 // BMS Balance Thresholds
 #define MAX_BAL_CELLS_PER_BOARD 6
-#define BAL_START_MV      5
-#define BAL_STOP_MV       2
+#define BAL_START_MV      2.0f
+#define BAL_STOP_MV       0.5f
 #define BAL_MIN_CELL_MV   3900
 #define PACK_I_MAX_MA     5000
 #define BAL_TEMP_CUTOFF_C 60.0f
