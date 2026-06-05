@@ -41,6 +41,19 @@ two control values come off-car:
   resets the per-lap energy integrator, so pacing error can't accumulate across
   laps. The dash keys off the rising edge, not the absolute value. This is now a
   **fallback/override**: when an `sfGate` is loaded the car counts its own laps.
+**Reverse channel (dash → trackside).** dashd also *publishes* so the strategist
+can confirm the uplink and mirror the driver's screen:
+
+- **`lhre/dash/state`** — JSON snapshot at ~2 Hz of what the driver sees (speed,
+  power, soc, temperature, lap count, and the on-car pacing: `lapEnergyWh`,
+  `budgetDeltaWh`, `lapNumber`, last-lap time/energy). The Dash tab renders this
+  as a live mirror; if it goes silent for >3 s the panel flags the uplink down.
+- **`lhre/dash/ack/{targetPower,lapTrigger,sfGate}`** — retained echoes published
+  the moment dashd ingests each control, so trackside sees "the car heard 32 kW
+  2 s ago" rather than just "I sent it." Energy integration is authoritative
+  on-car (survives a chromium reload), so these are the same numbers, not a
+  re-derivation.
+
 - **`sfGate`** — the start/finish line as `[lat1, lon1, lat2, lon2]`, published
   **retained, QoS 1** from the Dash tab's "Push S/F to car" button (sourced from
   the Track Builder gate). Once loaded, dashd watches `dynamics.gps` and bumps

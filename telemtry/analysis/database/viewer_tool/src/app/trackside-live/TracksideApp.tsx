@@ -477,6 +477,7 @@ function App() {
   const [dashTargetPower, setDashTargetPower] = useState<number>(() => Number(localStorage.getItem("dash-target-power") || 30));
   const [dashAutoLap, setDashAutoLap] = useState(() => localStorage.getItem("dash-auto-lap") === "1");
   const [dashGatePushed, setDashGatePushed] = useState(false);
+  const [dashNow, setDashNow] = useState(0); // 1 Hz tick for link-health "age" displays
   const dashLastLapCountRef = useRef(0);
   const liveSourceRef = useRef<EventSource | null>(null);
   const liveStateRef = useRef<LiveSessionState>(EMPTY_LIVE_STATE);
@@ -652,6 +653,15 @@ function App() {
   useEffect(() => {
     localStorage.setItem("dash-auto-lap", dashAutoLap ? "1" : "0");
   }, [dashAutoLap]);
+
+  // Tick once a second while the Dash tab is open so the link-health "Xs ago"
+  // ages and the dash-silent warning stay live without a new message.
+  useEffect(() => {
+    if (activeTab !== "dash") return;
+    setDashNow(Date.now());
+    const id = window.setInterval(() => setDashNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [activeTab]);
 
   // Auto-fire a dash lap card whenever the trackside lap detector completes a
   // lap — optional, off by default so the thread's "manual for now" still holds.
@@ -2678,6 +2688,48 @@ function App() {
                   {!sfGate ? (
                     <p style={{ marginTop: 6, opacity: 0.7, fontSize: "0.8rem" }}>
                       No start/finish gate on the loaded track yet — add one in the Track Builder tab.
+                    </p>
+                  ) : null}
+                </>
+              );
+            })()}
+          </Panel>
+
+          <Panel title="Link Health & Dash Mirror" icon={<Activity size={18} />} className="dashMirrorPanel">
+            {(() => {
+              const ds = dashSignals.dashState;
+              const at = dashSignals.lastStateAt;
+              const acks = dashSignals.acks;
+              const ago = (t: number) => `${Math.max(0, Math.round((dashNow - t) / 1000))}s ago`;
+              const linkLive = at !== null && dashNow - at < 3000;
+              const fmt = (v: number | null | undefined, d = 0, unit = "") =>
+                v === null || v === undefined ? "--" : `${v.toFixed(d)}${unit}`;
+              const delta = ds?.pacing.budgetDeltaWh ?? null;
+              return (
+                <>
+                  <div className="opsCards">
+                    <Metric label="Dash link" value={at === null ? "no data" : linkLive ? "LIVE" : `SILENT ${ago(at)}`} tone={linkLive ? "good" : ""} />
+                    <Metric label="Budget heard" value={acks.targetPower ? `${acks.targetPower.value.toFixed(0)} kW · ${ago(acks.targetPower.at)}` : "--"} tone={acks.targetPower ? "good" : ""} />
+                    <Metric label="Gate acked" value={acks.sfGate ? ago(acks.sfGate.at) : "no"} tone={acks.sfGate ? "good" : ""} />
+                  </div>
+                  <div className="opsCards" style={{ marginTop: 8 }}>
+                    <Metric label="Speed" value={fmt(ds?.speed, 0, " mph")} />
+                    <Metric label="Power" value={fmt(ds?.power, 1, " kW")} />
+                    <Metric label="SOC" value={fmt(ds?.soc, 0, " %")} />
+                  </div>
+                  <div className="opsCards" style={{ marginTop: 8 }}>
+                    <Metric label={`Lap ${ds?.pacing.lapNumber ?? "--"} NRG`} value={fmt(ds?.pacing.lapEnergyWh, 0, " Wh")} />
+                    <Metric label="Budget Δ" value={delta === null ? "--" : `${delta > 0 ? "+" : ""}${delta.toFixed(0)} Wh`} tone={delta !== null && delta < 0 ? "good" : ""} />
+                    <Metric label="Car laps" value={ds ? String(ds.lapCount) : "--"} />
+                  </div>
+                  {ds?.targetPowerStale ? (
+                    <p style={{ marginTop: 6, color: "#c47", fontSize: "0.8rem" }}>
+                      Driver&apos;s budget is showing STALE — the car hasn&apos;t heard a fresh target in 5s.
+                    </p>
+                  ) : null}
+                  {!linkLive && at !== null ? (
+                    <p style={{ marginTop: 6, color: "#c44", fontSize: "0.8rem" }}>
+                      Dash state silent — uplink may be down. The driver still has the held budget and on-car laps.
                     </p>
                   ) : null}
                 </>

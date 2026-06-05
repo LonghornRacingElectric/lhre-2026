@@ -20,6 +20,35 @@ const KEEPALIVE_MS = 1000;
 
 export type DashSignalStatus = 'idle' | 'connecting' | 'connected' | 'error' | 'closed';
 
+// Mirror of dashd's DashStateMsg (lhre/dash/state) — what the driver currently
+// sees, plus the lap count, so trackside can confirm the uplink.
+export interface DashMirrorState {
+    lapCount: number;
+    targetPower: number | null;
+    targetPowerStale: boolean;
+    speed: number | null;
+    power: number | null;
+    soc: number | null;
+    temperature: number | null;
+    pacing: {
+        lapEnergyWh: number;
+        budgetDeltaWh: number | null;
+        lapElapsedS: number;
+        lapNumber: number;
+        lastLapNumber: number | null;
+        lastLapTimeS: number | null;
+        lastLapEnergyWh: number | null;
+    };
+}
+
+// Last value the car echoed back on lhre/dash/ack/*, with arrival time, so the
+// strategist knows the signal landed (not just that we sent it).
+export interface DashAcks {
+    targetPower?: { value: number; at: number };
+    lapTrigger?: { value: number; at: number };
+    sfGate?: { at: number };
+}
+
 export interface DashSignals {
     status: DashSignalStatus;
     error: string | null;
@@ -34,6 +63,12 @@ export interface DashSignals {
     sendLap: () => void;
     /** Push the start/finish gate [lat1,lon1,lat2,lon2] so the car counts laps itself (retained). */
     publishGate: (gate: [number, number, number, number]) => void;
+    /** Latest mirror of the driver's screen (null until the car publishes state). */
+    dashState: DashMirrorState | null;
+    /** Wall-clock ms of the last lhre/dash/state message — for a link-silent warning. */
+    lastStateAt: number | null;
+    /** Last echoed control values, so trackside can confirm the car heard us. */
+    acks: DashAcks;
 }
 
 function loadBrokerUrl(): string {
@@ -46,6 +81,9 @@ export function useDashSignals(): DashSignals {
     const [error, setError] = useState<string | null>(null);
     const [brokerUrl, setBrokerUrlState] = useState<string>(loadBrokerUrl);
     const [lapsSent, setLapsSent] = useState(0);
+    const [dashState, setDashState] = useState<DashMirrorState | null>(null);
+    const [lastStateAt, setLastStateAt] = useState<number | null>(null);
+    const [acks, setAcks] = useState<DashAcks>({});
 
     const clientRef = useRef<MqttClient | null>(null);
     const targetPowerRef = useRef<number | null>(null);
@@ -96,6 +134,9 @@ export function useDashSignals(): DashSignals {
         client.on('connect', () => {
             setStatus('connected');
             setError(null);
+            // Subscribe to the car's mirror + acks so trackside can see what the
+            // driver sees and confirm the uplink.
+            client.subscribe([`${TOPIC_PREFIX}state`, `${TOPIC_PREFIX}ack/#`]);
             // Push the current target straight away so a reconnect doesn't
             // leave the dash bar blank until the next keepalive tick.
             if (targetPowerRef.current !== null) publish('targetPower', targetPowerRef.current);
@@ -105,6 +146,25 @@ export function useDashSignals(): DashSignals {
         client.on('error', (err) => {
             setStatus('error');
             setError(err instanceof Error ? err.message : String(err));
+        });
+        client.on('message', (topic, payload) => {
+            const text = payload.toString();
+            if (topic === `${TOPIC_PREFIX}state`) {
+                try {
+                    setDashState(JSON.parse(text) as DashMirrorState);
+                    setLastStateAt(Date.now());
+                } catch {
+                    // ignore malformed state frame
+                }
+            } else if (topic === `${TOPIC_PREFIX}ack/targetPower`) {
+                const v = Number(text);
+                if (Number.isFinite(v)) setAcks((a) => ({ ...a, targetPower: { value: v, at: Date.now() } }));
+            } else if (topic === `${TOPIC_PREFIX}ack/lapTrigger`) {
+                const v = Number(text);
+                if (Number.isFinite(v)) setAcks((a) => ({ ...a, lapTrigger: { value: v, at: Date.now() } }));
+            } else if (topic === `${TOPIC_PREFIX}ack/sfGate`) {
+                setAcks((a) => ({ ...a, sfGate: { at: Date.now() } }));
+            }
         });
 
         keepaliveRef.current = window.setInterval(() => {
@@ -153,5 +213,8 @@ export function useDashSignals(): DashSignals {
         publishTargetPower,
         sendLap,
         publishGate,
+        dashState,
+        lastStateAt,
+        acks,
     };
 }

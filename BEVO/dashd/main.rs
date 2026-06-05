@@ -30,6 +30,15 @@ const MQTT_STALE_TIMEOUT: Duration = Duration::from_secs(5);
 /// the dash shows "--" instead of frozen last-known values.
 const CAN_STALE_TIMEOUT: Duration = Duration::from_secs(3);
 
+/// Largest gap between CAN frames we'll integrate energy across. A longer gap
+/// (cand stall, IPC hiccup) is treated as lost time rather than dumping a slug
+/// of phantom Wh into the lap total.
+const MAX_ENERGY_DT_S: f64 = 0.5;
+
+/// How often dashd publishes its driver-facing state to `lhre/dash/state` for
+/// the trackside mirror / link-health panel.
+const STATE_PUBLISH_HZ: u64 = 2;
+
 fn env_or_default(name: &str, default: &str) -> String {
     std::env::var(name).unwrap_or_else(|_| default.to_string())
 }
@@ -202,11 +211,49 @@ struct MqttData {
     lap_trigger: Option<f32>,
 }
 
+/// Endurance pacing, computed authoritatively on-car so the driver and the
+/// trackside mirror read identical numbers, and so the lap integrator survives
+/// a chromium reload (it lives here, not in the frontend).
+#[derive(Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+struct PacingData {
+    /// Net energy used so far this lap (drive minus regen), Wh.
+    lap_energy_wh: f32,
+    /// used - budget for this lap, Wh. Positive = over budget (red),
+    /// negative = banking margin (green). None until a targetPower is set.
+    budget_delta_wh: Option<f32>,
+    /// Wall-clock seconds since the current lap started.
+    lap_elapsed_s: f32,
+    /// 1-based lap currently in progress.
+    lap_number: u32,
+    /// Most recently completed lap (drives the full-screen lap card).
+    last_lap_number: Option<u32>,
+    last_lap_time_s: Option<f32>,
+    last_lap_energy_wh: Option<f32>,
+}
+
 #[derive(Serialize, Clone)]
 struct DashMessage {
     seq: u64,
     can: CanData,
     mqtt: MqttData,
+    pacing: PacingData,
+}
+
+/// Snapshot published to `lhre/dash/state` for the trackside link-health /
+/// dash-mirror panel — the same numbers the driver sees, plus the controls the
+/// car actually received (so trackside can confirm uplink, not just guess).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct DashStateMsg {
+    lap_count: u64,
+    target_power: Option<f32>,
+    target_power_stale: bool,
+    speed: Option<f32>,
+    power: Option<f32>,
+    soc: Option<f32>,
+    temperature: Option<f32>,
+    pacing: PacingData,
 }
 
 // ---------------------------------------------------------------------------
@@ -290,6 +337,58 @@ struct DashState {
     lap_count: u64,
     /// Last trackside lapTrigger value seen, for rising-edge detection.
     last_offcar_trigger: Option<f32>,
+
+    // ---- On-car energy integration (authoritative) ----
+    /// Net energy used this lap (Wh), integrated from CAN power. Reset each lap.
+    lap_energy_wh: f64,
+    /// Energy budget consumed this lap at targetPower (Wh). Reset each lap.
+    lap_budget_wh: f64,
+    /// Start of the current lap, for elapsed time.
+    lap_start: Instant,
+    /// Previous integration tick, for dt. None until the first frame.
+    last_energy_update: Option<Instant>,
+    /// Snapshot of the most recently completed lap (for the lap card / mirror).
+    last_lap: Option<(u32, f32, f32)>, // (lap_number, time_s, energy_wh)
+}
+
+impl DashState {
+    /// Close the in-progress lap: snapshot its time + energy for the card,
+    /// bump the counter, and reset the per-lap integrators. Called from both
+    /// lap sources (on-car GPS crossing, trackside lapTrigger) so the energy
+    /// reset can never drift from the lap boundary.
+    fn complete_lap(&mut self, now: Instant) {
+        let completed = (self.lap_count + 1) as u32;
+        self.last_lap = Some((
+            completed,
+            now.duration_since(self.lap_start).as_secs_f32(),
+            self.lap_energy_wh as f32,
+        ));
+        self.lap_count += 1;
+        self.lap_energy_wh = 0.0;
+        self.lap_budget_wh = 0.0;
+        self.lap_start = now;
+    }
+
+    /// Build the pacing snapshot shown to the driver and mirrored to trackside.
+    fn pacing(&self, now: Instant) -> PacingData {
+        let (last_n, last_t, last_e) = match self.last_lap {
+            Some((n, t, e)) => (Some(n), Some(t), Some(e)),
+            None => (None, None, None),
+        };
+        PacingData {
+            lap_energy_wh: self.lap_energy_wh as f32,
+            // Only meaningful once a target has been set this lap.
+            budget_delta_wh: self
+                .mqtt
+                .target_power
+                .map(|_| (self.lap_energy_wh - self.lap_budget_wh) as f32),
+            lap_elapsed_s: now.duration_since(self.lap_start).as_secs_f32(),
+            lap_number: (self.lap_count + 1) as u32,
+            last_lap_number: last_n,
+            last_lap_time_s: last_t,
+            last_lap_energy_wh: last_e,
+        }
+    }
 }
 
 // Path the loaded start/finish gate is cached to, so it survives a dashd or
@@ -533,17 +632,37 @@ fn ipc_reader_loop(state: Arc<Mutex<DashState>>) {
                                 // (0,0) is the no-fix sentinel — ignore it.
                                 .filter(|&(lat, lon)| lat != 0.0 || lon != 0.0);
 
+                            let now = Instant::now();
                             let mut locked = state.lock().unwrap();
                             let can_data = extract_can_data(&data, &mut locked.last_qualified_soc);
+                            let power = can_data.power;
                             locked.can = can_data;
-                            locked.last_can_update = Instant::now();
+                            locked.last_can_update = now;
 
-                            // On-car lap detection: bump lap_count when the
-                            // path between consecutive fixes crosses the gate.
+                            // Integrate energy for this lap: Wh += kW * dt(s) / 3.6.
+                            // Regen (negative power) credits back. Budget tracks
+                            // targetPower over the same steps so the comparison is
+                            // apples-to-apples. Clamp dt so a stall can't dump a
+                            // phantom slug of energy.
+                            if let Some(prev) = locked.last_energy_update {
+                                let dt = now.duration_since(prev).as_secs_f64().min(MAX_ENERGY_DT_S);
+                                if dt > 0.0 {
+                                    if let Some(p) = power {
+                                        locked.lap_energy_wh += (p as f64) * dt / 3.6;
+                                        if let Some(tp) = locked.mqtt.target_power {
+                                            locked.lap_budget_wh += (tp as f64) * dt / 3.6;
+                                        }
+                                    }
+                                }
+                            }
+                            locked.last_energy_update = Some(now);
+
+                            // On-car lap detection: close the lap when the path
+                            // between consecutive fixes crosses the gate.
                             if let Some(cur) = gps {
                                 if let (Some(gate), Some(prev)) = (locked.sf_gate, locked.last_gps) {
                                     if segments_cross(prev, cur, gate) {
-                                        locked.lap_count += 1;
+                                        locked.complete_lap(now);
                                         println!("[DASHD] GPS lap crossing -> lap {}", locked.lap_count);
                                     }
                                 }
@@ -600,7 +719,8 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                 // lap_trigger is the local monotonic lap count
                                 // (GPS- or trackside-driven). Always fresh.
                                 mqtt.lap_trigger = Some(locked.lap_count as f32);
-                                DashMessage { seq, can, mqtt }
+                                let pacing = locked.pacing(Instant::now());
+                                DashMessage { seq, can, mqtt, pacing }
                             };
 
                             let json = match serde_json::to_string(&message) {
@@ -708,6 +828,14 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                                     locked.last_gps = None;
                                 }
                                 persist_sf_gate(&gate);
+                                // Ack receipt (retained) so trackside can confirm
+                                // the car actually got the gate.
+                                let _ = client.publish(
+                                    format!("{}ack/sfGate", MQTT_TOPIC_PREFIX),
+                                    QoS::AtMostOnce,
+                                    true,
+                                    payload_str.as_bytes().to_vec(),
+                                );
                                 println!("[DASHD] Loaded start/finish gate: {:?}", gate);
                             }
                             Err(e) => {
@@ -746,17 +874,31 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                         "targetPower" => {
                             locked.mqtt.target_power = Some(val);
                             locked.mqtt.last_target_power = now;
+                            // Echo back so trackside knows the car heard the budget.
+                            let _ = client.publish(
+                                format!("{}ack/targetPower", MQTT_TOPIC_PREFIX),
+                                QoS::AtMostOnce,
+                                true,
+                                val.to_string(),
+                            );
                         }
                         "lapTrigger" => {
                             // Trackside override / fallback for the on-car GPS
-                            // detector: each rising edge counts one lap. First
+                            // detector: each rising edge closes a lap. First
                             // value just sets the baseline (no phantom lap on a
                             // retained/stale value already on the broker).
                             let rising = locked.last_offcar_trigger.is_some_and(|last| val > last);
                             locked.last_offcar_trigger = Some(val);
                             if rising {
-                                locked.lap_count += 1;
-                                println!("[DASHD] Trackside lapTrigger -> lap {}", locked.lap_count);
+                                locked.complete_lap(now);
+                                let lap = locked.lap_count;
+                                println!("[DASHD] Trackside lapTrigger -> lap {}", lap);
+                                let _ = client.publish(
+                                    format!("{}ack/lapTrigger", MQTT_TOPIC_PREFIX),
+                                    QoS::AtMostOnce,
+                                    true,
+                                    lap.to_string(),
+                                );
                             }
                         }
                         _ => {} // ignore unknown subtopics
@@ -783,6 +925,83 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
 }
 
 // ---------------------------------------------------------------------------
+// Thread 4: MQTT state publisher — pushes the driver-facing snapshot up to
+// `lhre/dash/state` so the trackside team can mirror exactly what the driver
+// sees and confirm the uplink. Separate client from the subscriber so the
+// blocking subscribe loop and the timed publish loop don't fight.
+// ---------------------------------------------------------------------------
+
+fn mqtt_state_publisher_loop(state: Arc<Mutex<DashState>>) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    let mqtt_host = env_or_default("DASHD_MQTT_HOST", MQTT_HOST);
+    let mqtt_port: u16 = std::env::var("DASHD_MQTT_PORT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(MQTT_PORT);
+
+    let interval = Duration::from_millis(1000 / STATE_PUBLISH_HZ);
+
+    loop {
+        let client_id = format!("{}-PUB-{}", MQTT_CLIENT_ID, std::process::id());
+        let mut opts = MqttOptions::new(client_id, &mqtt_host, mqtt_port);
+        opts.set_keep_alive(Duration::from_secs(20));
+        let (client, mut connection) = Client::new(opts, 16);
+
+        // Drive the eventloop on a helper thread so outgoing publishes actually
+        // flush; it flips `alive` to false the moment the link drops.
+        let alive = Arc::new(AtomicBool::new(true));
+        let alive_driver = Arc::clone(&alive);
+        let driver = thread::spawn(move || {
+            for event in connection.iter() {
+                match event {
+                    Ok(Event::Incoming(Incoming::Disconnect)) | Err(_) => break,
+                    _ => {}
+                }
+            }
+            alive_driver.store(false, Ordering::SeqCst);
+        });
+
+        while alive.load(Ordering::SeqCst) {
+            let json = {
+                let locked = state.lock().unwrap();
+                let now = Instant::now();
+                let msg = DashStateMsg {
+                    lap_count: locked.lap_count,
+                    target_power: locked.mqtt.target_power,
+                    target_power_stale: locked
+                        .mqtt
+                        .target_power
+                        .is_some_and(|_| {
+                            now.duration_since(locked.mqtt.last_target_power) >= MQTT_STALE_TIMEOUT
+                        }),
+                    speed: locked.can.speed,
+                    power: locked.can.power,
+                    soc: locked.can.soc,
+                    temperature: locked.can.temperature,
+                    pacing: locked.pacing(now),
+                };
+                serde_json::to_string(&msg)
+            };
+
+            if let Ok(j) = json {
+                if client
+                    .publish(format!("{}state", MQTT_TOPIC_PREFIX), QoS::AtMostOnce, false, j)
+                    .is_err()
+                {
+                    break;
+                }
+            }
+            thread::sleep(interval);
+        }
+
+        let _ = client.disconnect();
+        let _ = driver.join();
+        thread::sleep(Duration::from_secs(5));
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -799,6 +1018,11 @@ fn main() -> Result<()> {
         last_gps: None,
         lap_count: 0,
         last_offcar_trigger: None,
+        lap_energy_wh: 0.0,
+        lap_budget_wh: 0.0,
+        lap_start: Instant::now(),
+        last_energy_update: None,
+        last_lap: None,
     }));
 
     let ipc_state = Arc::clone(&state);
@@ -810,7 +1034,13 @@ fn main() -> Result<()> {
     let mqtt_state = Arc::clone(&state);
     thread::spawn(move || mqtt_subscriber_loop(mqtt_state));
 
-    println!("[DASHD] Started (IPC reader + WebSocket on :{} + MQTT subscriber)", WS_PORT);
+    let pub_state = Arc::clone(&state);
+    thread::spawn(move || mqtt_state_publisher_loop(pub_state));
+
+    println!(
+        "[DASHD] Started (IPC reader + WebSocket on :{} + MQTT subscriber + state publisher)",
+        WS_PORT
+    );
 
     // Park the main thread forever (matches cand/main.rs pattern)
     loop {

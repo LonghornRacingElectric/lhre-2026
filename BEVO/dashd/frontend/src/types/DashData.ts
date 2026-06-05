@@ -86,10 +86,24 @@ export interface MqttData {
     lapDeltaRate?: number | null;        // d(lapDelta)/dt, s/s
 }
 
+// Endurance pacing, computed authoritatively on-car by dashd (see
+// useEnergyPacing + BEVO/dashd/main.rs PacingData). The frontend just displays
+// these — integrating here would reset the lap on a chromium reload.
+export interface PacingData {
+    lapEnergyWh: number;             // net energy used this lap (Wh)
+    budgetDeltaWh: number | null;    // used - budget; >0 over (red), <0 under (green)
+    lapElapsedS: number;             // seconds since the current lap started
+    lapNumber: number;               // 1-based lap in progress
+    lastLapNumber: number | null;    // most recently completed lap (drives the card)
+    lastLapTimeS: number | null;
+    lastLapEnergyWh: number | null;
+}
+
 export interface DashMessage {
     seq: number;
     can: CanData;
     mqtt: MqttData;
+    pacing: PacingData;
 }
 
 // Shutdown circuit / safety-fault items, in the order dashd emits them.
