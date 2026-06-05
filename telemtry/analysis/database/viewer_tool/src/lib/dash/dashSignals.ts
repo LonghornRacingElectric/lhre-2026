@@ -10,8 +10,20 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // strategist's browser with no extra backend. Contract: BEVO/dashd/MQTT_CONTRACT.md.
 
 const TOPIC_PREFIX = 'lhre/dash/';
-const DEFAULT_BROKER_URL = 'ws://18.191.225.118:8080';
 const BROKER_STORAGE_KEY = 'dash-signal-broker';
+
+// The dash broker is reached over WebSockets. On an HTTPS page the browser
+// blocks an insecure ws:// connection (mixed content) — which silently fails as
+// "connecting → disconnecting" — so default to a same-origin wss path that the
+// reverse proxy forwards to the mosquitto ws listener. Plain-http (local dev)
+// keeps the direct ws:// default. Override-able via the Dash tab field.
+const DEV_BROKER_URL = 'ws://18.191.225.118:8080';
+function defaultBrokerUrl(): string {
+    if (typeof window === 'undefined') return DEV_BROKER_URL;
+    return window.location.protocol === 'https:'
+        ? `wss://${window.location.host}/mqtt`
+        : DEV_BROKER_URL;
+}
 
 // targetPower is a set-point, not a stream. dashd nulls any field it hasn't
 // heard from in 5 s, so we re-publish the current target on this cadence to
@@ -72,8 +84,15 @@ export interface DashSignals {
 }
 
 function loadBrokerUrl(): string {
-    if (typeof window === 'undefined') return DEFAULT_BROKER_URL;
-    return localStorage.getItem(BROKER_STORAGE_KEY) || DEFAULT_BROKER_URL;
+    const fallback = defaultBrokerUrl();
+    if (typeof window === 'undefined') return fallback;
+    const stored = localStorage.getItem(BROKER_STORAGE_KEY);
+    // Drop a stale insecure ws:// override on an HTTPS page — it would just fail
+    // as mixed content — and fall back to the secure same-origin default.
+    if (stored && !(window.location.protocol === 'https:' && stored.startsWith('ws://'))) {
+        return stored;
+    }
+    return fallback;
 }
 
 export function useDashSignals(): DashSignals {
