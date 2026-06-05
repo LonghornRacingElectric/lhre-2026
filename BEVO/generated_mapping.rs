@@ -83,6 +83,7 @@ pub fn update_proto_field_generated(data: &mut OrionSensorData, name: &str, val:
             "bse2_disconnect" => _h.bse2_disconnect = val != 0.0,
             "bse2_out_range" => _h.bse2_out_range = val != 0.0,
             "bse2_v" => _c.bse2_v = val,
+            "bse3" => _c.bse3 = val,
             "bse3_v" => _c.bse3_v = val,
             "bus_bar_temp1" => _t.bus_bar_temp1 = val,
             "bus_bar_temp2" => _t.bus_bar_temp2 = val,

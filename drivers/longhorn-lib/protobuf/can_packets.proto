@@ -92,6 +92,7 @@ message Controls {
     bool enable = 27;
     bool line_lock_enabled = 28;
     float torque_shudder = 29;
+    float bse3 = 30;
 }
 
 message Pack {

@@ -2,8 +2,10 @@
 import './trackside.css';
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type Dispatch, type MouseEvent, type ReactNode, type SetStateAction } from "react";
-import { Activity, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, Moon, NotebookText, Plus, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, X, Zap } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, Moon, NotebookText, Plus, Power, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, WifiOff, X, Zap } from "lucide-react";
 import { api } from "@/lib/trackside/api";
+import { useCarStatus, CAR_STATE_META, humanizeReason, type CarState, type CarStatusFeed } from "@/lib/trackside/useCarStatus";
+import { useDashSignals } from "@/lib/dash/dashSignals";
 import type {
   ChannelDef,
   ChannelChartDefinition,
@@ -20,6 +22,8 @@ import type {
   SourceDef,
   TrackDefinition,
 } from "@/lib/trackside/types";
+
+const NATURAL_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 const DEFAULT_TRACK: TrackDefinition = {
   name: "Orion Test Track",
@@ -95,7 +99,7 @@ const METADATA_FIELDS = [
 type MetadataField = (typeof METADATA_FIELDS)[number];
 type SessionMetadata = Record<MetadataField, string>;
 type GateDrawMode = "start_finish" | "split" | null;
-type AppTab = "exporter" | "live" | "track-builder" | "race-ops";
+type AppTab = "exporter" | "live" | "track-builder" | "race-ops" | "dash";
 type LapPreviewRow = {
   id: string;
   label: string;
@@ -186,6 +190,12 @@ const LIVE_SAMPLE_MEMORY_CAP = 6000;
 const LIVE_LAP_SAMPLE_MEMORY_CAP = 6000;
 const SESSION_LOCAL_AUTOSAVE_MS = 500;
 const SESSION_BACKEND_AUTOSAVE_MS = 2500;
+// Only this browser's own fresh autosave is silently restored (so an accidental
+// reload mid-session is seamless). Older or shared (backend) sessions are merely
+// *offered* via the resume banner — never auto-applied — so a leftover/demo cache
+// can't masquerade as a live session in production.
+const SESSION_AUTO_RESTORE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+const SESSION_RESUME_OFFER_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const SESSION_IDB_NAME = "motec-live-session-cache";
 const SESSION_IDB_STORE = "sessions";
 type CarPreset = {
@@ -471,7 +481,19 @@ function App() {
   const [selectedCarPresetId, setSelectedCarPresetId] = useState(() => localStorage.getItem("motec-selected-car-preset") || "orion");
   const [carPresetDraft, setCarPresetDraft] = useState<CarPreset>(() => loadCarPresets()[0] ?? defaultCarPresets()[0]);
   const [liveState, setLiveState] = useState<LiveSessionState>(EMPTY_LIVE_STATE);
+  // Dash pacing signals (publishes targetPower + lapTrigger to the on-car dash).
+  const dashSignals = useDashSignals();
+  const [dashTargetPower, setDashTargetPower] = useState<number>(() => Number(localStorage.getItem("dash-target-power") || 30));
+  const [dashAutoLap, setDashAutoLap] = useState(() => localStorage.getItem("dash-auto-lap") === "1");
+  const [dashGatePushed, setDashGatePushed] = useState(false);
+  const [dashNow, setDashNow] = useState(0); // 1 Hz tick for link-health "age" displays
+  const dashLastLapCountRef = useRef(0);
   const liveSourceRef = useRef<EventSource | null>(null);
+  // The live feed auto-starts and self-heals: liveShouldRunRef tracks whether we
+  // *want* a connection (so an unexpected drop reconnects, but an explicit
+  // stop/reset does not), and reconnectTimerRef holds the pending retry.
+  const liveShouldRunRef = useRef(false);
+  const reconnectTimerRef = useRef<number | null>(null);
   const liveStateRef = useRef<LiveSessionState>(EMPTY_LIVE_STATE);
   const liveTrackRef = useRef(track);
   const liveMetadataRef = useRef(metadataDraft);
@@ -480,6 +502,13 @@ function App() {
   const liveSourceNameRef = useRef(source);
 
   const selectedChannel = channels.find((c) => c.key === channel);
+  // Numeric-aware ordering for the pickers so repeated/array channels (e.g.
+  // pack.cells_v[0..131]) list as 0,1,2,…,10,…,100 instead of lexicographically
+  // (the schema-driven natural-sort idea from the loggerd CSV work, PR #284).
+  const sortedChannels = useMemo(
+    () => [...channels].sort((a, b) => NATURAL_COLLATOR.compare(a.label, b.label)),
+    [channels],
+  );
   const sourceLabel = sources.find((item) => item.key === source)?.label || source;
   const hasStartFinish = track.gates.some((gate) => gate.role === "start_finish");
   const splitGates = track.gates.filter((gate) => gate.role === "split");
@@ -557,6 +586,49 @@ function App() {
   const liveTorqueNm = torqueFeedbackNmFor(filteredLiveState.lastSample);
   const liveBadgeLabel = liveState.lastSample ? "Live" : liveState.connected ? "Listening" : liveState.running ? "Connecting" : "Standby";
   const liveBadgeClass = liveState.lastSample ? "liveBadge liveOn" : liveState.connected ? "liveBadge liveListening" : liveState.running ? "liveBadge liveConnecting" : "liveBadge";
+
+  // ── Real liveness ───────────────────────────────────────────────────────────
+  // Wall-clock arrival time of the last live *sample* (not heartbeats). This is
+  // the truthful "telemetry is flowing right now" signal, independent of the
+  // sample's own timestamp (which is replay-time for the simulator). Updated
+  // from handleLiveEvent on every "sample" event.
+  const [lastDataAtMs, setLastDataAtMs] = useState<number | null>(null);
+  const [liveNowMs, setLiveNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (!liveState.running) return;
+    setLiveNowMs(Date.now());
+    const id = window.setInterval(() => setLiveNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [liveState.running]);
+  const dataAgeMs = lastDataAtMs == null ? null : Math.max(0, liveNowMs - lastDataAtMs);
+  // Telemetry (sample) freshness — separate from broker connectivity. A
+  // connected broker with no samples means the car is almost certainly off,
+  // which is exactly the case the old "ready" badge got wrong.
+  const uplink: "idle" | "connecting" | "waiting" | "live" | "stale" | "down" = !liveState.running
+    ? "idle"
+    : dataAgeMs == null
+      ? (liveState.connected ? "waiting" : "connecting")
+      : dataAgeMs < 3500
+        ? "live"
+        : dataAgeMs < 12000
+          ? "stale"
+          : "down";
+  const UPLINK_META: Record<typeof uplink, { label: string; dot: string }> = {
+    idle: { label: "Offline", dot: "dead" },
+    connecting: { label: "Connecting…", dot: "stale pulse" },
+    waiting: { label: "No telemetry", dot: "stale" },
+    live: { label: "Live", dot: "live" },
+    stale: { label: "Delayed", dot: "stale" },
+    down: { label: "Signal lost", dot: "dead" },
+  };
+  const uplinkMeta = UPLINK_META[uplink];
+
+  // Authoritative car state from the central classifier (PR #282), if reachable.
+  const carStatus = useCarStatus(source, liveState.running);
+  const carStateAgeMs = carStatus.lastEventAt == null ? null : Math.max(0, liveNowMs - carStatus.lastEventAt);
+  // Classifier heartbeats every ~2s; treat >7s of silence as untrustworthy.
+  const carStateStale = carStateAgeMs != null && carStateAgeMs > 7000;
+  const carState: CarState | null = carStatus.available && !carStateStale ? carStatus.state : null;
   const previewSegments = useMemo(
     () => segments.filter((segment) => previewSelectedSegments.has(segment.id)),
     [segments, previewSelectedSegments],
@@ -634,6 +706,37 @@ function App() {
     localStorage.setItem("motec-soe-cutoff-cell-v", String(soeCutoffCellV));
   }, [soeCutoffCellV]);
 
+  // Persist + live-publish the dash power budget. Re-publishing on every change
+  // keeps the on-car dash's energy bar in sync the instant the strategist
+  // adjusts it; the hook's keepalive covers the gaps in between.
+  useEffect(() => {
+    localStorage.setItem("dash-target-power", String(dashTargetPower));
+    if (dashSignals.status === "connected") dashSignals.publishTargetPower(dashTargetPower);
+  }, [dashTargetPower, dashSignals.status, dashSignals.publishTargetPower]);
+
+  useEffect(() => {
+    localStorage.setItem("dash-auto-lap", dashAutoLap ? "1" : "0");
+  }, [dashAutoLap]);
+
+  // Tick once a second while the Dash tab is open so the link-health "Xs ago"
+  // ages and the dash-silent warning stay live without a new message.
+  useEffect(() => {
+    if (activeTab !== "dash") return;
+    setDashNow(Date.now());
+    const id = window.setInterval(() => setDashNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [activeTab]);
+
+  // Auto-fire a dash lap card whenever the trackside lap detector completes a
+  // lap — optional, off by default so the thread's "manual for now" still holds.
+  useEffect(() => {
+    const count = liveState.laps.length;
+    if (count > dashLastLapCountRef.current) {
+      if (dashAutoLap && dashSignals.status === "connected") dashSignals.sendLap();
+      dashLastLapCountRef.current = count;
+    }
+  }, [liveState.laps.length, dashAutoLap, dashSignals.status, dashSignals.sendLap]);
+
   // Auto-select newly completed laps for the average (preserving manual deselections).
   useEffect(() => {
     setSelectedLapIds((prev) => {
@@ -704,24 +807,41 @@ function App() {
     };
   }, [source, targetLaps, targetEnergyKwh, soeCutoffCellV, selectedLapIds, sessionFromFile]);
 
-  // On first load, restore the previous live session immediately.
+  // On first load, decide whether to restore a previous live session.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const candidates: SavedSession[] = [];
+      // 1) This browser's own autosave (localStorage + IndexedDB). Auto-restore
+      //    only while fresh, so an accidental reload mid-session is seamless.
+      const ownCandidates: SavedSession[] = [];
       const localSaved = readLocalSavedSession();
-      if (isRestorableSession(localSaved)) candidates.push(localSaved);
+      if (isRestorableSession(localSaved)) ownCandidates.push(localSaved);
       const indexedSaved = await readIndexedSavedSession();
-      if (isRestorableSession(indexedSaved)) candidates.push(indexedSaved);
+      if (isRestorableSession(indexedSaved)) ownCandidates.push(indexedSaved);
+      if (cancelled) return;
+      let offer = ownCandidates.length
+        ? ownCandidates.reduce((best, item) => (item.savedAt > best.savedAt ? item : best), ownCandidates[0])
+        : null;
+      if (offer && Date.now() - offer.savedAt <= SESSION_AUTO_RESTORE_MAX_AGE_MS) {
+        restoreLiveState(offer, false);
+        return;
+      }
+
+      // 2) The shared backend cache can hold a stale demo run or another
+      //    operator's session, so it is never auto-applied — only offered.
       try {
         const backendSaved = await api.latestLiveSession<SavedSession>();
-        if (isRestorableSession(backendSaved)) candidates.push(backendSaved);
+        if (isRestorableSession(backendSaved) && (!offer || backendSaved.savedAt > offer.savedAt)) {
+          offer = backendSaved;
+        }
       } catch {
         // backend cache is optional
       }
-      if (cancelled || !candidates.length) return;
-      const newest = candidates.reduce((best, item) => (item.savedAt > best.savedAt ? item : best), candidates[0]);
-      restoreLiveState(newest, false);
+      if (cancelled || !offer) return;
+      // Surface a recent session for explicit, opt-in resume.
+      if (Date.now() - offer.savedAt <= SESSION_RESUME_OFFER_MAX_AGE_MS) {
+        setResumeAvailable(offer);
+      }
     })();
     return () => {
       cancelled = true;
@@ -775,6 +895,8 @@ function App() {
 
   useEffect(() => {
     return () => {
+      liveShouldRunRef.current = false;
+      if (reconnectTimerRef.current != null) window.clearTimeout(reconnectTimerRef.current);
       liveSourceRef.current?.close();
     };
   }, []);
@@ -1198,6 +1320,11 @@ function App() {
 
   async function startLiveData() {
     liveSourceRef.current?.close();
+    liveShouldRunRef.current = true;
+    if (reconnectTimerRef.current != null) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
     setExportUrl("");
     const existing = liveStateRef.current;
     const shouldResumeSession = !!(existing.laps.length || existing.samples.length || existing.lapStartMs);
@@ -1231,18 +1358,32 @@ function App() {
       eventSource.onerror = () => {
         liveSourceRef.current?.close();
         liveSourceRef.current = null;
-        setLiveState((prev) => {
-          if (!prev.running) return prev;
-          return { ...prev, running: false, connected: false, status: "Live stream connection interrupted." };
-        });
+        setLiveState((prev) => (prev.running ? { ...prev, connected: false, status: "Reconnecting to live stream…" } : prev));
+        scheduleLiveReconnect();
       };
     } catch (e) {
       showError(e);
-      setLiveState((prev) => ({ ...prev, running: false, status: "Unable to start live data." }));
+      setLiveState((prev) => ({ ...prev, connected: false, status: "Live data unreachable — retrying…" }));
+      scheduleLiveReconnect();
     }
   }
 
+  // Auto-reconnect: the manual Start button was removed, so a dropped or
+  // unreachable stream retries on its own until stop/reset clears the intent.
+  function scheduleLiveReconnect() {
+    if (!liveShouldRunRef.current || reconnectTimerRef.current != null) return;
+    reconnectTimerRef.current = window.setTimeout(() => {
+      reconnectTimerRef.current = null;
+      if (liveShouldRunRef.current && !liveSourceRef.current) void startLiveData();
+    }, 4000);
+  }
+
   function stopLiveData() {
+    liveShouldRunRef.current = false;
+    if (reconnectTimerRef.current != null) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
     liveSourceRef.current?.close();
     liveSourceRef.current = null;
     setLiveState((prev) => ({ ...prev, running: false, connected: false, status: prev.laps.length ? "Stopped" : "Stopped without completed laps" }));
@@ -1251,6 +1392,11 @@ function App() {
   function resetLiveSession() {
     const hasSessionData = liveStateRef.current.laps.length || liveStateRef.current.samples.length || liveStateRef.current.lapStartMs;
     if (hasSessionData && !window.confirm("Reset all live laps, current lap data, and saved session cache?")) return;
+    liveShouldRunRef.current = false;
+    if (reconnectTimerRef.current != null) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
     liveSourceRef.current?.close();
     liveSourceRef.current = null;
     liveStateRef.current = EMPTY_LIVE_STATE;
@@ -1295,6 +1441,7 @@ function App() {
       return;
     }
     if (event.type !== "sample") return;
+    setLastDataAtMs(Date.now());
     const completedLap = processLiveSample(event.sample);
     if (completedLap && liveAutoDownloadRef.current) {
       void downloadLiveLap(completedLap);
@@ -1807,20 +1954,30 @@ function App() {
       ) : null}
       <header className="topbar">
         <div>
-          <h1>MoTeC Telemetry Exporter</h1>
-          <p>{sourceLabel} database to plot, GPS splits, threshold files, and MoTeC export</p>
+          <h1>Trackside Live</h1>
+          <p>Live telemetry, lap timing &amp; energy strategy · MoTeC / CSV export · track builder</p>
         </div>
         <div className="topActions">
+          {carState ? (
+            <span className={`carStateBadge ${CAR_STATE_META[carState].cls}`} title="Car state from the on-stack classifier">
+              <span className="stateDot" /> {CAR_STATE_META[carState].label}
+            </span>
+          ) : null}
+          <div
+            className="status"
+            title={`${sourceLabel} · telemetry ${uplinkMeta.label.toLowerCase()}${carState ? ` · car ${CAR_STATE_META[carState].label}` : ""} · database ${health?.postgres_enabled ? "online" : "offline"}${busy ? " · syncing" : ""}`}
+          >
+            <span className={`dot ${busy ? "stale pulse" : uplinkMeta.dot}`} />
+            <span>{busy ? "Syncing…" : uplinkMeta.label}</span>
+            <span className="statusSep">·</span>
+            <span className="statusSrc">{sourceLabel}</span>
+          </div>
           <button className="tool iconOnly" onClick={() => setShowTour(true)} aria-label="Show guided tour" title="Guided tour">
             <HelpCircle size={16} />
           </button>
-          <button className="tool iconOnly" onClick={() => setDarkMode((value) => !value)} aria-label="Toggle dark mode">
+          <button className="tool iconOnly" onClick={() => setDarkMode((value) => !value)} aria-label="Toggle dark mode" title="Toggle theme">
             {darkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
-          <div className="status">
-            <span className={health?.postgres_enabled ? "dot live" : "dot"} />
-            {sourceLabel} {busy ? "syncing" : "ready"}
-          </div>
         </div>
       </header>
 
@@ -1845,6 +2002,9 @@ function App() {
         </button>
         <button className={activeTab === "race-ops" ? "tab activeTab" : "tab"} onClick={() => setActiveTab("race-ops")}>
           <NotebookText size={16} /> Race Ops
+        </button>
+        <button className={activeTab === "dash" ? "tab activeTab" : "tab"} onClick={() => setActiveTab("dash")}>
+          <Gauge size={16} /> Dash
         </button>
       </nav>
 
@@ -1938,7 +2098,7 @@ function App() {
             <label className="channelPicker">
               <Gauge size={16} />
               <select value={channel} onChange={(e) => setChannel(e.target.value)}>
-                {channels.map((c) => (
+                {sortedChannels.map((c) => (
                   <option key={c.key} value={c.key}>{c.label}</option>
                 ))}
               </select>
@@ -2012,28 +2172,11 @@ function App() {
                   <strong>{previewSegments.length ? `${previewSegments.length} selected` : "No session selected"}</strong>
                   <span>{mixedMetadata.size ? `${mixedMetadata.size} mixed fields` : "Fields match across selection"}</span>
                 </div>
-                <div className="metadataGrid">
-                  {METADATA_FIELDS.map((key) => (
-                    <label key={key}>
-                      <span>{key.replace("_", " ")}</span>
-                      {key === "long_comment" ? (
-                        <textarea
-                          value={metadataDraft[key]}
-                          placeholder={mixedMetadata.has(key) ? "Mixed values" : ""}
-                          className={mixedMetadata.has(key) ? "mixedField" : ""}
-                          onChange={(e) => setMetadataDraft((prev) => ({ ...prev, [key]: e.target.value }))}
-                        />
-                      ) : (
-                        <input
-                          value={metadataDraft[key]}
-                          placeholder={mixedMetadata.has(key) ? "Mixed values" : ""}
-                          className={mixedMetadata.has(key) ? "mixedField" : ""}
-                          onChange={(e) => setMetadataDraft((prev) => ({ ...prev, [key]: e.target.value }))}
-                        />
-                      )}
-                    </label>
-                  ))}
-                </div>
+                <MetadataFields
+                  values={metadataDraft}
+                  mixed={mixedMetadata}
+                  onChange={(key, value) => setMetadataDraft((prev) => ({ ...prev, [key]: value }))}
+                />
                 <button className="primary fullWidth" disabled={!previewSegments.length} onClick={applyMetadata}>
                   <Save size={16} /> Apply Metadata
                 </button>
@@ -2087,7 +2230,16 @@ function App() {
           ) : null}
           <div className="liveHero">
             <div className="liveHeroMain">
-              <span className={liveBadgeClass}><Radio size={14} /> {liveBadgeLabel}</span>
+              <div className="carStatusStrip">
+                {carState ? (
+                  <span className={`carStateBadge ${CAR_STATE_META[carState].cls}`} title="Car state from the on-stack classifier">
+                    <span className="stateDot" /> {CAR_STATE_META[carState].label}
+                  </span>
+                ) : (
+                  <span className={liveBadgeClass}><Radio size={14} /> {liveBadgeLabel}</span>
+                )}
+                <span className="freshTag"><span className={`dot ${uplinkMeta.dot}`} /> {uplinkMeta.label}</span>
+              </div>
               <h2>{liveState.lapStartMs ? formatLapTime(liveLapElapsedMs) : "0:00.00"}</h2>
               <p>{liveState.lapStartMs ? "Flying lap" : "Out lap / waiting for start"}</p>
               <DeltaBar rate={liveState.deltaRate} totalMs={liveState.deltaMs} />
@@ -2100,19 +2252,18 @@ function App() {
               <Metric label="Torque" value={liveTorqueNm == null ? "--" : formatSignedTorque(liveTorqueNm)} tone={liveTorqueNm != null && liveTorqueNm < 0 ? "good" : ""} />
             </div>
             <div className="liveControls">
-              <button className={liveState.running ? "primary dangerPrimary" : "primary"} onClick={liveState.running ? stopLiveData : startLiveData}>
-                {liveState.running ? <Activity size={16} /> : <Radio size={16} />} {liveState.running ? "Stop Live" : "Start Live"}
-              </button>
-              <button className="tool" disabled={!liveState.running || !liveState.lastSample} onClick={triggerManualLap}>
-                <Flag size={15} /> {liveState.lapStartMs ? "Log Lap" : "Start Lap"}
+              {/* Big, glanceable trackside actions — the live feed auto-starts,
+                  so the frequent buttons (lap + record) get the space. */}
+              <button className="primary liveAction" disabled={!liveState.running || !liveState.lastSample} onClick={triggerManualLap}>
+                <Flag size={22} /> {liveState.lapStartMs ? "Log Lap" : "Start Lap"}
               </button>
               <button
-                className={recordingStartMs != null ? "tool dangerPrimary" : "tool"}
+                className={recordingStartMs != null ? "tool liveAction dangerPrimary" : "tool liveAction"}
                 disabled={recordingBusy || (recordingStartMs == null && !liveState.lastSample)}
                 onClick={recordingStartMs != null ? stopRecordingAndExport : startRecording}
                 title="Tag a start, then stop to download a MoTeC file of exactly that window"
               >
-                <Disc3 size={15} />{" "}
+                <Disc3 size={22} />{" "}
                 {recordingBusy
                   ? "Exporting…"
                   : recordingStartMs != null
@@ -2129,6 +2280,15 @@ function App() {
 
           <div className="liveLayout">
             <div className="leftRail">
+              <CarStatusPanel
+                feed={carStatus}
+                carState={carState}
+                stale={carStateStale}
+                ageMs={carStateAgeMs}
+                uplinkLabel={uplinkMeta.label}
+                uplinkDot={uplinkMeta.dot}
+                running={liveState.running}
+              />
               <Panel title="Live Laps" icon={<Timer size={18} />}>
                 <LiveLapTable
                   laps={liveState.laps}
@@ -2287,6 +2447,15 @@ function App() {
                       Usable budget {targetEnergyKwh.toFixed(2)} kWh to {soeCutoffCellV.toFixed(2)} V min-cell OCV ÷ {targetLaps} = {targetEnergyPerLapWh.toFixed(0)} Wh/lap target.
                     </small>
                   ) : null}
+                  <div className="feedControl">
+                    <div>
+                      <strong>Live feed</strong>
+                      <small>Auto-starts on load and reconnects if it drops. Stop only to pause.</small>
+                    </div>
+                    <button type="button" className="tool" onClick={liveState.running ? stopLiveData : startLiveData}>
+                      {liveState.running ? <><Activity size={15} /> Stop</> : <><Radio size={15} /> Start</>}
+                    </button>
+                  </div>
                   <div className="sessionFileRow">
                     <button type="button" className="tool" onClick={saveSessionFile}>
                       <Save size={15} /> Save Session
@@ -2314,18 +2483,11 @@ function App() {
                 </div>
               </Panel>
               <Panel title="Pre-Set Metadata" icon={<FileText size={18} />}>
-                <div className="metadataGrid compactMetadata">
-                  {METADATA_FIELDS.map((key) => (
-                    <label key={key}>
-                      <span>{key.replace("_", " ")}</span>
-                      {key === "long_comment" ? (
-                        <textarea value={metadataDraft[key]} onChange={(e) => setMetadataDraft((prev) => ({ ...prev, [key]: e.target.value }))} />
-                      ) : (
-                        <input value={metadataDraft[key]} onChange={(e) => setMetadataDraft((prev) => ({ ...prev, [key]: e.target.value }))} />
-                      )}
-                    </label>
-                  ))}
-                </div>
+                <MetadataFields
+                  compact
+                  values={metadataDraft}
+                  onChange={(key, value) => setMetadataDraft((prev) => ({ ...prev, [key]: value }))}
+                />
               </Panel>
             </div>
           </div>
@@ -2344,7 +2506,7 @@ function App() {
               </div>
               <div className="builderControls">
                 <select value={channel} onChange={(e) => setChannel(e.target.value)}>
-                  {channels.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+                  {sortedChannels.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
                 </select>
                 <input type="number" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} />
               </div>
@@ -2432,8 +2594,16 @@ function App() {
               <Metric label="Selected Sessions" value={`${selectedSegments.size}`} />
             </div>
             <div className="opsChecklist">
-              {["Track gates saved", "Metadata prefilled", "Channel chart selected", "Live auto-download decision made", "Exporter source verified"].map((item) => (
-                <label key={item} className="checkInline"><input type="checkbox" /> {item}</label>
+              {[
+                { label: "Start / finish gate set", done: hasStartFinish },
+                { label: "Split gates added", done: splitGates.length > 0 },
+                { label: "Metadata prefilled (driver & event)", done: !!metadataDraft.driver.trim() && !!metadataDraft.event.trim() },
+                { label: "Channel chart has entries", done: channelChart.entries.length > 0 },
+                { label: "Energy target configured", done: targetLaps > 0 && targetEnergyKwh > 0 },
+              ].map((item) => (
+                <label key={item.label} className={item.done ? "checkInline done" : "checkInline"}>
+                  <input type="checkbox" checked={item.done} readOnly /> {item.label}
+                </label>
               ))}
             </div>
           </Panel>
@@ -2498,27 +2668,190 @@ function App() {
                 </select>
               </label>
             </div>
-            <div className="metadataGrid compactMetadata presetMetadata">
-              {METADATA_FIELDS.map((key) => (
-                <label key={key}>
-                  <span>{key.replace("_", " ")}</span>
-                  {key === "long_comment" ? (
-                    <textarea
-                      value={carPresetDraft.metadata[key]}
-                      onChange={(e) => setCarPresetDraft((prev) => ({ ...prev, metadata: { ...prev.metadata, [key]: e.target.value } }))}
-                    />
-                  ) : (
-                    <input
-                      value={carPresetDraft.metadata[key]}
-                      onChange={(e) => setCarPresetDraft((prev) => ({ ...prev, metadata: { ...prev.metadata, [key]: e.target.value } }))}
-                    />
-                  )}
-                </label>
-              ))}
+            <div className="presetMetadata">
+              <MetadataFields
+                compact
+                values={carPresetDraft.metadata}
+                onChange={(key, value) => setCarPresetDraft((prev) => ({ ...prev, metadata: { ...prev.metadata, [key]: value } }))}
+              />
             </div>
             <div className="gateButtons">
               <button className="primary" onClick={saveCarPreset}><Save size={15} /> Save Preset</button>
             </div>
+          </Panel>
+        </section>
+      ) : null}
+
+      {activeTab === "dash" ? (
+        <section className="opsGrid">
+          <Panel title="Dash Link" icon={<Radio size={18} />}>
+            <div className="opsCards">
+              <Metric
+                label="Status"
+                value={
+                  dashSignals.status === "connected" ? "Connected"
+                  : dashSignals.status === "connecting" ? "Connecting…"
+                  : dashSignals.status === "error" ? "Error"
+                  : dashSignals.status === "closed" ? "Disconnected"
+                  : "Idle"
+                }
+                tone={dashSignals.status === "connected" ? "good" : ""}
+              />
+              <Metric label="Laps Sent" value={String(dashSignals.lapsSent)} />
+            </div>
+            <div className="presetGrid">
+              <label>
+                <span>Broker (websockets)</span>
+                <input
+                  value={dashSignals.brokerUrl}
+                  onChange={(e) => dashSignals.setBrokerUrl(e.target.value)}
+                  placeholder="ws://18.191.225.118:8080"
+                />
+              </label>
+            </div>
+            <div className="gateButtons">
+              {dashSignals.status === "connected" || dashSignals.status === "connecting" ? (
+                <button className="tool dangerTool" onClick={dashSignals.disconnect}><X size={15} /> Disconnect</button>
+              ) : (
+                <button className="primary" onClick={dashSignals.connect}><Radio size={15} /> Connect to dash</button>
+              )}
+            </div>
+            {dashSignals.error ? (
+              <div className="error" role="alert"><span>{dashSignals.error}</span></div>
+            ) : null}
+          </Panel>
+
+          <Panel title="Power Budget" icon={<Zap size={18} />}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
+              <strong style={{ fontSize: "3rem", lineHeight: 1 }}>{dashTargetPower.toFixed(0)}</strong>
+              <span>kW target</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={80}
+              step={1}
+              value={dashTargetPower}
+              onChange={(e) => setDashTargetPower(Number(e.target.value))}
+              style={{ width: "100%" }}
+            />
+            <div className="gateButtons" style={{ marginTop: 8 }}>
+              <button className="tool" onClick={() => setDashTargetPower((p) => Math.max(0, Math.round(p) - 1))}><ArrowDown size={15} /> -1</button>
+              <button className="tool" onClick={() => setDashTargetPower((p) => Math.min(120, Math.round(p) + 1))}><ArrowUp size={15} /> +1</button>
+              <input
+                type="number"
+                value={dashTargetPower}
+                min={0}
+                max={120}
+                onChange={(e) => setDashTargetPower(Number(e.target.value))}
+                style={{ width: 90 }}
+              />
+            </div>
+            <p style={{ marginTop: 10, opacity: 0.7, fontSize: "0.85rem" }}>
+              Dash energy bar runs green while the car draws under this budget, red when over.
+              Resets each lap. Sent live + republished ~1 Hz so it never goes stale.
+            </p>
+          </Panel>
+
+          <Panel title="Lap Control" icon={<Flag size={18} />}>
+            <button
+              className="primary"
+              style={{ fontSize: "1.3rem", padding: "16px 18px", width: "100%", justifyContent: "center" }}
+              disabled={dashSignals.status !== "connected"}
+              onClick={dashSignals.sendLap}
+            >
+              <Flag size={18} /> Send Lap
+            </button>
+            <label className="checkInline" style={{ marginTop: 10 }}>
+              <input type="checkbox" checked={dashAutoLap} onChange={(e) => setDashAutoLap(e.target.checked)} />
+              Auto-send on completed lap (uses the live lap detector)
+            </label>
+            <div className="opsCards" style={{ marginTop: 10 }}>
+              <Metric label="Last Lap" value={liveState.laps.at(-1) ? formatLapTime(liveState.laps.at(-1)!.durationMs) : "--"} />
+              <Metric label="Last Lap NRG" value={liveState.laps.at(-1) ? `${liveState.laps.at(-1)!.energyWh.toFixed(0)} Wh` : "--"} />
+              <Metric label="Best Lap" value={bestLap ? formatLapTime(bestLap.durationMs) : "--"} tone="purple" />
+            </div>
+          </Panel>
+
+          <Panel title="Start/Finish — on-car laps" icon={<MapPinned size={18} />}>
+            {(() => {
+              const sfGate = track.gates.find((gate) => gate.role === "start_finish");
+              return (
+                <>
+                  <div className="opsCards">
+                    <Metric label="Track" value={track.name} />
+                    <Metric label="S/F gate" value={sfGate ? "defined" : "none"} tone={sfGate ? "good" : ""} />
+                  </div>
+                  <p style={{ marginTop: 8, opacity: 0.7, fontSize: "0.85rem" }}>
+                    Push the start/finish line so the car counts laps from its own GPS — the
+                    per-lap reset then survives any cellular dropout. Send Lap stays as a manual
+                    override. Define or edit the gate in Track Builder.
+                  </p>
+                  <div className="gateButtons" style={{ marginTop: 8 }}>
+                    <button
+                      className="primary"
+                      disabled={!sfGate || dashSignals.status !== "connected"}
+                      onClick={() => {
+                        if (!sfGate) return;
+                        dashSignals.publishGate([sfGate.lat1, sfGate.lon1, sfGate.lat2, sfGate.lon2]);
+                        setDashGatePushed(true);
+                        window.setTimeout(() => setDashGatePushed(false), 2500);
+                      }}
+                    >
+                      <Upload size={15} /> Push S/F to car
+                    </button>
+                    {dashGatePushed ? <span className="goodText">Pushed ✓ (retained)</span> : null}
+                  </div>
+                  {!sfGate ? (
+                    <p style={{ marginTop: 6, opacity: 0.7, fontSize: "0.8rem" }}>
+                      No start/finish gate on the loaded track yet — add one in the Track Builder tab.
+                    </p>
+                  ) : null}
+                </>
+              );
+            })()}
+          </Panel>
+
+          <Panel title="Link Health & Dash Mirror" icon={<Activity size={18} />} className="dashMirrorPanel">
+            {(() => {
+              const ds = dashSignals.dashState;
+              const at = dashSignals.lastStateAt;
+              const acks = dashSignals.acks;
+              const ago = (t: number) => `${Math.max(0, Math.round((dashNow - t) / 1000))}s ago`;
+              const linkLive = at !== null && dashNow - at < 3000;
+              const fmt = (v: number | null | undefined, d = 0, unit = "") =>
+                v === null || v === undefined ? "--" : `${v.toFixed(d)}${unit}`;
+              const delta = ds?.pacing.budgetDeltaWh ?? null;
+              return (
+                <>
+                  <div className="opsCards">
+                    <Metric label="Dash link" value={at === null ? "no data" : linkLive ? "LIVE" : `SILENT ${ago(at)}`} tone={linkLive ? "good" : ""} />
+                    <Metric label="Budget heard" value={acks.targetPower ? `${acks.targetPower.value.toFixed(0)} kW · ${ago(acks.targetPower.at)}` : "--"} tone={acks.targetPower ? "good" : ""} />
+                    <Metric label="Gate acked" value={acks.sfGate ? ago(acks.sfGate.at) : "no"} tone={acks.sfGate ? "good" : ""} />
+                  </div>
+                  <div className="opsCards" style={{ marginTop: 8 }}>
+                    <Metric label="Speed" value={fmt(ds?.speed, 0, " mph")} />
+                    <Metric label="Power" value={fmt(ds?.power, 1, " kW")} />
+                    <Metric label="SOC" value={fmt(ds?.soc, 0, " %")} />
+                  </div>
+                  <div className="opsCards" style={{ marginTop: 8 }}>
+                    <Metric label={`Lap ${ds?.pacing.lapNumber ?? "--"} NRG`} value={fmt(ds?.pacing.lapEnergyWh, 0, " Wh")} />
+                    <Metric label="Budget Δ" value={delta === null ? "--" : `${delta > 0 ? "+" : ""}${delta.toFixed(0)} Wh`} tone={delta !== null && delta < 0 ? "good" : ""} />
+                    <Metric label="Car laps" value={ds ? String(ds.lapCount) : "--"} />
+                  </div>
+                  {ds?.targetPowerStale ? (
+                    <p style={{ marginTop: 6, color: "#c47", fontSize: "0.8rem" }}>
+                      Driver&apos;s budget is showing STALE — the car hasn&apos;t heard a fresh target in 5s.
+                    </p>
+                  ) : null}
+                  {!linkLive && at !== null ? (
+                    <p style={{ marginTop: 6, color: "#c44", fontSize: "0.8rem" }}>
+                      Dash state silent — uplink may be down. The driver still has the held budget and on-car laps.
+                    </p>
+                  ) : null}
+                </>
+              );
+            })()}
           </Panel>
         </section>
       ) : null}
@@ -2532,6 +2865,128 @@ function Panel({ title, icon, children, className = "" }: { title: string; icon:
       <div className="panelTitle">{icon}<h2>{title}</h2></div>
       {children}
     </section>
+  );
+}
+
+const METADATA_LONG_FIELDS = new Set<MetadataField>(["vehicle_comment", "short_comment", "long_comment"]);
+
+// Single source of truth for the MoTeC metadata field grid — used by the
+// exporter, the live pre-set panel, and the car-preset editor (previously three
+// near-identical copies).
+function MetadataFields({
+  values,
+  onChange,
+  mixed,
+  compact = false,
+}: {
+  values: SessionMetadata;
+  onChange: (key: MetadataField, value: string) => void;
+  mixed?: Set<MetadataField>;
+  compact?: boolean;
+}) {
+  return (
+    <div className={compact ? "metadataGrid compactMetadata" : "metadataGrid"}>
+      {METADATA_FIELDS.map((key) => {
+        const isMixed = mixed?.has(key) ?? false;
+        const isLong = METADATA_LONG_FIELDS.has(key);
+        return (
+          <label key={key} className={isLong ? "span2" : ""}>
+            <span>{key.replace(/_/g, " ")}</span>
+            {key === "long_comment" ? (
+              <textarea
+                value={values[key]}
+                placeholder={isMixed ? "Mixed values" : ""}
+                className={isMixed ? "mixedField" : ""}
+                onChange={(e) => onChange(key, e.target.value)}
+              />
+            ) : (
+              <input
+                value={values[key]}
+                placeholder={isMixed ? "Mixed values" : ""}
+                className={isMixed ? "mixedField" : ""}
+                onChange={(e) => onChange(key, e.target.value)}
+              />
+            )}
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
+function formatStateDuration(ms: number): string {
+  const totalS = Math.max(0, Math.round(ms / 1000));
+  if (totalS < 60) return `${totalS}s`;
+  const m = Math.floor(totalS / 60);
+  const s = totalS % 60;
+  if (m < 60) return `${m}m ${s.toString().padStart(2, "0")}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${(m % 60).toString().padStart(2, "0")}m`;
+}
+
+function CarStatusPanel({
+  feed,
+  carState,
+  stale,
+  ageMs,
+  uplinkLabel,
+  uplinkDot,
+  running,
+}: {
+  feed: CarStatusFeed;
+  carState: CarState | null;
+  stale: boolean;
+  ageMs: number | null;
+  uplinkLabel: string;
+  uplinkDot: string;
+  running: boolean;
+}) {
+  const ev = feed.event;
+  return (
+    <Panel title="Car Status" icon={<Power size={18} />}>
+      <div className="carStatusCard">
+        <div className="carStatusHead">
+          {carState ? (
+            <span className={`carStateBadge ${CAR_STATE_META[carState].cls}`}>
+              <span className="stateDot" /> {CAR_STATE_META[carState].label}
+            </span>
+          ) : (
+            <span className="carStateBadge stateUnknown">
+              <span className="stateDot" /> {running ? "Unknown" : "Standby"}
+            </span>
+          )}
+          <span className="freshTag"><span className={`dot ${uplinkDot}`} /> {uplinkLabel}</span>
+        </div>
+        {feed.available ? (
+          <>
+            {ev?.reasons?.length ? (
+              <div className="carStatusReasons">{ev.reasons.map(humanizeReason).join(" · ")}</div>
+            ) : null}
+            {feed.faults.length ? (
+              <div className="faultRow">
+                {feed.faults.map((fault) => (
+                  <span key={fault} className="faultChip"><AlertTriangle size={12} /> {humanizeReason(fault)}</span>
+                ))}
+              </div>
+            ) : null}
+            <div className="carStatusMetaGrid">
+              <Metric label="HV SoC" value={ev?.hv_soc != null ? `${ev.hv_soc.toFixed(0)}%` : "--"} />
+              <Metric label="HV Pack" value={ev?.hv_pack_v != null ? `${ev.hv_pack_v.toFixed(1)} V` : "--"} />
+              <Metric label="LV Batt" value={ev?.lv_v != null ? `${ev.lv_v.toFixed(1)} V` : "--"} />
+              <Metric label="In State" value={ev?.time_in_state_ms != null ? formatStateDuration(ev.time_in_state_ms) : "--"} />
+            </div>
+            {stale ? (
+              <small className="muted">Classifier silent for {ageMs != null ? `${Math.round(ageMs / 1000)}s` : "a while"} — state may be stale.</small>
+            ) : null}
+          </>
+        ) : (
+          <div className="carStatusUnavailable">
+            <WifiOff size={15} />
+            <span>{running ? "Classifier feed unavailable — showing telemetry-flow status only." : "Start the live feed to read car state."}</span>
+          </div>
+        )}
+      </div>
+    </Panel>
   );
 }
 

@@ -223,6 +223,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "module_a_temp",
+                    "proto_id": 23,
                     "repeated": false,
                     "field_index": null
                 }
@@ -237,6 +238,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "module_b_temp",
+                    "proto_id": 24,
                     "repeated": false,
                     "field_index": null
                 }
@@ -251,6 +253,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "module_c_temp",
+                    "proto_id": 25,
                     "repeated": false,
                     "field_index": null
                 }
@@ -265,6 +268,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "gate_driver_temp",
+                    "proto_id": 18,
                     "repeated": false,
                     "field_index": null
                 }
@@ -296,6 +300,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "coolant_temp",
+                    "proto_id": 15,
                     "repeated": false,
                     "field_index": null
                 }
@@ -310,6 +315,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "inverter_hotspot_temp",
+                    "proto_id": 19,
                     "repeated": false,
                     "field_index": null
                 }
@@ -324,6 +330,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "motor_temp",
+                    "proto_id": 4,
                     "repeated": false,
                     "field_index": null
                 }
@@ -338,6 +345,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "torque_shudder",
+                    "proto_id": 29,
                     "repeated": false,
                     "field_index": null
                 }
@@ -369,6 +377,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "motor_angle",
+                    "proto_id": 25,
                     "repeated": false,
                     "field_index": null
                 }
@@ -383,6 +392,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "motor_speed",
+                    "proto_id": 1,
                     "repeated": false,
                     "field_index": null
                 }
@@ -397,6 +407,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "inverter_freq",
+                    "proto_id": 7,
                     "repeated": false,
                     "field_index": null
                 }
@@ -411,6 +422,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "delta_resolver_angle",
+                    "proto_id": 6,
                     "repeated": false,
                     "field_index": null
                 }
@@ -442,6 +454,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "phase_a_current",
+                    "proto_id": 20,
                     "repeated": false,
                     "field_index": null
                 }
@@ -456,6 +469,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "phase_b_current",
+                    "proto_id": 21,
                     "repeated": false,
                     "field_index": null
                 }
@@ -470,6 +484,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "phase_c_current",
+                    "proto_id": 22,
                     "repeated": false,
                     "field_index": null
                 }
@@ -484,6 +499,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "dc_bus_current",
+                    "proto_id": 13,
                     "repeated": false,
                     "field_index": null
                 }
@@ -515,6 +531,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "dc_bus_v",
+                    "proto_id": 5,
                     "repeated": false,
                     "field_index": null
                 }
@@ -529,6 +546,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "neutral_output_v",
+                    "proto_id": 8,
                     "repeated": false,
                     "field_index": null
                 }
@@ -543,6 +561,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "vab_vq_v",
+                    "proto_id": 10,
                     "repeated": false,
                     "field_index": null
                 }
@@ -557,6 +576,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "vbc_vd_v",
+                    "proto_id": 11,
                     "repeated": false,
                     "field_index": null
                 }
@@ -717,6 +737,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "post_faults",
+                    "proto_id": 4,
                     "repeated": false,
                     "field_index": null
                 }
@@ -731,6 +752,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "run_faults",
+                    "proto_id": 5,
                     "repeated": false,
                     "field_index": null
                 }
@@ -762,6 +784,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "commanded_torque",
+                    "proto_id": 24,
                     "repeated": false,
                     "field_index": null
                 }
@@ -776,6 +799,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "torque_feedback",
+                    "proto_id": 2,
                     "repeated": false,
                     "field_index": null
                 }
@@ -790,6 +814,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "time_since_on",
+                    "proto_id": 9,
                     "repeated": false,
                     "field_index": null
                 }
@@ -821,6 +846,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "torque_command",
+                    "proto_id": 21,
                     "repeated": false,
                     "field_index": null
                 }
@@ -835,6 +861,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "torque_feedback",
+                    "proto_id": 2,
                     "repeated": false,
                     "field_index": null
                 }
@@ -849,6 +876,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "motor_speed",
+                    "proto_id": 1,
                     "repeated": false,
                     "field_index": null
                 }
@@ -863,6 +891,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bus_voltage",
+                    "proto_id": 1,
                     "repeated": false,
                     "field_index": null
                 }
@@ -894,6 +923,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "torque_request",
+                    "proto_id": 23,
                     "repeated": false,
                     "field_index": null
                 }
@@ -908,6 +938,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "rpm_request",
+                    "proto_id": 20,
                     "repeated": false,
                     "field_index": null
                 }
@@ -923,6 +954,7 @@
                 "protobuf": {
                     "type": "bool",
                     "field": "direction",
+                    "proto_id": 26,
                     "repeated": false,
                     "field_index": null
                 }
@@ -938,6 +970,7 @@
                 "protobuf": {
                     "type": "bool",
                     "field": "enable",
+                    "proto_id": 27,
                     "repeated": false,
                     "field_index": null
                 }
@@ -952,6 +985,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "torque_limit",
+                    "proto_id": 22,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1062,7 +1096,7 @@
         "data_length": 8,
         "frequency_ms": 1000,
         "frequency": 1.0,
-        "quantity": 35,
+        "quantity": 33,
         "bus": "Critical",
         "bytes": [
             {
@@ -1075,6 +1109,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "cells_v",
+                    "proto_id": 4,
                     "repeated": true,
                     "field_index": 0
                 }
@@ -1089,6 +1124,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "cells_v",
+                    "proto_id": 4,
                     "repeated": true,
                     "field_index": 1
                 }
@@ -1103,6 +1139,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "cells_v",
+                    "proto_id": 4,
                     "repeated": true,
                     "field_index": 2
                 }
@@ -1117,6 +1154,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "cells_v",
+                    "proto_id": 4,
                     "repeated": true,
                     "field_index": 3
                 }
@@ -1148,6 +1186,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "cells_temps",
+                    "proto_id": 12,
                     "repeated": true,
                     "field_index": 0
                 }
@@ -1162,6 +1201,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "cells_temps",
+                    "proto_id": 12,
                     "repeated": true,
                     "field_index": 1
                 }
@@ -1176,6 +1216,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "cells_temps",
+                    "proto_id": 12,
                     "repeated": true,
                     "field_index": 2
                 }
@@ -1190,6 +1231,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "cells_temps",
+                    "proto_id": 12,
                     "repeated": true,
                     "field_index": 3
                 }
@@ -1221,6 +1263,7 @@
                 "protobuf": {
                     "type": "bool",
                     "field": "r2d_status",
+                    "proto_id": 5,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1237,7 +1280,8 @@
                     "field": "temp_shutdown_1",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 12
                 }
             },
             {
@@ -1252,7 +1296,8 @@
                     "field": "temp_shutdown_2",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 13
                 }
             },
             {
@@ -1265,11 +1310,13 @@
                 "bitfield_encoding": [
                     {
                         "protobuf_field": "temp_shutdown_1",
-                        "bit_index": 0
+                        "bit_index": 0,
+                        "proto_id": 12
                     },
                     {
                         "protobuf_field": "temp_shutdown_2",
-                        "bit_index": 1
+                        "bit_index": 1,
+                        "proto_id": 13
                     }
                 ]
             }
@@ -1300,6 +1347,7 @@
                 "protobuf": {
                     "type": "bool",
                     "field": "r2d_authorized",
+                    "proto_id": 4,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1316,7 +1364,8 @@
                     "field": "temp_imd_1",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 10
                 }
             },
             {
@@ -1331,7 +1380,8 @@
                     "field": "temp_imd_2",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 11
                 }
             },
             {
@@ -1344,11 +1394,13 @@
                 "bitfield_encoding": [
                     {
                         "protobuf_field": "temp_imd_1",
-                        "bit_index": 0
+                        "bit_index": 0,
+                        "proto_id": 10
                     },
                     {
                         "protobuf_field": "temp_imd_2",
-                        "bit_index": 1
+                        "bit_index": 1,
+                        "proto_id": 11
                     }
                 ]
             },
@@ -1364,7 +1416,8 @@
                     "field": "temp_ams_1",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 29
                 }
             },
             {
@@ -1379,7 +1432,8 @@
                     "field": "temp_ams_2",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 30
                 }
             },
             {
@@ -1392,11 +1446,13 @@
                 "bitfield_encoding": [
                     {
                         "protobuf_field": "temp_ams_1",
-                        "bit_index": 0
+                        "bit_index": 0,
+                        "proto_id": 29
                     },
                     {
                         "protobuf_field": "temp_ams_2",
-                        "bit_index": 1
+                        "bit_index": 1,
+                        "proto_id": 30
                     }
                 ]
             }
@@ -1427,6 +1483,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "wheel_speed",
+                    "proto_id": 35,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1441,6 +1498,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "ride_height",
+                    "proto_id": 34,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1472,6 +1530,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "hvc_state_machine",
+                    "proto_id": 3,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1486,6 +1545,7 @@
                 "protobuf": {
                     "type": "bool",
                     "field": "pos_hv_contactor",
+                    "proto_id": 37,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1500,6 +1560,7 @@
                 "protobuf": {
                     "type": "bool",
                     "field": "neg_hv_contactor",
+                    "proto_id": 36,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1514,6 +1575,7 @@
                 "protobuf": {
                     "type": "bool",
                     "field": "precharge_contactor",
+                    "proto_id": 38,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1545,6 +1607,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "hv_pack_v",
+                    "proto_id": 15,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1559,6 +1622,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "hv_c",
+                    "proto_id": 14,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1573,6 +1637,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "hv_soc",
+                    "proto_id": 16,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1587,6 +1652,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "cell_top_temp",
+                    "proto_id": 13,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1601,6 +1667,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "cell_bottom_temp",
+                    "proto_id": 12,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1632,6 +1699,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bus_bar_temp1",
+                    "proto_id": 9,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1646,6 +1714,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bus_bar_temp2",
+                    "proto_id": 10,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1660,6 +1729,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bus_bar_temp3",
+                    "proto_id": 11,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1674,6 +1744,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "precharge_r_temp",
+                    "proto_id": 1,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1705,6 +1776,7 @@
                 "protobuf": {
                     "type": "bool",
                     "field": "bmb_comm_error",
+                    "proto_id": 2,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1719,6 +1791,7 @@
                 "protobuf": {
                     "type": "bool",
                     "field": "imd_gnd_isolation_error",
+                    "proto_id": 3,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1733,6 +1806,7 @@
                 "protobuf": {
                     "type": "bool",
                     "field": "shutdown_leg1",
+                    "proto_id": 6,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1747,6 +1821,7 @@
                 "protobuf": {
                     "type": "bool",
                     "field": "shutdown_leg2",
+                    "proto_id": 7,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1761,6 +1836,7 @@
                 "protobuf": {
                     "type": "bool",
                     "field": "shutdown_leg3",
+                    "proto_id": 8,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1775,6 +1851,7 @@
                 "protobuf": {
                     "type": "bool",
                     "field": "shutdown_leg4",
+                    "proto_id": 9,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1822,6 +1899,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "min_cell_voltage",
+                    "proto_id": 22,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1836,6 +1914,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "max_cell_voltage",
+                    "proto_id": 21,
                     "repeated": false,
                     "field_index": null
                 }
@@ -1869,7 +1948,8 @@
                     "field": "shutdown_bspd_status",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 30
                 }
             },
             {
@@ -1884,7 +1964,8 @@
                     "field": "shutdown_emeter_status",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 31
                 }
             },
             {
@@ -1897,11 +1978,13 @@
                 "bitfield_encoding": [
                     {
                         "protobuf_field": "shutdown_bspd_status",
-                        "bit_index": 0
+                        "bit_index": 0,
+                        "proto_id": 30
                     },
                     {
                         "protobuf_field": "shutdown_emeter_status",
-                        "bit_index": 1
+                        "bit_index": 1,
+                        "proto_id": 31
                     }
                 ]
             }
@@ -1934,7 +2017,8 @@
                     "field": "batt_pump_fuse",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 13
                 }
             },
             {
@@ -1949,7 +2033,8 @@
                     "field": "tssi_green_fuse",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 34
                 }
             },
             {
@@ -1964,7 +2049,8 @@
                     "field": "tssi_red_fuse",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 35
                 }
             },
             {
@@ -1979,7 +2065,8 @@
                     "field": "batt_fans_fuse",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 12
                 }
             },
             {
@@ -1994,7 +2081,8 @@
                     "field": "shtdn_fuse",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 29
                 }
             },
             {
@@ -2009,7 +2097,8 @@
                     "field": "ll_fuse",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 25
                 }
             },
             {
@@ -2024,7 +2113,8 @@
                     "field": "motor_pump_fuse",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 26
                 }
             },
             {
@@ -2039,7 +2129,8 @@
                     "field": "boards_fuse",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 14
                 }
             },
             {
@@ -2052,35 +2143,43 @@
                 "bitfield_encoding": [
                     {
                         "protobuf_field": "batt_pump_fuse",
-                        "bit_index": 0
+                        "bit_index": 0,
+                        "proto_id": 13
                     },
                     {
                         "protobuf_field": "tssi_green_fuse",
-                        "bit_index": 1
+                        "bit_index": 1,
+                        "proto_id": 34
                     },
                     {
                         "protobuf_field": "tssi_red_fuse",
-                        "bit_index": 2
+                        "bit_index": 2,
+                        "proto_id": 35
                     },
                     {
                         "protobuf_field": "batt_fans_fuse",
-                        "bit_index": 3
+                        "bit_index": 3,
+                        "proto_id": 12
                     },
                     {
                         "protobuf_field": "shtdn_fuse",
-                        "bit_index": 4
+                        "bit_index": 4,
+                        "proto_id": 29
                     },
                     {
                         "protobuf_field": "ll_fuse",
-                        "bit_index": 5
+                        "bit_index": 5,
+                        "proto_id": 25
                     },
                     {
                         "protobuf_field": "motor_pump_fuse",
-                        "bit_index": 6
+                        "bit_index": 6,
+                        "proto_id": 26
                     },
                     {
                         "protobuf_field": "boards_fuse",
-                        "bit_index": 7
+                        "bit_index": 7,
+                        "proto_id": 14
                     }
                 ]
             },
@@ -2096,7 +2195,8 @@
                     "field": "brake_light_fuse",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 20
                 }
             },
             {
@@ -2111,7 +2211,8 @@
                     "field": "rtd_fuse",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 28
                 }
             },
             {
@@ -2126,7 +2227,8 @@
                     "field": "spare_fuse",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 32
                 }
             },
             {
@@ -2139,15 +2241,18 @@
                 "bitfield_encoding": [
                     {
                         "protobuf_field": "brake_light_fuse",
-                        "bit_index": 0
+                        "bit_index": 0,
+                        "proto_id": 20
                     },
                     {
                         "protobuf_field": "rtd_fuse",
-                        "bit_index": 1
+                        "bit_index": 1,
+                        "proto_id": 28
                     },
                     {
                         "protobuf_field": "spare_fuse",
-                        "bit_index": 2
+                        "bit_index": 2,
+                        "proto_id": 32
                     }
                 ]
             }
@@ -2178,6 +2283,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "lv_boards_current",
+                    "proto_id": 2,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2192,6 +2298,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "shutdown_current",
+                    "proto_id": 2,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2206,6 +2313,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "batt_cooling_current",
+                    "proto_id": 1,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2220,6 +2328,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "motor_cooling_current",
+                    "proto_id": 2,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2234,6 +2343,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "lights_current",
+                    "proto_id": 19,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2267,7 +2377,8 @@
                     "field": "temp_command_1",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 31
                 }
             },
             {
@@ -2282,7 +2393,8 @@
                     "field": "temp_command_2",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 32
                 }
             },
             {
@@ -2295,11 +2407,13 @@
                 "bitfield_encoding": [
                     {
                         "protobuf_field": "temp_command_1",
-                        "bit_index": 0
+                        "bit_index": 0,
+                        "proto_id": 31
                     },
                     {
                         "protobuf_field": "temp_command_2",
-                        "bit_index": 1
+                        "bit_index": 1,
+                        "proto_id": 32
                     }
                 ]
             }
@@ -2332,7 +2446,8 @@
                     "field": "temp_output_1",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 33
                 }
             },
             {
@@ -2347,7 +2462,8 @@
                     "field": "temp_output_2",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 34
                 }
             },
             {
@@ -2360,11 +2476,13 @@
                 "bitfield_encoding": [
                     {
                         "protobuf_field": "temp_output_1",
-                        "bit_index": 0
+                        "bit_index": 0,
+                        "proto_id": 33
                     },
                     {
                         "protobuf_field": "temp_output_2",
-                        "bit_index": 1
+                        "bit_index": 1,
+                        "proto_id": 34
                     }
                 ]
             }
@@ -2395,6 +2513,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "batt_loop_batt_temp",
+                    "proto_id": 5,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2409,6 +2528,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "batt_loop_rad_temp",
+                    "proto_id": 7,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2423,6 +2543,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "batt_loop_rad_fan_speed",
+                    "proto_id": 6,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2454,6 +2575,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "inverter_temp",
+                    "proto_id": 20,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2468,6 +2590,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "motor_temp",
+                    "proto_id": 4,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2482,6 +2605,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "ambient_temp",
+                    "proto_id": 3,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2496,6 +2620,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "discharge_r_temp",
+                    "proto_id": 16,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2527,6 +2652,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "lv_batt_v",
+                    "proto_id": 19,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2541,6 +2667,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "lv_batt_c",
+                    "proto_id": 17,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2555,6 +2682,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "lv_batt_t",
+                    "proto_id": 18,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2586,6 +2714,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "motor_loop_motor_temp",
+                    "proto_id": 27,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2600,6 +2729,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "motor_loop_inverter_temp",
+                    "proto_id": 26,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2614,6 +2744,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "motor_loop_rad_temp",
+                    "proto_id": 28,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2645,6 +2776,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fan_rpm",
+                    "proto_id": 17,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2659,6 +2791,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "battery_fan_rpm",
+                    "proto_id": 8,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2673,6 +2806,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "coolant_flow_lpm",
+                    "proto_id": 14,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2687,6 +2821,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "ambient_temp",
+                    "proto_id": 3,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2718,6 +2853,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "apps1_v",
+                    "proto_id": 4,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2732,6 +2868,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "apps2_v",
+                    "proto_id": 6,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2746,6 +2883,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "apps1_travel",
+                    "proto_id": 3,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2760,6 +2898,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "apps2_travel",
+                    "proto_id": 5,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2791,6 +2930,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "accel_pedal_travel",
+                    "proto_id": 8,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2807,7 +2947,8 @@
                     "field": "apps1_disconnect",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 6
                 }
             },
             {
@@ -2822,7 +2963,8 @@
                     "field": "apps2_disconnect",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 8
                 }
             },
             {
@@ -2837,7 +2979,8 @@
                     "field": "apps1_out_range",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 7
                 }
             },
             {
@@ -2852,7 +2995,8 @@
                     "field": "apps2_out_range",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 9
                 }
             },
             {
@@ -2867,7 +3011,8 @@
                     "field": "apps_mismatch",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 11
                 }
             },
             {
@@ -2882,7 +3027,8 @@
                     "field": "apps_implause",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 10
                 }
             },
             {
@@ -2895,27 +3041,33 @@
                 "bitfield_encoding": [
                     {
                         "protobuf_field": "apps1_disconnect",
-                        "bit_index": 0
+                        "bit_index": 0,
+                        "proto_id": 6
                     },
                     {
                         "protobuf_field": "apps2_disconnect",
-                        "bit_index": 1
+                        "bit_index": 1,
+                        "proto_id": 8
                     },
                     {
                         "protobuf_field": "apps1_out_range",
-                        "bit_index": 2
+                        "bit_index": 2,
+                        "proto_id": 7
                     },
                     {
                         "protobuf_field": "apps2_out_range",
-                        "bit_index": 3
+                        "bit_index": 3,
+                        "proto_id": 9
                     },
                     {
                         "protobuf_field": "apps_mismatch",
-                        "bit_index": 4
+                        "bit_index": 4,
+                        "proto_id": 11
                     },
                     {
                         "protobuf_field": "apps_implause",
-                        "bit_index": 5
+                        "bit_index": 5,
+                        "proto_id": 10
                     }
                 ]
             }
@@ -2946,6 +3098,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bpps1_v",
+                    "proto_id": 8,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2960,6 +3113,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bpps2_v",
+                    "proto_id": 10,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2974,6 +3128,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bpps1_travel",
+                    "proto_id": 7,
                     "repeated": false,
                     "field_index": null
                 }
@@ -2988,6 +3143,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bpps2_travel",
+                    "proto_id": 9,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3029,7 +3185,8 @@
                     "field": "bpps1_disconnect",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 15
                 }
             },
             {
@@ -3044,7 +3201,8 @@
                     "field": "bpps2_disconnect",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 17
                 }
             },
             {
@@ -3059,7 +3217,8 @@
                     "field": "bpps1_out_range",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 16
                 }
             },
             {
@@ -3074,7 +3233,8 @@
                     "field": "bpps2_out_range",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 18
                 }
             },
             {
@@ -3089,7 +3249,8 @@
                     "field": "bpps_mismatch",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 19
                 }
             },
             {
@@ -3102,23 +3263,28 @@
                 "bitfield_encoding": [
                     {
                         "protobuf_field": "bpps1_disconnect",
-                        "bit_index": 0
+                        "bit_index": 0,
+                        "proto_id": 15
                     },
                     {
                         "protobuf_field": "bpps2_disconnect",
-                        "bit_index": 1
+                        "bit_index": 1,
+                        "proto_id": 17
                     },
                     {
                         "protobuf_field": "bpps1_out_range",
-                        "bit_index": 2
+                        "bit_index": 2,
+                        "proto_id": 16
                     },
                     {
                         "protobuf_field": "bpps2_out_range",
-                        "bit_index": 3
+                        "bit_index": 3,
+                        "proto_id": 18
                     },
                     {
                         "protobuf_field": "bpps_mismatch",
-                        "bit_index": 4
+                        "bit_index": 4,
+                        "proto_id": 19
                     }
                 ]
             },
@@ -3132,6 +3298,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "brake_light_pct",
+                    "proto_id": 12,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3163,6 +3330,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bse1_v",
+                    "proto_id": 16,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3177,6 +3345,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bse2_v",
+                    "proto_id": 17,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3191,6 +3360,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bse3_v",
+                    "proto_id": 18,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3222,6 +3392,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "brake_pressure_f",
+                    "proto_id": 13,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3236,6 +3407,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "brake_pressure_rbll",
+                    "proto_id": 15,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3250,6 +3422,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "brake_pressure_rall",
+                    "proto_id": 14,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3264,6 +3437,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "brake_bias",
+                    "proto_id": 11,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3280,7 +3454,8 @@
                     "field": "bse1_disconnect",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 21
                 }
             },
             {
@@ -3295,7 +3470,8 @@
                     "field": "bse2_disconnect",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 23
                 }
             },
             {
@@ -3310,7 +3486,8 @@
                     "field": "bse1_out_range",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 22
                 }
             },
             {
@@ -3325,7 +3502,8 @@
                     "field": "bse2_out_range",
                     "type": "bool",
                     "repeated": false,
-                    "field_index": null
+                    "field_index": null,
+                    "proto_id": 24
                 }
             },
             {
@@ -3338,19 +3516,23 @@
                 "bitfield_encoding": [
                     {
                         "protobuf_field": "bse1_disconnect",
-                        "bit_index": 0
+                        "bit_index": 0,
+                        "proto_id": 21
                     },
                     {
                         "protobuf_field": "bse2_disconnect",
-                        "bit_index": 1
+                        "bit_index": 1,
+                        "proto_id": 23
                     },
                     {
                         "protobuf_field": "bse1_out_range",
-                        "bit_index": 2
+                        "bit_index": 2,
+                        "proto_id": 22
                     },
                     {
                         "protobuf_field": "bse2_out_range",
-                        "bit_index": 3
+                        "bit_index": 3,
+                        "proto_id": 24
                     }
                 ]
             }
@@ -3381,6 +3563,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "steer_col_angle",
+                    "proto_id": 13,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3412,6 +3595,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "prndl_state",
+                    "proto_id": 1,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3426,6 +3610,7 @@
                 "protobuf": {
                     "type": "bool",
                     "field": "stomp_fault",
+                    "proto_id": 33,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3440,6 +3625,7 @@
                 "protobuf": {
                     "type": "bool",
                     "field": "r2d_buzzer",
+                    "proto_id": 27,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3454,6 +3640,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "soc_estimate",
+                    "proto_id": 3,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3468,6 +3655,7 @@
                 "protobuf": {
                     "type": "bool",
                     "field": "line_lock_enabled",
+                    "proto_id": 28,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3499,6 +3687,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fl_unsprung_accel",
+                    "proto_id": 6,
                     "repeated": true,
                     "field_index": 0
                 }
@@ -3513,6 +3702,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fl_unsprung_accel",
+                    "proto_id": 6,
                     "repeated": true,
                     "field_index": 1
                 }
@@ -3527,6 +3717,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fl_unsprung_accel",
+                    "proto_id": 6,
                     "repeated": true,
                     "field_index": 2
                 }
@@ -3541,6 +3732,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fl_wheel_speed",
+                    "proto_id": 11,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3572,6 +3764,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fr_unsprung_accel",
+                    "proto_id": 7,
                     "repeated": true,
                     "field_index": 0
                 }
@@ -3586,6 +3779,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fr_unsprung_accel",
+                    "proto_id": 7,
                     "repeated": true,
                     "field_index": 1
                 }
@@ -3600,6 +3794,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fr_unsprung_accel",
+                    "proto_id": 7,
                     "repeated": true,
                     "field_index": 2
                 }
@@ -3614,6 +3809,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fr_wheel_speed",
+                    "proto_id": 12,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3645,6 +3841,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bl_unsprung_accel",
+                    "proto_id": 4,
                     "repeated": true,
                     "field_index": 0
                 }
@@ -3659,6 +3856,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bl_unsprung_accel",
+                    "proto_id": 4,
                     "repeated": true,
                     "field_index": 1
                 }
@@ -3673,6 +3871,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bl_unsprung_accel",
+                    "proto_id": 4,
                     "repeated": true,
                     "field_index": 2
                 }
@@ -3687,6 +3886,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bl_wheel_speed",
+                    "proto_id": 9,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3718,6 +3918,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "br_unsprung_accel",
+                    "proto_id": 5,
                     "repeated": true,
                     "field_index": 0
                 }
@@ -3732,6 +3933,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "br_unsprung_accel",
+                    "proto_id": 5,
                     "repeated": true,
                     "field_index": 1
                 }
@@ -3746,6 +3948,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "br_unsprung_accel",
+                    "proto_id": 5,
                     "repeated": true,
                     "field_index": 2
                 }
@@ -3760,6 +3963,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "br_wheel_speed",
+                    "proto_id": 10,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3791,6 +3995,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fl_sprung_accel",
+                    "proto_id": 19,
                     "repeated": true,
                     "field_index": 0
                 }
@@ -3805,6 +4010,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fl_sprung_accel",
+                    "proto_id": 19,
                     "repeated": true,
                     "field_index": 1
                 }
@@ -3819,6 +4025,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fl_sprung_accel",
+                    "proto_id": 19,
                     "repeated": true,
                     "field_index": 2
                 }
@@ -3833,6 +4040,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fl_ride_height",
+                    "proto_id": 28,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3864,6 +4072,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fl_strain_gauge_v",
+                    "proto_id": 29,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3878,6 +4087,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fl_sus_pot_v",
+                    "proto_id": 30,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3909,6 +4119,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fr_sprung_accel",
+                    "proto_id": 21,
                     "repeated": true,
                     "field_index": 0
                 }
@@ -3923,6 +4134,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fr_sprung_accel",
+                    "proto_id": 21,
                     "repeated": true,
                     "field_index": 1
                 }
@@ -3937,6 +4149,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fr_sprung_accel",
+                    "proto_id": 21,
                     "repeated": true,
                     "field_index": 2
                 }
@@ -3951,6 +4164,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fr_ride_height",
+                    "proto_id": 31,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3982,6 +4196,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fr_strain_gauge_v",
+                    "proto_id": 32,
                     "repeated": false,
                     "field_index": null
                 }
@@ -3996,6 +4211,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fr_sus_pot_v",
+                    "proto_id": 33,
                     "repeated": false,
                     "field_index": null
                 }
@@ -4027,6 +4243,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bl_sprung_accel",
+                    "proto_id": 15,
                     "repeated": true,
                     "field_index": 0
                 }
@@ -4041,6 +4258,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bl_sprung_accel",
+                    "proto_id": 15,
                     "repeated": true,
                     "field_index": 1
                 }
@@ -4055,6 +4273,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bl_sprung_accel",
+                    "proto_id": 15,
                     "repeated": true,
                     "field_index": 2
                 }
@@ -4069,6 +4288,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bl_ride_height",
+                    "proto_id": 22,
                     "repeated": false,
                     "field_index": null
                 }
@@ -4100,6 +4320,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bl_strain_gauge_v",
+                    "proto_id": 23,
                     "repeated": false,
                     "field_index": null
                 }
@@ -4114,6 +4335,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bl_sus_pot_v",
+                    "proto_id": 24,
                     "repeated": false,
                     "field_index": null
                 }
@@ -4145,6 +4367,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "br_sprung_accel",
+                    "proto_id": 17,
                     "repeated": true,
                     "field_index": 0
                 }
@@ -4159,6 +4382,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "br_sprung_accel",
+                    "proto_id": 17,
                     "repeated": true,
                     "field_index": 1
                 }
@@ -4173,6 +4397,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "br_sprung_accel",
+                    "proto_id": 17,
                     "repeated": true,
                     "field_index": 2
                 }
@@ -4187,6 +4412,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "br_ride_height",
+                    "proto_id": 25,
                     "repeated": false,
                     "field_index": null
                 }
@@ -4218,6 +4444,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "br_strain_gauge_v",
+                    "proto_id": 26,
                     "repeated": false,
                     "field_index": null
                 }
@@ -4232,6 +4459,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "br_sus_pot_v",
+                    "proto_id": 27,
                     "repeated": false,
                     "field_index": null
                 }
@@ -4263,6 +4491,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fl_gyro",
+                    "proto_id": 18,
                     "repeated": true,
                     "field_index": 0
                 }
@@ -4277,6 +4506,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fl_gyro",
+                    "proto_id": 18,
                     "repeated": true,
                     "field_index": 1
                 }
@@ -4291,6 +4521,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fl_gyro",
+                    "proto_id": 18,
                     "repeated": true,
                     "field_index": 2
                 }
@@ -4322,6 +4553,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fr_gyro",
+                    "proto_id": 20,
                     "repeated": true,
                     "field_index": 0
                 }
@@ -4336,6 +4568,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fr_gyro",
+                    "proto_id": 20,
                     "repeated": true,
                     "field_index": 1
                 }
@@ -4350,6 +4583,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "fr_gyro",
+                    "proto_id": 20,
                     "repeated": true,
                     "field_index": 2
                 }
@@ -4381,6 +4615,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bl_gyro",
+                    "proto_id": 14,
                     "repeated": true,
                     "field_index": 0
                 }
@@ -4395,6 +4630,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bl_gyro",
+                    "proto_id": 14,
                     "repeated": true,
                     "field_index": 1
                 }
@@ -4409,6 +4645,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "bl_gyro",
+                    "proto_id": 14,
                     "repeated": true,
                     "field_index": 2
                 }
@@ -4440,6 +4677,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "br_gyro",
+                    "proto_id": 16,
                     "repeated": true,
                     "field_index": 0
                 }
@@ -4454,6 +4692,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "br_gyro",
+                    "proto_id": 16,
                     "repeated": true,
                     "field_index": 1
                 }
@@ -4468,6 +4707,7 @@
                 "protobuf": {
                     "type": "float",
                     "field": "br_gyro",
+                    "proto_id": 16,
                     "repeated": true,
                     "field_index": 2
                 }
@@ -4553,5 +4793,37 @@
         "quantity": 1,
         "bus": "",
         "bytes": []
+    },
+    {
+        "packet_id": 456,
+        "packet_name": "BSE 3",
+        "from": [
+            "PDU"
+        ],
+        "to": [
+            "VCU"
+        ],
+        "data_length": 2,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Brake Pressure 3",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.05,
+                "protobuf": {
+                    "type": "float",
+                    "field": "bse3",
+                    "proto_id": 30,
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
     }
 ]
