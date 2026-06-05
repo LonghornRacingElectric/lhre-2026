@@ -83,6 +83,7 @@ model controls {
   enable               Boolean?
   line_lock_enabled    Boolean?
   torque_shudder       Float?
+  bse3                 Float?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }
