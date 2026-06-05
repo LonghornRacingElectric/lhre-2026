@@ -4,6 +4,7 @@ import './trackside.css';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type Dispatch, type MouseEvent, type ReactNode, type SetStateAction } from "react";
 import { Activity, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, Moon, NotebookText, Plus, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, X, Zap } from "lucide-react";
 import { api } from "@/lib/trackside/api";
+import { useDashSignals } from "@/lib/dash/dashSignals";
 import type {
   ChannelDef,
   ChannelChartDefinition,
@@ -95,7 +96,7 @@ const METADATA_FIELDS = [
 type MetadataField = (typeof METADATA_FIELDS)[number];
 type SessionMetadata = Record<MetadataField, string>;
 type GateDrawMode = "start_finish" | "split" | null;
-type AppTab = "exporter" | "live" | "track-builder" | "race-ops";
+type AppTab = "exporter" | "live" | "track-builder" | "race-ops" | "dash";
 type LapPreviewRow = {
   id: string;
   label: string;
@@ -471,6 +472,13 @@ function App() {
   const [selectedCarPresetId, setSelectedCarPresetId] = useState(() => localStorage.getItem("motec-selected-car-preset") || "orion");
   const [carPresetDraft, setCarPresetDraft] = useState<CarPreset>(() => loadCarPresets()[0] ?? defaultCarPresets()[0]);
   const [liveState, setLiveState] = useState<LiveSessionState>(EMPTY_LIVE_STATE);
+  // Dash pacing signals (publishes targetPower + lapTrigger to the on-car dash).
+  const dashSignals = useDashSignals();
+  const [dashTargetPower, setDashTargetPower] = useState<number>(() => Number(localStorage.getItem("dash-target-power") || 30));
+  const [dashAutoLap, setDashAutoLap] = useState(() => localStorage.getItem("dash-auto-lap") === "1");
+  const [dashGatePushed, setDashGatePushed] = useState(false);
+  const [dashNow, setDashNow] = useState(0); // 1 Hz tick for link-health "age" displays
+  const dashLastLapCountRef = useRef(0);
   const liveSourceRef = useRef<EventSource | null>(null);
   const liveStateRef = useRef<LiveSessionState>(EMPTY_LIVE_STATE);
   const liveTrackRef = useRef(track);
@@ -633,6 +641,37 @@ function App() {
   useEffect(() => {
     localStorage.setItem("motec-soe-cutoff-cell-v", String(soeCutoffCellV));
   }, [soeCutoffCellV]);
+
+  // Persist + live-publish the dash power budget. Re-publishing on every change
+  // keeps the on-car dash's energy bar in sync the instant the strategist
+  // adjusts it; the hook's keepalive covers the gaps in between.
+  useEffect(() => {
+    localStorage.setItem("dash-target-power", String(dashTargetPower));
+    if (dashSignals.status === "connected") dashSignals.publishTargetPower(dashTargetPower);
+  }, [dashTargetPower, dashSignals.status, dashSignals.publishTargetPower]);
+
+  useEffect(() => {
+    localStorage.setItem("dash-auto-lap", dashAutoLap ? "1" : "0");
+  }, [dashAutoLap]);
+
+  // Tick once a second while the Dash tab is open so the link-health "Xs ago"
+  // ages and the dash-silent warning stay live without a new message.
+  useEffect(() => {
+    if (activeTab !== "dash") return;
+    setDashNow(Date.now());
+    const id = window.setInterval(() => setDashNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [activeTab]);
+
+  // Auto-fire a dash lap card whenever the trackside lap detector completes a
+  // lap — optional, off by default so the thread's "manual for now" still holds.
+  useEffect(() => {
+    const count = liveState.laps.length;
+    if (count > dashLastLapCountRef.current) {
+      if (dashAutoLap && dashSignals.status === "connected") dashSignals.sendLap();
+      dashLastLapCountRef.current = count;
+    }
+  }, [liveState.laps.length, dashAutoLap, dashSignals.status, dashSignals.sendLap]);
 
   // Auto-select newly completed laps for the average (preserving manual deselections).
   useEffect(() => {
@@ -1846,6 +1885,9 @@ function App() {
         <button className={activeTab === "race-ops" ? "tab activeTab" : "tab"} onClick={() => setActiveTab("race-ops")}>
           <NotebookText size={16} /> Race Ops
         </button>
+        <button className={activeTab === "dash" ? "tab activeTab" : "tab"} onClick={() => setActiveTab("dash")}>
+          <Gauge size={16} /> Dash
+        </button>
       </nav>
 
       {activeTab === "exporter" ? <section className="grid">
@@ -2519,6 +2561,180 @@ function App() {
             <div className="gateButtons">
               <button className="primary" onClick={saveCarPreset}><Save size={15} /> Save Preset</button>
             </div>
+          </Panel>
+        </section>
+      ) : null}
+
+      {activeTab === "dash" ? (
+        <section className="opsGrid">
+          <Panel title="Dash Link" icon={<Radio size={18} />}>
+            <div className="opsCards">
+              <Metric
+                label="Status"
+                value={
+                  dashSignals.status === "connected" ? "Connected"
+                  : dashSignals.status === "connecting" ? "Connecting…"
+                  : dashSignals.status === "error" ? "Error"
+                  : dashSignals.status === "closed" ? "Disconnected"
+                  : "Idle"
+                }
+                tone={dashSignals.status === "connected" ? "good" : ""}
+              />
+              <Metric label="Laps Sent" value={String(dashSignals.lapsSent)} />
+            </div>
+            <div className="presetGrid">
+              <label>
+                <span>Broker (websockets)</span>
+                <input
+                  value={dashSignals.brokerUrl}
+                  onChange={(e) => dashSignals.setBrokerUrl(e.target.value)}
+                  placeholder="ws://18.191.225.118:8080"
+                />
+              </label>
+            </div>
+            <div className="gateButtons">
+              {dashSignals.status === "connected" || dashSignals.status === "connecting" ? (
+                <button className="tool dangerTool" onClick={dashSignals.disconnect}><X size={15} /> Disconnect</button>
+              ) : (
+                <button className="primary" onClick={dashSignals.connect}><Radio size={15} /> Connect to dash</button>
+              )}
+            </div>
+            {dashSignals.error ? (
+              <div className="error" role="alert"><span>{dashSignals.error}</span></div>
+            ) : null}
+          </Panel>
+
+          <Panel title="Power Budget" icon={<Zap size={18} />}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
+              <strong style={{ fontSize: "3rem", lineHeight: 1 }}>{dashTargetPower.toFixed(0)}</strong>
+              <span>kW target</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={80}
+              step={1}
+              value={dashTargetPower}
+              onChange={(e) => setDashTargetPower(Number(e.target.value))}
+              style={{ width: "100%" }}
+            />
+            <div className="gateButtons" style={{ marginTop: 8 }}>
+              <button className="tool" onClick={() => setDashTargetPower((p) => Math.max(0, Math.round(p) - 1))}><ArrowDown size={15} /> -1</button>
+              <button className="tool" onClick={() => setDashTargetPower((p) => Math.min(120, Math.round(p) + 1))}><ArrowUp size={15} /> +1</button>
+              <input
+                type="number"
+                value={dashTargetPower}
+                min={0}
+                max={120}
+                onChange={(e) => setDashTargetPower(Number(e.target.value))}
+                style={{ width: 90 }}
+              />
+            </div>
+            <p style={{ marginTop: 10, opacity: 0.7, fontSize: "0.85rem" }}>
+              Dash energy bar runs green while the car draws under this budget, red when over.
+              Resets each lap. Sent live + republished ~1 Hz so it never goes stale.
+            </p>
+          </Panel>
+
+          <Panel title="Lap Control" icon={<Flag size={18} />}>
+            <button
+              className="primary"
+              style={{ fontSize: "1.3rem", padding: "16px 18px", width: "100%", justifyContent: "center" }}
+              disabled={dashSignals.status !== "connected"}
+              onClick={dashSignals.sendLap}
+            >
+              <Flag size={18} /> Send Lap
+            </button>
+            <label className="checkInline" style={{ marginTop: 10 }}>
+              <input type="checkbox" checked={dashAutoLap} onChange={(e) => setDashAutoLap(e.target.checked)} />
+              Auto-send on completed lap (uses the live lap detector)
+            </label>
+            <div className="opsCards" style={{ marginTop: 10 }}>
+              <Metric label="Last Lap" value={liveState.laps.at(-1) ? formatLapTime(liveState.laps.at(-1)!.durationMs) : "--"} />
+              <Metric label="Last Lap NRG" value={liveState.laps.at(-1) ? `${liveState.laps.at(-1)!.energyWh.toFixed(0)} Wh` : "--"} />
+              <Metric label="Best Lap" value={bestLap ? formatLapTime(bestLap.durationMs) : "--"} tone="purple" />
+            </div>
+          </Panel>
+
+          <Panel title="Start/Finish — on-car laps" icon={<MapPinned size={18} />}>
+            {(() => {
+              const sfGate = track.gates.find((gate) => gate.role === "start_finish");
+              return (
+                <>
+                  <div className="opsCards">
+                    <Metric label="Track" value={track.name} />
+                    <Metric label="S/F gate" value={sfGate ? "defined" : "none"} tone={sfGate ? "good" : ""} />
+                  </div>
+                  <p style={{ marginTop: 8, opacity: 0.7, fontSize: "0.85rem" }}>
+                    Push the start/finish line so the car counts laps from its own GPS — the
+                    per-lap reset then survives any cellular dropout. Send Lap stays as a manual
+                    override. Define or edit the gate in Track Builder.
+                  </p>
+                  <div className="gateButtons" style={{ marginTop: 8 }}>
+                    <button
+                      className="primary"
+                      disabled={!sfGate || dashSignals.status !== "connected"}
+                      onClick={() => {
+                        if (!sfGate) return;
+                        dashSignals.publishGate([sfGate.lat1, sfGate.lon1, sfGate.lat2, sfGate.lon2]);
+                        setDashGatePushed(true);
+                        window.setTimeout(() => setDashGatePushed(false), 2500);
+                      }}
+                    >
+                      <Upload size={15} /> Push S/F to car
+                    </button>
+                    {dashGatePushed ? <span className="goodText">Pushed ✓ (retained)</span> : null}
+                  </div>
+                  {!sfGate ? (
+                    <p style={{ marginTop: 6, opacity: 0.7, fontSize: "0.8rem" }}>
+                      No start/finish gate on the loaded track yet — add one in the Track Builder tab.
+                    </p>
+                  ) : null}
+                </>
+              );
+            })()}
+          </Panel>
+
+          <Panel title="Link Health & Dash Mirror" icon={<Activity size={18} />} className="dashMirrorPanel">
+            {(() => {
+              const ds = dashSignals.dashState;
+              const at = dashSignals.lastStateAt;
+              const acks = dashSignals.acks;
+              const ago = (t: number) => `${Math.max(0, Math.round((dashNow - t) / 1000))}s ago`;
+              const linkLive = at !== null && dashNow - at < 3000;
+              const fmt = (v: number | null | undefined, d = 0, unit = "") =>
+                v === null || v === undefined ? "--" : `${v.toFixed(d)}${unit}`;
+              const delta = ds?.pacing.budgetDeltaWh ?? null;
+              return (
+                <>
+                  <div className="opsCards">
+                    <Metric label="Dash link" value={at === null ? "no data" : linkLive ? "LIVE" : `SILENT ${ago(at)}`} tone={linkLive ? "good" : ""} />
+                    <Metric label="Budget heard" value={acks.targetPower ? `${acks.targetPower.value.toFixed(0)} kW · ${ago(acks.targetPower.at)}` : "--"} tone={acks.targetPower ? "good" : ""} />
+                    <Metric label="Gate acked" value={acks.sfGate ? ago(acks.sfGate.at) : "no"} tone={acks.sfGate ? "good" : ""} />
+                  </div>
+                  <div className="opsCards" style={{ marginTop: 8 }}>
+                    <Metric label="Speed" value={fmt(ds?.speed, 0, " mph")} />
+                    <Metric label="Power" value={fmt(ds?.power, 1, " kW")} />
+                    <Metric label="SOC" value={fmt(ds?.soc, 0, " %")} />
+                  </div>
+                  <div className="opsCards" style={{ marginTop: 8 }}>
+                    <Metric label={`Lap ${ds?.pacing.lapNumber ?? "--"} NRG`} value={fmt(ds?.pacing.lapEnergyWh, 0, " Wh")} />
+                    <Metric label="Budget Δ" value={delta === null ? "--" : `${delta > 0 ? "+" : ""}${delta.toFixed(0)} Wh`} tone={delta !== null && delta < 0 ? "good" : ""} />
+                    <Metric label="Car laps" value={ds ? String(ds.lapCount) : "--"} />
+                  </div>
+                  {ds?.targetPowerStale ? (
+                    <p style={{ marginTop: 6, color: "#c47", fontSize: "0.8rem" }}>
+                      Driver&apos;s budget is showing STALE — the car hasn&apos;t heard a fresh target in 5s.
+                    </p>
+                  ) : null}
+                  {!linkLive && at !== null ? (
+                    <p style={{ marginTop: 6, color: "#c44", fontSize: "0.8rem" }}>
+                      Dash state silent — uplink may be down. The driver still has the held budget and on-car laps.
+                    </p>
+                  ) : null}
+                </>
+              );
+            })()}
           </Panel>
         </section>
       ) : null}
