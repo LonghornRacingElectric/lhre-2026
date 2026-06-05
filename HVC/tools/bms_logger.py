@@ -31,7 +31,7 @@ RE_PACK = re.compile(
 )
 
 RE_BMB = re.compile(
-    r'\[\d+\] \[INFO\] BMB (?P<ic>\d+) \(die: (?P<die>[\d.]+)C, bal: (?P<bal>\d+)\) \|(?P<cells>.*)'
+    r'\[(?P<ts>\d+)\] \[INFO\] BMB (?P<ic>\d+) \(die: (?P<die>[\d.]+)C, bal: (?P<bal>\d+)\) \|(?P<cells>.*)'
 )
 
 RE_CELL = re.compile(r'(\d+\.\d+)(\*?)')
@@ -153,17 +153,6 @@ class BMSLogger:
         ])
         self._csvf.flush()
 
-        ts_ms = int(p['ts'])
-        if self._t0_ms is None:
-            self._t0_ms = ts_ms
-        t_s = (ts_ms - self._t0_ms) / 1000.0
-
-        with self._lock:
-            for v, b in zip(cell_vs, cell_bs):
-                self._times.append(t_s)
-                self._volts.append(v)
-                self._bals.append(bool(b))
-
     def handle_line(self, line: str) -> None:
         m = RE_PACK.search(line)
         if m:
@@ -182,18 +171,25 @@ class BMSLogger:
                 self._bmbs = {}
             return
 
-        if self._pack_data is None:
-            return
-
         m = RE_BMB.search(line)
         if not m:
             return
 
         ic    = int(m.group('ic'))
-        cells = [(float(v), bool(star)) for v, star in RE_CELL.findall(m.group('cells'))]
+        ts_ms = int(m.group('ts'))
+        cells = [(float(v), bool(star)) for v, star in RE_CELL.findall(m.group('cells')) if 2.5 <= float(v) <= 4.3]
         self._bmbs[ic] = {'die': float(m.group('die')), 'cells': cells}
 
-        if len(self._bmbs) == TOTAL_IC:
+        if self._t0_ms is None:
+            self._t0_ms = ts_ms
+        t_s = (ts_ms - self._t0_ms) / 1000.0
+        with self._lock:
+            for v, b in cells:
+                self._times.append(t_s)
+                self._volts.append(v)
+                self._bals.append(b)
+
+        if self._pack_data is not None and len(self._bmbs) == TOTAL_IC:
             self._emit()
             self._pack_data = None
             self._bmbs = {}

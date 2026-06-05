@@ -41,7 +41,7 @@
 #define MAX_BAL_CELLS_PER_BOARD 6
 #define BAL_START_MV      2.0f
 #define BAL_STOP_MV       0.5f
-#define BAL_MIN_CELL_MV   3900
+#define BAL_MIN_CELL_MV   2900
 #define PACK_I_MAX_MA     5000
 #define BAL_TEMP_CUTOFF_C 60.0f
 
@@ -588,7 +588,7 @@ void bms_update(void)
 
     bms_read_cell_voltages();
 
-    if (temp_cycle) {
+    if (temp_cycle & !balance_cycle) {
         bms_read_thermistors();
         bms_read_die_temps();
     }
@@ -620,7 +620,7 @@ void bms_print_all_cells() {
                 bal_cmd[base + cell] ? "*" : " ");
         }
         snprintf(buf + pos, sizeof(buf) - pos, "\r\n");
-        log_printf(LOG_INFO, "%s", buf);
+        // log_printf(LOG_INFO, "%s", buf);
         osDelay(1);
     }
 }
