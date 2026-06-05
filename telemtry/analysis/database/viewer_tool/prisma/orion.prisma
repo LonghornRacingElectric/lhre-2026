@@ -140,6 +140,19 @@ model partitions {
   end_time BigInt
 }
 
+model car_status_segment {
+  segment_id BigInt @id @default(autoincrement())
+  car String
+  state String
+  start_time BigInt
+  end_time BigInt?
+  start_packet BigInt?
+  end_packet BigInt?
+  hv_soc_avg Float?
+  lv_v_avg Float?
+  active_faults String?
+}
+
 model track {
   track_id Int @id @default(autoincrement())
   name String @unique

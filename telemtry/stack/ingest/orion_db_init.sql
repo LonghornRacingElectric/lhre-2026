@@ -186,6 +186,26 @@ CREATE TABLE public.partitions(
     end_time          bigint       NOT NULL
 );
 
+-- Car Status Segment table
+-- Written by the car_status processor: one row per closed state segment
+-- (OFF / ON_IDLE / READY / MOVING). Standalone — keyed by car + time range, no
+-- drive_day dependency. active_faults are advisory metadata, not the state.
+CREATE TABLE public.car_status_segment (
+    segment_id        bigserial    NOT NULL,
+    car               text         NOT NULL,
+    state             text         NOT NULL,
+    start_time        bigint       NOT NULL,
+    end_time          bigint,
+    start_packet      bigint,
+    end_packet        bigint,
+    hv_soc_avg        real,
+    lv_v_avg          real,
+    active_faults     text,
+    CONSTRAINT car_status_segment_pk PRIMARY KEY (segment_id)
+);
+CREATE INDEX idx_car_status_segment_car_time ON public.car_status_segment (car, start_time DESC);
+CREATE INDEX idx_car_status_segment_state ON public.car_status_segment (state);
+
 CREATE OR REPLACE FUNCTION public.get_partition_bounds(
     p_partition_name text,
     p_time_from timestamptz DEFAULT NULL,

@@ -1,0 +1,163 @@
+/* Car Status page — self-contained, dark-first theme via CSS variables. */
+.csShell {
+  --cs-bg: #0e1116;
+  --cs-surface: #171c24;
+  --cs-surface-alt: #1d2530;
+  --cs-border: #2f3b4a;
+  --cs-text: #f5f7fb;
+  --cs-muted: #a4b0c0;
+  --cs-accent: #2dd4bf;
+  /* state tones */
+  --cs-off: #6b7280;
+  --cs-idle: #3b82f6;
+  --cs-ready: #f59e0b;
+  --cs-moving: #22c55e;
+  --cs-fault: #ef4444;
+
+  min-height: 100vh;
+  /* clear the global fixed Banner (56px) like the other pages */
+  padding: 78px 22px 24px;
+  background: var(--cs-bg);
+  color: var(--cs-text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.csLoading {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  min-height: 100vh; color: #a4b0c0; background: #0e1116; font-size: 14px;
+}
+.csSpinner {
+  width: 18px; height: 18px; border: 2px solid #2f3b4a; border-top-color: #2dd4bf;
+  border-radius: 999px; animation: csSpin 0.8s linear infinite;
+}
+@keyframes csSpin { to { transform: rotate(360deg); } }
+
+.csTopbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  margin-bottom: 18px;
+}
+.csTopbar h1 { margin: 0; font-size: 26px; }
+.csTopbar p { margin: 4px 0 0; color: var(--cs-muted); font-size: 13px; }
+.csTopActions { display: flex; align-items: center; gap: 10px; }
+.csTopActions select {
+  background: var(--cs-surface); color: var(--cs-text); border: 1px solid var(--cs-border);
+  border-radius: 8px; padding: 7px 10px; font: inherit;
+}
+.csConn {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700;
+  color: var(--cs-muted); border: 1px solid var(--cs-border); border-radius: 999px; padding: 5px 10px;
+}
+.csConn.csOn { color: var(--cs-moving); border-color: color-mix(in srgb, var(--cs-moving) 50%, transparent); }
+
+/* hero: state badge + energy */
+.csHero {
+  display: grid; grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 1.1fr);
+  gap: 16px; margin-bottom: 16px;
+}
+@media (max-width: 760px) { .csHero { grid-template-columns: 1fr; } }
+
+.csBadge {
+  display: flex; align-items: center; gap: 16px;
+  border: 1px solid var(--cs-border); border-radius: 14px; padding: 22px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--tone) 22%, transparent), transparent 65%),
+    var(--cs-surface);
+  --tone: var(--cs-off);
+}
+.cs-off { --tone: var(--cs-off); }
+.cs-idle { --tone: var(--cs-idle); }
+.cs-ready { --tone: var(--cs-ready); }
+.cs-moving { --tone: var(--cs-moving); }
+.cs-fault { --tone: var(--cs-fault); }
+.csBadgeIcon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 56px; height: 56px; border-radius: 14px; color: #fff;
+  background: var(--tone); box-shadow: 0 0 0 6px color-mix(in srgb, var(--tone) 18%, transparent);
+}
+.csBadgeLabel { display: block; font-size: 26px; font-weight: 800; letter-spacing: -0.01em; }
+.csBadgeSub { display: block; color: var(--cs-muted); font-size: 13px; margin-top: 2px; }
+
+.csEnergy { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 520px) { .csEnergy { grid-template-columns: 1fr; } }
+.csGauge {
+  border: 1px solid var(--cs-border); border-radius: 12px; padding: 14px; background: var(--cs-surface);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.csGaugeLabel { display: inline-flex; align-items: center; gap: 6px; color: var(--cs-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.csGaugeValue { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.csGaugeValue small { font-size: 15px; font-weight: 600; color: var(--cs-muted); margin-left: 3px; }
+.csGaugeSub { color: var(--cs-muted); font-size: 12px; }
+.csGaugeNote { color: var(--cs-muted); font-size: 11px; font-style: italic; opacity: 0.8; }
+.csBar { height: 7px; border-radius: 999px; background: var(--cs-surface-alt); overflow: hidden; margin: 4px 0; }
+.csBarFill { height: 100%; border-radius: 999px; }
+.csBarFill.cs-hv { background: linear-gradient(90deg, var(--cs-accent), #5eead4); }
+
+/* reasons */
+.csReasons {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  border: 1px solid var(--cs-border); border-radius: 12px; padding: 12px 14px;
+  background: var(--cs-surface); margin-bottom: 16px;
+}
+.csReasonsLabel { color: var(--cs-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.csChips { display: flex; gap: 6px; flex-wrap: wrap; }
+.csChip {
+  font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+  background: var(--cs-surface-alt); border: 1px solid var(--cs-border); color: var(--cs-text);
+}
+.csStatusLine { margin-left: auto; color: var(--cs-muted); font-size: 12px; }
+
+/* advisory faults (not a state) */
+.csFaults {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  border: 1px solid color-mix(in srgb, var(--cs-fault) 55%, var(--cs-border));
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 16px;
+  background: color-mix(in srgb, var(--cs-fault) 12%, var(--cs-surface));
+  color: var(--cs-text);
+}
+.csFaults > svg { color: var(--cs-fault); }
+.csFaultsLabel { color: var(--cs-fault); font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.csFaults small { color: var(--cs-muted); font-size: 12px; margin-left: auto; }
+.csChipFault { border-color: color-mix(in srgb, var(--cs-fault) 50%, transparent); }
+
+/* tuning */
+.csTune { border: 1px solid var(--cs-border); border-radius: 12px; padding: 16px; background: var(--cs-surface); }
+.csTuneHead { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.csTuneHead h2 { margin: 0; font-size: 16px; }
+.csTuneHead small { color: var(--cs-muted); font-size: 12px; margin-left: auto; }
+.csSliders { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.csSlider { display: flex; flex-direction: column; gap: 6px; }
+.csSliderTop { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; color: var(--cs-muted); }
+.csSliderTop strong { color: var(--cs-text); font-variant-numeric: tabular-nums; }
+.csSliderTop small { color: var(--cs-muted); font-weight: 500; }
+.csSlider input[type="range"] { width: 100%; accent-color: var(--cs-accent); }
+.csTuneActions { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+.csPrimary, .csTool {
+  border: 1px solid var(--cs-border); border-radius: 8px; padding: 8px 14px; font: inherit; font-weight: 600;
+  background: var(--cs-surface-alt); color: var(--cs-text); cursor: pointer;
+}
+.csPrimary { background: var(--cs-accent); color: #06231f; border-color: transparent; }
+.csPrimary:disabled, .csTool:disabled { opacity: 0.45; cursor: not-allowed; }
+.csSaved { color: var(--cs-moving); font-size: 12px; font-weight: 600; }
+
+.csFootnote { color: var(--cs-muted); font-size: 12px; margin-top: 18px; }
+
+/* history */
+.csHistory { border: 1px solid var(--cs-border); border-radius: 12px; padding: 16px; background: var(--cs-surface); margin-top: 16px; }
+.csHistoryHead { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.csHistoryHead h2 { margin: 0; font-size: 16px; }
+.csRanges { display: flex; gap: 6px; margin-left: auto; align-items: center; }
+.csRange { border: 1px solid var(--cs-border); background: var(--cs-surface-alt); color: var(--cs-muted); border-radius: 7px; padding: 5px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+.csRange.csRangeOn { background: var(--cs-accent); color: #06231f; border-color: transparent; font-weight: 700; }
+.csTimeline { position: relative; height: 22px; border-radius: 6px; background: var(--cs-surface-alt); overflow: hidden; margin-bottom: 12px; }
+.csTimelineSeg { position: absolute; top: 0; bottom: 0; min-width: 1px; }
+.csHistTotals { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+.csTotalMoving { font-size: 14px; }
+.csTotalMoving strong { color: var(--cs-moving); }
+.csTotalChip { font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--cs-border); color: var(--cs-muted); }
+.csTableWrap { overflow-x: auto; }
+.csTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.csTable th { text-align: left; color: var(--cs-muted); font-weight: 700; font-size: 11px; text-transform: uppercase; padding: 6px 10px; border-bottom: 1px solid var(--cs-border); }
+.csTable td { padding: 6px 10px; border-bottom: 1px solid color-mix(in srgb, var(--cs-border) 50%, transparent); font-variant-numeric: tabular-nums; }
+.csRowMoving td { background: color-mix(in srgb, var(--cs-moving) 8%, transparent); }
+.csStateDot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; margin-right: 6px; vertical-align: middle; }
+.csHistoryEmpty { color: var(--cs-muted); font-size: 13px; padding: 8px 0; }

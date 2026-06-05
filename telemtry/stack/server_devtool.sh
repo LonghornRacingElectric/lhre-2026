@@ -70,6 +70,7 @@ lap_timer|processors/lap_timer
 track_mapper|processors/track_mapper
 kafka_test|processors/kafka_test
 gg_plot|processors/gg_plot
+car_status|processors/car_status
 logsync|logsync|docker
 viewer|../analysis/database/viewer_tool|pm2|viewer_tool
 "
@@ -78,7 +79,7 @@ viewer|../analysis/database/viewer_tool|pm2|viewer_tool
 CORE_ORDER="kafka ingest field_enricher"
 # user-facing apps (pulled logs worker + the Next.js viewer)
 APP_ORDER="logsync viewer"
-ALL_ORDER="kafka ingest field_enricher gps_classifier lap_timer track_mapper kafka_test gg_plot logsync viewer"
+ALL_ORDER="kafka ingest field_enricher gps_classifier lap_timer track_mapper kafka_test gg_plot car_status logsync viewer"
 
 # logsync stages multi-GB CSVs; keep them off the small root disk.
 LOGSYNC_DATA_DIR="${LOGSYNC_DATA_DIR:-}"
