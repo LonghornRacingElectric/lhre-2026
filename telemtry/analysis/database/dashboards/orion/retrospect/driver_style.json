@@ -65,7 +65,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Orion Driver Style \u2014 Retrospective",
+  "title": "Orion Driver Style — Retrospective",
   "uid": "orion_driver_style_ret_v1",
   "version": 1,
   "weekStart": "",
@@ -121,7 +121,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ) SELECT (dynamics.gps_imu)[2] AS \"Lateral Accel [m/s\u00b2]\", (dynamics.gps_imu)[1] AS \"Longitudinal Accel [m/s\u00b2]\", dynamics.gps_speed AS \"GPS Speed [m/s]\" FROM dynamics JOIN packet ON packet.packet_id = dynamics.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end AND (dynamics.gps_imu)[1] IS NOT NULL ORDER BY packet.time;",
+          "rawSql": "WITH bounds AS (\n  SELECT MIN(p.start_time) AS effective_start, MAX(p.end_time) AS effective_end\n  FROM partitions p\n  WHERE p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n)\nSELECT\n  (dynamics.gps_imu)[2] AS \"Lateral Accel [m/s²]\",\n  (dynamics.gps_imu)[1] AS \"Longitudinal Accel [m/s²]\",\n  dynamics.gps_speed    AS \"GPS Speed [m/s]\"\nFROM dynamics\nJOIN packet ON packet.packet_id = dynamics.packet_id\nCROSS JOIN bounds\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\n  AND (dynamics.gps_imu)[1] IS NOT NULL\nORDER BY packet.time;",
           "refId": "A"
         }
       ],
@@ -179,7 +179,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ) SELECT (dyn.gps_imu)[2] AS \"Lateral Accel [m/s\u00b2]\", (dyn.gps_imu)[1] AS \"Longitudinal Accel [m/s\u00b2]\", ctl.accel_pedal_travel AS \"Throttle [%]\" FROM dynamics dyn JOIN controls ctl ON ctl.packet_id = dyn.packet_id JOIN packet ON packet.packet_id = dyn.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end AND (dyn.gps_imu)[1] IS NOT NULL ORDER BY packet.time;",
+          "rawSql": "WITH bounds AS (\n  SELECT MIN(p.start_time) AS effective_start, MAX(p.end_time) AS effective_end\n  FROM partitions p\n  WHERE p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n)\nSELECT\n  (dyn.gps_imu)[2]       AS \"Lateral Accel [m/s²]\",\n  (dyn.gps_imu)[1]       AS \"Longitudinal Accel [m/s²]\",\n  ctl.accel_pedal_travel AS \"Throttle [%]\"\nFROM dynamics dyn\nJOIN controls ctl ON ctl.packet_id = dyn.packet_id\nJOIN packet       ON packet.packet_id = dyn.packet_id\nCROSS JOIN bounds\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\n  AND (dyn.gps_imu)[1] IS NOT NULL\nORDER BY packet.time;",
           "refId": "A"
         }
       ],
@@ -237,7 +237,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ) SELECT dyn.gps_speed AS \"GPS Speed [m/s]\", ctl.accel_pedal_travel AS \"Throttle Travel [%]\" FROM dynamics dyn JOIN controls ctl ON ctl.packet_id = dyn.packet_id JOIN packet ON packet.packet_id = dyn.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end ORDER BY packet.time;",
+          "rawSql": "WITH bounds AS (\n  SELECT MIN(p.start_time) AS effective_start, MAX(p.end_time) AS effective_end\n  FROM partitions p\n  WHERE p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n)\nSELECT\n  dyn.gps_speed          AS \"GPS Speed [m/s]\",\n  ctl.accel_pedal_travel AS \"Throttle Travel [%]\"\nFROM dynamics dyn\nJOIN controls ctl ON ctl.packet_id = dyn.packet_id\nJOIN packet       ON packet.packet_id = dyn.packet_id\nCROSS JOIN bounds\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\nORDER BY packet.time;",
           "refId": "A"
         }
       ],
@@ -295,11 +295,11 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ) SELECT ctl.brake_pressure_f AS \"Brake Pressure Front [psi]\", (dyn.gps_imu)[1] AS \"Long. Decel [m/s\u00b2]\" FROM dynamics dyn JOIN controls ctl ON ctl.packet_id = dyn.packet_id JOIN packet ON packet.packet_id = dyn.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end AND ctl.brake_pressure_f > 5 ORDER BY packet.time;",
+          "rawSql": "WITH bounds AS (\n  SELECT MIN(p.start_time) AS effective_start, MAX(p.end_time) AS effective_end\n  FROM partitions p\n  WHERE p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n)\nSELECT\n  ctl.brake_pressure_f AS \"Brake Pressure Front [psi]\",\n  (dyn.gps_imu)[1]     AS \"Long. Decel [m/s²]\"\nFROM dynamics dyn\nJOIN controls ctl ON ctl.packet_id = dyn.packet_id\nJOIN packet       ON packet.packet_id = dyn.packet_id\nCROSS JOIN bounds\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\n  AND ctl.brake_pressure_f > 5\nORDER BY packet.time;",
           "refId": "A"
         }
       ],
-      "title": "Brake Consistency (Pressure vs Decel) \u2014 tight cluster = consistent",
+      "title": "Brake Consistency (Pressure vs Decel) — tight cluster = consistent",
       "type": "xychart"
     },
     {
@@ -353,7 +353,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ) SELECT dyn.steer_col_angle AS \"Steering Angle [deg]\", (dyn.gps_imu)[2] AS \"Lateral Accel [m/s\u00b2]\" FROM dynamics dyn JOIN packet ON packet.packet_id = dyn.packet_id JOIN bounds ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end AND (dyn.gps_imu)[2] IS NOT NULL ORDER BY packet.time;",
+          "rawSql": "WITH bounds AS (\n  SELECT MIN(p.start_time) AS effective_start, MAX(p.end_time) AS effective_end\n  FROM partitions p\n  WHERE p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n)\nSELECT\n  dyn.steer_col_angle AS \"Steering Angle [deg]\",\n  (dyn.gps_imu)[2]    AS \"Lateral Accel [m/s²]\"\nFROM dynamics dyn\nJOIN packet ON packet.packet_id = dyn.packet_id\nCROSS JOIN bounds\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\n  AND (dyn.gps_imu)[2] IS NOT NULL\nORDER BY packet.time;",
           "refId": "A"
         }
       ],
@@ -479,11 +479,11 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG((dynamics.gps_imu)[2]) AS \"Lateral Accel [m/s\u00b2]\", AVG((dynamics.gps_imu)[1]) AS \"Longitudinal Accel [m/s\u00b2]\", AVG(dynamics.gps_speed) AS \"GPS Speed [m/s]\", AVG(dynamics.accel_pedal_travel) AS \"Throttle [%]\" FROM dynamics JOIN packet ON packet.packet_id = dynamics.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS (\n  SELECT MIN(p.start_time) AS effective_start, MAX(p.end_time) AS effective_end\n  FROM partitions p\n  WHERE p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n),\ngranularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT\n  to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n  AVG((dynamics.gps_imu)[2])       AS \"Lateral Accel [m/s²]\",\n  AVG((dynamics.gps_imu)[1])       AS \"Longitudinal Accel [m/s²]\",\n  AVG(dynamics.gps_speed)          AS \"GPS Speed [m/s]\",\n  AVG(dynamics.accel_pedal_travel) AS \"Throttle [%]\"\nFROM dynamics\nJOIN packet ON packet.packet_id = dynamics.packet_id\nCROSS JOIN bounds\nCROSS JOIN granularity\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\nGROUP BY 1\nORDER BY time;",
           "refId": "A"
         }
       ],
-      "title": "Accel, Speed & Throttle \u2014 Time Domain",
+      "title": "Accel, Speed & Throttle — Time Domain",
       "type": "timeseries"
     }
   ]

@@ -65,7 +65,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Orion Chassis & Suspension \u2014 Retrospective",
+  "title": "Orion Chassis & Suspension — Retrospective",
   "uid": "orion_chassis_suspension_ret_v1",
   "version": 1,
   "weekStart": "",
@@ -157,11 +157,11 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(dynamics.fl_ride_height) AS \"FL Ride Height [mm]\", AVG(dynamics.fr_ride_height) AS \"FR Ride Height [mm]\", AVG(dynamics.bl_ride_height) AS \"BL Ride Height [mm]\", AVG(dynamics.br_ride_height) AS \"BR Ride Height [mm]\" FROM dynamics JOIN packet ON packet.packet_id = dynamics.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS (\n  SELECT MIN(p.start_time) AS effective_start, MAX(p.end_time) AS effective_end\n  FROM partitions p\n  WHERE p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n),\ngranularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT\n  to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n  AVG(dynamics.fl_ride_height) AS \"FL Ride Height [mm]\",\n  AVG(dynamics.fr_ride_height) AS \"FR Ride Height [mm]\",\n  AVG(dynamics.bl_ride_height) AS \"BL Ride Height [mm]\",\n  AVG(dynamics.br_ride_height) AS \"BR Ride Height [mm]\"\nFROM dynamics\nJOIN packet ON packet.packet_id = dynamics.packet_id\nCROSS JOIN bounds\nCROSS JOIN granularity\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\nGROUP BY 1\nORDER BY time;",
           "refId": "A"
         }
       ],
-      "title": "Ride Heights \u2014 All 4 Corners [mm]",
+      "title": "Ride Heights — All 4 Corners [mm]",
       "type": "timeseries"
     },
     {
@@ -251,7 +251,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG((dynamics.fl_ride_height + dynamics.fr_ride_height)/2.0 - (dynamics.bl_ride_height + dynamics.br_ride_height)/2.0) AS \"Pitch (Front-Rear) [mm]\", AVG((dynamics.fl_ride_height + dynamics.bl_ride_height)/2.0 - (dynamics.fr_ride_height + dynamics.br_ride_height)/2.0) AS \"Roll (Left-Right) [mm]\" FROM dynamics JOIN packet ON packet.packet_id = dynamics.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS (\n  SELECT MIN(p.start_time) AS effective_start, MAX(p.end_time) AS effective_end\n  FROM partitions p\n  WHERE p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n),\ngranularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT\n  to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n  AVG((dynamics.fl_ride_height + dynamics.fr_ride_height)/2.0 - (dynamics.bl_ride_height + dynamics.br_ride_height)/2.0) AS \"Pitch (Front-Rear) [mm]\",\n  AVG((dynamics.fl_ride_height + dynamics.bl_ride_height)/2.0 - (dynamics.fr_ride_height + dynamics.br_ride_height)/2.0) AS \"Roll (Left-Right) [mm]\"\nFROM dynamics\nJOIN packet ON packet.packet_id = dynamics.packet_id\nCROSS JOIN bounds\nCROSS JOIN granularity\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\nGROUP BY 1\nORDER BY time;",
           "refId": "A"
         }
       ],
@@ -345,11 +345,11 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(dynamics.fl_strain_gauge_v) AS \"FL Strain [V]\", AVG(dynamics.fr_strain_gauge_v) AS \"FR Strain [V]\", AVG(dynamics.bl_strain_gauge_v) AS \"BL Strain [V]\", AVG(dynamics.br_strain_gauge_v) AS \"BR Strain [V]\" FROM dynamics JOIN packet ON packet.packet_id = dynamics.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS (\n  SELECT MIN(p.start_time) AS effective_start, MAX(p.end_time) AS effective_end\n  FROM partitions p\n  WHERE p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n),\ngranularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT\n  to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n  AVG(dynamics.fl_strain_gauge_v) AS \"FL Strain [V]\",\n  AVG(dynamics.fr_strain_gauge_v) AS \"FR Strain [V]\",\n  AVG(dynamics.bl_strain_gauge_v) AS \"BL Strain [V]\",\n  AVG(dynamics.br_strain_gauge_v) AS \"BR Strain [V]\"\nFROM dynamics\nJOIN packet ON packet.packet_id = dynamics.packet_id\nCROSS JOIN bounds\nCROSS JOIN granularity\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\nGROUP BY 1\nORDER BY time;",
           "refId": "A"
         }
       ],
-      "title": "Corner Load Balance \u2014 Strain Gauges [V]",
+      "title": "Corner Load Balance — Strain Gauges [V]",
       "type": "timeseries"
     },
     {
@@ -438,11 +438,11 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.partition_name, p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), base AS ( SELECT packet.time, bounds.partition_name, dynamics.fl_sus_pot_v, dynamics.fr_sus_pot_v, dynamics.bl_sus_pot_v, dynamics.br_sus_pot_v, LAG(dynamics.fl_sus_pot_v) OVER (PARTITION BY bounds.partition_name ORDER BY packet.time) AS fl_prev, LAG(dynamics.fr_sus_pot_v) OVER (PARTITION BY bounds.partition_name ORDER BY packet.time) AS fr_prev, LAG(dynamics.bl_sus_pot_v) OVER (PARTITION BY bounds.partition_name ORDER BY packet.time) AS bl_prev, LAG(dynamics.br_sus_pot_v) OVER (PARTITION BY bounds.partition_name ORDER BY packet.time) AS br_prev, LAG(packet.time) OVER (PARTITION BY bounds.partition_name ORDER BY packet.time) AS prev_time FROM dynamics JOIN packet ON packet.packet_id = dynamics.packet_id JOIN bounds ON packet.time BETWEEN bounds.effective_start AND bounds.effective_end ), granularity AS (SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms) SELECT to_timestamp(floor(base.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(CASE WHEN prev_time IS NOT NULL AND base.time > prev_time THEN (fl_sus_pot_v - fl_prev) / ((base.time - prev_time)/1000.0) END) AS \"FL Damper Vel [V/s]\", AVG(CASE WHEN prev_time IS NOT NULL AND base.time > prev_time THEN (fr_sus_pot_v - fr_prev) / ((base.time - prev_time)/1000.0) END) AS \"FR Damper Vel [V/s]\", AVG(CASE WHEN prev_time IS NOT NULL AND base.time > prev_time THEN (bl_sus_pot_v - bl_prev) / ((base.time - prev_time)/1000.0) END) AS \"BL Damper Vel [V/s]\", AVG(CASE WHEN prev_time IS NOT NULL AND base.time > prev_time THEN (br_sus_pot_v - br_prev) / ((base.time - prev_time)/1000.0) END) AS \"BR Damper Vel [V/s]\" FROM base JOIN granularity ON true GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH session AS (\n  SELECT partition_name, start_time, end_time\n  FROM partitions\n  WHERE partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n),\nbase AS (\n  SELECT\n    packet.time,\n    session.partition_name,\n    dynamics.fl_sus_pot_v,\n    dynamics.fr_sus_pot_v,\n    dynamics.bl_sus_pot_v,\n    dynamics.br_sus_pot_v,\n    LAG(dynamics.fl_sus_pot_v) OVER (PARTITION BY session.partition_name ORDER BY packet.time) AS fl_prev,\n    LAG(dynamics.fr_sus_pot_v) OVER (PARTITION BY session.partition_name ORDER BY packet.time) AS fr_prev,\n    LAG(dynamics.bl_sus_pot_v) OVER (PARTITION BY session.partition_name ORDER BY packet.time) AS bl_prev,\n    LAG(dynamics.br_sus_pot_v) OVER (PARTITION BY session.partition_name ORDER BY packet.time) AS br_prev,\n    LAG(packet.time)           OVER (PARTITION BY session.partition_name ORDER BY packet.time) AS prev_time\n  FROM dynamics\n  JOIN packet  ON packet.packet_id = dynamics.packet_id\n  JOIN session ON packet.time BETWEEN session.start_time AND session.end_time\n),\ngranularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT\n  to_timestamp(floor(base.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n  AVG(CASE WHEN prev_time IS NOT NULL AND base.time > prev_time THEN (fl_sus_pot_v - fl_prev) / ((base.time - prev_time)/1000.0) END) AS \"FL Damper Vel [V/s]\",\n  AVG(CASE WHEN prev_time IS NOT NULL AND base.time > prev_time THEN (fr_sus_pot_v - fr_prev) / ((base.time - prev_time)/1000.0) END) AS \"FR Damper Vel [V/s]\",\n  AVG(CASE WHEN prev_time IS NOT NULL AND base.time > prev_time THEN (bl_sus_pot_v - bl_prev) / ((base.time - prev_time)/1000.0) END) AS \"BL Damper Vel [V/s]\",\n  AVG(CASE WHEN prev_time IS NOT NULL AND base.time > prev_time THEN (br_sus_pot_v - br_prev) / ((base.time - prev_time)/1000.0) END) AS \"BR Damper Vel [V/s]\"\nFROM base\nCROSS JOIN granularity\nGROUP BY 1\nORDER BY time;",
           "refId": "A"
         }
       ],
-      "title": "Suspension Pot Velocity \u2014 Damper Activity [V/s]",
+      "title": "Suspension Pot Velocity — Damper Activity [V/s]",
       "type": "timeseries"
     },
     {
@@ -536,7 +536,7 @@
           "refId": "A"
         }
       ],
-      "title": "Wheel Speed Differentials \u2014 Slip Proxy [m/s]",
+      "title": "Wheel Speed Differentials — Slip Proxy [m/s]",
       "type": "timeseries"
     },
     {
@@ -625,11 +625,11 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG((dynamics.fl_sprung_accel)[3]) AS \"FL Sprung Z [m/s\u00b2]\", AVG((dynamics.fr_sprung_accel)[3]) AS \"FR Sprung Z [m/s\u00b2]\", AVG((dynamics.bl_sprung_accel)[3]) AS \"BL Sprung Z [m/s\u00b2]\", AVG((dynamics.br_sprung_accel)[3]) AS \"BR Sprung Z [m/s\u00b2]\" FROM dynamics JOIN packet ON packet.packet_id = dynamics.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS (\n  SELECT MIN(p.start_time) AS effective_start, MAX(p.end_time) AS effective_end\n  FROM partitions p\n  WHERE p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n),\ngranularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT\n  to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n  AVG((dynamics.fl_sprung_accel)[3]) AS \"FL Sprung Z [m/s²]\",\n  AVG((dynamics.fr_sprung_accel)[3]) AS \"FR Sprung Z [m/s²]\",\n  AVG((dynamics.bl_sprung_accel)[3]) AS \"BL Sprung Z [m/s²]\",\n  AVG((dynamics.br_sprung_accel)[3]) AS \"BR Sprung Z [m/s²]\"\nFROM dynamics\nJOIN packet ON packet.packet_id = dynamics.packet_id\nCROSS JOIN bounds\nCROSS JOIN granularity\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\nGROUP BY 1\nORDER BY time;",
           "refId": "A"
         }
       ],
-      "title": "Vertical (Z) Sprung Acceleration \u2014 Corner Activity [m/s\u00b2]",
+      "title": "Vertical (Z) Sprung Acceleration — Corner Activity [m/s²]",
       "type": "timeseries"
     }
   ]
