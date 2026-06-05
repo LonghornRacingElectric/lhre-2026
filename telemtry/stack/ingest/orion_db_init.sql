@@ -333,6 +333,7 @@ CREATE TABLE public.controls (
     enable               boolean,
     line_lock_enabled    boolean,
     torque_shudder       real,
+    bse3                 real,
     CONSTRAINT fk_controls_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
 
