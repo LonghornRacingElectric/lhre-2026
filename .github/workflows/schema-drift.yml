@@ -1,0 +1,108 @@
+name: schema-drift
+run-name: Schema codegen drift check (${{ github.actor }})
+
+# Regenerates every schema/CAN artifact from its source (can_packets.csv +
+# can_packets.proto) and fails if the committed artifacts are out of sync.
+# This makes schema / telemetry-signal updates dead-easy: change the source,
+# run the generators, commit — and CI guarantees nothing drifts.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'drivers/longhorn-lib/config/**'
+      - 'drivers/longhorn-lib/protobuf/**'
+      - 'drivers/longhorn-lib/scripts/**'
+      - 'telemtry/scripts/**'
+      - 'telemtry/stack/ingest/**'
+      - 'telemtry/stack/kafka/proto/**'
+      - 'telemtry/analysis/database/viewer_tool/prisma/**'
+      - 'telemtry/analysis/database/viewer_tool/protobuf/**'
+      - 'telemtry/analysis/sql_utils/models.py'
+      - 'BEVO/nonhermetic/assets/**'
+      - 'BEVO/codegen.py'
+      - 'BEVO/generated_mapping.rs'
+      - 'BEVO/loggerd/**'
+      - 'BEVO/config.rs'
+      - '.github/workflows/schema-drift.yml'
+  workflow_dispatch:
+
+jobs:
+  schema-drift:
+    name: Schema codegen drift check
+    runs-on: ubuntu-latest
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install protoc + python deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          python -m pip install --upgrade pip
+          python -m pip install "protobuf>=6,<7"
+
+      - name: Regenerate all schema artifacts from source
+        env:
+          BUILD_WORKSPACE_DIRECTORY: ${{ github.workspace }}
+        run: |
+          set -euxo pipefail
+          # CSV -> proto (assigns/back-annotates stable proto field ids)
+          python3 drivers/longhorn-lib/scripts/update_can_proto.py
+          # CSV -> can.json + descriptor + Rust mapping
+          bash BEVO/nonhermetic/sync_assets.sh
+          # proto -> SQL / Prisma / SQLAlchemy models / dataclasses / sensor.proto
+          bash telemtry/scripts/sync_schema.sh Orion
+
+      - name: Fail if regenerated artifacts differ from committed
+        run: |
+          # sensor_data.desc is a binary protoc intermediate whose bytes vary by
+          # protoc version; exclude it and gate only on the deterministic text
+          # artifacts (proto, can.json, mapping.rs, SQL, prisma, models, ...).
+          if ! git diff --exit-code -- . ':(exclude)BEVO/sensor_data.desc'; then
+            {
+              echo "### ❌ Schema artifacts are out of sync with their sources"
+              echo ""
+              echo "A source (\`can_packets.csv\` / \`can_packets.proto\`) changed but the"
+              echo "generated artifacts weren't regenerated. Run locally and commit the result:"
+              echo ""
+              echo '```bash'
+              echo 'export BUILD_WORKSPACE_DIRECTORY="$PWD"'
+              echo 'python3 drivers/longhorn-lib/scripts/update_can_proto.py'
+              echo 'bash BEVO/nonhermetic/sync_assets.sh'
+              echo 'bash telemtry/scripts/sync_schema.sh Orion'
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Generated schema artifacts are out of sync with their sources. See job summary."
+            exit 1
+          fi
+
+  loggerd-tests:
+    name: BEVO loggerd unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install protoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Test loggerd (schema-driven CSV header behavior)
+        working-directory: BEVO
+        env:
+          PROTOC: /usr/bin/protoc
+        run: cargo test --bin loggerd
