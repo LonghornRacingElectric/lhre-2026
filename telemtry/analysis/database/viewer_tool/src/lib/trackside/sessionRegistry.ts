@@ -36,6 +36,12 @@ export interface TracksideSessionInfo {
   startedAt: number; // epoch ms
   endedAt: number | null; // epoch ms, null while live
   laps: number;
+  // Full session record (synced + logged server-side, not just the summary):
+  // the rich MoTeC-style metadata and the energy plan. Optional so older
+  // records still validate.
+  metadata?: Record<string, string>;
+  plan?: { targetLaps: number; targetEnergyKwh: number; soeCutoffCellV: number };
+  updatedAt?: number; // epoch ms of last edit, for last-writer-wins on merge
 }
 
 export function loadSessionRegistry(): TracksideSessionInfo[] {
@@ -66,36 +72,71 @@ function saveSessionRegistry(list: TracksideSessionInfo[]): void {
 /** Insert or replace a session by id. Mirrors to the logsync server so other
  *  devices can match a CSV against it; localStorage stays as an offline cache. */
 export function upsertSession(info: TracksideSessionInfo): void {
+  const stamped = { ...info, updatedAt: Date.now() };
   const list = loadSessionRegistry().filter((s) => s.id !== info.id);
-  list.push(info);
+  list.push(stamped);
   saveSessionRegistry(list);
-  void pushSessionToServer(info);
+  void pushSessionToServer(stamped);
 }
 
-/** Patch an existing session (e.g. bump endedAt / lap count as it runs). */
+/** Patch an existing session (e.g. bump endedAt / lap count / metadata as it runs). */
 export function patchSession(id: string, patch: Partial<TracksideSessionInfo>): void {
   const list = loadSessionRegistry();
   const idx = list.findIndex((s) => s.id === id);
   if (idx === -1) return;
-  list[idx] = { ...list[idx], ...patch };
+  list[idx] = { ...list[idx], ...patch, updatedAt: Date.now() };
   saveSessionRegistry(list);
   void pushSessionToServer(list[idx]);
 }
 
+/** Reconcile local + server registries (last-writer-wins by updatedAt) and
+ *  re-push any local records the server is missing or behind on — so every
+ *  client converges on the full record and a record that failed to push earlier
+ *  (offline) gets retried on the next load. Returns the merged list. */
+export async function syncRegistryWithServer(): Promise<TracksideSessionInfo[]> {
+  const local = loadSessionRegistry();
+  const server = await fetchSessionsFromServer();
+  const byId = new Map<string, TracksideSessionInfo>();
+  for (const s of local) byId.set(s.id, s);
+  const toPush: TracksideSessionInfo[] = [];
+  for (const srv of server) {
+    const loc = byId.get(srv.id);
+    if (!loc || (srv.updatedAt ?? 0) >= (loc.updatedAt ?? 0)) byId.set(srv.id, srv); // server newer/equal → adopt
+  }
+  for (const loc of local) {
+    const srv = server.find((s) => s.id === loc.id);
+    if (!srv || (loc.updatedAt ?? 0) > (srv.updatedAt ?? 0)) toPush.push(loc); // local newer/missing → re-push
+  }
+  const merged = Array.from(byId.values());
+  saveSessionRegistry(merged);
+  for (const s of toPush) void pushSessionToServer(s);
+  return merged;
+}
+
 // ---- server bridge (logsync worker, proxied via /api/logsync) --------------
 
-/** Best-effort upsert of a session to the logsync worker for cross-device match. */
-export async function pushSessionToServer(info: TracksideSessionInfo): Promise<void> {
-  if (typeof fetch === 'undefined') return;
-  try {
-    await fetch('/api/logsync/sessions', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(info),
-    });
-  } catch {
-    // Offline / worker down — the localStorage copy still serves same-browser.
+/** Upsert the FULL session record to the logsync worker for cross-device match
+ *  + durable server-side logging. Retries with backoff so a transient dropout
+ *  doesn't lose the record (the "full, no partial" requirement); localStorage
+ *  remains the offline cache. Stamps updatedAt for last-writer-wins on merge. */
+export async function pushSessionToServer(info: TracksideSessionInfo): Promise<boolean> {
+  if (typeof fetch === 'undefined') return false;
+  const body = JSON.stringify({ ...info, updatedAt: info.updatedAt ?? Date.now() });
+  const delays = [0, 1000, 3000, 8000]; // 4 attempts
+  for (let i = 0; i < delays.length; i++) {
+    if (delays[i]) await new Promise((r) => setTimeout(r, delays[i]));
+    try {
+      const res = await fetch('/api/logsync/sessions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body,
+      });
+      if (res.ok) return true;
+    } catch {
+      // network error — retry
+    }
   }
+  return false; // exhausted retries; localStorage copy still holds it for re-push next load
 }
 
 /** Fetch all server-side sessions (empty list if the worker is unreachable). */

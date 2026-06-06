@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from .config import config
 from .manager import JobManager
@@ -89,7 +89,14 @@ class AnnotationBody(BaseModel):
 class SessionBody(BaseModel):
     """A trackside session record from Trackside Live, stored verbatim so the
     annotation UI can match a log CSV's loggerd timestamp into the window. Mirror
-    of the viewer's TracksideSessionInfo (camelCase kept on purpose)."""
+    of the viewer's TracksideSessionInfo (camelCase kept on purpose).
+
+    extra='allow' so the FULL session record — the rich metadata (vehicle id /
+    weight / type / comments, short+long notes) and the energy plan (targetLaps,
+    targetEnergyKwh, soeCutoffCellV) — is persisted verbatim in the JSON blob,
+    not just the typed summary fields. No DB migration: the store keeps `data`
+    as JSON."""
+    model_config = ConfigDict(extra="allow")
     id: str
     name: str = ""
     car: str = ""

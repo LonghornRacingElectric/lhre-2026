@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type Dispatch, 
 import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, Moon, NotebookText, Plus, Power, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, Users, WifiOff, X, Zap } from "lucide-react";
 import { api } from "@/lib/trackside/api";
 import { useCarStatus, CAR_STATE_META, humanizeReason, type CarState, type CarStatusFeed } from "@/lib/trackside/useCarStatus";
-import { EVENT_TYPES, upsertSession, patchSession, type TracksideSessionInfo } from "@/lib/trackside/sessionRegistry";
+import { EVENT_TYPES, upsertSession, patchSession, syncRegistryWithServer, type TracksideSessionInfo } from "@/lib/trackside/sessionRegistry";
 import { usePresence } from "@/lib/trackside/usePresence";
 import { useSession } from "next-auth/react";
 import { DashLayoutEditor } from "@/components/dashlayout/DashLayoutEditor";
@@ -833,6 +833,25 @@ function App() {
     });
   }, [sessionInfo, liveState.laps.length, liveState.lastSample?.t]);
 
+  // Keep the active session's FULL record (metadata + energy plan) synced to the
+  // server as the strategist edits it (debounced), so the logged session is
+  // always complete — not just the name/driver summary.
+  useEffect(() => {
+    if (!sessionInfo) return;
+    const id = window.setTimeout(() => {
+      patchSession(sessionInfo.id, {
+        metadata: { ...metadataDraft },
+        plan: { targetLaps, targetEnergyKwh, soeCutoffCellV },
+      });
+    }, 1500);
+    return () => window.clearTimeout(id);
+  }, [sessionInfo, metadataDraft, targetLaps, targetEnergyKwh, soeCutoffCellV]);
+
+  // On load, reconcile the local session registry with the server (last-writer-
+  // wins) and re-push anything the server is missing — so clients converge on
+  // the full records and a record that failed to push earlier is retried.
+  useEffect(() => { void syncRegistryWithServer(); }, []);
+
   // Deep-link from the homepage "Car Status" card (/trackside-live?focus=car):
   // land on the Live tab and scroll the car-status panel into view.
   useEffect(() => {
@@ -1596,6 +1615,10 @@ function App() {
       startedAt,
       endedAt: null,
       laps: 0,
+      // Full record from the start — the metadata draft + energy plan ride
+      // along so the server logs the complete session, not just the summary.
+      metadata: { ...metadataDraft, driver: draft.driver.trim(), venue: draft.venue.trim(), event: draft.eventType, session: draft.name.trim() },
+      plan: { targetLaps, targetEnergyKwh, soeCutoffCellV },
     };
     upsertSession(info);
     setSessionInfo(info);
@@ -2772,6 +2795,9 @@ function App() {
                   state={filteredLiveState}
                   windowS={energyWindowS}
                 />
+              </Panel>
+              <Panel title="Vitals Window" icon={<Gauge size={18} />}>
+                <VitalsWindowChart state={filteredLiveState} windowS={energyWindowS} />
               </Panel>
               <DriverControlsPanel sample={filteredLiveState.lastSample} torqueParamSet={torqueParamSet} />
               <TempsStatusPanel sample={filteredLiveState.lastSample} />
@@ -5887,6 +5913,81 @@ function temperatureSeries(samples: LiveSample[], windowS: number) {
       }, [])
       .filter((segment) => segment.length),
   }));
+}
+
+// Speed / Power / Torque over the rolling window. Different units, so each line
+// is normalized to its OWN min/max in the window (shape comparison); the legend
+// carries the latest absolute value + unit. Mirrors temperatureSeries' segment
+// model (gaps where a channel is missing).
+function vitalsSeries(samples: LiveSample[], windowS: number) {
+  const lastT = samples.at(-1)?.t;
+  const startT = lastT ? lastT - windowS * 1000 : 0;
+  const windowSamples = lastT ? samples.filter((sample) => sample.t >= startT) : [];
+  const definitions = [
+    { key: "speed", label: "Speed", unit: "mph", color: "#38bdf8", digits: 0, get: (s: LiveSample) => (s.speed != null && Number.isFinite(s.speed) ? s.speed * 2.23694 : null) },
+    { key: "power", label: "Power", unit: "kW", color: "#f5a524", digits: 1, get: (s: LiveSample) => (s.power_kw != null && Number.isFinite(s.power_kw) ? s.power_kw : null) },
+    { key: "torque", label: "Torque", unit: "Nm", color: "#a78bfa", digits: 0, get: (s: LiveSample) => { const v = torqueFeedbackNmFor(s); return v != null && Number.isFinite(v) ? v : null; } },
+  ] as const;
+  return definitions.map((definition) => {
+    const segments = windowSamples.reduce<Array<Array<{ t: number; value: number }>>>((segs, sample) => {
+        const value = definition.get(sample);
+        if (value == null) { if (segs.at(-1)?.length) segs.push([]); return segs; }
+        if (!segs.length) segs.push([]);
+        segs[segs.length - 1].push({ t: sample.t, value });
+        return segs;
+      }, [])
+      .filter((segment) => segment.length);
+    const all = segments.flatMap((segment) => segment.map((point) => point.value));
+    return {
+      key: definition.key, label: definition.label, unit: definition.unit, color: definition.color, digits: definition.digits,
+      segments,
+      min: all.length ? Math.min(...all) : 0,
+      max: all.length ? Math.max(...all) : 1,
+      latest: segments.at(-1)?.at(-1)?.value ?? null,
+    };
+  });
+}
+
+function VitalsWindowChart({ state, windowS }: { state: LiveSessionState; windowS: number }) {
+  const series = vitalsSeries(state.samples, windowS);
+  const width = 900;
+  const height = 160;
+  const padLeft = 46;
+  const padRight = 18;
+  const padTop = 14;
+  const padBottom = 28;
+  const plotW = width - padLeft - padRight;
+  const plotH = height - padTop - padBottom;
+  const lastT = state.lastSample?.t ?? Date.now();
+  const startT = lastT - windowS * 1000;
+  const xFor = (t: number) => padLeft + clamp((t - startT) / (windowS * 1000), 0, 1) * plotW;
+  const yForNorm = (norm: number) => padTop + (1 - clamp(norm, 0, 1)) * plotH;
+  return (
+    <div className="energyWindow">
+      <div className="tempLegend">
+        {series.map((item) => (
+          <span key={item.key}>
+            <i style={{ background: item.color }} />
+            {item.label} {item.latest != null ? `${item.latest.toFixed(item.digits)} ${item.unit}` : "--"}
+          </span>
+        ))}
+      </div>
+      <svg className="energyChart vitalsChart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Speed, power and torque over the selected time window">
+        <rect x={padLeft} y={padTop} width={plotW} height={plotH} rx="6" />
+        <line x1={padLeft} x2={width - padRight} y1={height - padBottom} y2={height - padBottom} />
+        <line x1={padLeft} x2={padLeft} y1={padTop} y2={height - padBottom} />
+        <text x={padLeft} y={height - 7}>-{windowS}s</text>
+        <text x={width - padRight - 28} y={height - 7}>now</text>
+        {series.flatMap((item) => {
+          const span = Math.max(1e-6, item.max - item.min);
+          return item.segments.map((segment, index) => {
+            const points = segment.map((point) => `${xFor(point.t).toFixed(1)},${yForNorm((point.value - item.min) / span).toFixed(1)}`).join(" ");
+            return points ? <polyline key={`${item.key}-${index}`} points={points} style={{ stroke: item.color }} /> : null;
+          });
+        })}
+      </svg>
+    </div>
+  );
 }
 
 function estimateP30bSoc(cellVoltage: number, cutoffCellV = DEFAULT_SOE_CUTOFF_CELL_V) {
