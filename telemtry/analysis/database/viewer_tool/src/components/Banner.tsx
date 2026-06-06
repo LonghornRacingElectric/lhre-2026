@@ -50,11 +50,11 @@ const Banner = () => {
           </DropdownMenuContent>
         </DropdownMenu>
         <Image src="/telem_logo.png" alt="Telemetry Logo" width={40} height={40} className="ml-2" />
-        <span className="ml-2">Welcome, {session?.user?.name || session?.user?.username || 'Guest'}</span>
+        <span className="ml-2 hidden sm:inline truncate max-w-[40vw]">Welcome, {session?.user?.name || session?.user?.username || 'Guest'}</span>
       </div>
       <div className="flex items-center">
-        <span className="mr-4">{date}</span>
-        <span>{time}</span>
+        <span className="mr-4 hidden sm:inline">{date}</span>
+        <span className="whitespace-nowrap">{time}</span>
       </div>
     </div>
   );

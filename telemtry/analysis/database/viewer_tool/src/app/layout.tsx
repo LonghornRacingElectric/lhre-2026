@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import PageLayout from "@/components/PageLayout";
@@ -19,6 +19,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {};
+
+// Without this, Next (App Router) emits no viewport tag and phones render the
+// page at a desktop width then shrink it — unreadable trackside. Allow zoom up
+// to 5x so a strategist can pinch into a dense table in the sun.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#16140f",
+};
 
 export default function RootLayout({
   children,

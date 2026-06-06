@@ -2,6 +2,7 @@
 
 import mqtt, { type MqttClient } from 'mqtt';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { DashMessage, MessageTrigger } from './dashMessages';
 
 // Browser-side publisher for the on-car dash's pacing signals. The dash
 // (BEVO/dashd) subscribes to `lhre/dash/#` on the same broker the telemetry
@@ -77,6 +78,12 @@ export interface DashSignals {
     publishGate: (gate: [number, number, number, number]) => void;
     /** Push the lap-card layout the dash renders (retained: sent once, used until replaced). */
     publishLayout: (layout: unknown) => boolean;
+    /** Push the active driver-message set the car holds (retained — survives dash reboot). */
+    publishMessages: (messages: DashMessage[]) => boolean;
+    /** Fire one driver message onto the dash now (not retained). durationS overrides the message's own. */
+    sendMessage: (message: DashMessage, durationS?: number) => boolean;
+    /** Dismiss whatever message is currently on the dash. */
+    clearMessage: () => boolean;
     /** Latest mirror of the driver's screen (null until the car publishes state). */
     dashState: DashMirrorState | null;
     /** Wall-clock ms of the last lhre/dash/state message — for a link-silent warning. */
@@ -221,6 +228,34 @@ export function useDashSignals(): DashSignals {
         return true;
     }, []);
 
+    // Retained, like sfGate/layout: the car re-loads the current quick-send set
+    // on reconnect/reboot. This is the bounded set the dash holds.
+    const publishMessages = useCallback((messages: DashMessage[]): boolean => {
+        const client = clientRef.current;
+        if (!client || !client.connected) return false;
+        client.publish(`${TOPIC_PREFIX}messages`, JSON.stringify(messages), { qos: 1, retain: true });
+        return true;
+    }, []);
+
+    // A one-shot trigger — NOT retained, so it fires once and doesn't replay on
+    // reconnect. Carries the full message so a fresh dash can render it even
+    // before the retained set arrives. `at` makes a repeat press a new event.
+    const sendMessage = useCallback((message: DashMessage, durationS?: number): boolean => {
+        const client = clientRef.current;
+        if (!client || !client.connected) return false;
+        const trigger: MessageTrigger = { at: Date.now(), durationS: durationS ?? message.durationS, msg: message };
+        client.publish(`${TOPIC_PREFIX}message`, JSON.stringify(trigger), { qos: 0 });
+        return true;
+    }, []);
+
+    const clearMessage = useCallback((): boolean => {
+        const client = clientRef.current;
+        if (!client || !client.connected) return false;
+        const trigger: MessageTrigger = { at: Date.now(), clear: true };
+        client.publish(`${TOPIC_PREFIX}message`, JSON.stringify(trigger), { qos: 0 });
+        return true;
+    }, []);
+
     const setBrokerUrl = useCallback((url: string) => {
         setBrokerUrlState(url);
         if (typeof window !== 'undefined') localStorage.setItem(BROKER_STORAGE_KEY, url);
@@ -244,6 +279,9 @@ export function useDashSignals(): DashSignals {
         sendLap,
         publishGate,
         publishLayout,
+        publishMessages,
+        sendMessage,
+        clearMessage,
         dashState,
         lastStateAt,
         acks,

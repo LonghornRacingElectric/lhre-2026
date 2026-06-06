@@ -9,8 +9,11 @@ import { EVENT_TYPES, upsertSession, patchSession, type TracksideSessionInfo } f
 import { usePresence } from "@/lib/trackside/usePresence";
 import { useSession } from "next-auth/react";
 import { DashLayoutEditor } from "@/components/dashlayout/DashLayoutEditor";
+import { DashMessageEditor } from "@/components/dashlayout/DashMessageEditor";
 import type { LapCardLayout } from "@/lib/dash/dashLayout";
 import { useDashSignals } from "@/lib/dash/dashSignals";
+import { useMessageLibrary } from "@/lib/dash/useMessageLibrary";
+import { activeMessages, MESSAGE_ICON_GLYPH, type DashMessage } from "@/lib/dash/dashMessages";
 import type {
   ChannelDef,
   ChannelChartDefinition,
@@ -502,6 +505,10 @@ function App() {
   const [dashTargetPower, setDashTargetPower] = useState<number>(() => Number(localStorage.getItem("dash-target-power") || 30));
   const [dashAutoLap, setDashAutoLap] = useState(() => localStorage.getItem("dash-auto-lap") === "1");
   const [dashGatePushed, setDashGatePushed] = useState(false);
+  // Driver-message palette (quick-send nudges to the dash) — shared server-side.
+  const msgLib = useMessageLibrary();
+  const [msgEditorOpen, setMsgEditorOpen] = useState(false);
+  const [msgSendStatus, setMsgSendStatus] = useState("");
   const [dashNow, setDashNow] = useState(0); // 1 Hz tick for link-health "age" displays
   const dashLastLapCountRef = useRef(0);
   const lastRegistryPatchRef = useRef(0);
@@ -752,6 +759,14 @@ function App() {
     localStorage.setItem("dash-target-power", String(dashTargetPower));
     if (dashSignals.status === "connected") dashSignals.publishTargetPower(dashTargetPower);
   }, [dashTargetPower, dashSignals.status, dashSignals.publishTargetPower]);
+
+  // Push the active driver-message set to the car (retained) whenever it changes
+  // or the link (re)connects, so the dash holds the current quick-send palette
+  // across reboots. Only the leader commands the car.
+  useEffect(() => {
+    if (isMirror || dashSignals.status !== "connected") return;
+    dashSignals.publishMessages(activeMessages(msgLib.lib));
+  }, [msgLib.lib, isMirror, dashSignals.status, dashSignals.publishMessages]);
 
   useEffect(() => {
     localStorage.setItem("dash-auto-lap", dashAutoLap ? "1" : "0");
@@ -1556,6 +1571,24 @@ function App() {
     window.setTimeout(() => setLayoutSendStatus(""), 5000);
   }
 
+  // Fire one driver message onto the dash now. Same leader + link gating as the
+  // other car commands.
+  function sendDriverMessage(m: DashMessage) {
+    if (isMirrorRef.current) { setMsgSendStatus("Read-only mirror — only the session leader can message the driver."); return; }
+    if (dashSignals.status !== "connected") { setMsgSendStatus("Connect to the dash first (Dash tab → Connect to dash)."); return; }
+    const ok = dashSignals.sendMessage(m);
+    setMsgSendStatus(ok ? `Sent “${m.label}” to the driver ✓${m.durationS ? ` (${m.durationS}s)` : " (until cleared)"}` : "Send failed — check the dash link.");
+    window.setTimeout(() => setMsgSendStatus(""), 4000);
+  }
+
+  function clearDriverMessage() {
+    if (isMirrorRef.current || dashSignals.status !== "connected") return;
+    if (dashSignals.clearMessage()) {
+      setMsgSendStatus("Cleared the driver's message.");
+      window.setTimeout(() => setMsgSendStatus(""), 4000);
+    }
+  }
+
   // Download the session's laps as a flat CSV (timestamps + per-lap energy), for
   // sharing/analysis alongside the MoTeC export and the full session JSON.
   function downloadSessionCsv() {
@@ -2209,6 +2242,15 @@ function App() {
       ) : null}
       {lapDesignerOpen ? (
         <DashLayoutEditor onClose={() => setLapDesignerOpen(false)} onSend={sendLapLayout} sendStatus={layoutSendStatus} />
+      ) : null}
+      {msgEditorOpen ? (
+        <DashMessageEditor
+          api={msgLib}
+          onClose={() => setMsgEditorOpen(false)}
+          onSendTest={sendDriverMessage}
+          sendStatus={msgSendStatus}
+          canSend={!isMirror && dashSignals.status === "connected"}
+        />
       ) : null}
       <header className="topbar">
         <div>
@@ -3214,6 +3256,51 @@ function App() {
                       Dash state silent — uplink may be down. The driver still has the held budget and on-car laps.
                     </p>
                   ) : null}
+                </>
+              );
+            })()}
+          </Panel>
+
+          <Panel title="Driver Messages" icon={<NotebookText size={18} />}>
+            {(() => {
+              const active = activeMessages(msgLib.lib);
+              const linkReady = !isMirror && dashSignals.status === "connected";
+              const gateTitle = isMirror ? "Read-only mirror" : dashSignals.status !== "connected" ? "Connect to the dash first" : undefined;
+              return (
+                <>
+                  <p style={{ margin: "0 0 10px", opacity: 0.7, fontSize: "0.82rem" }}>
+                    Tap to flash a message on the driver&apos;s dash. Edit the palette to add your own
+                    (color, icon, and how long each stays on screen).
+                  </p>
+                  {active.length ? (
+                    <div className="msgQuickRow">
+                      {active.map((m) => (
+                        <button
+                          key={m.id}
+                          className="msgQuickBtn"
+                          disabled={!linkReady}
+                          title={gateTitle ?? (m.durationS ? `${m.text} — ${m.durationS}s` : `${m.text} — until cleared`)}
+                          onClick={() => sendDriverMessage(m)}
+                        >
+                          {MESSAGE_ICON_GLYPH[m.icon] ? <span className="msgQuickGlyph">{MESSAGE_ICON_GLYPH[m.icon]}</span> : null}
+                          <span className="msgQuickLabel">{m.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ opacity: 0.7, fontSize: "0.82rem" }}>
+                      No active messages — open the editor and star a few to add quick-send buttons.
+                    </p>
+                  )}
+                  <div className="gateButtons" style={{ marginTop: 12 }}>
+                    <button className="tool dangerTool" disabled={!linkReady} title={gateTitle} onClick={clearDriverMessage}>
+                      <X size={15} /> Clear driver&apos;s screen
+                    </button>
+                    <button className="tool" disabled={isMirror} onClick={() => setMsgEditorOpen(true)}>
+                      <SlidersHorizontal size={15} /> Edit messages
+                    </button>
+                  </div>
+                  {msgSendStatus ? <p className="goodText" style={{ marginTop: 8, fontSize: "0.84rem" }}>{msgSendStatus}</p> : null}
                 </>
               );
             })()}
