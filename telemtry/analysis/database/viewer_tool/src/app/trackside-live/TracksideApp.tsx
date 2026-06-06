@@ -132,6 +132,7 @@ type LiveLap = {
   distanceM: number;
   avgSpeedMps: number | null;
   samples: LiveSample[];
+  notes?: string; // per-lap note (synced to the classifier DB)
 };
 type LiveSessionState = {
   running: boolean;
@@ -466,6 +467,9 @@ function App() {
   const [metadataDraft, setMetadataDraft] = useState<SessionMetadata>(EMPTY_METADATA);
   // The active named session (for the logsync registry + export identity).
   const [sessionInfo, setSessionInfo] = useState<TracksideSessionInfo | null>(null);
+  const sessionInfoRef = useRef(sessionInfo);
+  sessionInfoRef.current = sessionInfo;
+  const lapSyncTimerRef = useRef<number | null>(null);
   const [newSessionOpen, setNewSessionOpen] = useState(false);
   const [lapDesignerOpen, setLapDesignerOpen] = useState(false);
   const [layoutSendStatus, setLayoutSendStatus] = useState("");
@@ -851,6 +855,23 @@ function App() {
   // wins) and re-push anything the server is missing — so clients converge on
   // the full records and a record that failed to push earlier is retried.
   useEffect(() => { void syncRegistryWithServer(); }, []);
+
+  // Debounced sync of the day's laps (edited times + per-lap notes) to the
+  // classifier DB on ANY lap change — add, edit, note, or delete (laps is a new
+  // array each time). No-op without a linked drive_day or on a mirror.
+  useEffect(() => {
+    if (isMirror || sessionInfo?.dayId == null) return;
+    if (lapSyncTimerRef.current) window.clearTimeout(lapSyncTimerRef.current);
+    const dayId = sessionInfo.dayId;
+    const laps = liveState.laps.map((l) => ({ start_time: l.startMs, end_time: l.endMs, notes: l.notes ?? "" }));
+    lapSyncTimerRef.current = window.setTimeout(() => {
+      void fetch("/api/laps/sync", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ day_id: dayId, laps }),
+      }).catch(() => { /* offline — retried on next change */ });
+    }, 1500);
+    return () => { if (lapSyncTimerRef.current) window.clearTimeout(lapSyncTimerRef.current); };
+  }, [liveState.laps, sessionInfo, isMirror]);
 
   // Deep-link from the homepage "Car Status" card (/trackside-live?focus=car):
   // land on the Live tab and scroll the car-status panel into view.
@@ -1794,6 +1815,17 @@ function App() {
   function customFlag() {
     const note = window.prompt("Custom event flag (note):");
     if (note && note.trim()) void eventFlag(note.trim());
+  }
+
+  // Set/clear a per-lap note. Persists with the session; the sync effect pushes
+  // it to the classifier DB.
+  function editLapNote(id: string, notes: string) {
+    if (isMirrorRef.current) return;
+    const cur = liveStateRef.current;
+    const next = { ...cur, laps: cur.laps.map((l) => (l.id === id ? { ...l, notes } : l)) };
+    liveStateRef.current = next;
+    setLiveState(next);
+    persistLiveSession(next, { saveLocal: true, saveBackend: true, includeFullLapSamples: false });
   }
 
   function handleLiveEvent(event: LiveStreamEvent) {
@@ -2898,6 +2930,7 @@ function App() {
                   selectedLapIds={selectedLapIds}
                   onToggleLap={toggleLapSelected}
                   onEditLapTime={editLapDuration}
+                  onEditLapNote={editLapNote}
                   onDeleteLap={deleteLap}
                   editable={!isMirror}
                   targetEnergyPerLapWh={targetEnergyPerLapWh}
@@ -4204,6 +4237,7 @@ function LiveLapTable({
   selectedLapIds,
   onToggleLap,
   onEditLapTime,
+  onEditLapNote,
   onDeleteLap,
   editable,
   targetEnergyPerLapWh,
@@ -4222,6 +4256,7 @@ function LiveLapTable({
   selectedLapIds: Set<string>;
   onToggleLap: (lapId: string) => void;
   onEditLapTime: (lapId: string, durationMs: number) => void;
+  onEditLapNote: (lapId: string, notes: string) => void;
   onDeleteLap: (lapId: string) => void;
   editable: boolean;
   targetEnergyPerLapWh: number | null;
@@ -4236,7 +4271,7 @@ function LiveLapTable({
 }) {
   const columns = sectorCount;
   const showBatteryEnergy = currentLapBatteryEnergyWh != null || laps.some((lap) => lap.batteryEnergyWh != null);
-  const totalCols = 3 + columns + 3 + (showBatteryEnergy ? 1 : 0) + (targetEnergyPerLapWh != null ? 1 : 0);
+  const totalCols = 3 + columns + 3 + (showBatteryEnergy ? 1 : 0) + (targetEnergyPerLapWh != null ? 1 : 0) + 1; // +1 = Notes
   const currentTargetEnergyWh = showBatteryEnergy ? currentLapBatteryEnergyWh : currentLapEnergyWh;
   const averageTargetEnergyWh = showBatteryEnergy ? averages.avgBatteryEnergyWh : averages.avgEnergyWh;
   const tableWrapRef = useRef<HTMLDivElement | null>(null);
@@ -4266,6 +4301,7 @@ function LiveLapTable({
               <th>Net Inv</th>
               {showBatteryEnergy ? <th>Batt Est</th> : null}
               {targetEnergyPerLapWh != null ? <th>{showBatteryEnergy ? "Δ Pack" : "Δ Net Inv"}</th> : null}
+              <th>Notes</th>
             </tr>
           </thead>
           <tbody>
@@ -4317,6 +4353,18 @@ function LiveLapTable({
                   <td>{lap.energyWh.toFixed(1)} Wh</td>
                   {showBatteryEnergy ? <td>{lap.batteryEnergyWh == null ? "--" : `${lap.batteryEnergyWh.toFixed(1)} Wh`}</td> : null}
                   {targetEnergyPerLapWh != null ? <td className={delta != null && delta > 0 ? "deltaOver" : "deltaUnder"}>{delta == null ? "--" : formatEnergyDelta(delta)}</td> : null}
+                  <td>
+                    {editable ? (
+                      <input
+                        defaultValue={lap.notes ?? ""}
+                        placeholder="note…"
+                        onBlur={(e) => { if ((e.target.value ?? "") !== (lap.notes ?? "")) onEditLapNote(lap.id, e.target.value); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                        aria-label={`Note for ${lap.label}`}
+                        style={{ width: 130, font: "inherit", background: "var(--surface-alt)", border: "1px solid var(--border)", borderRadius: 4, color: "var(--text)", padding: "1px 5px" }}
+                      />
+                    ) : (lap.notes || "")}
+                  </td>
                 </tr>
               );
             })}
@@ -4340,6 +4388,7 @@ function LiveLapTable({
                 <td>{currentLapEnergyWh.toFixed(1)} Wh</td>
                 {showBatteryEnergy ? <td>{currentLapBatteryEnergyWh == null ? "--" : `${currentLapBatteryEnergyWh.toFixed(1)} Wh`}</td> : null}
                 {targetEnergyPerLapWh != null ? <td>{currentTargetEnergyWh == null ? "--" : formatEnergyDelta(currentTargetEnergyWh - targetEnergyPerLapWh)}</td> : null}
+                <td />
               </tr>
             ) : null}
           </tbody>
@@ -4357,6 +4406,7 @@ function LiveLapTable({
                 {targetEnergyPerLapWh != null ? (
                   <td>{averageTargetEnergyWh == null ? "--" : formatEnergyDelta(averageTargetEnergyWh - targetEnergyPerLapWh)}</td>
                 ) : null}
+                <td />
               </tr>
             </tfoot>
           ) : null}
