@@ -12,6 +12,7 @@
 
 // clang-format off
 #define VCU_DEFAULT_PARAMS \
+    .event_mode = 0, \
     .apps = { \
         .apps1_min_adc_v          = 1.750f, \
         .apps1_max_adc_v          = 1.520f, \
@@ -87,7 +88,7 @@
         .max_soe_cell_voltage = 4.2f, \
     }, \
     .regen_linelock = { \
-        .disable                              = false, \
+        .disable                             = true, \
         .pressure_only_test_mode             = false, \
         .dc_bus_current_regen_is_negative    = true, \
         .rear_pressure_zero_torque_psi       = 0.0f, \
