@@ -109,6 +109,7 @@ export type Widget = TextWidget | ValueWidget | BarWidget | GaugeWidget | DeltaW
 
 export interface LapCardLayout {
   version: number;
+  id?: string;              // stable library id (survives renames); car ignores it
   name: string;
   background: string;       // CSS background for the card overlay
   widgets: Widget[];
@@ -271,6 +272,7 @@ export function validateLapCardLayout(raw: unknown): LapCardLayout | null {
     && typeof (w as Widget).x === 'number' && typeof (w as Widget).y === 'number');
   return {
     version: typeof o.version === 'number' ? o.version : DASH_LAYOUT_VERSION,
+    id: typeof o.id === 'string' ? o.id : undefined,
     name: typeof o.name === 'string' ? o.name : 'Lap card',
     background: typeof o.background === 'string' ? o.background : 'rgba(8,8,10,0.92)',
     widgets,
