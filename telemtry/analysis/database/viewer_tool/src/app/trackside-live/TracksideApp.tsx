@@ -1651,6 +1651,21 @@ function App() {
     setLiveState(nextState);
   }
 
+  // The single, coherent "a lap happened" action shared by the Live Viewer's
+  // Log Lap button and the Dash tab's Send Lap button. It logs the lap in the
+  // trackside viewer (source of truth) AND fires the driver's dash lap card when
+  // a lap actually completes — so either tab does the whole thing. We bump
+  // dashLastLapCountRef so the auto-send effect doesn't double-fire for this lap.
+  function markLap() {
+    const before = liveStateRef.current.laps.length;
+    triggerManualLap();
+    const after = liveStateRef.current.laps.length;
+    if (after > before && dashSignals.status === "connected") {
+      dashSignals.sendLap();
+    }
+    dashLastLapCountRef.current = after;
+  }
+
   function toggleLapSelected(lapId: string) {
     setSelectedLapIds((prev) => {
       const next = new Set(prev);
@@ -2254,7 +2269,7 @@ function App() {
             <div className="liveControls">
               {/* Big, glanceable trackside actions — the live feed auto-starts,
                   so the frequent buttons (lap + record) get the space. */}
-              <button className="primary liveAction" disabled={!liveState.running || !liveState.lastSample} onClick={triggerManualLap}>
+              <button className="primary liveAction" disabled={!liveState.running || !liveState.lastSample} onClick={markLap}>
                 <Flag size={22} /> {liveState.lapStartMs ? "Log Lap" : "Start Lap"}
               </button>
               <button
@@ -2699,16 +2714,9 @@ function App() {
               />
               <Metric label="Laps Sent" value={String(dashSignals.lapsSent)} />
             </div>
-            <div className="presetGrid">
-              <label>
-                <span>Broker (websockets)</span>
-                <input
-                  value={dashSignals.brokerUrl}
-                  onChange={(e) => dashSignals.setBrokerUrl(e.target.value)}
-                  placeholder="ws://18.191.225.118:8080"
-                />
-              </label>
-            </div>
+            <p style={{ margin: "4px 0 10px", opacity: 0.7, fontSize: "0.85rem" }}>
+              Links to the car dash over the secure broker — one source, no setup.
+            </p>
             <div className="gateButtons">
               {dashSignals.status === "connected" || dashSignals.status === "connecting" ? (
                 <button className="tool dangerTool" onClick={dashSignals.disconnect}><X size={15} /> Disconnect</button>
@@ -2757,11 +2765,15 @@ function App() {
             <button
               className="primary"
               style={{ fontSize: "1.3rem", padding: "16px 18px", width: "100%", justifyContent: "center" }}
-              disabled={dashSignals.status !== "connected"}
-              onClick={dashSignals.sendLap}
+              disabled={!liveState.lastSample}
+              onClick={markLap}
             >
               <Flag size={18} /> Send Lap
             </button>
+            <p style={{ margin: "8px 0 0", opacity: 0.7, fontSize: "0.82rem" }}>
+              Logs the lap in the Live Viewer and fires the driver&apos;s dash lap card
+              {dashSignals.status === "connected" ? "" : " (connect the dash to reach the car)"}.
+            </p>
             <label className="checkInline" style={{ marginTop: 10 }}>
               <input type="checkbox" checked={dashAutoLap} onChange={(e) => setDashAutoLap(e.target.checked)} />
               Auto-send on completed lap (uses the live lap detector)
