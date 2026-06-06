@@ -638,6 +638,11 @@ function App() {
     down: { label: "Signal lost", dot: "dead" },
   };
   const uplinkMeta = UPLINK_META[uplink];
+  // "Car telemetry is reachable right now" — a real sample arrived in the last
+  // 3.5s. Trackside actions that only make sense with live data (record a lap,
+  // log a lap, send a lap to the car) gate on this so they aren't clickable when
+  // the car's off or the link is down.
+  const telemetryFresh = uplink === "live";
 
   // Live GPS health — also signals whether GPS auto-lap is backing up the manual
   // lap button (needs an S/F gate defined and a usable fix).
@@ -2558,14 +2563,19 @@ function App() {
             <div className="liveControls">
               {/* Big, glanceable trackside actions — the live feed auto-starts,
                   so the frequent buttons (lap + record) get the space. */}
-              <button className="primary liveAction" disabled={isMirror || !liveState.running || !liveState.lastSample} onClick={markLap}>
+              <button
+                className="primary liveAction"
+                disabled={isMirror || !telemetryFresh}
+                title={isMirror ? "Read-only mirror — the leader logs laps" : !telemetryFresh ? "No live telemetry from the car" : undefined}
+                onClick={markLap}
+              >
                 <Flag size={22} /> {liveState.lapStartMs ? "Log Lap" : "Start Lap"}
               </button>
               <button
                 className={recordingStartMs != null ? "tool liveAction dangerPrimary" : "tool liveAction"}
-                disabled={isMirror || recordingBusy || (recordingStartMs == null && !liveState.lastSample)}
+                disabled={isMirror || recordingBusy || (recordingStartMs == null && !telemetryFresh)}
                 onClick={recordingStartMs != null ? stopRecordingAndExport : startRecording}
-                title="Tag a start, then stop to download a MoTeC file of exactly that window"
+                title={recordingStartMs != null ? "Stop & save this recording" : isMirror ? "Read-only mirror" : !telemetryFresh ? "No live telemetry from the car" : "Tag a start, then stop to download a MoTeC file of exactly that window"}
               >
                 <Disc3 size={22} />{" "}
                 {recordingBusy
@@ -3066,7 +3076,8 @@ function App() {
             <button
               className="primary"
               style={{ fontSize: "1.3rem", padding: "16px 18px", width: "100%", justifyContent: "center" }}
-              disabled={isMirror || !liveState.lastSample}
+              disabled={isMirror || !telemetryFresh}
+              title={isMirror ? "Read-only mirror" : !telemetryFresh ? "No live telemetry from the car" : undefined}
               onClick={markLap}
             >
               <Flag size={18} /> Send Lap
