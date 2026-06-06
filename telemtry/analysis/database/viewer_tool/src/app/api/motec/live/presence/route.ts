@@ -14,6 +14,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 
 type Client = { id: string; firstSeen: number; lastSeen: number; name: string };
 type PresenceState = { clients: Map<string, Client>; requests: Map<string, number>; designated: string | null };
@@ -61,7 +62,7 @@ function snapshot(clientId: string) {
 export async function POST(req: NextRequest) {
   const now = Date.now();
   const body = (await req.json().catch(() => ({}))) as {
-    clientId?: string; name?: string; leave?: boolean; action?: "request" | "grant" | "deny"; target?: string;
+    clientId?: string; name?: string; leave?: boolean; action?: "request" | "grant" | "deny" | "force"; target?: string;
   };
   const clientId = typeof body.clientId === "string" ? body.clientId : "";
   if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 });
@@ -87,7 +88,16 @@ export async function POST(req: NextRequest) {
   }
 
   const leader = leaderId();
-  if (body.action === "request") {
+  if (body.action === "force") {
+    // Admin override: seize leadership instantly, even over an active leader.
+    // Verified server-side via the next-auth session token — a non-admin POST
+    // (even hand-crafted) is ignored.
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET }).catch(() => null);
+    if (token?.isAdmin) {
+      state.designated = clientId;
+      requests.delete(clientId);
+    }
+  } else if (body.action === "request") {
     // A non-leader asks for control.
     if (clientId !== leader) requests.set(clientId, now);
   } else if (body.action === "grant" && typeof body.target === "string") {

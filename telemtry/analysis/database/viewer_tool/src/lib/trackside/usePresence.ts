@@ -31,6 +31,8 @@ export interface Presence {
   requestLeader: () => void;
   grantLeader: (target: string) => void;
   denyLeader: (target: string) => void;
+  /** Admin only: instantly seize leadership (server verifies isAdmin). */
+  forceLeader: () => void;
 }
 
 const CLIENT_ID_KEY = 'trackside-client-id';
@@ -47,7 +49,7 @@ function getClientId(): string {
 }
 
 export function usePresence(enabled: boolean): Presence {
-  const [s, setS] = useState<Omit<Presence, 'requestLeader' | 'grantLeader' | 'denyLeader' | 'setName'>>({
+  const [s, setS] = useState<Omit<Presence, 'requestLeader' | 'grantLeader' | 'denyLeader' | 'setName' | 'forceLeader'>>({
     role: 'connecting', isMirror: false, clients: 1, max: 3, leader: null, clientId: '', name: '', requests: [], requested: false,
   });
   const stopRef = useRef(false);
@@ -109,6 +111,7 @@ export function usePresence(enabled: boolean): Presence {
   const requestLeader = useCallback(() => { void post({ action: 'request' }); }, [post]);
   const grantLeader = useCallback((target: string) => { void post({ action: 'grant', target }); }, [post]);
   const denyLeader = useCallback((target: string) => { void post({ action: 'deny', target }); }, [post]);
+  const forceLeader = useCallback(() => { void post({ action: 'force' }); }, [post]);
 
-  return { ...s, setName, requestLeader, grantLeader, denyLeader };
+  return { ...s, setName, requestLeader, grantLeader, denyLeader, forceLeader };
 }

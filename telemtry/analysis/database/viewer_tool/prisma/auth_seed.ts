@@ -16,13 +16,16 @@ async function main() {
     process.exit(1);
   }
 
+  // Pass "admin" as the 3rd positional arg to flag the user as an admin.
+  const isAdmin = process.argv[4] === 'admin';
+
   const hashedPassword = await hash(password, 12);
-  const user = await prisma.user.create({
-    data: {
-      username,
-      name: username,
-      password: hashedPassword,
-    },
+  // Upsert so re-seeding (password reset / admin promotion) is idempotent.
+  const user = await prisma.user.upsert({
+    where: { username },
+    update: { password: hashedPassword, isAdmin },
+    create: { username, name: username, password: hashedPassword, isAdmin },
+    select: { id: true, username: true, isAdmin: true },
   });
   console.log({ user });
 }

@@ -7,6 +7,7 @@ import { api } from "@/lib/trackside/api";
 import { useCarStatus, CAR_STATE_META, humanizeReason, type CarState, type CarStatusFeed } from "@/lib/trackside/useCarStatus";
 import { EVENT_TYPES, upsertSession, patchSession, type TracksideSessionInfo } from "@/lib/trackside/sessionRegistry";
 import { usePresence } from "@/lib/trackside/usePresence";
+import { useSession } from "next-auth/react";
 import { DashLayoutEditor } from "@/components/dashlayout/DashLayoutEditor";
 import type { LapCardLayout } from "@/lib/dash/dashLayout";
 import { useDashSignals } from "@/lib/dash/dashSignals";
@@ -502,6 +503,8 @@ function App() {
   // Multi-client sync: one leader owns the session, others mirror it read-only.
   const presence = usePresence(true);
   const isMirror = presence.isMirror;
+  const { data: authSession } = useSession();
+  const isAdmin = !!authSession?.user?.isAdmin;
   const isMirrorRef = useRef(false);
   const lastMirrorPollRef = useRef(0);
   const liveSourceRef = useRef<EventSource | null>(null);
@@ -2261,7 +2264,11 @@ function App() {
           </span>
           <input className="nameField" value={presence.name} placeholder="your name"
             onChange={(e) => presence.setName(e.target.value)} aria-label="Your name" />
-          {presence.role !== "full" ? (
+          {isAdmin ? (
+            <button className="primary" style={{ whiteSpace: "nowrap" }} title="Admin: seize control immediately" onClick={() => presence.forceLeader()}>
+              <Power size={14} /> Take control
+            </button>
+          ) : presence.role !== "full" ? (
             presence.requested
               ? <span className="goodText" style={{ whiteSpace: "nowrap" }}>Control requested…</span>
               : <button className="tool" style={{ whiteSpace: "nowrap" }} onClick={() => presence.requestLeader()}>Request control</button>
