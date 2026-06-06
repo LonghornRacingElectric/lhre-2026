@@ -153,3 +153,62 @@ class AnnotationStore:
         with self._lock:
             self._conn.execute("DELETE FROM annotations WHERE name=?", (name,))
             self._conn.commit()
+
+
+class SessionStore:
+    """Trackside session records (name/car/driver/event/venue + time window),
+    written by Trackside Live and read by the annotation UI to match a log CSV's
+    loggerd timestamp into a session — cross-device, unlike the old browser-local
+    registry. Stored as the viewer's JSON object verbatim, keyed by session id;
+    shares the jobs/annotations SQLite file (its own table).
+    """
+
+    MAX_SESSIONS = 300
+
+    def __init__(self, path: str):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        self._conn = sqlite3.connect(path, check_same_thread=False)
+        self._lock = threading.Lock()
+        with self._lock:
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS sessions (
+                    id          TEXT PRIMARY KEY,
+                    updated_ms  INTEGER NOT NULL,
+                    data        TEXT NOT NULL
+                )
+                """
+            )
+            self._conn.commit()
+
+    def list(self) -> list[dict]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT data FROM sessions ORDER BY updated_ms DESC"
+            ).fetchall()
+        return [json.loads(r[0]) for r in rows]
+
+    def get(self, sid: str) -> Optional[dict]:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT data FROM sessions WHERE id=?", (sid,)
+            ).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def upsert(self, sid: str, data: dict) -> None:
+        updated_ms = int(data.get("updated_ms", 0))
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO sessions (id, updated_ms, data) VALUES (?, ?, ?) "
+                "ON CONFLICT(id) DO UPDATE SET updated_ms=excluded.updated_ms, "
+                "data=excluded.data",
+                (sid, updated_ms, json.dumps(data)),
+            )
+            # Keep only the most-recent MAX_SESSIONS so the table can't grow
+            # unbounded across a season of testing.
+            self._conn.execute(
+                "DELETE FROM sessions WHERE id NOT IN "
+                "(SELECT id FROM sessions ORDER BY updated_ms DESC LIMIT ?)",
+                (self.MAX_SESSIONS,),
+            )
+            self._conn.commit()

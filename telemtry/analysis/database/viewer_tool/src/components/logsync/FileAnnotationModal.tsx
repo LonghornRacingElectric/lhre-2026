@@ -13,7 +13,7 @@ import { toast } from 'react-toastify';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { findSessionForTimestamp, parseLogStartMs, type TracksideSessionInfo } from '@/lib/trackside/sessionRegistry';
+import { fetchSessionsFromServer, findSessionForTimestampIn, loadSessionRegistry, parseLogStartMs, type TracksideSessionInfo } from '@/lib/trackside/sessionRegistry';
 
 export type AnnotationData = {
   name: string;
@@ -78,12 +78,27 @@ export function FileAnnotationModal({
     setA((prev) => ({ ...prev, [k]: v }));
 
   // Match this CSV (named orion_<startMs>.csv) into a trackside session window so
-  // the strategist can one-click fill driver/track/run from what they already
-  // entered in Trackside Live. Same-browser localStorage bridges the two pages.
-  const matched = useMemo<TracksideSessionInfo | null>(() => {
-    const startMs = parseLogStartMs(fileName);
-    return startMs == null ? null : findSessionForTimestamp(startMs);
-  }, [fileName]);
+  // the strategist can one-click fill driver/track/run from what they entered in
+  // Trackside Live. Server sessions (logsync worker) make this cross-device;
+  // localStorage is merged in as an offline fallback.
+  const startMs = useMemo(() => parseLogStartMs(fileName), [fileName]);
+  const [matched, setMatched] = useState<TracksideSessionInfo | null>(() =>
+    startMs == null ? null : findSessionForTimestampIn(loadSessionRegistry(), startMs));
+  useEffect(() => {
+    if (startMs == null) return;
+    let cancelled = false;
+    (async () => {
+      const server = await fetchSessionsFromServer();
+      if (cancelled) return;
+      // Merge server + local by id (server wins on conflict), then match.
+      const byId = new Map<string, TracksideSessionInfo>();
+      for (const s of loadSessionRegistry()) byId.set(s.id, s);
+      for (const s of server) byId.set(s.id, s);
+      const hit = findSessionForTimestampIn([...byId.values()], startMs);
+      if (hit) setMatched(hit);
+    })();
+    return () => { cancelled = true; };
+  }, [startMs]);
 
   const applyTracksideSession = (s: TracksideSessionInfo) => {
     setA((prev) => ({

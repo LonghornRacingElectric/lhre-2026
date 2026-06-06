@@ -63,11 +63,13 @@ function saveSessionRegistry(list: TracksideSessionInfo[]): void {
   }
 }
 
-/** Insert or replace a session by id. */
+/** Insert or replace a session by id. Mirrors to the logsync server so other
+ *  devices can match a CSV against it; localStorage stays as an offline cache. */
 export function upsertSession(info: TracksideSessionInfo): void {
   const list = loadSessionRegistry().filter((s) => s.id !== info.id);
   list.push(info);
   saveSessionRegistry(list);
+  void pushSessionToServer(info);
 }
 
 /** Patch an existing session (e.g. bump endedAt / lap count as it runs). */
@@ -77,6 +79,46 @@ export function patchSession(id: string, patch: Partial<TracksideSessionInfo>): 
   if (idx === -1) return;
   list[idx] = { ...list[idx], ...patch };
   saveSessionRegistry(list);
+  void pushSessionToServer(list[idx]);
+}
+
+// ---- server bridge (logsync worker, proxied via /api/logsync) --------------
+
+/** Best-effort upsert of a session to the logsync worker for cross-device match. */
+export async function pushSessionToServer(info: TracksideSessionInfo): Promise<void> {
+  if (typeof fetch === 'undefined') return;
+  try {
+    await fetch('/api/logsync/sessions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(info),
+    });
+  } catch {
+    // Offline / worker down — the localStorage copy still serves same-browser.
+  }
+}
+
+/** Fetch all server-side sessions (empty list if the worker is unreachable). */
+export async function fetchSessionsFromServer(): Promise<TracksideSessionInfo[]> {
+  if (typeof fetch === 'undefined') return [];
+  try {
+    const res = await fetch('/api/logsync/sessions');
+    if (!res.ok) return [];
+    const map = (await res.json()) as Record<string, TracksideSessionInfo>;
+    return Object.values(map).filter((s) => s && typeof s.id === 'string' && typeof s.startedAt === 'number');
+  } catch {
+    return [];
+  }
+}
+
+/** Match a loggerd timestamp into one of the given sessions (latest start wins). */
+export function findSessionForTimestampIn(list: TracksideSessionInfo[], ms: number): TracksideSessionInfo | null {
+  const matches = list.filter((s) => {
+    const end = s.endedAt ?? s.startedAt + OPEN_SESSION_MAX_MS;
+    return ms >= s.startedAt && ms <= end;
+  });
+  if (!matches.length) return null;
+  return matches.sort((a, b) => b.startedAt - a.startedAt)[0];
 }
 
 /**
@@ -85,12 +127,7 @@ export function patchSession(id: string, patch: Partial<TracksideSessionInfo>): 
  * its start. If several match, the latest-starting one wins.
  */
 export function findSessionForTimestamp(ms: number): TracksideSessionInfo | null {
-  const matches = loadSessionRegistry().filter((s) => {
-    const end = s.endedAt ?? s.startedAt + OPEN_SESSION_MAX_MS;
-    return ms >= s.startedAt && ms <= end;
-  });
-  if (!matches.length) return null;
-  return matches.sort((a, b) => b.startedAt - a.startedAt)[0];
+  return findSessionForTimestampIn(loadSessionRegistry(), ms);
 }
 
 /** Parse the loggerd start epoch (ms) from a CSV name like `orion_1717612345678.csv`. */
