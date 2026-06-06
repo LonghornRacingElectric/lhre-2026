@@ -782,6 +782,13 @@ function App() {
     if (dashSignals.status === "connected") dashSignals.publishTargetPower(dashTargetPower);
   }, [dashTargetPower, dashSignals.status, dashSignals.publishTargetPower]);
 
+  // Push the live dynamic per-lap energy budget (Wh) to the dash whenever it
+  // changes, so the driver sees the same Wh/lap target as trackside. Leader only.
+  useEffect(() => {
+    if (isMirror || dashSignals.status !== "connected") return;
+    if (dynamicLapBudgetWh != null) dashSignals.publishLapBudget(Math.round(dynamicLapBudgetWh));
+  }, [dynamicLapBudgetWh, isMirror, dashSignals.status, dashSignals.publishLapBudget]);
+
   // Push the active driver-message set to the car (retained) whenever it changes
   // or the link (re)connects, so the dash holds the current quick-send palette
   // across reboots. Only the leader commands the car.

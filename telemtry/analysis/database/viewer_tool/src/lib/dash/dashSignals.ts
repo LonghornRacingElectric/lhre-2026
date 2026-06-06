@@ -78,6 +78,8 @@ export interface DashSignals {
     publishGate: (gate: [number, number, number, number]) => void;
     /** Push the lap-card layout the dash renders (retained: sent once, used until replaced). */
     publishLayout: (layout: unknown) => boolean;
+    /** Push the live dynamic per-lap energy budget (Wh) the dash shows (retained). */
+    publishLapBudget: (wh: number) => boolean;
     /** Push the active driver-message set the car holds (retained — survives dash reboot). */
     publishMessages: (messages: DashMessage[]) => boolean;
     /** Fire one driver message onto the dash now (not retained). durationS overrides the message's own. */
@@ -228,6 +230,16 @@ export function useDashSignals(): DashSignals {
         return true;
     }, []);
 
+    // Retained: the live per-lap Wh budget (remaining energy / remaining laps),
+    // republished by trackside whenever it changes. The dash holds it and shows
+    // the driver the current Wh/lap target.
+    const publishLapBudget = useCallback((wh: number): boolean => {
+        const client = clientRef.current;
+        if (!client || !client.connected) return false;
+        client.publish(`${TOPIC_PREFIX}lapBudgetWh`, String(wh), { qos: 1, retain: true });
+        return true;
+    }, []);
+
     // Retained, like sfGate/layout: the car re-loads the current quick-send set
     // on reconnect/reboot. This is the bounded set the dash holds.
     const publishMessages = useCallback((messages: DashMessage[]): boolean => {
@@ -279,6 +291,7 @@ export function useDashSignals(): DashSignals {
         sendLap,
         publishGate,
         publishLayout,
+        publishLapBudget,
         publishMessages,
         sendMessage,
         clearMessage,
