@@ -98,6 +98,7 @@ export function DashLayoutEditor({ onClose, onSend, sendStatus }: {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [snap, setSnap] = useState(true);
   const [guides, setGuides] = useState<Guide[]>([]);
+  const [previewTheme, setPreviewTheme] = useState<'dark' | 'light'>('dark');
   const data = useMemo(() => sampleLapCardData(), []);
   const stageRef = useRef<HTMLDivElement>(null);
 
@@ -275,7 +276,7 @@ export function DashLayoutEditor({ onClose, onSend, sendStatus }: {
           {/* canvas */}
           <div className="dashEditorStage" ref={stageRef} onMouseDown={() => setSelectedId(null)}>
             <div onMouseDown={(e) => e.stopPropagation()} style={{ position: 'relative' }}>
-              <LapCardRenderer layout={layout} data={data} scale={SCALE} editable selectedId={selectedId} onWidgetMouseDown={startMove} />
+              <LapCardRenderer layout={layout} data={data} scale={SCALE} theme={previewTheme} editable selectedId={selectedId} onWidgetMouseDown={startMove} />
               {guides.map((g, i) => (
                 <div key={i} style={{ position: 'absolute', background: '#4ea1ff', pointerEvents: 'none', zIndex: 6,
                   ...(g.o === 'v'
@@ -288,7 +289,15 @@ export function DashLayoutEditor({ onClose, onSend, sendStatus }: {
                     width: 14, height: 14, background: '#4ea1ff', borderRadius: 3, cursor: 'nwse-resize', zIndex: 5 }} />
               )}
             </div>
-            <p className="muted" style={{ marginTop: 8, fontSize: '0.8rem' }}>800 × 480 · preview uses sample data · drag to move, corner to resize</p>
+            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className="themeToggle" role="group" aria-label="Preview theme">
+                <button className={previewTheme === 'dark' ? 'on' : ''} onClick={() => setPreviewTheme('dark')}>Dark</button>
+                <button className={previewTheme === 'light' ? 'on' : ''} onClick={() => setPreviewTheme('light')}>Light</button>
+              </div>
+              <span className="muted" style={{ fontSize: '0.8rem' }}>
+                800 × 480 · the car follows its own day/night theme · drag to move, corner to resize
+              </span>
+            </div>
           </div>
 
           {/* property panel */}
@@ -385,7 +394,7 @@ function PropertyPanel({ w, onChange, onDelete }: { w: Widget; onChange: (p: Par
         <Row label="Font size"><input type="number" value={w.fontSize} onChange={(e) => onChange({ fontSize: Number(e.target.value) } as Partial<Widget>)} /></Row>
       )}
       {(w.type === 'text' || w.type === 'value' || w.type === 'gauge') && (
-        <Row label="Color"><input type="color" value={normalizeColor((w as { color?: string }).color)} onChange={(e) => onChange({ color: e.target.value } as Partial<Widget>)} /></Row>
+        <ColorControl w={w} onChange={onChange} />
       )}
       {w.type === 'bar' && !w.signColored && (
         <Row label="Fill color"><input type="color" value={normalizeColor(w.color)} onChange={(e) => onChange({ color: e.target.value })} /></Row>
@@ -429,6 +438,41 @@ function ThresholdRules({ rules, onChange }: { rules: ColorRule[]; onChange: (r:
       ))}
       {!rules.length && <p className="muted" style={{ fontSize: '0.78rem', margin: '2px 0 0' }}>e.g. &lt; 20 → red for low SoC. Last matching rule wins.</p>}
     </div>
+  );
+}
+
+// Color picker with "Auto (theme)" + optional per-mode (dark/light) overrides,
+// so a widget can follow the theme or be pinned per mode if auto looks off.
+function ColorControl({ w, onChange }: { w: { color?: string; colorDark?: string; colorLight?: string }; onChange: (p: Partial<Widget>) => void }) {
+  const auto = !w.color || w.color === 'auto';
+  const perMode = (label: string, val: string | undefined, key: 'colorDark' | 'colorLight') =>
+    val ? (
+      <span style={{ display: 'inline-flex', gap: 3, alignItems: 'center' }}>
+        <input type="color" value={normalizeColor(val)} title={`${label} override`} onChange={(e) => onChange({ [key]: e.target.value } as Partial<Widget>)} />
+        <button className="tool iconOnly" aria-label={`clear ${label}`} onClick={() => onChange({ [key]: undefined } as Partial<Widget>)}>×</button>
+      </span>
+    ) : (
+      <button className="tool" onClick={() => onChange({ [key]: '#ffffff' } as Partial<Widget>)}>+ {label}</button>
+    );
+  return (
+    <>
+      <Row label="Color">
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <select value={auto ? 'auto' : 'custom'}
+            onChange={(e) => onChange({ color: e.target.value === 'auto' ? 'auto' : (w.color && w.color !== 'auto' ? w.color : '#ffffff') } as Partial<Widget>)}>
+            <option value="auto">Auto (theme)</option>
+            <option value="custom">Custom</option>
+          </select>
+          {!auto && <input type="color" value={normalizeColor(w.color)} onChange={(e) => onChange({ color: e.target.value } as Partial<Widget>)} />}
+        </div>
+      </Row>
+      <Row label="Per-mode">
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          {perMode('dark', w.colorDark, 'colorDark')}
+          {perMode('light', w.colorLight, 'colorLight')}
+        </div>
+      </Row>
+    </>
   );
 }
 

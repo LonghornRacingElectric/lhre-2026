@@ -2,6 +2,8 @@ import React from 'react';
 import ConnectivityIndicator from '../components/ConnectivityIndicator';
 import { useDash } from '../context/DashContext';
 import { useEnergyPacing } from '../hooks/useEnergyPacing';
+import { useSettings } from '../context/SettingsContext';
+import { effectiveAutoTheme } from '../util/sunCalc';
 import { LapCardRenderer } from '../LapCardRenderer';
 import { validateLapCardLayout } from '../dashLayout';
 import './ScreenOne.css';
@@ -11,6 +13,9 @@ import './ScreenOne.css';
 
 const ScreenOne: React.FC = () => {
     const { data } = useDash();
+    // The lap card follows the dash's effective theme (auto = sunrise/sunset).
+    const { settings } = useSettings();
+    const cardTheme: 'dark' | 'light' = settings.theme === 'auto' ? effectiveAutoTheme() : settings.theme;
 
     // Endurance energy pacing: integrates CAN power on-board against the
     // trackside-set targetPower budget, resets each lap on lapTrigger, and
@@ -776,7 +781,7 @@ const ScreenOne: React.FC = () => {
                     };
                     return (
                         <div style={{ position: 'absolute', inset: 0, zIndex: 1000 }}>
-                            <LapCardRenderer layout={customLayout} data={ctx} scale={1} />
+                            <LapCardRenderer layout={customLayout} data={ctx} scale={1} theme={cardTheme} />
                         </div>
                     );
                 }

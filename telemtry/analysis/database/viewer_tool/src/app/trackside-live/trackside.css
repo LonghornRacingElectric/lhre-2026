@@ -862,6 +862,9 @@ textarea:focus-visible,
 .requestRow { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); padding: var(--s-2) 0; border-top: 1px solid var(--border); }
 .requestRow .reqId { font-family: ui-monospace, monospace; font-size: var(--fs-sm); }
 .syncBanner .nameField { width: 110px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 3px 7px; color: var(--text); font-size: var(--fs-sm); }
+.themeToggle { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r-pill); overflow: hidden; }
+.themeToggle button { border: none; background: transparent; color: var(--muted-text); padding: 4px 12px; font-size: var(--fs-sm); }
+.themeToggle button.on { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
 .thresholdRules { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--border); padding-top: var(--s-2); }
 .thresholdRule { display: grid; grid-template-columns: 48px 1fr 36px 30px; gap: 6px; align-items: center; }
 .thresholdRule select, .thresholdRule input { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius); padding: 3px 5px; color: var(--text); min-width: 0; width: 100%; }

@@ -21,6 +21,31 @@ export const DELTA_GOOD = '#2ee06a';
 export const DELTA_BAD = '#ff4d4f';
 export const DELTA_ZERO = '#9aa3ab';
 
+// ---- theme (the lap card follows the dash's dark/light; editor previews both) ----
+export type CardTheme = 'dark' | 'light';
+export interface ThemePalette { fg: string; muted: string; cardBg: string; track: string; }
+export const CARD_THEMES: Record<CardTheme, ThemePalette> = {
+  dark:  { fg: '#f2f2f2', muted: '#9b9b9b', cardBg: 'rgba(10,10,12,0.94)', track: 'rgba(255,255,255,0.12)' },
+  light: { fg: '#16140f', muted: '#6a635c', cardBg: 'rgba(244,241,237,0.96)', track: 'rgba(0,0,0,0.13)' },
+};
+
+// Resolve a widget's color for the active theme:
+//   per-mode override (colorLight/colorDark) → explicit base color → "auto" (theme fg).
+export function resolveColor(
+  w: { color?: string; colorDark?: string; colorLight?: string },
+  theme: CardTheme, fallback: string,
+): string {
+  const override = theme === 'light' ? w.colorLight : w.colorDark;
+  if (override) return override;
+  if (w.color && w.color !== 'auto') return w.color;
+  return fallback;
+}
+
+/** Resolve the card background for the theme ('auto'/unset → themed surface). */
+export function resolveBackground(bg: string | undefined, theme: CardTheme): string {
+  return bg && bg !== 'auto' ? bg : CARD_THEMES[theme].cardBg;
+}
+
 /** Color a delta value by sign + which sign is "good". */
 export function deltaColor(v: number | null | undefined, goodSign: GoodSign = 'negative',
   good = DELTA_GOOD, bad = DELTA_BAD, zero = DELTA_ZERO): string {
@@ -45,7 +70,9 @@ export interface TextWidget extends BaseWidget {
   type: 'text';
   text: string;
   fontSize: number;
-  color: string;
+  color: string;            // hex, or "auto" to follow the theme foreground
+  colorDark?: string;       // optional explicit override in dark mode
+  colorLight?: string;      // optional explicit override in light mode
   align?: Align;
   bold?: boolean;
   letterSpacing?: number;
@@ -59,7 +86,9 @@ export interface ValueWidget extends BaseWidget {
   bind: string;             // dotted path into the data context (see FIELD_CATALOG)
   format: FormatId;
   fontSize: number;
-  color: string;
+  color: string;            // hex, or "auto" to follow the theme foreground
+  colorDark?: string;
+  colorLight?: string;
   align?: Align;
   bold?: boolean;
   label?: string;           // small caption above/beside the value
@@ -100,6 +129,8 @@ export interface GaugeWidget extends BaseWidget {
   min: number; max: number;
   label?: string;
   color?: string;           // hex or "gradient"
+  colorDark?: string;
+  colorLight?: string;
   mode?: 'standard' | 'bidirectional';
   format?: FormatId;        // center read-out format
 }
@@ -206,14 +237,14 @@ export function defaultLapCardLayout(): LapCardLayout {
   return {
     version: DASH_LAYOUT_VERSION,
     name: 'Default lap card',
-    background: 'rgba(8,8,10,0.92)',
+    background: 'auto',
     widgets: [
       { id: 'lap', type: 'value', bind: 'lapCard.lapNumber', format: 'int', label: 'LAP',
-        x: 250, y: 70, w: 300, h: 60, fontSize: 34, color: '#BF5700', align: 'center', bold: true, labelColor: '#BF5700' },
+        x: 250, y: 70, w: 300, h: 60, fontSize: 34, color: '#d97757', align: 'center', bold: true, labelColor: '#d97757' },
       { id: 'time', type: 'value', bind: 'lapCard.timeS', format: 'laptime',
-        x: 100, y: 150, w: 600, h: 160, fontSize: 112, color: '#FFFFFF', align: 'center', bold: true },
+        x: 100, y: 150, w: 600, h: 160, fontSize: 112, color: 'auto', align: 'center', bold: true },
       { id: 'energy', type: 'value', bind: 'lapCard.energyWh', format: 'wh', label: 'Wh / LAP',
-        x: 250, y: 330, w: 300, h: 70, fontSize: 48, color: '#9aa', align: 'center', bold: true },
+        x: 250, y: 330, w: 300, h: 70, fontSize: 48, color: 'auto', align: 'center', bold: true },
     ],
   };
 }
@@ -224,35 +255,35 @@ export const LAYOUT_TEMPLATES: { id: string; name: string; build: () => LapCardL
   {
     id: 'delta', name: 'Delta board',
     build: () => ({
-      version: DASH_LAYOUT_VERSION, name: 'Delta board', background: 'rgba(8,8,10,0.92)',
+      version: DASH_LAYOUT_VERSION, name: 'Delta board', background: 'auto',
       widgets: [
-        { id: 'time', type: 'value', bind: 'lapCard.timeS', format: 'laptime', x: 100, y: 40, w: 600, h: 130, fontSize: 96, color: '#fff', align: 'center', bold: true },
+        { id: 'time', type: 'value', bind: 'lapCard.timeS', format: 'laptime', x: 100, y: 40, w: 600, h: 130, fontSize: 96, color: 'auto', align: 'center', bold: true },
         { id: 'lapd', type: 'delta', bind: 'mqtt.lapDelta', format: 'float2', x: 60, y: 220, w: 320, h: 130, fontSize: 80, align: 'center', bold: true, label: 'LAP Δ', goodSign: 'negative', showArrow: true, showSign: true },
         { id: 'budd', type: 'delta', bind: 'pacing.budgetDeltaWh', format: 'whSigned', x: 420, y: 220, w: 320, h: 130, fontSize: 80, align: 'center', bold: true, label: 'BUDGET Δ Wh', goodSign: 'negative', showArrow: true, showSign: true },
-        { id: 'lapn', type: 'value', bind: 'lapCard.lapNumber', format: 'int', label: 'LAP', x: 300, y: 380, w: 200, h: 60, fontSize: 40, color: '#BF5700', align: 'center', bold: true },
+        { id: 'lapn', type: 'value', bind: 'lapCard.lapNumber', format: 'int', label: 'LAP', x: 300, y: 380, w: 200, h: 60, fontSize: 40, color: '#d97757', align: 'center', bold: true },
       ],
     }),
   },
   {
     id: 'energy', name: 'Energy strategy',
     build: () => ({
-      version: DASH_LAYOUT_VERSION, name: 'Energy strategy', background: 'rgba(8,8,10,0.92)',
+      version: DASH_LAYOUT_VERSION, name: 'Energy strategy', background: 'auto',
       widgets: [
         { id: 'soc', type: 'gauge', bind: 'can.soc', min: 0, max: 100, label: 'SOC', color: 'gradient', mode: 'standard', format: 'pct', x: 60, y: 130, w: 220, h: 220 },
-        { id: 'lapnrg', type: 'value', bind: 'lapCard.energyWh', format: 'wh', label: 'Wh / LAP', x: 320, y: 90, w: 420, h: 120, fontSize: 84, color: '#fff', align: 'center', bold: true },
-        { id: 'budbar', type: 'bar', bind: 'pacing.budgetDeltaWh', min: -100, max: 100, color: '#BF5700', bidirectional: true, signColored: true, goodSign: 'negative', label: 'BUDGET Δ', x: 320, y: 240, w: 420, h: 56 },
-        { id: 'laps', type: 'value', bind: 'mqtt.lapsRemaining', format: 'int', label: 'LAPS LEFT', x: 320, y: 330, w: 420, h: 100, fontSize: 64, color: '#9aa', align: 'center', bold: true },
+        { id: 'lapnrg', type: 'value', bind: 'lapCard.energyWh', format: 'wh', label: 'Wh / LAP', x: 320, y: 90, w: 420, h: 120, fontSize: 84, color: 'auto', align: 'center', bold: true },
+        { id: 'budbar', type: 'bar', bind: 'pacing.budgetDeltaWh', min: -100, max: 100, color: '#d97757', bidirectional: true, signColored: true, goodSign: 'negative', label: 'BUDGET Δ', x: 320, y: 240, w: 420, h: 56 },
+        { id: 'laps', type: 'value', bind: 'mqtt.lapsRemaining', format: 'int', label: 'LAPS LEFT', x: 320, y: 330, w: 420, h: 100, fontSize: 64, color: 'auto', align: 'center', bold: true },
       ],
     }),
   },
   {
     id: 'laptime', name: 'Lap-time focus',
     build: () => ({
-      version: DASH_LAYOUT_VERSION, name: 'Lap-time focus', background: 'rgba(8,8,10,0.92)',
+      version: DASH_LAYOUT_VERSION, name: 'Lap-time focus', background: 'auto',
       widgets: [
-        { id: 'lapn', type: 'value', bind: 'lapCard.lapNumber', format: 'int', label: 'LAP', x: 250, y: 50, w: 300, h: 60, fontSize: 38, color: '#BF5700', align: 'center', bold: true },
-        { id: 'time', type: 'value', bind: 'lapCard.timeS', format: 'laptime', x: 60, y: 140, w: 680, h: 180, fontSize: 128, color: '#fff', align: 'center', bold: true },
-        { id: 'best', type: 'value', bind: 'mqtt.bestLapTime', format: 'laptime', label: 'BEST', x: 250, y: 350, w: 300, h: 80, fontSize: 44, color: '#9aa', align: 'center', bold: true },
+        { id: 'lapn', type: 'value', bind: 'lapCard.lapNumber', format: 'int', label: 'LAP', x: 250, y: 50, w: 300, h: 60, fontSize: 38, color: '#d97757', align: 'center', bold: true },
+        { id: 'time', type: 'value', bind: 'lapCard.timeS', format: 'laptime', x: 60, y: 140, w: 680, h: 180, fontSize: 128, color: 'auto', align: 'center', bold: true },
+        { id: 'best', type: 'value', bind: 'mqtt.bestLapTime', format: 'laptime', label: 'BEST', x: 250, y: 350, w: 300, h: 80, fontSize: 44, color: 'auto', align: 'center', bold: true },
       ],
     }),
   },
@@ -272,7 +303,7 @@ export function validateLapCardLayout(raw: unknown): LapCardLayout | null {
     version: typeof o.version === 'number' ? o.version : DASH_LAYOUT_VERSION,
     id: typeof o.id === 'string' ? o.id : undefined,
     name: typeof o.name === 'string' ? o.name : 'Lap card',
-    background: typeof o.background === 'string' ? o.background : 'rgba(8,8,10,0.92)',
+    background: typeof o.background === 'string' ? o.background : 'auto',
     widgets,
   };
 }
