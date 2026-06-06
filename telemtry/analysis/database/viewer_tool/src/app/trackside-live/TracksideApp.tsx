@@ -1721,6 +1721,30 @@ function App() {
     setLiveState((prev) => ({ ...prev, status: "Event stopped — session ended and files downloaded." }));
   }
 
+  // Manually correct a lap's time (timing glitch / late press). Keeps the lap's
+  // start, sets its duration + end. Persists so it survives reload + syncs.
+  function editLapDuration(id: string, durationMs: number) {
+    if (isMirrorRef.current || !Number.isFinite(durationMs) || durationMs < 0) return;
+    const cur = liveStateRef.current;
+    const next = { ...cur, laps: cur.laps.map((l) => (l.id === id ? { ...l, durationMs, endMs: l.startMs + durationMs } : l)) };
+    liveStateRef.current = next;
+    setLiveState(next);
+    persistLiveSession(next, { saveLocal: true, saveBackend: true, includeFullLapSamples: false });
+  }
+
+  // Delete a lap (accident / bad data). Drops it from the average selection too.
+  function deleteLap(id: string) {
+    if (isMirrorRef.current) return;
+    const lap = liveStateRef.current.laps.find((l) => l.id === id);
+    if (lap && !window.confirm(`Delete ${lap.label} (${formatLapTime(lap.durationMs)})? This can't be undone.`)) return;
+    const cur = liveStateRef.current;
+    const next = { ...cur, laps: cur.laps.filter((l) => l.id !== id) };
+    liveStateRef.current = next;
+    setLiveState(next);
+    setSelectedLapIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+    persistLiveSession(next, { saveLocal: true, saveBackend: true, includeFullLapSamples: false });
+  }
+
   function handleLiveEvent(event: LiveStreamEvent) {
     if (event.type === "status") {
       if (!event.ok) {
@@ -2806,6 +2830,9 @@ function App() {
                   sectorCount={liveSectorCount}
                   selectedLapIds={selectedLapIds}
                   onToggleLap={toggleLapSelected}
+                  onEditLapTime={editLapDuration}
+                  onDeleteLap={deleteLap}
+                  editable={!isMirror}
                   targetEnergyPerLapWh={targetEnergyPerLapWh}
                   averages={lapAverages}
                 />
@@ -4109,6 +4136,9 @@ function LiveLapTable({
   sectorCount,
   selectedLapIds,
   onToggleLap,
+  onEditLapTime,
+  onDeleteLap,
+  editable,
   targetEnergyPerLapWh,
   averages,
 }: {
@@ -4124,6 +4154,9 @@ function LiveLapTable({
   sectorCount: number;
   selectedLapIds: Set<string>;
   onToggleLap: (lapId: string) => void;
+  onEditLapTime: (lapId: string, durationMs: number) => void;
+  onDeleteLap: (lapId: string) => void;
+  editable: boolean;
   targetEnergyPerLapWh: number | null;
   averages: {
     count: number;
@@ -4183,8 +4216,27 @@ function LiveLapTable({
                       aria-label={`Include ${lap.label} in average`}
                     />
                   </td>
-                  <td className={bestLap?.id === lap.id ? "purpleText" : ""}>{lap.label}</td>
-                  <td className={bestLap?.id === lap.id ? "purpleText" : ""}>{formatLapTime(lap.durationMs)}</td>
+                  <td className={bestLap?.id === lap.id ? "purpleText" : ""}>
+                    {lap.label}
+                    {editable ? (
+                      <button
+                        onClick={() => onDeleteLap(lap.id)}
+                        title={`Delete ${lap.label} (accident / bad data)`}
+                        aria-label={`Delete ${lap.label}`}
+                        style={{ marginLeft: 6, background: "none", border: "none", color: "var(--muted-text)", cursor: "pointer", padding: 0, verticalAlign: "middle" }}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    ) : null}
+                  </td>
+                  <td className={bestLap?.id === lap.id ? "purpleText" : ""}>
+                    <EditableLapTime
+                      durationMs={lap.durationMs}
+                      editable={editable}
+                      className={bestLap?.id === lap.id ? "purpleText" : ""}
+                      onCommit={(ms) => onEditLapTime(lap.id, ms)}
+                    />
+                  </td>
                   {Array.from({ length: columns }, (_unused, index) => {
                     const bestSector = bestSectors[index];
                     return (
@@ -5247,6 +5299,60 @@ function formatLapTime(ms: number) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toFixed(2).padStart(5, "0")}`;
+}
+
+// Parse an edited lap time. Accepts "M:SS.ss" / "MM:SS.ss" or plain seconds
+// ("83.45"). Returns milliseconds, or null if it can't be parsed.
+function parseLapTimeInput(text: string): number | null {
+  const s = text.trim();
+  if (!s) return null;
+  const colon = s.match(/^(\d+):(\d{1,2}(?:\.\d+)?)$/);
+  if (colon) {
+    const min = Number(colon[1]);
+    const sec = Number(colon[2]);
+    if (!Number.isFinite(min) || !Number.isFinite(sec) || sec >= 60) return null;
+    return Math.round((min * 60 + sec) * 1000);
+  }
+  const n = Number(s);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 1000) : null;
+}
+
+// Lap-time cell: click to edit (M:SS.ss or seconds), Enter/blur commits, Esc
+// cancels. Read-only span when not editable (mirror clients).
+function EditableLapTime({ durationMs, className, editable, onCommit }: {
+  durationMs: number; className?: string; editable: boolean; onCommit: (ms: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState("");
+  if (!editable) return <span className={className}>{formatLapTime(durationMs)}</span>;
+  if (editing) {
+    const commit = () => {
+      const ms = parseLapTimeInput(text);
+      setEditing(false);
+      if (ms != null && Math.abs(ms - durationMs) >= 1) onCommit(ms);
+    };
+    return (
+      <input
+        autoFocus
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); else if (e.key === "Escape") setEditing(false); }}
+        aria-label="Edit lap time (M:SS.ss or seconds)"
+        style={{ width: 78, padding: "1px 4px", font: "inherit", background: "var(--surface-alt)", border: "1px solid var(--accent)", borderRadius: 4, color: "var(--text)" }}
+      />
+    );
+  }
+  return (
+    <button
+      className={className}
+      title="Click to edit lap time (M:SS.ss or seconds)"
+      onClick={() => { setText(formatLapTime(durationMs)); setEditing(true); }}
+      style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "text", padding: 0, borderBottom: "1px dotted var(--muted-text)" }}
+    >
+      {formatLapTime(durationMs)}
+    </button>
+  );
 }
 
 function formatSignedSeconds(ms: number) {
