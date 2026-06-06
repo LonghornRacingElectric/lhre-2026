@@ -398,7 +398,7 @@ function normalizeCarPreset(value: unknown): CarPreset | null {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<AppTab>("exporter");
+  const [activeTab, setActiveTab] = useState<AppTab>("live");
   // First-load onboarding tour. Opens automatically until the user finishes/skips
   // it once (persisted in localStorage); re-openable any time via the help button.
   const [showTour, setShowTour] = useState(false);
@@ -717,6 +717,18 @@ function App() {
   useEffect(() => {
     localStorage.setItem("dash-auto-lap", dashAutoLap ? "1" : "0");
   }, [dashAutoLap]);
+
+  // Deep-link from the homepage "Car Status" card (/trackside-live?focus=car):
+  // land on the Live tab and scroll the car-status panel into view.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("focus") !== "car") return;
+    setActiveTab("live");
+    const id = window.setTimeout(() => {
+      document.getElementById("car-status-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 200);
+    return () => window.clearTimeout(id);
+  }, []);
 
   // Tick once a second while the Dash tab is open so the link-health "Xs ago"
   // ages and the dash-silent warning stay live without a new message.
@@ -2005,18 +2017,15 @@ function App() {
         </div>
       ) : null}
 
+      {/* Trackside-focused tabs only. Exporter + Race Ops are kept in the source
+          (their sections still render if activeTab is set to them) but the buttons
+          are hidden for now — re-add a button here to bring either back. */}
       <nav className="tabBar" aria-label="Telemetry workspace">
-        <button className={activeTab === "exporter" ? "tab activeTab" : "tab"} onClick={() => setActiveTab("exporter")}>
-          <Download size={16} /> Exporter
-        </button>
         <button className={activeTab === "live" ? "tab activeTab" : "tab"} onClick={() => setActiveTab("live")}>
           <Radio size={16} /> Live Viewer
         </button>
         <button className={activeTab === "track-builder" ? "tab activeTab" : "tab"} onClick={() => setActiveTab("track-builder")}>
           <MapPinned size={16} /> Track Builder
-        </button>
-        <button className={activeTab === "race-ops" ? "tab activeTab" : "tab"} onClick={() => setActiveTab("race-ops")}>
-          <NotebookText size={16} /> Race Ops
         </button>
         <button className={activeTab === "dash" ? "tab activeTab" : "tab"} onClick={() => setActiveTab("dash")}>
           <Gauge size={16} /> Dash
@@ -2295,6 +2304,7 @@ function App() {
 
           <div className="liveLayout">
             <div className="leftRail">
+              <div id="car-status-anchor">
               <CarStatusPanel
                 feed={carStatus}
                 carState={carState}
@@ -2304,6 +2314,7 @@ function App() {
                 uplinkDot={uplinkMeta.dot}
                 running={liveState.running}
               />
+              </div>
               <Panel title="Live Laps" icon={<Timer size={18} />}>
                 <LiveLapTable
                   laps={liveState.laps}
@@ -2379,34 +2390,6 @@ function App() {
                     </select>
                   </label>
                   <label>
-                    <span>Topic source</span>
-                    <select value={liveTransport} disabled={liveState.running} onChange={(e) => setLiveTransport(e.target.value as KafkaTransport)}>
-                      <option value="local">Local replay bus (simulator)</option>
-                      <option value="kafka">Kafka broker (car)</option>
-                      <option value="mqtt">MQTT broker (car direct)</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>Topic</span>
-                    <input value={liveTopic} placeholder={liveTransport === "mqtt" ? "orion" : `grafana_data_${source}`} disabled={liveState.running} onChange={(e) => setLiveTopic(e.target.value)} />
-                  </label>
-                  <label>
-                    <span>Sample rate</span>
-                    <select value={liveSampleHz} disabled={liveState.running} onChange={(e) => setLiveSampleHz(Number(e.target.value))}>
-                      <option value={1}>1 Hz</option>
-                      <option value={2}>2 Hz</option>
-                      <option value={5}>5 Hz</option>
-                      <option value={10}>10 Hz</option>
-                      <option value={20}>20 Hz</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>VCU torque params</span>
-                    <select value={torqueParamSet.id} onChange={(e) => setTorqueParamSetId(e.target.value)}>
-                      {VCU_TORQUE_PARAM_SETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-                    </select>
-                  </label>
-                  <label>
                     <span>Track</span>
                     <select value={track.slug} onChange={(e) => setTrack(normalizeTrack(tracks.find((t) => t.slug === e.target.value) ?? track))}>
                       <option value={track.slug}>{track.name}</option>
@@ -2420,10 +2403,33 @@ function App() {
                       {channelCharts.filter((chart) => chart.slug !== channelChart.slug).map((chart) => <option key={chart.slug} value={chart.slug}>{chart.name}</option>)}
                     </select>
                   </label>
-                  <label>
-                    <span>Session</span>
-                    <input value={metadataDraft.session} placeholder="Session metadata" onChange={(e) => setMetadataDraft((prev) => ({ ...prev, session: e.target.value }))} />
-                  </label>
+                  {/* Connection knobs are dev/debug only — prod streams the car
+                      automatically. Tucked away so the focused setup stays clean. */}
+                  <details className="advancedConn">
+                    <summary>Connection (advanced)</summary>
+                    <label>
+                      <span>Topic source</span>
+                      <select value={liveTransport} disabled={liveState.running} onChange={(e) => setLiveTransport(e.target.value as KafkaTransport)}>
+                        <option value="local">Local replay bus (simulator)</option>
+                        <option value="kafka">Kafka broker (car)</option>
+                        <option value="mqtt">MQTT broker (car direct)</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Topic</span>
+                      <input value={liveTopic} placeholder={liveTransport === "mqtt" ? "orion" : `grafana_data_${source}`} disabled={liveState.running} onChange={(e) => setLiveTopic(e.target.value)} />
+                    </label>
+                    <label>
+                      <span>Sample rate</span>
+                      <select value={liveSampleHz} disabled={liveState.running} onChange={(e) => setLiveSampleHz(Number(e.target.value))}>
+                        <option value={1}>1 Hz</option>
+                        <option value={2}>2 Hz</option>
+                        <option value={5}>5 Hz</option>
+                        <option value={10}>10 Hz</option>
+                        <option value={20}>20 Hz</option>
+                      </select>
+                    </label>
+                  </details>
                   <label>
                     <span>Target laps</span>
                     <input
@@ -2465,11 +2471,9 @@ function App() {
                   <div className="feedControl">
                     <div>
                       <strong>Live feed</strong>
-                      <small>Auto-starts on load and reconnects if it drops. Stop only to pause.</small>
+                      <small>Auto-starts on load and reconnects if it drops — no need to start it.</small>
                     </div>
-                    <button type="button" className="tool" onClick={liveState.running ? stopLiveData : startLiveData}>
-                      {liveState.running ? <><Activity size={15} /> Stop</> : <><Radio size={15} /> Start</>}
-                    </button>
+                    <span className="freshTag"><span className={`dot ${uplinkMeta.dot}`} /> {uplinkMeta.label}</span>
                   </div>
                   <div className="sessionFileRow">
                     <button type="button" className="tool" onClick={saveSessionFile}>
@@ -5437,8 +5441,7 @@ const TOUR_STEPS: TourStep[] = [
         The live tab <strong>auto-connects</strong> on load — no need to press
         Start. The hero shows lap time, best lap, energy used and regen. Gauges,
         the position map and pack/temperature panels fill in as data arrives. Use
-        <strong> Stop Live</strong> to pause and <strong>Reset</strong> to clear
-        the session.
+        <strong> Reset</strong> in Live Setup to start a fresh session.
       </>
     ),
   },
@@ -5469,15 +5472,14 @@ const TOUR_STEPS: TourStep[] = [
     ),
   },
   {
-    tab: "exporter",
-    icon: <Download size={20} />,
-    title: "Exporter & Race Ops",
+    tab: "dash",
+    icon: <Gauge size={20} />,
+    title: "Dash comms",
     body: (
       <>
-        The <strong>Exporter</strong> tab pulls historical drive-days from the
-        database to plot and export to MoTeC. <strong>Race Ops</strong> tracks
-        energy budget across a stint. Pick the car and channel chart in the side
-        panels. That&apos;s the tour — have fun!
+        The <strong>Dash</strong> tab links to the on-car driver display: send a
+        lap, broadcast the power budget, and push the start/finish line so the car
+        counts laps itself. That&apos;s the tour — have fun!
       </>
     ),
   },

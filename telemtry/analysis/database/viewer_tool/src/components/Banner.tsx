@@ -42,11 +42,10 @@ const Banner = () => {
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem asChild><Link href="/">Home</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/driveday">Driveday Page</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/tune">Texas Tune</Link></DropdownMenuItem>
+            <DropdownMenuItem asChild><Link href="/trackside-live">Trackside Live</Link></DropdownMenuItem>
+            <DropdownMenuItem asChild><Link href="/trackside-live?focus=car">Car Status</Link></DropdownMenuItem>
+            <DropdownMenuItem asChild><Link href="/log-sync">Log Sync</Link></DropdownMenuItem>
             <DropdownMenuItem asChild><Link href="/dashboards">Grafana</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/live-viewer">Live Viewer</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/replay">Replay</Link></DropdownMenuItem>
             <DropdownMenuItem onClick={handleSignOut}>Logout</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

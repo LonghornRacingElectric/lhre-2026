@@ -749,6 +749,18 @@ textarea:focus-visible,
 .trackForm .sessionFileRow, .trackForm small { grid-column: 1 / -1; }
 .rightRail .trackForm { grid-template-columns: minmax(0, 1fr); }
 
+/* Collapsed "Connection (advanced)" disclosure — dev/debug knobs, out of the way. */
+.trackForm .advancedConn { grid-column: 1 / -1; display: grid; gap: var(--s-2); }
+.trackForm .advancedConn summary {
+  cursor: pointer;
+  color: var(--muted-text);
+  font-size: var(--fs-sm);
+  padding: var(--s-1) 0;
+  user-select: none;
+}
+.trackForm .advancedConn summary:hover { color: var(--text); }
+.trackForm .advancedConn[open] { padding-bottom: var(--s-1); }
+
 .sessionFileRow, .resumeBannerActions {
   display: flex;
   flex-wrap: wrap;
