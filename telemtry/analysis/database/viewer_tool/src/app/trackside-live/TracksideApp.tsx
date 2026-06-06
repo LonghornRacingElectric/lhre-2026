@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type Dispatch, 
 import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, Moon, NotebookText, Plus, Power, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, WifiOff, X, Zap } from "lucide-react";
 import { api } from "@/lib/trackside/api";
 import { useCarStatus, CAR_STATE_META, humanizeReason, type CarState, type CarStatusFeed } from "@/lib/trackside/useCarStatus";
+import { EVENT_TYPES, upsertSession, patchSession, type TracksideSessionInfo } from "@/lib/trackside/sessionRegistry";
 import { useDashSignals } from "@/lib/dash/dashSignals";
 import type {
   ChannelDef,
@@ -449,6 +450,9 @@ function App() {
   const [error, setError] = useState("");
   const [sessionMetadata, setSessionMetadata] = useState<Record<string, SessionMetadata>>({});
   const [metadataDraft, setMetadataDraft] = useState<SessionMetadata>(EMPTY_METADATA);
+  // The active named session (for the logsync registry + export identity).
+  const [sessionInfo, setSessionInfo] = useState<TracksideSessionInfo | null>(null);
+  const [newSessionOpen, setNewSessionOpen] = useState(false);
   const [mixedMetadata, setMixedMetadata] = useState<Set<MetadataField>>(new Set());
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("motec-theme") === "dark");
   const [builderCenter, setBuilderCenter] = useState({ lat: 30.3922, lon: -97.7287 });
@@ -623,6 +627,16 @@ function App() {
   };
   const uplinkMeta = UPLINK_META[uplink];
 
+  // Live GPS health — also signals whether GPS auto-lap is backing up the manual
+  // lap button (needs an S/F gate defined and a usable fix).
+  const sfGateDefined = track.gates.some((gate) => gate.role === "start_finish");
+  const liveHasGpsFix = liveState.lastSample != null && hasGps(liveState.lastSample);
+  const gpsTag = liveState.lastSample == null
+    ? { dot: "stale", label: "GPS —" }
+    : liveHasGpsFix
+      ? { dot: "live", label: sfGateDefined ? "GPS · auto-lap armed" : "GPS fix" }
+      : { dot: "dead", label: "No GPS fix" };
+
   // Authoritative car state from the central classifier (PR #282), if reachable.
   const carStatus = useCarStatus(source, liveState.running);
   const carStateAgeMs = carStatus.lastEventAt == null ? null : Math.max(0, liveNowMs - carStatus.lastEventAt);
@@ -717,6 +731,17 @@ function App() {
   useEffect(() => {
     localStorage.setItem("dash-auto-lap", dashAutoLap ? "1" : "0");
   }, [dashAutoLap]);
+
+  // Keep the active session's registry record current as it runs, so the Log Sync
+  // page can match a CSV's loggerd timestamp into the right session window and
+  // auto-fill its annotation. Tracks telemetry time (lastSample) when available.
+  useEffect(() => {
+    if (!sessionInfo) return;
+    patchSession(sessionInfo.id, {
+      laps: liveState.laps.length,
+      endedAt: liveState.lastSample?.t ?? Date.now(),
+    });
+  }, [sessionInfo, liveState.laps.length, liveState.lastSample?.t]);
 
   // Deep-link from the homepage "Car Status" card (/trackside-live?focus=car):
   // land on the Live tab and scroll the car-status panel into view.
@@ -1330,7 +1355,8 @@ function App() {
     setCarPresetDraft(fallback);
   }
 
-  async function startLiveData() {
+  async function startLiveData(sourceOverride?: "orion" | "angelique") {
+    const useSource = sourceOverride ?? source;
     liveSourceRef.current?.close();
     liveShouldRunRef.current = true;
     if (reconnectTimerRef.current != null) {
@@ -1351,9 +1377,9 @@ function App() {
     setLiveState(nextLiveState);
     try {
       const requestedTopic = liveTopic.trim();
-      const config = await api.liveConfig(source, requestedTopic, liveTransport);
+      const config = await api.liveConfig(useSource, requestedTopic, liveTransport);
       setLiveState((prev) => ({ ...prev, topic: config.topic, status: liveTransport === "mqtt" ? `Listening to MQTT ${config.topic}` : `Listening to ${config.topic}` }));
-      const params = new URLSearchParams({ source, topic: requestedTopic, transport: liveTransport, sampleHz: String(liveSampleHz) });
+      const params = new URLSearchParams({ source: useSource, topic: requestedTopic, transport: liveTransport, sampleHz: String(liveSampleHz) });
       const eventSource = new EventSource(`/api/motec/live/stream?${params.toString()}`);
       liveSourceRef.current = eventSource;
       eventSource.onopen = () => {
@@ -1401,10 +1427,9 @@ function App() {
     setLiveState((prev) => ({ ...prev, running: false, connected: false, status: prev.laps.length ? "Stopped" : "Stopped without completed laps" }));
   }
 
-  function resetLiveSession() {
-    const hasSessionData = liveStateRef.current.laps.length || liveStateRef.current.samples.length || liveStateRef.current.lapStartMs;
-    if (hasSessionData && !window.confirm("Reset all live laps, current lap data, and saved session cache?")) return;
-    liveShouldRunRef.current = false;
+  // Wipe all live-session state + caches. Does NOT touch the feed's run-intent —
+  // callers decide whether to re-arm the stream afterwards.
+  function clearLiveSessionState() {
     if (reconnectTimerRef.current != null) {
       window.clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
@@ -1416,12 +1441,81 @@ function App() {
     lastLocalSessionSaveRef.current = 0;
     lastBackendSessionSaveRef.current = 0;
     lastSavedLapCountRef.current = 0;
+    dashLastLapCountRef.current = 0;
     setLiveState(EMPTY_LIVE_STATE);
     setSelectedLapIds(new Set());
     setResumeAvailable(null);
     removeLocalSavedSession();
     void removeIndexedSavedSession();
     void api.clearLiveSession().catch(() => undefined);
+  }
+
+  function resetLiveSession() {
+    const hasSessionData = liveStateRef.current.laps.length || liveStateRef.current.samples.length || liveStateRef.current.lapStartMs;
+    if (hasSessionData && !window.confirm("Reset all live laps, current lap data, and saved session cache?")) return;
+    if (sessionInfo) {
+      patchSession(sessionInfo.id, { endedAt: Date.now(), laps: liveStateRef.current.laps.length });
+      setSessionInfo(null);
+    }
+    clearLiveSessionState();
+    // The manual Start button is gone, so a reset re-arms the auto feed; the
+    // cleared session keeps streaming rather than stranding the strategist.
+    void startLiveData();
+  }
+
+  // Start a fresh, named session: close out any prior record, clear state, stamp
+  // the metadata for exports + the logsync registry, and re-arm the feed.
+  function startNewSession(draft: { name: string; car: "orion" | "angelique"; driver: string; eventType: string; venue: string }) {
+    if (sessionInfo) patchSession(sessionInfo.id, { endedAt: Date.now(), laps: liveStateRef.current.laps.length });
+    clearLiveSessionState();
+    const startedAt = Date.now();
+    const info: TracksideSessionInfo = {
+      id: `sess-${startedAt}-${Math.floor(Math.random() * 1e6)}`,
+      name: draft.name.trim() || `${draft.venue || "Session"} ${new Date(startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+      car: draft.car,
+      driver: draft.driver.trim(),
+      eventType: draft.eventType,
+      venue: draft.venue.trim(),
+      startedAt,
+      endedAt: null,
+      laps: 0,
+    };
+    upsertSession(info);
+    setSessionInfo(info);
+    // Mirror into the MoTeC/CSV export metadata so a downloaded lap carries the
+    // same identity the logsync annotation will get.
+    setMetadataDraft((prev) => ({ ...prev, driver: info.driver, venue: info.venue, event: info.eventType, session: info.name }));
+    if (draft.car !== source) setSource(draft.car);
+    setNewSessionOpen(false);
+    void startLiveData(draft.car);
+  }
+
+  // Download the session's laps as a flat CSV (timestamps + per-lap energy), for
+  // sharing/analysis alongside the MoTeC export and the full session JSON.
+  function downloadSessionCsv() {
+    const laps = liveStateRef.current.laps;
+    if (!laps.length) return;
+    const header = ["lap", "kind", "start_iso", "end_iso", "duration_s", "energy_out_wh", "energy_in_wh", "distance_m", "avg_speed_mps"];
+    const rows = laps.map((lap, i) => [
+      i + 1,
+      lap.kind,
+      new Date(lap.startMs).toISOString(),
+      new Date(lap.endMs).toISOString(),
+      (lap.durationMs / 1000).toFixed(3),
+      (lap.energyOutWh ?? lap.energyWh).toFixed(1),
+      (lap.energyInWh ?? 0).toFixed(1),
+      lap.distanceM.toFixed(1),
+      lap.avgSpeedMps != null ? lap.avgSpeedMps.toFixed(2) : "",
+    ]);
+    const csv = [header, ...rows].map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const base = (sessionInfo?.name || `${source}_session`).replace(/[^\w.-]+/g, "_");
+    link.href = url;
+    link.download = `${base}_laps.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   function handleLiveEvent(event: LiveStreamEvent) {
@@ -1489,9 +1583,15 @@ function App() {
     let resetDelta = false;
     const laps = [...current.laps];
 
-    if (previous && hasGps(previous) && hasGps(sample)) {
+    // Trust a GPS step for lap/sector detection only if both points have a fix
+    // and the implied speed is plausible — a teleport spike is a bad fix, not a
+    // real crossing. (Sector splits now also run live, not just on file replay,
+    // so GPS auto-timing backs up the manual lap button for redundancy.)
+    const gpsStepSpeed = dtSeconds > 0 ? distanceDeltaM / dtSeconds : 0;
+    const gpsTrustworthy = previous != null && hasGps(previous) && hasGps(sample) && gpsStepSpeed <= MAX_PLAUSIBLE_GPS_MPS;
+    if (gpsTrustworthy) {
       const startGate = trackForLive.gates.find((gate) => gate.role === "start_finish");
-      const splits = sessionFromFile ? trackForLive.gates.filter((gate) => gate.role === "split") : [];
+      const splits = trackForLive.gates.filter((gate) => gate.role === "split");
       if (startGate && sampleCrossesGate(previous, sample, startGate)) {
         if (lapStartMs && sample.t - lapStartMs > 5000) {
           const durationMs = sample.t - lapStartMs;
@@ -1979,6 +2079,16 @@ function App() {
           onFinish={() => dismissTour(true)}
         />
       ) : null}
+      {newSessionOpen ? (
+        <NewSessionModal
+          sources={sources}
+          defaultCar={source}
+          defaultVenue={track.name}
+          defaultDriver={metadataDraft.driver}
+          onStart={startNewSession}
+          onClose={() => setNewSessionOpen(false)}
+        />
+      ) : null}
       <header className="topbar">
         <div>
           <h1>Trackside Live</h1>
@@ -2263,6 +2373,9 @@ function App() {
                   <span className={liveBadgeClass}><Radio size={14} /> {liveBadgeLabel}</span>
                 )}
                 <span className="freshTag"><span className={`dot ${uplinkMeta.dot}`} /> {uplinkMeta.label}</span>
+                <span className="freshTag" title={sfGateDefined ? "GPS auto-lap detection is active and backs up the manual Log Lap button" : "Define a start/finish gate in Track Builder to enable GPS auto-lap"}>
+                  <span className={`dot ${gpsTag.dot}`} /> {gpsTag.label}
+                </span>
               </div>
               <h2>{liveState.lapStartMs ? formatLapTime(liveLapElapsedMs) : "0:00.00"}</h2>
               <p>{liveState.lapStartMs ? "Flying lap" : "Out lap / waiting for start"}</p>
@@ -2475,12 +2588,24 @@ function App() {
                     </div>
                     <span className="freshTag"><span className={`dot ${uplinkMeta.dot}`} /> {uplinkMeta.label}</span>
                   </div>
+                  {sessionInfo ? (
+                    <div className="sessionTag" title={`Started ${new Date(sessionInfo.startedAt).toLocaleString()}`}>
+                      <strong>{sessionInfo.name}</strong>
+                      <small>{[sessionInfo.eventType, sessionInfo.driver, sessionInfo.venue].filter(Boolean).join(" · ") || "no metadata"}</small>
+                    </div>
+                  ) : null}
                   <div className="sessionFileRow">
+                    <button type="button" className="primary" onClick={() => setNewSessionOpen(true)}>
+                      <Plus size={15} /> New Session
+                    </button>
                     <button type="button" className="tool" onClick={saveSessionFile}>
-                      <Save size={15} /> Save Session
+                      <Save size={15} /> Save JSON
+                    </button>
+                    <button type="button" className="tool" disabled={!liveState.laps.length} onClick={downloadSessionCsv}>
+                      <Download size={15} /> Laps CSV
                     </button>
                     <button type="button" className="tool" onClick={() => sessionFileInputRef.current?.click()}>
-                      <Upload size={15} /> Load Session
+                      <Upload size={15} /> Load
                     </button>
                     <input
                       ref={sessionFileInputRef}
@@ -2493,7 +2618,7 @@ function App() {
                   <div className="dangerZone">
                     <div>
                       <strong>Reset saved run</strong>
-                      <small>Clears live laps, current lap data, and autosaved session cache.</small>
+                      <small>Clears laps + cache and keeps streaming. Use New Session to also tag a fresh run.</small>
                     </div>
                     <button type="button" className="tool dangerTool" onClick={resetLiveSession}>
                       <Trash2 size={15} /> Reset All
@@ -2889,6 +3014,86 @@ const METADATA_LONG_FIELDS = new Set<MetadataField>(["vehicle_comment", "short_c
 // Single source of truth for the MoTeC metadata field grid — used by the
 // exporter, the live pre-set panel, and the car-preset editor (previously three
 // near-identical copies).
+function NewSessionModal({
+  sources,
+  defaultCar,
+  defaultVenue,
+  defaultDriver,
+  onStart,
+  onClose,
+}: {
+  sources: SourceDef[];
+  defaultCar: "orion" | "angelique";
+  defaultVenue: string;
+  defaultDriver: string;
+  onStart: (draft: { name: string; car: "orion" | "angelique"; driver: string; eventType: string; venue: string }) => void;
+  onClose: () => void;
+}) {
+  const [car, setCar] = useState<"orion" | "angelique">(defaultCar);
+  const [driver, setDriver] = useState(defaultDriver);
+  const [eventType, setEventType] = useState<string>(EVENT_TYPES[0]);
+  const [venue, setVenue] = useState(defaultVenue);
+  const [name, setName] = useState("");
+  const suggestedName = `${venue || "Session"} · ${eventType}`;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="modalOverlay" onMouseDown={onClose}>
+      <div className="modalCard" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="modalHead">
+          <h3>New session</h3>
+          <button className="tool iconOnly" onClick={onClose} aria-label="Close"><X size={16} /></button>
+        </div>
+        <div className="trackForm">
+          <label>
+            <span>Session name</span>
+            <input value={name} placeholder={suggestedName} autoFocus onChange={(e) => setName(e.target.value)} />
+          </label>
+          <label>
+            <span>Car</span>
+            <select value={car} onChange={(e) => setCar(e.target.value as "orion" | "angelique")}>
+              {sources.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Event type</span>
+            <select value={eventType} onChange={(e) => setEventType(e.target.value)}>
+              {EVENT_TYPES.map((ev) => <option key={ev} value={ev}>{ev}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Driver</span>
+            <input value={driver} placeholder="Name" onChange={(e) => setDriver(e.target.value)} />
+          </label>
+          <label>
+            <span>Venue / track</span>
+            <input value={venue} onChange={(e) => setVenue(e.target.value)} />
+          </label>
+          <small className="muted">
+            Starts now and clears the current run. The name, driver, event and venue tag this
+            session so its log CSV auto-fills in Log Sync.
+          </small>
+        </div>
+        <div className="modalFoot">
+          <button type="button" className="tool" onClick={onClose}>Cancel</button>
+          <button
+            type="button"
+            className="primary"
+            onClick={() => onStart({ name: name.trim() || suggestedName, car, driver, eventType, venue })}
+          >
+            <Flag size={15} /> Start session
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MetadataFields({
   values,
   onChange,
@@ -4372,8 +4577,15 @@ function dedupeCrossings(times: number[], minimumGapMs: number) {
 }
 
 function hasGps(sample: LiveSample): sample is LiveSample & { lat: number; lon: number } {
-  return typeof sample.lat === "number" && typeof sample.lon === "number" && Number.isFinite(sample.lat) && Number.isFinite(sample.lon);
+  return typeof sample.lat === "number" && typeof sample.lon === "number"
+    && Number.isFinite(sample.lat) && Number.isFinite(sample.lon)
+    // Reject the (0,0) null-island sentinel a module emits before it has a fix.
+    && !(sample.lat === 0 && sample.lon === 0);
 }
+
+// A single GPS step is implausible above this ground speed (~270 km/h) — used to
+// reject teleport glitches that would otherwise fire a false gate crossing.
+const MAX_PLAUSIBLE_GPS_MPS = 75;
 
 function distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
   const radius = 6371000;

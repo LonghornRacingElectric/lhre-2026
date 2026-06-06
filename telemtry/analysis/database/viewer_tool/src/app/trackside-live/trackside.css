@@ -761,6 +761,48 @@ textarea:focus-visible,
 .trackForm .advancedConn summary:hover { color: var(--text); }
 .trackForm .advancedConn[open] { padding-bottom: var(--s-1); }
 
+/* Active named-session chip in Live Setup. */
+.sessionTag {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 2px;
+  padding: var(--s-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2, rgba(127, 127, 127, 0.06));
+}
+.sessionTag strong { font-size: var(--fs-base); color: var(--text); }
+.sessionTag small { color: var(--muted-text); font-size: var(--fs-sm); }
+
+/* New-session modal. */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  padding: var(--s-3);
+}
+.modalCard {
+  width: 100%;
+  max-width: 460px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--surface, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 14px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  padding: var(--s-4);
+  display: grid;
+  gap: var(--s-3);
+}
+.modalHead { display: flex; align-items: center; justify-content: space-between; }
+.modalHead h3 { margin: 0; font-size: var(--fs-lg, 1.2rem); }
+.modalFoot { display: flex; justify-content: flex-end; gap: var(--s-2); }
+.modalCard .trackForm small { grid-column: 1 / -1; }
+
 .sessionFileRow, .resumeBannerActions {
   display: flex;
   flex-wrap: wrap;
