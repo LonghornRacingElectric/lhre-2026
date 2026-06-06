@@ -911,6 +911,14 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                         continue;
                     }
 
+                    // We subscribe to lhre/dash/# and therefore hear our own
+                    // publishes echoed back (state @2Hz + ack/* retained). Those
+                    // aren't numeric inputs — skip them silently so they don't
+                    // spam "bad payload" every frame.
+                    if field == "state" || field.starts_with("ack/") {
+                        continue;
+                    }
+
                     let val: f32 = match payload_str.parse() {
                         Ok(v) => v,
                         Err(_) => {
