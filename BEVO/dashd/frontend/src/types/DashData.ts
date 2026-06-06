@@ -104,6 +104,9 @@ export interface DashMessage {
     can: CanData;
     mqtt: MqttData;
     pacing: PacingData;
+    // Website-authored lap-card layout (retained lhre/dash/layout), forwarded by
+    // dashd. Validated at render; absent → the built-in lap card is used.
+    layout?: unknown;
 }
 
 // Shutdown circuit / safety-fault items, in the order dashd emits them.

@@ -238,6 +238,11 @@ struct DashMessage {
     can: CanData,
     mqtt: MqttData,
     pacing: PacingData,
+    /// Website-authored lap-card layout (retained `lhre/dash/layout`), forwarded
+    /// verbatim to the frontend. None until one is sent → frontend uses its
+    /// built-in lap card.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    layout: Option<serde_json::Value>,
 }
 
 /// Snapshot published to `lhre/dash/state` for the trackside link-health /
@@ -349,6 +354,10 @@ struct DashState {
     last_energy_update: Option<Instant>,
     /// Snapshot of the most recently completed lap (for the lap card / mirror).
     last_lap: Option<(u32, f32, f32)>, // (lap_number, time_s, energy_wh)
+
+    /// Website-authored lap-card layout (retained `lhre/dash/layout`), held as
+    /// raw JSON and forwarded to the frontend. None → frontend's built-in card.
+    layout: Option<serde_json::Value>,
 }
 
 impl DashState {
@@ -395,6 +404,11 @@ impl DashState {
 // car reboot even if the broker drops its retained copy. Override with
 // DASHD_SFGATE_PATH.
 const SFGATE_PATH: &str = "/tmp/BEVO_dash_sfgate.json";
+
+// Path the website-authored lap-card layout is cached to (retained on
+// `lhre/dash/layout`), so it survives a dashd/car reboot. Override with
+// DASHD_LAYOUT_PATH.
+const LAYOUT_PATH: &str = "/tmp/BEVO_dash_layout.json";
 
 /// Does the car's path segment (prev->cur GPS) cross the gate line? Both car
 /// points are (lat, lon); the gate is [lat1, lon1, lat2, lon2]. Lat/lon are
@@ -443,6 +457,31 @@ fn load_sf_gate() -> Option<[f64; 4]> {
         Ok(gate) => {
             println!("[DASHD] Restored start/finish gate from {}: {:?}", path, gate);
             Some(gate)
+        }
+        Err(_) => None,
+    }
+}
+
+fn layout_path() -> String {
+    env_or_default("DASHD_LAYOUT_PATH", LAYOUT_PATH)
+}
+
+/// Cache the lap-card layout to disk so it survives a dashd/car reboot even if
+/// the broker drops its retained copy.
+fn persist_layout(raw: &str) {
+    if let Err(e) = std::fs::write(layout_path(), raw) {
+        eprintln!("[DASHD] Failed to persist layout: {}", e);
+    }
+}
+
+/// Restore the last-known layout on boot, before the broker (re)delivers it.
+fn load_layout() -> Option<serde_json::Value> {
+    let path = layout_path();
+    let data = std::fs::read_to_string(&path).ok()?;
+    match serde_json::from_str::<serde_json::Value>(data.trim()) {
+        Ok(v) => {
+            println!("[DASHD] Restored lap-card layout from {}", path);
+            Some(v)
         }
         Err(_) => None,
     }
@@ -720,7 +759,8 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                 // (GPS- or trackside-driven). Always fresh.
                                 mqtt.lap_trigger = Some(locked.lap_count as f32);
                                 let pacing = locked.pacing(Instant::now());
-                                DashMessage { seq, can, mqtt, pacing }
+                                let layout = locked.layout.clone();
+                                DashMessage { seq, can, mqtt, pacing, layout }
                             };
 
                             let json = match serde_json::to_string(&message) {
@@ -840,6 +880,32 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                             }
                             Err(e) => {
                                 eprintln!("[DASHD] MQTT bad sfGate payload {:?}: {}", payload_str, e)
+                            }
+                        }
+                        continue;
+                    }
+
+                    // layout carries the lap-card layout as a JSON object; retained,
+                    // so the dash re-loads it on reconnect. Cached to disk for reboot.
+                    // We don't interpret it here — the frontend renders it.
+                    if field == "layout" {
+                        match serde_json::from_str::<serde_json::Value>(payload_str) {
+                            Ok(v) => {
+                                {
+                                    let mut locked = state.lock().unwrap();
+                                    locked.layout = Some(v);
+                                }
+                                persist_layout(payload_str);
+                                let _ = client.publish(
+                                    format!("{}ack/layout", MQTT_TOPIC_PREFIX),
+                                    QoS::AtMostOnce,
+                                    true,
+                                    payload_str.as_bytes().to_vec(),
+                                );
+                                println!("[DASHD] Loaded lap-card layout ({} bytes)", payload_str.len());
+                            }
+                            Err(e) => {
+                                eprintln!("[DASHD] MQTT bad layout payload: {}", e)
                             }
                         }
                         continue;
@@ -1023,6 +1089,8 @@ fn main() -> Result<()> {
         lap_start: Instant::now(),
         last_energy_update: None,
         last_lap: None,
+        // Restore the last layout from disk; the retained MQTT topic refreshes it.
+        layout: load_layout(),
     }));
 
     let ipc_state = Arc::clone(&state);
