@@ -50,6 +50,10 @@ export interface TextWidget extends BaseWidget {
   bold?: boolean;
   letterSpacing?: number;
 }
+// A threshold color rule: when the bound value is </> a cutoff, recolor.
+// Rules apply in order, last match wins (so order specific→general or vice-versa).
+export interface ColorRule { cmp: 'lt' | 'gt'; value: number; color: string; }
+
 export interface ValueWidget extends BaseWidget {
   type: 'value';
   bind: string;             // dotted path into the data context (see FIELD_CATALOG)
@@ -60,6 +64,7 @@ export interface ValueWidget extends BaseWidget {
   bold?: boolean;
   label?: string;           // small caption above/beside the value
   labelColor?: string;
+  thresholds?: ColorRule[]; // e.g. [{cmp:'lt',value:20,color:'#ff4d4f'}] for low SoC
 }
 export interface BarWidget extends BaseWidget {
   type: 'bar';
@@ -161,6 +166,16 @@ export function getByPath(ctx: unknown, path: string): number | null {
   return typeof cur === 'number' && Number.isFinite(cur) ? cur : null;
 }
 
+// Pick a value's color: base, overridden by any matching threshold rule (last wins).
+export function valueColor(v: number | null | undefined, base: string, rules?: ColorRule[]): string {
+  if (v == null || !Number.isFinite(v) || !rules?.length) return base;
+  let c = base;
+  for (const r of rules) {
+    if ((r.cmp === 'lt' && v < r.value) || (r.cmp === 'gt' && v > r.value)) c = r.color;
+  }
+  return c;
+}
+
 export function formatValue(v: number | null | undefined, fmt: FormatId): string {
   if (v == null || !Number.isFinite(v)) return '--';
   switch (fmt) {
@@ -201,6 +216,46 @@ export function defaultLapCardLayout(): LapCardLayout {
     ],
   };
 }
+
+// Starter presets the strategist can load and then tweak.
+export const LAYOUT_TEMPLATES: { id: string; name: string; build: () => LapCardLayout }[] = [
+  { id: 'default', name: 'Default lap card', build: defaultLapCardLayout },
+  {
+    id: 'delta', name: 'Delta board',
+    build: () => ({
+      version: DASH_LAYOUT_VERSION, name: 'Delta board', background: 'rgba(8,8,10,0.92)',
+      widgets: [
+        { id: 'time', type: 'value', bind: 'lapCard.timeS', format: 'laptime', x: 100, y: 40, w: 600, h: 130, fontSize: 96, color: '#fff', align: 'center', bold: true },
+        { id: 'lapd', type: 'delta', bind: 'mqtt.lapDelta', format: 'float2', x: 60, y: 220, w: 320, h: 130, fontSize: 80, align: 'center', bold: true, label: 'LAP Δ', goodSign: 'negative', showArrow: true, showSign: true },
+        { id: 'budd', type: 'delta', bind: 'pacing.budgetDeltaWh', format: 'whSigned', x: 420, y: 220, w: 320, h: 130, fontSize: 80, align: 'center', bold: true, label: 'BUDGET Δ Wh', goodSign: 'negative', showArrow: true, showSign: true },
+        { id: 'lapn', type: 'value', bind: 'lapCard.lapNumber', format: 'int', label: 'LAP', x: 300, y: 380, w: 200, h: 60, fontSize: 40, color: '#BF5700', align: 'center', bold: true },
+      ],
+    }),
+  },
+  {
+    id: 'energy', name: 'Energy strategy',
+    build: () => ({
+      version: DASH_LAYOUT_VERSION, name: 'Energy strategy', background: 'rgba(8,8,10,0.92)',
+      widgets: [
+        { id: 'soc', type: 'gauge', bind: 'can.soc', min: 0, max: 100, label: 'SOC', color: 'gradient', mode: 'standard', format: 'pct', x: 60, y: 130, w: 220, h: 220 },
+        { id: 'lapnrg', type: 'value', bind: 'lapCard.energyWh', format: 'wh', label: 'Wh / LAP', x: 320, y: 90, w: 420, h: 120, fontSize: 84, color: '#fff', align: 'center', bold: true },
+        { id: 'budbar', type: 'bar', bind: 'pacing.budgetDeltaWh', min: -100, max: 100, color: '#BF5700', bidirectional: true, signColored: true, goodSign: 'negative', label: 'BUDGET Δ', x: 320, y: 240, w: 420, h: 56 },
+        { id: 'laps', type: 'value', bind: 'mqtt.lapsRemaining', format: 'int', label: 'LAPS LEFT', x: 320, y: 330, w: 420, h: 100, fontSize: 64, color: '#9aa', align: 'center', bold: true },
+      ],
+    }),
+  },
+  {
+    id: 'laptime', name: 'Lap-time focus',
+    build: () => ({
+      version: DASH_LAYOUT_VERSION, name: 'Lap-time focus', background: 'rgba(8,8,10,0.92)',
+      widgets: [
+        { id: 'lapn', type: 'value', bind: 'lapCard.lapNumber', format: 'int', label: 'LAP', x: 250, y: 50, w: 300, h: 60, fontSize: 38, color: '#BF5700', align: 'center', bold: true },
+        { id: 'time', type: 'value', bind: 'lapCard.timeS', format: 'laptime', x: 60, y: 140, w: 680, h: 180, fontSize: 128, color: '#fff', align: 'center', bold: true },
+        { id: 'best', type: 'value', bind: 'mqtt.bestLapTime', format: 'laptime', label: 'BEST', x: 250, y: 350, w: 300, h: 80, fontSize: 44, color: '#9aa', align: 'center', bold: true },
+      ],
+    }),
+  },
+];
 
 // Lenient validation: returns a usable layout or null (caller falls back to default).
 export function validateLapCardLayout(raw: unknown): LapCardLayout | null {

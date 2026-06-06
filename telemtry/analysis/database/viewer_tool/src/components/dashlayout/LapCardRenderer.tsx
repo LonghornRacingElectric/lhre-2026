@@ -6,7 +6,7 @@
 
 import React from 'react';
 import {
-  LAP_CARD_W, LAP_CARD_H, formatValue, getByPath, deltaColor,
+  LAP_CARD_W, LAP_CARD_H, formatValue, getByPath, deltaColor, valueColor,
   type LapCardLayout, type Widget,
 } from '@/lib/dash/dashLayout';
 
@@ -60,12 +60,13 @@ function WidgetView({ w, data }: { w: Widget; data: unknown }) {
   }
   if (w.type === 'value') {
     const val = getByPath(data, w.bind);
+    const color = valueColor(val, w.color, w.thresholds);
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
         alignItems: w.align === 'left' ? 'flex-start' : w.align === 'right' ? 'flex-end' : 'center',
         justifyContent: 'center', lineHeight: 1, overflow: 'hidden' }}>
         {w.label && <span style={{ color: w.labelColor ?? '#9aa', fontSize: Math.max(11, w.fontSize * 0.28), letterSpacing: 3, marginBottom: 4 }}>{w.label}</span>}
-        <span style={{ color: w.color, fontSize: w.fontSize, fontWeight: w.bold ? 800 : 500 }}>{formatValue(val, w.format)}</span>
+        <span style={{ color, fontSize: w.fontSize, fontWeight: w.bold ? 800 : 500 }}>{formatValue(val, w.format)}</span>
       </div>
     );
   }

@@ -855,6 +855,11 @@ textarea:focus-visible,
 .propRow input[type="color"] { padding: 2px; height: 30px; }
 .propGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 4px; }
 .propGrid .propRow { grid-template-columns: 22px 1fr; }
+.tmplSelect { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius); padding: 5px 8px; color: var(--text); font-size: var(--fs-sm); max-width: 150px; }
+.thresholdRules { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--border); padding-top: var(--s-2); }
+.thresholdRule { display: grid; grid-template-columns: 48px 1fr 36px 30px; gap: 6px; align-items: center; }
+.thresholdRule select, .thresholdRule input { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius); padding: 3px 5px; color: var(--text); min-width: 0; width: 100%; }
+.thresholdRule input[type="color"] { padding: 2px; height: 28px; }
 
 .sessionFileRow, .resumeBannerActions {
   display: flex;

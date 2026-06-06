@@ -9,11 +9,41 @@ import { X, Send, Save, RotateCcw, Trash2, Type, Hash, BarChart3, Gauge as Gauge
 import LapCardRenderer from './LapCardRenderer';
 import {
   LAP_CARD_W, LAP_CARD_H, FIELD_CATALOG, fieldDef, defaultLapCardLayout, validateLapCardLayout,
-  sampleLapCardData, type LapCardLayout, type Widget, type WidgetType, type FormatId, type Align, type GoodSign,
+  sampleLapCardData, LAYOUT_TEMPLATES, type LapCardLayout, type Widget, type WidgetType,
+  type FormatId, type Align, type GoodSign, type ColorRule,
 } from '@/lib/dash/dashLayout';
 
 const STORAGE_KEY = 'dash-lap-layout';
 const SCALE = 0.82; // 800 -> 656 on the editor stage
+const GRID = 10;        // snap-to-grid step (layout px)
+const SNAP_THRESH = 7;  // alignment-guide snap distance (layout px)
+
+type Guide = { o: 'v' | 'h'; pos: number };
+
+// Snap a moving widget against the grid + canvas/sibling edges & centers.
+// Returns the adjusted x/y and the guide lines to draw.
+function snapMove(nx: number, ny: number, ow: number, oh: number, others: Widget[], grid: boolean): { x: number; y: number; guides: Guide[] } {
+  if (grid) { nx = Math.round(nx / GRID) * GRID; ny = Math.round(ny / GRID) * GRID; }
+  const guides: Guide[] = [];
+  const vTargets = [0, LAP_CARD_W / 2, LAP_CARD_W, ...others.flatMap((w) => [w.x, w.x + w.w / 2, w.x + w.w])];
+  const hTargets = [0, LAP_CARD_H / 2, LAP_CARD_H, ...others.flatMap((w) => [w.y, w.y + w.h / 2, w.y + w.h])];
+  // x: try left / center / right anchors, snap to nearest target
+  let bestX: { shift: number; pos: number } | null = null;
+  for (const a of [nx, nx + ow / 2, nx + ow]) for (const t of vTargets) {
+    const d = t - a; if (Math.abs(d) <= SNAP_THRESH && (!bestX || Math.abs(d) < Math.abs(bestX.shift))) bestX = { shift: d, pos: t };
+  }
+  if (bestX) { nx += bestX.shift; guides.push({ o: 'v', pos: bestX.pos }); }
+  let bestY: { shift: number; pos: number } | null = null;
+  for (const a of [ny, ny + oh / 2, ny + oh]) for (const t of hTargets) {
+    const d = t - a; if (Math.abs(d) <= SNAP_THRESH && (!bestY || Math.abs(d) < Math.abs(bestY.shift))) bestY = { shift: d, pos: t };
+  }
+  if (bestY) { ny += bestY.shift; guides.push({ o: 'h', pos: bestY.pos }); }
+  return {
+    x: Math.round(Math.min(Math.max(0, nx), LAP_CARD_W - ow)),
+    y: Math.round(Math.min(Math.max(0, ny), LAP_CARD_H - oh)),
+    guides,
+  };
+}
 const FORMATS: FormatId[] = ['raw', 'int', 'float1', 'float2', 'laptime', 'wh', 'whSigned', 'kwh', 'kw', 'pct', 'temp', 'volt', 'amp', 'mph'];
 
 function loadLayout(): LapCardLayout {
@@ -44,8 +74,14 @@ export function DashLayoutEditor({ onClose, onSend, sendStatus }: {
 }) {
   const [layout, setLayout] = useState<LapCardLayout>(loadLayout);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [snap, setSnap] = useState(true);
+  const [guides, setGuides] = useState<Guide[]>([]);
   const data = useMemo(() => sampleLapCardData(), []);
   const stageRef = useRef<HTMLDivElement>(null);
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+  const snapRef = useRef(snap);
+  snapRef.current = snap;
   const drag = useRef<null | { mode: 'move' | 'resize'; id: string; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number }>(null);
 
   // Persist locally on every change so a refresh keeps your work.
@@ -65,18 +101,20 @@ export function DashLayoutEditor({ onClose, onSend, sendStatus }: {
       const d = drag.current; if (!d) return;
       const dx = (e.clientX - d.sx) / SCALE, dy = (e.clientY - d.sy) / SCALE;
       if (d.mode === 'move') {
-        patch(d.id, {
-          x: Math.round(Math.min(Math.max(0, d.ox + dx), LAP_CARD_W - d.ow)),
-          y: Math.round(Math.min(Math.max(0, d.oy + dy), LAP_CARD_H - d.oh)),
-        });
+        const others = layoutRef.current.widgets.filter((w) => w.id !== d.id);
+        const r = snapMove(d.ox + dx, d.oy + dy, d.ow, d.oh, others, snapRef.current);
+        setGuides(r.guides);
+        patch(d.id, { x: r.x, y: r.y });
       } else {
+        let nw = d.ow + dx, nh = d.oh + dy;
+        if (snapRef.current) { nw = Math.round(nw / GRID) * GRID; nh = Math.round(nh / GRID) * GRID; }
         patch(d.id, {
-          w: Math.round(Math.max(24, Math.min(d.ow + dx, LAP_CARD_W - d.ox))),
-          h: Math.round(Math.max(20, Math.min(d.oh + dy, LAP_CARD_H - d.oy))),
+          w: Math.round(Math.max(24, Math.min(nw, LAP_CARD_W - d.ox))),
+          h: Math.round(Math.max(20, Math.min(nh, LAP_CARD_H - d.oy))),
         });
       }
     };
-    const onUp = () => { drag.current = null; };
+    const onUp = () => { drag.current = null; setGuides([]); };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
@@ -107,6 +145,18 @@ export function DashLayoutEditor({ onClose, onSend, sendStatus }: {
             <input value={layout.name} onChange={(e) => setLayout((l) => ({ ...l, name: e.target.value }))} aria-label="Layout name" />
           </div>
           <div className="dashEditorActions">
+            <select className="tmplSelect" defaultValue="" aria-label="Load template"
+              onChange={(e) => {
+                const t = LAYOUT_TEMPLATES.find((x) => x.id === e.target.value);
+                if (t && window.confirm(`Load the “${t.name}” template? This replaces the current layout.`)) { setLayout(t.build()); setSelectedId(null); }
+                e.target.value = '';
+              }}>
+              <option value="" disabled>Templates…</option>
+              {LAYOUT_TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+            <label className="checkInline" style={{ whiteSpace: 'nowrap' }}>
+              <input type="checkbox" checked={snap} onChange={(e) => setSnap(e.target.checked)} /> Snap
+            </label>
             <button className="tool" onClick={resetDefault}><RotateCcw size={14} /> Reset</button>
             <button className="tool" onClick={() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(layout)); } catch {} }}><Save size={14} /> Save</button>
             <button className="primary" onClick={() => onSend(layout)}><Send size={14} /> Send to car</button>
@@ -140,6 +190,12 @@ export function DashLayoutEditor({ onClose, onSend, sendStatus }: {
           <div className="dashEditorStage" ref={stageRef} onMouseDown={() => setSelectedId(null)}>
             <div onMouseDown={(e) => e.stopPropagation()} style={{ position: 'relative' }}>
               <LapCardRenderer layout={layout} data={data} scale={SCALE} editable selectedId={selectedId} onWidgetMouseDown={startMove} />
+              {guides.map((g, i) => (
+                <div key={i} style={{ position: 'absolute', background: '#4ea1ff', pointerEvents: 'none', zIndex: 6,
+                  ...(g.o === 'v'
+                    ? { left: g.pos * SCALE, top: 0, width: 1, height: LAP_CARD_H * SCALE }
+                    : { top: g.pos * SCALE, left: 0, height: 1, width: LAP_CARD_W * SCALE }) }} />
+              ))}
               {selected && (
                 <div onMouseDown={startResize} title="Resize"
                   style={{ position: 'absolute', left: (selected.x + selected.w) * SCALE - 7, top: (selected.y + selected.h) * SCALE - 7,
@@ -255,12 +311,37 @@ function PropertyPanel({ w, onChange, onDelete }: { w: Widget; onChange: (p: Par
           </select>
         </Row>
       )}
+      {w.type === 'value' && (
+        <ThresholdRules rules={w.thresholds ?? []} onChange={(r) => onChange({ thresholds: r })} />
+      )}
       <div className="propGrid">
         <Row label="X"><input type="number" value={w.x} onChange={(e) => onChange({ x: Number(e.target.value) })} /></Row>
         <Row label="Y"><input type="number" value={w.y} onChange={(e) => onChange({ y: Number(e.target.value) })} /></Row>
         <Row label="W"><input type="number" value={w.w} onChange={(e) => onChange({ w: Number(e.target.value) })} /></Row>
         <Row label="H"><input type="number" value={w.h} onChange={(e) => onChange({ h: Number(e.target.value) })} /></Row>
       </div>
+    </div>
+  );
+}
+
+function ThresholdRules({ rules, onChange }: { rules: ColorRule[]; onChange: (r: ColorRule[]) => void }) {
+  const update = (i: number, p: Partial<ColorRule>) => onChange(rules.map((r, idx) => (idx === i ? { ...r, ...p } : r)));
+  return (
+    <div className="thresholdRules">
+      <div className="propHead"><span className="muted" style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: 1 }}>Color rules</span>
+        <button className="tool" onClick={() => onChange([...rules, { cmp: 'lt', value: 20, color: '#ff4d4f' }])}>+ Rule</button>
+      </div>
+      {rules.map((r, i) => (
+        <div key={i} className="thresholdRule">
+          <select value={r.cmp} onChange={(e) => update(i, { cmp: e.target.value as 'lt' | 'gt' })}>
+            <option value="lt">&lt;</option><option value="gt">&gt;</option>
+          </select>
+          <input type="number" value={r.value} onChange={(e) => update(i, { value: Number(e.target.value) })} />
+          <input type="color" value={r.color} onChange={(e) => update(i, { color: e.target.value })} />
+          <button className="tool iconOnly" aria-label="Remove rule" onClick={() => onChange(rules.filter((_, idx) => idx !== i))}><Trash2 size={12} /></button>
+        </div>
+      ))}
+      {!rules.length && <p className="muted" style={{ fontSize: '0.78rem', margin: '2px 0 0' }}>e.g. &lt; 20 → red for low SoC. Last matching rule wins.</p>}
     </div>
   );
 }
