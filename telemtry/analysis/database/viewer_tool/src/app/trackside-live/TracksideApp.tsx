@@ -504,6 +504,8 @@ function App() {
   // Dash pacing signals (publishes targetPower + lapTrigger to the on-car dash).
   const dashSignals = useDashSignals();
   const [dashTargetPower, setDashTargetPower] = useState<number>(() => Number(localStorage.getItem("dash-target-power") || 30));
+  // Power-budget mode: 'auto' derives kW from the energy plan; 'manual' uses the slider.
+  const [dashPowerMode, setDashPowerMode] = useState<"auto" | "manual">(() => (localStorage.getItem("dash-power-mode") === "manual" ? "manual" : "auto"));
   const [dashAutoLap, setDashAutoLap] = useState(() => localStorage.getItem("dash-auto-lap") === "1");
   const [dashGatePushed, setDashGatePushed] = useState(false);
   // Driver-message palette (quick-send nudges to the dash) — shared server-side.
@@ -597,6 +599,18 @@ function App() {
   // + = banked margin vs the even split; − = over budget, must conserve.
   const budgetVsTargetWh = dynamicLapBudgetWh != null && targetEnergyPerLapWh != null
     ? dynamicLapBudgetWh - targetEnergyPerLapWh : null;
+  // Auto-derive the dash target power from the energy plan: the live Wh/lap
+  // budget ÷ the rolling average lap time is the power rate that spends the
+  // budget evenly. A manual override (dashPowerMode='manual') wins when set.
+  const avgLapTimeS = useMemo(() => {
+    const recent = liveState.laps.slice(-3);
+    if (!recent.length) return null;
+    return recent.reduce((s, l) => s + l.durationMs, 0) / recent.length / 1000;
+  }, [liveState.laps]);
+  const autoTargetPowerKw = dynamicLapBudgetWh != null && avgLapTimeS != null && avgLapTimeS > 0
+    ? dynamicLapBudgetWh / (avgLapTimeS / 3600) / 1000 : null;
+  const effectiveTargetPowerKw = dashPowerMode === "manual" ? dashTargetPower : autoTargetPowerKw;
+
   // Keep total laps + usable budget synced across every trackside client.
   const racePlan = useRacePlan((p) => {
     if (p.totalLaps !== targetLaps) setTargetLaps(p.totalLaps);
@@ -779,8 +793,11 @@ function App() {
   // adjusts it; the hook's keepalive covers the gaps in between.
   useEffect(() => {
     localStorage.setItem("dash-target-power", String(dashTargetPower));
-    if (dashSignals.status === "connected") dashSignals.publishTargetPower(dashTargetPower);
-  }, [dashTargetPower, dashSignals.status, dashSignals.publishTargetPower]);
+    localStorage.setItem("dash-power-mode", dashPowerMode);
+    if (dashSignals.status === "connected" && effectiveTargetPowerKw != null && Number.isFinite(effectiveTargetPowerKw)) {
+      dashSignals.publishTargetPower(Math.round(effectiveTargetPowerKw));
+    }
+  }, [dashTargetPower, dashPowerMode, effectiveTargetPowerKw, dashSignals.status, dashSignals.publishTargetPower]);
 
   // Push the live dynamic per-lap energy budget (Wh) to the dash whenever it
   // changes, so the driver sees the same Wh/lap target as trackside. Leader only.
@@ -3168,36 +3185,53 @@ function App() {
           </Panel>
 
           <Panel title="Power Budget" icon={<Zap size={18} />}>
+            <div className="themeToggle" role="group" aria-label="Power budget mode" style={{ marginBottom: 10 }}>
+              <button className={dashPowerMode === "auto" ? "on" : ""} disabled={isMirror} onClick={() => setDashPowerMode("auto")}>Auto (from laps)</button>
+              <button className={dashPowerMode === "manual" ? "on" : ""} disabled={isMirror} onClick={() => setDashPowerMode("manual")}>Manual</button>
+            </div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
-              <strong style={{ fontSize: "3rem", lineHeight: 1 }}>{dashTargetPower.toFixed(0)}</strong>
-              <span>kW target</span>
+              <strong style={{ fontSize: "3rem", lineHeight: 1 }}>{effectiveTargetPowerKw != null ? effectiveTargetPowerKw.toFixed(0) : "--"}</strong>
+              <span>kW target {dashPowerMode === "auto" ? "(auto)" : "(manual)"}</span>
             </div>
-            <input
-              type="range"
-              min={0}
-              max={80}
-              step={1}
-              value={dashTargetPower}
-              disabled={isMirror}
-              onChange={(e) => setDashTargetPower(Number(e.target.value))}
-              style={{ width: "100%" }}
-            />
-            <div className="gateButtons" style={{ marginTop: 8 }}>
-              <button className="tool" disabled={isMirror} onClick={() => setDashTargetPower((p) => Math.max(0, Math.round(p) - 1))}><ArrowDown size={15} /> -1</button>
-              <button className="tool" disabled={isMirror} onClick={() => setDashTargetPower((p) => Math.min(120, Math.round(p) + 1))}><ArrowUp size={15} /> +1</button>
-              <input
-                type="number"
-                value={dashTargetPower}
-                min={0}
-                max={120}
-                disabled={isMirror}
-                onChange={(e) => setDashTargetPower(Number(e.target.value))}
-                style={{ width: 90 }}
-              />
-            </div>
+            {dashPowerMode === "auto" ? (
+              <p style={{ margin: "0 0 8px", opacity: 0.75, fontSize: "0.82rem" }}>
+                {dynamicLapBudgetWh != null && avgLapTimeS != null
+                  ? `${dynamicLapBudgetWh.toFixed(0)} Wh/lap ÷ ${avgLapTimeS.toFixed(0)}s avg lap = ${effectiveTargetPowerKw != null ? effectiveTargetPowerKw.toFixed(1) : "--"} kW.`
+                  : "Set race laps + energy budget (Live tab) and complete a lap so the average lap time is known."}
+              </p>
+            ) : (
+              <>
+                <input
+                  type="range"
+                  min={0}
+                  max={80}
+                  step={1}
+                  value={dashTargetPower}
+                  disabled={isMirror}
+                  onChange={(e) => setDashTargetPower(Number(e.target.value))}
+                  style={{ width: "100%" }}
+                />
+                <div className="gateButtons" style={{ marginTop: 8 }}>
+                  <button className="tool" disabled={isMirror} onClick={() => setDashTargetPower((p) => Math.max(0, Math.round(p) - 1))}><ArrowDown size={15} /> -1</button>
+                  <button className="tool" disabled={isMirror} onClick={() => setDashTargetPower((p) => Math.min(120, Math.round(p) + 1))}><ArrowUp size={15} /> +1</button>
+                  <input
+                    type="number"
+                    value={dashTargetPower}
+                    min={0}
+                    max={120}
+                    disabled={isMirror}
+                    onChange={(e) => setDashTargetPower(Number(e.target.value))}
+                    style={{ width: 90 }}
+                  />
+                </div>
+              </>
+            )}
             <p style={{ marginTop: 10, opacity: 0.7, fontSize: "0.85rem" }}>
               Dash energy bar runs green while the car draws under this budget, red when over.
-              Resets each lap. Sent live + republished ~1 Hz so it never goes stale.
+              {dashPowerMode === "auto"
+                ? " Auto-derived from the energy plan (Wh/lap ÷ avg lap time) — switch to Manual to force a kW."
+                : " Manual override — switch to Auto to track the energy plan."}
+              {" "}Sent live + republished ~1 Hz so it never goes stale.
             </p>
           </Panel>
 
