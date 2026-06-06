@@ -19,25 +19,25 @@ export default function SplashPage() {
           href="/trackside-live"
           title="Trackside Live"
           subtitle="Live lap timing, energy & dash comms"
-          gradient="bg-gradient-to-br from-teal-700 to-emerald-900 group-hover:from-teal-600 group-hover:to-emerald-800"
+          gradient="bg-gradient-to-br from-[#d97757] to-[#7a3a26] group-hover:from-[#e0876a] group-hover:to-[#8c452e]"
         />
         <SplashBox
           href="/trackside-live?focus=car"
           title="Car Status"
           subtitle="Is the car online? Orion / BEVO health"
-          gradient="bg-gradient-to-br from-sky-700 to-blue-900 group-hover:from-sky-600 group-hover:to-blue-800"
+          gradient="bg-gradient-to-br from-[#2f5fb0] to-[#16243d] group-hover:from-[#3a6ec5] group-hover:to-[#1c2e4d]"
         />
         <SplashBox
           href="/log-sync"
           title="Log Sync"
           subtitle="Pull & annotate CSV logs from the car"
-          gradient="bg-gradient-to-br from-slate-700 to-slate-900 group-hover:from-slate-600 group-hover:to-slate-800"
+          gradient="bg-gradient-to-br from-[#33312e] to-[#161514] group-hover:from-[#42403c] group-hover:to-[#1d1c1a]"
         />
         <SplashBox
           href="/dashboards"
           title="Grafana"
           subtitle="Live dashboards & historical database"
-          gradient="bg-gradient-to-br from-orange-700 to-amber-900 group-hover:from-orange-600 group-hover:to-amber-800"
+          gradient="bg-gradient-to-br from-[#b07712] to-[#3a2a08] group-hover:from-[#c98916] group-hover:to-[#4a360c]"
         />
       </div>
     </div>

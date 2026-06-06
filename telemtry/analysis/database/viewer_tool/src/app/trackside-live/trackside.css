@@ -35,46 +35,47 @@
   --ctl-h: 36px;
   --ctl-h-sm: 30px;
 
-  /* ── Surfaces & ink (light) ─────────────────────────────────────────────── */
-  --app-bg: #eceff4;
+  /* ── Surfaces & ink (light — cc_deck warm neutrals, sun-readable) ─────────── */
+  --app-bg: #efece9;
   --surface: #ffffff;
-  --surface-alt: #f1f5f9;
-  --surface-soft: #f8fafc;
-  --border: #dbe2ec;
-  --border-strong: #b6c2d2;
-  --text: #131b25;
-  --muted-text: #5b6776;
-  --faint-text: #8492a2;
+  --surface-alt: #f5f1ed;
+  --surface-soft: #faf8f5;
+  --border: #e3ddd6;
+  --border-strong: #c7beb4;
+  --text: #1a1714;
+  --muted-text: #6a635c;
+  --faint-text: #968d84;
 
-  /* ── Brand & semantic ───────────────────────────────────────────────────── */
-  --accent: #0f7a6f;
-  --accent-strong: #0a5d54;
-  --accent-soft: #e2f4f1;
-  --info: #2563eb;
-  --info-soft: #e9f1ff;
-  --danger: #c33b46;
-  --danger-soft: #fdeef0;
-  --warning: #b7791f;
-  --warning-soft: #fcf3e2;
+  /* ── Brand & semantic (terracotta accent; deeper in light for contrast) ──── */
+  --accent: #c2603f;
+  --accent-strong: #a84a2c;
+  --accent-soft: #fbeadf;
+  --accent-ink: #2a1209;            /* text/icon on an accent fill */
+  --info: #2f6fd6;
+  --info-soft: #e7f0fc;
+  --danger: #cf4339;
+  --danger-soft: #fdebe9;
+  --warning: #b07712;
+  --warning-soft: #fbf1dd;
   --warning-border: #e6cf9a;
   --warning-text: #8a5a0c;
-  --good: #1a9d62;
-  --good-soft: #e6f6ee;
+  --good: #3a9a5c;
+  --good-soft: #e6f4ea;
 
   /* Car state palette (OFF / ON_IDLE / READY / MOVING) */
-  --state-off: #64748b;
-  --state-off-soft: #eef1f5;
-  --state-idle: #c2810f;
-  --state-idle-soft: #fbf2dd;
-  --state-ready: #2563eb;
-  --state-ready-soft: #e8f0ff;
-  --state-moving: #18a558;
-  --state-moving-soft: #e4f6ec;
+  --state-off: #6a635c;
+  --state-off-soft: #efeae5;
+  --state-idle: #b07712;
+  --state-idle-soft: #fbf1dd;
+  --state-ready: #2f6fd6;
+  --state-ready-soft: #e7f0fc;
+  --state-moving: #3a9a5c;
+  --state-moving-soft: #e6f4ea;
 
   /* Data-uplink freshness */
-  --fresh: #18a558;
-  --stale: #c2810f;
-  --dead: #94a3b8;
+  --fresh: #3a9a5c;
+  --stale: #b07712;
+  --dead: #a39a90;
 
   /* Lap / chart accents */
   --best: #7c3aed;
@@ -94,42 +95,44 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --app-bg: #0c0f14;
-  --surface: #151a21;
-  --surface-alt: #1b222c;
-  --surface-soft: #11161d;
-  --border: #2a3441;
-  --border-strong: #43536a;
-  --text: #f3f6fb;
-  --muted-text: #9eabbd;
-  --faint-text: #6f7e92;
+  /* cc_deck native dark surfaces */
+  --app-bg: #0c0c0c;
+  --surface: #171717;
+  --surface-alt: #1c1c1c;
+  --surface-soft: #121212;
+  --border: #2c2c2c;
+  --border-strong: #3f3f3f;
+  --text: #ededed;
+  --muted-text: #9b9b9b;
+  --faint-text: #6a6a6a;
 
-  --accent: #2dd4bf;
-  --accent-strong: #5eead4;
-  --accent-soft: #103530;
-  --info: #60a5fa;
-  --info-soft: #15263f;
-  --danger: #f4707d;
-  --danger-soft: #371b22;
-  --warning: #e0b252;
+  --accent: #d97757;
+  --accent-strong: #b85f43;
+  --accent-soft: #2a1813;
+  --accent-ink: #1a0f0a;            /* text/icon on an accent fill */
+  --info: #6ea8fe;
+  --info-soft: #16243d;
+  --danger: #ff8d85;
+  --danger-soft: #3a1c1f;
+  --warning: #e0a83a;
   --warning-soft: #2c2310;
   --warning-border: #5c4a20;
   --warning-text: #f0cf86;
-  --good: #34d27f;
-  --good-soft: #10301f;
+  --good: #5cb87a;
+  --good-soft: #122e1f;
 
-  --state-off: #8a98ab;
-  --state-off-soft: #1a212b;
-  --state-idle: #e0b252;
+  --state-off: #8a8a8a;
+  --state-off-soft: #1c1c1c;
+  --state-idle: #e0a83a;
   --state-idle-soft: #2c2310;
-  --state-ready: #6aa6ff;
-  --state-ready-soft: #15263f;
-  --state-moving: #3ad17f;
-  --state-moving-soft: #10301f;
+  --state-ready: #6ea8fe;
+  --state-ready-soft: #16243d;
+  --state-moving: #5cb87a;
+  --state-moving-soft: #122e1f;
 
-  --fresh: #3ad17f;
-  --stale: #e0b252;
-  --dead: #5d6b7d;
+  --fresh: #5cb87a;
+  --stale: #e0a83a;
+  --dead: #6a6a6a;
 
   --best: #b794f6;
   --best-soft: #281a3d;
@@ -450,13 +453,12 @@ textarea:focus-visible,
 
 .primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
   border-color: var(--accent);
   font-weight: 700;
   box-shadow: var(--shadow-1);
 }
-.primary:hover:not(:disabled) { background: var(--accent-strong); border-color: var(--accent-strong); }
-:root[data-theme="dark"] .primary { color: #04201d; }
+.primary:hover:not(:disabled) { background: var(--accent-strong); border-color: var(--accent-strong); color: var(--accent-ink); }
 
 .primary:disabled, .tool:disabled, .download.disabled { opacity: 0.45; cursor: default; }
 
