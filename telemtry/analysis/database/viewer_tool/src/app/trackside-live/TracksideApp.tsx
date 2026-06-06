@@ -14,6 +14,7 @@ import type { LapCardLayout } from "@/lib/dash/dashLayout";
 import { useDashSignals } from "@/lib/dash/dashSignals";
 import { useMessageLibrary } from "@/lib/dash/useMessageLibrary";
 import { activeMessages, MESSAGE_ICON_GLYPH, type DashMessage } from "@/lib/dash/dashMessages";
+import { useRacePlan } from "@/lib/dash/useRacePlan";
 import type {
   ChannelDef,
   ChannelChartDefinition,
@@ -580,6 +581,27 @@ function App() {
     [torqueParamSetId],
   );
   const targetEnergyPerLapWh = targetLaps > 0 && targetEnergyKwh > 0 ? (targetEnergyKwh * 1000) / targetLaps : null;
+  // --- dynamic per-lap energy budget (Wh), recomputed each completed lap ---
+  const energyUsedWh = useMemo(
+    () => liveState.laps.reduce((sum, lap) => sum + (lap.energyWh || 0), 0),
+    [liveState.laps],
+  );
+  const lapsCompletedPlan = liveState.laps.length;
+  const totalBudgetWh = targetEnergyKwh > 0 ? targetEnergyKwh * 1000 : null;
+  const remainingBudgetWh = totalBudgetWh != null ? totalBudgetWh - energyUsedWh : null;
+  const lapsRemainingPlan = targetLaps > 0 ? Math.max(0, targetLaps - lapsCompletedPlan) : null;
+  // Headline budget: how much you can spend on EACH remaining lap from here.
+  // Over-use shrinks remaining Wh → this drops; under-use grows it → this rises.
+  const dynamicLapBudgetWh = remainingBudgetWh != null && lapsRemainingPlan != null && lapsRemainingPlan > 0
+    ? remainingBudgetWh / lapsRemainingPlan : null;
+  // + = banked margin vs the even split; − = over budget, must conserve.
+  const budgetVsTargetWh = dynamicLapBudgetWh != null && targetEnergyPerLapWh != null
+    ? dynamicLapBudgetWh - targetEnergyPerLapWh : null;
+  // Keep total laps + usable budget synced across every trackside client.
+  const racePlan = useRacePlan((p) => {
+    if (p.totalLaps !== targetLaps) setTargetLaps(p.totalLaps);
+    if (p.budgetKwh > 0 && p.budgetKwh !== targetEnergyKwh) setTargetEnergyKwh(p.budgetKwh);
+  });
   const selectedLaps = useMemo(() => liveState.laps.filter((lap) => selectedLapIds.has(lap.id)), [liveState.laps, selectedLapIds]);
   const lapAverages = useMemo(() => {
     if (!selectedLaps.length) {
@@ -2796,26 +2818,33 @@ function App() {
                     </label>
                   </details>
                   <label>
-                    <span>Target laps</span>
+                    <span>Race laps (synced)</span>
                     <input
                       type="number"
                       min={0}
                       value={targetLaps || ""}
                       placeholder="e.g. 22"
-                      disabled={isMirror}
-                      onChange={(e) => setTargetLaps(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+                      title="Total race laps — shared with every trackside client; drives the energy budget"
+                      onChange={(e) => {
+                        const n = Math.max(0, Math.floor(Number(e.target.value) || 0));
+                        setTargetLaps(n);
+                        racePlan.push(n, targetEnergyKwh);
+                      }}
                     />
                   </label>
                   <label>
-                    <span>Usable pack budget kWh</span>
+                    <span>Usable pack budget kWh (synced)</span>
                     <input
                       type="number"
                       min={0}
                       step={0.1}
                       value={targetEnergyKwh || ""}
                       placeholder={PACK_ENERGY_KWH.toFixed(2)}
-                      disabled={isMirror}
-                      onChange={(e) => setTargetEnergyKwh(Math.max(0, Number(e.target.value) || 0))}
+                      onChange={(e) => {
+                        const v = Math.max(0, Number(e.target.value) || 0);
+                        setTargetEnergyKwh(v);
+                        racePlan.push(targetLaps, v);
+                      }}
                     />
                   </label>
                   <label>
@@ -2833,8 +2862,26 @@ function App() {
                   </label>
                   {targetEnergyPerLapWh != null ? (
                     <small className="muted">
-                      Usable budget {targetEnergyKwh.toFixed(2)} kWh to {soeCutoffCellV.toFixed(2)} V min-cell OCV ÷ {targetLaps} = {targetEnergyPerLapWh.toFixed(0)} Wh/lap target.
+                      Usable budget {targetEnergyKwh.toFixed(2)} kWh to {soeCutoffCellV.toFixed(2)} V min-cell OCV ÷ {targetLaps} = {targetEnergyPerLapWh.toFixed(0)} Wh/lap even split.
                     </small>
+                  ) : null}
+                  {dynamicLapBudgetWh != null ? (
+                    <>
+                      <div className="opsCards" style={{ marginTop: 6 }}>
+                        <Metric label="Used / Remaining" value={`${energyUsedWh.toFixed(0)} / ${(remainingBudgetWh ?? 0).toFixed(0)} Wh`} />
+                        <Metric label="Laps done / left" value={`${lapsCompletedPlan} / ${lapsRemainingPlan ?? "—"}`} />
+                        <Metric
+                          label="Budget / lap (live)"
+                          value={`${dynamicLapBudgetWh.toFixed(0)} Wh`}
+                          tone={budgetVsTargetWh != null && budgetVsTargetWh >= 0 ? "good" : ""}
+                        />
+                      </div>
+                      {budgetVsTargetWh != null ? (
+                        <small style={{ color: budgetVsTargetWh >= 0 ? "#5cb87a" : "#ff4d4f", fontWeight: 600 }}>
+                          {budgetVsTargetWh >= 0 ? "▲" : "▼"} {Math.abs(budgetVsTargetWh).toFixed(0)} Wh/lap {budgetVsTargetWh >= 0 ? "under" : "over"} budget — recalculates live each completed lap from energy used.
+                        </small>
+                      ) : null}
+                    </>
                   ) : null}
                   <div className="feedControl">
                     <div>
