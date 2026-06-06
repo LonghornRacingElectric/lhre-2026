@@ -2254,6 +2254,11 @@ function App() {
               : "Mirroring the session leader — read-only."}{" "}
             Live gauges are your own feed; laps &amp; strategy follow the leader.
           </span>
+          {presence.role !== "full" ? (
+            presence.requested
+              ? <span className="goodText" style={{ whiteSpace: "nowrap" }}>Control requested…</span>
+              : <button className="tool" style={{ whiteSpace: "nowrap" }} onClick={() => presence.requestLeader()}>Request control</button>
+          ) : null}
           <span className="syncCount">{presence.clients}/{presence.max} clients</span>
         </div>
       ) : presence.clients > 1 ? (
@@ -2261,6 +2266,27 @@ function App() {
           <Radio size={15} />
           <span>You&apos;re the session leader — your laps &amp; strategy sync to {presence.clients - 1} mirror{presence.clients - 1 === 1 ? "" : "s"}.</span>
           <span className="syncCount">{presence.clients}/{presence.max} clients</span>
+        </div>
+      ) : null}
+
+      {/* Leader sees control-transfer requests from mirrors. */}
+      {!isMirror && presence.requests.length ? (
+        <div className="modalOverlay" onMouseDown={() => presence.requests.forEach((r) => presence.denyLeader(r))}>
+          <div className="modalCard" style={{ maxWidth: 420 }} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modalHead"><h3>Control request</h3></div>
+            <p className="muted" style={{ marginTop: 0 }}>
+              {presence.requests.length === 1 ? "A mirror client is requesting" : `${presence.requests.length} clients are requesting`} session control. Transfer makes them the leader and you a read-only mirror.
+            </p>
+            {presence.requests.map((r) => (
+              <div key={r} className="requestRow">
+                <span className="reqId">viewer …{r.slice(-4)}</span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="tool" onClick={() => presence.denyLeader(r)}>Deny</button>
+                  <button className="primary" onClick={() => presence.grantLeader(r)}><Power size={14} /> Transfer</button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
 

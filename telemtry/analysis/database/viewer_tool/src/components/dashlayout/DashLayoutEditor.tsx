@@ -5,8 +5,9 @@
 // and publish the layout to the car (retained, once). Layout persists locally.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { X, Send, Plus, Copy, RotateCcw, Trash2, Type, Hash, BarChart3, Gauge as GaugeIcon, TrendingUp } from 'lucide-react';
+import { X, Send, Plus, Copy, RotateCcw, Trash2, Type, Hash, BarChart3, Gauge as GaugeIcon, TrendingUp, RefreshCw, Cloud } from 'lucide-react';
 import LapCardRenderer from './LapCardRenderer';
+import { fetchServerLayouts, saveServerLayouts } from '@/lib/dash/layoutStore';
 import {
   LAP_CARD_W, LAP_CARD_H, FIELD_CATALOG, fieldDef, defaultLapCardLayout, validateLapCardLayout,
   sampleLapCardData, LAYOUT_TEMPLATES, type LapCardLayout, type Widget, type WidgetType,
@@ -116,10 +117,35 @@ export function DashLayoutEditor({ onClose, onSend, sendStatus }: {
   snapRef.current = snap;
   const drag = useRef<null | { mode: 'move' | 'resize'; id: string; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number }>(null);
 
-  // Persist the whole library on every change so a refresh keeps your work.
+  // Persist locally on every change; debounce a push to the shared server copy
+  // so every client sees the same saved layouts.
+  const serverSaveTimer = useRef<number | null>(null);
   useEffect(() => {
     try { localStorage.setItem(LIBRARY_KEY, JSON.stringify(lib)); } catch { /* quota */ }
+    if (serverSaveTimer.current) window.clearTimeout(serverSaveTimer.current);
+    serverSaveTimer.current = window.setTimeout(() => { void saveServerLayouts(lib.items); }, 800);
+    return () => { if (serverSaveTimer.current) window.clearTimeout(serverSaveTimer.current); };
   }, [lib]);
+
+  // Pull the shared library on open. Server is the source of truth if it has
+  // anything; if it's empty but we have local layouts, seed it from local.
+  const [syncMsg, setSyncMsg] = useState('Syncing…');
+  const pullFromServer = useCallback(async (announce = true) => {
+    if (announce) setSyncMsg('Syncing…');
+    const server = await fetchServerLayouts();
+    if (server === null) { setSyncMsg('Offline — local only'); return; }
+    if (server.length) {
+      const items = server.map(withId);
+      setLib((prev) => ({ items, activeId: items.some((i) => i.id === prev.activeId) ? prev.activeId : items[0].id! }));
+      setSyncMsg('Synced');
+    } else {
+      // server empty — seed it from whatever we have locally
+      setSyncMsg('Synced');
+      void saveServerLayouts(lib.items);
+    }
+  }, [lib.items]);
+  useEffect(() => { void pullFromServer(); /* on open only */ // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const uniqueName = (base: string): string => {
     const names = new Set(lib.items.map((l) => l.name));
@@ -204,6 +230,8 @@ export function DashLayoutEditor({ onClose, onSend, sendStatus }: {
             <button className="tool dangerTool" disabled={lib.items.length <= 1} onClick={deleteActive} title="Delete layout"><Trash2 size={14} /></button>
           </div>
           <div className="dashEditorActions">
+            <span className="syncChip" title="Saved layouts are shared with all clients"><Cloud size={13} /> {syncMsg}</span>
+            <button className="tool iconOnly" title="Refresh from server" onClick={() => pullFromServer()}><RefreshCw size={14} /></button>
             <select className="tmplSelect" value="" aria-label="New from template"
               onChange={(e) => {
                 const t = LAYOUT_TEMPLATES.find((x) => x.id === e.target.value);
