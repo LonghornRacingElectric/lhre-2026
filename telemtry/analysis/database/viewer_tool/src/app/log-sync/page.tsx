@@ -303,8 +303,17 @@ export default function LogSyncPage() {
           </label>
         </div>
         <div className="flex items-center gap-3 mt-4">
-          <Button variant="outline" onClick={doPreview} disabled={busy}>Preview</Button>
-          <Button onClick={startJob} disabled={busy}>Start sync</Button>
+          {(() => {
+            const rangeValid = !!from && !!to && new Date(from).getTime() < new Date(to).getTime();
+            const reason = busy ? "Working…" : !from || !to ? "Set a From and To time" : !rangeValid ? "“To” must be after “From”" : undefined;
+            return (
+              <>
+                <Button variant="outline" onClick={doPreview} disabled={busy || !rangeValid} title={reason}>Preview</Button>
+                <Button onClick={startJob} disabled={busy || !rangeValid} title={reason}>Start sync</Button>
+                {reason && !busy ? <span className="text-sm text-muted-foreground">{reason}</span> : null}
+              </>
+            );
+          })()}
           {preview && (
             <span className="text-sm text-muted-foreground">
               {preview.count === 0
