@@ -15,6 +15,7 @@ import { useDashSignals } from "@/lib/dash/dashSignals";
 import { useMessageLibrary } from "@/lib/dash/useMessageLibrary";
 import { activeMessages, MESSAGE_ICON_GLYPH, type DashMessage } from "@/lib/dash/dashMessages";
 import { useRacePlan } from "@/lib/dash/useRacePlan";
+import { DriveDaySetupForm, driveDaySetupToPayload, type DriveDaySetup } from "@/components/trackside/DriveDaySetupForm";
 import type {
   ChannelDef,
   ChannelChartDefinition,
@@ -515,6 +516,12 @@ function App() {
   // Driver-message palette (quick-send nudges to the dash) — shared server-side.
   const msgLib = useMessageLibrary();
   const [msgEditorOpen, setMsgEditorOpen] = useState(false);
+  // Drive-day setup (conditions/tires/aero/alignment) — carried on the session,
+  // synced, and written to the drive_day record.
+  const [driveDaySetup, setDriveDaySetup] = useState<DriveDaySetup>({});
+  const [setupOpen, setSetupOpen] = useState(false);
+  const driveDaySetupRef = useRef(driveDaySetup);
+  driveDaySetupRef.current = driveDaySetup;
   const [msgSendStatus, setMsgSendStatus] = useState("");
   const [dashNow, setDashNow] = useState(0); // 1 Hz tick for link-health "age" displays
   const dashLastLapCountRef = useRef(0);
@@ -846,10 +853,31 @@ function App() {
       patchSession(sessionInfo.id, {
         metadata: { ...metadataDraft },
         plan: { targetLaps, targetEnergyKwh, soeCutoffCellV },
+        setup: { ...driveDaySetup } as Record<string, string | number | boolean>,
       });
     }, 1500);
     return () => window.clearTimeout(id);
-  }, [sessionInfo, metadataDraft, targetLaps, targetEnergyKwh, soeCutoffCellV]);
+  }, [sessionInfo, metadataDraft, targetLaps, targetEnergyKwh, soeCutoffCellV, driveDaySetup]);
+
+  // Push drive-day SETUP edits to the drive_day record (debounced) once the
+  // session has a linked day. Leader only.
+  useEffect(() => {
+    if (isMirror || sessionInfo?.dayId == null) return;
+    const dayId = sessionInfo.dayId;
+    const id = window.setTimeout(() => {
+      void fetch("/api/update-drive-day", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ day_id: dayId, ...driveDaySetupToPayload(driveDaySetup) }),
+      }).catch(() => { /* offline — retried on next edit */ });
+    }, 1500);
+    return () => window.clearTimeout(id);
+  }, [driveDaySetup, sessionInfo, isMirror]);
+
+  // Restore the setup when a session is adopted (reload / mirror / server merge).
+  useEffect(() => {
+    if (sessionInfo?.setup) setDriveDaySetup(sessionInfo.setup as DriveDaySetup);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionInfo?.id]);
 
   // On load, reconcile the local session registry with the server (last-writer-
   // wins) and re-push anything the server is missing — so clients converge on
@@ -1640,6 +1668,7 @@ function App() {
       // along so the server logs the complete session, not just the summary.
       metadata: { ...metadataDraft, driver: draft.driver.trim(), venue: draft.venue.trim(), event: draft.eventType, session: draft.name.trim() },
       plan: { targetLaps, targetEnergyKwh, soeCutoffCellV },
+      setup: { ...driveDaySetup } as Record<string, string | number | boolean>,
     };
     upsertSession(info);
     setSessionInfo(info);
@@ -1790,6 +1819,7 @@ function App() {
         method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({
           date: new Date(info.startedAt).toISOString().slice(0, 10),
+          ...driveDaySetupToPayload(driveDaySetupRef.current),
           track_name: info.venue || track.name || null,
           car_id: carIdForSource(info.car),
           driver_id: 0,
@@ -2449,6 +2479,14 @@ function App() {
           defaultDriver={metadataDraft.driver}
           onStart={startNewSession}
           onClose={() => setNewSessionOpen(false)}
+        />
+      ) : null}
+      {setupOpen ? (
+        <DriveDaySetupForm
+          value={driveDaySetup}
+          disabled={isMirror}
+          onChange={(field, v) => setDriveDaySetup((prev) => ({ ...prev, [field]: v }))}
+          onClose={() => setSetupOpen(false)}
         />
       ) : null}
       {lapDesignerOpen ? (
@@ -3121,6 +3159,9 @@ function App() {
                   <div className="sessionFileRow">
                     <button type="button" className="primary" disabled={isMirror} onClick={() => setNewSessionOpen(true)}>
                       <Plus size={15} /> New Session
+                    </button>
+                    <button type="button" className="tool" onClick={() => setSetupOpen(true)} title="Drive-day setup: conditions, alignment, shocks, tires, aero — saved to the session's drive_day record">
+                      <SlidersHorizontal size={15} /> Drive Day Setup
                     </button>
                     <button type="button" className="tool" onClick={saveSessionFile}>
                       <Save size={15} /> Save JSON

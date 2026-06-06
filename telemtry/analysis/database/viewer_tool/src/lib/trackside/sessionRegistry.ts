@@ -43,6 +43,7 @@ export interface TracksideSessionInfo {
   plan?: { targetLaps: number; targetEnergyKwh: number; soeCutoffCellV: number };
   updatedAt?: number; // epoch ms of last edit, for last-writer-wins on merge
   dayId?: number; // linked drive_day.day_id (session ⇒ drive day); for event flags + laps
+  setup?: Record<string, string | number | boolean>; // drive-day setup (conditions/tires/aero/alignment)
 }
 
 export function loadSessionRegistry(): TracksideSessionInfo[] {
