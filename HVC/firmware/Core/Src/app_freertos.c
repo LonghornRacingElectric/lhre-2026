@@ -262,8 +262,8 @@ void StartStateMachineTask(void *argument) {
     latch_faults(current_fault_vector);
     set_bms_fault_pin(current_fault_vector != 0);
 
-    bool startup_debounce = (osKernelGetTickCount() > 5000);
-    if(startup_debounce) {
+    bool startup_complete = (osKernelGetTickCount() > 8000);
+    if(startup_complete) {
       bms_indicator_error = bms_indicator_error || (current_fault_vector != 0);
       imd_indicator_error = imd_indicator_error || hvc_gpio_is_imd_error_active();
     }
@@ -275,8 +275,7 @@ void StartStateMachineTask(void *argument) {
                              hvc_gpio_is_shutdown_leg3_closed(),
                              hvc_gpio_is_shutdown_leg4_closed());
 
-    bool any_faults = (get_latched_faults() != 0) ||
-                      (osKernelGetTickCount() < 5000);
+    bool any_faults = (get_latched_faults() != 0) || !startup_complete;
 
     update_state_machine(any_faults);
     hvc_update_contactor_status();
