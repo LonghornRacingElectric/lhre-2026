@@ -492,6 +492,7 @@ function App() {
   const [dashGatePushed, setDashGatePushed] = useState(false);
   const [dashNow, setDashNow] = useState(0); // 1 Hz tick for link-health "age" displays
   const dashLastLapCountRef = useRef(0);
+  const lastRegistryPatchRef = useRef(0);
   const liveSourceRef = useRef<EventSource | null>(null);
   // The live feed auto-starts and self-heals: liveShouldRunRef tracks whether we
   // *want* a connection (so an unexpected drop reconnects, but an explicit
@@ -734,12 +735,16 @@ function App() {
 
   // Keep the active session's registry record current as it runs, so the Log Sync
   // page can match a CSV's loggerd timestamp into the right session window and
-  // auto-fill its annotation. Tracks telemetry time (lastSample) when available.
+  // auto-fill its annotation. Throttled to ~once per 5s so the per-sample stream
+  // (~20 Hz) can't hammer localStorage; the window stays accurate to a few sec.
   useEffect(() => {
     if (!sessionInfo) return;
+    const now = Date.now();
+    if (now - lastRegistryPatchRef.current < 5000) return;
+    lastRegistryPatchRef.current = now;
     patchSession(sessionInfo.id, {
-      laps: liveState.laps.length,
-      endedAt: liveState.lastSample?.t ?? Date.now(),
+      laps: liveStateRef.current.laps.length,
+      endedAt: liveStateRef.current.lastSample?.t ?? now,
     });
   }, [sessionInfo, liveState.laps.length, liveState.lastSample?.t]);
 
@@ -1442,6 +1447,7 @@ function App() {
     lastBackendSessionSaveRef.current = 0;
     lastSavedLapCountRef.current = 0;
     dashLastLapCountRef.current = 0;
+    lastRegistryPatchRef.current = 0;
     setLiveState(EMPTY_LIVE_STATE);
     setSelectedLapIds(new Set());
     setResumeAvailable(null);
