@@ -14,9 +14,9 @@
 #define VCU_DEFAULT_PARAMS \
     .event_mode = 0, \
     .apps = { \
-        .apps1_min_adc_v          = 1.750f, \
-        .apps1_max_adc_v          = 1.520f, \
-        .apps2_min_adc_v          = 0.190f, \
+        .apps1_min_adc_v          = 1.730f, \
+        .apps1_max_adc_v          = 1.500f, \
+        .apps2_min_adc_v          = 0.197f, \
         .apps2_max_adc_v          = -0.020f, \
         .implaus_debounce_time_ms = 100u, \
         .max_allowable_diff       = 0.15f, \
@@ -68,7 +68,7 @@
           /* apps= 0.9 */ 0.90f, \
           /* apps= 1.0 */ 1.00f, \
         }, \
-        .pedal_curve_exponent    = 2.0f, \
+        .pedal_curve_exponent    = 1.5f, \
         .low_cell_derate_start_v = 3.2f, \
         .low_cell_cutoff_v       = 2.8f, \
     }, \
