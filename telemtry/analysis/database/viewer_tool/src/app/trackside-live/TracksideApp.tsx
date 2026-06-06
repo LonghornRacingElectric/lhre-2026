@@ -7,6 +7,8 @@ import { api } from "@/lib/trackside/api";
 import { useCarStatus, CAR_STATE_META, humanizeReason, type CarState, type CarStatusFeed } from "@/lib/trackside/useCarStatus";
 import { EVENT_TYPES, upsertSession, patchSession, type TracksideSessionInfo } from "@/lib/trackside/sessionRegistry";
 import { usePresence } from "@/lib/trackside/usePresence";
+import { DashLayoutEditor } from "@/components/dashlayout/DashLayoutEditor";
+import type { LapCardLayout } from "@/lib/dash/dashLayout";
 import { useDashSignals } from "@/lib/dash/dashSignals";
 import type {
   ChannelDef,
@@ -455,6 +457,8 @@ function App() {
   // The active named session (for the logsync registry + export identity).
   const [sessionInfo, setSessionInfo] = useState<TracksideSessionInfo | null>(null);
   const [newSessionOpen, setNewSessionOpen] = useState(false);
+  const [lapDesignerOpen, setLapDesignerOpen] = useState(false);
+  const [layoutSendStatus, setLayoutSendStatus] = useState("");
   const [mixedMetadata, setMixedMetadata] = useState<Set<MetadataField>>(new Set());
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("motec-theme") === "dark");
   const [builderCenter, setBuilderCenter] = useState({ lat: 30.3922, lon: -97.7287 });
@@ -1529,6 +1533,16 @@ function App() {
     void startLiveData(draft.car);
   }
 
+  // Publish the lap-card layout to the car (retained: used until replaced). Only
+  // the session leader commands the car; the dash link must be connected.
+  function sendLapLayout(layout: LapCardLayout) {
+    if (isMirrorRef.current) { setLayoutSendStatus("Read-only mirror — only the session leader can push to the car."); return; }
+    if (dashSignals.status !== "connected") { setLayoutSendStatus("Connect to the dash first (Dash tab → Connect to dash)."); return; }
+    const ok = dashSignals.publishLayout(layout);
+    setLayoutSendStatus(ok ? `Sent “${layout.name}” to the car ✓ (retained — used until replaced)` : "Publish failed — check the dash link.");
+    window.setTimeout(() => setLayoutSendStatus(""), 5000);
+  }
+
   // Download the session's laps as a flat CSV (timestamps + per-lap energy), for
   // sharing/analysis alongside the MoTeC export and the full session JSON.
   function downloadSessionCsv() {
@@ -2179,6 +2193,9 @@ function App() {
           onStart={startNewSession}
           onClose={() => setNewSessionOpen(false)}
         />
+      ) : null}
+      {lapDesignerOpen ? (
+        <DashLayoutEditor onClose={() => setLapDesignerOpen(false)} onSend={sendLapLayout} sendStatus={layoutSendStatus} />
       ) : null}
       <header className="topbar">
         <div>
@@ -3037,6 +3054,14 @@ function App() {
               <Metric label="Last Lap NRG" value={liveState.laps.at(-1) ? `${liveState.laps.at(-1)!.energyWh.toFixed(0)} Wh` : "--"} />
               <Metric label="Best Lap" value={bestLap ? formatLapTime(bestLap.durationMs) : "--"} tone="purple" />
             </div>
+            <div className="gateButtons" style={{ marginTop: 10 }}>
+              <button className="tool" disabled={isMirror} onClick={() => setLapDesignerOpen(true)}>
+                <SlidersHorizontal size={15} /> Design lap screen
+              </button>
+            </div>
+            <p style={{ margin: "6px 0 0", opacity: 0.7, fontSize: "0.8rem" }}>
+              Lay out what the driver sees on each lap card, then send it to the car (used until replaced).
+            </p>
           </Panel>
 
           <Panel title="Start/Finish — on-car laps" icon={<MapPinned size={18} />}>

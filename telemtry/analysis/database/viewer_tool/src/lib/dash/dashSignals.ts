@@ -75,6 +75,8 @@ export interface DashSignals {
     sendLap: () => void;
     /** Push the start/finish gate [lat1,lon1,lat2,lon2] so the car counts laps itself (retained). */
     publishGate: (gate: [number, number, number, number]) => void;
+    /** Push the lap-card layout the dash renders (retained: sent once, used until replaced). */
+    publishLayout: (layout: unknown) => boolean;
     /** Latest mirror of the driver's screen (null until the car publishes state). */
     dashState: DashMirrorState | null;
     /** Wall-clock ms of the last lhre/dash/state message — for a link-silent warning. */
@@ -210,6 +212,15 @@ export function useDashSignals(): DashSignals {
         client.publish(`${TOPIC_PREFIX}sfGate`, JSON.stringify(gate), { qos: 1, retain: true });
     }, []);
 
+    // Retained + QoS 1, exactly like sfGate: the dash re-loads the current layout
+    // on every reconnect/reboot, so it's "send once, used until replaced".
+    const publishLayout = useCallback((layout: unknown): boolean => {
+        const client = clientRef.current;
+        if (!client || !client.connected) return false;
+        client.publish(`${TOPIC_PREFIX}layout`, JSON.stringify(layout), { qos: 1, retain: true });
+        return true;
+    }, []);
+
     const setBrokerUrl = useCallback((url: string) => {
         setBrokerUrlState(url);
         if (typeof window !== 'undefined') localStorage.setItem(BROKER_STORAGE_KEY, url);
@@ -232,6 +243,7 @@ export function useDashSignals(): DashSignals {
         publishTargetPower,
         sendLap,
         publishGate,
+        publishLayout,
         dashState,
         lastStateAt,
         acks,
