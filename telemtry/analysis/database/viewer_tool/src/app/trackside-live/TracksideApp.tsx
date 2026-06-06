@@ -439,6 +439,11 @@ function App() {
   const [detail, setDetail] = useState<DayDetail | null>(null);
   const [session, setSession] = useState<SessionSummary | null>(null);
   const [segments, setSegments] = useState<SegmentSummary[]>([]);
+  // Track Builder only uses sessions with a real GPS trace (you draw gates on
+  // it), so hide non-GPS / sparse-trace sessions by default — that's what filters
+  // out stale/replayed "fake" sessions without touching the database. Toggle off
+  // to see everything. MIN_TRACE_GPS_POINTS = a real lap has many fixes.
+  const [gpsOnlySessions, setGpsOnlySessions] = useState(true);
   const [series, setSeries] = useState<SeriesPoint[]>([]);
   const [gps, setGps] = useState<GpsPoint[]>([]);
   const [range, setRange] = useState<[number, number] | null>(null);
@@ -2355,6 +2360,18 @@ function App() {
 
           <Panel title="Sessions" icon={<Scissors size={18} />}>
             <div className="stack compact">
+              {(() => {
+                const MIN_TRACE_GPS_POINTS = 30;
+                const visibleSegments = gpsOnlySessions
+                  ? segments.filter((s) => s.has_gps && s.gps_points >= MIN_TRACE_GPS_POINTS)
+                  : segments;
+                const hiddenCount = segments.length - visibleSegments.length;
+                return (
+              <>
+              <label className="checkInline" style={{ marginBottom: 4 }}>
+                <input type="checkbox" checked={gpsOnlySessions} onChange={(e) => setGpsOnlySessions(e.target.checked)} />
+                GPS sessions only{hiddenCount > 0 ? ` (${hiddenCount} hidden)` : ""}
+              </label>
               {sourceRanges.length ? (
                 <small className="muted">
                   Threshold sessions for selected local day
@@ -2367,9 +2384,9 @@ function App() {
                     ? `${formatTime(previewSummary.startMs)} - ${formatDuration(previewSummary.durationS)} total`
                     : "Click a session row to load its graph, GPS, and metadata."}
                 </span>
-                {segments.length > 1 ? <button className="textButton" onClick={selectAllSessionsForPreview}>Preview all</button> : null}
+                {visibleSegments.length > 1 ? <button className="textButton" onClick={selectAllSessionsForPreview}>Preview all</button> : null}
               </div>
-              {segments.map((segment) => (
+              {visibleSegments.map((segment) => (
                 <div
                   key={segment.id}
                   className={previewSelectedSegments.has(segment.id) ? "sessionRow previewSelected" : "sessionRow"}
@@ -2401,7 +2418,16 @@ function App() {
                   </span>
                 </div>
               ))}
-              {!segments.length ? <small className="muted">No threshold sessions in this day.</small> : null}
+              {!visibleSegments.length ? (
+                <small className="muted">
+                  {segments.length
+                    ? `All ${segments.length} session${segments.length === 1 ? "" : "s"} hidden — none have a usable GPS trace. Uncheck “GPS sessions only” to show them.`
+                    : "No threshold sessions in this day."}
+                </small>
+              ) : null}
+              </>
+                );
+              })()}
             </div>
           </Panel>
         </aside>
