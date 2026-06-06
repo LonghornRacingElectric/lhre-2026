@@ -6,7 +6,7 @@
 
 import React from 'react';
 import {
-  LAP_CARD_W, LAP_CARD_H, formatValue, getByPath,
+  LAP_CARD_W, LAP_CARD_H, formatValue, getByPath, deltaColor,
   type LapCardLayout, type Widget,
 } from '@/lib/dash/dashLayout';
 
@@ -74,18 +74,34 @@ function WidgetView({ w, data }: { w: Widget; data: unknown }) {
     const span = w.max - w.min || 1;
     const pct = Math.min(1, Math.max(0, (val - w.min) / span));
     const zeroPct = Math.min(1, Math.max(0, (0 - w.min) / span));
+    // signColored = green/red by sign (delta bar); else fixed color (+ green on regen-side for bidirectional).
+    const fill = w.signColored ? deltaColor(val, w.goodSign ?? 'negative') : (w.bidirectional ? (val >= 0 ? w.color : '#00FF66') : w.color);
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4 }}>
         {w.label && <span style={{ color: '#9aa', fontSize: 13, letterSpacing: 2 }}>{w.label}</span>}
         <div style={{ position: 'relative', width: '100%', flex: 1, background: w.bg ?? '#222', borderRadius: 6, overflow: 'hidden' }}>
           {w.bidirectional ? (
             <div style={{ position: 'absolute', top: 0, bottom: 0,
-              left: `${Math.min(zeroPct, pct) * 100}%`, width: `${Math.abs(pct - zeroPct) * 100}%`,
-              background: val >= 0 ? w.color : '#00FF66' }} />
+              left: `${Math.min(zeroPct, pct) * 100}%`, width: `${Math.abs(pct - zeroPct) * 100}%`, background: fill }} />
           ) : (
-            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${pct * 100}%`, background: w.color }} />
+            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${pct * 100}%`, background: fill }} />
           )}
         </div>
+      </div>
+    );
+  }
+  if (w.type === 'delta') {
+    const val = getByPath(data, w.bind);
+    const color = deltaColor(val, w.goodSign ?? 'negative', w.goodColor, w.badColor, w.zeroColor);
+    const mag = formatValue(val, w.format);
+    const signed = val != null && val > 0 && w.showSign !== false ? `+${mag}` : mag;
+    const arrow = w.showArrow && val != null && val !== 0 ? (val > 0 ? '▲ ' : '▼ ') : '';
+    return (
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+        alignItems: w.align === 'left' ? 'flex-start' : w.align === 'right' ? 'flex-end' : 'center',
+        justifyContent: 'center', lineHeight: 1, overflow: 'hidden' }}>
+        {w.label && <span style={{ color: w.labelColor ?? '#9aa', fontSize: Math.max(11, w.fontSize * 0.28), letterSpacing: 3, marginBottom: 4 }}>{w.label}</span>}
+        <span style={{ color, fontSize: w.fontSize, fontWeight: w.bold ? 800 : 600 }}>{arrow}{signed}</span>
       </div>
     );
   }

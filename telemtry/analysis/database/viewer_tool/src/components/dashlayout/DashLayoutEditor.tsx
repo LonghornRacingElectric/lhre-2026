@@ -5,11 +5,11 @@
 // and publish the layout to the car (retained, once). Layout persists locally.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { X, Plus, Send, Save, RotateCcw, Trash2, Type, Hash, BarChart3, Gauge as GaugeIcon } from 'lucide-react';
+import { X, Send, Save, RotateCcw, Trash2, Type, Hash, BarChart3, Gauge as GaugeIcon, TrendingUp } from 'lucide-react';
 import LapCardRenderer from './LapCardRenderer';
 import {
   LAP_CARD_W, LAP_CARD_H, FIELD_CATALOG, fieldDef, defaultLapCardLayout, validateLapCardLayout,
-  sampleLapCardData, type LapCardLayout, type Widget, type WidgetType, type FormatId, type Align,
+  sampleLapCardData, type LapCardLayout, type Widget, type WidgetType, type FormatId, type Align, type GoodSign,
 } from '@/lib/dash/dashLayout';
 
 const STORAGE_KEY = 'dash-lap-layout';
@@ -32,7 +32,8 @@ function newWidget(type: WidgetType): Widget {
   const base = { id, x: 300, y: 200, w: 200, h: 80 };
   if (type === 'text') return { ...base, type, text: 'TEXT', fontSize: 36, color: '#FFFFFF', align: 'center', bold: true };
   if (type === 'value') return { ...base, type, bind: 'lapCard.timeS', format: 'laptime', fontSize: 56, color: '#FFFFFF', align: 'center', bold: true };
-  if (type === 'bar') return { ...base, type, h: 40, bind: 'pacing.budgetDeltaWh', min: -100, max: 100, color: '#BF5700', bidirectional: true, label: 'BUDGET Δ' };
+  if (type === 'bar') return { ...base, type, h: 40, bind: 'pacing.budgetDeltaWh', min: -100, max: 100, color: '#BF5700', bidirectional: true, signColored: true, goodSign: 'negative', label: 'BUDGET Δ' };
+  if (type === 'delta') return { ...base, type, bind: 'mqtt.lapDelta', format: 'float2', fontSize: 64, align: 'center', bold: true, label: 'LAP Δ', goodSign: 'negative', showArrow: true, showSign: true };
   return { ...base, type: 'gauge', w: 180, h: 180, bind: 'can.soc', min: 0, max: 100, label: 'SOC', color: 'gradient', mode: 'standard', format: 'pct' };
 }
 
@@ -120,6 +121,7 @@ export function DashLayoutEditor({ onClose, onSend, sendStatus }: {
             <div className="paletteRow">
               <button className="tool" onClick={() => addWidget('text')}><Type size={14} /> Text</button>
               <button className="tool" onClick={() => addWidget('value')}><Hash size={14} /> Value</button>
+              <button className="tool" onClick={() => addWidget('delta')}><TrendingUp size={14} /> Delta</button>
               <button className="tool" onClick={() => addWidget('bar')}><BarChart3 size={14} /> Bar</button>
               <button className="tool" onClick={() => addWidget('gauge')}><GaugeIcon size={14} /> Gauge</button>
             </div>
@@ -178,12 +180,13 @@ function PropertyPanel({ w, onChange, onDelete }: { w: Widget; onChange: (p: Par
             const fd = fieldDef(e.target.value);
             const p: Partial<Widget> = { bind: e.target.value } as Partial<Widget>;
             if (fd) {
-              if (w.type === 'value' && fd.defaultFormat) (p as { format?: FormatId }).format = fd.defaultFormat;
+              if ((w.type === 'value' || w.type === 'delta') && fd.defaultFormat) (p as { format?: FormatId }).format = fd.defaultFormat;
               if ((w.type === 'bar' || w.type === 'gauge')) {
                 if (fd.min != null) (p as { min?: number }).min = fd.min;
                 if (fd.max != null) (p as { max?: number }).max = fd.max;
-                if (fd.bidirectional != null) (p as { bidirectional?: boolean; mode?: string }).bidirectional = fd.bidirectional;
+                if (fd.bidirectional != null) (p as { bidirectional?: boolean }).bidirectional = fd.bidirectional;
               }
+              if ((w.type === 'delta' || w.type === 'bar') && fd.goodSign) (p as { goodSign?: GoodSign }).goodSign = fd.goodSign;
             }
             onChange(p);
           }}>
@@ -195,15 +198,40 @@ function PropertyPanel({ w, onChange, onDelete }: { w: Widget; onChange: (p: Par
           </select>
         </Row>
       )}
-      {(w.type === 'value' || w.type === 'gauge') && (
+      {(w.type === 'value' || w.type === 'gauge' || w.type === 'delta') && (
         <Row label="Format">
           <select value={(w as { format?: FormatId }).format ?? 'int'} onChange={(e) => onChange({ format: e.target.value as FormatId } as Partial<Widget>)}>
             {FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
         </Row>
       )}
-      {(w.type === 'value' || w.type === 'bar' || w.type === 'gauge') && (
+      {(w.type === 'value' || w.type === 'bar' || w.type === 'gauge' || w.type === 'delta') && (
         <Row label="Label"><input value={(w as { label?: string }).label ?? ''} onChange={(e) => onChange({ label: e.target.value } as Partial<Widget>)} /></Row>
+      )}
+      {w.type === 'delta' && (
+        <>
+          <Row label="Green when">
+            <select value={w.goodSign ?? 'negative'} onChange={(e) => onChange({ goodSign: e.target.value as GoodSign })}>
+              <option value="negative">lower / negative</option>
+              <option value="positive">higher / positive</option>
+            </select>
+          </Row>
+          <label className="propRow"><span>Arrow ▲▼</span><input type="checkbox" checked={w.showArrow ?? false} onChange={(e) => onChange({ showArrow: e.target.checked })} /></label>
+          <label className="propRow"><span>+/− sign</span><input type="checkbox" checked={w.showSign !== false} onChange={(e) => onChange({ showSign: e.target.checked })} /></label>
+        </>
+      )}
+      {w.type === 'bar' && (
+        <>
+          <label className="propRow"><span>Sign colors</span><input type="checkbox" checked={w.signColored ?? false} onChange={(e) => onChange({ signColored: e.target.checked })} /></label>
+          {w.signColored && (
+            <Row label="Green when">
+              <select value={w.goodSign ?? 'negative'} onChange={(e) => onChange({ goodSign: e.target.value as GoodSign })}>
+                <option value="negative">lower / negative</option>
+                <option value="positive">higher / positive</option>
+              </select>
+            </Row>
+          )}
+        </>
       )}
       {(w.type === 'bar' || w.type === 'gauge') && (
         <>
@@ -211,16 +239,16 @@ function PropertyPanel({ w, onChange, onDelete }: { w: Widget; onChange: (p: Par
           <Row label="Max"><input type="number" value={(w as { max: number }).max} onChange={(e) => onChange({ max: Number(e.target.value) } as Partial<Widget>)} /></Row>
         </>
       )}
-      {(w.type === 'text' || w.type === 'value') && (
+      {(w.type === 'text' || w.type === 'value' || w.type === 'delta') && (
         <Row label="Font size"><input type="number" value={w.fontSize} onChange={(e) => onChange({ fontSize: Number(e.target.value) } as Partial<Widget>)} /></Row>
       )}
-      {w.type !== 'bar' && (
+      {(w.type === 'text' || w.type === 'value' || w.type === 'gauge') && (
         <Row label="Color"><input type="color" value={normalizeColor((w as { color?: string }).color)} onChange={(e) => onChange({ color: e.target.value } as Partial<Widget>)} /></Row>
       )}
-      {w.type === 'bar' && (
+      {w.type === 'bar' && !w.signColored && (
         <Row label="Fill color"><input type="color" value={normalizeColor(w.color)} onChange={(e) => onChange({ color: e.target.value })} /></Row>
       )}
-      {(w.type === 'text' || w.type === 'value') && (
+      {(w.type === 'text' || w.type === 'value' || w.type === 'delta') && (
         <Row label="Align">
           <select value={(w as { align?: Align }).align ?? 'center'} onChange={(e) => onChange({ align: e.target.value as Align } as Partial<Widget>)}>
             <option value="left">left</option><option value="center">center</option><option value="right">right</option>

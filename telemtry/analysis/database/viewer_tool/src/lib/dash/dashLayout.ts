@@ -11,8 +11,23 @@ export const LAP_CARD_W = 800;
 export const LAP_CARD_H = 480;
 export const DASH_LAYOUT_VERSION = 1;
 
-export type WidgetType = 'text' | 'value' | 'bar' | 'gauge';
+export type WidgetType = 'text' | 'value' | 'bar' | 'gauge' | 'delta';
 export type Align = 'left' | 'center' | 'right';
+// Which sign of a delta counts as "good" (green). Racing default: lower/negative
+// is good (faster lap, under energy budget). Flip per-widget when higher is good.
+export type GoodSign = 'negative' | 'positive';
+
+export const DELTA_GOOD = '#2ee06a';
+export const DELTA_BAD = '#ff4d4f';
+export const DELTA_ZERO = '#9aa3ab';
+
+/** Color a delta value by sign + which sign is "good". */
+export function deltaColor(v: number | null | undefined, goodSign: GoodSign = 'negative',
+  good = DELTA_GOOD, bad = DELTA_BAD, zero = DELTA_ZERO): string {
+  if (v == null || !Number.isFinite(v) || v === 0) return zero;
+  const isGood = goodSign === 'negative' ? v < 0 : v > 0;
+  return isGood ? good : bad;
+}
 
 // How a bound numeric value is rendered to text.
 export type FormatId =
@@ -53,7 +68,26 @@ export interface BarWidget extends BaseWidget {
   color: string;
   bg?: string;
   bidirectional?: boolean;  // fill from 0 (e.g. budget delta)
+  signColored?: boolean;    // fill turns green/red by sign (delta bar)
+  goodSign?: GoodSign;      // which sign is green when signColored
   label?: string;
+}
+// A signed delta read-out, auto-colored green/red by sign, with optional ▲/▼.
+export interface DeltaWidget extends BaseWidget {
+  type: 'delta';
+  bind: string;
+  format: FormatId;
+  fontSize: number;
+  align?: Align;
+  bold?: boolean;
+  label?: string;
+  labelColor?: string;
+  goodSign?: GoodSign;      // default 'negative' (lower is better)
+  goodColor?: string;
+  badColor?: string;
+  zeroColor?: string;
+  showArrow?: boolean;
+  showSign?: boolean;       // +/- prefix (default true)
 }
 export interface GaugeWidget extends BaseWidget {
   type: 'gauge';
@@ -64,7 +98,7 @@ export interface GaugeWidget extends BaseWidget {
   mode?: 'standard' | 'bidirectional';
   format?: FormatId;        // center read-out format
 }
-export type Widget = TextWidget | ValueWidget | BarWidget | GaugeWidget;
+export type Widget = TextWidget | ValueWidget | BarWidget | GaugeWidget | DeltaWidget;
 
 export interface LapCardLayout {
   version: number;
@@ -85,6 +119,9 @@ export interface FieldDef {
   min?: number;
   max?: number;
   bidirectional?: boolean;
+  // delta hint: this field is a signed delta, and which sign is "good" (green)
+  isDelta?: boolean;
+  goodSign?: GoodSign;
 }
 
 export const FIELD_CATALOG: FieldDef[] = [
@@ -95,11 +132,14 @@ export const FIELD_CATALOG: FieldDef[] = [
   { bind: 'mqtt.bestLapTime', label: 'Best lap', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120 },
   { bind: 'mqtt.lastLapTime', label: 'Last lap', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120 },
   // Pacing / strategy
-  { bind: 'pacing.budgetDeltaWh', label: 'Budget Δ', group: 'Pacing', unit: 'Wh', defaultFormat: 'whSigned', min: -100, max: 100, bidirectional: true },
   { bind: 'pacing.lapEnergyWh', label: 'Energy (this lap)', group: 'Pacing', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400 },
   { bind: 'mqtt.lapsRemaining', label: 'Laps remaining', group: 'Pacing', defaultFormat: 'int', min: 0, max: 30 },
-  { bind: 'mqtt.lapDelta', label: 'Lap delta', group: 'Pacing', unit: 's', defaultFormat: 'float2', min: -5, max: 5, bidirectional: true },
   { bind: 'mqtt.targetPower', label: 'Target power', group: 'Pacing', unit: 'kW', defaultFormat: 'kw', min: 0, max: 80 },
+  // Deltas (signed — green/red by sign; lower/negative is "good" by default)
+  { bind: 'mqtt.lapDelta', label: 'Lap Δ vs ref', group: 'Deltas', unit: 's', defaultFormat: 'float2', min: -5, max: 5, bidirectional: true, isDelta: true, goodSign: 'negative' },
+  { bind: 'pacing.budgetDeltaWh', label: 'Energy budget Δ', group: 'Deltas', unit: 'Wh', defaultFormat: 'whSigned', min: -100, max: 100, bidirectional: true, isDelta: true, goodSign: 'negative' },
+  { bind: 'mqtt.energyDelta', label: 'Energy Δ vs target', group: 'Deltas', unit: 'Wh', defaultFormat: 'whSigned', min: -100, max: 100, bidirectional: true, isDelta: true, goodSign: 'negative' },
+  { bind: 'mqtt.lapDeltaRate', label: 'Lap Δ rate', group: 'Deltas', unit: 's/s', defaultFormat: 'float2', min: -2, max: 2, bidirectional: true, isDelta: true, goodSign: 'negative' },
   // Live car
   { bind: 'can.soc', label: 'State of charge', group: 'Battery', unit: '%', defaultFormat: 'pct', min: 0, max: 100 },
   { bind: 'can.temperature', label: 'Battery temp', group: 'Battery', unit: '°C', defaultFormat: 'temp', min: 0, max: 80 },
@@ -170,7 +210,7 @@ export function validateLapCardLayout(raw: unknown): LapCardLayout | null {
   const widgets = o.widgets.filter((w): w is Widget =>
     !!w && typeof w === 'object'
     && typeof (w as Widget).id === 'string'
-    && ['text', 'value', 'bar', 'gauge'].includes((w as Widget).type)
+    && ['text', 'value', 'bar', 'gauge', 'delta'].includes((w as Widget).type)
     && typeof (w as Widget).x === 'number' && typeof (w as Widget).y === 'number');
   return {
     version: typeof o.version === 'number' ? o.version : DASH_LAYOUT_VERSION,
@@ -188,6 +228,6 @@ export function sampleLapCardData() {
       lastLapNumber: 7, lastLapTimeS: 84.36, lastLapEnergyWh: 213 },
     can: { soc: 62, temperature: 41.5, power: 47, speed: 38 },
     mqtt: { lapDelta: -0.42, energyDelta: -12, lapsRemaining: 15, targetPower: 30,
-      bestLapTime: 83.1, lastLapTime: 84.36 },
+      bestLapTime: 83.1, lastLapTime: 84.36, lapDeltaRate: 0.08 },
   };
 }
