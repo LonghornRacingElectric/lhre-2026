@@ -6,6 +6,7 @@ import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, ChevronLeft,
 import { api } from "@/lib/trackside/api";
 import { useCarStatus, CAR_STATE_META, humanizeReason, type CarState, type CarStatusFeed } from "@/lib/trackside/useCarStatus";
 import { EVENT_TYPES, upsertSession, patchSession, type TracksideSessionInfo } from "@/lib/trackside/sessionRegistry";
+import { usePresence } from "@/lib/trackside/usePresence";
 import { useDashSignals } from "@/lib/dash/dashSignals";
 import type {
   ChannelDef,
@@ -183,6 +184,7 @@ type SavedSession = {
   sampleTail: LiveSample[];
   currentLap?: SavedCurrentLap | null;
   hasSectors: boolean;
+  sessionInfo?: TracksideSessionInfo | null;
 };
 const SESSION_STORAGE_KEY = "motec-live-session";
 const TOUR_STORAGE_KEY = "trackside-tour-done";
@@ -493,6 +495,11 @@ function App() {
   const [dashNow, setDashNow] = useState(0); // 1 Hz tick for link-health "age" displays
   const dashLastLapCountRef = useRef(0);
   const lastRegistryPatchRef = useRef(0);
+  // Multi-client sync: one leader owns the session, others mirror it read-only.
+  const presence = usePresence(true);
+  const isMirror = presence.isMirror;
+  const isMirrorRef = useRef(false);
+  const lastMirrorPollRef = useRef(0);
   const liveSourceRef = useRef<EventSource | null>(null);
   // The live feed auto-starts and self-heals: liveShouldRunRef tracks whether we
   // *want* a connection (so an unexpected drop reconnects, but an explicit
@@ -774,10 +781,10 @@ function App() {
   useEffect(() => {
     const count = liveState.laps.length;
     if (count > dashLastLapCountRef.current) {
-      if (dashAutoLap && dashSignals.status === "connected") dashSignals.sendLap();
+      if (!isMirror && dashAutoLap && dashSignals.status === "connected") dashSignals.sendLap();
       dashLastLapCountRef.current = count;
     }
-  }, [liveState.laps.length, dashAutoLap, dashSignals.status, dashSignals.sendLap]);
+  }, [liveState.laps.length, dashAutoLap, dashSignals.status, dashSignals.sendLap, isMirror]);
 
   // Auto-select newly completed laps for the average (preserving manual deselections).
   useEffect(() => {
@@ -926,6 +933,30 @@ function App() {
   useEffect(() => {
     liveStateRef.current = liveState;
   }, [liveState]);
+
+  useEffect(() => {
+    isMirrorRef.current = isMirror;
+  }, [isMirror]);
+
+  // Mirror clients adopt the leader's shared session (laps, totals, lap-in-
+  // progress, targets, identity) by polling the session-cache, while keeping
+  // their own live gauges from the stream. Skipped entirely for the leader.
+  useEffect(() => {
+    if (!isMirror) return;
+    let cancelled = false;
+    const pull = async () => {
+      try {
+        const saved = await api.latestLiveSession<SavedSession>();
+        if (cancelled || !saved) return;
+        adoptSharedSession(saved);
+      } catch {
+        // No shared session yet / unreachable — keep showing live gauges.
+      }
+    };
+    void pull();
+    const iv = window.setInterval(pull, 2000);
+    return () => { cancelled = true; window.clearInterval(iv); };
+  }, [isMirror]);
 
   useEffect(() => {
     liveTrackRef.current = track;
@@ -1457,6 +1488,7 @@ function App() {
   }
 
   function resetLiveSession() {
+    if (isMirrorRef.current) return;
     const hasSessionData = liveStateRef.current.laps.length || liveStateRef.current.samples.length || liveStateRef.current.lapStartMs;
     if (hasSessionData && !window.confirm("Reset all live laps, current lap data, and saved session cache?")) return;
     if (sessionInfo) {
@@ -1472,6 +1504,7 @@ function App() {
   // Start a fresh, named session: close out any prior record, clear state, stamp
   // the metadata for exports + the logsync registry, and re-arm the feed.
   function startNewSession(draft: { name: string; car: "orion" | "angelique"; driver: string; eventType: string; venue: string }) {
+    if (isMirrorRef.current) return;
     if (sessionInfo) patchSession(sessionInfo.id, { endedAt: Date.now(), laps: liveStateRef.current.laps.length });
     clearLiveSessionState();
     const startedAt = Date.now();
@@ -1562,6 +1595,20 @@ function App() {
 
   function processLiveSample(sample: LiveSample) {
     const current = liveStateRef.current;
+    // Mirror clients don't run lap/energy detection (the leader owns the session
+    // and we adopt its doc); just refresh the live gauges from this client's own
+    // stream so dials/charts stay real-time.
+    if (isMirrorRef.current) {
+      const mirrored: LiveSessionState = {
+        ...current,
+        previousSample: current.lastSample,
+        lastSample: sample,
+        samples: [...current.samples, sample].slice(-LIVE_SAMPLE_MEMORY_CAP),
+      };
+      liveStateRef.current = mirrored;
+      setLiveState(mirrored);
+      return;
+    }
     const previous = current.lastSample;
     const trackForLive = liveTrackRef.current;
     let completedLap: LiveLap | null = null;
@@ -1690,6 +1737,7 @@ function App() {
   }
 
   function triggerManualLap() {
+    if (isMirrorRef.current) return;
     const current = liveStateRef.current;
     const sample = current.lastSample;
     if (!sample) {
@@ -1775,6 +1823,7 @@ function App() {
   // a lap actually completes — so either tab does the whole thing. We bump
   // dashLastLapCountRef so the auto-send effect doesn't double-fire for this lap.
   function markLap() {
+    if (isMirrorRef.current) return; // read-only mirror — leader owns laps
     const before = liveStateRef.current.laps.length;
     triggerManualLap();
     const after = liveStateRef.current.laps.length;
@@ -1852,7 +1901,42 @@ function App() {
       sampleTail: current.samples.slice(includeFullLapSamples ? 0 : -SESSION_AUTOSAVE_SAMPLE_CAP),
       currentLap,
       hasSectors: sessionFromFile || current.laps.some((lap) => lap.sectors.length > 0),
+      sessionInfo,
     };
+  }
+
+  // Merge the leader's shared session into a mirror's state, keeping this client's
+  // own live gauges (lastSample/samples/feed status) untouched.
+  function adoptSharedSession(saved: SavedSession) {
+    const laps = (saved.laps ?? []).map(normalizeSavedLiveLap);
+    const cur = saved.currentLap ?? null;
+    const current = liveStateRef.current;
+    const merged: LiveSessionState = {
+      ...current,
+      laps,
+      lapStartMs: cur?.lapStartMs ?? null,
+      sectorStartMs: cur?.sectorStartMs ?? null,
+      nextSplitIndex: cur?.nextSplitIndex ?? 0,
+      currentSectors: cur?.currentSectors ?? [],
+      totalEnergyWh: saved.totalEnergyWh ?? 0,
+      totalEnergyOutWh: saved.totalEnergyOutWh ?? Math.max(0, saved.totalEnergyWh ?? 0),
+      totalEnergyInWh: saved.totalEnergyInWh ?? 0,
+      batteryTotalEnergyWh: saved.batteryTotalEnergyWh ?? null,
+      lapEnergyWh: cur?.lapEnergyWh ?? 0,
+      lapEnergyOutWh: cur?.lapEnergyOutWh ?? Math.max(0, cur?.lapEnergyWh ?? 0),
+      lapEnergyInWh: cur?.lapEnergyInWh ?? 0,
+      batteryLapEnergyWh: cur?.batteryLapEnergyWh ?? null,
+      lapDistanceM: cur?.lapDistanceM ?? 0,
+      deltaMs: cur?.deltaMs ?? 0,
+    };
+    knownLapIdsRef.current = new Set(laps.map((lap) => lap.id));
+    liveStateRef.current = merged;
+    setLiveState(merged);
+    setTargetLaps(saved.targetLaps ?? 0);
+    if (saved.targetEnergyKwh && saved.targetEnergyKwh > 0) setTargetEnergyKwh(saved.targetEnergyKwh);
+    if (saved.soeCutoffCellV) setSoeCutoffCellV(saved.soeCutoffCellV);
+    setSelectedLapIds(new Set(saved.selectedLapIds ?? []));
+    if (saved.sessionInfo) setSessionInfo(saved.sessionInfo);
   }
 
   function persistLiveSession(
@@ -1869,7 +1953,8 @@ function App() {
       writeLocalSavedSession(saved);
       void writeIndexedSavedSession(saved);
     }
-    if (saveBackend) {
+    // Only the leader owns the shared session doc — a mirror must never clobber it.
+    if (saveBackend && !isMirrorRef.current) {
       const body = JSON.stringify(saved);
       const beaconSent = "sendBeacon" in navigator
         ? navigator.sendBeacon("/api/live/session-cache", new Blob([body], { type: "application/json" }))
@@ -2130,6 +2215,25 @@ function App() {
           <button type="button" className="errorDismiss" aria-label="Dismiss error" onClick={() => setError("")}>
             <X size={16} />
           </button>
+        </div>
+      ) : null}
+
+      {isMirror ? (
+        <div className="syncBanner mirror" role="status">
+          <Radio size={15} />
+          <span>
+            {presence.role === "full"
+              ? `Viewer limit reached (${presence.max}) — read-only mirror.`
+              : "Mirroring the session leader — read-only."}{" "}
+            Live gauges are your own feed; laps &amp; strategy follow the leader.
+          </span>
+          <span className="syncCount">{presence.clients}/{presence.max} clients</span>
+        </div>
+      ) : presence.clients > 1 ? (
+        <div className="syncBanner leader" role="status">
+          <Radio size={15} />
+          <span>You&apos;re the session leader — your laps &amp; strategy sync to {presence.clients - 1} mirror{presence.clients - 1 === 1 ? "" : "s"}.</span>
+          <span className="syncCount">{presence.clients}/{presence.max} clients</span>
         </div>
       ) : null}
 
@@ -2397,12 +2501,12 @@ function App() {
             <div className="liveControls">
               {/* Big, glanceable trackside actions — the live feed auto-starts,
                   so the frequent buttons (lap + record) get the space. */}
-              <button className="primary liveAction" disabled={!liveState.running || !liveState.lastSample} onClick={markLap}>
+              <button className="primary liveAction" disabled={isMirror || !liveState.running || !liveState.lastSample} onClick={markLap}>
                 <Flag size={22} /> {liveState.lapStartMs ? "Log Lap" : "Start Lap"}
               </button>
               <button
                 className={recordingStartMs != null ? "tool liveAction dangerPrimary" : "tool liveAction"}
-                disabled={recordingBusy || (recordingStartMs == null && !liveState.lastSample)}
+                disabled={isMirror || recordingBusy || (recordingStartMs == null && !liveState.lastSample)}
                 onClick={recordingStartMs != null ? stopRecordingAndExport : startRecording}
                 title="Tag a start, then stop to download a MoTeC file of exactly that window"
               >
@@ -2556,6 +2660,7 @@ function App() {
                       min={0}
                       value={targetLaps || ""}
                       placeholder="e.g. 22"
+                      disabled={isMirror}
                       onChange={(e) => setTargetLaps(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
                     />
                   </label>
@@ -2567,6 +2672,7 @@ function App() {
                       step={0.1}
                       value={targetEnergyKwh || ""}
                       placeholder={PACK_ENERGY_KWH.toFixed(2)}
+                      disabled={isMirror}
                       onChange={(e) => setTargetEnergyKwh(Math.max(0, Number(e.target.value) || 0))}
                     />
                   </label>
@@ -2579,6 +2685,7 @@ function App() {
                       step={0.01}
                       value={soeCutoffCellV || ""}
                       placeholder={DEFAULT_SOE_CUTOFF_CELL_V.toFixed(2)}
+                      disabled={isMirror}
                       onChange={(e) => setSoeCutoffCellV(normalizeSoeCutoffCellV(Number(e.target.value) || DEFAULT_SOE_CUTOFF_CELL_V))}
                     />
                   </label>
@@ -2601,7 +2708,7 @@ function App() {
                     </div>
                   ) : null}
                   <div className="sessionFileRow">
-                    <button type="button" className="primary" onClick={() => setNewSessionOpen(true)}>
+                    <button type="button" className="primary" disabled={isMirror} onClick={() => setNewSessionOpen(true)}>
                       <Plus size={15} /> New Session
                     </button>
                     <button type="button" className="tool" onClick={saveSessionFile}>
@@ -2626,7 +2733,7 @@ function App() {
                       <strong>Reset saved run</strong>
                       <small>Clears laps + cache and keeps streaming. Use New Session to also tag a fresh run.</small>
                     </div>
-                    <button type="button" className="tool dangerTool" onClick={resetLiveSession}>
+                    <button type="button" className="tool dangerTool" disabled={isMirror} onClick={resetLiveSession}>
                       <Trash2 size={15} /> Reset All
                     </button>
                   </div>
@@ -2856,7 +2963,7 @@ function App() {
               {dashSignals.status === "connected" || dashSignals.status === "connecting" ? (
                 <button className="tool dangerTool" onClick={dashSignals.disconnect}><X size={15} /> Disconnect</button>
               ) : (
-                <button className="primary" onClick={dashSignals.connect}><Radio size={15} /> Connect to dash</button>
+                <button className="primary" disabled={isMirror} onClick={dashSignals.connect}><Radio size={15} /> Connect to dash</button>
               )}
             </div>
             {dashSignals.error ? (
@@ -2875,17 +2982,19 @@ function App() {
               max={80}
               step={1}
               value={dashTargetPower}
+              disabled={isMirror}
               onChange={(e) => setDashTargetPower(Number(e.target.value))}
               style={{ width: "100%" }}
             />
             <div className="gateButtons" style={{ marginTop: 8 }}>
-              <button className="tool" onClick={() => setDashTargetPower((p) => Math.max(0, Math.round(p) - 1))}><ArrowDown size={15} /> -1</button>
-              <button className="tool" onClick={() => setDashTargetPower((p) => Math.min(120, Math.round(p) + 1))}><ArrowUp size={15} /> +1</button>
+              <button className="tool" disabled={isMirror} onClick={() => setDashTargetPower((p) => Math.max(0, Math.round(p) - 1))}><ArrowDown size={15} /> -1</button>
+              <button className="tool" disabled={isMirror} onClick={() => setDashTargetPower((p) => Math.min(120, Math.round(p) + 1))}><ArrowUp size={15} /> +1</button>
               <input
                 type="number"
                 value={dashTargetPower}
                 min={0}
                 max={120}
+                disabled={isMirror}
                 onChange={(e) => setDashTargetPower(Number(e.target.value))}
                 style={{ width: 90 }}
               />
@@ -2900,7 +3009,7 @@ function App() {
             <button
               className="primary"
               style={{ fontSize: "1.3rem", padding: "16px 18px", width: "100%", justifyContent: "center" }}
-              disabled={!liveState.lastSample}
+              disabled={isMirror || !liveState.lastSample}
               onClick={markLap}
             >
               <Flag size={18} /> Send Lap
@@ -2937,7 +3046,7 @@ function App() {
                   <div className="gateButtons" style={{ marginTop: 8 }}>
                     <button
                       className="primary"
-                      disabled={!sfGate || dashSignals.status !== "connected"}
+                      disabled={isMirror || !sfGate || dashSignals.status !== "connected"}
                       onClick={() => {
                         if (!sfGate) return;
                         dashSignals.publishGate([sfGate.lat1, sfGate.lon1, sfGate.lat2, sfGate.lon2]);

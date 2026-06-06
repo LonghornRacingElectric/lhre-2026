@@ -803,6 +803,21 @@ textarea:focus-visible,
 .modalFoot { display: flex; justify-content: flex-end; gap: var(--s-2); }
 .modalCard .trackForm small { grid-column: 1 / -1; }
 
+/* Multi-client sync banner (leader / mirror). */
+.syncBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin: 0 0 var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: var(--fs-sm);
+}
+.syncBanner .syncCount { margin-left: auto; opacity: 0.75; white-space: nowrap; }
+.syncBanner.mirror { border-color: color-mix(in srgb, var(--stale) 50%, var(--border)); background: color-mix(in srgb, var(--stale) 10%, transparent); }
+.syncBanner.leader { border-color: color-mix(in srgb, var(--fresh) 45%, var(--border)); background: color-mix(in srgb, var(--fresh) 8%, transparent); }
+
 .sessionFileRow, .resumeBannerActions {
   display: flex;
   flex-wrap: wrap;
