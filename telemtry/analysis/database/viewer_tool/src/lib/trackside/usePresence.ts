@@ -11,6 +11,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type PresenceRole = 'connecting' | 'leader' | 'mirror' | 'full';
 
+export interface PresenceRequest { id: string; name: string }
+
 export interface Presence {
   role: PresenceRole;
   /** Read-only iff the server explicitly demoted us (mirror or cap-full). */
@@ -19,8 +21,11 @@ export interface Presence {
   max: number;
   leader: string | null;
   clientId: string;
-  /** Pending control requests (clientIds) — for the leader's transfer popup. */
-  requests: string[];
+  /** This client's display name (editable). */
+  name: string;
+  setName: (n: string) => void;
+  /** Pending control requests — for the leader's transfer popup. */
+  requests: PresenceRequest[];
   /** Whether THIS client has an outstanding control request. */
   requested: boolean;
   requestLeader: () => void;
@@ -29,6 +34,7 @@ export interface Presence {
 }
 
 const CLIENT_ID_KEY = 'trackside-client-id';
+const CLIENT_NAME_KEY = 'trackside-client-name';
 const HEARTBEAT_MS = 4000;
 
 function getClientId(): string {
@@ -41,11 +47,12 @@ function getClientId(): string {
 }
 
 export function usePresence(enabled: boolean): Presence {
-  const [s, setS] = useState<Omit<Presence, 'requestLeader' | 'grantLeader' | 'denyLeader'>>({
-    role: 'connecting', isMirror: false, clients: 1, max: 3, leader: null, clientId: '', requests: [], requested: false,
+  const [s, setS] = useState<Omit<Presence, 'requestLeader' | 'grantLeader' | 'denyLeader' | 'setName'>>({
+    role: 'connecting', isMirror: false, clients: 1, max: 3, leader: null, clientId: '', name: '', requests: [], requested: false,
   });
   const stopRef = useRef(false);
   const idRef = useRef('');
+  const nameRef = useRef('');
 
   const apply = useCallback((j: Record<string, unknown>, clientId: string) => {
     const role: PresenceRole = j.role === 'leader' || j.role === 'mirror' || j.role === 'full' ? j.role : 'leader';
@@ -56,7 +63,8 @@ export function usePresence(enabled: boolean): Presence {
       max: typeof j.max === 'number' ? j.max : 3,
       leader: (j.leader as string) ?? null,
       clientId,
-      requests: Array.isArray(j.requests) ? (j.requests as string[]) : [],
+      name: nameRef.current,
+      requests: Array.isArray(j.requests) ? (j.requests as PresenceRequest[]) : [],
       requested: !!j.requested,
     });
   }, []);
@@ -66,7 +74,7 @@ export function usePresence(enabled: boolean): Presence {
     try {
       const res = await fetch('/api/motec/live/presence', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ clientId, ...extra }),
+        body: JSON.stringify({ clientId, name: nameRef.current, ...extra }),
       });
       const j = await res.json();
       if (!stopRef.current) apply(j, clientId);
@@ -75,10 +83,19 @@ export function usePresence(enabled: boolean): Presence {
     }
   }, [apply]);
 
+  const setName = useCallback((n: string) => {
+    nameRef.current = n;
+    try { localStorage.setItem(CLIENT_NAME_KEY, n); } catch { /* quota */ }
+    setS((p) => ({ ...p, name: n }));
+    void post({});
+  }, [post]);
+
   useEffect(() => {
     if (!enabled || typeof window === 'undefined') return;
     stopRef.current = false;
     idRef.current = getClientId();
+    nameRef.current = localStorage.getItem(CLIENT_NAME_KEY) || '';
+    setS((p) => ({ ...p, name: nameRef.current }));
     void post({});
     const iv = window.setInterval(() => post({}), HEARTBEAT_MS);
     const leave = () => {
@@ -93,5 +110,5 @@ export function usePresence(enabled: boolean): Presence {
   const grantLeader = useCallback((target: string) => { void post({ action: 'grant', target }); }, [post]);
   const denyLeader = useCallback((target: string) => { void post({ action: 'deny', target }); }, [post]);
 
-  return { ...s, requestLeader, grantLeader, denyLeader };
+  return { ...s, setName, requestLeader, grantLeader, denyLeader };
 }

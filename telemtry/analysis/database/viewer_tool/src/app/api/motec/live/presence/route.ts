@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 
-type Client = { id: string; firstSeen: number; lastSeen: number };
+type Client = { id: string; firstSeen: number; lastSeen: number; name: string };
 type PresenceState = { clients: Map<string, Client>; requests: Map<string, number>; designated: string | null };
 
 const TTL_MS = 12_000;
@@ -51,8 +51,8 @@ function snapshot(clientId: string) {
     leader,
     clients: clients.size,
     max: MAX_CLIENTS,
-    // Pending control requests — only meaningful to the leader's UI.
-    requests: [...requests.keys()],
+    // Pending control requests (id + display name) — for the leader's popup.
+    requests: [...requests.keys()].map((id) => ({ id, name: clients.get(id)?.name || '' })),
     // Whether THIS client has an outstanding request.
     requested: requests.has(clientId),
   };
@@ -61,10 +61,11 @@ function snapshot(clientId: string) {
 export async function POST(req: NextRequest) {
   const now = Date.now();
   const body = (await req.json().catch(() => ({}))) as {
-    clientId?: string; leave?: boolean; action?: "request" | "grant" | "deny"; target?: string;
+    clientId?: string; name?: string; leave?: boolean; action?: "request" | "grant" | "deny"; target?: string;
   };
   const clientId = typeof body.clientId === "string" ? body.clientId : "";
   if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 });
+  const name = (typeof body.name === "string" ? body.name : "").slice(0, 40);
 
   prune(now);
 
@@ -78,8 +79,9 @@ export async function POST(req: NextRequest) {
   const existing = clients.get(clientId);
   if (existing) {
     existing.lastSeen = now;
+    if (name) existing.name = name;
   } else if (clients.size < MAX_CLIENTS) {
-    clients.set(clientId, { id: clientId, firstSeen: now, lastSeen: now });
+    clients.set(clientId, { id: clientId, firstSeen: now, lastSeen: now, name });
   } else {
     return NextResponse.json({ role: "full", clients: clients.size, max: MAX_CLIENTS, leader: leaderId(), requests: [], requested: false });
   }
