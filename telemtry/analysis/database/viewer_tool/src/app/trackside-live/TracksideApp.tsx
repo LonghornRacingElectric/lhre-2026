@@ -1622,6 +1622,17 @@ function App() {
     };
     upsertSession(info);
     setSessionInfo(info);
+    // Back the session with a drive_day record (status=2) so event flags + laps
+    // persist to the classifier. Sequenced (end prior → create) so end-event
+    // can't close the day we just made; async + resilient (session works regardless).
+    void (async () => {
+      await endActiveDriveDay();
+      const dayId = await createDriveDayForSession(info);
+      if (dayId != null) {
+        setSessionInfo((p) => (p && p.id === info.id ? { ...p, dayId } : p));
+        patchSession(info.id, { dayId });
+      }
+    })();
     // Mirror into the MoTeC/CSV export metadata so a downloaded lap carries the
     // same identity the logsync annotation will get.
     setMetadataDraft((prev) => ({ ...prev, driver: info.driver, venue: info.venue, event: info.eventType, session: info.name }));
@@ -1716,6 +1727,7 @@ function App() {
     if (sessionInfo) {
       patchSession(sessionInfo.id, { endedAt: Date.now(), laps: liveStateRef.current.laps.length });
       setSessionInfo(null);
+      void endActiveDriveDay(); // close the drive_day record (status → 0)
     }
     stopLiveData();
     setLiveState((prev) => ({ ...prev, status: "Event stopped — session ended and files downloaded." }));
@@ -1743,6 +1755,45 @@ function App() {
     setLiveState(next);
     setSelectedLapIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
     persistLiveSession(next, { saveLocal: true, saveBackend: true, includeFullLapSamples: false });
+  }
+
+  // --- Session ⇒ drive_day link + event flags (autocross incidents) ----------
+  async function endActiveDriveDay() {
+    try { await fetch("/api/end-event", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ car: source }) }); } catch { /* offline — non-fatal */ }
+  }
+  // Create the drive_day record that backs this trackside session (status=2),
+  // so event flags + laps persist to the classifier. Returns the day_id or null.
+  async function createDriveDayForSession(info: TracksideSessionInfo): Promise<number | null> {
+    try {
+      const res = await fetch("/api/new-drive-day", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          date: new Date(info.startedAt).toISOString().slice(0, 10),
+          track_name: info.venue || track.name || null,
+          car_id: carIdForSource(info.car),
+          driver_id: 0,
+          event_type: eventTypeIdFor(info.eventType),
+          location_id: 0,
+        }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json().catch(() => ({}));
+      return typeof data?.day_id === "number" ? data.day_id : null;
+    } catch { return null; }
+  }
+  // Fire a trackside event flag (cone / off-track / incomplete / custom) — lands
+  // in the classifier table against the active drive_day.
+  async function eventFlag(label: string) {
+    if (isMirrorRef.current || !label.trim()) return;
+    if (!sessionInfo) { setLiveState((prev) => ({ ...prev, status: "Start a session before flagging events." })); return; }
+    try {
+      const res = await fetch("/api/event-flag", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ eventFlag: label }) });
+      setLiveState((prev) => ({ ...prev, status: res.ok ? `Flagged: ${label}` : "Flag failed — no active drive day on the server." }));
+    } catch { setLiveState((prev) => ({ ...prev, status: "Flag failed — offline?" })); }
+  }
+  function customFlag() {
+    const note = window.prompt("Custom event flag (note):");
+    if (note && note.trim()) void eventFlag(note.trim());
   }
 
   function handleLiveEvent(event: LiveStreamEvent) {
@@ -2795,6 +2846,22 @@ function App() {
               >
                 <Power size={22} /> Stop Event
               </button>
+              {/* Event flags → classifier (autocross incidents: cones, off-track,
+                  DNF, custom). Need an active session (= drive_day). */}
+              <div className="gateButtons" style={{ gap: 6, marginTop: 2 }}>
+                <button className="tool" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag a cone hit"} onClick={() => void eventFlag("Hit Cone")}>
+                  <span style={{ color: "#f5a524" }}>●</span> Cone
+                </button>
+                <button className="tool" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag going off-track"} onClick={() => void eventFlag("Off-track")}>
+                  <span style={{ color: "#ff4d4f" }}>●</span> Off-track
+                </button>
+                <button className="tool" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag an incomplete / DNF run"} onClick={() => void eventFlag("Incomplete")}>
+                  <AlertTriangle size={14} /> Incomplete
+                </button>
+                <button className="tool" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Custom event flag"} onClick={customFlag}>
+                  <Flag size={14} /> Flag…
+                </button>
+              </div>
               <label className="checkInline">
                 <input type="checkbox" checked={autoLiveDownload} onChange={(e) => setAutoLiveDownload(e.target.checked)} />
                 Auto MoTeC on lap
@@ -5292,6 +5359,26 @@ function formatDuration(seconds: number) {
   if (seconds > 3600) return `${(seconds / 3600).toFixed(1)} hr`;
   if (seconds > 60) return `${(seconds / 60).toFixed(1)} min`;
   return `${seconds.toFixed(1)} s`;
+}
+
+// Map trackside car/source + event-type strings to the drive_day lookup-table
+// ids the Driveday DB uses (lut_car / lut_event_type), so a trackside session
+// can create its drive_day record.
+function carIdForSource(car: string): number | undefined {
+  const c = (car || "").toLowerCase();
+  if (c === "orion") return 5;
+  if (c === "angelique") return 3;
+  return undefined;
+}
+function eventTypeIdFor(eventType: string): number {
+  switch ((eventType || "").toLowerCase()) {
+    case "endurance": return 1;
+    case "autocross": return 2;
+    case "skidpad": return 3;
+    case "acceleration": case "straight line acceleration": return 4;
+    case "braking": case "straight line braking": return 5;
+    default: return 0; // Practice / Efficiency / Test / Other
+  }
 }
 
 function formatLapTime(ms: number) {

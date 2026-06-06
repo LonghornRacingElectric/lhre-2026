@@ -42,6 +42,7 @@ export interface TracksideSessionInfo {
   metadata?: Record<string, string>;
   plan?: { targetLaps: number; targetEnergyKwh: number; soeCutoffCellV: number };
   updatedAt?: number; // epoch ms of last edit, for last-writer-wins on merge
+  dayId?: number; // linked drive_day.day_id (session ⇒ drive day); for event flags + laps
 }
 
 export function loadSessionRegistry(): TracksideSessionInfo[] {
