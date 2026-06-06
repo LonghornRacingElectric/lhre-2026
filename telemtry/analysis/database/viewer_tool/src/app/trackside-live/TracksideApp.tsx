@@ -1686,6 +1686,41 @@ function App() {
     URL.revokeObjectURL(url);
   }
 
+  // Full session as JSON — laps, sectors, per-lap energy, the captured sample
+  // tail, metadata and session identity: everything to review the session
+  // offline EXCEPT the raw car CSVs (those are fetched via Log Sync).
+  function downloadSessionJson() {
+    const saved = buildSavedSession(liveStateRef.current, true);
+    const full = { ...saved, metadata: { ...liveMetadataRef.current }, exportedAt: Date.now() };
+    const blob = new Blob([JSON.stringify(full, null, 2) + "\n"], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const base = (sessionInfo?.name || `${source}_session`).replace(/[^\w.-]+/g, "_");
+    link.href = url;
+    link.download = `${base}_session.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Stop Event: end the session and download everything needed to review it
+  // locally (laps CSV + full session JSON), then stop the live feed. Leaves the
+  // session on screen. Does NOT pull the raw car CSVs — Log Sync handles those.
+  function stopEventAndDownload() {
+    if (isMirrorRef.current) return;
+    if (!liveStateRef.current.laps.length && !liveStateRef.current.samples.length) {
+      setLiveState((prev) => ({ ...prev, status: "Nothing to stop — no session data yet." }));
+      return;
+    }
+    downloadSessionCsv();
+    downloadSessionJson();
+    if (sessionInfo) {
+      patchSession(sessionInfo.id, { endedAt: Date.now(), laps: liveStateRef.current.laps.length });
+      setSessionInfo(null);
+    }
+    stopLiveData();
+    setLiveState((prev) => ({ ...prev, status: "Event stopped — session ended and files downloaded." }));
+  }
+
   function handleLiveEvent(event: LiveStreamEvent) {
     if (event.type === "status") {
       if (!event.ok) {
@@ -2728,6 +2763,14 @@ function App() {
                     ? `Stop & Save (${formatLapTime(recordingElapsedMs)})`
                     : "Record"}
               </button>
+              <button
+                className="tool liveAction"
+                disabled={isMirror || (!liveState.laps.length && !liveState.samples.length)}
+                onClick={stopEventAndDownload}
+                title="End the session and download everything to review it locally (laps CSV + full session JSON). Raw car CSVs come from Log Sync."
+              >
+                <Power size={22} /> Stop Event
+              </button>
               <label className="checkInline">
                 <input type="checkbox" checked={autoLiveDownload} onChange={(e) => setAutoLiveDownload(e.target.checked)} />
                 Auto MoTeC on lap
@@ -2803,6 +2846,7 @@ function App() {
               <TempsStatusPanel sample={filteredLiveState.lastSample} />
             </div>
             <div className="rightRail">
+              {/* Energy Strategy widget hidden for now — revisit later.
               <EnergyStrategyPanel
                 state={liveState}
                 targetLaps={targetLaps}
@@ -2811,6 +2855,7 @@ function App() {
                 soeCutoffCellV={soeCutoffCellV}
                 averages={lapAverages}
               />
+              */}
               <Panel title="Live Data" icon={<Gauge size={18} />}>
                 <LiveDataPanel state={filteredLiveState} />
               </Panel>
