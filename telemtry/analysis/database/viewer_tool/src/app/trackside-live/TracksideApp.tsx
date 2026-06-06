@@ -2,7 +2,7 @@
 import './trackside.css';
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type Dispatch, type MouseEvent, type ReactNode, type SetStateAction } from "react";
-import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, Moon, NotebookText, Plus, Power, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, WifiOff, X, Zap } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, Moon, NotebookText, Plus, Power, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, Users, WifiOff, X, Zap } from "lucide-react";
 import { api } from "@/lib/trackside/api";
 import { useCarStatus, CAR_STATE_META, humanizeReason, type CarState, type CarStatusFeed } from "@/lib/trackside/useCarStatus";
 import { EVENT_TYPES, upsertSession, patchSession, type TracksideSessionInfo } from "@/lib/trackside/sessionRegistry";
@@ -2186,6 +2186,16 @@ function App() {
           <p>Live telemetry, lap timing &amp; energy strategy · MoTeC / CSV export · track builder</p>
         </div>
         <div className="topActions">
+          <span
+            className={`clientsBadge${presence.clients >= presence.max ? " atLimit" : ""}`}
+            title={
+              `${presence.clients} of ${presence.max} client${presence.clients === 1 ? "" : "s"} connected` +
+              (presence.role === "leader" ? " · you are the session leader" : presence.isMirror ? " · you are a read-only mirror" : "") +
+              (presence.clients >= presence.max ? " · limit reached" : "")
+            }
+          >
+            <Users size={14} /> {presence.clients}/{presence.max}
+          </span>
           {carState ? (
             <span className={`carStateBadge ${CAR_STATE_META[carState].cls}`} title="Car state from the on-stack classifier">
               <span className="stateDot" /> {CAR_STATE_META[carState].label}
