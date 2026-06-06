@@ -2745,8 +2745,6 @@ function App() {
                 />
               </Panel>
               <PackStatusPanel state={liveState} displayState={filteredLiveState} soeCutoffCellV={soeCutoffCellV} />
-              <DriverControlsPanel sample={filteredLiveState.lastSample} torqueParamSet={torqueParamSet} />
-              <TempsStatusPanel sample={filteredLiveState.lastSample} />
             </div>
             <div className="liveMainColumn">
               <Panel title="Live Position" icon={<MapPinned size={18} />} className="liveMapPanel">
@@ -2775,6 +2773,8 @@ function App() {
                   windowS={energyWindowS}
                 />
               </Panel>
+              <DriverControlsPanel sample={filteredLiveState.lastSample} torqueParamSet={torqueParamSet} />
+              <TempsStatusPanel sample={filteredLiveState.lastSample} />
             </div>
             <div className="rightRail">
               <EnergyStrategyPanel
