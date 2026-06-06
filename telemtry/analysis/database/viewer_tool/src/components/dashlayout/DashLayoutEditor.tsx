@@ -274,7 +274,9 @@ export function DashLayoutEditor({ onClose, onSend, sendStatus }: {
           </aside>
 
           {/* canvas */}
-          <div className="dashEditorStage" ref={stageRef} onMouseDown={() => setSelectedId(null)}>
+          <div className="dashEditorStage" ref={stageRef}
+            style={{ background: previewTheme === 'light' ? '#d9d6d2' : '#0b0c0e' }}
+            onMouseDown={() => setSelectedId(null)}>
             <div onMouseDown={(e) => e.stopPropagation()} style={{ position: 'relative' }}>
               <LapCardRenderer layout={layout} data={data} scale={SCALE} theme={previewTheme} editable selectedId={selectedId} onWidgetMouseDown={startMove} />
               {guides.map((g, i) => (
