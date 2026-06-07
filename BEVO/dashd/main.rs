@@ -177,6 +177,12 @@ struct CanData {
     /// `regenEnabled` pill.
     #[serde(rename = "regenEnabled")]
     regen_enabled: Option<bool>,
+
+    /// Active VCU event mode (which params table the VCU is running).
+    /// 0 = unassigned, 1 = acceleration, 2 = skidpad, 3 = autocross, 4 = endurance.
+    /// Lives on Controls.event_mode (byte 6 of 0x1C7 VCU State).
+    #[serde(rename = "eventMode")]
+    event_mode: Option<u8>,
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -646,6 +652,10 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
         // confirmed it carries the regen-enabled bit. Plumb to the
         // frontend's regenEnabled pill. Lives on the Controls message.
         regen_enabled: controls.map(|c| c.line_lock_enabled),
+
+        // Wire value is uint8 but the proto declares the field as float
+        // (matches prndl/soc convention); cast back for the frontend enum.
+        event_mode: controls.map(|c| c.event_mode as u8),
     }
 }
 

@@ -11,6 +11,9 @@ extern "C" {
 #include <stdint.h>
 
 typedef struct {
+
+  uint8_t event_mode; // 0 = unassigned, 1 = acceleration, 2 = skidpad, 3 = autocross, 4 = endurance
+
   float brake_enable_threshold;
   uint16_t buzzer_duration_ms;
 

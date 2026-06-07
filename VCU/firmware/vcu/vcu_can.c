@@ -298,6 +298,10 @@ void vcu_can_set_steering_angle_deg(float steering_angle_deg) {
   steering_column_mailbox.steering_column_angle = steering_angle_deg;
 }
 
+void vcu_can_set_event_mode(uint8_t event_mode) {
+  vcu_state_mailbox.event_mode = event_mode;
+}
+
 static float compute_brake_bias_pct(const vcu_outputs_t *out) {
   static float remembered_brake_bias = 0.0f;
   float total = out->bse1_psi + out->bse2_psi;

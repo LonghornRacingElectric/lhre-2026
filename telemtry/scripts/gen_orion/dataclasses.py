@@ -70,6 +70,10 @@ class OrionControls:
     enable: Optional[bool] = None
     line_lock_enabled: Optional[bool] = None
     torque_shudder: Optional[float] = None
+    bse3: Optional[float] = None
+    event_mode: Optional[float] = None
+    net_energy: Optional[float] = None
+    regen_energy: Optional[float] = None
 
 @dataclass
 class OrionPack:

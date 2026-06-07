@@ -293,3 +293,22 @@ model partitions {
 
   @@id([partition_name, start_time])
 }
+
+// ----------------------------------------------------
+// CAR STATUS SEGMENTS (standalone; car + time range, no drive-day FK)
+// ----------------------------------------------------
+model car_status_segment {
+  segment_id    BigInt  @id @default(autoincrement())
+  car           String
+  state         String
+  start_time    BigInt
+  end_time      BigInt?
+  start_packet  BigInt?
+  end_packet    BigInt?
+  hv_soc_avg    Float?
+  lv_v_avg      Float?
+  active_faults String?
+
+  @@index([car, start_time])
+  @@index([state])
+}
