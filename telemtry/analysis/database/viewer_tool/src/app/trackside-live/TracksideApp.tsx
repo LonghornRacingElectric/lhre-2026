@@ -537,6 +537,7 @@ function App() {
   // synced, and written to the drive_day record.
   const [driveDaySetup, setDriveDaySetup] = useState<DriveDaySetup>({});
   const [setupOpen, setSetupOpen] = useState(false);
+  const [flagScreensOpen, setFlagScreensOpen] = useState(false);
   const driveDaySetupRef = useRef(driveDaySetup);
   driveDaySetupRef.current = driveDaySetup;
   const [msgSendStatus, setMsgSendStatus] = useState("");
@@ -2609,6 +2610,42 @@ function App() {
       {lapDesignerOpen ? (
         <DashLayoutEditor onClose={() => setLapDesignerOpen(false)} onSend={sendLapLayout} sendStatus={layoutSendStatus} />
       ) : null}
+      {flagScreensOpen ? (
+        <div className="modalOverlay" onMouseDown={() => setFlagScreensOpen(false)}>
+          <div className="modalCard" style={{ maxWidth: 480 }} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modalHead">
+              <h3>Driver-dash screen per flag</h3>
+              <button className="tool iconOnly" aria-label="Close" onClick={() => setFlagScreensOpen(false)}><X size={16} /></button>
+            </div>
+            <p className="muted" style={{ marginTop: 0 }}>
+              When “Show flags on driver dash” is on, each flag flashes the screen you pick here.
+              “Auto” builds one from the flag name; “Don’t send” logs the flag without showing anything.
+            </p>
+            <div className="flagScreenRows">
+              {["Hit Cone", "Off-track", "Incomplete"].map((fl) => (
+                <label key={fl} className="flagScreenRow">
+                  <span>{fl}</span>
+                  <select
+                    value={flagMessageMap[fl] ?? "auto"}
+                    disabled={isMirror}
+                    onChange={(e) => setFlagMessageMap((p) => ({ ...p, [fl]: e.target.value }))}
+                  >
+                    <option value="auto">Auto (flag text)</option>
+                    <option value="none">Don&apos;t send</option>
+                    {msgLib.lib.items.map((m) => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </div>
+            <small className="muted">Custom “Flag…” always uses its typed text. Create/edit screens in Dash tab → Messages.</small>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--s-3)" }}>
+              <button className="primary" onClick={() => setFlagScreensOpen(false)}>Done</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {msgEditorOpen ? (
         <DashMessageEditor
           api={msgLib}
@@ -3056,29 +3093,31 @@ function App() {
                 title={isMirror ? "Read-only mirror — the leader logs laps" : !telemetryFresh ? "No live telemetry from the car" : "Logs the lap here on the Live tab and fires the driver's dash lap card on the car — same button as the Dash tab"}
                 onClick={markLap}
               >
-                <Flag size={22} /> {liveState.lapStartMs ? "Log Lap" : "Start Lap"}
+                <Flag size={20} /> {liveState.lapStartMs ? "Log Lap" : "Start Lap"}
               </button>
-              <button
-                className={recordingStartMs != null ? "tool liveAction dangerPrimary" : "tool liveAction"}
-                disabled={isMirror || recordingBusy || (recordingStartMs == null && !telemetryFresh)}
-                onClick={recordingStartMs != null ? stopRecordingAndExport : startRecording}
-                title={recordingStartMs != null ? "Stop & save this recording" : isMirror ? "Read-only mirror" : !telemetryFresh ? "No live telemetry from the car" : "Tag a start, then stop to download a MoTeC file of exactly that window"}
-              >
-                <Disc3 size={22} />{" "}
-                {recordingBusy
-                  ? "Exporting…"
-                  : recordingStartMs != null
-                    ? `Stop & Save (${formatLapTime(recordingElapsedMs)})`
-                    : "Record"}
-              </button>
-              <button
-                className="tool liveAction"
-                disabled={isMirror || eventEnded || (!liveState.laps.length && !liveState.samples.length)}
-                onClick={stopEventAndDownload}
-                title={eventEnded ? "Event already stopped — start a new session to run again" : "End the session and download everything to review it locally (laps CSV + full session JSON). Raw car CSVs come from Log Sync."}
-              >
-                <Power size={22} /> {eventEnded ? "Event Stopped" : "Stop Event"}
-              </button>
+              <div className="liveActionPair">
+                <button
+                  className={recordingStartMs != null ? "tool liveAction dangerPrimary" : "tool liveAction"}
+                  disabled={isMirror || recordingBusy || (recordingStartMs == null && !telemetryFresh)}
+                  onClick={recordingStartMs != null ? stopRecordingAndExport : startRecording}
+                  title={recordingStartMs != null ? "Stop & save this recording" : isMirror ? "Read-only mirror" : !telemetryFresh ? "No live telemetry from the car" : "Tag a start, then stop to download a MoTeC file of exactly that window"}
+                >
+                  <Disc3 size={20} />{" "}
+                  {recordingBusy
+                    ? "Exporting…"
+                    : recordingStartMs != null
+                      ? `Stop (${formatLapTime(recordingElapsedMs)})`
+                      : "Record"}
+                </button>
+                <button
+                  className="tool liveAction"
+                  disabled={isMirror || eventEnded || (!liveState.laps.length && !liveState.samples.length)}
+                  onClick={stopEventAndDownload}
+                  title={eventEnded ? "Event already stopped — start a new session to run again" : "End the session and download everything to review it locally (laps CSV + full session JSON). Raw car CSVs come from Log Sync."}
+                >
+                  <Power size={20} /> {eventEnded ? "Stopped" : "Stop Event"}
+                </button>
+              </div>
               {/* Event flags → classifier (autocross incidents: cones, off-track,
                   DNF, custom). Need an active session (= drive_day). */}
               <div className="gateButtons" style={{ gap: 6, marginTop: 2 }}>
@@ -3095,39 +3134,21 @@ function App() {
                   <Flag size={14} /> Flag…
                 </button>
               </div>
-              <label className="checkInline" title="When on, each flag above also flashes a message on the driver's dash (needs the dash link connected).">
-                <input type="checkbox" checked={flagSendsMessage} disabled={isMirror} onChange={(e) => setFlagSendsMessage(e.target.checked)} />
-                Show flags on driver dash{flagSendsMessage && dashSignals.status !== "connected" ? " (dash not connected)" : ""}
-              </label>
-              {flagSendsMessage ? (
-                <div className="flagMsgMap" style={{ display: "grid", gap: 6, marginTop: 4, paddingLeft: 4 }}>
-                  <span style={{ opacity: 0.7, fontSize: "0.78rem" }}>Driver-dash screen per flag:</span>
-                  {["Hit Cone", "Off-track", "Incomplete"].map((fl) => (
-                    <label key={fl} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.82rem" }}>
-                      <span style={{ minWidth: 78 }}>{fl}</span>
-                      <select
-                        value={flagMessageMap[fl] ?? "auto"}
-                        disabled={isMirror}
-                        onChange={(e) => setFlagMessageMap((p) => ({ ...p, [fl]: e.target.value }))}
-                        style={{ flex: 1 }}
-                      >
-                        <option value="auto">Auto (flag text)</option>
-                        <option value="none">Don&apos;t send</option>
-                        {msgLib.lib.items.map((m) => (
-                          <option key={m.id} value={m.id}>{m.label}</option>
-                        ))}
-                      </select>
-                    </label>
-                  ))}
-                  <span style={{ opacity: 0.6, fontSize: "0.74rem" }}>
-                    “Auto” builds a screen from the flag name. Custom “Flag…” always uses its typed text. Edit screens in the Dash tab → Messages.
-                  </span>
-                </div>
-              ) : null}
-              <label className="checkInline">
-                <input type="checkbox" checked={autoLiveDownload} onChange={(e) => setAutoLiveDownload(e.target.checked)} />
-                Auto MoTeC on lap
-              </label>
+              <div className="liveControlOpts">
+                <label className="checkInline" title="When on, each flag above also flashes a message on the driver's dash (needs the dash link connected).">
+                  <input type="checkbox" checked={flagSendsMessage} disabled={isMirror} onChange={(e) => setFlagSendsMessage(e.target.checked)} />
+                  Show flags on driver dash{flagSendsMessage && dashSignals.status !== "connected" ? " (not linked)" : ""}
+                </label>
+                {flagSendsMessage ? (
+                  <button type="button" className="tool tinyTool" disabled={isMirror} onClick={() => setFlagScreensOpen(true)} title="Choose which dash screen each flag fires">
+                    <SlidersHorizontal size={13} /> Flag screens…
+                  </button>
+                ) : null}
+                <label className="checkInline">
+                  <input type="checkbox" checked={autoLiveDownload} onChange={(e) => setAutoLiveDownload(e.target.checked)} />
+                  Auto MoTeC on lap
+                </label>
+              </div>
               <small className="muted">{liveState.status}</small>
             </div>
           </div>

@@ -963,9 +963,9 @@ textarea:focus-visible,
   top: 56px;
   z-index: 30;
   display: grid;
-  grid-template-columns: minmax(230px, 0.8fr) minmax(360px, 1.2fr) 280px;
-  gap: var(--s-4);
-  align-items: center;
+  grid-template-columns: minmax(220px, 0.85fr) minmax(320px, 1.15fr) 260px;
+  gap: var(--s-3) var(--s-4);
+  align-items: start;
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 88%, transparent);
   border-radius: var(--r-lg);
@@ -975,7 +975,7 @@ textarea:focus-visible,
 }
 
 .liveHeroMain { min-width: 0; }
-.heroInputs { display: flex; align-items: center; gap: 14px; margin-top: 8px; flex-wrap: wrap; }
+.heroInputs { display: flex; align-items: center; gap: 14px; margin-top: 6px; flex-wrap: wrap; }
 .heroInputBar { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; letter-spacing: 1px; color: var(--muted-text); }
 .heroInputBar .barTrack { width: 84px; height: 9px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 5px; overflow: hidden; }
 .heroInputBar .barFill { height: 100%; transition: width 0.12s linear; }
@@ -983,7 +983,7 @@ textarea:focus-visible,
 .heroInputBar .barFill.brk { background: #ff4d4f; }
 .heroInputBar b, .heroSteer b { color: var(--text); font-variant-numeric: tabular-nums; }
 .heroSteer { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; letter-spacing: 1px; color: var(--muted-text); }
-.heroMessages { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.heroMessages { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .heroMsgBtn {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 5px 10px; border-radius: 7px;
@@ -993,38 +993,48 @@ textarea:focus-visible,
 .heroMsgBtn:hover:not(:disabled) { background: var(--surface); border-color: var(--accent); }
 .heroMsgBtn:disabled { opacity: 0.45; cursor: not-allowed; }
 .liveHero h2 {
-  margin: var(--s-1) 0 0;
-  font-size: 44px;
+  margin: 2px 0 0;
+  font-size: 38px;
   line-height: 1;
   font-weight: 800;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
-.liveHero p { margin-top: var(--s-1); font-weight: 600; }
+.liveHero p { margin-top: 2px; font-weight: 600; font-size: var(--fs-sm); }
 
 .liveHeroStats {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--s-2);
 }
-.liveHeroStats .metric { min-height: 64px; }
+.liveHeroStats .metric { min-height: 52px; }
 
-.liveControls { display: grid; gap: var(--s-3); align-content: center; }
+.liveControls { display: grid; gap: var(--s-2); align-content: start; }
 .liveControls .muted { font-size: var(--fs-sm); }
+/* Compact options row (flag-on-dash toggle, configure button, auto-MoTeC). */
+.liveControlOpts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: 2px; }
+.liveControlOpts .checkInline { margin: 0; }
+.tinyTool { padding: 4px 8px; font-size: 0.76rem; gap: 5px; min-height: 0; }
+/* Flag-screen modal rows. */
+.flagScreenRows { display: grid; gap: var(--s-2); margin: var(--s-2) 0; }
+.flagScreenRow { display: grid; grid-template-columns: 90px minmax(0, 1fr); align-items: center; gap: var(--s-2); font-size: var(--fs-sm); }
+.flagScreenRow select { width: 100%; }
 
 /* Oversized, high-contrast trackside actions — easy to hit at a glance while
    your eyes are on the car, not the screen. */
 .liveAction {
-  min-height: 64px;
-  padding: 0 var(--s-4);
-  font-size: var(--fs-lg);
+  min-height: 52px;
+  padding: 0 var(--s-3);
+  font-size: var(--fs-md);
   font-weight: 800;
   letter-spacing: 0.01em;
   border-radius: var(--r-md);
-  gap: 10px;
+  gap: 9px;
   box-shadow: var(--shadow-1);
 }
-.liveAction svg { width: 22px; height: 22px; flex: none; }
+.liveAction svg { width: 20px; height: 20px; flex: none; }
+.liveActionPair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-2); }
+.liveActionPair .liveAction { padding-inline: var(--s-2); }
 .liveAction.tool { border-width: 2px; }
 
 .feedControl {
@@ -1445,8 +1455,13 @@ textarea:focus-visible,
   .lower { grid-template-columns: minmax(0, 1fr); }
   .liveLayout { grid-template-columns: minmax(0, 1fr); }
   .liveHero { grid-template-columns: minmax(220px, 0.8fr) minmax(300px, 1.2fr); }
-  .liveControls { grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: center; }
-  .liveControls .muted { grid-column: 1 / -1; text-align: left; }
+  /* Controls move to a full-width row under the hero — flex-wrap so the grouped
+     action buttons / flags / options stay sensibly sized instead of being
+     crammed into rigid equal columns. */
+  .liveControls { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s-2); }
+  .liveControls > .liveAction, .liveControls > .liveActionPair { flex: 1 1 240px; }
+  .liveControls > .gateButtons, .liveControls > .liveControlOpts, .liveControls > .muted { flex: 1 1 100%; margin: 0; }
+  .liveControls .muted { text-align: left; }
   .builderShell { grid-template-columns: 280px minmax(0, 1fr); }
   .builderShell .rightRail { grid-column: 1 / -1; }
 }
