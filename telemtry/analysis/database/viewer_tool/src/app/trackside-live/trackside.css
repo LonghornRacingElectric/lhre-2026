@@ -1014,48 +1014,21 @@ textarea:focus-visible,
 .heroStatCell { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
 .heroStatCell .metric { flex: 1 1 auto; min-width: 0; }
 
-/* Lap | Energy pair under Record/Stop in the controls column. Each tile shows
-   the metric on top and its chips wrapping below, in roughly half the controls
-   column width — uses the slack space without making the hero taller. */
+/* Lap | Energy pair under Record/Stop in the controls column — uses the slack
+   space without making the hero taller. The related controls (lap-incident
+   flags / Auto-MoTeC) live as their own rows below, not crammed into a tile. */
 .liveStatsPair {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--s-2);
   margin-top: 2px;
 }
-.liveStatsTile {
-  display: flex; flex-direction: column; gap: 6px; min-width: 0;
-  padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--surface) 75%, transparent);
-}
-.liveStatsTile .metric { min-height: 0; padding: 0; border: none; background: none; }
-.liveStatsTile .metric strong { font-size: var(--fs-md); }
-.liveStatsTile .heroChipRow { gap: 4px; }
-.liveStatsTile .heroChipRowOpts { gap: 4px 6px; opacity: 0.92; }
-.heroChipRow {
-  display: flex; flex-wrap: wrap; align-items: center;
-  gap: 4px 6px; flex: 1 1 auto; min-width: 0;
-}
-.heroChip {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 8px; border-radius: 6px; min-height: 0; white-space: nowrap;
-  background: var(--surface-alt); border: 1px solid var(--border); color: var(--text);
-  font-size: 0.74rem; font-weight: 600; cursor: pointer; transition: background 0.12s, border-color 0.12s;
-}
-.heroChip:hover:not(:disabled) { background: var(--surface); border-color: var(--accent); }
-.heroChip:disabled { opacity: 0.4; cursor: not-allowed; }
-.heroChip svg { width: 12px; height: 12px; flex: none; }
-.heroChip .dotIcon { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-.heroChipTiny { padding: 3px 7px; font-size: 0.7rem; }
-.heroChipOpt {
-  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
-  font-size: 0.72rem; color: var(--muted-text); cursor: pointer; user-select: none;
-}
-.heroChipOpt input { width: 13px; height: 13px; margin: 0; }
-.chipDivider {
-  width: 1px; align-self: stretch; background: var(--border); margin: 2px 4px;
-}
-
+.liveStatsTile { min-width: 0; }
+.liveStatsTile .metric { min-height: 48px; }
+/* Compact options row (flag-on-dash toggle, Flag screens button, Auto MoTeC). */
+.liveControlOpts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: 2px; }
+.liveControlOpts .checkInline { margin: 0; }
+.tinyTool { padding: 4px 8px; font-size: 0.76rem; gap: 5px; min-height: 0; }
 .liveControls { display: grid; gap: var(--s-2); align-content: start; }
 .liveControls .muted { font-size: var(--fs-sm); }
 /* Flag-screen modal rows. */
@@ -1504,6 +1477,7 @@ textarea:focus-visible,
   .liveControls { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s-2); }
   .liveControls > .liveAction, .liveControls > .liveActionPair { flex: 1 1 240px; }
   .liveControls > .liveStatsPair { flex: 1 1 320px; }
+  .liveControls > .gateButtons, .liveControls > .liveControlOpts { flex: 1 1 100%; margin: 0; }
   .liveControls > .muted { flex: 1 1 100%; margin: 0; }
   .liveControls .muted { text-align: left; }
   .builderShell { grid-template-columns: 280px minmax(0, 1fr); }
