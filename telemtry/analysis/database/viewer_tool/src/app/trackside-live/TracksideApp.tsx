@@ -675,7 +675,11 @@ function App() {
       : null;
     return { count: selectedLaps.length, avgMs, avgEnergyWh, avgEnergyOutWh, avgEnergyInWh, avgBatteryEnergyWh };
   }, [selectedLaps]);
-  const currentLapNumber = liveState.laps.length + (liveState.lapStartMs ? 1 : 0);
+  // Hero "Lap" tile reads COMPLETED laps, not click count. A lap is counted
+  // when its end-of-lap click closes it (or when GPS auto-detect crosses S/F).
+  // The lap currently in progress is implied by the running timer above, not
+  // by the counter — so 4/22 means "4 done, on the 5th".
+  const currentLapNumber = liveState.laps.length;
   const liveSectorCount = sessionFromFile && hasStartFinish && splitGates.length ? splitGates.length + 1 : 0;
   const liveLapElapsedMs = liveState.lastSample && liveState.lapStartMs ? Math.max(0, liveState.lastSample.t - liveState.lapStartMs) : 0;
   // Wall-clock ticker for the manual recording timer (runs only while recording).
@@ -3069,7 +3073,7 @@ function App() {
                   {dashSignals.status === "connected" ? "Dash linked" : dashSignals.status === "connecting" ? "Dash linking…" : "Dash off"}
                 </span>
               </div>
-              <h2>{eventEnded ? "—" : liveState.lapStartMs ? formatLapTime(liveLapElapsedMs) : "0:00.00"}</h2>
+              <h2>{liveState.lapStartMs ? formatLapTime(liveLapElapsedMs) : "0:00.00"}</h2>
               <p>{eventEnded ? "Event ended — start a new session to run again" : liveState.lapStartMs ? "Flying lap" : "Out lap / waiting for start"}</p>
               <DeltaBar rate={liveState.deltaRate} totalMs={liveState.deltaMs} />
               <div className="heroInputs">
