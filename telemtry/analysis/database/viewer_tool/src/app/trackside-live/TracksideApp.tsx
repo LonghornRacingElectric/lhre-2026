@@ -1034,7 +1034,10 @@ function App() {
   // Checkpoint the live session while samples are flowing. This is throttled,
   // not debounced, so a constant stream cannot postpone persistence forever.
   useEffect(() => {
-    if (!liveState.laps.length && !liveState.samples.length) return;
+    // Persist a session even before its first lap/sample if we have sessionInfo —
+    // otherwise a freshly-started session never makes it to the server and a
+    // reload drops everything.
+    if (!liveState.laps.length && !liveState.samples.length && !sessionInfo) return;
     const now = Date.now();
     const lapCountChanged = liveState.laps.length !== lastSavedLapCountRef.current;
     const shouldSaveLocal = lapCountChanged || now - lastLocalSessionSaveRef.current >= SESSION_LOCAL_AUTOSAVE_MS;
@@ -1067,6 +1070,7 @@ function App() {
     soeCutoffCellV,
     selectedLapIds,
     sessionFromFile,
+    sessionInfo,
   ]);
 
   useEffect(() => {
@@ -2297,15 +2301,29 @@ function App() {
   // dashLastLapCountRef so the auto-send effect doesn't double-fire for this lap.
   function markLap() {
     if (isMirrorRef.current) return; // read-only mirror — leader owns laps
-    const before = liveStateRef.current.laps.length;
+    const beforeLaps = liveStateRef.current.laps.length;
+    const beforeStartMs = liveStateRef.current.lapStartMs;
     triggerManualLap();
     const after = liveStateRef.current.laps.length;
+    const lapClosed = after > beforeLaps;
     // On a completed lap, always fire the car's lap card. sendLap advances the
     // lap counter in lockstep with the Live tab even if the publish is dropped
     // (link mid-handshake), and the auto-connect keeps the uplink up — so both
     // lap buttons reliably log to the Live tab AND reach the car.
-    if (after > before) dashSignals.sendLap();
+    if (lapClosed) dashSignals.sendLap();
     dashLastLapCountRef.current = after;
+    // Visible feedback so the user knows whether this click STARTED a lap (no
+    // dash card yet — by design, the card represents 'lap COMPLETE') or CLOSED
+    // a lap (dash card fires). Earlier this was silent, which made the two
+    // identical buttons look inconsistent depending on which one closed vs
+    // started a lap.
+    if (lapClosed) {
+      const dashOk = dashSignals.status === "connected";
+      setMsgSendStatus(`Lap ${after} logged${dashOk ? " · lap card sent to driver ✓" : ` · dash uplink ${dashSignals.status}, card not sent.`}`);
+    } else if (!beforeStartMs && liveStateRef.current.lapStartMs) {
+      setMsgSendStatus(`Lap timer started — next click closes lap 1.`);
+    }
+    window.setTimeout(() => setMsgSendStatus(""), 4000);
   }
 
   function toggleLapSelected(lapId: string) {
@@ -2328,9 +2346,15 @@ function App() {
   }
 
   function isRestorableSession(saved: SavedSession | null | undefined): saved is SavedSession {
+    // A session is restorable if there's ANY state worth restoring: a sessionInfo
+    // (so the just-started session with no laps yet still comes back on reload,
+    // along with its drive-day setup, plan, and starterId), or accumulated lap /
+    // sample data. Earlier this required lap/sample data and would silently drop
+    // a fresh session on reload — leaving the cone-flag row asking to "start a
+    // session" again even though the user had just started one.
     return !!saved
       && saved.version === 1
-      && (!!saved.laps?.length || !!saved.sampleTail?.length || !!saved.currentLap?.lapSamples?.length);
+      && (!!saved.sessionInfo || !!saved.laps?.length || !!saved.sampleTail?.length || !!saved.currentLap?.lapSamples?.length);
   }
 
   function selectedLapIdsForSave(laps: LiveLap[]) {
@@ -2440,7 +2464,10 @@ function App() {
       includeFullLapSamples,
     }: { saveLocal: boolean; saveBackend: boolean; includeFullLapSamples: boolean },
   ) {
-    if (!current.laps.length && !current.samples.length && !current.lapStartMs) return;
+    // Skip ONLY when there's truly nothing to persist. A fresh session with a
+    // name + metadata + setup but no laps yet still deserves to be saved — the
+    // restore path uses it to bring the session back on reload.
+    if (!current.laps.length && !current.samples.length && !current.lapStartMs && !sessionInfo) return;
     const saved = buildSavedSession(current, includeFullLapSamples);
     if (saveLocal) {
       writeLocalSavedSession(saved);
