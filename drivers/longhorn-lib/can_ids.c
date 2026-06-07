@@ -1867,64 +1867,9 @@ int unpack_vcu_state(const uint8_t* rx_buf, msg_vcu_state_t* msg) {
     return 0;
 }
 
-// Packet: Wheel Speeds
-int pack_wheel_speeds(const msg_wheel_speeds_t* msg, uint8_t* tx_buf) {
-    memset(tx_buf, 0, WHEEL_SPEEDS_DLC);
-
-    // Pack: Front Left Speed
-    int16_t raw_front_left_speed = (int16_t)(msg->front_left_speed / 0.01f);
-    tx_buf[0 + 0] = (uint8_t)(raw_front_left_speed & 0xFF);
-    tx_buf[0 + 1] = (uint8_t)((raw_front_left_speed >> 8) & 0xFF);
-
-    // Pack: Front Right Speed
-    int16_t raw_front_right_speed = (int16_t)(msg->front_right_speed / 0.01f);
-    tx_buf[2 + 0] = (uint8_t)(raw_front_right_speed & 0xFF);
-    tx_buf[2 + 1] = (uint8_t)((raw_front_right_speed >> 8) & 0xFF);
-
-    // Pack: Back Left Speed
-    int16_t raw_back_left_speed = (int16_t)(msg->back_left_speed / 0.01f);
-    tx_buf[4 + 0] = (uint8_t)(raw_back_left_speed & 0xFF);
-    tx_buf[4 + 1] = (uint8_t)((raw_back_left_speed >> 8) & 0xFF);
-
-    // Pack: Back Right Speed
-    int16_t raw_back_right_speed = (int16_t)(msg->back_right_speed / 0.01f);
-    tx_buf[6 + 0] = (uint8_t)(raw_back_right_speed & 0xFF);
-    tx_buf[6 + 1] = (uint8_t)((raw_back_right_speed >> 8) & 0xFF);
-
-    return 0;
-}
-
-int unpack_wheel_speeds(const uint8_t* rx_buf, msg_wheel_speeds_t* msg) {
-    // Unpack: Front Left Speed
-    int16_t raw_front_left_speed = 0;
-    raw_front_left_speed = (int16_t)rx_buf[0 + 0];
-    raw_front_left_speed |= (int16_t)(rx_buf[0 + 1] << 8);
-    msg->front_left_speed = (float)raw_front_left_speed * 0.01f;
-
-    // Unpack: Front Right Speed
-    int16_t raw_front_right_speed = 0;
-    raw_front_right_speed = (int16_t)rx_buf[2 + 0];
-    raw_front_right_speed |= (int16_t)(rx_buf[2 + 1] << 8);
-    msg->front_right_speed = (float)raw_front_right_speed * 0.01f;
-
-    // Unpack: Back Left Speed
-    int16_t raw_back_left_speed = 0;
-    raw_back_left_speed = (int16_t)rx_buf[4 + 0];
-    raw_back_left_speed |= (int16_t)(rx_buf[4 + 1] << 8);
-    msg->back_left_speed = (float)raw_back_left_speed * 0.01f;
-
-    // Unpack: Back Right Speed
-    int16_t raw_back_right_speed = 0;
-    raw_back_right_speed = (int16_t)rx_buf[6 + 0];
-    raw_back_right_speed |= (int16_t)(rx_buf[6 + 1] << 8);
-    msg->back_right_speed = (float)raw_back_right_speed * 0.01f;
-
-    return 0;
-}
-
-// Packet: Acceleration Vector Unsprung FL
-int pack_acceleration_vector_unsprung_fl(const msg_acceleration_vector_unsprung_fl_t* msg, uint8_t* tx_buf) {
-    memset(tx_buf, 0, ACCELERATION_VECTOR_UNSPRUNG_FL_DLC);
+// Packet: Acceleration Vector Unsprung + Wheel Speed FL
+int pack_acceleration_vector_unsprung_wheel_speed_fl(const msg_acceleration_vector_unsprung_wheel_speed_fl_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FL_DLC);
 
     // Pack: X
     int16_t raw_x = (int16_t)(msg->x / 0.001f);
@@ -1941,10 +1886,15 @@ int pack_acceleration_vector_unsprung_fl(const msg_acceleration_vector_unsprung_
     tx_buf[4 + 0] = (uint8_t)(raw_z & 0xFF);
     tx_buf[4 + 1] = (uint8_t)((raw_z >> 8) & 0xFF);
 
+    // Pack: Wheel Speed
+    int16_t raw_wheel_speed = (int16_t)(msg->wheel_speed / 0.01f);
+    tx_buf[6 + 0] = (uint8_t)(raw_wheel_speed & 0xFF);
+    tx_buf[6 + 1] = (uint8_t)((raw_wheel_speed >> 8) & 0xFF);
+
     return 0;
 }
 
-int unpack_acceleration_vector_unsprung_fl(const uint8_t* rx_buf, msg_acceleration_vector_unsprung_fl_t* msg) {
+int unpack_acceleration_vector_unsprung_wheel_speed_fl(const uint8_t* rx_buf, msg_acceleration_vector_unsprung_wheel_speed_fl_t* msg) {
     // Unpack: X
     int16_t raw_x = 0;
     raw_x = (int16_t)rx_buf[0 + 0];
@@ -1963,12 +1913,18 @@ int unpack_acceleration_vector_unsprung_fl(const uint8_t* rx_buf, msg_accelerati
     raw_z |= (int16_t)(rx_buf[4 + 1] << 8);
     msg->z = (float)raw_z * 0.001f;
 
+    // Unpack: Wheel Speed
+    int16_t raw_wheel_speed = 0;
+    raw_wheel_speed = (int16_t)rx_buf[6 + 0];
+    raw_wheel_speed |= (int16_t)(rx_buf[6 + 1] << 8);
+    msg->wheel_speed = (float)raw_wheel_speed * 0.01f;
+
     return 0;
 }
 
-// Packet: Acceleration Vector Unsprung FR
-int pack_acceleration_vector_unsprung_fr(const msg_acceleration_vector_unsprung_fr_t* msg, uint8_t* tx_buf) {
-    memset(tx_buf, 0, ACCELERATION_VECTOR_UNSPRUNG_FR_DLC);
+// Packet: Acceleration Vector Unsprung + Wheel Speed FR
+int pack_acceleration_vector_unsprung_wheel_speed_fr(const msg_acceleration_vector_unsprung_wheel_speed_fr_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FR_DLC);
 
     // Pack: X
     int16_t raw_x = (int16_t)(msg->x / 0.001f);
@@ -1985,10 +1941,15 @@ int pack_acceleration_vector_unsprung_fr(const msg_acceleration_vector_unsprung_
     tx_buf[4 + 0] = (uint8_t)(raw_z & 0xFF);
     tx_buf[4 + 1] = (uint8_t)((raw_z >> 8) & 0xFF);
 
+    // Pack: Wheel Speed
+    int16_t raw_wheel_speed = (int16_t)(msg->wheel_speed / 0.01f);
+    tx_buf[6 + 0] = (uint8_t)(raw_wheel_speed & 0xFF);
+    tx_buf[6 + 1] = (uint8_t)((raw_wheel_speed >> 8) & 0xFF);
+
     return 0;
 }
 
-int unpack_acceleration_vector_unsprung_fr(const uint8_t* rx_buf, msg_acceleration_vector_unsprung_fr_t* msg) {
+int unpack_acceleration_vector_unsprung_wheel_speed_fr(const uint8_t* rx_buf, msg_acceleration_vector_unsprung_wheel_speed_fr_t* msg) {
     // Unpack: X
     int16_t raw_x = 0;
     raw_x = (int16_t)rx_buf[0 + 0];
@@ -2007,12 +1968,18 @@ int unpack_acceleration_vector_unsprung_fr(const uint8_t* rx_buf, msg_accelerati
     raw_z |= (int16_t)(rx_buf[4 + 1] << 8);
     msg->z = (float)raw_z * 0.001f;
 
+    // Unpack: Wheel Speed
+    int16_t raw_wheel_speed = 0;
+    raw_wheel_speed = (int16_t)rx_buf[6 + 0];
+    raw_wheel_speed |= (int16_t)(rx_buf[6 + 1] << 8);
+    msg->wheel_speed = (float)raw_wheel_speed * 0.01f;
+
     return 0;
 }
 
-// Packet: Acceleration Vector Unsprung RL
-int pack_acceleration_vector_unsprung_rl(const msg_acceleration_vector_unsprung_rl_t* msg, uint8_t* tx_buf) {
-    memset(tx_buf, 0, ACCELERATION_VECTOR_UNSPRUNG_RL_DLC);
+// Packet: Acceleration Vector Unsprung + Wheel Speed RL
+int pack_acceleration_vector_unsprung_wheel_speed_rl(const msg_acceleration_vector_unsprung_wheel_speed_rl_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RL_DLC);
 
     // Pack: X
     int16_t raw_x = (int16_t)(msg->x / 0.001f);
@@ -2029,10 +1996,15 @@ int pack_acceleration_vector_unsprung_rl(const msg_acceleration_vector_unsprung_
     tx_buf[4 + 0] = (uint8_t)(raw_z & 0xFF);
     tx_buf[4 + 1] = (uint8_t)((raw_z >> 8) & 0xFF);
 
+    // Pack: Wheel Speed
+    int16_t raw_wheel_speed = (int16_t)(msg->wheel_speed / 0.01f);
+    tx_buf[6 + 0] = (uint8_t)(raw_wheel_speed & 0xFF);
+    tx_buf[6 + 1] = (uint8_t)((raw_wheel_speed >> 8) & 0xFF);
+
     return 0;
 }
 
-int unpack_acceleration_vector_unsprung_rl(const uint8_t* rx_buf, msg_acceleration_vector_unsprung_rl_t* msg) {
+int unpack_acceleration_vector_unsprung_wheel_speed_rl(const uint8_t* rx_buf, msg_acceleration_vector_unsprung_wheel_speed_rl_t* msg) {
     // Unpack: X
     int16_t raw_x = 0;
     raw_x = (int16_t)rx_buf[0 + 0];
@@ -2051,12 +2023,18 @@ int unpack_acceleration_vector_unsprung_rl(const uint8_t* rx_buf, msg_accelerati
     raw_z |= (int16_t)(rx_buf[4 + 1] << 8);
     msg->z = (float)raw_z * 0.001f;
 
+    // Unpack: Wheel Speed
+    int16_t raw_wheel_speed = 0;
+    raw_wheel_speed = (int16_t)rx_buf[6 + 0];
+    raw_wheel_speed |= (int16_t)(rx_buf[6 + 1] << 8);
+    msg->wheel_speed = (float)raw_wheel_speed * 0.01f;
+
     return 0;
 }
 
-// Packet: Acceleration Vector Unsprung RR
-int pack_acceleration_vector_unsprung_rr(const msg_acceleration_vector_unsprung_rr_t* msg, uint8_t* tx_buf) {
-    memset(tx_buf, 0, ACCELERATION_VECTOR_UNSPRUNG_RR_DLC);
+// Packet: Acceleration Vector Unsprung + Wheel Speed RR
+int pack_acceleration_vector_unsprung_wheel_speed_rr(const msg_acceleration_vector_unsprung_wheel_speed_rr_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RR_DLC);
 
     // Pack: X
     int16_t raw_x = (int16_t)(msg->x / 0.001f);
@@ -2073,10 +2051,15 @@ int pack_acceleration_vector_unsprung_rr(const msg_acceleration_vector_unsprung_
     tx_buf[4 + 0] = (uint8_t)(raw_z & 0xFF);
     tx_buf[4 + 1] = (uint8_t)((raw_z >> 8) & 0xFF);
 
+    // Pack: Wheel Speed
+    int16_t raw_wheel_speed = (int16_t)(msg->wheel_speed / 0.01f);
+    tx_buf[6 + 0] = (uint8_t)(raw_wheel_speed & 0xFF);
+    tx_buf[6 + 1] = (uint8_t)((raw_wheel_speed >> 8) & 0xFF);
+
     return 0;
 }
 
-int unpack_acceleration_vector_unsprung_rr(const uint8_t* rx_buf, msg_acceleration_vector_unsprung_rr_t* msg) {
+int unpack_acceleration_vector_unsprung_wheel_speed_rr(const uint8_t* rx_buf, msg_acceleration_vector_unsprung_wheel_speed_rr_t* msg) {
     // Unpack: X
     int16_t raw_x = 0;
     raw_x = (int16_t)rx_buf[0 + 0];
@@ -2094,6 +2077,12 @@ int unpack_acceleration_vector_unsprung_rr(const uint8_t* rx_buf, msg_accelerati
     raw_z = (int16_t)rx_buf[4 + 0];
     raw_z |= (int16_t)(rx_buf[4 + 1] << 8);
     msg->z = (float)raw_z * 0.001f;
+
+    // Unpack: Wheel Speed
+    int16_t raw_wheel_speed = 0;
+    raw_wheel_speed = (int16_t)rx_buf[6 + 0];
+    raw_wheel_speed |= (int16_t)(rx_buf[6 + 1] << 8);
+    msg->wheel_speed = (float)raw_wheel_speed * 0.01f;
 
     return 0;
 }

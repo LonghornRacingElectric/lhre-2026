@@ -51,6 +51,7 @@ static can_receive_message_t *inverter_voltage_mailbox_handle = NULL;
 
 static msg_acceleration_vector_unsprung_wheel_speed_fl_t fl_usm_mailbox = {0};
 static can_receive_message_t *fl_usm_mailbox_handle = NULL;
+static can_receive_message_t *fl_usm_critical_bus_debug_handle = NULL;
 
 static msg_acceleration_vector_unsprung_wheel_speed_fr_t fr_usm_mailbox = {0};
 static can_receive_message_t *fr_usm_mailbox_handle = NULL;
@@ -407,6 +408,18 @@ unsprung_accel_t vcu_can_get_unsprung_accel(void) {
   };
 }
 
+void vcu_can_debug(void) {
+  log_printf(LOG_INFO,
+             "[VCU CAN] crit_last:%lu data_last:%lu crit_rx_err:%u "
+             "data_rx_err:%u crit_send_err:%u data_send_err:%u "
+             "fl_timeout:%d\n",
+             critical_bus._last_id_received, data_acq_bus._last_id_received,
+             critical_bus._error_code_receive, data_acq_bus._error_code_receive,
+             critical_bus._error_code_send, data_acq_bus._error_code_send,
+             message_timed_out(fl_usm_mailbox_handle,
+                               ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FL_TIMEOUT_MS));
+}
+
 /**
  * @brief Creates the CAN receive handlers and registers them with the CAN lib
  *
@@ -478,6 +491,15 @@ void vcu_can_add_receive_handlers(void) {
   can_rtos_register_receive_packet(&data_acq_bus, fl_usm_mailbox_handle);
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for FL wheel speed registered\n");
+
+  fl_usm_critical_bus_debug_handle = can_get_receive_message_handle(
+      &fl_usm_mailbox, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FL_ID,
+      (CAN_unpack_message_fn)unpack_acceleration_vector_unsprung_wheel_speed_fl);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   fl_usm_critical_bus_debug_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for FL wheel speed on critical debug "
+             "bus registered\n");
 
   fr_usm_mailbox_handle = can_get_receive_message_handle(
       &fr_usm_mailbox, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FR_ID,

@@ -357,6 +357,7 @@ void StartControlTask(void *argument) {
     in.battery_voltage_v = vcu_can_get_inverter_voltages().dc_bus;
     in.battery_current_a = vcu_can_get_inverter_currents().dc_bus;
     wheel_speeds_t wheel_speeds = vcu_can_get_wheel_speeds();
+    vcu_can_debug();
 
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);

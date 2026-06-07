@@ -14,9 +14,8 @@ void usm_can_init(void);
  * Update the wheel speed value for this corner.
  * Call this from the wheel speed task whenever a new reading is available.
  * 
- * The wheel speed is reported in the unified "Wheel Speeds" CAN message (ID 1024)
- * which includes speeds for all 4 corners. This board (based on its location)
- * updates its corner while zeroing the others.
+ * The wheel speed is reported in this corner's combined acceleration vector
+ * + wheel speed message.
  *
  * @param wheel_speed_rads  wheel speed in rad/s
  */
@@ -26,11 +25,11 @@ void usm_can_update_wheel_speed(float wheel_speed_rads);
  * Update the unsprung acceleration for this corner.
  * Call this from the IMU read task with the latest acceleration values.
  * 
- * Each corner sends acceleration via its own dedicated CAN message:
- * - FL uses message ID 1026
- * - FR uses message ID 1027
- * - RL uses message ID 1028
- * - RR uses message ID 1029
+ * Each corner sends acceleration via its own combined CAN message:
+ * - FL uses message ID 0x402
+ * - FR uses message ID 0x403
+ * - RL uses message ID 0x404
+ * - RR uses message ID 0x405
  *
  * @param ax  acceleration in X axis (m/s^2)
  * @param ay  acceleration in Y axis (m/s^2)

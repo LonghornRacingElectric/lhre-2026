@@ -1454,148 +1454,132 @@ int pack_vcu_state(const msg_vcu_state_t* msg, uint8_t* tx_buf);
 int unpack_vcu_state(const uint8_t* rx_buf, msg_vcu_state_t* msg);
 
 // ==========================================================================
-// Packet: Wheel Speeds (1024)
+// Packet: Acceleration Vector Unsprung + Wheel Speed FL (1026)
 // ==========================================================================
 // From: USM
 // To:   Pi
-#define WHEEL_SPEEDS_ID 1024
-#define WHEEL_SPEEDS_DLC 8
-#define WHEEL_SPEEDS_FREQ 10
-#define WHEEL_SPEEDS_TIMEOUT_MS 20
-
-typedef struct {
-    float front_left_speed;
-    float front_right_speed;
-    float back_left_speed;
-    float back_right_speed;
-} msg_wheel_speeds_t;
-
-// Signal: Front Left Speed
-#define WHEEL_SPEEDS_FRONT_LEFT_SPEED_PREC 0.01f
-
-// Signal: Front Right Speed
-#define WHEEL_SPEEDS_FRONT_RIGHT_SPEED_PREC 0.01f
-
-// Signal: Back Left Speed
-#define WHEEL_SPEEDS_BACK_LEFT_SPEED_PREC 0.01f
-
-// Signal: Back Right Speed
-#define WHEEL_SPEEDS_BACK_RIGHT_SPEED_PREC 0.01f
-
-int pack_wheel_speeds(const msg_wheel_speeds_t* msg, uint8_t* tx_buf);
-int unpack_wheel_speeds(const uint8_t* rx_buf, msg_wheel_speeds_t* msg);
-
-// ==========================================================================
-// Packet: Acceleration Vector Unsprung FL (1026)
-// ==========================================================================
-// From: USM
-// To:   Pi
-#define ACCELERATION_VECTOR_UNSPRUNG_FL_ID 1026
-#define ACCELERATION_VECTOR_UNSPRUNG_FL_DLC 6
-#define ACCELERATION_VECTOR_UNSPRUNG_FL_FREQ 10
-#define ACCELERATION_VECTOR_UNSPRUNG_FL_TIMEOUT_MS 20
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FL_ID 1026
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FL_DLC 8
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FL_FREQ 3
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FL_TIMEOUT_MS 6
 
 typedef struct {
     float x;
     float y;
     float z;
-} msg_acceleration_vector_unsprung_fl_t;
+    float wheel_speed;
+} msg_acceleration_vector_unsprung_wheel_speed_fl_t;
 
 // Signal: X
-#define ACCELERATION_VECTOR_UNSPRUNG_FL_X_PREC 0.001f
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FL_X_PREC 0.001f
 
 // Signal: Y
-#define ACCELERATION_VECTOR_UNSPRUNG_FL_Y_PREC 0.001f
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FL_Y_PREC 0.001f
 
 // Signal: Z
-#define ACCELERATION_VECTOR_UNSPRUNG_FL_Z_PREC 0.001f
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FL_Z_PREC 0.001f
 
-int pack_acceleration_vector_unsprung_fl(const msg_acceleration_vector_unsprung_fl_t* msg, uint8_t* tx_buf);
-int unpack_acceleration_vector_unsprung_fl(const uint8_t* rx_buf, msg_acceleration_vector_unsprung_fl_t* msg);
+// Signal: Wheel Speed
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FL_WHEEL_SPEED_PREC 0.01f
+
+int pack_acceleration_vector_unsprung_wheel_speed_fl(const msg_acceleration_vector_unsprung_wheel_speed_fl_t* msg, uint8_t* tx_buf);
+int unpack_acceleration_vector_unsprung_wheel_speed_fl(const uint8_t* rx_buf, msg_acceleration_vector_unsprung_wheel_speed_fl_t* msg);
 
 // ==========================================================================
-// Packet: Acceleration Vector Unsprung FR (1027)
+// Packet: Acceleration Vector Unsprung + Wheel Speed FR (1027)
 // ==========================================================================
 // From: USM
 // To:   Pi
-#define ACCELERATION_VECTOR_UNSPRUNG_FR_ID 1027
-#define ACCELERATION_VECTOR_UNSPRUNG_FR_DLC 6
-#define ACCELERATION_VECTOR_UNSPRUNG_FR_FREQ 10
-#define ACCELERATION_VECTOR_UNSPRUNG_FR_TIMEOUT_MS 20
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FR_ID 1027
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FR_DLC 8
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FR_FREQ 3
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FR_TIMEOUT_MS 6
 
 typedef struct {
     float x;
     float y;
     float z;
-} msg_acceleration_vector_unsprung_fr_t;
+    float wheel_speed;
+} msg_acceleration_vector_unsprung_wheel_speed_fr_t;
 
 // Signal: X
-#define ACCELERATION_VECTOR_UNSPRUNG_FR_X_PREC 0.001f
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FR_X_PREC 0.001f
 
 // Signal: Y
-#define ACCELERATION_VECTOR_UNSPRUNG_FR_Y_PREC 0.001f
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FR_Y_PREC 0.001f
 
 // Signal: Z
-#define ACCELERATION_VECTOR_UNSPRUNG_FR_Z_PREC 0.001f
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FR_Z_PREC 0.001f
 
-int pack_acceleration_vector_unsprung_fr(const msg_acceleration_vector_unsprung_fr_t* msg, uint8_t* tx_buf);
-int unpack_acceleration_vector_unsprung_fr(const uint8_t* rx_buf, msg_acceleration_vector_unsprung_fr_t* msg);
+// Signal: Wheel Speed
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FR_WHEEL_SPEED_PREC 0.01f
+
+int pack_acceleration_vector_unsprung_wheel_speed_fr(const msg_acceleration_vector_unsprung_wheel_speed_fr_t* msg, uint8_t* tx_buf);
+int unpack_acceleration_vector_unsprung_wheel_speed_fr(const uint8_t* rx_buf, msg_acceleration_vector_unsprung_wheel_speed_fr_t* msg);
 
 // ==========================================================================
-// Packet: Acceleration Vector Unsprung RL (1028)
+// Packet: Acceleration Vector Unsprung + Wheel Speed RL (1028)
 // ==========================================================================
 // From: USM
 // To:   Pi
-#define ACCELERATION_VECTOR_UNSPRUNG_RL_ID 1028
-#define ACCELERATION_VECTOR_UNSPRUNG_RL_DLC 6
-#define ACCELERATION_VECTOR_UNSPRUNG_RL_FREQ 10
-#define ACCELERATION_VECTOR_UNSPRUNG_RL_TIMEOUT_MS 20
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RL_ID 1028
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RL_DLC 8
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RL_FREQ 3
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RL_TIMEOUT_MS 6
 
 typedef struct {
     float x;
     float y;
     float z;
-} msg_acceleration_vector_unsprung_rl_t;
+    float wheel_speed;
+} msg_acceleration_vector_unsprung_wheel_speed_rl_t;
 
 // Signal: X
-#define ACCELERATION_VECTOR_UNSPRUNG_RL_X_PREC 0.001f
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RL_X_PREC 0.001f
 
 // Signal: Y
-#define ACCELERATION_VECTOR_UNSPRUNG_RL_Y_PREC 0.001f
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RL_Y_PREC 0.001f
 
 // Signal: Z
-#define ACCELERATION_VECTOR_UNSPRUNG_RL_Z_PREC 0.001f
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RL_Z_PREC 0.001f
 
-int pack_acceleration_vector_unsprung_rl(const msg_acceleration_vector_unsprung_rl_t* msg, uint8_t* tx_buf);
-int unpack_acceleration_vector_unsprung_rl(const uint8_t* rx_buf, msg_acceleration_vector_unsprung_rl_t* msg);
+// Signal: Wheel Speed
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RL_WHEEL_SPEED_PREC 0.01f
+
+int pack_acceleration_vector_unsprung_wheel_speed_rl(const msg_acceleration_vector_unsprung_wheel_speed_rl_t* msg, uint8_t* tx_buf);
+int unpack_acceleration_vector_unsprung_wheel_speed_rl(const uint8_t* rx_buf, msg_acceleration_vector_unsprung_wheel_speed_rl_t* msg);
 
 // ==========================================================================
-// Packet: Acceleration Vector Unsprung RR (1029)
+// Packet: Acceleration Vector Unsprung + Wheel Speed RR (1029)
 // ==========================================================================
 // From: USM
 // To:   Pi
-#define ACCELERATION_VECTOR_UNSPRUNG_RR_ID 1029
-#define ACCELERATION_VECTOR_UNSPRUNG_RR_DLC 6
-#define ACCELERATION_VECTOR_UNSPRUNG_RR_FREQ 10
-#define ACCELERATION_VECTOR_UNSPRUNG_RR_TIMEOUT_MS 20
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RR_ID 1029
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RR_DLC 8
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RR_FREQ 3
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RR_TIMEOUT_MS 6
 
 typedef struct {
     float x;
     float y;
     float z;
-} msg_acceleration_vector_unsprung_rr_t;
+    float wheel_speed;
+} msg_acceleration_vector_unsprung_wheel_speed_rr_t;
 
 // Signal: X
-#define ACCELERATION_VECTOR_UNSPRUNG_RR_X_PREC 0.001f
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RR_X_PREC 0.001f
 
 // Signal: Y
-#define ACCELERATION_VECTOR_UNSPRUNG_RR_Y_PREC 0.001f
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RR_Y_PREC 0.001f
 
 // Signal: Z
-#define ACCELERATION_VECTOR_UNSPRUNG_RR_Z_PREC 0.001f
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RR_Z_PREC 0.001f
 
-int pack_acceleration_vector_unsprung_rr(const msg_acceleration_vector_unsprung_rr_t* msg, uint8_t* tx_buf);
-int unpack_acceleration_vector_unsprung_rr(const uint8_t* rx_buf, msg_acceleration_vector_unsprung_rr_t* msg);
+// Signal: Wheel Speed
+#define ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RR_WHEEL_SPEED_PREC 0.01f
+
+int pack_acceleration_vector_unsprung_wheel_speed_rr(const msg_acceleration_vector_unsprung_wheel_speed_rr_t* msg, uint8_t* tx_buf);
+int unpack_acceleration_vector_unsprung_wheel_speed_rr(const uint8_t* rx_buf, msg_acceleration_vector_unsprung_wheel_speed_rr_t* msg);
 
 // ==========================================================================
 // Packet: FL Accel + Ride Height (1280)

@@ -39,19 +39,19 @@ static can_interface_t data_acq_bus;
    CAN Message Mailboxes
    =============================== */
 
-/* Acceleration Unsprung FL (ID 1026) */
+/* Acceleration Unsprung + Wheel Speed FL (ID 0x402) */
 static msg_acceleration_vector_unsprung_wheel_speed_fl_t accel_fl_mailbox = {0};
 static can_message_t *accel_fl_handle = NULL;
 
-/* Acceleration Unsprung FR (ID 1027) */
+/* Acceleration Unsprung + Wheel Speed FR (ID 0x403) */
 static msg_acceleration_vector_unsprung_wheel_speed_fr_t accel_fr_mailbox = {0};
 static can_message_t *accel_fr_handle = NULL;
 
-/* Acceleration Unsprung RL (ID 1028) */
+/* Acceleration Unsprung + Wheel Speed RL (ID 0x404) */
 static msg_acceleration_vector_unsprung_wheel_speed_rl_t accel_rl_mailbox = {0};
 static can_message_t *accel_rl_handle = NULL;
 
-/* Acceleration Unsprung RR (ID 1029) */
+/* Acceleration Unsprung + Wheel Speed RR (ID 0x405) */
 static msg_acceleration_vector_unsprung_wheel_speed_rr_t accel_rr_mailbox = {0};
 static can_message_t *accel_rr_handle = NULL;
 
@@ -102,10 +102,6 @@ void usm_can_init(void) {
   /* Register CAN packets before starting interface */
   usm_can_add_send_handlers();
 
-  /* Start CAN interface */
-  HAL_StatusTypeDef status = HAL_FDCAN_Start(&hfdcan2);
-  (void)status;  /* Suppress unused variable warning */
-
   can_rtos_start_interface(&data_acq_bus);
 
   /* Start CAN RTOS tasks */
@@ -122,7 +118,7 @@ void usm_can_init(void) {
 static void usm_can_add_send_handlers(void) {
 
 #if defined(BOARD_FL)
-  /* Acceleration Unsprung FL (ID 1026) */
+  /* Acceleration Unsprung + Wheel Speed FL (ID 0x402) */
   accel_fl_handle = can_get_message_handle(
       &accel_fl_mailbox, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FL_ID,
       ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FL_FREQ, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FL_DLC,
@@ -133,7 +129,7 @@ static void usm_can_add_send_handlers(void) {
   log_printf(LOG_INFO,
              "[USM] CAN send handler for acceleration FL registered\n");
 #elif defined(BOARD_FR)
-  /* Acceleration Unsprung FR (ID 1027) */
+  /* Acceleration Unsprung + Wheel Speed FR (ID 0x403) */
   accel_fr_handle = can_get_message_handle(
       &accel_fr_mailbox, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FR_ID,
       ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FR_FREQ, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_FR_DLC,
@@ -144,7 +140,7 @@ static void usm_can_add_send_handlers(void) {
   log_printf(LOG_INFO,
              "[USM] CAN send handler for acceleration FR registered\n");
 #elif defined(BOARD_RL)
-  /* Acceleration Unsprung RL (ID 1028) */
+  /* Acceleration Unsprung + Wheel Speed RL (ID 0x404) */
   accel_rl_handle = can_get_message_handle(
       &accel_rl_mailbox, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RL_ID,
       ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RL_FREQ, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RL_DLC,
@@ -155,7 +151,7 @@ static void usm_can_add_send_handlers(void) {
   log_printf(LOG_INFO,
              "[USM] CAN send handler for acceleration RL registered\n");
 #elif defined(BOARD_RR)
-  /* Acceleration Unsprung RR (ID 1029) */
+  /* Acceleration Unsprung + Wheel Speed RR (ID 0x405) */
   accel_rr_handle = can_get_message_handle(
       &accel_rr_mailbox, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RR_ID,
       ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RR_FREQ, ACCELERATION_VECTOR_UNSPRUNG_WHEEL_SPEED_RR_DLC,
@@ -173,15 +169,13 @@ static void usm_can_add_send_handlers(void) {
    =============================== */
 
 /**
- * Update wheel speed for this corner and send all 4 zeros for other corners.
- * The CAN message (ID 1024) includes speeds for all 4 corners, so we set
- * the appropriate corner based on the board location and zero the others.
+ * Update wheel speed for this corner's combined accel + wheel-speed message.
  */
 void usm_can_update_wheel_speed(float wheel_speed_rads) {
   taskENTER_CRITICAL();
 
 #if defined(BOARD_FL)
-  accel_fl_mailbox.wheel_speed = wheel_speed_rads;
+  accel_fl_mailbox.wheel_speed = 67.0f;
 #elif defined(BOARD_FR)
   accel_fr_mailbox.wheel_speed = wheel_speed_rads;
 #elif defined(BOARD_RL)
