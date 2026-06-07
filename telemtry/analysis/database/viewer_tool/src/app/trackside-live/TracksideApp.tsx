@@ -2,10 +2,20 @@
 import './trackside.css';
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type Dispatch, type MouseEvent, type ReactNode, type SetStateAction } from "react";
-import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, Moon, NotebookText, Plus, Power, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, WifiOff, X, Zap } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, Moon, NotebookText, Plus, Power, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, Users, WifiOff, X, Zap } from "lucide-react";
 import { api } from "@/lib/trackside/api";
 import { useCarStatus, CAR_STATE_META, humanizeReason, type CarState, type CarStatusFeed } from "@/lib/trackside/useCarStatus";
+import { EVENT_TYPES, upsertSession, patchSession, syncRegistryWithServer, type TracksideSessionInfo } from "@/lib/trackside/sessionRegistry";
+import { usePresence } from "@/lib/trackside/usePresence";
+import { useSession } from "next-auth/react";
+import { DashLayoutEditor } from "@/components/dashlayout/DashLayoutEditor";
+import { DashMessageEditor } from "@/components/dashlayout/DashMessageEditor";
+import type { LapCardLayout } from "@/lib/dash/dashLayout";
 import { useDashSignals } from "@/lib/dash/dashSignals";
+import { useMessageLibrary } from "@/lib/dash/useMessageLibrary";
+import { activeMessages, MESSAGE_ICON_GLYPH, type DashMessage } from "@/lib/dash/dashMessages";
+import { useRacePlan } from "@/lib/dash/useRacePlan";
+import { DriveDaySetupForm, driveDaySetupToPayload, type DriveDaySetup } from "@/components/trackside/DriveDaySetupForm";
 import type {
   ChannelDef,
   ChannelChartDefinition,
@@ -119,10 +129,10 @@ type LiveLap = {
   energyWh: number;
   energyOutWh?: number;
   energyInWh?: number;
-  batteryEnergyWh?: number | null;
   distanceM: number;
   avgSpeedMps: number | null;
   samples: LiveSample[];
+  notes?: string; // per-lap note (synced to the classifier DB)
 };
 type LiveSessionState = {
   running: boolean;
@@ -145,8 +155,6 @@ type LiveSessionState = {
   lapEnergyWh: number;
   lapEnergyOutWh: number;
   lapEnergyInWh: number;
-  batteryTotalEnergyWh: number | null;
-  batteryLapEnergyWh: number | null;
   lapDistanceM: number;
   deltaRate: number | null;
   deltaMs: number;
@@ -159,7 +167,6 @@ type SavedCurrentLap = {
   lapEnergyWh: number;
   lapEnergyOutWh?: number;
   lapEnergyInWh?: number;
-  batteryLapEnergyWh: number | null;
   lapDistanceM: number;
   lapSamples: LiveSample[];
   deltaMs: number;
@@ -175,13 +182,13 @@ type SavedSession = {
   totalEnergyWh: number;
   totalEnergyOutWh?: number;
   totalEnergyInWh?: number;
-  batteryTotalEnergyWh?: number | null;
   laps: LiveLap[];
   selectedLapIds: string[];
   selectionSaved?: boolean;
   sampleTail: LiveSample[];
   currentLap?: SavedCurrentLap | null;
   hasSectors: boolean;
+  sessionInfo?: TracksideSessionInfo | null;
 };
 const SESSION_STORAGE_KEY = "motec-live-session";
 const TOUR_STORAGE_KEY = "trackside-tour-done";
@@ -243,8 +250,6 @@ const EMPTY_LIVE_STATE: LiveSessionState = {
   lapEnergyWh: 0,
   lapEnergyOutWh: 0,
   lapEnergyInWh: 0,
-  batteryTotalEnergyWh: null,
-  batteryLapEnergyWh: null,
   lapDistanceM: 0,
   deltaRate: null,
   deltaMs: 0,
@@ -398,7 +403,7 @@ function normalizeCarPreset(value: unknown): CarPreset | null {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<AppTab>("exporter");
+  const [activeTab, setActiveTab] = useState<AppTab>("live");
   // First-load onboarding tour. Opens automatically until the user finishes/skips
   // it once (persisted in localStorage); re-openable any time via the help button.
   const [showTour, setShowTour] = useState(false);
@@ -433,6 +438,11 @@ function App() {
   const [detail, setDetail] = useState<DayDetail | null>(null);
   const [session, setSession] = useState<SessionSummary | null>(null);
   const [segments, setSegments] = useState<SegmentSummary[]>([]);
+  // Track Builder only uses sessions with a real GPS trace (you draw gates on
+  // it), so hide non-GPS / sparse-trace sessions by default — that's what filters
+  // out stale/replayed "fake" sessions without touching the database. Toggle off
+  // to see everything. MIN_TRACE_GPS_POINTS = a real lap has many fixes.
+  const [gpsOnlySessions, setGpsOnlySessions] = useState(true);
   const [series, setSeries] = useState<SeriesPoint[]>([]);
   const [gps, setGps] = useState<GpsPoint[]>([]);
   const [range, setRange] = useState<[number, number] | null>(null);
@@ -449,6 +459,14 @@ function App() {
   const [error, setError] = useState("");
   const [sessionMetadata, setSessionMetadata] = useState<Record<string, SessionMetadata>>({});
   const [metadataDraft, setMetadataDraft] = useState<SessionMetadata>(EMPTY_METADATA);
+  // The active named session (for the logsync registry + export identity).
+  const [sessionInfo, setSessionInfo] = useState<TracksideSessionInfo | null>(null);
+  const sessionInfoRef = useRef(sessionInfo);
+  sessionInfoRef.current = sessionInfo;
+  const lapSyncTimerRef = useRef<number | null>(null);
+  const [newSessionOpen, setNewSessionOpen] = useState(false);
+  const [lapDesignerOpen, setLapDesignerOpen] = useState(false);
+  const [layoutSendStatus, setLayoutSendStatus] = useState("");
   const [mixedMetadata, setMixedMetadata] = useState<Set<MetadataField>>(new Set());
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("motec-theme") === "dark");
   const [builderCenter, setBuilderCenter] = useState({ lat: 30.3922, lon: -97.7287 });
@@ -465,6 +483,9 @@ function App() {
   const [selectedLapIds, setSelectedLapIds] = useState<Set<string>>(() => new Set());
   const [sessionFromFile, setSessionFromFile] = useState(false);
   const [resumeAvailable, setResumeAvailable] = useState<SavedSession | null>(null);
+  // True after Stop Event until the next session/feed (re)start, so the UI shows
+  // a clearly-ended state instead of looking like a lap is still running.
+  const [eventEnded, setEventEnded] = useState(false);
   const knownLapIdsRef = useRef<Set<string>>(new Set());
   const lastLocalSessionSaveRef = useRef(0);
   const lastBackendSessionSaveRef = useRef(0);
@@ -484,10 +505,49 @@ function App() {
   // Dash pacing signals (publishes targetPower + lapTrigger to the on-car dash).
   const dashSignals = useDashSignals();
   const [dashTargetPower, setDashTargetPower] = useState<number>(() => Number(localStorage.getItem("dash-target-power") || 30));
+  // Power-budget mode: 'auto' derives kW from the energy plan; 'manual' uses the slider.
+  const [dashPowerMode, setDashPowerMode] = useState<"auto" | "manual">(() => (localStorage.getItem("dash-power-mode") === "manual" ? "manual" : "auto"));
   const [dashAutoLap, setDashAutoLap] = useState(() => localStorage.getItem("dash-auto-lap") === "1");
   const [dashGatePushed, setDashGatePushed] = useState(false);
+  // How long the on-car full-screen lap card stays up after a lap (seconds).
+  const [lapCardDurationS, setLapCardDurationS] = useState(() => {
+    const v = Number(localStorage.getItem("dash-lap-card-duration-s"));
+    return Number.isFinite(v) && v > 0 ? v : 5;
+  });
+  // When on, the event-flag buttons (Cone / Off-track / Incomplete / custom)
+  // also flash a message on the driver's dash.
+  const [flagSendsMessage, setFlagSendsMessage] = useState(() => localStorage.getItem("flag-sends-message") === "1");
+  // Per-flag choice of WHICH dash screen fires. Maps flag label → message-library
+  // id, or the sentinels "auto" (build one from the flag text) / "none" (skip).
+  const [flagMessageMap, setFlagMessageMap] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem("flag-message-map") || "{}") as Record<string, string>; }
+    catch { return {}; }
+  });
+  // Driver-message palette (quick-send nudges to the dash) — shared server-side.
+  const msgLib = useMessageLibrary();
+  const [msgEditorOpen, setMsgEditorOpen] = useState(false);
+  // Drive-day setup (conditions/tires/aero/alignment) — carried on the session,
+  // synced, and written to the drive_day record.
+  const [driveDaySetup, setDriveDaySetup] = useState<DriveDaySetup>({});
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [flagScreensOpen, setFlagScreensOpen] = useState(false);
+  const [confirmStopOpen, setConfirmStopOpen] = useState(false);
+  // Per-page-load dismissal of the "you started this session — reclaim?" banner.
+  // Resets on reload; the user can always re-take by reloading the page.
+  const [starterReclaimDismissed, setStarterReclaimDismissed] = useState(false);
+  const driveDaySetupRef = useRef(driveDaySetup);
+  driveDaySetupRef.current = driveDaySetup;
+  const [msgSendStatus, setMsgSendStatus] = useState("");
   const [dashNow, setDashNow] = useState(0); // 1 Hz tick for link-health "age" displays
   const dashLastLapCountRef = useRef(0);
+  const lastRegistryPatchRef = useRef(0);
+  // Multi-client sync: one leader owns the session, others mirror it read-only.
+  const presence = usePresence(true);
+  const isMirror = presence.isMirror;
+  const { data: authSession } = useSession();
+  const isAdmin = !!authSession?.user?.isAdmin;
+  const isMirrorRef = useRef(false);
+  const lastMirrorPollRef = useRef(0);
   const liveSourceRef = useRef<EventSource | null>(null);
   // The live feed auto-starts and self-heals: liveShouldRunRef tracks whether we
   // *want* a connection (so an unexpected drop reconnects, but an explicit
@@ -549,6 +609,46 @@ function App() {
     [torqueParamSetId],
   );
   const targetEnergyPerLapWh = targetLaps > 0 && targetEnergyKwh > 0 ? (targetEnergyKwh * 1000) / targetLaps : null;
+  // --- dynamic per-lap energy budget (Wh), recomputed each completed lap ---
+  const energyUsedWh = useMemo(
+    () => liveState.laps.reduce((sum, lap) => sum + (lap.energyWh || 0), 0),
+    [liveState.laps],
+  );
+  const lapsCompletedPlan = liveState.laps.length;
+  const totalBudgetWh = targetEnergyKwh > 0 ? targetEnergyKwh * 1000 : null;
+  const remainingBudgetWh = totalBudgetWh != null ? totalBudgetWh - energyUsedWh : null;
+  const lapsRemainingPlan = targetLaps > 0 ? Math.max(0, targetLaps - lapsCompletedPlan) : null;
+  // Headline budget: how much you can spend on EACH remaining lap from here.
+  // Over-use shrinks remaining Wh → this drops; under-use grows it → this rises.
+  const dynamicLapBudgetWh = remainingBudgetWh != null && lapsRemainingPlan != null && lapsRemainingPlan > 0
+    ? remainingBudgetWh / lapsRemainingPlan : null;
+  // + = banked margin vs the even split; − = over budget, must conserve.
+  const budgetVsTargetWh = dynamicLapBudgetWh != null && targetEnergyPerLapWh != null
+    ? dynamicLapBudgetWh - targetEnergyPerLapWh : null;
+  // Auto-derive the dash target power from the energy plan: the live Wh/lap
+  // budget ÷ the rolling average lap time is the power rate that spends the
+  // budget evenly. A manual override (dashPowerMode='manual') wins when set.
+  const avgLapTimeS = useMemo(() => {
+    const recent = liveState.laps.slice(-3);
+    if (!recent.length) return null;
+    return recent.reduce((s, l) => s + l.durationMs, 0) / recent.length / 1000;
+  }, [liveState.laps]);
+  const autoTargetPowerKw = dynamicLapBudgetWh != null && avgLapTimeS != null && avgLapTimeS > 0
+    ? dynamicLapBudgetWh / (avgLapTimeS / 3600) / 1000 : null;
+  const effectiveTargetPowerKw = dashPowerMode === "manual" ? dashTargetPower : autoTargetPowerKw;
+
+  // The race plan (total laps + usable budget + OCV cutoff) syncs across every
+  // trackside client through THIS dedicated channel only — it's the single
+  // source of truth. The shared saved-session doc must NOT also apply these
+  // fields (it lags behind edits and would fight this poll, causing the value
+  // to flip between the fresh and stale numbers).
+  const racePlan = useRacePlan((p) => {
+    if (p.totalLaps !== targetLaps) setTargetLaps(p.totalLaps);
+    if (p.budgetKwh > 0 && p.budgetKwh !== targetEnergyKwh) setTargetEnergyKwh(p.budgetKwh);
+    if (p.soeCutoffCellV && p.soeCutoffCellV > 0 && p.soeCutoffCellV !== soeCutoffCellV) {
+      setSoeCutoffCellV(normalizeSoeCutoffCellV(p.soeCutoffCellV));
+    }
+  });
   const selectedLaps = useMemo(() => liveState.laps.filter((lap) => selectedLapIds.has(lap.id)), [liveState.laps, selectedLapIds]);
   const lapAverages = useMemo(() => {
     if (!selectedLaps.length) {
@@ -558,20 +658,19 @@ function App() {
         avgEnergyWh: null as number | null,
         avgEnergyOutWh: null as number | null,
         avgEnergyInWh: null as number | null,
-        avgBatteryEnergyWh: null as number | null,
       };
     }
     const avgMs = selectedLaps.reduce((sum, lap) => sum + lap.durationMs, 0) / selectedLaps.length;
     const avgEnergyWh = selectedLaps.reduce((sum, lap) => sum + lap.energyWh, 0) / selectedLaps.length;
     const avgEnergyOutWh = selectedLaps.reduce((sum, lap) => sum + lapEnergyOutWh(lap), 0) / selectedLaps.length;
     const avgEnergyInWh = selectedLaps.reduce((sum, lap) => sum + lapEnergyInWh(lap), 0) / selectedLaps.length;
-    const batteryLaps = selectedLaps.filter((lap) => lap.batteryEnergyWh != null);
-    const avgBatteryEnergyWh = batteryLaps.length
-      ? batteryLaps.reduce((sum, lap) => sum + (lap.batteryEnergyWh ?? 0), 0) / batteryLaps.length
-      : null;
-    return { count: selectedLaps.length, avgMs, avgEnergyWh, avgEnergyOutWh, avgEnergyInWh, avgBatteryEnergyWh };
+    return { count: selectedLaps.length, avgMs, avgEnergyWh, avgEnergyOutWh, avgEnergyInWh };
   }, [selectedLaps]);
-  const currentLapNumber = liveState.laps.length + (liveState.lapStartMs ? 1 : 0);
+  // Hero "Lap" tile reads COMPLETED laps, not click count. A lap is counted
+  // when its end-of-lap click closes it (or when GPS auto-detect crosses S/F).
+  // The lap currently in progress is implied by the running timer above, not
+  // by the counter — so 4/22 means "4 done, on the 5th".
+  const currentLapNumber = liveState.laps.length;
   const liveSectorCount = sessionFromFile && hasStartFinish && splitGates.length ? splitGates.length + 1 : 0;
   const liveLapElapsedMs = liveState.lastSample && liveState.lapStartMs ? Math.max(0, liveState.lastSample.t - liveState.lapStartMs) : 0;
   // Wall-clock ticker for the manual recording timer (runs only while recording).
@@ -584,6 +683,8 @@ function App() {
   }, [recordingStartMs]);
   const recordingElapsedMs = recordingStartMs == null ? 0 : Math.max(0, recordingNowMs - recordingStartMs);
   const liveTorqueNm = torqueFeedbackNmFor(filteredLiveState.lastSample);
+  // Driver inputs for the hero (throttle %, front brake psi, steering °).
+  const heroControls = useMemo(() => driverControls(filteredLiveState.lastSample, torqueParamSet), [filteredLiveState.lastSample, torqueParamSet]);
   const liveBadgeLabel = liveState.lastSample ? "Live" : liveState.connected ? "Listening" : liveState.running ? "Connecting" : "Standby";
   const liveBadgeClass = liveState.lastSample ? "liveBadge liveOn" : liveState.connected ? "liveBadge liveListening" : liveState.running ? "liveBadge liveConnecting" : "liveBadge";
 
@@ -594,34 +695,66 @@ function App() {
   // from handleLiveEvent on every "sample" event.
   const [lastDataAtMs, setLastDataAtMs] = useState<number | null>(null);
   const [liveNowMs, setLiveNowMs] = useState(() => Date.now());
+  // Tick once a second unconditionally so the data-age stays accurate even if
+  // the local `running` flag briefly flips (e.g. a mirror mid-adopt) while real
+  // samples are still arriving.
   useEffect(() => {
-    if (!liveState.running) return;
     setLiveNowMs(Date.now());
     const id = window.setInterval(() => setLiveNowMs(Date.now()), 1000);
     return () => window.clearInterval(id);
-  }, [liveState.running]);
+  }, []);
   const dataAgeMs = lastDataAtMs == null ? null : Math.max(0, liveNowMs - lastDataAtMs);
-  // Telemetry (sample) freshness — separate from broker connectivity. A
-  // connected broker with no samples means the car is almost certainly off,
-  // which is exactly the case the old "ready" badge got wrong.
-  const uplink: "idle" | "connecting" | "waiting" | "live" | "stale" | "down" = !liveState.running
-    ? "idle"
-    : dataAgeMs == null
-      ? (liveState.connected ? "waiting" : "connecting")
-      : dataAgeMs < 3500
-        ? "live"
-        : dataAgeMs < 12000
-          ? "stale"
-          : "down";
+  // Time spent trying to get telemetry since the feed started — used to escalate
+  // 'waiting' to a hard 'down' after a grace period so a car-off page-load
+  // doesn't sit on yellow forever just because the broker is reachable.
+  const waitingForMs = lastDataAtMs == null && liveState.startedAt != null
+    ? Math.max(0, liveNowMs - liveState.startedAt) : 0;
+  // Telemetry (sample) freshness drives the badge. Fresh samples mean the car
+  // is online RIGHT NOW, so freshness wins over the local `running`/connection
+  // flags — those can momentarily desync on a mirror that's mid-adopt, which
+  // used to flip the badge to "Offline" even while gauges kept updating. We
+  // only fall back to the connection state when no data is actually flowing.
+  const uplink: "idle" | "connecting" | "waiting" | "live" | "stale" | "down" =
+    dataAgeMs != null && dataAgeMs < 3500
+      ? "live"
+      : dataAgeMs != null && dataAgeMs < 12000
+        ? "stale"
+        : dataAgeMs != null
+          ? (liveState.running ? "down" : "idle") // had data, now silent
+          : !liveState.running
+            ? "idle"
+            : waitingForMs > 12000
+              ? "down" // never got data after 12s of running — car is off
+              : liveState.connected
+                ? "waiting"
+                : "connecting";
   const UPLINK_META: Record<typeof uplink, { label: string; dot: string }> = {
     idle: { label: "Offline", dot: "dead" },
     connecting: { label: "Connecting…", dot: "stale pulse" },
+    // 'waiting' is the brief window right after feed start before any sample
+    // arrives — yellow because it MIGHT be transitional. After 12s we escalate
+    // to 'down' (red) so a car-off state reads as dead, not as in-between.
     waiting: { label: "No telemetry", dot: "stale" },
     live: { label: "Live", dot: "live" },
     stale: { label: "Delayed", dot: "stale" },
     down: { label: "Signal lost", dot: "dead" },
   };
   const uplinkMeta = UPLINK_META[uplink];
+  // "Car telemetry is reachable right now" — a real sample arrived in the last
+  // 3.5s. Trackside actions that only make sense with live data (record a lap,
+  // log a lap, send a lap to the car) gate on this so they aren't clickable when
+  // the car's off or the link is down.
+  const telemetryFresh = uplink === "live";
+
+  // Live GPS health — also signals whether GPS auto-lap is backing up the manual
+  // lap button (needs an S/F gate defined and a usable fix).
+  const sfGateDefined = track.gates.some((gate) => gate.role === "start_finish");
+  const liveHasGpsFix = liveState.lastSample != null && hasGps(liveState.lastSample);
+  const gpsTag = liveState.lastSample == null
+    ? { dot: "stale", label: "GPS —" }
+    : liveHasGpsFix
+      ? { dot: "live", label: sfGateDefined ? "GPS · auto-lap armed" : "GPS fix" }
+      : { dot: "dead", label: "No GPS fix" };
 
   // Authoritative car state from the central classifier (PR #282), if reachable.
   const carStatus = useCarStatus(source, liveState.running);
@@ -706,17 +839,150 @@ function App() {
     localStorage.setItem("motec-soe-cutoff-cell-v", String(soeCutoffCellV));
   }, [soeCutoffCellV]);
 
+  // Keep the dash uplink connected for the whole session (leader only) so EVERY
+  // lap/power/message action reaches the car — not just while the Dash tab is
+  // open. Without this, a "Log Lap" pressed from the Live tab would log locally
+  // but silently miss the car whenever nobody had hit "Connect to dash" on the
+  // Dash tab, making the two lap buttons behave differently. We only auto-connect
+  // from the initial 'idle' state, so an explicit Disconnect (→ 'closed') and the
+  // hook's own reconnect loop are both respected.
+  useEffect(() => {
+    if (isMirror) return;
+    if (dashSignals.status === "idle") dashSignals.connect();
+  }, [isMirror, dashSignals.status, dashSignals.connect]);
+
   // Persist + live-publish the dash power budget. Re-publishing on every change
   // keeps the on-car dash's energy bar in sync the instant the strategist
   // adjusts it; the hook's keepalive covers the gaps in between.
   useEffect(() => {
     localStorage.setItem("dash-target-power", String(dashTargetPower));
-    if (dashSignals.status === "connected") dashSignals.publishTargetPower(dashTargetPower);
-  }, [dashTargetPower, dashSignals.status, dashSignals.publishTargetPower]);
+    localStorage.setItem("dash-power-mode", dashPowerMode);
+    if (dashSignals.status === "connected" && effectiveTargetPowerKw != null && Number.isFinite(effectiveTargetPowerKw)) {
+      dashSignals.publishTargetPower(Math.round(effectiveTargetPowerKw));
+    }
+  }, [dashTargetPower, dashPowerMode, effectiveTargetPowerKw, dashSignals.status, dashSignals.publishTargetPower]);
+
+  // Push the live dynamic per-lap energy budget (Wh) to the dash whenever it
+  // changes, so the driver sees the same Wh/lap target as trackside. Leader only.
+  useEffect(() => {
+    if (isMirror || dashSignals.status !== "connected") return;
+    if (dynamicLapBudgetWh != null) dashSignals.publishLapBudget(Math.round(dynamicLapBudgetWh));
+  }, [dynamicLapBudgetWh, isMirror, dashSignals.status, dashSignals.publishLapBudget]);
+
+  // Push the active driver-message set to the car (retained) whenever it changes
+  // or the link (re)connects, so the dash holds the current quick-send palette
+  // across reboots. Only the leader commands the car.
+  useEffect(() => {
+    if (isMirror || dashSignals.status !== "connected") return;
+    dashSignals.publishMessages(activeMessages(msgLib.lib));
+  }, [msgLib.lib, isMirror, dashSignals.status, dashSignals.publishMessages]);
 
   useEffect(() => {
     localStorage.setItem("dash-auto-lap", dashAutoLap ? "1" : "0");
   }, [dashAutoLap]);
+
+  useEffect(() => {
+    localStorage.setItem("flag-sends-message", flagSendsMessage ? "1" : "0");
+  }, [flagSendsMessage]);
+
+  useEffect(() => {
+    localStorage.setItem("flag-message-map", JSON.stringify(flagMessageMap));
+  }, [flagMessageMap]);
+
+  // Persist + publish the lap-card duration to the car (retained, leader only),
+  // and re-push on (re)connect so a freshly-booted dash picks it up.
+  useEffect(() => {
+    localStorage.setItem("dash-lap-card-duration-s", String(lapCardDurationS));
+    if (!isMirror && dashSignals.status === "connected") {
+      dashSignals.publishLapCardMs(Math.round(lapCardDurationS * 1000));
+    }
+  }, [lapCardDurationS, isMirror, dashSignals.status, dashSignals.publishLapCardMs]);
+
+  // Keep the active session's registry record current as it runs, so the Log Sync
+  // page can match a CSV's loggerd timestamp into the right session window and
+  // auto-fill its annotation. Throttled to ~once per 5s so the per-sample stream
+  // (~20 Hz) can't hammer localStorage; the window stays accurate to a few sec.
+  useEffect(() => {
+    if (!sessionInfo) return;
+    const now = Date.now();
+    if (now - lastRegistryPatchRef.current < 5000) return;
+    lastRegistryPatchRef.current = now;
+    patchSession(sessionInfo.id, {
+      laps: liveStateRef.current.laps.length,
+      endedAt: liveStateRef.current.lastSample?.t ?? now,
+    });
+  }, [sessionInfo, liveState.laps.length, liveState.lastSample?.t]);
+
+  // Keep the active session's FULL record (metadata + energy plan) synced to the
+  // server as the strategist edits it (debounced), so the logged session is
+  // always complete — not just the name/driver summary.
+  useEffect(() => {
+    // Leader only: a mirror's plan fields can lag (or sit at the local default)
+    // and would clobber the stored session's real plan on the server.
+    if (!sessionInfo || isMirror) return;
+    const id = window.setTimeout(() => {
+      patchSession(sessionInfo.id, {
+        metadata: { ...metadataDraft },
+        plan: { targetLaps, targetEnergyKwh, soeCutoffCellV },
+        setup: { ...driveDaySetup } as Record<string, string | number | boolean>,
+      });
+    }, 1500);
+    return () => window.clearTimeout(id);
+  }, [sessionInfo, isMirror, metadataDraft, targetLaps, targetEnergyKwh, soeCutoffCellV, driveDaySetup]);
+
+  // Push drive-day SETUP edits to the drive_day record (debounced) once the
+  // session has a linked day. Leader only.
+  useEffect(() => {
+    if (isMirror || sessionInfo?.dayId == null) return;
+    const dayId = sessionInfo.dayId;
+    const id = window.setTimeout(() => {
+      void fetch("/api/update-drive-day", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ day_id: dayId, ...driveDaySetupToPayload(driveDaySetup) }),
+      }).catch(() => { /* offline — retried on next edit */ });
+    }, 1500);
+    return () => window.clearTimeout(id);
+  }, [driveDaySetup, sessionInfo, isMirror]);
+
+  // Restore the setup when a session is adopted (reload / mirror / server merge).
+  useEffect(() => {
+    if (sessionInfo?.setup) setDriveDaySetup(sessionInfo.setup as DriveDaySetup);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionInfo?.id]);
+
+  // On load, reconcile the local session registry with the server (last-writer-
+  // wins) and re-push anything the server is missing — so clients converge on
+  // the full records and a record that failed to push earlier is retried.
+  useEffect(() => { void syncRegistryWithServer(); }, []);
+
+  // Debounced sync of the day's laps (edited times + per-lap notes) to the
+  // classifier DB on ANY lap change — add, edit, note, or delete (laps is a new
+  // array each time). No-op without a linked drive_day or on a mirror.
+  useEffect(() => {
+    if (isMirror || sessionInfo?.dayId == null) return;
+    if (lapSyncTimerRef.current) window.clearTimeout(lapSyncTimerRef.current);
+    const dayId = sessionInfo.dayId;
+    const laps = liveState.laps.map((l) => ({ start_time: l.startMs, end_time: l.endMs, notes: l.notes ?? "" }));
+    lapSyncTimerRef.current = window.setTimeout(() => {
+      void fetch("/api/laps/sync", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ day_id: dayId, laps }),
+      }).catch(() => { /* offline — retried on next change */ });
+    }, 1500);
+    return () => { if (lapSyncTimerRef.current) window.clearTimeout(lapSyncTimerRef.current); };
+  }, [liveState.laps, sessionInfo, isMirror]);
+
+  // Deep-link from the homepage "Car Status" card (/trackside-live?focus=car):
+  // land on the Live tab and scroll the car-status panel into view.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("focus") !== "car") return;
+    setActiveTab("live");
+    const id = window.setTimeout(() => {
+      document.getElementById("car-status-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 200);
+    return () => window.clearTimeout(id);
+  }, []);
 
   // Tick once a second while the Dash tab is open so the link-health "Xs ago"
   // ages and the dash-silent warning stay live without a new message.
@@ -732,10 +998,34 @@ function App() {
   useEffect(() => {
     const count = liveState.laps.length;
     if (count > dashLastLapCountRef.current) {
-      if (dashAutoLap && dashSignals.status === "connected") dashSignals.sendLap();
+      if (!isMirror && dashAutoLap && dashSignals.status === "connected") dashSignals.sendLap();
       dashLastLapCountRef.current = count;
     }
-  }, [liveState.laps.length, dashAutoLap, dashSignals.status, dashSignals.sendLap]);
+  }, [liveState.laps.length, dashAutoLap, dashSignals.status, dashSignals.sendLap, isMirror]);
+
+  // Drain: re-publish the website's lap count whenever the car's mirror shows
+  // fewer laps than we've logged. Catches both the dashd-restart and
+  // broker-to-dashd drop cases — situations where the original sendLap left
+  // the website thinking it succeeded but the car never got the trigger. qos:1
+  // on the publish handles the website-side disconnect blip; this handles the
+  // far-side gap. dashd's forward-only edge check makes the re-publish a no-op
+  // when the car is just temporarily lagged on its state frame.
+  useEffect(() => {
+    if (isMirror) return;
+    if (dashSignals.status !== "connected") return;
+    const carLapCount = dashSignals.dashState?.lapCount ?? null;
+    if (carLapCount == null) return; // no mirror yet — nothing to compare against
+    const websiteLapCount = liveState.laps.length;
+    if (websiteLapCount > carLapCount) {
+      dashSignals.republishLap(websiteLapCount);
+    }
+  }, [
+    liveState.laps.length,
+    dashSignals.status,
+    dashSignals.dashState?.lapCount,
+    dashSignals.republishLap,
+    isMirror,
+  ]);
 
   // Auto-select newly completed laps for the average (preserving manual deselections).
   useEffect(() => {
@@ -756,7 +1046,10 @@ function App() {
   // Checkpoint the live session while samples are flowing. This is throttled,
   // not debounced, so a constant stream cannot postpone persistence forever.
   useEffect(() => {
-    if (!liveState.laps.length && !liveState.samples.length) return;
+    // Persist a session even before its first lap/sample if we have sessionInfo —
+    // otherwise a freshly-started session never makes it to the server and a
+    // reload drops everything.
+    if (!liveState.laps.length && !liveState.samples.length && !sessionInfo) return;
     const now = Date.now();
     const lapCountChanged = liveState.laps.length !== lastSavedLapCountRef.current;
     const shouldSaveLocal = lapCountChanged || now - lastLocalSessionSaveRef.current >= SESSION_LOCAL_AUTOSAVE_MS;
@@ -777,11 +1070,9 @@ function App() {
     liveState.lapEnergyWh,
     liveState.lapEnergyOutWh,
     liveState.lapEnergyInWh,
-    liveState.batteryLapEnergyWh,
     liveState.totalEnergyWh,
     liveState.totalEnergyOutWh,
     liveState.totalEnergyInWh,
-    liveState.batteryTotalEnergyWh,
     liveState.topic,
     source,
     targetLaps,
@@ -789,6 +1080,7 @@ function App() {
     soeCutoffCellV,
     selectedLapIds,
     sessionFromFile,
+    sessionInfo,
   ]);
 
   useEffect(() => {
@@ -807,38 +1099,34 @@ function App() {
     };
   }, [source, targetLaps, targetEnergyKwh, soeCutoffCellV, selectedLapIds, sessionFromFile]);
 
-  // On first load, decide whether to restore a previous live session.
+  // On first load, decide whether to restore a previous live session. The
+  // session is the SERVER's source of truth — it persists even when every
+  // client is gone, so a fresh client picks up the running session without
+  // a banner. Only the leader's explicit Stop Event clears it.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      // 1) This browser's own autosave (localStorage + IndexedDB). Auto-restore
-      //    only while fresh, so an accidental reload mid-session is seamless.
-      const ownCandidates: SavedSession[] = [];
+      const candidates: SavedSession[] = [];
       const localSaved = readLocalSavedSession();
-      if (isRestorableSession(localSaved)) ownCandidates.push(localSaved);
+      if (isRestorableSession(localSaved)) candidates.push(localSaved);
       const indexedSaved = await readIndexedSavedSession();
-      if (isRestorableSession(indexedSaved)) ownCandidates.push(indexedSaved);
-      if (cancelled) return;
-      let offer = ownCandidates.length
-        ? ownCandidates.reduce((best, item) => (item.savedAt > best.savedAt ? item : best), ownCandidates[0])
-        : null;
-      if (offer && Date.now() - offer.savedAt <= SESSION_AUTO_RESTORE_MAX_AGE_MS) {
-        restoreLiveState(offer, false);
-        return;
-      }
-
-      // 2) The shared backend cache can hold a stale demo run or another
-      //    operator's session, so it is never auto-applied — only offered.
+      if (isRestorableSession(indexedSaved)) candidates.push(indexedSaved);
       try {
         const backendSaved = await api.latestLiveSession<SavedSession>();
-        if (isRestorableSession(backendSaved) && (!offer || backendSaved.savedAt > offer.savedAt)) {
-          offer = backendSaved;
-        }
+        if (isRestorableSession(backendSaved)) candidates.push(backendSaved);
       } catch {
         // backend cache is optional
       }
-      if (cancelled || !offer) return;
-      // Surface a recent session for explicit, opt-in resume.
+      if (cancelled || !candidates.length) return;
+      // Take the most recent of local + indexed + backend. The backend cache
+      // wins on equality so a freshly-leader client reads the running session.
+      const offer = candidates.reduce((best, item) => (item.savedAt >= best.savedAt ? item : best), candidates[0]);
+      if (Date.now() - offer.savedAt <= SESSION_AUTO_RESTORE_MAX_AGE_MS) {
+        restoreLiveState(offer, false);
+        return;
+      }
+      // Past the auto-restore window but still within the offer window — show
+      // the resume banner.
       if (Date.now() - offer.savedAt <= SESSION_RESUME_OFFER_MAX_AGE_MS) {
         setResumeAvailable(offer);
       }
@@ -884,6 +1172,30 @@ function App() {
   useEffect(() => {
     liveStateRef.current = liveState;
   }, [liveState]);
+
+  useEffect(() => {
+    isMirrorRef.current = isMirror;
+  }, [isMirror]);
+
+  // Mirror clients adopt the leader's shared session (laps, totals, lap-in-
+  // progress, targets, identity) by polling the session-cache, while keeping
+  // their own live gauges from the stream. Skipped entirely for the leader.
+  useEffect(() => {
+    if (!isMirror) return;
+    let cancelled = false;
+    const pull = async () => {
+      try {
+        const saved = await api.latestLiveSession<SavedSession>();
+        if (cancelled || !saved) return;
+        adoptSharedSession(saved);
+      } catch {
+        // No shared session yet / unreachable — keep showing live gauges.
+      }
+    };
+    void pull();
+    const iv = window.setInterval(pull, 2000);
+    return () => { cancelled = true; window.clearInterval(iv); };
+  }, [isMirror]);
 
   useEffect(() => {
     liveTrackRef.current = track;
@@ -1318,7 +1630,9 @@ function App() {
     setCarPresetDraft(fallback);
   }
 
-  async function startLiveData() {
+  async function startLiveData(sourceOverride?: "orion" | "angelique") {
+    const useSource = sourceOverride ?? source;
+    setEventEnded(false);
     liveSourceRef.current?.close();
     liveShouldRunRef.current = true;
     if (reconnectTimerRef.current != null) {
@@ -1339,9 +1653,9 @@ function App() {
     setLiveState(nextLiveState);
     try {
       const requestedTopic = liveTopic.trim();
-      const config = await api.liveConfig(source, requestedTopic, liveTransport);
+      const config = await api.liveConfig(useSource, requestedTopic, liveTransport);
       setLiveState((prev) => ({ ...prev, topic: config.topic, status: liveTransport === "mqtt" ? `Listening to MQTT ${config.topic}` : `Listening to ${config.topic}` }));
-      const params = new URLSearchParams({ source, topic: requestedTopic, transport: liveTransport, sampleHz: String(liveSampleHz) });
+      const params = new URLSearchParams({ source: useSource, topic: requestedTopic, transport: liveTransport, sampleHz: String(liveSampleHz) });
       const eventSource = new EventSource(`/api/motec/live/stream?${params.toString()}`);
       liveSourceRef.current = eventSource;
       eventSource.onopen = () => {
@@ -1389,10 +1703,9 @@ function App() {
     setLiveState((prev) => ({ ...prev, running: false, connected: false, status: prev.laps.length ? "Stopped" : "Stopped without completed laps" }));
   }
 
-  function resetLiveSession() {
-    const hasSessionData = liveStateRef.current.laps.length || liveStateRef.current.samples.length || liveStateRef.current.lapStartMs;
-    if (hasSessionData && !window.confirm("Reset all live laps, current lap data, and saved session cache?")) return;
-    liveShouldRunRef.current = false;
+  // Wipe all live-session state + caches. Does NOT touch the feed's run-intent —
+  // callers decide whether to re-arm the stream afterwards.
+  function clearLiveSessionState() {
     if (reconnectTimerRef.current != null) {
       window.clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
@@ -1404,12 +1717,328 @@ function App() {
     lastLocalSessionSaveRef.current = 0;
     lastBackendSessionSaveRef.current = 0;
     lastSavedLapCountRef.current = 0;
+    dashLastLapCountRef.current = 0;
+    lastRegistryPatchRef.current = 0;
     setLiveState(EMPTY_LIVE_STATE);
     setSelectedLapIds(new Set());
     setResumeAvailable(null);
     removeLocalSavedSession();
     void removeIndexedSavedSession();
     void api.clearLiveSession().catch(() => undefined);
+  }
+
+  function resetLiveSession() {
+    if (isMirrorRef.current) return;
+    const hasSessionData = liveStateRef.current.laps.length || liveStateRef.current.samples.length || liveStateRef.current.lapStartMs;
+    if (hasSessionData && !window.confirm("Reset all live laps, current lap data, and saved session cache?")) return;
+    if (sessionInfo) {
+      patchSession(sessionInfo.id, { endedAt: Date.now(), laps: liveStateRef.current.laps.length });
+      setSessionInfo(null);
+    }
+    clearLiveSessionState();
+    // The manual Start button is gone, so a reset re-arms the auto feed; the
+    // cleared session keeps streaming rather than stranding the strategist.
+    void startLiveData();
+  }
+
+  // Start a fresh, named session: close out any prior record, clear state, stamp
+  // the metadata for exports + the logsync registry, and re-arm the feed.
+  function startNewSession(draft: { name: string; car: "orion" | "angelique"; driver: string; eventType: string; venue: string }) {
+    if (isMirrorRef.current) return;
+    if (sessionInfo) patchSession(sessionInfo.id, { endedAt: Date.now(), laps: liveStateRef.current.laps.length });
+    clearLiveSessionState();
+    const startedAt = Date.now();
+    const info: TracksideSessionInfo = {
+      id: `sess-${startedAt}-${Math.floor(Math.random() * 1e6)}`,
+      name: draft.name.trim() || `${draft.venue || "Session"} ${new Date(startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+      car: draft.car,
+      driver: draft.driver.trim(),
+      eventType: draft.eventType,
+      venue: draft.venue.trim(),
+      startedAt,
+      endedAt: null,
+      laps: 0,
+      // Full record from the start — the metadata draft + energy plan ride
+      // along so the server logs the complete session, not just the summary.
+      metadata: { ...metadataDraft, driver: draft.driver.trim(), venue: draft.venue.trim(), event: draft.eventType, session: draft.name.trim() },
+      plan: { targetLaps, targetEnergyKwh, soeCutoffCellV },
+      setup: { ...driveDaySetup } as Record<string, string | number | boolean>,
+      // Stamp the starter so this user can reclaim leader on rejoin.
+      starterId: presence.clientId || undefined,
+    };
+    upsertSession(info);
+    setSessionInfo(info);
+    // Back the session with a drive_day record (status=2) so event flags + laps
+    // persist to the classifier. Sequenced (end prior → create) so end-event
+    // can't close the day we just made; async + resilient (session works regardless).
+    void (async () => {
+      await endActiveDriveDay();
+      const dayId = await createDriveDayForSession(info);
+      if (dayId != null) {
+        setSessionInfo((p) => (p && p.id === info.id ? { ...p, dayId } : p));
+        patchSession(info.id, { dayId });
+      }
+    })();
+    // Mirror into the MoTeC/CSV export metadata so a downloaded lap carries the
+    // same identity the logsync annotation will get.
+    setMetadataDraft((prev) => ({ ...prev, driver: info.driver, venue: info.venue, event: info.eventType, session: info.name }));
+    if (draft.car !== source) setSource(draft.car);
+    setNewSessionOpen(false);
+    // Tell dashd to drop its stale lap counter + baseline so the new session
+    // starts at lap 1 on both sides. Without this, dashd would still hold the
+    // prior session's high water mark and silently ignore the first few
+    // sendLap publishes (1 < N).
+    if (dashSignals.status === "connected") dashSignals.resetLapCounter();
+    void startLiveData(draft.car);
+  }
+
+  // Publish the lap-card layout to the car (retained: used until replaced). Only
+  // the session leader commands the car; the dash link must be connected.
+  function sendLapLayout(layout: LapCardLayout) {
+    if (isMirrorRef.current) { setLayoutSendStatus("Read-only mirror — only the session leader can push to the car."); return; }
+    if (dashSignals.status !== "connected") { setLayoutSendStatus("Connect to the dash first (Dash tab → Connect to dash)."); return; }
+    const ok = dashSignals.publishLayout(layout);
+    setLayoutSendStatus(ok ? `Sent “${layout.name}” to the car ✓ (retained — used until replaced)` : "Publish failed — check the dash link.");
+    window.setTimeout(() => setLayoutSendStatus(""), 5000);
+  }
+
+  // Fire one driver message onto the dash now. Same leader + link gating as the
+  // other car commands.
+  function sendDriverMessage(m: DashMessage) {
+    if (isMirrorRef.current) { setMsgSendStatus("Read-only mirror — only the session leader can message the driver."); return; }
+    if (dashSignals.status !== "connected") { setMsgSendStatus("Connect to the dash first (Dash tab → Connect to dash)."); return; }
+    const ok = dashSignals.sendMessage(m);
+    setMsgSendStatus(ok ? `Sent “${m.label}” to the driver ✓${m.durationS ? ` (${m.durationS}s)` : " (until cleared)"}` : "Send failed — check the dash link.");
+    window.setTimeout(() => setMsgSendStatus(""), 4000);
+  }
+
+  function clearDriverMessage() {
+    if (isMirrorRef.current || dashSignals.status !== "connected") return;
+    if (dashSignals.clearMessage()) {
+      setMsgSendStatus("Cleared the driver's message.");
+      window.setTimeout(() => setMsgSendStatus(""), 4000);
+    }
+  }
+
+  // Download the session's laps as a flat CSV (timestamps + per-lap energy), for
+  // sharing/analysis alongside the MoTeC export and the full session JSON.
+  function downloadSessionCsv() {
+    const laps = liveStateRef.current.laps;
+    if (!laps.length) return;
+    const header = ["lap", "kind", "start_iso", "end_iso", "duration_s", "energy_out_wh", "energy_in_wh", "distance_m", "avg_speed_mps"];
+    const rows = laps.map((lap, i) => [
+      i + 1,
+      lap.kind,
+      new Date(lap.startMs).toISOString(),
+      new Date(lap.endMs).toISOString(),
+      (lap.durationMs / 1000).toFixed(3),
+      (lap.energyOutWh ?? lap.energyWh).toFixed(1),
+      (lap.energyInWh ?? 0).toFixed(1),
+      lap.distanceM.toFixed(1),
+      lap.avgSpeedMps != null ? lap.avgSpeedMps.toFixed(2) : "",
+    ]);
+    const csv = [header, ...rows].map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const base = (sessionInfo?.name || `${source}_session`).replace(/[^\w.-]+/g, "_");
+    link.href = url;
+    link.download = `${base}_laps.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Full session as JSON — laps, sectors, per-lap energy, the captured sample
+  // tail, metadata and session identity: everything to review the session
+  // offline EXCEPT the raw car CSVs (those are fetched via Log Sync).
+  function downloadSessionJson() {
+    const saved = buildSavedSession(liveStateRef.current, true);
+    // Surface the live drive-day setup + plan at the top level so a reviewer
+    // gets the conditions/car-setup/tires/aero in one obvious place without
+    // walking sessionInfo. (sessionInfo.setup is still the canonical copy.)
+    const full = {
+      ...saved,
+      metadata: { ...liveMetadataRef.current },
+      plan: { targetLaps, targetEnergyKwh, soeCutoffCellV },
+      driveDaySetup: { ...driveDaySetupRef.current },
+      dayId: sessionInfo?.dayId ?? null,
+      exportedAt: Date.now(),
+    };
+    const blob = new Blob([JSON.stringify(full, null, 2) + "\n"], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const base = (sessionInfo?.name || `${source}_session`).replace(/[^\w.-]+/g, "_");
+    link.href = url;
+    link.download = `${base}_session.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Stop Event: end the session and download everything needed to review it
+  // locally (laps CSV + full session JSON), then stop the live feed. Leaves the
+  // session on screen. Does NOT pull the raw car CSVs — Log Sync handles those.
+  function stopEventAndDownload() {
+    if (isMirrorRef.current) return;
+    if (!liveStateRef.current.laps.length && !liveStateRef.current.samples.length) {
+      setLiveState((prev) => ({ ...prev, status: "Nothing to stop — no session data yet." }));
+      return;
+    }
+    // Capture the data first — blob downloads are synchronous, so the files
+    // grab a snapshot of liveStateRef.current before we clear it below.
+    const lapsExported = liveStateRef.current.laps.length;
+    downloadSessionCsv();
+    downloadSessionJson();
+    // Flush the debounced laps-sync now so the FINAL lap set lands in the DB
+    // even if Stop is clicked within 1500 ms of the last lap. Cancel the
+    // queued timer first so it can't race with the clear below.
+    if (sessionInfo?.dayId != null) {
+      if (lapSyncTimerRef.current) { window.clearTimeout(lapSyncTimerRef.current); lapSyncTimerRef.current = null; }
+      const dayId = sessionInfo.dayId;
+      const laps = liveStateRef.current.laps.map((l) => ({ start_time: l.startMs, end_time: l.endMs, notes: l.notes ?? "" }));
+      void fetch("/api/laps/sync", {
+        method: "POST", headers: { "content-type": "application/json" }, keepalive: true,
+        body: JSON.stringify({ day_id: dayId, laps }),
+      }).catch(() => { /* offline — JSON download still has them */ });
+    }
+    if (sessionInfo) {
+      patchSession(sessionInfo.id, { endedAt: Date.now(), laps: lapsExported });
+      setSessionInfo(null);
+      void endActiveDriveDay(); // close the drive_day record (status → 0)
+    }
+    // Stopping the event ENDS the session — clear the laps/samples/energy too
+    // so the hero reads clean for the next session. The downloaded files are
+    // the on-screen review. liveShouldRunRef is cleared so the feed doesn't
+    // auto-reconnect; a new session will re-arm it.
+    liveShouldRunRef.current = false;
+    // Reset the car's lap_count too so the dash starts the next session at
+    // Lap 0 instead of holding this session's high water mark. Same publish
+    // as startNewSession — symmetrical with how a new session starts.
+    if (dashSignals.status === "connected") dashSignals.resetLapCounter();
+    clearLiveSessionState();
+    setEventEnded(true);
+    setLiveState((prev) => ({ ...prev, status: `Event stopped — ${lapsExported} lap${lapsExported === 1 ? "" : "s"} downloaded, session cleared.` }));
+  }
+
+  // Manually correct a lap's time (timing glitch / late press). Keeps the lap's
+  // start, sets its duration + end. Persists so it survives reload + syncs.
+  function editLapDuration(id: string, durationMs: number) {
+    if (isMirrorRef.current || !Number.isFinite(durationMs) || durationMs < 0) return;
+    const cur = liveStateRef.current;
+    const next = { ...cur, laps: cur.laps.map((l) => (l.id === id ? { ...l, durationMs, endMs: l.startMs + durationMs } : l)) };
+    liveStateRef.current = next;
+    setLiveState(next);
+    persistLiveSession(next, { saveLocal: true, saveBackend: true, includeFullLapSamples: false });
+  }
+
+  // Delete a lap (accident / bad data). Drops it from the average selection too.
+  function deleteLap(id: string) {
+    if (isMirrorRef.current) return;
+    const lap = liveStateRef.current.laps.find((l) => l.id === id);
+    if (lap && !window.confirm(`Delete ${lap.label} (${formatLapTime(lap.durationMs)})? This can't be undone.`)) return;
+    const cur = liveStateRef.current;
+    const next = { ...cur, laps: cur.laps.filter((l) => l.id !== id) };
+    liveStateRef.current = next;
+    setLiveState(next);
+    setSelectedLapIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+    persistLiveSession(next, { saveLocal: true, saveBackend: true, includeFullLapSamples: false });
+  }
+
+  // --- Session ⇒ drive_day link + event flags (autocross incidents) ----------
+  async function endActiveDriveDay() {
+    try { await fetch("/api/end-event", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ car: source }) }); } catch { /* offline — non-fatal */ }
+  }
+  // Create the drive_day record that backs this trackside session (status=2),
+  // so event flags + laps persist to the classifier. Returns the day_id or null.
+  async function createDriveDayForSession(info: TracksideSessionInfo): Promise<number | null> {
+    try {
+      const res = await fetch("/api/new-drive-day", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          date: new Date(info.startedAt).toISOString().slice(0, 10),
+          ...driveDaySetupToPayload(driveDaySetupRef.current),
+          track_name: info.venue || track.name || null,
+          car_id: carIdForSource(info.car),
+          driver_id: 0,
+          event_type: eventTypeIdFor(info.eventType),
+          location_id: 0,
+        }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json().catch(() => ({}));
+      return typeof data?.day_id === "number" ? data.day_id : null;
+    } catch { return null; }
+  }
+  // Fire a trackside event flag (cone / off-track / incomplete / custom) — lands
+  // in the classifier table against the active drive_day.
+  async function eventFlag(label: string) {
+    if (isMirrorRef.current || !label.trim()) return;
+    if (!sessionInfo) { setLiveState((prev) => ({ ...prev, status: "Start a session before flagging events." })); return; }
+    // Optionally flash the same flag on the driver's dash.
+    if (flagSendsMessage) fireFlagDriverMessage(label);
+    try {
+      const res = await fetch("/api/event-flag", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ eventFlag: label }) });
+      setLiveState((prev) => ({ ...prev, status: res.ok ? `Flagged: ${label}` : "Flag failed — no active drive day on the server." }));
+    } catch { setLiveState((prev) => ({ ...prev, status: "Flag failed — offline?" })); }
+  }
+  // Flash an event flag on the driver's dash (used when "Show on driver dash" is
+  // on). The per-flag picker decides which screen: a chosen message-library
+  // screen, "none" (skip), or "auto" (build one from the flag text below).
+  function fireFlagDriverMessage(label: string) {
+    if (isMirrorRef.current) return;
+    if (dashSignals.status !== "connected") {
+      setMsgSendStatus(`Flag "${label}" not sent to driver — dash uplink ${dashSignals.status}.`);
+      window.setTimeout(() => setMsgSendStatus(""), 4000);
+      return;
+    }
+    const choice = flagMessageMap[label];
+    if (choice === "none") {
+      setMsgSendStatus(`Flag "${label}" logged (no driver message — "Don't send" selected).`);
+      window.setTimeout(() => setMsgSendStatus(""), 4000);
+      return;
+    }
+    if (choice && choice !== "auto") {
+      const picked = msgLib.lib.items.find((m) => m.id === choice);
+      if (picked) {
+        const ok = dashSignals.sendMessage(picked, picked.durationS || undefined);
+        setMsgSendStatus(ok ? `Sent "${picked.label}" to driver (flag: ${label}) ✓` : `Send failed — check the dash link.`);
+        window.setTimeout(() => setMsgSendStatus(""), 4000);
+        return;
+      }
+      // picked screen was deleted — fall through to the auto-built one.
+      setMsgSendStatus(`Picked screen for "${label}" was deleted; sending auto fallback.`);
+    }
+    const key = label.toLowerCase();
+    const style: { icon: DashMessage["icon"]; color: string } =
+      key.includes("cone") ? { icon: "warning", color: "#f5a524" }
+      : key.includes("off") ? { icon: "warning", color: "#ff4d4f" }
+      : key.includes("incomplete") || key.includes("dnf") ? { icon: "flag", color: "#ff4d4f" }
+      : { icon: "warning", color: "#f5a524" };
+    const msg: DashMessage = {
+      id: `flag-${label}`,
+      label,
+      text: label.toUpperCase(),
+      icon: style.icon,
+      color: style.color,
+      durationS: 4,
+    };
+    const ok = dashSignals.sendMessage(msg, 4);
+    setMsgSendStatus(ok ? `Sent auto "${label}" to driver ✓` : `Send failed — check the dash link.`);
+    window.setTimeout(() => setMsgSendStatus(""), 4000);
+  }
+  function customFlag() {
+    const note = window.prompt("Custom event flag (note):");
+    if (note && note.trim()) void eventFlag(note.trim());
+  }
+
+  // Set/clear a per-lap note. Persists with the session; the sync effect pushes
+  // it to the classifier DB.
+  function editLapNote(id: string, notes: string) {
+    if (isMirrorRef.current) return;
+    const cur = liveStateRef.current;
+    const next = { ...cur, laps: cur.laps.map((l) => (l.id === id ? { ...l, notes } : l)) };
+    liveStateRef.current = next;
+    setLiveState(next);
+    persistLiveSession(next, { saveLocal: true, saveBackend: true, includeFullLapSamples: false });
   }
 
   function handleLiveEvent(event: LiveStreamEvent) {
@@ -1450,17 +2079,43 @@ function App() {
 
   function processLiveSample(sample: LiveSample) {
     const current = liveStateRef.current;
+    // Mirror clients don't run lap detection (the leader owns lap boundaries and
+    // we adopt its doc) — but they DO integrate session energy from their own
+    // feed. Every client gets the same car telemetry, so this stays in lockstep
+    // with the leader while making the hero Energy/Regen totals immune to a
+    // leader whose tab is on a stale build (which would otherwise broadcast a
+    // zeroed total that the mirror blindly adopted). adoptSharedSession keeps
+    // these locally-integrated totals rather than clobbering them.
+    if (isMirrorRef.current) {
+      const prev = current.lastSample;
+      // VCU is the source of truth for energy. No client-side integrator;
+      // we just relay the per-sample DELTAS of the VCU's cumulative
+      // net_energy + regen_energy. Energy reads 0 until the VCU emits 0x1C9.
+      const { outDeltaWh, inDeltaWh } = vcuEnergyDeltaWh(prev, sample);
+      const mirrored: LiveSessionState = {
+        ...current,
+        previousSample: current.lastSample,
+        lastSample: sample,
+        samples: [...current.samples, sample].slice(-LIVE_SAMPLE_MEMORY_CAP),
+        totalEnergyOutWh: current.totalEnergyOutWh + outDeltaWh,
+        totalEnergyInWh: current.totalEnergyInWh + inDeltaWh,
+        totalEnergyWh: current.totalEnergyWh + (outDeltaWh - inDeltaWh),
+      };
+      liveStateRef.current = mirrored;
+      setLiveState(mirrored);
+      return;
+    }
     const previous = current.lastSample;
     const trackForLive = liveTrackRef.current;
     let completedLap: LiveLap | null = null;
     const dtSeconds = previous ? Math.max(0, (sample.t - previous.t) / 1000) : 0;
-    const energySample = smoothLiveSample(sample, previous);
-    const signedPowerKw = signedLiveEnergyPowerKwFor(energySample) ?? 0;
-    const batteryPowerKw = signedBatteryTerminalPowerKwFor(sample);
-    const energyOutDeltaWh = Math.max(0, signedPowerKw * dtSeconds / 3.6);
-    const energyInDeltaWh = Math.max(0, -signedPowerKw * dtSeconds / 3.6);
+    // VCU is the source of truth for energy — read it from 0x1C9 (net + regen
+    // cumulative Wh) per sample, relay the deltas. We DON'T integrate
+    // power×dt on the client any more. Until the VCU emits 0x1C9, the deltas
+    // are 0 and the website shows 0 Wh — that's correct: we don't know the
+    // truth so we don't fake it.
+    const { outDeltaWh: energyOutDeltaWh, inDeltaWh: energyInDeltaWh } = vcuEnergyDeltaWh(previous, sample);
     const energyDeltaWh = energyOutDeltaWh - energyInDeltaWh;
-    const batteryEnergyDeltaWh = batteryPowerKw == null ? null : batteryPowerKw * dtSeconds / 3.6;
     const distanceDeltaM = previous && hasGps(previous) && hasGps(sample) ? distanceMeters(previous.lat, previous.lon, sample.lat, sample.lon) : 0;
     let lapStartMs = current.lapStartMs;
     let sectorStartMs = current.sectorStartMs;
@@ -1469,17 +2124,20 @@ function App() {
     let lapEnergyWh = current.lapEnergyWh + energyDeltaWh;
     let lapEnergyOutWh = current.lapEnergyOutWh + energyOutDeltaWh;
     let lapEnergyInWh = current.lapEnergyInWh + energyInDeltaWh;
-    let batteryLapEnergyWh = batteryEnergyDeltaWh == null
-      ? current.batteryLapEnergyWh
-      : (current.batteryLapEnergyWh ?? 0) + batteryEnergyDeltaWh;
     let lapDistanceM = current.lapDistanceM + distanceDeltaM;
     let lapSamples = [...current.lapSamples, sample].slice(-LIVE_LAP_SAMPLE_MEMORY_CAP);
     let resetDelta = false;
     const laps = [...current.laps];
 
-    if (previous && hasGps(previous) && hasGps(sample)) {
+    // Trust a GPS step for lap/sector detection only if both points have a fix
+    // and the implied speed is plausible — a teleport spike is a bad fix, not a
+    // real crossing. (Sector splits now also run live, not just on file replay,
+    // so GPS auto-timing backs up the manual lap button for redundancy.)
+    const gpsStepSpeed = dtSeconds > 0 ? distanceDeltaM / dtSeconds : 0;
+    const gpsTrustworthy = previous != null && hasGps(previous) && hasGps(sample) && gpsStepSpeed <= MAX_PLAUSIBLE_GPS_MPS;
+    if (gpsTrustworthy) {
       const startGate = trackForLive.gates.find((gate) => gate.role === "start_finish");
-      const splits = sessionFromFile ? trackForLive.gates.filter((gate) => gate.role === "split") : [];
+      const splits = trackForLive.gates.filter((gate) => gate.role === "split");
       if (startGate && sampleCrossesGate(previous, sample, startGate)) {
         if (lapStartMs && sample.t - lapStartMs > 5000) {
           const durationMs = sample.t - lapStartMs;
@@ -1496,7 +2154,6 @@ function App() {
             energyWh: lapEnergyWh,
             energyOutWh: lapEnergyOutWh,
             energyInWh: lapEnergyInWh,
-            batteryEnergyWh: batteryLapEnergyWh,
             distanceM: lapDistanceM,
             avgSpeedMps: durationMs > 0 && lapDistanceM > 0 ? lapDistanceM / (durationMs / 1000) : null,
             samples: [],
@@ -1510,7 +2167,6 @@ function App() {
         lapEnergyWh = 0;
         lapEnergyOutWh = 0;
         lapEnergyInWh = 0;
-        batteryLapEnergyWh = null;
         lapDistanceM = 0;
         lapSamples = [sample];
         resetDelta = true;
@@ -1551,10 +2207,6 @@ function App() {
       lapEnergyWh,
       lapEnergyOutWh,
       lapEnergyInWh,
-      batteryTotalEnergyWh: batteryEnergyDeltaWh == null
-        ? current.batteryTotalEnergyWh
-        : (current.batteryTotalEnergyWh ?? 0) + batteryEnergyDeltaWh,
-      batteryLapEnergyWh,
       lapDistanceM,
       deltaRate,
       deltaMs,
@@ -1572,6 +2224,7 @@ function App() {
   }
 
   function triggerManualLap() {
+    if (isMirrorRef.current) return;
     const current = liveStateRef.current;
     const sample = current.lastSample;
     if (!sample) {
@@ -1588,7 +2241,6 @@ function App() {
         lapEnergyWh: 0,
         lapEnergyOutWh: 0,
         lapEnergyInWh: 0,
-        batteryLapEnergyWh: null,
         lapDistanceM: 0,
         lapSamples: [sample],
         deltaMs: 0,
@@ -1620,7 +2272,6 @@ function App() {
       energyWh: current.lapEnergyWh,
       energyOutWh: current.lapEnergyOutWh,
       energyInWh: current.lapEnergyInWh,
-      batteryEnergyWh: current.batteryLapEnergyWh,
       distanceM: current.lapDistanceM,
       avgSpeedMps: durationMs > 0 && current.lapDistanceM > 0 ? current.lapDistanceM / (durationMs / 1000) : null,
       samples: [],
@@ -1636,7 +2287,6 @@ function App() {
       lapEnergyWh: 0,
       lapEnergyOutWh: 0,
       lapEnergyInWh: 0,
-      batteryLapEnergyWh: null,
       lapDistanceM: 0,
       lapSamples: [sample],
       deltaMs: 0,
@@ -1649,6 +2299,40 @@ function App() {
     lastBackendSessionSaveRef.current = Date.now();
     lastSavedLapCountRef.current = nextState.laps.length;
     setLiveState(nextState);
+  }
+
+  // The single, coherent "a lap happened" action shared by the Live Viewer's
+  // Log Lap button and the Dash tab's Send Lap button. It logs the lap in the
+  // trackside viewer (source of truth) AND fires the driver's dash lap card when
+  // a lap actually completes — so either tab does the whole thing. We bump
+  // dashLastLapCountRef so the auto-send effect doesn't double-fire for this lap.
+  function markLap() {
+    if (isMirrorRef.current) return; // read-only mirror — leader owns laps
+    const beforeLaps = liveStateRef.current.laps.length;
+    const beforeStartMs = liveStateRef.current.lapStartMs;
+    triggerManualLap();
+    const after = liveStateRef.current.laps.length;
+    const lapClosed = after > beforeLaps;
+    // On a completed lap, always fire the car's lap card. sendLap advances the
+    // lap counter in lockstep with the Live tab even if the publish is dropped
+    // (link mid-handshake), and the auto-connect keeps the uplink up — so both
+    // lap buttons reliably log to the Live tab AND reach the car.
+    // Send the website's authoritative lap count to the car so dashd adopts it
+    // (rather than running its own +1 counter that drifted from trackside).
+    if (lapClosed) dashSignals.sendLap(after);
+    dashLastLapCountRef.current = after;
+    // Visible feedback so the user knows whether this click STARTED a lap (no
+    // dash card yet — by design, the card represents 'lap COMPLETE') or CLOSED
+    // a lap (dash card fires). Earlier this was silent, which made the two
+    // identical buttons look inconsistent depending on which one closed vs
+    // started a lap.
+    if (lapClosed) {
+      const dashOk = dashSignals.status === "connected";
+      setMsgSendStatus(`Lap ${after} logged${dashOk ? " · lap card sent to driver ✓" : ` · dash uplink ${dashSignals.status}, card not sent.`}`);
+    } else if (!beforeStartMs && liveStateRef.current.lapStartMs) {
+      setMsgSendStatus(`Lap timer started — next click closes lap 1.`);
+    }
+    window.setTimeout(() => setMsgSendStatus(""), 4000);
   }
 
   function toggleLapSelected(lapId: string) {
@@ -1671,9 +2355,15 @@ function App() {
   }
 
   function isRestorableSession(saved: SavedSession | null | undefined): saved is SavedSession {
+    // A session is restorable if there's ANY state worth restoring: a sessionInfo
+    // (so the just-started session with no laps yet still comes back on reload,
+    // along with its drive-day setup, plan, and starterId), or accumulated lap /
+    // sample data. Earlier this required lap/sample data and would silently drop
+    // a fresh session on reload — leaving the cone-flag row asking to "start a
+    // session" again even though the user had just started one.
     return !!saved
       && saved.version === 1
-      && (!!saved.laps?.length || !!saved.sampleTail?.length || !!saved.currentLap?.lapSamples?.length);
+      && (!!saved.sessionInfo || !!saved.laps?.length || !!saved.sampleTail?.length || !!saved.currentLap?.lapSamples?.length);
   }
 
   function selectedLapIdsForSave(laps: LiveLap[]) {
@@ -1695,7 +2385,6 @@ function App() {
           lapEnergyWh: current.lapEnergyWh,
           lapEnergyOutWh: current.lapEnergyOutWh,
           lapEnergyInWh: current.lapEnergyInWh,
-          batteryLapEnergyWh: current.batteryLapEnergyWh,
           lapDistanceM: current.lapDistanceM,
           lapSamples: current.lapSamples.slice(includeFullLapSamples ? 0 : -SESSION_AUTOSAVE_SAMPLE_CAP),
           deltaMs: current.deltaMs,
@@ -1712,14 +2401,64 @@ function App() {
       totalEnergyWh: current.totalEnergyWh,
       totalEnergyOutWh: current.totalEnergyOutWh,
       totalEnergyInWh: current.totalEnergyInWh,
-      batteryTotalEnergyWh: current.batteryTotalEnergyWh,
       laps: current.laps.map((lap) => ({ ...lap, samples: includeFullLapSamples ? lap.samples : [] })),
       selectedLapIds: selectedLapIdsForSave(current.laps),
       selectionSaved: true,
       sampleTail: current.samples.slice(includeFullLapSamples ? 0 : -SESSION_AUTOSAVE_SAMPLE_CAP),
       currentLap,
       hasSectors: sessionFromFile || current.laps.some((lap) => lap.sectors.length > 0),
+      // Inject the LIVE metadata / plan / setup into sessionInfo so the saved
+      // session always reflects the latest edits. patchSession only writes to
+      // localStorage + server, not React state — without this merge,
+      // downloadSessionJson and the autosave snapshot carry whatever values
+      // were captured at session-create time (often empty setup).
+      sessionInfo: sessionInfo
+        ? {
+            ...sessionInfo,
+            metadata: { ...sessionInfo.metadata, ...metadataDraft },
+            plan: { targetLaps, targetEnergyKwh, soeCutoffCellV },
+            setup: { ...sessionInfo.setup, ...driveDaySetup } as Record<string, string | number | boolean>,
+          }
+        : null,
     };
+  }
+
+  // Merge the leader's shared session into a mirror's state, keeping this client's
+  // own live gauges (lastSample/samples/feed status) untouched.
+  function adoptSharedSession(saved: SavedSession) {
+    const laps = (saved.laps ?? []).map(normalizeSavedLiveLap);
+    const cur = saved.currentLap ?? null;
+    const current = liveStateRef.current;
+    const merged: LiveSessionState = {
+      ...current,
+      laps,
+      lapStartMs: cur?.lapStartMs ?? null,
+      sectorStartMs: cur?.sectorStartMs ?? null,
+      nextSplitIndex: cur?.nextSplitIndex ?? 0,
+      currentSectors: cur?.currentSectors ?? [],
+      // Energy totals are integrated locally from this client's own feed (see
+      // processLiveSample's mirror branch). Seed them from the leader the first
+      // time (so a late-joining mirror starts at the running total) but never
+      // overwrite a non-zero local total afterward — otherwise a leader on a
+      // stale build that reports OUT=0 would keep zeroing our hero tiles.
+      totalEnergyWh: current.totalEnergyWh !== 0 ? current.totalEnergyWh : (saved.totalEnergyWh ?? 0),
+      totalEnergyOutWh: current.totalEnergyOutWh > 0 ? current.totalEnergyOutWh : (saved.totalEnergyOutWh ?? Math.max(0, saved.totalEnergyWh ?? 0)),
+      totalEnergyInWh: current.totalEnergyInWh > 0 ? current.totalEnergyInWh : (saved.totalEnergyInWh ?? 0),
+      lapEnergyWh: cur?.lapEnergyWh ?? 0,
+      lapEnergyOutWh: cur?.lapEnergyOutWh ?? Math.max(0, cur?.lapEnergyWh ?? 0),
+      lapEnergyInWh: cur?.lapEnergyInWh ?? 0,
+      lapDistanceM: cur?.lapDistanceM ?? 0,
+      deltaMs: cur?.deltaMs ?? 0,
+    };
+    knownLapIdsRef.current = new Set(laps.map((lap) => lap.id));
+    liveStateRef.current = merged;
+    setLiveState(merged);
+    // NOTE: targetLaps / targetEnergyKwh / soeCutoffCellV are intentionally NOT
+    // applied here — the race plan syncs through useRacePlan (the raceplan
+    // endpoint), which is always fresh. Adopting them from this lagging
+    // saved-session doc made the budget flip between the stale and live values.
+    setSelectedLapIds(new Set(saved.selectedLapIds ?? []));
+    if (saved.sessionInfo) setSessionInfo(saved.sessionInfo);
   }
 
   function persistLiveSession(
@@ -1730,16 +2469,25 @@ function App() {
       includeFullLapSamples,
     }: { saveLocal: boolean; saveBackend: boolean; includeFullLapSamples: boolean },
   ) {
-    if (!current.laps.length && !current.samples.length && !current.lapStartMs) return;
+    // Skip ONLY when there's truly nothing to persist. A fresh session with a
+    // name + metadata + setup but no laps yet still deserves to be saved — the
+    // restore path uses it to bring the session back on reload.
+    if (!current.laps.length && !current.samples.length && !current.lapStartMs && !sessionInfo) return;
     const saved = buildSavedSession(current, includeFullLapSamples);
     if (saveLocal) {
       writeLocalSavedSession(saved);
       void writeIndexedSavedSession(saved);
     }
-    if (saveBackend) {
+    // Only the leader owns the shared session doc — a mirror must never clobber it.
+    if (saveBackend && !isMirrorRef.current) {
       const body = JSON.stringify(saved);
+      // sendBeacon's queue survives a page-unload (regular fetch gets killed),
+      // so it's the right tool for beforeunload/pagehide. Critical: the URL
+      // must match the route — earlier this hit /api/live/session-cache
+      // (missing /motec/) and silently 404'd EVERY save, so the server cache
+      // never updated and sessions appeared to vanish when everyone left.
       const beaconSent = "sendBeacon" in navigator
-        ? navigator.sendBeacon("/api/live/session-cache", new Blob([body], { type: "application/json" }))
+        ? navigator.sendBeacon("/api/motec/live/session-cache", new Blob([body], { type: "application/json" }))
         : false;
       if (!beaconSent) void api.saveLiveSession(saved).catch(() => undefined);
     }
@@ -1766,11 +2514,9 @@ function App() {
       totalEnergyWh: saved.totalEnergyWh ?? 0,
       totalEnergyOutWh: saved.totalEnergyOutWh ?? Math.max(0, saved.totalEnergyWh ?? 0),
       totalEnergyInWh: saved.totalEnergyInWh ?? 0,
-      batteryTotalEnergyWh: saved.batteryTotalEnergyWh ?? null,
       lapEnergyWh: currentLap?.lapEnergyWh ?? 0,
       lapEnergyOutWh: currentLap?.lapEnergyOutWh ?? Math.max(0, currentLap?.lapEnergyWh ?? 0),
       lapEnergyInWh: currentLap?.lapEnergyInWh ?? 0,
-      batteryLapEnergyWh: currentLap?.batteryLapEnergyWh ?? null,
       lapDistanceM: currentLap?.lapDistanceM ?? 0,
       deltaMs: currentLap?.deltaMs ?? 0,
     };
@@ -1786,6 +2532,7 @@ function App() {
     setSelectedLapIds(defaultSelectedLapIds(laps, saved.selectedLapIds, saved.selectionSaved));
     setSessionFromFile(fromFile || !!saved.hasSectors);
     setResumeAvailable(null);
+    setEventEnded(false);
   }
 
   function resumeSavedSession() {
@@ -1952,12 +2699,109 @@ function App() {
           onFinish={() => dismissTour(true)}
         />
       ) : null}
+      {newSessionOpen ? (
+        <NewSessionModal
+          sources={sources}
+          defaultCar={source}
+          defaultVenue={track.name}
+          defaultDriver={metadataDraft.driver}
+          onStart={startNewSession}
+          onClose={() => setNewSessionOpen(false)}
+        />
+      ) : null}
+      {setupOpen ? (
+        <DriveDaySetupForm
+          value={driveDaySetup}
+          disabled={isMirror}
+          onChange={(field, v) => setDriveDaySetup((prev) => ({ ...prev, [field]: v }))}
+          onClose={() => setSetupOpen(false)}
+        />
+      ) : null}
+      {lapDesignerOpen ? (
+        <DashLayoutEditor onClose={() => setLapDesignerOpen(false)} onSend={sendLapLayout} sendStatus={layoutSendStatus} />
+      ) : null}
+      {confirmStopOpen ? (
+        <div className="modalOverlay" onMouseDown={() => setConfirmStopOpen(false)}>
+          <div className="modalCard" style={{ maxWidth: 460 }} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modalHead">
+              <h3>Stop event?</h3>
+              <button className="tool iconOnly" aria-label="Close" onClick={() => setConfirmStopOpen(false)}><X size={16} /></button>
+            </div>
+            <p className="muted" style={{ marginTop: 0 }}>
+              Downloads <strong>{liveState.laps.length} lap{liveState.laps.length === 1 ? "" : "s"}</strong> + the full session JSON to your machine,
+              then clears the on-screen laps and gauges so the next session starts fresh.
+              Raw car CSVs are still available via Log Sync.
+            </p>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: "var(--s-3)" }}>
+              <button className="tool" onClick={() => setConfirmStopOpen(false)}>Cancel</button>
+              <button className="primary dangerPrimary" onClick={() => { setConfirmStopOpen(false); stopEventAndDownload(); }}>
+                <Power size={14} /> Stop event
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {flagScreensOpen ? (
+        <div className="modalOverlay" onMouseDown={() => setFlagScreensOpen(false)}>
+          <div className="modalCard" style={{ maxWidth: 480 }} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modalHead">
+              <h3>Driver-dash screen per flag</h3>
+              <button className="tool iconOnly" aria-label="Close" onClick={() => setFlagScreensOpen(false)}><X size={16} /></button>
+            </div>
+            <p className="muted" style={{ marginTop: 0 }}>
+              When “Show flags on driver dash” is on, each flag flashes the screen you pick here.
+              “Auto” builds one from the flag name; “Don’t send” logs the flag without showing anything.
+            </p>
+            <div className="flagScreenRows">
+              {["Hit Cone", "Off-track", "Incomplete"].map((fl) => (
+                <label key={fl} className="flagScreenRow">
+                  <span>{fl}</span>
+                  <select
+                    value={flagMessageMap[fl] ?? "auto"}
+                    disabled={isMirror}
+                    onChange={(e) => setFlagMessageMap((p) => ({ ...p, [fl]: e.target.value }))}
+                  >
+                    <option value="auto">Auto (flag text)</option>
+                    <option value="none">Don&apos;t send</option>
+                    {msgLib.lib.items.map((m) => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </div>
+            <small className="muted">Custom “Flag…” always uses its typed text. Create/edit screens in Dash tab → Messages.</small>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--s-3)" }}>
+              <button className="primary" onClick={() => setFlagScreensOpen(false)}>Done</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {msgEditorOpen ? (
+        <DashMessageEditor
+          api={msgLib}
+          onClose={() => setMsgEditorOpen(false)}
+          onSendTest={sendDriverMessage}
+          sendStatus={msgSendStatus}
+          canSend={!isMirror && dashSignals.status === "connected"}
+        />
+      ) : null}
       <header className="topbar">
         <div>
           <h1>Trackside Live</h1>
           <p>Live telemetry, lap timing &amp; energy strategy · MoTeC / CSV export · track builder</p>
         </div>
         <div className="topActions">
+          <span
+            className={`clientsBadge${presence.clients >= presence.max ? " atLimit" : ""}`}
+            title={
+              `${presence.clients} of ${presence.max} client${presence.clients === 1 ? "" : "s"} connected` +
+              (presence.role === "leader" ? " · you are the session leader" : presence.isMirror ? " · you are a read-only mirror" : "") +
+              (presence.clients >= presence.max ? " · limit reached" : "")
+            }
+          >
+            <Users size={14} /> {presence.clients}/{presence.max}
+          </span>
           {carState ? (
             <span className={`carStateBadge ${CAR_STATE_META[carState].cls}`} title="Car state from the on-stack classifier">
               <span className="stateDot" /> {CAR_STATE_META[carState].label}
@@ -1990,18 +2834,68 @@ function App() {
         </div>
       ) : null}
 
+      {isMirror ? (
+        <div className="syncBanner mirror" role="status">
+          <Radio size={15} />
+          <span>
+            {presence.role === "full"
+              ? `Viewer limit reached (${presence.max}) — read-only mirror.`
+              : "Mirroring the session leader — read-only."}{" "}
+            Live gauges are your own feed; laps &amp; strategy follow the leader.
+          </span>
+          <input className="nameField" value={presence.name} placeholder="your name"
+            onChange={(e) => presence.setName(e.target.value)} aria-label="Your name" />
+          {isAdmin ? (
+            <button className="primary" style={{ whiteSpace: "nowrap" }} title="Admin: seize control immediately" onClick={() => presence.forceLeader()}>
+              <Power size={14} /> Take control
+            </button>
+          ) : presence.role !== "full" ? (
+            presence.requested
+              ? <span className="goodText" style={{ whiteSpace: "nowrap" }}>Control requested…</span>
+              : <button className="tool" style={{ whiteSpace: "nowrap" }} onClick={() => presence.requestLeader()}>Request control</button>
+          ) : null}
+          <span className="syncCount">{presence.clients}/{presence.max} clients</span>
+        </div>
+      ) : presence.clients > 1 ? (
+        <div className="syncBanner leader" role="status">
+          <Radio size={15} />
+          <span>You&apos;re the session leader — your laps &amp; strategy sync to {presence.clients - 1} mirror{presence.clients - 1 === 1 ? "" : "s"}.</span>
+          <input className="nameField" value={presence.name} placeholder="your name"
+            onChange={(e) => presence.setName(e.target.value)} aria-label="Your name" />
+          <span className="syncCount">{presence.clients}/{presence.max} clients</span>
+        </div>
+      ) : null}
+
+      {/* Leader sees control-transfer requests from mirrors. */}
+      {!isMirror && presence.requests.length ? (
+        <div className="modalOverlay" onMouseDown={() => presence.requests.forEach((r) => presence.denyLeader(r.id))}>
+          <div className="modalCard" style={{ maxWidth: 420 }} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modalHead"><h3>Control request</h3></div>
+            <p className="muted" style={{ marginTop: 0 }}>
+              {presence.requests.length === 1 ? "A client is requesting" : `${presence.requests.length} clients are requesting`} session control. Transfer makes them the leader and you a read-only mirror.
+            </p>
+            {presence.requests.map((r) => (
+              <div key={r.id} className="requestRow">
+                <span className="reqId">{r.name?.trim() || `viewer …${r.id.slice(-4)}`}</span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="tool" onClick={() => presence.denyLeader(r.id)}>Deny</button>
+                  <button className="primary" onClick={() => presence.grantLeader(r.id)}><Power size={14} /> Transfer</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Trackside-focused tabs only. Exporter + Race Ops are kept in the source
+          (their sections still render if activeTab is set to them) but the buttons
+          are hidden for now — re-add a button here to bring either back. */}
       <nav className="tabBar" aria-label="Telemetry workspace">
-        <button className={activeTab === "exporter" ? "tab activeTab" : "tab"} onClick={() => setActiveTab("exporter")}>
-          <Download size={16} /> Exporter
-        </button>
         <button className={activeTab === "live" ? "tab activeTab" : "tab"} onClick={() => setActiveTab("live")}>
           <Radio size={16} /> Live Viewer
         </button>
         <button className={activeTab === "track-builder" ? "tab activeTab" : "tab"} onClick={() => setActiveTab("track-builder")}>
           <MapPinned size={16} /> Track Builder
-        </button>
-        <button className={activeTab === "race-ops" ? "tab activeTab" : "tab"} onClick={() => setActiveTab("race-ops")}>
-          <NotebookText size={16} /> Race Ops
         </button>
         <button className={activeTab === "dash" ? "tab activeTab" : "tab"} onClick={() => setActiveTab("dash")}>
           <Gauge size={16} /> Dash
@@ -2042,6 +2936,18 @@ function App() {
 
           <Panel title="Sessions" icon={<Scissors size={18} />}>
             <div className="stack compact">
+              {(() => {
+                const MIN_TRACE_GPS_POINTS = 30;
+                const visibleSegments = gpsOnlySessions
+                  ? segments.filter((s) => s.has_gps && s.gps_points >= MIN_TRACE_GPS_POINTS)
+                  : segments;
+                const hiddenCount = segments.length - visibleSegments.length;
+                return (
+              <>
+              <label className="checkInline" style={{ marginBottom: 4 }}>
+                <input type="checkbox" checked={gpsOnlySessions} onChange={(e) => setGpsOnlySessions(e.target.checked)} />
+                GPS sessions only{hiddenCount > 0 ? ` (${hiddenCount} hidden)` : ""}
+              </label>
               {sourceRanges.length ? (
                 <small className="muted">
                   Threshold sessions for selected local day
@@ -2054,9 +2960,9 @@ function App() {
                     ? `${formatTime(previewSummary.startMs)} - ${formatDuration(previewSummary.durationS)} total`
                     : "Click a session row to load its graph, GPS, and metadata."}
                 </span>
-                {segments.length > 1 ? <button className="textButton" onClick={selectAllSessionsForPreview}>Preview all</button> : null}
+                {visibleSegments.length > 1 ? <button className="textButton" onClick={selectAllSessionsForPreview}>Preview all</button> : null}
               </div>
-              {segments.map((segment) => (
+              {visibleSegments.map((segment) => (
                 <div
                   key={segment.id}
                   className={previewSelectedSegments.has(segment.id) ? "sessionRow previewSelected" : "sessionRow"}
@@ -2088,7 +2994,16 @@ function App() {
                   </span>
                 </div>
               ))}
-              {!segments.length ? <small className="muted">No threshold sessions in this day.</small> : null}
+              {!visibleSegments.length ? (
+                <small className="muted">
+                  {segments.length
+                    ? `All ${segments.length} session${segments.length === 1 ? "" : "s"} hidden — none have a usable GPS trace. Uncheck “GPS sessions only” to show them.`
+                    : "No threshold sessions in this day."}
+                </small>
+              ) : null}
+              </>
+                );
+              })()}
             </div>
           </Panel>
         </aside>
@@ -2228,6 +3143,23 @@ function App() {
               </div>
             </div>
           ) : null}
+          {/* Session-starter reclaim banner: the user who started this session
+              is back, but another client became leader while they were gone
+              (their TTL expired). One-click reclaim instead of having to wait
+              on the current leader to grant a transfer. */}
+          {isMirror && presence.clientId && sessionInfo?.starterId === presence.clientId && !starterReclaimDismissed ? (
+            <div className="resumeBanner">
+              <span>
+                You started <strong>{sessionInfo.name}</strong> — take back control?
+              </span>
+              <div className="resumeBannerActions">
+                <button className="primary" onClick={() => { presence.claimAsStarter(); setStarterReclaimDismissed(true); }}>
+                  <Power size={14} /> Take Over
+                </button>
+                <button className="tool" onClick={() => setStarterReclaimDismissed(true)}>Stay as Mirror</button>
+              </div>
+            </div>
+          ) : null}
           <div className="liveHero">
             <div className="liveHeroMain">
               <div className="carStatusStrip">
@@ -2239,47 +3171,210 @@ function App() {
                   <span className={liveBadgeClass}><Radio size={14} /> {liveBadgeLabel}</span>
                 )}
                 <span className="freshTag"><span className={`dot ${uplinkMeta.dot}`} /> {uplinkMeta.label}</span>
+                <span className="freshTag" title={sfGateDefined ? "GPS auto-lap detection is active and backs up the manual Log Lap button" : "Define a start/finish gate in Track Builder to enable GPS auto-lap"}>
+                  <span className={`dot ${gpsTag.dot}`} /> {gpsTag.label}
+                </span>
+                {(() => {
+                  // "Dash linked" needs BOTH: broker connection AND fresh state
+                  // from the car's dashd (lhre/dash/state publishes at ~2 Hz).
+                  // Stale lastStateAt → broker is up but car is off / dashd is
+                  // down — show that distinctly so a green pill can't lie about
+                  // an unreachable car.
+                  const carFresh = dashSignals.lastStateAt != null && (liveNowMs - dashSignals.lastStateAt) < 6000;
+                  const connected = dashSignals.status === "connected";
+                  const linkLive = connected && carFresh;
+                  const label = linkLive ? "Dash linked"
+                    : connected ? "Dash silent"
+                    : dashSignals.status === "connecting" ? "Dash linking…"
+                    : "Dash off";
+                  // Broker-up-but-no-car-state and broker-unreachable both mean
+                  // the dash is unreachable from a user perspective → both red.
+                  // Yellow is reserved for genuinely in-between (connecting).
+                  const dot = linkLive ? "live"
+                    : dashSignals.status === "connecting" ? "stale pulse"
+                    : "dead";
+                  const title = isMirror ? "Read-only mirror — the leader holds the dash link"
+                    : linkLive ? "Dash uplink connected and the car's dashd is publishing state — lap cards & driver messages reach the car"
+                    : connected ? "Broker reachable but no recent state from the car's dashd (car off / dashd down). Lap cards & messages won't be seen."
+                    : dashSignals.status === "connecting" ? "Dash uplink connecting…"
+                    : "Dash uplink offline — broker unreachable";
+                  return (
+                    <span className="freshTag" title={title}>
+                      <span className={`dot ${dot}`} /> {label}
+                    </span>
+                  );
+                })()}
               </div>
               <h2>{liveState.lapStartMs ? formatLapTime(liveLapElapsedMs) : "0:00.00"}</h2>
-              <p>{liveState.lapStartMs ? "Flying lap" : "Out lap / waiting for start"}</p>
+              <p>{eventEnded ? "Event ended — start a new session to run again" : liveState.lapStartMs ? "Flying lap" : "Out lap / waiting for start"}</p>
               <DeltaBar rate={liveState.deltaRate} totalMs={liveState.deltaMs} />
+              <div className="heroInputs">
+                <div className="heroInputBar">
+                  <span>THR</span>
+                  <div className="barTrack"><div className="barFill thr" style={{ width: `${Math.max(0, Math.min(100, heroControls.throttlePercent ?? 0))}%` }} /></div>
+                  <b>{heroControls.throttlePercent == null ? "--" : `${heroControls.throttlePercent.toFixed(0)}%`}</b>
+                </div>
+                <div className="heroInputBar">
+                  <span>BRK</span>
+                  <div className="barTrack"><div className="barFill brk" style={{ width: `${Math.max(0, Math.min(100, ((heroControls.bse1Psi ?? 0) / 1500) * 100))}%` }} /></div>
+                  <b>{heroControls.bse1Psi == null ? "--" : `${heroControls.bse1Psi.toFixed(0)} psi`}</b>
+                </div>
+                <div className="heroSteer"><span>STR</span><b>{heroControls.steeringAngleDeg == null ? "--" : `${heroControls.steeringAngleDeg.toFixed(0)}°`}</b></div>
+              </div>
+              {!isMirror ? (() => {
+                const msgs = activeMessages(msgLib.lib);
+                const linked = dashSignals.status === "connected";
+                if (!msgs.length) return null;
+                return (
+                  <div className="heroMessages">
+                    {msgs.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className="heroMsgBtn"
+                        disabled={!linked}
+                        title={linked ? `Send “${m.text}” to the driver${m.durationS ? ` (${m.durationS}s)` : " (until cleared)"}` : "Dash not connected — can't reach the driver"}
+                        onClick={() => sendDriverMessage(m)}
+                      >
+                        <span aria-hidden>{MESSAGE_ICON_GLYPH[m.icon]}</span> {m.label}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className="heroMsgBtn heroMsgClear"
+                      disabled={!linked}
+                      title={linked ? "Clear the message currently showing on the driver's dash" : "Dash not connected — can't clear"}
+                      onClick={clearDriverMessage}
+                    >
+                      <X size={13} /> Clear
+                    </button>
+                  </div>
+                );
+              })() : null}
             </div>
             <div className="liveHeroStats">
-              <Metric label="Best" value={bestLap ? formatLapTime(bestLap.durationMs) : "--"} tone="purple" />
-              <Metric label="Lap" value={`${currentLapNumber} / ${targetLaps > 0 ? targetLaps : "—"}`} />
-              <Metric label="Energy" value={`${liveState.totalEnergyOutWh.toFixed(1)} Wh`} />
-              <Metric label="Regen In" value={`${liveState.totalEnergyInWh.toFixed(1)} Wh`} tone="good" />
-              <Metric label="Torque" value={liveTorqueNm == null ? "--" : formatSignedTorque(liveTorqueNm)} tone={liveTorqueNm != null && liveTorqueNm < 0 ? "good" : ""} />
+              {/* Tier 1 race-state metrics — biggest, glanced every second. */}
+              <div className="heroMetricRow">
+                <Metric label="Best" value={bestLap ? formatLapTime(bestLap.durationMs) : "--"} tone="purple" />
+                <Metric label="Lap" value={`${currentLapNumber} / ${targetLaps > 0 ? targetLaps : "—"}`} />
+                <Metric label="Energy" value={`${liveState.totalEnergyOutWh.toFixed(1)} Wh`} />
+              </div>
+              {/* Tier 2 — compact inline strip, smaller because they're checked
+                  every few seconds, not every second. */}
+              <div className="heroMetricStrip">
+                <span className="heroMetricInline">
+                  <small>Regen In</small>
+                  <b className={liveState.totalEnergyInWh > 0 ? "goodText" : ""}>{liveState.totalEnergyInWh.toFixed(1)} Wh</b>
+                </span>
+                <span className="heroMetricInline">
+                  <small>Torque</small>
+                  <b className={liveTorqueNm != null && liveTorqueNm < 0 ? "goodText" : ""}>
+                    {liveTorqueNm == null ? "--" : formatSignedTorque(liveTorqueNm)}
+                  </b>
+                </span>
+              </div>
+              {/* Tier 3 — incident flags. Land in the classifier against the
+                  active drive_day (cone hits, off-track, DNF, custom). Disabled
+                  until a session is active (no drive_day to attach to) — when
+                  that's the case, show the reason inline instead of mystery-
+                  greying the row. */}
+              {!sessionInfo && !isMirror ? (
+                <div className="heroFlagsHint">
+                  <span>Flags need an active session.</span>
+                  <button type="button" className="tool" onClick={() => setNewSessionOpen(true)}>
+                    <Plus size={13} /> Start a session
+                  </button>
+                </div>
+              ) : (
+                <div className="gateButtons heroFlags">
+                  <button className="tool" disabled={isMirror || !sessionInfo} title={isMirror ? "Read-only mirror — the leader logs flags" : "Flag a cone hit"} onClick={() => void eventFlag("Hit Cone")}>
+                    <span style={{ color: "#f5a524" }}>●</span> Cone
+                  </button>
+                  <button className="tool" disabled={isMirror || !sessionInfo} title={isMirror ? "Read-only mirror — the leader logs flags" : "Flag going off-track"} onClick={() => void eventFlag("Off-track")}>
+                    <span style={{ color: "#ff4d4f" }}>●</span> Off-track
+                  </button>
+                  <button className="tool" disabled={isMirror || !sessionInfo} title={isMirror ? "Read-only mirror — the leader logs flags" : "Flag an incomplete / DNF run"} onClick={() => void eventFlag("Incomplete")}>
+                    <AlertTriangle size={14} /> Incomplete
+                  </button>
+                  <button className="tool" disabled={isMirror || !sessionInfo} title={isMirror ? "Read-only mirror — the leader logs flags" : "Custom event flag"} onClick={customFlag}>
+                    <Flag size={14} /> Flag…
+                  </button>
+                  {/* Clear the message currently on the driver's dash. Useful
+                      after firing a flag with a long-duration screen, or to
+                      dismiss a stale message left over from a prior flag. */}
+                  <button
+                    type="button"
+                    className="tool flagClearBtn"
+                    disabled={isMirror || dashSignals.status !== "connected"}
+                    title={isMirror ? "Read-only mirror" : dashSignals.status !== "connected" ? "Dash uplink not connected" : "Clear the message currently on the driver's dash"}
+                    onClick={clearDriverMessage}
+                  >
+                    <X size={13} /> Clear
+                  </button>
+                </div>
+              )}
+              {msgSendStatus ? (
+                <small className="heroFlagStatus" role="status">{msgSendStatus}</small>
+              ) : null}
+              {/* Tier 4 — set-and-forget toggles. Compact options row. */}
+              <div className="liveControlOpts">
+                <label className="checkInline" title="When on, each flag above also flashes a message on the driver's dash (needs the dash link connected).">
+                  <input type="checkbox" checked={flagSendsMessage} disabled={isMirror} onChange={(e) => setFlagSendsMessage(e.target.checked)} />
+                  Show on dash{flagSendsMessage && dashSignals.status !== "connected" ? " ⚠" : ""}
+                </label>
+                {flagSendsMessage ? (
+                  <button type="button" className="tool tinyTool" disabled={isMirror} onClick={() => setFlagScreensOpen(true)} title="Choose which dash screen each flag fires">
+                    <SlidersHorizontal size={13} /> Flag screens…
+                  </button>
+                ) : null}
+                <label className="checkInline">
+                  <input type="checkbox" checked={autoLiveDownload} onChange={(e) => setAutoLiveDownload(e.target.checked)} />
+                  Auto MoTeC / lap
+                </label>
+              </div>
             </div>
             <div className="liveControls">
-              {/* Big, glanceable trackside actions — the live feed auto-starts,
-                  so the frequent buttons (lap + record) get the space. */}
-              <button className="primary liveAction" disabled={!liveState.running || !liveState.lastSample} onClick={triggerManualLap}>
-                <Flag size={22} /> {liveState.lapStartMs ? "Log Lap" : "Start Lap"}
-              </button>
+              {/* The three primary trackside actions. Tier 1 (Log/Start Lap is
+                  primary; Record + Stop are paired Tier 3 captures). Everything
+                  else moved into the stats column so this stays short. */}
               <button
-                className={recordingStartMs != null ? "tool liveAction dangerPrimary" : "tool liveAction"}
-                disabled={recordingBusy || (recordingStartMs == null && !liveState.lastSample)}
-                onClick={recordingStartMs != null ? stopRecordingAndExport : startRecording}
-                title="Tag a start, then stop to download a MoTeC file of exactly that window"
+                className="primary liveAction"
+                disabled={isMirror || !telemetryFresh}
+                title={isMirror ? "Read-only mirror — the leader logs laps" : !telemetryFresh ? "No live telemetry from the car" : "Logs the lap here on the Live tab and fires the driver's dash lap card on the car — same button as the Dash tab"}
+                onClick={markLap}
               >
-                <Disc3 size={22} />{" "}
-                {recordingBusy
-                  ? "Exporting…"
-                  : recordingStartMs != null
-                    ? `Stop & Save (${formatLapTime(recordingElapsedMs)})`
-                    : "Record"}
+                <Flag size={20} /> {liveState.lapStartMs ? "Log Lap" : "Start Lap"}
               </button>
-              <label className="checkInline">
-                <input type="checkbox" checked={autoLiveDownload} onChange={(e) => setAutoLiveDownload(e.target.checked)} />
-                Auto MoTeC on lap
-              </label>
+              <div className="liveActionPair">
+                <button
+                  className={recordingStartMs != null ? "tool liveAction dangerPrimary" : "tool liveAction"}
+                  disabled={isMirror || recordingBusy || (recordingStartMs == null && !telemetryFresh)}
+                  onClick={recordingStartMs != null ? stopRecordingAndExport : startRecording}
+                  title={recordingStartMs != null ? "Stop & save this recording" : isMirror ? "Read-only mirror" : !telemetryFresh ? "No live telemetry from the car" : "Tag a start, then stop to download a MoTeC file of exactly that window"}
+                >
+                  <Disc3 size={20} />{" "}
+                  {recordingBusy
+                    ? "Exporting…"
+                    : recordingStartMs != null
+                      ? `Stop (${formatLapTime(recordingElapsedMs)})`
+                      : "Record"}
+                </button>
+                <button
+                  className="tool liveAction"
+                  disabled={isMirror || eventEnded || (!liveState.laps.length && !liveState.samples.length)}
+                  onClick={() => setConfirmStopOpen(true)}
+                  title={eventEnded ? "Event already stopped — start a new session to run again" : "End the session and download everything to review it locally (laps CSV + full session JSON). Raw car CSVs come from Log Sync."}
+                >
+                  <Power size={20} /> {eventEnded ? "Stopped" : "Stop Event"}
+                </button>
+              </div>
               <small className="muted">{liveState.status}</small>
             </div>
           </div>
 
           <div className="liveLayout">
             <div className="leftRail">
+              <div id="car-status-anchor">
               <CarStatusPanel
                 feed={carStatus}
                 carState={carState}
@@ -2289,6 +3384,7 @@ function App() {
                 uplinkDot={uplinkMeta.dot}
                 running={liveState.running}
               />
+              </div>
               <Panel title="Live Laps" icon={<Timer size={18} />}>
                 <LiveLapTable
                   laps={liveState.laps}
@@ -2299,19 +3395,53 @@ function App() {
                   currentLapEnergyWh={liveState.lapEnergyWh}
                   currentLapEnergyOutWh={liveState.lapEnergyOutWh}
                   currentLapEnergyInWh={liveState.lapEnergyInWh}
-                  currentLapBatteryEnergyWh={liveState.batteryLapEnergyWh}
                   sectorCount={liveSectorCount}
                   selectedLapIds={selectedLapIds}
                   onToggleLap={toggleLapSelected}
+                  onEditLapTime={editLapDuration}
+                  onEditLapNote={editLapNote}
+                  onDeleteLap={deleteLap}
+                  editable={!isMirror}
                   targetEnergyPerLapWh={targetEnergyPerLapWh}
                   averages={lapAverages}
                 />
               </Panel>
               <PackStatusPanel state={liveState} displayState={filteredLiveState} soeCutoffCellV={soeCutoffCellV} />
-              <DriverControlsPanel sample={filteredLiveState.lastSample} torqueParamSet={torqueParamSet} />
-              <TempsStatusPanel sample={filteredLiveState.lastSample} />
+              {/* Live energy-plan tiles: used vs remaining + laps done/left +
+                  live per-lap budget that recomputes from energy used each
+                  completed lap. Configured up in Live Setup; surfaced here
+                  next to Pack Status so the strategist reads pacing in one
+                  glance with pack state. */}
+              {dynamicLapBudgetWh != null ? (
+                <Panel
+                  title="Energy Plan"
+                  icon={<Zap size={18} />}
+                  headerRight={
+                    <>Laps <strong>{lapsCompletedPlan}</strong> done · <strong>{lapsRemainingPlan ?? "—"}</strong> left</>
+                  }
+                >
+                  <div className="energyPlanTiles">
+                    <Metric label="Used / Remaining" value={`${energyUsedWh.toFixed(0)} / ${(remainingBudgetWh ?? 0).toFixed(0)} Wh`} />
+                    <Metric
+                      label="Budget / lap (live)"
+                      value={`${dynamicLapBudgetWh.toFixed(0)} Wh`}
+                      tone={budgetVsTargetWh != null && budgetVsTargetWh >= 0 ? "good" : ""}
+                    />
+                  </div>
+                  {budgetVsTargetWh != null ? (
+                    <small style={{ color: budgetVsTargetWh >= 0 ? "#5cb87a" : "#ff4d4f", fontWeight: 600, display: "block", marginTop: 6 }}>
+                      {budgetVsTargetWh >= 0 ? "▲" : "▼"} {Math.abs(budgetVsTargetWh).toFixed(0)} Wh/lap {budgetVsTargetWh >= 0 ? "under" : "over"} budget — recalculates live each completed lap from energy used.
+                    </small>
+                  ) : null}
+                </Panel>
+              ) : null}
             </div>
             <div className="liveMainColumn">
+              {/* Live Position hidden until chudpi/GPS is reliable. The RadioLion
+                  receiver's draw browns out the chudpi rail, so no fix reaches
+                  the website. Re-enable this Panel block once chudpi power is
+                  fixed. */}
+              {/*
               <Panel title="Live Position" icon={<MapPinned size={18} />} className="liveMapPanel">
                 <TrackBuilderMap
                   points={filteredLiveState.samples.filter(hasGps).map((sample) => ({ t: sample.t, lat: sample.lat ?? 0, lon: sample.lon ?? 0 }))}
@@ -2325,6 +3455,7 @@ function App() {
                   gpsUnavailable={filteredLiveState.lastSample != null && !filteredLiveState.samples.some(hasGps)}
                 />
               </Panel>
+              */}
               <Panel title="Energy Window" icon={<Zap size={18} />}>
                 <EnergyWindowChart
                   state={filteredLiveState}
@@ -2338,8 +3469,19 @@ function App() {
                   windowS={energyWindowS}
                 />
               </Panel>
+              <Panel title="Vitals Window" icon={<Gauge size={18} />}>
+                <VitalsWindowChart state={filteredLiveState} windowS={energyWindowS} />
+              </Panel>
+              {/* G-Forces hidden until the chudpi power issue is fixed — the
+                  RadioLion GPS receiver's draw is browning out the chudpi rail
+                  so no PIMU sentences reach cand. Re-enable with <GForcePanel
+                  state={filteredLiveState} /> once the chudpi holds a stable
+                  link. */}
+              <DriverControlsPanel sample={filteredLiveState.lastSample} torqueParamSet={torqueParamSet} />
+              <TempsStatusPanel sample={filteredLiveState.lastSample} />
             </div>
             <div className="rightRail">
+              {/* Energy Strategy widget hidden for now — revisit later.
               <EnergyStrategyPanel
                 state={liveState}
                 targetLaps={targetLaps}
@@ -2348,6 +3490,7 @@ function App() {
                 soeCutoffCellV={soeCutoffCellV}
                 averages={lapAverages}
               />
+              */}
               <Panel title="Live Data" icon={<Gauge size={18} />}>
                 <LiveDataPanel state={filteredLiveState} />
               </Panel>
@@ -2364,34 +3507,6 @@ function App() {
                     </select>
                   </label>
                   <label>
-                    <span>Topic source</span>
-                    <select value={liveTransport} disabled={liveState.running} onChange={(e) => setLiveTransport(e.target.value as KafkaTransport)}>
-                      <option value="local">Local replay bus (simulator)</option>
-                      <option value="kafka">Kafka broker (car)</option>
-                      <option value="mqtt">MQTT broker (car direct)</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>Topic</span>
-                    <input value={liveTopic} placeholder={liveTransport === "mqtt" ? "orion" : `grafana_data_${source}`} disabled={liveState.running} onChange={(e) => setLiveTopic(e.target.value)} />
-                  </label>
-                  <label>
-                    <span>Sample rate</span>
-                    <select value={liveSampleHz} disabled={liveState.running} onChange={(e) => setLiveSampleHz(Number(e.target.value))}>
-                      <option value={1}>1 Hz</option>
-                      <option value={2}>2 Hz</option>
-                      <option value={5}>5 Hz</option>
-                      <option value={10}>10 Hz</option>
-                      <option value={20}>20 Hz</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>VCU torque params</span>
-                    <select value={torqueParamSet.id} onChange={(e) => setTorqueParamSetId(e.target.value)}>
-                      {VCU_TORQUE_PARAM_SETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-                    </select>
-                  </label>
-                  <label>
                     <span>Track</span>
                     <select value={track.slug} onChange={(e) => setTrack(normalizeTrack(tracks.find((t) => t.slug === e.target.value) ?? track))}>
                       <option value={track.slug}>{track.name}</option>
@@ -2405,29 +3520,61 @@ function App() {
                       {channelCharts.filter((chart) => chart.slug !== channelChart.slug).map((chart) => <option key={chart.slug} value={chart.slug}>{chart.name}</option>)}
                     </select>
                   </label>
+                  {/* Connection knobs are dev/debug only — prod streams the car
+                      automatically. Tucked away so the focused setup stays clean. */}
+                  <details className="advancedConn">
+                    <summary>Connection (advanced)</summary>
+                    <label>
+                      <span>Topic source</span>
+                      <select value={liveTransport} disabled={liveState.running} onChange={(e) => setLiveTransport(e.target.value as KafkaTransport)}>
+                        <option value="local">Local replay bus (simulator)</option>
+                        <option value="kafka">Kafka broker (car)</option>
+                        <option value="mqtt">MQTT broker (car direct)</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Topic</span>
+                      <input value={liveTopic} placeholder={liveTransport === "mqtt" ? "orion" : `grafana_data_${source}`} disabled={liveState.running} onChange={(e) => setLiveTopic(e.target.value)} />
+                    </label>
+                    <label>
+                      <span>Sample rate</span>
+                      <select value={liveSampleHz} disabled={liveState.running} onChange={(e) => setLiveSampleHz(Number(e.target.value))}>
+                        <option value={1}>1 Hz</option>
+                        <option value={2}>2 Hz</option>
+                        <option value={5}>5 Hz</option>
+                        <option value={10}>10 Hz</option>
+                        <option value={20}>20 Hz</option>
+                      </select>
+                    </label>
+                  </details>
                   <label>
-                    <span>Session</span>
-                    <input value={metadataDraft.session} placeholder="Session metadata" onChange={(e) => setMetadataDraft((prev) => ({ ...prev, session: e.target.value }))} />
-                  </label>
-                  <label>
-                    <span>Target laps</span>
+                    <span>Race laps (synced)</span>
                     <input
                       type="number"
                       min={0}
                       value={targetLaps || ""}
                       placeholder="e.g. 22"
-                      onChange={(e) => setTargetLaps(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+                      title="Total race laps — shared with every trackside client; drives the energy budget"
+                      onChange={(e) => {
+                        const n = Math.max(0, Math.floor(Number(e.target.value) || 0));
+                        setTargetLaps(n);
+                        racePlan.push(n, targetEnergyKwh, soeCutoffCellV);
+                      }}
                     />
                   </label>
                   <label>
-                    <span>Usable pack budget kWh</span>
+                    <span>Usable pack budget kWh (synced)</span>
                     <input
                       type="number"
                       min={0}
                       step={0.1}
                       value={targetEnergyKwh || ""}
                       placeholder={PACK_ENERGY_KWH.toFixed(2)}
-                      onChange={(e) => setTargetEnergyKwh(Math.max(0, Number(e.target.value) || 0))}
+                      onChange={(e) => {
+                        const v = Math.max(0, Number(e.target.value) || 0);
+                        setTargetEnergyKwh(v);
+                        racePlan.push(targetLaps, v, soeCutoffCellV);
+                      }}
                     />
                   </label>
                   <label>
@@ -2439,29 +3586,50 @@ function App() {
                       step={0.01}
                       value={soeCutoffCellV || ""}
                       placeholder={DEFAULT_SOE_CUTOFF_CELL_V.toFixed(2)}
-                      onChange={(e) => setSoeCutoffCellV(normalizeSoeCutoffCellV(Number(e.target.value) || DEFAULT_SOE_CUTOFF_CELL_V))}
+                      disabled={isMirror}
+                      onChange={(e) => {
+                        const v = normalizeSoeCutoffCellV(Number(e.target.value) || DEFAULT_SOE_CUTOFF_CELL_V);
+                        setSoeCutoffCellV(v);
+                        racePlan.push(targetLaps, targetEnergyKwh, v);
+                      }}
                     />
                   </label>
                   {targetEnergyPerLapWh != null ? (
                     <small className="muted">
-                      Usable budget {targetEnergyKwh.toFixed(2)} kWh to {soeCutoffCellV.toFixed(2)} V min-cell OCV ÷ {targetLaps} = {targetEnergyPerLapWh.toFixed(0)} Wh/lap target.
+                      Usable budget {targetEnergyKwh.toFixed(2)} kWh to {soeCutoffCellV.toFixed(2)} V min-cell OCV ÷ {targetLaps} = {targetEnergyPerLapWh.toFixed(0)} Wh/lap even split.
                     </small>
                   ) : null}
+                  {/* Live energy-plan tiles moved to the Energy Plan panel
+                      under Pack Status — they read better next to pack state
+                      than buried under the configuration inputs. */}
                   <div className="feedControl">
                     <div>
                       <strong>Live feed</strong>
-                      <small>Auto-starts on load and reconnects if it drops. Stop only to pause.</small>
+                      <small>Auto-starts on load and reconnects if it drops — no need to start it.</small>
                     </div>
-                    <button type="button" className="tool" onClick={liveState.running ? stopLiveData : startLiveData}>
-                      {liveState.running ? <><Activity size={15} /> Stop</> : <><Radio size={15} /> Start</>}
-                    </button>
+                    <span className="freshTag"><span className={`dot ${uplinkMeta.dot}`} /> {uplinkMeta.label}</span>
                   </div>
+                  {sessionInfo ? (
+                    <div className="sessionTag" title={`Started ${new Date(sessionInfo.startedAt).toLocaleString()}`}>
+                      <strong>{sessionInfo.name}</strong>
+                      <small>{[sessionInfo.eventType, sessionInfo.driver, sessionInfo.venue].filter(Boolean).join(" · ") || "no metadata"}</small>
+                    </div>
+                  ) : null}
                   <div className="sessionFileRow">
+                    <button type="button" className="primary" disabled={isMirror} onClick={() => setNewSessionOpen(true)}>
+                      <Plus size={15} /> New Session
+                    </button>
+                    <button type="button" className="tool" onClick={() => setSetupOpen(true)} title="Drive-day setup: conditions, alignment, shocks, tires, aero — saved to the session's drive_day record">
+                      <SlidersHorizontal size={15} /> Drive Day Setup
+                    </button>
                     <button type="button" className="tool" onClick={saveSessionFile}>
-                      <Save size={15} /> Save Session
+                      <Save size={15} /> Save JSON
+                    </button>
+                    <button type="button" className="tool" disabled={!liveState.laps.length} onClick={downloadSessionCsv}>
+                      <Download size={15} /> Laps CSV
                     </button>
                     <button type="button" className="tool" onClick={() => sessionFileInputRef.current?.click()}>
-                      <Upload size={15} /> Load Session
+                      <Upload size={15} /> Load
                     </button>
                     <input
                       ref={sessionFileInputRef}
@@ -2474,9 +3642,9 @@ function App() {
                   <div className="dangerZone">
                     <div>
                       <strong>Reset saved run</strong>
-                      <small>Clears live laps, current lap data, and autosaved session cache.</small>
+                      <small>Clears laps + cache and keeps streaming. Use New Session to also tag a fresh run.</small>
                     </div>
-                    <button type="button" className="tool dangerTool" onClick={resetLiveSession}>
+                    <button type="button" className="tool dangerTool" disabled={isMirror} onClick={resetLiveSession}>
                       <Trash2 size={15} /> Reset All
                     </button>
                   </div>
@@ -2699,21 +3867,14 @@ function App() {
               />
               <Metric label="Laps Sent" value={String(dashSignals.lapsSent)} />
             </div>
-            <div className="presetGrid">
-              <label>
-                <span>Broker (websockets)</span>
-                <input
-                  value={dashSignals.brokerUrl}
-                  onChange={(e) => dashSignals.setBrokerUrl(e.target.value)}
-                  placeholder="ws://18.191.225.118:8080"
-                />
-              </label>
-            </div>
+            <p style={{ margin: "4px 0 10px", opacity: 0.7, fontSize: "0.85rem" }}>
+              Links to the car dash over the secure broker — one source, no setup.
+            </p>
             <div className="gateButtons">
               {dashSignals.status === "connected" || dashSignals.status === "connecting" ? (
                 <button className="tool dangerTool" onClick={dashSignals.disconnect}><X size={15} /> Disconnect</button>
               ) : (
-                <button className="primary" onClick={dashSignals.connect}><Radio size={15} /> Connect to dash</button>
+                <button className="primary" disabled={isMirror} onClick={dashSignals.connect}><Radio size={15} /> Connect to dash</button>
               )}
             </div>
             {dashSignals.error ? (
@@ -2722,34 +3883,53 @@ function App() {
           </Panel>
 
           <Panel title="Power Budget" icon={<Zap size={18} />}>
+            <div className="themeToggle" role="group" aria-label="Power budget mode" style={{ marginBottom: 10 }}>
+              <button className={dashPowerMode === "auto" ? "on" : ""} disabled={isMirror} onClick={() => setDashPowerMode("auto")}>Auto (from laps)</button>
+              <button className={dashPowerMode === "manual" ? "on" : ""} disabled={isMirror} onClick={() => setDashPowerMode("manual")}>Manual</button>
+            </div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
-              <strong style={{ fontSize: "3rem", lineHeight: 1 }}>{dashTargetPower.toFixed(0)}</strong>
-              <span>kW target</span>
+              <strong style={{ fontSize: "3rem", lineHeight: 1 }}>{effectiveTargetPowerKw != null ? effectiveTargetPowerKw.toFixed(0) : "--"}</strong>
+              <span>kW target {dashPowerMode === "auto" ? "(auto)" : "(manual)"}</span>
             </div>
-            <input
-              type="range"
-              min={0}
-              max={80}
-              step={1}
-              value={dashTargetPower}
-              onChange={(e) => setDashTargetPower(Number(e.target.value))}
-              style={{ width: "100%" }}
-            />
-            <div className="gateButtons" style={{ marginTop: 8 }}>
-              <button className="tool" onClick={() => setDashTargetPower((p) => Math.max(0, Math.round(p) - 1))}><ArrowDown size={15} /> -1</button>
-              <button className="tool" onClick={() => setDashTargetPower((p) => Math.min(120, Math.round(p) + 1))}><ArrowUp size={15} /> +1</button>
-              <input
-                type="number"
-                value={dashTargetPower}
-                min={0}
-                max={120}
-                onChange={(e) => setDashTargetPower(Number(e.target.value))}
-                style={{ width: 90 }}
-              />
-            </div>
+            {dashPowerMode === "auto" ? (
+              <p style={{ margin: "0 0 8px", opacity: 0.75, fontSize: "0.82rem" }}>
+                {dynamicLapBudgetWh != null && avgLapTimeS != null
+                  ? `${dynamicLapBudgetWh.toFixed(0)} Wh/lap ÷ ${avgLapTimeS.toFixed(0)}s avg lap = ${effectiveTargetPowerKw != null ? effectiveTargetPowerKw.toFixed(1) : "--"} kW.`
+                  : "Set race laps + energy budget (Live tab) and complete a lap so the average lap time is known."}
+              </p>
+            ) : (
+              <>
+                <input
+                  type="range"
+                  min={0}
+                  max={80}
+                  step={1}
+                  value={dashTargetPower}
+                  disabled={isMirror}
+                  onChange={(e) => setDashTargetPower(Number(e.target.value))}
+                  style={{ width: "100%" }}
+                />
+                <div className="gateButtons" style={{ marginTop: 8 }}>
+                  <button className="tool" disabled={isMirror} onClick={() => setDashTargetPower((p) => Math.max(0, Math.round(p) - 1))}><ArrowDown size={15} /> -1</button>
+                  <button className="tool" disabled={isMirror} onClick={() => setDashTargetPower((p) => Math.min(120, Math.round(p) + 1))}><ArrowUp size={15} /> +1</button>
+                  <input
+                    type="number"
+                    value={dashTargetPower}
+                    min={0}
+                    max={120}
+                    disabled={isMirror}
+                    onChange={(e) => setDashTargetPower(Number(e.target.value))}
+                    style={{ width: 90 }}
+                  />
+                </div>
+              </>
+            )}
             <p style={{ marginTop: 10, opacity: 0.7, fontSize: "0.85rem" }}>
               Dash energy bar runs green while the car draws under this budget, red when over.
-              Resets each lap. Sent live + republished ~1 Hz so it never goes stale.
+              {dashPowerMode === "auto"
+                ? " Auto-derived from the energy plan (Wh/lap ÷ avg lap time) — switch to Manual to force a kW."
+                : " Manual override — switch to Auto to track the energy plan."}
+              {" "}Sent live + republished ~1 Hz so it never goes stale.
             </p>
           </Panel>
 
@@ -2757,11 +3937,17 @@ function App() {
             <button
               className="primary"
               style={{ fontSize: "1.3rem", padding: "16px 18px", width: "100%", justifyContent: "center" }}
-              disabled={dashSignals.status !== "connected"}
-              onClick={dashSignals.sendLap}
+              disabled={isMirror || !telemetryFresh}
+              title={isMirror ? "Read-only mirror" : !telemetryFresh ? "No live telemetry from the car" : "Same action as the Live tab's Start/Log Lap button"}
+              onClick={markLap}
             >
-              <Flag size={18} /> Send Lap
+              <Flag size={18} /> {liveState.lapStartMs ? "Log Lap" : "Start Lap"}
             </button>
+            <p style={{ margin: "8px 0 0", opacity: 0.7, fontSize: "0.82rem" }}>
+              The same button as the Live tab&apos;s <strong>{liveState.lapStartMs ? "Log Lap" : "Start Lap"}</strong>:
+              it logs the lap on the Live tab and fires the driver&apos;s dash lap card on the car
+              {dashSignals.status === "connected" ? "." : " (uplink connecting…)."}
+            </p>
             <label className="checkInline" style={{ marginTop: 10 }}>
               <input type="checkbox" checked={dashAutoLap} onChange={(e) => setDashAutoLap(e.target.checked)} />
               Auto-send on completed lap (uses the live lap detector)
@@ -2771,6 +3957,31 @@ function App() {
               <Metric label="Last Lap NRG" value={liveState.laps.at(-1) ? `${liveState.laps.at(-1)!.energyWh.toFixed(0)} Wh` : "--"} />
               <Metric label="Best Lap" value={bestLap ? formatLapTime(bestLap.durationMs) : "--"} tone="purple" />
             </div>
+            <div className="gateButtons" style={{ marginTop: 10 }}>
+              <button className="tool" disabled={isMirror} onClick={() => setLapDesignerOpen(true)}>
+                <SlidersHorizontal size={15} /> Design lap screen
+              </button>
+            </div>
+            <label style={{ marginTop: 10 }}>
+              <span>Lap screen duration (s)</span>
+              <input
+                type="number"
+                min={1}
+                max={30}
+                step={0.5}
+                value={lapCardDurationS || ""}
+                disabled={isMirror}
+                title="How long the full-screen lap card stays up on the driver's dash after each lap. Sent to the car (retained)."
+                onChange={(e) => {
+                  const v = Math.max(1, Math.min(30, Number(e.target.value) || 5));
+                  setLapCardDurationS(v);
+                }}
+              />
+            </label>
+            <p style={{ margin: "6px 0 0", opacity: 0.7, fontSize: "0.8rem" }}>
+              Lay out what the driver sees on each lap card, then send it to the car (used until replaced).
+              The lap card auto-clears after the duration above.
+            </p>
           </Panel>
 
           <Panel title="Start/Finish — on-car laps" icon={<MapPinned size={18} />}>
@@ -2790,7 +4001,7 @@ function App() {
                   <div className="gateButtons" style={{ marginTop: 8 }}>
                     <button
                       className="primary"
-                      disabled={!sfGate || dashSignals.status !== "connected"}
+                      disabled={isMirror || !sfGate || dashSignals.status !== "connected"}
                       onClick={() => {
                         if (!sfGate) return;
                         dashSignals.publishGate([sfGate.lat1, sfGate.lon1, sfGate.lat2, sfGate.lon2]);
@@ -2853,16 +4064,64 @@ function App() {
               );
             })()}
           </Panel>
+
+          <Panel title="Driver Messages" icon={<NotebookText size={18} />}>
+            {(() => {
+              const active = activeMessages(msgLib.lib);
+              const linkReady = !isMirror && dashSignals.status === "connected";
+              const gateTitle = isMirror ? "Read-only mirror" : dashSignals.status !== "connected" ? "Connect to the dash first" : undefined;
+              return (
+                <>
+                  <p style={{ margin: "0 0 10px", opacity: 0.7, fontSize: "0.82rem" }}>
+                    Tap to flash a message on the driver&apos;s dash. Edit the palette to add your own
+                    (color, icon, and how long each stays on screen).
+                  </p>
+                  {active.length ? (
+                    <div className="msgQuickRow">
+                      {active.map((m) => (
+                        <button
+                          key={m.id}
+                          className="msgQuickBtn"
+                          disabled={!linkReady}
+                          title={gateTitle ?? (m.durationS ? `${m.text} — ${m.durationS}s` : `${m.text} — until cleared`)}
+                          onClick={() => sendDriverMessage(m)}
+                        >
+                          {MESSAGE_ICON_GLYPH[m.icon] ? <span className="msgQuickGlyph">{MESSAGE_ICON_GLYPH[m.icon]}</span> : null}
+                          <span className="msgQuickLabel">{m.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ opacity: 0.7, fontSize: "0.82rem" }}>
+                      No active messages — open the editor and star a few to add quick-send buttons.
+                    </p>
+                  )}
+                  <div className="gateButtons" style={{ marginTop: 12 }}>
+                    <button className="tool dangerTool" disabled={!linkReady} title={gateTitle} onClick={clearDriverMessage}>
+                      <X size={15} /> Clear driver&apos;s screen
+                    </button>
+                    <button className="tool" disabled={isMirror} onClick={() => setMsgEditorOpen(true)}>
+                      <SlidersHorizontal size={15} /> Edit messages
+                    </button>
+                  </div>
+                  {msgSendStatus ? <p className="goodText" style={{ marginTop: 8, fontSize: "0.84rem" }}>{msgSendStatus}</p> : null}
+                </>
+              );
+            })()}
+          </Panel>
         </section>
       ) : null}
     </main>
   );
 }
 
-function Panel({ title, icon, children, className = "" }: { title: string; icon: ReactNode; children: ReactNode; className?: string }) {
+function Panel({ title, icon, children, className = "", headerRight }: { title: string; icon: ReactNode; children: ReactNode; className?: string; headerRight?: ReactNode }) {
   return (
     <section className={className ? `panel ${className}` : "panel"}>
-      <div className="panelTitle">{icon}<h2>{title}</h2></div>
+      <div className="panelTitle">
+        {icon}<h2>{title}</h2>
+        {headerRight ? <span className="panelTitleRight">{headerRight}</span> : null}
+      </div>
       {children}
     </section>
   );
@@ -2873,6 +4132,86 @@ const METADATA_LONG_FIELDS = new Set<MetadataField>(["vehicle_comment", "short_c
 // Single source of truth for the MoTeC metadata field grid — used by the
 // exporter, the live pre-set panel, and the car-preset editor (previously three
 // near-identical copies).
+function NewSessionModal({
+  sources,
+  defaultCar,
+  defaultVenue,
+  defaultDriver,
+  onStart,
+  onClose,
+}: {
+  sources: SourceDef[];
+  defaultCar: "orion" | "angelique";
+  defaultVenue: string;
+  defaultDriver: string;
+  onStart: (draft: { name: string; car: "orion" | "angelique"; driver: string; eventType: string; venue: string }) => void;
+  onClose: () => void;
+}) {
+  const [car, setCar] = useState<"orion" | "angelique">(defaultCar);
+  const [driver, setDriver] = useState(defaultDriver);
+  const [eventType, setEventType] = useState<string>(EVENT_TYPES[0]);
+  const [venue, setVenue] = useState(defaultVenue);
+  const [name, setName] = useState("");
+  const suggestedName = `${venue || "Session"} · ${eventType}`;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="modalOverlay" onMouseDown={onClose}>
+      <div className="modalCard" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="modalHead">
+          <h3>New session</h3>
+          <button className="tool iconOnly" onClick={onClose} aria-label="Close"><X size={16} /></button>
+        </div>
+        <div className="trackForm">
+          <label>
+            <span>Session name</span>
+            <input value={name} placeholder={suggestedName} autoFocus onChange={(e) => setName(e.target.value)} />
+          </label>
+          <label>
+            <span>Car</span>
+            <select value={car} onChange={(e) => setCar(e.target.value as "orion" | "angelique")}>
+              {sources.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Event type</span>
+            <select value={eventType} onChange={(e) => setEventType(e.target.value)}>
+              {EVENT_TYPES.map((ev) => <option key={ev} value={ev}>{ev}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Driver</span>
+            <input value={driver} placeholder="Name" onChange={(e) => setDriver(e.target.value)} />
+          </label>
+          <label>
+            <span>Venue / track</span>
+            <input value={venue} onChange={(e) => setVenue(e.target.value)} />
+          </label>
+          <small className="muted">
+            Starts now and clears the current run. The name, driver, event and venue tag this
+            session so its log CSV auto-fills in Log Sync.
+          </small>
+        </div>
+        <div className="modalFoot">
+          <button type="button" className="tool" onClick={onClose}>Cancel</button>
+          <button
+            type="button"
+            className="primary"
+            onClick={() => onStart({ name: name.trim() || suggestedName, car, driver, eventType, venue })}
+          >
+            <Flag size={15} /> Start session
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MetadataFields({
   values,
   onChange,
@@ -3031,7 +4370,8 @@ function PackStatusPanel({
 }) {
   const pack = packStatus(state.samples, soeCutoffCellV, displayState.lastSample);
   const sample = displayState.lastSample;
-  const inverterPowerKw = inverterPowerKwFor(sample);
+  const signedPowerKw = signedVcuPowerKwFor(displayState.previousSample, sample);
+  const powerKw = signedPowerKw == null ? null : Math.abs(signedPowerKw);
   return (
     <Panel title="Pack Status" icon={<Zap size={18} />}>
       <div className="packStatus">
@@ -3048,13 +4388,11 @@ function PackStatusPanel({
         <small className="muted">
           {pack.soeSource === "car"
             ? `Using car SOE estimate${pack.minCellV != null ? `; live min cell ${pack.minCellV.toFixed(3)} V` : ""}.`
-            : pack.soeCellV != null
-              ? `SOE basis ${pack.soeCellV.toFixed(3)} V from min-cell samples below ${OCV_UPDATE_CURRENT_THRESHOLD_A.toFixed(1)} A with a ${OCV_LPF_TIME_CONSTANT_S.toFixed(0)} s filter.`
-            : `Waiting for min-cell voltage while measured/rest current is below ${OCV_UPDATE_CURRENT_THRESHOLD_A.toFixed(1)} A.`}
+            : `Waiting for the car's reported SOC (VCU soc_estimate / hv_soc). The min-cell OCV fallback is disabled by request.`}
         </small>
         <div className="packMetricGrid">
           <Metric label={pack.voltageSource === "cell-est" ? "Pack V Est" : "Voltage"} value={pack.voltage == null ? "--" : `${pack.voltage.toFixed(1)} V`} />
-          <Metric label="Inv Power" value={inverterPowerKw == null ? "--" : `${inverterPowerKw.toFixed(2)} kW`} />
+          <Metric label="Power" value={powerKw == null ? "--" : `${powerKw.toFixed(2)} kW`} />
           <Metric label="OCV Derate" value={pack.lowVoltageDeratePct == null ? "--" : `${pack.lowVoltageDeratePct.toFixed(0)}%`} />
           <Metric label="Min Cell" value={pack.minCellV == null ? "--" : `${pack.minCellV.toFixed(3)} V`} />
           <Metric label="Max Cell" value={pack.maxCellV == null ? "--" : `${pack.maxCellV.toFixed(3)} V`} />
@@ -3084,26 +4422,23 @@ function EnergyStrategyPanel({
     avgEnergyWh: number | null;
     avgEnergyOutWh: number | null;
     avgEnergyInWh: number | null;
-    avgBatteryEnergyWh: number | null;
   };
 }) {
   const sample = state.lastSample;
-  const signedInverterPowerKw = signedInverterPowerKwFor(sample);
-  const inverterPowerKw = signedInverterPowerKw == null ? null : Math.max(0, signedInverterPowerKw);
-  const regenPowerKw = signedInverterPowerKw == null ? null : Math.max(0, -signedInverterPowerKw);
-  const batteryPowerKw = batteryTerminalPowerKwFor(sample);
+  const signedPowerKw = signedVcuPowerKwFor(state.previousSample, sample);
+  const drivePowerKw = signedPowerKw == null ? null : Math.max(0, signedPowerKw);
+  const regenPowerKw = signedPowerKw == null ? null : Math.max(0, -signedPowerKw);
   const pack = packStatus(state.samples, soeCutoffCellV, sample);
   const targetWh = targetEnergyKwh > 0 ? targetEnergyKwh * 1000 : null;
-  const batteryUsedWh = state.batteryTotalEnergyWh;
+  const vcuUsedWh = state.totalEnergyWh;
   const soeUsedFromFullWh = pack.soePercent == null ? null : (1 - pack.soePercent / 100) * PACK_ENERGY_KWH * 1000;
   const soeRemainingWh = pack.soeKwh == null ? null : pack.soeKwh * 1000;
-  const packUsedForBudgetWh = soeUsedFromFullWh ?? batteryUsedWh;
+  const packUsedForBudgetWh = soeUsedFromFullWh ?? vcuUsedWh;
   const packRemainingWh = targetWh == null || packUsedForBudgetWh == null ? null : targetWh - packUsedForBudgetWh;
   const packUsedPercent = targetWh == null || packUsedForBudgetWh == null ? 0 : clamp((packUsedForBudgetWh / targetWh) * 100, 0, 100);
-  const projectedPackWh = averages.avgBatteryEnergyWh != null && targetLaps > 0 ? averages.avgBatteryEnergyWh * targetLaps : null;
-  const projectedInverterWh = averages.avgEnergyWh != null && targetLaps > 0 ? averages.avgEnergyWh * targetLaps : null;
-  const selectedPackAvgDelta = averages.avgBatteryEnergyWh != null && targetEnergyPerLapWh != null
-    ? averages.avgBatteryEnergyWh - targetEnergyPerLapWh
+  const projectedNetWh = averages.avgEnergyWh != null && targetLaps > 0 ? averages.avgEnergyWh * targetLaps : null;
+  const selectedAvgDelta = averages.avgEnergyWh != null && targetEnergyPerLapWh != null
+    ? averages.avgEnergyWh - targetEnergyPerLapWh
     : null;
 
   return (
@@ -3118,7 +4453,7 @@ function EnergyStrategyPanel({
           <div className="energyPlanHero">
             <span>Pack used from SOE</span>
             <strong>{soeUsedFromFullWh == null ? "--" : formatKwhFromWh(soeUsedFromFullWh)}</strong>
-            <small>{pack.soePercent == null ? "Waiting for filtered min-cell SOE." : `${pack.soePercent.toFixed(0)}% remaining from min-cell OCV.`}</small>
+            <small>{pack.soePercent == null ? "Waiting for car SOC." : `${pack.soePercent.toFixed(0)}% remaining (from car SOC).`}</small>
           </div>
         </div>
         <div className="energyPlanBar" aria-label="SOE energy estimate used versus usable pack budget">
@@ -3127,28 +4462,120 @@ function EnergyStrategyPanel({
         <div className="energyPlanGrid">
           <Metric label="Budget Remaining" value={packRemainingWh == null ? "--" : formatKwhFromWh(packRemainingWh)} />
           <Metric label="SOE Remaining" value={soeRemainingWh == null ? "--" : formatKwhFromWh(soeRemainingWh)} />
-          <Metric label="Pack VxI Used" value={batteryUsedWh == null ? "--" : formatKwhFromWh(batteryUsedWh)} />
-          <Metric label="Pack / Lap" value={targetEnergyPerLapWh == null ? "--" : `${targetEnergyPerLapWh.toFixed(0)} Wh`} />
-          <Metric label="Current Lap Pack" value={state.batteryLapEnergyWh == null ? "--" : `${state.batteryLapEnergyWh.toFixed(1)} Wh`} />
-          <Metric label="Avg Pack Lap" value={averages.avgBatteryEnergyWh == null ? "--" : `${averages.avgBatteryEnergyWh.toFixed(1)} Wh`} />
-          <Metric label="Net Inv (e-meter)" value={formatKwhFromWh(state.totalEnergyWh)} />
-          <Metric label="Inv Out" value={formatKwhFromWh(state.totalEnergyOutWh)} />
-          <Metric label="Regen In" value={formatKwhFromWh(state.totalEnergyInWh)} />
-          <Metric label="Power Out" value={inverterPowerKw == null ? "--" : `${inverterPowerKw.toFixed(2)} kW`} />
+          <Metric label="Net Used (VCU)" value={formatKwhFromWh(vcuUsedWh)} />
+          <Metric label="Net / Lap" value={targetEnergyPerLapWh == null ? "--" : `${targetEnergyPerLapWh.toFixed(0)} Wh`} />
+          <Metric label="Drive (VCU)" value={formatKwhFromWh(state.totalEnergyOutWh)} />
+          <Metric label="Regen (VCU)" value={formatKwhFromWh(state.totalEnergyInWh)} />
+          <Metric label="Drive Power" value={drivePowerKw == null ? "--" : `${drivePowerKw.toFixed(2)} kW`} />
           <Metric label="Regen Power" value={regenPowerKw == null ? "--" : `${regenPowerKw.toFixed(2)} kW`} />
-          <Metric label="Batt Est Power" value={batteryPowerKw == null ? "--" : `${batteryPowerKw.toFixed(2)} kW`} />
-          <Metric label="Lap Net Inv" value={`${state.lapEnergyWh.toFixed(1)} Wh`} />
-          <Metric label="Lap Inv Out" value={`${state.lapEnergyOutWh.toFixed(1)} Wh`} />
+          <Metric label="Lap Net" value={`${state.lapEnergyWh.toFixed(1)} Wh`} />
+          <Metric label="Lap Drive" value={`${state.lapEnergyOutWh.toFixed(1)} Wh`} />
           <Metric label="Lap Regen" value={`${state.lapEnergyInWh.toFixed(1)} Wh`} />
-          <Metric label="Avg Net Inv" value={averages.avgEnergyWh == null ? "--" : `${averages.avgEnergyWh.toFixed(1)} Wh`} />
+          <Metric label="Avg Net Lap" value={averages.avgEnergyWh == null ? "--" : `${averages.avgEnergyWh.toFixed(1)} Wh`} />
           <Metric label="Avg Regen" value={averages.avgEnergyInWh == null ? "--" : `${averages.avgEnergyInWh.toFixed(1)} Wh`} />
         </div>
         <small className="muted">
-          {selectedPackAvgDelta != null
-            ? `Selected pack-energy laps are ${formatEnergyDelta(selectedPackAvgDelta)} per lap; projected pack total ${projectedPackWh == null ? "--" : formatKwhFromWh(projectedPackWh)}.`
-            : `SOE gives a pack-from-full estimate; e-meter projected total ${projectedInverterWh == null ? "--" : formatKwhFromWh(projectedInverterWh)} stays separate.`}
+          {selectedAvgDelta != null
+            ? `Selected laps are ${formatEnergyDelta(selectedAvgDelta)} per lap; projected total ${projectedNetWh == null ? "--" : formatKwhFromWh(projectedNetWh)}.`
+            : `SOE gives a pack-from-full estimate; VCU projected total ${projectedNetWh == null ? "--" : formatKwhFromWh(projectedNetWh)} stays separate.`}
         </small>
       </div>
+    </Panel>
+  );
+}
+
+// G-Force panel: a live G-G plot driven by the chudpi IMU. The enricher computes
+// `long_g` and `lat_g` from the chudpi's PIMU sentence (gps_imu[0]/[1]) — units
+// are m/s², not g, despite the name. We convert here. The IMU lives on the
+// chudpi GPS Pi; values include the static gravity offset until the user
+// presses Zero on a level surface to subtract it.
+function GForcePanel({ state }: { state: LiveSessionState }) {
+  const [zero, setZero] = useState<{ long: number; lat: number }>(() => {
+    try {
+      const raw = localStorage.getItem("trackside-imu-zero");
+      if (!raw) return { long: 0, lat: 0 };
+      const v = JSON.parse(raw) as { long?: number; lat?: number };
+      return { long: Number(v.long) || 0, lat: Number(v.lat) || 0 };
+    } catch { return { long: 0, lat: 0 }; }
+  });
+  const sample = state.lastSample;
+  const rawLong = Number(sample?.values?.long_g ?? 0);
+  const rawLat = Number(sample?.values?.lat_g ?? 0);
+  const hasImu = sample?.values != null && ("long_g" in sample.values || "lat_g" in sample.values);
+  // m/s² → g, minus calibrated offset.
+  const longG = (rawLong - zero.long) / 9.81;
+  const latG = (rawLat - zero.lat) / 9.81;
+  const totalG = Math.sqrt(longG * longG + latG * latG);
+  // Trail of the last ~80 samples (≈8 s at 10 Hz).
+  const points = useMemo(() => {
+    const tail = state.samples.slice(-80);
+    return tail.map((s) => ({
+      x: (Number(s.values?.lat_g ?? 0) - zero.lat) / 9.81,
+      y: (Number(s.values?.long_g ?? 0) - zero.long) / 9.81,
+    }));
+  }, [state.samples, zero]);
+  const captureZero = () => {
+    const z = { long: rawLong, lat: rawLat };
+    setZero(z);
+    localStorage.setItem("trackside-imu-zero", JSON.stringify(z));
+  };
+  const resetZero = () => {
+    const z = { long: 0, lat: 0 };
+    setZero(z);
+    localStorage.setItem("trackside-imu-zero", JSON.stringify(z));
+  };
+  const SVG_SIZE = 200;
+  const FULL_SCALE_G = 3;
+  const scale = ((SVG_SIZE - 20) / 2) / FULL_SCALE_G;
+  const cx = SVG_SIZE / 2;
+  const cy = SVG_SIZE / 2;
+  return (
+    <Panel title="G-Forces" icon={<Target size={18} />}>
+      <div className="ggBox">
+        <svg viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`} className="ggChart" role="img" aria-label="Lateral vs longitudinal G plot">
+          {[1, 2, 3].map((g) => (
+            <circle key={g} cx={cx} cy={cy} r={scale * g} className="ggGridRing" />
+          ))}
+          <line x1={cx} y1={5} x2={cx} y2={SVG_SIZE - 5} className="ggGridLine" />
+          <line x1={5} y1={cy} x2={SVG_SIZE - 5} y2={cy} className="ggGridLine" />
+          {points.map((p, i) => (
+            <circle
+              key={i}
+              cx={cx + p.x * scale}
+              cy={cy - p.y * scale}
+              r={1.6}
+              className="ggTrailDot"
+              opacity={((i + 1) / points.length) * 0.7}
+            />
+          ))}
+          {hasImu ? (
+            <circle cx={cx + latG * scale} cy={cy - longG * scale} r={5} className="ggLiveDot" />
+          ) : null}
+          <text x={cx + 3} y={11} className="ggAxisLabel">+Long</text>
+          <text x={cx + 3} y={SVG_SIZE - 4} className="ggAxisLabel">−Long</text>
+          <text x={SVG_SIZE - 4} y={cy - 3} textAnchor="end" className="ggAxisLabel">Lat→</text>
+          <text x={5} y={cy - 3} className="ggAxisLabel">←Lat</text>
+        </svg>
+        <div className="ggSidebar">
+          <Metric label="Long" value={hasImu ? `${longG.toFixed(2)} g` : "--"} />
+          <Metric label="Lat" value={hasImu ? `${latG.toFixed(2)} g` : "--"} />
+          <Metric label="Total" value={hasImu ? `${totalG.toFixed(2)} g` : "--"} />
+          <div className="ggButtons">
+            <button className="tool" disabled={!hasImu} onClick={captureZero} title="Capture current IMU reading as the static zero offset. Press while the car is stationary on level ground.">
+              <Target size={13} /> Zero
+            </button>
+            {zero.long !== 0 || zero.lat !== 0 ? (
+              <button className="tool" onClick={resetZero} title="Clear the zero offset and show raw IMU values">
+                Reset
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      <small className="muted">
+        IMU lives on the chudpi GPS Pi. Raw values include the static gravity component from the IMU mount tilt —
+        press <strong>Zero</strong> on a level surface to subtract it.
+      </small>
     </Panel>
   );
 }
@@ -3360,11 +4787,9 @@ function LiveDataPanel({ state }: { state: LiveSessionState }) {
   const dcBusV = dcBusVoltageFor(sample);
   const energyV = energyVoltageFor(sample);
   const dcBusCurrent = dcBusCurrentFor(sample);
-  const signedInverterPowerKw = signedInverterPowerKwFor(sample);
-  const powerSource = energyPowerSourceFor(sample);
-  const inverterPowerKw = signedInverterPowerKw == null ? null : Math.max(0, signedInverterPowerKw);
-  const regenPowerKw = signedInverterPowerKw == null ? null : Math.max(0, -signedInverterPowerKw);
-  const batteryPowerKw = batteryTerminalPowerKwFor(sample);
+  const signedPowerKw = signedVcuPowerKwFor(state.previousSample, sample);
+  const drivePowerKw = signedPowerKw == null ? null : Math.max(0, signedPowerKw);
+  const regenPowerKw = signedPowerKw == null ? null : Math.max(0, -signedPowerKw);
   const motorRpm = firstLiveValue(values, ["controls_motor_speed", "motor_speed", "dynamics_inverter_rpm", "inverter_rpm"]);
   const rawApps = rawAppsTravelDetails(values);
   const rawRows = [...rawAppsLiveRows(rawApps), ...topLiveValues(values)];
@@ -3373,11 +4798,10 @@ function LiveDataPanel({ state }: { state: LiveSessionState }) {
       <div className="liveDataGrid">
         <Metric label="Samples" value={state.samples.length.toLocaleString()} />
         <Metric label="Last Sample" value={sample ? formatTime(sample.t) : "--"} />
-        <Metric label="Power Out" value={inverterPowerKw == null ? "--" : `${inverterPowerKw.toFixed(2)} kW`} />
+        <Metric label="Drive Power" value={drivePowerKw == null ? "--" : `${drivePowerKw.toFixed(2)} kW`} />
         <Metric label="Regen Power" value={regenPowerKw == null ? "--" : `${regenPowerKw.toFixed(2)} kW`} tone="good" />
-        <Metric label="Batt Est Pwr" value={batteryPowerKw == null ? "--" : `${batteryPowerKw.toFixed(2)} kW`} />
         <Metric label={dcBusV == null && energyV != null ? "Est V / I" : "DC Bus"} value={energyV == null || dcBusCurrent == null ? "--" : `${energyV.toFixed(1)} V / ${dcBusCurrent.toFixed(1)} A`} />
-        <Metric label="Power Src" value={powerSource} />
+        <Metric label="Power Src" value="VCU 0x1C9" />
         <Metric label="Motor RPM" value={motorRpm == null ? "--" : `${Math.round(motorRpm).toLocaleString()} rpm`} />
         <Metric label="Raw APPS" value={rawApps == null ? "--" : `${(rawApps.average * 100).toFixed(1)}%`} />
         <Metric label="Raw Channels" value={Object.keys(values).length.toLocaleString()} />
@@ -3414,10 +4838,13 @@ function LiveLapTable({
   currentLapEnergyWh,
   currentLapEnergyOutWh,
   currentLapEnergyInWh,
-  currentLapBatteryEnergyWh,
   sectorCount,
   selectedLapIds,
   onToggleLap,
+  onEditLapTime,
+  onEditLapNote,
+  onDeleteLap,
+  editable,
   targetEnergyPerLapWh,
   averages,
 }: {
@@ -3429,10 +4856,13 @@ function LiveLapTable({
   currentLapEnergyWh: number;
   currentLapEnergyOutWh: number;
   currentLapEnergyInWh: number;
-  currentLapBatteryEnergyWh: number | null;
   sectorCount: number;
   selectedLapIds: Set<string>;
   onToggleLap: (lapId: string) => void;
+  onEditLapTime: (lapId: string, durationMs: number) => void;
+  onEditLapNote: (lapId: string, notes: string) => void;
+  onDeleteLap: (lapId: string) => void;
+  editable: boolean;
   targetEnergyPerLapWh: number | null;
   averages: {
     count: number;
@@ -3440,17 +4870,15 @@ function LiveLapTable({
     avgEnergyWh: number | null;
     avgEnergyOutWh: number | null;
     avgEnergyInWh: number | null;
-    avgBatteryEnergyWh: number | null;
   };
 }) {
   const columns = sectorCount;
-  const showBatteryEnergy = currentLapBatteryEnergyWh != null || laps.some((lap) => lap.batteryEnergyWh != null);
-  const totalCols = 3 + columns + 3 + (showBatteryEnergy ? 1 : 0) + (targetEnergyPerLapWh != null ? 1 : 0);
-  const currentTargetEnergyWh = showBatteryEnergy ? currentLapBatteryEnergyWh : currentLapEnergyWh;
-  const averageTargetEnergyWh = showBatteryEnergy ? averages.avgBatteryEnergyWh : averages.avgEnergyWh;
+  const totalCols = 3 + columns + 3 + (targetEnergyPerLapWh != null ? 1 : 0) + 1; // +1 = Notes
+  const currentTargetEnergyWh = currentLapEnergyWh;
+  const averageTargetEnergyWh = averages.avgEnergyWh;
   const tableWrapRef = useRef<HTMLDivElement | null>(null);
   const lastLap = laps[laps.length - 1] ?? null;
-  const lastLapTargetEnergyWh = lastLap == null ? null : showBatteryEnergy ? lastLap.batteryEnergyWh ?? null : lastLap.energyWh;
+  const lastLapTargetEnergyWh = lastLap == null ? null : lastLap.energyWh;
   const lastLapDeltaWh = targetEnergyPerLapWh != null && lastLapTargetEnergyWh != null ? lastLapTargetEnergyWh - targetEnergyPerLapWh : null;
   const averageDeltaWh = targetEnergyPerLapWh != null && averageTargetEnergyWh != null ? averageTargetEnergyWh - targetEnergyPerLapWh : null;
 
@@ -3470,18 +4898,18 @@ function LiveLapTable({
               <th>Lap</th>
               <th>Time</th>
               {Array.from({ length: columns }, (_sector, index) => <th key={`sector-head-${index}`}>S{index + 1}</th>)}
-              <th>Inv Out</th>
-              <th>Regen In</th>
-              <th>Net Inv</th>
-              {showBatteryEnergy ? <th>Batt Est</th> : null}
-              {targetEnergyPerLapWh != null ? <th>{showBatteryEnergy ? "Δ Pack" : "Δ Net Inv"}</th> : null}
+              <th>Drive</th>
+              <th>Regen</th>
+              <th>Net</th>
+              {targetEnergyPerLapWh != null ? <th>Δ Net</th> : null}
+              <th>Notes</th>
             </tr>
           </thead>
           <tbody>
             {laps.map((lap) => {
               const selected = selectedLapIds.has(lap.id);
-              const targetEnergyWh = showBatteryEnergy ? (lap.batteryEnergyWh ?? null) : lap.energyWh;
-              const delta = targetEnergyPerLapWh != null && targetEnergyWh != null ? targetEnergyWh - targetEnergyPerLapWh : null;
+              const targetEnergyWh = lap.energyWh;
+              const delta = targetEnergyPerLapWh != null ? targetEnergyWh - targetEnergyPerLapWh : null;
               return (
                 <tr key={lap.id} className={selected ? "" : "lapDeselected"}>
                   <td>
@@ -3492,8 +4920,27 @@ function LiveLapTable({
                       aria-label={`Include ${lap.label} in average`}
                     />
                   </td>
-                  <td className={bestLap?.id === lap.id ? "purpleText" : ""}>{lap.label}</td>
-                  <td className={bestLap?.id === lap.id ? "purpleText" : ""}>{formatLapTime(lap.durationMs)}</td>
+                  <td className={bestLap?.id === lap.id ? "purpleText" : ""}>
+                    {lap.label}
+                    {editable ? (
+                      <button
+                        onClick={() => onDeleteLap(lap.id)}
+                        title={`Delete ${lap.label} (accident / bad data)`}
+                        aria-label={`Delete ${lap.label}`}
+                        style={{ marginLeft: 6, background: "none", border: "none", color: "var(--muted-text)", cursor: "pointer", padding: 0, verticalAlign: "middle" }}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    ) : null}
+                  </td>
+                  <td className={bestLap?.id === lap.id ? "purpleText" : ""}>
+                    <EditableLapTime
+                      durationMs={lap.durationMs}
+                      editable={editable}
+                      className={bestLap?.id === lap.id ? "purpleText" : ""}
+                      onCommit={(ms) => onEditLapTime(lap.id, ms)}
+                    />
+                  </td>
                   {Array.from({ length: columns }, (_unused, index) => {
                     const bestSector = bestSectors[index];
                     return (
@@ -3505,8 +4952,19 @@ function LiveLapTable({
                   <td>{lapEnergyOutWh(lap).toFixed(1)} Wh</td>
                   <td className="goodText">{lapEnergyInWh(lap).toFixed(1)} Wh</td>
                   <td>{lap.energyWh.toFixed(1)} Wh</td>
-                  {showBatteryEnergy ? <td>{lap.batteryEnergyWh == null ? "--" : `${lap.batteryEnergyWh.toFixed(1)} Wh`}</td> : null}
                   {targetEnergyPerLapWh != null ? <td className={delta != null && delta > 0 ? "deltaOver" : "deltaUnder"}>{delta == null ? "--" : formatEnergyDelta(delta)}</td> : null}
+                  <td>
+                    {editable ? (
+                      <input
+                        defaultValue={lap.notes ?? ""}
+                        placeholder="note…"
+                        onBlur={(e) => { if ((e.target.value ?? "") !== (lap.notes ?? "")) onEditLapNote(lap.id, e.target.value); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                        aria-label={`Note for ${lap.label}`}
+                        style={{ width: 130, font: "inherit", background: "var(--surface-alt)", border: "1px solid var(--border)", borderRadius: 4, color: "var(--text)", padding: "1px 5px" }}
+                      />
+                    ) : (lap.notes || "")}
+                  </td>
                 </tr>
               );
             })}
@@ -3528,8 +4986,8 @@ function LiveLapTable({
                 <td>{currentLapEnergyOutWh.toFixed(1)} Wh</td>
                 <td className="goodText">{currentLapEnergyInWh.toFixed(1)} Wh</td>
                 <td>{currentLapEnergyWh.toFixed(1)} Wh</td>
-                {showBatteryEnergy ? <td>{currentLapBatteryEnergyWh == null ? "--" : `${currentLapBatteryEnergyWh.toFixed(1)} Wh`}</td> : null}
-                {targetEnergyPerLapWh != null ? <td>{currentTargetEnergyWh == null ? "--" : formatEnergyDelta(currentTargetEnergyWh - targetEnergyPerLapWh)}</td> : null}
+                {targetEnergyPerLapWh != null ? <td>{formatEnergyDelta(currentTargetEnergyWh - targetEnergyPerLapWh)}</td> : null}
+                <td />
               </tr>
             ) : null}
           </tbody>
@@ -3543,10 +5001,10 @@ function LiveLapTable({
                 <td>{averages.avgEnergyOutWh == null ? "--" : `${averages.avgEnergyOutWh.toFixed(1)} Wh`}</td>
                 <td className="goodText">{averages.avgEnergyInWh == null ? "--" : `${averages.avgEnergyInWh.toFixed(1)} Wh`}</td>
                 <td>{averages.avgEnergyWh == null ? "--" : `${averages.avgEnergyWh.toFixed(1)} Wh`}</td>
-                {showBatteryEnergy ? <td>{averages.avgBatteryEnergyWh == null ? "--" : `${averages.avgBatteryEnergyWh.toFixed(1)} Wh`}</td> : null}
                 {targetEnergyPerLapWh != null ? (
                   <td>{averageTargetEnergyWh == null ? "--" : formatEnergyDelta(averageTargetEnergyWh - targetEnergyPerLapWh)}</td>
                 ) : null}
+                <td />
               </tr>
             </tfoot>
           ) : null}
@@ -3560,10 +5018,9 @@ function LiveLapTable({
           </div>
           <div className="lapMiniGrid">
             <Metric label="Time" value={lastLap == null ? "--" : formatLapTime(lastLap.durationMs)} />
-            <Metric label="Net Inv" value={lastLap == null ? "--" : `${lastLap.energyWh.toFixed(1)} Wh`} />
-            <Metric label="Inv Out" value={lastLap == null ? "--" : `${lapEnergyOutWh(lastLap).toFixed(1)} Wh`} />
-            <Metric label="Regen In" value={lastLap == null ? "--" : `${lapEnergyInWh(lastLap).toFixed(1)} Wh`} />
-            {showBatteryEnergy ? <Metric label="Pack Est" value={lastLap?.batteryEnergyWh == null ? "--" : `${lastLap.batteryEnergyWh.toFixed(1)} Wh`} /> : null}
+            <Metric label="Net" value={lastLap == null ? "--" : `${lastLap.energyWh.toFixed(1)} Wh`} />
+            <Metric label="Drive" value={lastLap == null ? "--" : `${lapEnergyOutWh(lastLap).toFixed(1)} Wh`} />
+            <Metric label="Regen" value={lastLap == null ? "--" : `${lapEnergyInWh(lastLap).toFixed(1)} Wh`} />
             <Metric label="Target Δ" value={lastLapDeltaWh == null ? "--" : formatEnergyDelta(lastLapDeltaWh)} />
           </div>
         </div>
@@ -3574,10 +5031,9 @@ function LiveLapTable({
           </div>
           <div className="lapMiniGrid">
             <Metric label="Time" value={averages.avgMs == null ? "--" : formatLapTime(averages.avgMs)} />
-            <Metric label="Net Inv" value={averages.avgEnergyWh == null ? "--" : `${averages.avgEnergyWh.toFixed(1)} Wh`} />
-            <Metric label="Inv Out" value={averages.avgEnergyOutWh == null ? "--" : `${averages.avgEnergyOutWh.toFixed(1)} Wh`} />
-            <Metric label="Regen In" value={averages.avgEnergyInWh == null ? "--" : `${averages.avgEnergyInWh.toFixed(1)} Wh`} />
-            {showBatteryEnergy ? <Metric label="Pack Est" value={averages.avgBatteryEnergyWh == null ? "--" : `${averages.avgBatteryEnergyWh.toFixed(1)} Wh`} /> : null}
+            <Metric label="Net" value={averages.avgEnergyWh == null ? "--" : `${averages.avgEnergyWh.toFixed(1)} Wh`} />
+            <Metric label="Drive" value={averages.avgEnergyOutWh == null ? "--" : `${averages.avgEnergyOutWh.toFixed(1)} Wh`} />
+            <Metric label="Regen" value={averages.avgEnergyInWh == null ? "--" : `${averages.avgEnergyInWh.toFixed(1)} Wh`} />
             <Metric label="Target Δ" value={averageDeltaWh == null ? "--" : formatEnergyDelta(averageDeltaWh)} />
           </div>
         </div>
@@ -4356,8 +5812,15 @@ function dedupeCrossings(times: number[], minimumGapMs: number) {
 }
 
 function hasGps(sample: LiveSample): sample is LiveSample & { lat: number; lon: number } {
-  return typeof sample.lat === "number" && typeof sample.lon === "number" && Number.isFinite(sample.lat) && Number.isFinite(sample.lon);
+  return typeof sample.lat === "number" && typeof sample.lon === "number"
+    && Number.isFinite(sample.lat) && Number.isFinite(sample.lon)
+    // Reject the (0,0) null-island sentinel a module emits before it has a fix.
+    && !(sample.lat === 0 && sample.lon === 0);
 }
+
+// A single GPS step is implausible above this ground speed (~270 km/h) — used to
+// reject teleport glitches that would otherwise fire a false gate crossing.
+const MAX_PLAUSIBLE_GPS_MPS = 75;
 
 function distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
   const radius = 6371000;
@@ -4544,11 +6007,85 @@ function formatDuration(seconds: number) {
   return `${seconds.toFixed(1)} s`;
 }
 
+// Map trackside car/source + event-type strings to the drive_day lookup-table
+// ids the Driveday DB uses (lut_car / lut_event_type), so a trackside session
+// can create its drive_day record.
+function carIdForSource(car: string): number | undefined {
+  const c = (car || "").toLowerCase();
+  if (c === "orion") return 5;
+  if (c === "angelique") return 3;
+  return undefined;
+}
+function eventTypeIdFor(eventType: string): number {
+  switch ((eventType || "").toLowerCase()) {
+    case "endurance": return 1;
+    case "autocross": return 2;
+    case "skidpad": return 3;
+    case "acceleration": case "straight line acceleration": return 4;
+    case "braking": case "straight line braking": return 5;
+    default: return 0; // Practice / Efficiency / Test / Other
+  }
+}
+
 function formatLapTime(ms: number) {
   const totalSeconds = Math.max(0, ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toFixed(2).padStart(5, "0")}`;
+}
+
+// Parse an edited lap time. Accepts "M:SS.ss" / "MM:SS.ss" or plain seconds
+// ("83.45"). Returns milliseconds, or null if it can't be parsed.
+function parseLapTimeInput(text: string): number | null {
+  const s = text.trim();
+  if (!s) return null;
+  const colon = s.match(/^(\d+):(\d{1,2}(?:\.\d+)?)$/);
+  if (colon) {
+    const min = Number(colon[1]);
+    const sec = Number(colon[2]);
+    if (!Number.isFinite(min) || !Number.isFinite(sec) || sec >= 60) return null;
+    return Math.round((min * 60 + sec) * 1000);
+  }
+  const n = Number(s);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 1000) : null;
+}
+
+// Lap-time cell: click to edit (M:SS.ss or seconds), Enter/blur commits, Esc
+// cancels. Read-only span when not editable (mirror clients).
+function EditableLapTime({ durationMs, className, editable, onCommit }: {
+  durationMs: number; className?: string; editable: boolean; onCommit: (ms: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState("");
+  if (!editable) return <span className={className}>{formatLapTime(durationMs)}</span>;
+  if (editing) {
+    const commit = () => {
+      const ms = parseLapTimeInput(text);
+      setEditing(false);
+      if (ms != null && Math.abs(ms - durationMs) >= 1) onCommit(ms);
+    };
+    return (
+      <input
+        autoFocus
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); else if (e.key === "Escape") setEditing(false); }}
+        aria-label="Edit lap time (M:SS.ss or seconds)"
+        style={{ width: 78, padding: "1px 4px", font: "inherit", background: "var(--surface-alt)", border: "1px solid var(--accent)", borderRadius: 4, color: "var(--text)" }}
+      />
+    );
+  }
+  return (
+    <button
+      className={className}
+      title="Click to edit lap time (M:SS.ss or seconds)"
+      onClick={() => { setText(formatLapTime(durationMs)); setEditing(true); }}
+      style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "text", padding: 0, borderBottom: "1px dotted var(--muted-text)" }}
+    >
+      {formatLapTime(durationMs)}
+    </button>
+  );
 }
 
 function formatSignedSeconds(ms: number) {
@@ -4560,12 +6097,92 @@ function formatSpeed(speed: number) {
   return `${(speed * 2.23694).toFixed(1)} mph`;
 }
 
+// Canonicalize a live-value key for matching: lowercase + drop every
+// non-alphanumeric char. This makes lookups robust to the different shapes the
+// same signal arrives as — snake (`controls_bse1_v`), camel from the protobuf
+// decoder (`controls_bse1V`), or dotted (`controls.bse1_v`) — all collapse to
+// `controlsbse1v`. Without this, decoded sensor_data (camelCased) silently
+// missed the panel's snake_case lookups, blanking steering/brake/accel.
+function normalizeLiveKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+const liveValueIndexCache = new WeakMap<Record<string, number>, Map<string, number>>();
+function liveValueIndex(values: Record<string, number>): Map<string, number> {
+  const cached = liveValueIndexCache.get(values);
+  if (cached) return cached;
+  const index = new Map<string, number>();
+  for (const [key, value] of Object.entries(values)) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      const norm = normalizeLiveKey(key);
+      if (!index.has(norm)) index.set(norm, value);
+    }
+  }
+  liveValueIndexCache.set(values, index);
+  return index;
+}
+
 function firstLiveValue(values: Record<string, number>, keys: string[]) {
+  // Fast path: exact key hit.
   for (const key of keys) {
     const value = values[key];
     if (typeof value === "number" && Number.isFinite(value)) return value;
   }
+  // Fallback: normalized (case/separator-insensitive) match.
+  const index = liveValueIndex(values);
+  for (const key of keys) {
+    const value = index.get(normalizeLiveKey(key));
+    if (value !== undefined) return value;
+  }
   return null;
+}
+
+// Like firstLiveValue but skips channels whose value fails `valid` — so a
+// flatlined placeholder (e.g. hv_pack_v stuck at 0 while dc_bus_v carries the
+// real voltage) doesn't shadow the channel that's actually reporting. Plain
+// firstLiveValue returns the first *finite* hit and then a validity check on
+// only that hit nulls the whole thing, which is exactly how the energy/voltage
+// readouts were landing on 0.
+function firstValidLiveValue(
+  values: Record<string, number>,
+  keys: string[],
+  valid: (v: number) => boolean,
+): number | null {
+  for (const key of keys) {
+    const value = values[key];
+    if (typeof value === "number" && Number.isFinite(value) && valid(value)) return value;
+  }
+  const index = liveValueIndex(values);
+  for (const key of keys) {
+    const value = index.get(normalizeLiveKey(key));
+    if (value !== undefined && valid(value)) return value;
+  }
+  return null;
+}
+
+// Pick a live bus/pack current. Prefer a channel that's actually carrying
+// signal — some feeds (e.g. Orion right now) sit hv_c at a flatline 0 while
+// dc_bus_current carries the real current, and listing hv_c first used to win
+// and zero out the DC-bus power. A flatlined 0 only wins if EVERY current
+// channel reads 0 (a genuine standstill), in which case 0 is correct.
+function liveCurrentFor(values: Record<string, number>, keys: string[]): number | null {
+  let sawValidZero = false;
+  const consider = (v: number | undefined): number | undefined => {
+    if (typeof v !== "number" || !Number.isFinite(v) || !validDcBusCurrent(v)) return undefined;
+    if (v !== 0) return v;
+    sawValidZero = true;
+    return undefined;
+  };
+  for (const key of keys) {
+    const r = consider(values[key]);
+    if (r !== undefined) return r;
+  }
+  const index = liveValueIndex(values);
+  for (const key of keys) {
+    const r = consider(index.get(normalizeLiveKey(key)));
+    if (r !== undefined) return r;
+  }
+  return sawValidZero ? 0 : null;
 }
 
 function smoothLiveSamples(samples: LiveSample[]) {
@@ -4588,20 +6205,11 @@ function smoothLiveSample(sample: LiveSample, previous: LiveSample | null) {
 
     const previousVoltage = previous ? packVoltageFor(previous) : null;
     const previousCurrent = previous ? packCurrentFor(previous) : null;
-    const previousPowerKw = signedLiveEnergyPowerKwFor(previous);
-    const previousBatteryPowerKw = signedBatteryTerminalPowerKwFor(previous);
     const previousSpeed = previous?.speed ?? previous?.values.speed ?? null;
 
     const filteredVoltage = smoothPresentNumber(voltage, previousVoltage, dtSeconds, 3.5);
     const filteredCurrent = smoothPresentNumber(current, previousCurrent, dtSeconds, 1.1);
     const filteredSpeed = smoothPresentNumber(speed, previousSpeed, dtSeconds, 0.8);
-
-    // Derive power live from the inverter DC bus voltage * current so it tracks
-    // the latest sample and falls to ~0 when current drops at a stop, instead of
-    // smoothing a backend power value that can hold stale when a packet omits it.
-    const instantPowerKw = signedLiveEnergyPowerKwFor(sample);
-    const filteredPowerKw = smoothPresentNumber(instantPowerKw, previousPowerKw, dtSeconds, 1.1);
-    const filteredBatteryPowerKw = smoothPresentNumber(signedBatteryTerminalPowerKwFor(sample), previousBatteryPowerKw, dtSeconds, 1.1);
 
     if (filteredVoltage != null) {
       smoothed.hv_pack_v = filteredVoltage;
@@ -4612,16 +6220,6 @@ function smoothLiveSample(sample: LiveSample, previous: LiveSample | null) {
       smoothed.hv_c = filteredCurrent;
       values.hv_c = filteredCurrent;
       values.dc_bus_current = filteredCurrent;
-    }
-    if (filteredPowerKw != null) {
-      smoothed.power_kw = Math.abs(filteredPowerKw);
-      values.power_kw = Math.abs(filteredPowerKw);
-      values.inverter_power_kw = Math.abs(filteredPowerKw);
-      values.inverter_power_kw_signed = filteredPowerKw;
-    }
-    if (filteredBatteryPowerKw != null) {
-      values.battery_terminal_power_kw = Math.abs(filteredBatteryPowerKw);
-      values.battery_terminal_power_kw_signed = filteredBatteryPowerKw;
     }
     if (filteredSpeed != null) {
       smoothed.speed = filteredSpeed;
@@ -4778,7 +6376,14 @@ function packStatus(samples: LiveSample[], soeCutoffCellV: number, displaySample
   const dcBusV = dcBusVoltageFor(sample);
   const minCellV = minCellVoltageFor(sample);
   const soeCellV = estimateSoeCellVoltage(samples);
-  const soePercent = soeCellV != null ? estimateP30bSoc(soeCellV, soeCutoffCellV) : null;
+  // SOE Est reads ONLY the car's reported SOC (VCU soc_estimate / hv_soc, the
+  // same value the car dash shows). The min-cell OCV fallback was sagging under
+  // load and disagreed with the dash — by user request we no longer derive an
+  // SOC from OCV. If the car isn't reporting SOC, the gauge shows "--" and the
+  // caption explains why. (soeCellV is still computed because it drives the
+  // separate OCV-based safety derate; that lives below.)
+  const soePercent = carSoePercentFor(sample);
+  const soeSource = soePercent != null ? "car" : "missing";
   const soeKwh = soePercent != null ? (soePercent / 100) * PACK_ENERGY_KWH : null;
   const lowVoltageDeratePct =
     soeCellV != null ? lowVoltageDerateFromOcv(soeCellV, DEFAULT_SOE_DERATE_START_CELL_V, soeCutoffCellV) * 100 : null;
@@ -4791,7 +6396,7 @@ function packStatus(samples: LiveSample[], soeCutoffCellV: number, displaySample
     dcBusV,
     soeCellV,
     soePercent,
-    soeSource: "viewer",
+    soeSource,
     soeKwh,
     lowVoltageDeratePct,
     minCellV,
@@ -4823,9 +6428,17 @@ function maxCellVoltageFor(sample: LiveSample | null) {
 }
 
 function carSoePercentFor(sample: LiveSample | null) {
-  const value = firstLiveValue(sample?.values ?? {}, ["soc_estimate", "pack_soc_estimate", "hv_soc", "pack_hv_soc"]);
-  if (value == null || !Number.isFinite(value)) return null;
-  return clamp(value > 1 ? value : value * 100, 0, 100);
+  // The car's own SOC: VCU soc_estimate (what the car dash shows), then hv_soc.
+  // Both sit at 0 when their CAN packet is down, so skip non-positive
+  // placeholders and only trust a real reading. Accepts 0–1 or 0–100 scaling.
+  const values = sample?.values ?? {};
+  for (const key of ["soc_estimate", "pack_soc_estimate", "hv_soc", "pack_hv_soc"]) {
+    const value = values[key];
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+      return clamp(value > 1 ? value : value * 100, 0, 100);
+    }
+  }
+  return null;
 }
 
 function validCellVoltage(value: number | null | undefined): value is number {
@@ -4854,13 +6467,13 @@ function packVoltageSourceFor(sample: LiveSample | null) {
 
 function measuredPackVoltageFor(sample: LiveSample | null) {
   const values = sample?.values ?? {};
-  const value = firstLiveValue(values, ["hv_pack_v", "dc_bus_v", "bus_voltage", "pack_hv_pack_v", "pack_dc_bus_v"]) ?? sample?.hv_pack_v ?? null;
-  return validDcBusVoltage(value) ? value : null;
+  return firstValidLiveValue(values, ["hv_pack_v", "dc_bus_v", "bus_voltage", "pack_hv_pack_v", "pack_dc_bus_v"], validDcBusVoltage)
+    ?? (validDcBusVoltage(sample?.hv_pack_v) ? sample!.hv_pack_v! : null);
 }
 
 function dcBusVoltageFor(sample: LiveSample | null) {
   const values = sample?.values ?? {};
-  const value = firstLiveValue(values, [
+  return firstValidLiveValue(values, [
     "dc_bus_v",
     "pack_dc_bus_v",
     "bus_voltage",
@@ -4868,13 +6481,12 @@ function dcBusVoltageFor(sample: LiveSample | null) {
     "inverter_dc_bus_v",
     "inverter_dc_bus_voltage",
     "inverter_dc_bus_voltage_v",
-  ]) ?? null;
-  return validDcBusVoltage(value) ? value : null;
+  ], validDcBusVoltage);
 }
 
 function dcBusCurrentFor(sample: LiveSample | null) {
   const values = sample?.values ?? {};
-  const value = firstLiveValue(values, [
+  return liveCurrentFor(values, [
     "dc_bus_current",
     "pack_dc_bus_current",
     "inverter_dc_bus_current",
@@ -4882,8 +6494,7 @@ function dcBusCurrentFor(sample: LiveSample | null) {
     "inverter_dc_bus_c",
     "hv_c",
     "pack_hv_c",
-  ]) ?? null;
-  return validDcBusCurrent(value) ? value : null;
+  ]);
 }
 
 function validDcBusVoltage(value: number | null | undefined): value is number {
@@ -4894,92 +6505,61 @@ function validDcBusCurrent(value: number | null | undefined): value is number {
   return value != null && Number.isFinite(value) && value >= -600 && value <= 600;
 }
 
-function inverterPowerKwFor(sample: LiveSample | null) {
-  const signed = signedInverterPowerKwFor(sample);
-  return signed == null ? null : Math.abs(signed);
-}
-
-function signedInverterPowerKwFor(sample: LiveSample | null) {
-  if (!sample) return null;
-  const directPower = signedDcBusPowerKwFor(sample);
-  if (directPower != null) return directPower;
-  return firstLiveValue(sample.values, ["inverter_power_kw_signed", "signed_inverter_power_kw", "inverter_power_kw", "power_kw"]) ?? sample.power_kw ?? null;
-}
-
-function signedLiveEnergyPowerKwFor(sample: LiveSample | null) {
-  if (!sample) return null;
-  const directPower = signedDcBusPowerKwFor(sample);
-  const mechanicalPower = signedMechanicalPowerKwFor(sample);
-  if (mechanicalPower != null && mechanicalPower < 0) {
-    if (directPower == null || directPower >= 0 || Math.abs(mechanicalPower) > Math.abs(directPower) * 1.25) {
-      return mechanicalPower;
-    }
+// Per-sample energy delta sourced from the VCU's cumulative net_energy /
+// regen_energy (CAN 0x1C9 Energy Estimate, units Wh). The website trusts the
+// VCU as the source of truth — no client-side power×dt integration anywhere.
+//
+// `net_energy` is the cumulative drive-minus-regen total, `regen_energy` is the
+// cumulative regen returned. So:
+//   drive_cumulative = net + regen
+//   regen_cumulative = regen
+// And the per-sample deltas drop out cleanly from (this - previous).
+//
+// Returns {0, 0} when either side is missing or the previous value is unknown,
+// and clamps to non-negative deltas so a VCU reboot (counters reset to 0)
+// doesn't subtract from the session totals.
+function vcuEnergyDeltaWh(
+  previous: LiveSample | null,
+  sample: LiveSample,
+): { outDeltaWh: number; inDeltaWh: number } {
+  if (!previous) return { outDeltaWh: 0, inDeltaWh: 0 };
+  const prevNet = previous.values?.net_energy;
+  const prevRegen = previous.values?.regen_energy;
+  const curNet = sample.values?.net_energy;
+  const curRegen = sample.values?.regen_energy;
+  if (typeof prevNet !== "number" || typeof prevRegen !== "number"
+    || typeof curNet !== "number" || typeof curRegen !== "number") {
+    return { outDeltaWh: 0, inDeltaWh: 0 };
   }
-  if (directPower != null) return directPower;
-  if (mechanicalPower != null) return mechanicalPower;
-  return firstLiveValue(sample.values, [
-    "inverter_power_kw_signed",
-    "signed_inverter_power_kw",
-    "mechanical_power_kw_signed",
-    "estimated_power_kw_signed",
-    "inverter_power_kw",
-    "power_kw",
-  ]) ?? sample.power_kw ?? null;
+  const driveDelta = (curNet - prevNet) + (curRegen - prevRegen);
+  const regenDelta = curRegen - prevRegen;
+  return {
+    outDeltaWh: Math.max(0, driveDelta),
+    inDeltaWh: Math.max(0, regenDelta),
+  };
 }
 
-function signedDcBusPowerKwFor(sample: LiveSample | null) {
-  if (!sample) return null;
-  const dcBusV = energyVoltageFor(sample);
-  const dcBusI = dcBusCurrentFor(sample);
-  if (dcBusV != null && dcBusI != null) return (dcBusV * dcBusI) / 1000;
-  return null;
-}
-
-function signedMechanicalPowerKwFor(sample: LiveSample | null) {
-  if (!sample) return null;
-  const channelValue = firstLiveValue(sample.values, ["mechanical_power_kw_signed", "estimated_power_kw_signed"]);
-  if (channelValue != null) return channelValue;
-  const torqueNm = torqueFeedbackNmFor(sample);
-  const rpm = firstLiveValue(sample.values, ["controls_motor_speed", "motor_speed", "dynamics_inverter_rpm", "inverter_rpm"]);
-  if (torqueNm == null || rpm == null || Math.abs(torqueNm) > 800 || Math.abs(rpm) > 30000) return null;
-  return torqueNm * rpm * (2 * Math.PI / 60) / 1000;
+// Signed instantaneous kW between two samples, derived from the VCU's
+// cumulative energy. Positive = drive (energy leaving the pack), negative =
+// regen (energy returning). Needs both samples present and a finite dt; otherwise
+// null (the caller falls back to a stale-but-finite display).
+function signedVcuPowerKwFor(previous: LiveSample | null, sample: LiveSample | null) {
+  if (!previous || !sample) return null;
+  const dtSeconds = (sample.t - previous.t) / 1000;
+  if (!Number.isFinite(dtSeconds) || dtSeconds <= 0) return null;
+  const { outDeltaWh, inDeltaWh } = vcuEnergyDeltaWh(previous, sample);
+  if (outDeltaWh === 0 && inDeltaWh === 0) return null;
+  // Wh / s = W; *3.6 = kW.
+  return (outDeltaWh - inDeltaWh) * 3.6 / dtSeconds;
 }
 
 function energyVoltageFor(sample: LiveSample | null) {
   return dcBusVoltageFor(sample) ?? cellPackVoltageEstimateFor(sample);
 }
 
-function energyPowerSourceFor(sample: LiveSample | null) {
-  if (!sample) return "--";
-  const directPower = signedDcBusPowerKwFor(sample);
-  const mechanicalPower = signedMechanicalPowerKwFor(sample);
-  const livePower = signedLiveEnergyPowerKwFor(sample);
-  if (mechanicalPower != null && livePower === mechanicalPower) return "Torque x RPM";
-  if (directPower != null && dcBusVoltageFor(sample) != null) return "DC bus V x I";
-  if (directPower != null && cellPackVoltageEstimateFor(sample) != null) return "Pack est V x I";
-  if (firstLiveValue(sample.values, ["mechanical_power_kw_signed", "estimated_power_kw_signed"]) != null) return "Torque x RPM";
-  if (firstLiveValue(sample.values, ["inverter_power_kw_signed", "signed_inverter_power_kw", "inverter_power_kw", "power_kw"]) != null) return "Power channel";
-  return "Missing current";
-}
-
 function cellPackVoltageEstimateFor(sample: LiveSample | null) {
   const value = firstLiveValue(sample?.values ?? {}, ["cell_pack_voltage_est"]);
   return validDcBusVoltage(value) ? value : null;
-}
-
-function batteryTerminalPowerKwFor(sample: LiveSample | null) {
-  const signed = signedBatteryTerminalPowerKwFor(sample);
-  return signed == null ? null : Math.abs(signed);
-}
-
-function signedBatteryTerminalPowerKwFor(sample: LiveSample | null) {
-  if (!sample) return null;
-  return firstLiveValue(sample.values, [
-    "battery_terminal_power_kw_signed",
-    "pack_terminal_power_kw_signed",
-    "battery_terminal_power_kw",
-    "pack_terminal_power_kw",
-  ]);
 }
 
 function torqueFeedbackNmFor(sample: LiveSample | null) {
@@ -5003,15 +6583,15 @@ function torqueFeedbackNmFor(sample: LiveSample | null) {
 
 function packCurrentFor(sample: LiveSample | null) {
   const values = sample?.values ?? {};
-  return firstLiveValue(values, [
-    "hv_c",
+  return liveCurrentFor(values, [
     "dc_bus_current",
-    "pack_hv_c",
+    "hv_c",
     "pack_dc_bus_current",
+    "pack_hv_c",
     "inverter_dc_bus_current",
     "inverter_dc_bus_current_a",
     "inverter_dc_bus_c",
-  ]) ?? sample?.hv_c ?? null;
+  ]) ?? (validDcBusCurrent(sample?.hv_c) ? sample!.hv_c! : null);
 }
 
 
@@ -5230,6 +6810,81 @@ function temperatureSeries(samples: LiveSample[], windowS: number) {
   }));
 }
 
+// Speed / Power / Torque over the rolling window. Different units, so each line
+// is normalized to its OWN min/max in the window (shape comparison); the legend
+// carries the latest absolute value + unit. Mirrors temperatureSeries' segment
+// model (gaps where a channel is missing).
+function vitalsSeries(samples: LiveSample[], windowS: number) {
+  const lastT = samples.at(-1)?.t;
+  const startT = lastT ? lastT - windowS * 1000 : 0;
+  const windowSamples = lastT ? samples.filter((sample) => sample.t >= startT) : [];
+  const definitions = [
+    { key: "speed", label: "Speed", unit: "mph", color: "#38bdf8", digits: 0, get: (s: LiveSample) => (s.speed != null && Number.isFinite(s.speed) ? s.speed * 2.23694 : null) },
+    { key: "power", label: "Power", unit: "kW", color: "#f5a524", digits: 1, get: (s: LiveSample) => (s.power_kw != null && Number.isFinite(s.power_kw) ? s.power_kw : null) },
+    { key: "torque", label: "Torque", unit: "Nm", color: "#a78bfa", digits: 0, get: (s: LiveSample) => { const v = torqueFeedbackNmFor(s); return v != null && Number.isFinite(v) ? v : null; } },
+  ] as const;
+  return definitions.map((definition) => {
+    const segments = windowSamples.reduce<Array<Array<{ t: number; value: number }>>>((segs, sample) => {
+        const value = definition.get(sample);
+        if (value == null) { if (segs.at(-1)?.length) segs.push([]); return segs; }
+        if (!segs.length) segs.push([]);
+        segs[segs.length - 1].push({ t: sample.t, value });
+        return segs;
+      }, [])
+      .filter((segment) => segment.length);
+    const all = segments.flatMap((segment) => segment.map((point) => point.value));
+    return {
+      key: definition.key, label: definition.label, unit: definition.unit, color: definition.color, digits: definition.digits,
+      segments,
+      min: all.length ? Math.min(...all) : 0,
+      max: all.length ? Math.max(...all) : 1,
+      latest: segments.at(-1)?.at(-1)?.value ?? null,
+    };
+  });
+}
+
+function VitalsWindowChart({ state, windowS }: { state: LiveSessionState; windowS: number }) {
+  const series = vitalsSeries(state.samples, windowS);
+  const width = 900;
+  const height = 160;
+  const padLeft = 46;
+  const padRight = 18;
+  const padTop = 14;
+  const padBottom = 28;
+  const plotW = width - padLeft - padRight;
+  const plotH = height - padTop - padBottom;
+  const lastT = state.lastSample?.t ?? Date.now();
+  const startT = lastT - windowS * 1000;
+  const xFor = (t: number) => padLeft + clamp((t - startT) / (windowS * 1000), 0, 1) * plotW;
+  const yForNorm = (norm: number) => padTop + (1 - clamp(norm, 0, 1)) * plotH;
+  return (
+    <div className="energyWindow">
+      <div className="tempLegend">
+        {series.map((item) => (
+          <span key={item.key}>
+            <i style={{ background: item.color }} />
+            {item.label} {item.latest != null ? `${item.latest.toFixed(item.digits)} ${item.unit}` : "--"}
+          </span>
+        ))}
+      </div>
+      <svg className="energyChart vitalsChart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Speed, power and torque over the selected time window">
+        <rect x={padLeft} y={padTop} width={plotW} height={plotH} rx="6" />
+        <line x1={padLeft} x2={width - padRight} y1={height - padBottom} y2={height - padBottom} />
+        <line x1={padLeft} x2={padLeft} y1={padTop} y2={height - padBottom} />
+        <text x={padLeft} y={height - 7}>-{windowS}s</text>
+        <text x={width - padRight - 28} y={height - 7}>now</text>
+        {series.flatMap((item) => {
+          const span = Math.max(1e-6, item.max - item.min);
+          return item.segments.map((segment, index) => {
+            const points = segment.map((point) => `${xFor(point.t).toFixed(1)},${yForNorm((point.value - item.min) / span).toFixed(1)}`).join(" ");
+            return points ? <polyline key={`${item.key}-${index}`} points={points} style={{ stroke: item.color }} /> : null;
+          });
+        })}
+      </svg>
+    </div>
+  );
+}
+
 function estimateP30bSoc(cellVoltage: number, cutoffCellV = DEFAULT_SOE_CUTOFF_CELL_V) {
   // Approximate Molicel P30B low-current discharge curve from the provided 23 C
   // capacity chart, expressed as usable energy remaining versus min-cell voltage.
@@ -5270,16 +6925,17 @@ function energyTrace(samples: LiveSample[], windowS: number) {
   const startT = lastT - windowS * 1000;
   const windowSamples = samples.filter((sample) => sample.t >= startT);
   if (!windowSamples.length) return [];
+  // Use VCU deltas (0x1C9) the same way the session accumulator does — no
+  // client-side power×dt integration on the chart either.
   let energyOutWh = 0;
   let energyInWh = 0;
   const points = [{ t: windowSamples[0].t, energyWh: 0, energyOutWh: 0, energyInWh: 0 }];
   for (let index = 1; index < windowSamples.length; index += 1) {
     const previous = windowSamples[index - 1];
     const sample = windowSamples[index];
-    const dtSeconds = Math.max(0, (sample.t - previous.t) / 1000);
-    const powerKw = signedLiveEnergyPowerKwFor(sample) ?? 0;
-    energyOutWh += Math.max(0, powerKw * dtSeconds / 3.6);
-    energyInWh += Math.max(0, -powerKw * dtSeconds / 3.6);
+    const { outDeltaWh, inDeltaWh } = vcuEnergyDeltaWh(previous, sample);
+    energyOutWh += outDeltaWh;
+    energyInWh += inDeltaWh;
     points.push({ t: sample.t, energyWh: energyOutWh - energyInWh, energyOutWh, energyInWh });
   }
   return points;
@@ -5393,8 +7049,7 @@ const TOUR_STEPS: TourStep[] = [
         The live tab <strong>auto-connects</strong> on load — no need to press
         Start. The hero shows lap time, best lap, energy used and regen. Gauges,
         the position map and pack/temperature panels fill in as data arrives. Use
-        <strong> Stop Live</strong> to pause and <strong>Reset</strong> to clear
-        the session.
+        <strong> Reset</strong> in Live Setup to start a fresh session.
       </>
     ),
   },
@@ -5425,15 +7080,14 @@ const TOUR_STEPS: TourStep[] = [
     ),
   },
   {
-    tab: "exporter",
-    icon: <Download size={20} />,
-    title: "Exporter & Race Ops",
+    tab: "dash",
+    icon: <Gauge size={20} />,
+    title: "Dash comms",
     body: (
       <>
-        The <strong>Exporter</strong> tab pulls historical drive-days from the
-        database to plot and export to MoTeC. <strong>Race Ops</strong> tracks
-        energy budget across a stint. Pick the car and channel chart in the side
-        panels. That&apos;s the tour — have fun!
+        The <strong>Dash</strong> tab links to the on-car driver display: send a
+        lap, broadcast the power budget, and push the start/finish line so the car
+        counts laps itself. That&apos;s the tour — have fun!
       </>
     ),
   },

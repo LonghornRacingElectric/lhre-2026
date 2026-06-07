@@ -40,6 +40,11 @@ export interface CanData {
     tcEnabled?: boolean | null;     // TC armed?
     regenEnabled?: boolean | null;  // Regenerative braking enabled?
 
+    // Active VCU event mode — which params table the firmware is running.
+    // Source: Controls.event_mode (byte 6 of 0x1C7 VCU State). See
+    // EVENT_MODE_LABELS for the enum->label mapping.
+    eventMode?: number | null;
+
     // Pit-diagnostic fields. Not yet emitted by dashd (per-field BACKEND
     // TODOs in PitDiagnostic.tsx); demo hook synthesizes values so the
     // layout is testable.
@@ -76,6 +81,7 @@ export interface MqttData {
     targetPower?: number | null;    // kW — live target power budget (held last-known)
     targetPowerStale?: boolean | null; // true when the held targetPower is past staleness
     lapTrigger?: number | null;     // monotonic lap counter (rising edge = new lap)
+    lapCardMs?: number | null;      // ms the full-screen lap card stays up (website-set)
 
     // Optional driver-thread additions. Not yet emitted by dashd; the
     // demo data hook provides synthetic values so the layout is testable.
@@ -104,6 +110,25 @@ export interface DashMessage {
     can: CanData;
     mqtt: MqttData;
     pacing: PacingData;
+    // Website-authored lap-card layout (retained lhre/dash/layout), forwarded by
+    // dashd. Validated at render; absent → the built-in lap card is used.
+    layout?: unknown;
+}
+
+// VCU event mode enum (matches firmware VCU_DEFAULT_PARAMS + per-event override
+// in VCU/firmware/Core/Inc/params/*.h). Anything outside this range is shown
+// as the raw integer so a new mode added on the VCU isn't silently dropped.
+export const EVENT_MODE_LABELS: Record<number, string> = {
+    0: "—",
+    1: "ACCEL",
+    2: "SKID",
+    3: "AUTOX",
+    4: "ENDUR",
+};
+
+export function eventModeLabel(mode: number | null | undefined): string | null {
+    if (mode === null || mode === undefined) return null;
+    return EVENT_MODE_LABELS[mode] ?? String(mode);
 }
 
 // Shutdown circuit / safety-fault items, in the order dashd emits them.

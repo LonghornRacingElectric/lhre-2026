@@ -1842,6 +1842,9 @@ int pack_vcu_state(const msg_vcu_state_t* msg, uint8_t* tx_buf) {
     // Pack: Line Lock Enabled
     tx_buf[5] = (uint8_t)msg->line_lock_enabled;
 
+    // Pack: Event Mode
+    tx_buf[6] = (uint8_t)msg->event_mode;
+
     return 0;
 }
 
@@ -1863,6 +1866,9 @@ int unpack_vcu_state(const uint8_t* rx_buf, msg_vcu_state_t* msg) {
 
     // Unpack: Line Lock Enabled
     msg->line_lock_enabled = (uint8_t)rx_buf[5];
+
+    // Unpack: Event Mode
+    msg->event_mode = (uint8_t)rx_buf[6];
 
     return 0;
 }
@@ -2688,6 +2694,47 @@ int unpack_bse_3(const uint8_t* rx_buf, msg_bse_3_t* msg) {
     raw_brake_pressure_3 = (uint16_t)rx_buf[0 + 0];
     raw_brake_pressure_3 |= (uint16_t)(rx_buf[0 + 1] << 8);
     msg->brake_pressure_3 = (float)raw_brake_pressure_3 * 0.05f;
+
+    return 0;
+}
+
+// Packet: Energy Estimate
+int pack_energy_estimate(const msg_energy_estimate_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, ENERGY_ESTIMATE_DLC);
+
+    // Pack: Net Energy
+    uint32_t raw_net_energy = (uint32_t)(msg->net_energy / 0.001f);
+    tx_buf[0 + 0] = (uint8_t)(raw_net_energy & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_net_energy >> 8) & 0xFF);
+    tx_buf[0 + 2] = (uint8_t)((raw_net_energy >> 16) & 0xFF);
+    tx_buf[0 + 3] = (uint8_t)((raw_net_energy >> 24) & 0xFF);
+
+    // Pack: Regen Energy
+    uint32_t raw_regen_energy = (uint32_t)(msg->regen_energy / 0.001f);
+    tx_buf[4 + 0] = (uint8_t)(raw_regen_energy & 0xFF);
+    tx_buf[4 + 1] = (uint8_t)((raw_regen_energy >> 8) & 0xFF);
+    tx_buf[4 + 2] = (uint8_t)((raw_regen_energy >> 16) & 0xFF);
+    tx_buf[4 + 3] = (uint8_t)((raw_regen_energy >> 24) & 0xFF);
+
+    return 0;
+}
+
+int unpack_energy_estimate(const uint8_t* rx_buf, msg_energy_estimate_t* msg) {
+    // Unpack: Net Energy
+    uint32_t raw_net_energy = 0;
+    raw_net_energy = (uint32_t)rx_buf[0 + 0];
+    raw_net_energy |= (uint32_t)(rx_buf[0 + 1] << 8);
+    raw_net_energy |= (uint32_t)(rx_buf[0 + 2] << 16);
+    raw_net_energy |= (uint32_t)(rx_buf[0 + 3] << 24);
+    msg->net_energy = (float)raw_net_energy * 0.001f;
+
+    // Unpack: Regen Energy
+    uint32_t raw_regen_energy = 0;
+    raw_regen_energy = (uint32_t)rx_buf[4 + 0];
+    raw_regen_energy |= (uint32_t)(rx_buf[4 + 1] << 8);
+    raw_regen_energy |= (uint32_t)(rx_buf[4 + 2] << 16);
+    raw_regen_energy |= (uint32_t)(rx_buf[4 + 3] << 24);
+    msg->regen_energy = (float)raw_regen_energy * 0.001f;
 
     return 0;
 }

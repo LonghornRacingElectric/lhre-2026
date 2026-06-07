@@ -79,7 +79,7 @@ const osThreadAttr_t controlTask_attributes = {
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define SELECTED_PARAMS autocross_params
+#define SELECTED_PARAMS endurance_params
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -378,6 +378,7 @@ void StartControlTask(void *argument) {
     vcu_can_set_model_inputs(&in);
     vcu_can_set_model_outputs(&out);
     vcu_can_set_steering_angle_deg(steering_angle_deg);
+    vcu_can_set_event_mode(s_params.event_mode);
 
 
     

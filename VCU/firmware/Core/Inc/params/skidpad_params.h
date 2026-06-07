@@ -18,8 +18,9 @@ static const vcu_parameters_t skidpad_params = {
         /* apps= 0.8 */ 0.70f,
         /* apps= 0.9 */ 0.70f,
         /* apps= 1.0 */ 0.70f,
-    },
-    .torque_map.pedal_curve_exponent = 1.0f,
+    }, \
+    .torque_map.pedal_curve_exponent = 1.0f, \
+    .event_mode = 2, \
 };
 // clang-format on
 

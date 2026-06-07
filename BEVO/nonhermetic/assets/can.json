@@ -3579,7 +3579,7 @@
         "to": [
             "Pi"
         ],
-        "data_length": 6,
+        "data_length": 7,
         "frequency_ms": 3,
         "frequency": 333.0,
         "quantity": 1,
@@ -3656,6 +3656,21 @@
                     "type": "bool",
                     "field": "line_lock_enabled",
                     "proto_id": 28,
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 5,
+                "start_byte": 6,
+                "name": "Event Mode",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "event_mode",
+                    "proto_id": 39,
                     "repeated": false,
                     "field_index": null
                 }
@@ -4820,6 +4835,53 @@
                     "type": "float",
                     "field": "bse3",
                     "proto_id": 30,
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 457,
+        "packet_name": "Energy Estimate",
+        "from": [
+            "VCU"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 8,
+        "frequency_ms": 100,
+        "frequency": 10.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Net Energy",
+                "length": 4,
+                "conv_type": "uint32",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "net_energy",
+                    "proto_id": 40,
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 4,
+                "name": "Regen Energy",
+                "length": 4,
+                "conv_type": "uint32",
+                "precision": 0.001,
+                "protobuf": {
+                    "type": "float",
+                    "field": "regen_energy",
+                    "proto_id": 41,
                     "repeated": false,
                     "field_index": null
                 }

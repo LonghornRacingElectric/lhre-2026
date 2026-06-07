@@ -41,6 +41,7 @@ model User {
   name          String?
   username      String?   @unique
   password      String?
+  isAdmin       Boolean   @default(false)
   accounts      Account[]
   sessions      Session[]
 }

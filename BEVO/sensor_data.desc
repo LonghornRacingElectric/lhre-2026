@@ -1,5 +1,5 @@
 
-ª8
+Ÿ9
 $nonhermetic/assets/can_packets.protoorion"¡
 OrionSensorData
 time (Rtime
@@ -58,7 +58,7 @@ $nonhermetic/assets/can_packets.protoorion"¡
 ride_height" (R
 rideHeight
 wheel_speed# (R
-wheelSpeed"è
+wheelSpeed"Ý
 Controls
 motor_speed (R
 motorSpeed'
@@ -93,7 +93,13 @@ motorAngle
 	direction (R	direction
 enable (Renable*
 line_lock_enabled (RlineLockEnabled%
-torque_shudder (RtorqueShudder"Û
+torque_shudder (RtorqueShudder
+bse3 (Rbse3
+
+event_mode' (R	eventMode
+
+net_energy( (R	netEnergy!
+regen_energy) (RregenEnergy"Û
 Pack
 bus_voltage (R
 busVoltage*

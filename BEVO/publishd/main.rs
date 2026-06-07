@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 // OTA globals
 // static OTA_LINK: Mutex<Option<String>> = Mutex::new(None);
@@ -29,6 +29,23 @@ const INITIAL_PACKET_ID_REQUEST_INTERVAL_MS: u64 = 1000;
 
 fn env_or_default(name: &str, default: &str) -> String {
     std::env::var(name).unwrap_or_else(|_| default.to_string())
+}
+
+/// Minimum interval between *published* snapshots, from `PUBLISHD_PUBLISH_HZ`.
+///
+/// Each cand frame is a full all-subsystem snapshot at ~100 Hz, so publishing
+/// only one per interval is loss-safe per subsystem (every snapshot carries them
+/// all) — it just caps the temporal resolution on the live + DB path to keep the
+/// cellular uplink (and end-to-end latency) bounded. loggerd still logs every
+/// frame at full rate via cand's other socket. `PUBLISHD_PUBLISH_HZ=0` disables
+/// throttling (full-rate publish). Defaults to 20 Hz.
+fn publish_min_interval() -> Option<Duration> {
+    let hz: f64 = env_or_default("PUBLISHD_PUBLISH_HZ", "20").parse().unwrap_or(20.0);
+    if hz <= 0.0 {
+        None
+    } else {
+        Some(Duration::from_secs_f64(1.0 / hz))
+    }
 }
 
 fn should_require_server_packet_id() -> bool {
@@ -284,25 +301,49 @@ fn main() -> Result<()> {
     write_startup_semaphore(initial_packet_id)?;
     println!("publishd startup complete, initial packet_id={}", initial_packet_id);
 
+    let publish_throttle = publish_min_interval();
+    match publish_throttle {
+        Some(iv) => println!(
+            "publishd: throttling published rate to ~{:.1} Hz (1 snapshot / {} ms); loggerd unaffected (full rate)",
+            1.0 / iv.as_secs_f64(),
+            iv.as_millis()
+        ),
+        None => println!("publishd: publish throttle disabled (full rate)"),
+    }
+
     loop {
         // check if there is incoming message from the server
         match UnixStream::connect(IPC_SOCKET_PATH) {
-            Ok(mut stream) => loop {
-                let mut length_buffer = [0u8; 4];
-                if stream.read_exact(&mut length_buffer).is_err() {
-                    break;
-                }
+            Ok(mut stream) => {
+                // Wall-clock of the last snapshot we actually forwarded to MQTT.
+                // Frames arriving within publish_throttle of it are dropped
+                // (decimated) to bound the cellular uplink + end-to-end latency.
+                let mut last_published: Option<Instant> = None;
+                loop {
+                    let mut length_buffer = [0u8; 4];
+                    if stream.read_exact(&mut length_buffer).is_err() {
+                        break;
+                    }
 
-                let message_length = u32::from_be_bytes(length_buffer) as usize;
-                let mut message_buffer = vec![0u8; message_length];
-                if stream.read_exact(&mut message_buffer).is_err() {
-                    break;
-                }
+                    let message_length = u32::from_be_bytes(length_buffer) as usize;
+                    let mut message_buffer = vec![0u8; message_length];
+                    if stream.read_exact(&mut message_buffer).is_err() {
+                        break;
+                    }
 
-                if let Err(error) = mqtt_client.publish_sensor_bytes(&message_buffer) {
-                    eprintln!("publishd mqtt publish error: {error}");
+                    // Decimation: skip intermediate snapshots inside the window.
+                    if let (Some(iv), Some(last)) = (publish_throttle, last_published) {
+                        if last.elapsed() < iv {
+                            continue;
+                        }
+                    }
+
+                    if let Err(error) = mqtt_client.publish_sensor_bytes(&message_buffer) {
+                        eprintln!("publishd mqtt publish error: {error}");
+                    }
+                    last_published = Some(Instant::now());
                 }
-            },
+            }
             Err(_) => {
                 let _ = mqtt_client.packet_id();
                 thread::sleep(Duration::from_millis(500));

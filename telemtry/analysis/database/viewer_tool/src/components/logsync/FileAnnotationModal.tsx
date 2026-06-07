@@ -8,11 +8,12 @@
 // speed at the trackside: one-click flags up top, then notes/tags, then the
 // structured identifiers. Saving PUTs the whole form to the worker.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { fetchSessionsFromServer, findSessionForTimestampIn, loadSessionRegistry, parseLogStartMs, type TracksideSessionInfo } from '@/lib/trackside/sessionRegistry';
 
 export type AnnotationData = {
   name: string;
@@ -75,6 +76,40 @@ export function FileAnnotationModal({
 
   const set = <K extends keyof AnnotationData>(k: K, v: AnnotationData[K]) =>
     setA((prev) => ({ ...prev, [k]: v }));
+
+  // Match this CSV (named orion_<startMs>.csv) into a trackside session window so
+  // the strategist can one-click fill driver/track/run from what they entered in
+  // Trackside Live. Server sessions (logsync worker) make this cross-device;
+  // localStorage is merged in as an offline fallback.
+  const startMs = useMemo(() => parseLogStartMs(fileName), [fileName]);
+  const [matched, setMatched] = useState<TracksideSessionInfo | null>(() =>
+    startMs == null ? null : findSessionForTimestampIn(loadSessionRegistry(), startMs));
+  useEffect(() => {
+    if (startMs == null) return;
+    let cancelled = false;
+    (async () => {
+      const server = await fetchSessionsFromServer();
+      if (cancelled) return;
+      // Merge server + local by id (server wins on conflict), then match.
+      const byId = new Map<string, TracksideSessionInfo>();
+      for (const s of loadSessionRegistry()) byId.set(s.id, s);
+      for (const s of server) byId.set(s.id, s);
+      const hit = findSessionForTimestampIn([...byId.values()], startMs);
+      if (hit) setMatched(hit);
+    })();
+    return () => { cancelled = true; };
+  }, [startMs]);
+
+  const applyTracksideSession = (s: TracksideSessionInfo) => {
+    setA((prev) => ({
+      ...prev,
+      driver: prev.driver || s.driver,
+      track: prev.track || s.venue,
+      session: prev.session || s.name,
+      tags: prev.tags.includes(s.eventType) || !s.eventType ? prev.tags : [...prev.tags, s.eventType],
+    }));
+    toast.success(`Filled from "${s.name}"`);
+  };
 
   // Esc to close; focus notes on open.
   useEffect(() => {
@@ -207,7 +242,19 @@ export function FileAnnotationModal({
 
           {/* run context */}
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Run context</p>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Run context</p>
+              {matched && (
+                <button
+                  type="button"
+                  onClick={() => applyTracksideSession(matched)}
+                  title={`Trackside session: ${matched.name} (started ${new Date(matched.startedAt).toLocaleString()})`}
+                  className="rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 px-3 py-1 text-xs hover:bg-emerald-500/25 transition-colors"
+                >
+                  ↧ Fill from “{matched.name}”
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Field label="Driver"><Input value={a.driver} onChange={(e) => set('driver', e.target.value)} placeholder="Name" /></Field>
               <Field label="Track"><Input value={a.track} onChange={(e) => set('track', e.target.value)} placeholder="Track / venue" /></Field>

@@ -19,6 +19,7 @@ its data shown on the driver's dashboard in real time.
 | `lhre/dash/lapsRemaining`  | JSON number    | laps (fractional) | `15.3`   |
 | `lhre/dash/targetPower`    | JSON number    | kW                | `32`     |
 | `lhre/dash/lapTrigger`     | JSON number    | monotonic counter | `7`      |
+| `lhre/dash/layout`         | JSON object    | lap-card layout   | `{"version":1,"widgets":[…]}` |
 | `lhre/dash/sfGate`         | JSON `[f64;4]` | `[lat1,lon1,lat2,lon2]` | `[30.39,-97.72,30.39,-97.73]` |
 
 ### Endurance pacing signals
@@ -61,6 +62,16 @@ can confirm the uplink and mirror the driver's screen:
   no longer depends on the link at all.** The gate is cached to disk
   (`DASHD_SFGATE_PATH`, default `/tmp/BEVO_dash_sfgate.json`) so it also survives
   a reboot if the broker drops its retained copy.
+- **`layout`** — the website-authored **lap-card layout** (a `LapCardLayout` JSON
+  object), published **retained, QoS 1** by the Dash tab's lap-screen designer
+  (sent once, used until replaced). dashd holds it, caches it to disk
+  (`DASHD_LAYOUT_PATH`, default `/tmp/BEVO_dash_layout.json`), forwards it to the
+  frontend as `DashMessage.layout`, and echoes `lhre/dash/ack/layout`. The
+  frontend validates it and renders text/value/delta/bar/gauge widgets on the lap
+  card; a missing or malformed layout falls back to the built-in card so the
+  driver screen never blanks. Schema/renderer: `dashd/frontend/src/dashLayout.ts`
+  + `LapCardRenderer.tsx` (shared with the website editor; that copy is the
+  source of truth).
 
 ## Payload format
 

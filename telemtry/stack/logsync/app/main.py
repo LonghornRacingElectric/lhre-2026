@@ -16,23 +16,25 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from .config import config
 from .manager import JobManager
 from .models import QUALITY_VALUES, Annotation
 from .pi import list_remote_logs, select_in_range
-from .store import AnnotationStore
+from .store import AnnotationStore, SessionStore
 
 manager: JobManager | None = None
 annotations: AnnotationStore | None = None
+sessions: SessionStore | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global manager, annotations
+    global manager, annotations, sessions
     os.makedirs(config.staging_dir, exist_ok=True)
     annotations = AnnotationStore(config.state_db)
+    sessions = SessionStore(config.state_db)
     manager = JobManager()
     await manager.start()
     yield
@@ -57,6 +59,12 @@ def _anno() -> AnnotationStore:
     return annotations
 
 
+def _sess() -> SessionStore:
+    if sessions is None:
+        raise HTTPException(503, "worker not ready")
+    return sessions
+
+
 class CreateJobBody(BaseModel):
     from_ms: int
     to_ms: int
@@ -76,6 +84,28 @@ class AnnotationBody(BaseModel):
     setup: str = ""
     starred: bool = False
     quality: str = ""
+
+
+class SessionBody(BaseModel):
+    """A trackside session record from Trackside Live, stored verbatim so the
+    annotation UI can match a log CSV's loggerd timestamp into the window. Mirror
+    of the viewer's TracksideSessionInfo (camelCase kept on purpose).
+
+    extra='allow' so the FULL session record — the rich metadata (vehicle id /
+    weight / type / comments, short+long notes) and the energy plan (targetLaps,
+    targetEnergyKwh, soeCutoffCellV) — is persisted verbatim in the JSON blob,
+    not just the typed summary fields. No DB migration: the store keeps `data`
+    as JSON."""
+    model_config = ConfigDict(extra="allow")
+    id: str
+    name: str = ""
+    car: str = ""
+    driver: str = ""
+    eventType: str = ""
+    venue: str = ""
+    startedAt: int = 0
+    endedAt: int | None = None
+    laps: int = 0
 
 
 @app.get("/health")
@@ -164,6 +194,32 @@ async def put_annotation(name: str, body: AnnotationBody):
         return Annotation(name=name).to_dict()
     store.upsert(ann)
     return ann.to_dict()
+
+
+# ----- trackside sessions (named run windows, for cross-device CSV matching) -----
+
+
+@app.get("/sessions")
+async def list_sessions():
+    """All trackside sessions as an {id: session} map, for the annotation UI to
+    match a log CSV's timestamp against from any device."""
+    return {s["id"]: s for s in _sess().list() if "id" in s}
+
+
+@app.get("/sessions/{sid}")
+async def get_session(sid: str):
+    s = _sess().get(sid)
+    if not s:
+        raise HTTPException(404, "session not found")
+    return s
+
+
+@app.post("/sessions")
+async def upsert_session(body: SessionBody):
+    data = body.model_dump()
+    data["updated_ms"] = int(time.time() * 1000)
+    _sess().upsert(body.id, data)
+    return data
 
 
 def _require_job(job_id: str):

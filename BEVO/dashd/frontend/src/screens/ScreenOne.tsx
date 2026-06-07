@@ -2,6 +2,11 @@ import React from 'react';
 import ConnectivityIndicator from '../components/ConnectivityIndicator';
 import { useDash } from '../context/DashContext';
 import { useEnergyPacing } from '../hooks/useEnergyPacing';
+import { useSettings } from '../context/SettingsContext';
+import { effectiveAutoTheme } from '../util/sunCalc';
+import { LapCardRenderer } from '../LapCardRenderer';
+import { validateLapCardLayout } from '../dashLayout';
+import { eventModeLabel } from '../types/DashData';
 import './ScreenOne.css';
 
 // Screen One: Main Dashboard (Modern EV Style)
@@ -9,6 +14,9 @@ import './ScreenOne.css';
 
 const ScreenOne: React.FC = () => {
     const { data } = useDash();
+    // The lap card follows the dash's effective theme (auto = sunrise/sunset).
+    const { settings } = useSettings();
+    const cardTheme: 'dark' | 'light' = settings.theme === 'auto' ? effectiveAutoTheme() : settings.theme;
 
     // Endurance energy pacing: integrates CAN power on-board against the
     // trackside-set targetPower budget, resets each lap on lapTrigger, and
@@ -54,6 +62,11 @@ const ScreenOne: React.FC = () => {
     const tcLevel = data?.can.tcLevel ?? null;
     const tcEnabled = data?.can.tcEnabled ?? null;
     const regenEnabled = data?.can.regenEnabled ?? null;
+    // Active VCU event mode (Controls.event_mode). 0/null shows "—"; 1-4 map
+    // to ACCEL/SKID/AUTOX/ENDUR via EVENT_MODE_LABELS in DashData.ts.
+    const eventMode = data?.can.eventMode ?? null;
+    const eventModeText = eventModeLabel(eventMode);
+    const eventModeActive = eventMode !== null && eventMode !== undefined && eventMode !== 0;
     // BACKEND TODO: dashd needs MqttData.lapDeltaRate — d(lapDelta)/dt,
     //   units of seconds per second. Drivers want this as the primary
     //   glance bar because absolute delta lags. Compute off-car to keep
@@ -582,6 +595,33 @@ const ScreenOne: React.FC = () => {
                                 : regenEnabled ? 'ON' : 'OFF'}
                         </span>
                     </div>
+
+                    {/* MODE pill — which VCU params table is active. Burnt
+                        orange matches TC: same "armed/active" pattern. Shows
+                        the firmware-picked event (ACCEL/SKID/AUTOX/ENDUR);
+                        the driver can't change it here, it's set by which
+                        params header was compiled into the VCU. */}
+                    <div style={{
+                        height: '26px',
+                        padding: '0 14px',
+                        borderRadius: '5px',
+                        border: `2px solid ${eventModeActive ? '#BF5700' : 'var(--card-border-hover)'}`,
+                        background: eventModeActive ? 'rgba(191,87,0,0.20)' : 'var(--card-bg)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        <span className="label-small" style={{ marginBottom: 0, fontSize: '0.9rem', letterSpacing: '2px' }}>MODE</span>
+                        <span className="value-display" style={{
+                            fontSize: '1.3rem',
+                            fontWeight: 'bold',
+                            lineHeight: 1,
+                            color: eventModeActive ? 'var(--fg-primary)' : 'var(--fg-muted)'
+                        }}>
+                            {eventModeText ?? '—'}
+                        </span>
+                    </div>
                 </div>
 
                 {/* Right cluster: GEAR + HV, mirroring TC/REGEN on the
@@ -760,31 +800,50 @@ const ScreenOne: React.FC = () => {
                 clears itself after a few seconds (LAP_CARD_MS in the hook).
                 Shows the just-finished lap's time and net energy so the driver
                 gets a clear glance as they cross start/finish. */}
-            {pacing.lapCard && (
-                <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    zIndex: 1000,
-                    background: 'rgba(8,8,10,0.92)',
-                    backdropFilter: 'blur(6px)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px'
-                }}>
-                    <div className="label-small" style={{ fontSize: '1.4rem', letterSpacing: '8px', color: '#BF5700' }}>
-                        LAP {pacing.lapCard.lapNumber}
+            {pacing.lapCard && (() => {
+                // If trackside sent a custom lap-card layout, render it; otherwise
+                // fall back to the built-in card. validateLapCardLayout returns null
+                // for a missing/malformed layout, so the driver screen never blanks.
+                const customLayout = validateLapCardLayout(data?.layout);
+                if (customLayout && customLayout.widgets.length) {
+                    const ctx = {
+                        lapCard: pacing.lapCard,
+                        pacing: data?.pacing,
+                        can: data?.can,
+                        mqtt: data?.mqtt,
+                    };
+                    return (
+                        <div style={{ position: 'absolute', inset: 0, zIndex: 1000 }}>
+                            <LapCardRenderer layout={customLayout} data={ctx} scale={1} theme={cardTheme} />
+                        </div>
+                    );
+                }
+                return (
+                    <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        zIndex: 1000,
+                        background: 'rgba(8,8,10,0.92)',
+                        backdropFilter: 'blur(6px)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
+                    }}>
+                        <div className="label-small" style={{ fontSize: '1.4rem', letterSpacing: '8px', color: '#BF5700' }}>
+                            LAP {pacing.lapCard.lapNumber}
+                        </div>
+                        <div className="value-display" style={{ fontSize: '7rem', fontWeight: 'bold', lineHeight: 0.9 }}>
+                            {fmtLapTime(pacing.lapCard.timeS)}
+                        </div>
+                        <div className="value-display" style={{ fontSize: '3rem', fontWeight: 'bold', color: 'var(--fg-secondary)', lineHeight: 1 }}>
+                            {Math.round(pacing.lapCard.energyWh)}
+                            <span className="label-small" style={{ fontSize: '1.1rem', marginLeft: '8px' }}>Wh / LAP</span>
+                        </div>
                     </div>
-                    <div className="value-display" style={{ fontSize: '7rem', fontWeight: 'bold', lineHeight: 0.9 }}>
-                        {fmtLapTime(pacing.lapCard.timeS)}
-                    </div>
-                    <div className="value-display" style={{ fontSize: '3rem', fontWeight: 'bold', color: 'var(--fg-secondary)', lineHeight: 1 }}>
-                        {Math.round(pacing.lapCard.energyWh)}
-                        <span className="label-small" style={{ fontSize: '1.1rem', marginLeft: '8px' }}>Wh / LAP</span>
-                    </div>
-                </div>
-            )}
+                );
+            })()}
         </div>
     );
 };
