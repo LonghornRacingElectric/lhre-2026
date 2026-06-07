@@ -276,6 +276,10 @@ struct DashMessage {
     /// built-in lap card.
     #[serde(skip_serializing_if = "Option::is_none")]
     layout: Option<serde_json::Value>,
+    /// Website-authored park/pit-screen layout (retained `lhre/dash/parkLayout`).
+    /// None until one is sent → frontend uses its built-in park screen.
+    #[serde(rename = "parkLayout", skip_serializing_if = "Option::is_none")]
+    park_layout: Option<serde_json::Value>,
 }
 
 /// Snapshot published to `lhre/dash/state` for the trackside link-health /
@@ -395,6 +399,9 @@ struct DashState {
     /// Website-authored lap-card layout (retained `lhre/dash/layout`), held as
     /// raw JSON and forwarded to the frontend. None → frontend's built-in card.
     layout: Option<serde_json::Value>,
+    /// Website-authored park/pit-screen layout (retained `lhre/dash/parkLayout`).
+    /// None → frontend's built-in park screen.
+    park_layout: Option<serde_json::Value>,
 }
 
 impl DashState {
@@ -523,6 +530,32 @@ fn load_layout() -> Option<serde_json::Value> {
     match serde_json::from_str::<serde_json::Value>(data.trim()) {
         Ok(v) => {
             println!("[DASHD] Restored lap-card layout from {}", path);
+            Some(v)
+        }
+        Err(_) => None,
+    }
+}
+
+// Park/pit-screen layout — same disk-cache pattern as the lap-card layout, own
+// file + env override so the two survive a reboot independently.
+const PARK_LAYOUT_PATH: &str = "/tmp/BEVO_dash_parklayout.json";
+
+fn park_layout_path() -> String {
+    env_or_default("DASHD_PARK_LAYOUT_PATH", PARK_LAYOUT_PATH)
+}
+
+fn persist_park_layout(raw: &str) {
+    if let Err(e) = std::fs::write(park_layout_path(), raw) {
+        eprintln!("[DASHD] Failed to persist park layout: {}", e);
+    }
+}
+
+fn load_park_layout() -> Option<serde_json::Value> {
+    let path = park_layout_path();
+    let data = std::fs::read_to_string(&path).ok()?;
+    match serde_json::from_str::<serde_json::Value>(data.trim()) {
+        Ok(v) => {
+            println!("[DASHD] Restored park layout from {}", path);
             Some(v)
         }
         Err(_) => None,
@@ -841,7 +874,8 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                 mqtt.lap_trigger = Some(locked.lap_count as f32);
                                 let pacing = locked.pacing(Instant::now());
                                 let layout = locked.layout.clone();
-                                DashMessage { seq, can, mqtt, pacing, layout }
+                                let park_layout = locked.park_layout.clone();
+                                DashMessage { seq, can, mqtt, pacing, layout, park_layout }
                             };
 
                             let json = match serde_json::to_string(&message) {
@@ -987,6 +1021,31 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                             }
                             Err(e) => {
                                 eprintln!("[DASHD] MQTT bad layout payload: {}", e)
+                            }
+                        }
+                        continue;
+                    }
+
+                    // parkLayout: the park/pit-screen layout. Same handling as
+                    // `layout` — retained, cached to disk, forwarded verbatim.
+                    if field == "parkLayout" {
+                        match serde_json::from_str::<serde_json::Value>(payload_str) {
+                            Ok(v) => {
+                                {
+                                    let mut locked = state.lock().unwrap();
+                                    locked.park_layout = Some(v);
+                                }
+                                persist_park_layout(payload_str);
+                                let _ = client.publish(
+                                    format!("{}ack/parkLayout", MQTT_TOPIC_PREFIX),
+                                    QoS::AtMostOnce,
+                                    true,
+                                    payload_str.as_bytes().to_vec(),
+                                );
+                                println!("[DASHD] Loaded park layout ({} bytes)", payload_str.len());
+                            }
+                            Err(e) => {
+                                eprintln!("[DASHD] MQTT bad parkLayout payload: {}", e)
                             }
                         }
                         continue;
@@ -1222,6 +1281,7 @@ fn main() -> Result<()> {
         last_lap: None,
         // Restore the last layout from disk; the retained MQTT topic refreshes it.
         layout: load_layout(),
+        park_layout: load_park_layout(),
     }));
 
     let ipc_state = Arc::clone(&state);

@@ -1794,11 +1794,13 @@ function App() {
 
   // Publish the lap-card layout to the car (retained: used until replaced). Only
   // the session leader commands the car; the dash link must be connected.
-  function sendLapLayout(layout: LapCardLayout) {
+  function sendDashLayout(screenId: string, layout: LapCardLayout) {
     if (isMirrorRef.current) { setLayoutSendStatus("Read-only mirror — only the session leader can push to the car."); return; }
     if (dashSignals.status !== "connected") { setLayoutSendStatus("Connect to the dash first (Dash tab → Connect to dash)."); return; }
-    const ok = dashSignals.publishLayout(layout);
-    setLayoutSendStatus(ok ? `Sent “${layout.name}” to the car ✓ (retained — used until replaced)` : "Publish failed — check the dash link.");
+    // Route to the screen's retained topic: park → parkLayout, else the lap card.
+    const ok = screenId === "park" ? dashSignals.publishParkLayout(layout) : dashSignals.publishLayout(layout);
+    const where = screenId === "park" ? "park screen" : "lap card";
+    setLayoutSendStatus(ok ? `Sent “${layout.name}” to the ${where} ✓ (retained — used until replaced)` : "Publish failed — check the dash link.");
     window.setTimeout(() => setLayoutSendStatus(""), 5000);
   }
 
@@ -2718,7 +2720,7 @@ function App() {
         />
       ) : null}
       {lapDesignerOpen ? (
-        <DashLayoutEditor onClose={() => setLapDesignerOpen(false)} onSend={sendLapLayout} sendStatus={layoutSendStatus} />
+        <DashLayoutEditor onClose={() => setLapDesignerOpen(false)} onSend={sendDashLayout} sendStatus={layoutSendStatus} />
       ) : null}
       {confirmStopOpen ? (
         <div className="modalOverlay" onMouseDown={() => setConfirmStopOpen(false)}>
@@ -3959,7 +3961,7 @@ function App() {
             </div>
             <div className="gateButtons" style={{ marginTop: 10 }}>
               <button className="tool" disabled={isMirror} onClick={() => setLapDesignerOpen(true)}>
-                <SlidersHorizontal size={15} /> Design lap screen
+                <SlidersHorizontal size={15} /> Design dash screens
               </button>
             </div>
             <label style={{ marginTop: 10 }}>
