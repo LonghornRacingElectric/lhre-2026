@@ -3255,10 +3255,15 @@ function App() {
                   next to Pack Status so the strategist reads pacing in one
                   glance with pack state. */}
               {dynamicLapBudgetWh != null ? (
-                <Panel title="Energy Plan" icon={<Zap size={18} />}>
+                <Panel
+                  title="Energy Plan"
+                  icon={<Zap size={18} />}
+                  headerRight={
+                    <>Laps <strong>{lapsCompletedPlan}</strong> done · <strong>{lapsRemainingPlan ?? "—"}</strong> left</>
+                  }
+                >
                   <div className="energyPlanTiles">
                     <Metric label="Used / Remaining" value={`${energyUsedWh.toFixed(0)} / ${(remainingBudgetWh ?? 0).toFixed(0)} Wh`} />
-                    <Metric label="Laps done / left" value={`${lapsCompletedPlan} / ${lapsRemainingPlan ?? "—"}`} />
                     <Metric
                       label="Budget / lap (live)"
                       value={`${dynamicLapBudgetWh.toFixed(0)} Wh`}
@@ -3946,10 +3951,13 @@ function App() {
   );
 }
 
-function Panel({ title, icon, children, className = "" }: { title: string; icon: ReactNode; children: ReactNode; className?: string }) {
+function Panel({ title, icon, children, className = "", headerRight }: { title: string; icon: ReactNode; children: ReactNode; className?: string; headerRight?: ReactNode }) {
   return (
     <section className={className ? `panel ${className}` : "panel"}>
-      <div className="panelTitle">{icon}<h2>{title}</h2></div>
+      <div className="panelTitle">
+        {icon}<h2>{title}</h2>
+        {headerRight ? <span className="panelTitleRight">{headerRight}</span> : null}
+      </div>
       {children}
     </section>
   );

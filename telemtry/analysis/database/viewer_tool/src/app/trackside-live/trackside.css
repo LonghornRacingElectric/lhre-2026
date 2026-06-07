@@ -386,6 +386,15 @@ p {
   font-weight: 700;
   color: var(--muted-text);
 }
+.panelTitle .panelTitleRight {
+  margin-left: auto;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--muted-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.panelTitle .panelTitleRight strong { color: var(--text); font-weight: 800; }
 
 .muted { color: var(--muted-text); }
 .compact { gap: var(--s-2); }
