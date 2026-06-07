@@ -992,19 +992,27 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                             // (the absolute number of completed laps from its
                             // own counter); we adopt it directly into
                             // `lap_count` so the dash and the website always
-                            // display the same number. First publish only sets
-                            // the baseline so a retained/stale value doesn't
-                            // fire a phantom card.
+                            // display the same number.
+                            //
+                            // Treatment:
+                            //   - +1 increment (normal lap)  -> complete_lap,
+                            //     fire the dash card. This MUST cover lap 1
+                            //     too (the prior 'first publish = silent
+                            //     baseline' branch swallowed every session's
+                            //     first card). lapReset already drops
+                            //     lap_count to 0, so 1 > 0 fires correctly.
+                            //   - multi-lap jump  -> adopt silently. The
+                            //     trackside drain re-publishes the website's
+                            //     authoritative count after a dashd reboot,
+                            //     and we don't want a card with bogus
+                            //     time/energy for laps that never ran here.
+                            //   - same or backwards -> ignore (republish of a
+                            //     value we already processed).
                             let new_count = val.round().max(0.0) as u64;
-                            let first = locked.last_offcar_trigger.is_none();
                             locked.last_offcar_trigger = Some(val);
-                            if first {
-                                // Adopt baseline silently. If the website's
-                                // count is higher than what dashd had (e.g.
-                                // dashd just rebooted), jump to that.
-                                if new_count > locked.lap_count {
-                                    locked.lap_count = new_count;
-                                }
+                            if new_count > locked.lap_count + 1 {
+                                locked.lap_count = new_count;
+                                println!("[DASHD] Trackside lapTrigger {} adopted silently (multi-lap jump from {})", val, locked.lap_count);
                             } else if new_count > locked.lap_count {
                                 locked.complete_lap(now, Some(new_count));
                                 let lap = locked.lap_count;
