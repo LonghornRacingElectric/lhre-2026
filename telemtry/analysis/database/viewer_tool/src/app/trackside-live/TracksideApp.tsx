@@ -1085,38 +1085,34 @@ function App() {
     };
   }, [source, targetLaps, targetEnergyKwh, soeCutoffCellV, selectedLapIds, sessionFromFile]);
 
-  // On first load, decide whether to restore a previous live session.
+  // On first load, decide whether to restore a previous live session. The
+  // session is the SERVER's source of truth — it persists even when every
+  // client is gone, so a fresh client picks up the running session without
+  // a banner. Only the leader's explicit Stop Event clears it.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      // 1) This browser's own autosave (localStorage + IndexedDB). Auto-restore
-      //    only while fresh, so an accidental reload mid-session is seamless.
-      const ownCandidates: SavedSession[] = [];
+      const candidates: SavedSession[] = [];
       const localSaved = readLocalSavedSession();
-      if (isRestorableSession(localSaved)) ownCandidates.push(localSaved);
+      if (isRestorableSession(localSaved)) candidates.push(localSaved);
       const indexedSaved = await readIndexedSavedSession();
-      if (isRestorableSession(indexedSaved)) ownCandidates.push(indexedSaved);
-      if (cancelled) return;
-      let offer = ownCandidates.length
-        ? ownCandidates.reduce((best, item) => (item.savedAt > best.savedAt ? item : best), ownCandidates[0])
-        : null;
-      if (offer && Date.now() - offer.savedAt <= SESSION_AUTO_RESTORE_MAX_AGE_MS) {
-        restoreLiveState(offer, false);
-        return;
-      }
-
-      // 2) The shared backend cache can hold a stale demo run or another
-      //    operator's session, so it is never auto-applied — only offered.
+      if (isRestorableSession(indexedSaved)) candidates.push(indexedSaved);
       try {
         const backendSaved = await api.latestLiveSession<SavedSession>();
-        if (isRestorableSession(backendSaved) && (!offer || backendSaved.savedAt > offer.savedAt)) {
-          offer = backendSaved;
-        }
+        if (isRestorableSession(backendSaved)) candidates.push(backendSaved);
       } catch {
         // backend cache is optional
       }
-      if (cancelled || !offer) return;
-      // Surface a recent session for explicit, opt-in resume.
+      if (cancelled || !candidates.length) return;
+      // Take the most recent of local + indexed + backend. The backend cache
+      // wins on equality so a freshly-leader client reads the running session.
+      const offer = candidates.reduce((best, item) => (item.savedAt >= best.savedAt ? item : best), candidates[0]);
+      if (Date.now() - offer.savedAt <= SESSION_AUTO_RESTORE_MAX_AGE_MS) {
+        restoreLiveState(offer, false);
+        return;
+      }
+      // Past the auto-restore window but still within the offer window — show
+      // the resume banner.
       if (Date.now() - offer.savedAt <= SESSION_RESUME_OFFER_MAX_AGE_MS) {
         setResumeAvailable(offer);
       }
@@ -2453,8 +2449,13 @@ function App() {
     // Only the leader owns the shared session doc — a mirror must never clobber it.
     if (saveBackend && !isMirrorRef.current) {
       const body = JSON.stringify(saved);
+      // sendBeacon's queue survives a page-unload (regular fetch gets killed),
+      // so it's the right tool for beforeunload/pagehide. Critical: the URL
+      // must match the route — earlier this hit /api/live/session-cache
+      // (missing /motec/) and silently 404'd EVERY save, so the server cache
+      // never updated and sessions appeared to vanish when everyone left.
       const beaconSent = "sendBeacon" in navigator
-        ? navigator.sendBeacon("/api/live/session-cache", new Blob([body], { type: "application/json" }))
+        ? navigator.sendBeacon("/api/motec/live/session-cache", new Blob([body], { type: "application/json" }))
         : false;
       if (!beaconSent) void api.saveLiveSession(saved).catch(() => undefined);
     }
