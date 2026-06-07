@@ -44,6 +44,10 @@ export interface TracksideSessionInfo {
   updatedAt?: number; // epoch ms of last edit, for last-writer-wins on merge
   dayId?: number; // linked drive_day.day_id (session ⇒ drive day); for event flags + laps
   setup?: Record<string, string | number | boolean>; // drive-day setup (conditions/tires/aero/alignment)
+  // The clientId of the user who started this session (presence.clientId at
+  // creation time). On rejoin, that user gets a one-click reclaim instead of
+  // requesting + waiting on the current leader to grant.
+  starterId?: string;
 }
 
 export function loadSessionRegistry(): TracksideSessionInfo[] {

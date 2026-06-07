@@ -539,6 +539,9 @@ function App() {
   const [setupOpen, setSetupOpen] = useState(false);
   const [flagScreensOpen, setFlagScreensOpen] = useState(false);
   const [confirmStopOpen, setConfirmStopOpen] = useState(false);
+  // Per-page-load dismissal of the "you started this session — reclaim?" banner.
+  // Resets on reload; the user can always re-take by reloading the page.
+  const [starterReclaimDismissed, setStarterReclaimDismissed] = useState(false);
   const driveDaySetupRef = useRef(driveDaySetup);
   driveDaySetupRef.current = driveDaySetup;
   const [msgSendStatus, setMsgSendStatus] = useState("");
@@ -1750,6 +1753,8 @@ function App() {
       metadata: { ...metadataDraft, driver: draft.driver.trim(), venue: draft.venue.trim(), event: draft.eventType, session: draft.name.trim() },
       plan: { targetLaps, targetEnergyKwh, soeCutoffCellV },
       setup: { ...driveDaySetup } as Record<string, string | number | boolean>,
+      // Stamp the starter so this user can reclaim leader on rejoin.
+      starterId: presence.clientId || undefined,
     };
     upsertSession(info);
     setSessionInfo(info);
@@ -3090,6 +3095,23 @@ function App() {
               </div>
             </div>
           ) : null}
+          {/* Session-starter reclaim banner: the user who started this session
+              is back, but another client became leader while they were gone
+              (their TTL expired). One-click reclaim instead of having to wait
+              on the current leader to grant a transfer. */}
+          {isMirror && presence.clientId && sessionInfo?.starterId === presence.clientId && !starterReclaimDismissed ? (
+            <div className="resumeBanner">
+              <span>
+                You started <strong>{sessionInfo.name}</strong> — take back control?
+              </span>
+              <div className="resumeBannerActions">
+                <button className="primary" onClick={() => { presence.claimAsStarter(); setStarterReclaimDismissed(true); }}>
+                  <Power size={14} /> Take Over
+                </button>
+                <button className="tool" onClick={() => setStarterReclaimDismissed(true)}>Stay as Mirror</button>
+              </div>
+            </div>
+          ) : null}
           <div className="liveHero">
             <div className="liveHeroMain">
               <div className="carStatusStrip">
@@ -4291,9 +4313,7 @@ function PackStatusPanel({
         <small className="muted">
           {pack.soeSource === "car"
             ? `Using car SOE estimate${pack.minCellV != null ? `; live min cell ${pack.minCellV.toFixed(3)} V` : ""}.`
-            : pack.soeCellV != null
-              ? `SOE basis ${pack.soeCellV.toFixed(3)} V from min-cell samples below ${OCV_UPDATE_CURRENT_THRESHOLD_A.toFixed(1)} A with a ${OCV_LPF_TIME_CONSTANT_S.toFixed(0)} s filter.`
-            : `Waiting for min-cell voltage while measured/rest current is below ${OCV_UPDATE_CURRENT_THRESHOLD_A.toFixed(1)} A.`}
+            : `Waiting for the car's reported SOC (VCU soc_estimate / hv_soc). The min-cell OCV fallback is disabled by request.`}
         </small>
         <div className="packMetricGrid">
           <Metric label={pack.voltageSource === "cell-est" ? "Pack V Est" : "Voltage"} value={pack.voltage == null ? "--" : `${pack.voltage.toFixed(1)} V`} />
@@ -4361,7 +4381,7 @@ function EnergyStrategyPanel({
           <div className="energyPlanHero">
             <span>Pack used from SOE</span>
             <strong>{soeUsedFromFullWh == null ? "--" : formatKwhFromWh(soeUsedFromFullWh)}</strong>
-            <small>{pack.soePercent == null ? "Waiting for filtered min-cell SOE." : `${pack.soePercent.toFixed(0)}% remaining from min-cell OCV.`}</small>
+            <small>{pack.soePercent == null ? "Waiting for car SOC." : `${pack.soePercent.toFixed(0)}% remaining (from car SOC).`}</small>
           </div>
         </div>
         <div className="energyPlanBar" aria-label="SOE energy estimate used versus usable pack budget">
@@ -6320,13 +6340,14 @@ function packStatus(samples: LiveSample[], soeCutoffCellV: number, displaySample
   const dcBusV = dcBusVoltageFor(sample);
   const minCellV = minCellVoltageFor(sample);
   const soeCellV = estimateSoeCellVoltage(samples);
-  // Prefer the car's own SOC (VCU soc_estimate, the same value the car dash
-  // shows) when the feed carries it; fall back to the min-cell OCV estimate,
-  // which sags under load. soeSource drives the caption under the gauge.
-  const carSoePercent = carSoePercentFor(sample);
-  const ocvSoePercent = soeCellV != null ? estimateP30bSoc(soeCellV, soeCutoffCellV) : null;
-  const soePercent = carSoePercent ?? ocvSoePercent;
-  const soeSource = carSoePercent != null ? "car" : "viewer";
+  // SOE Est reads ONLY the car's reported SOC (VCU soc_estimate / hv_soc, the
+  // same value the car dash shows). The min-cell OCV fallback was sagging under
+  // load and disagreed with the dash — by user request we no longer derive an
+  // SOC from OCV. If the car isn't reporting SOC, the gauge shows "--" and the
+  // caption explains why. (soeCellV is still computed because it drives the
+  // separate OCV-based safety derate; that lives below.)
+  const soePercent = carSoePercentFor(sample);
+  const soeSource = soePercent != null ? "car" : "missing";
   const soeKwh = soePercent != null ? (soePercent / 100) * PACK_ENERGY_KWH : null;
   const lowVoltageDeratePct =
     soeCellV != null ? lowVoltageDerateFromOcv(soeCellV, DEFAULT_SOE_DERATE_START_CELL_V, soeCutoffCellV) * 100 : null;

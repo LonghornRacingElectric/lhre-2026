@@ -62,7 +62,9 @@ function snapshot(clientId: string) {
 export async function POST(req: NextRequest) {
   const now = Date.now();
   const body = (await req.json().catch(() => ({}))) as {
-    clientId?: string; name?: string; leave?: boolean; action?: "request" | "grant" | "deny" | "force"; target?: string;
+    clientId?: string; name?: string; leave?: boolean;
+    action?: "request" | "grant" | "deny" | "force" | "claim_starter";
+    target?: string;
   };
   const clientId = typeof body.clientId === "string" ? body.clientId : "";
   if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 });
@@ -108,6 +110,13 @@ export async function POST(req: NextRequest) {
     }
   } else if (body.action === "deny" && typeof body.target === "string") {
     if (clientId === leader) requests.delete(body.target);
+  } else if (body.action === "claim_starter") {
+    // The user who originally started the active session reclaims control on
+    // rejoin. The frontend gates this with sessionInfo.starterId ===
+    // clientId, so only that user's browser will fire it. We trust the action
+    // at trackside scale (no banking-grade auth needed here).
+    state.designated = clientId;
+    requests.delete(clientId);
   }
 
   return NextResponse.json(snapshot(clientId));
