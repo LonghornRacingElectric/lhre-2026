@@ -999,6 +999,23 @@ textarea:focus-visible,
 .heroMsgClear { color: var(--muted-text); border-style: dashed; padding: 5px 8px; }
 .heroMsgClear:hover:not(:disabled) { color: #ff4d4f; border-color: #ff4d4f; background: var(--surface); }
 .heroMsgClear svg { width: 13px; height: 13px; flex: none; }
+
+/* G-Force panel — classic motorsport G-G plot driven by the chudpi IMU. */
+.ggBox { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-3); align-items: start; }
+.ggChart { width: 100%; max-width: 230px; height: auto; aspect-ratio: 1; display: block; }
+.ggGridRing { fill: none; stroke: var(--border); stroke-width: 0.8; opacity: 0.55; }
+.ggGridLine { stroke: var(--border); stroke-width: 0.6; opacity: 0.4; }
+.ggAxisLabel { font-size: 8.5px; fill: var(--muted-text); font-weight: 700; letter-spacing: 0.5px; }
+.ggTrailDot { fill: var(--accent); }
+.ggLiveDot { fill: #ff4d4f; stroke: #fff; stroke-width: 1.4; transition: cx 0.08s linear, cy 0.08s linear; }
+.ggSidebar { display: grid; gap: var(--s-2); align-content: start; min-width: 110px; }
+.ggSidebar .metric { min-height: 0; padding: 8px 10px; }
+.ggButtons { display: flex; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
+.ggButtons .tool { font-size: 0.74rem; padding: 4px 8px; min-height: 0; }
+@media (max-width: 760px) {
+  .ggBox { grid-template-columns: minmax(0, 1fr); }
+  .ggChart { max-width: 280px; margin: 0 auto; }
+}
 .liveHero h2 {
   margin: 2px 0 0;
   font-size: 38px;

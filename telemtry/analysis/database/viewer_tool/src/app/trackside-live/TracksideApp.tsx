@@ -3276,6 +3276,7 @@ function App() {
               <Panel title="Vitals Window" icon={<Gauge size={18} />}>
                 <VitalsWindowChart state={filteredLiveState} windowS={energyWindowS} />
               </Panel>
+              <GForcePanel state={filteredLiveState} />
               <DriverControlsPanel sample={filteredLiveState.lastSample} torqueParamSet={torqueParamSet} />
               <TempsStatusPanel sample={filteredLiveState.lastSample} />
             </div>
@@ -4299,6 +4300,102 @@ function EnergyStrategyPanel({
             : `SOE gives a pack-from-full estimate; e-meter projected total ${projectedInverterWh == null ? "--" : formatKwhFromWh(projectedInverterWh)} stays separate.`}
         </small>
       </div>
+    </Panel>
+  );
+}
+
+// G-Force panel: a live G-G plot driven by the chudpi IMU. The enricher computes
+// `long_g` and `lat_g` from the chudpi's PIMU sentence (gps_imu[0]/[1]) — units
+// are m/s², not g, despite the name. We convert here. The IMU lives on the
+// chudpi GPS Pi; values include the static gravity offset until the user
+// presses Zero on a level surface to subtract it.
+function GForcePanel({ state }: { state: LiveSessionState }) {
+  const [zero, setZero] = useState<{ long: number; lat: number }>(() => {
+    try {
+      const raw = localStorage.getItem("trackside-imu-zero");
+      if (!raw) return { long: 0, lat: 0 };
+      const v = JSON.parse(raw) as { long?: number; lat?: number };
+      return { long: Number(v.long) || 0, lat: Number(v.lat) || 0 };
+    } catch { return { long: 0, lat: 0 }; }
+  });
+  const sample = state.lastSample;
+  const rawLong = Number(sample?.values?.long_g ?? 0);
+  const rawLat = Number(sample?.values?.lat_g ?? 0);
+  const hasImu = sample?.values != null && ("long_g" in sample.values || "lat_g" in sample.values);
+  // m/s² → g, minus calibrated offset.
+  const longG = (rawLong - zero.long) / 9.81;
+  const latG = (rawLat - zero.lat) / 9.81;
+  const totalG = Math.sqrt(longG * longG + latG * latG);
+  // Trail of the last ~80 samples (≈8 s at 10 Hz).
+  const points = useMemo(() => {
+    const tail = state.samples.slice(-80);
+    return tail.map((s) => ({
+      x: (Number(s.values?.lat_g ?? 0) - zero.lat) / 9.81,
+      y: (Number(s.values?.long_g ?? 0) - zero.long) / 9.81,
+    }));
+  }, [state.samples, zero]);
+  const captureZero = () => {
+    const z = { long: rawLong, lat: rawLat };
+    setZero(z);
+    localStorage.setItem("trackside-imu-zero", JSON.stringify(z));
+  };
+  const resetZero = () => {
+    const z = { long: 0, lat: 0 };
+    setZero(z);
+    localStorage.setItem("trackside-imu-zero", JSON.stringify(z));
+  };
+  const SVG_SIZE = 200;
+  const FULL_SCALE_G = 3;
+  const scale = ((SVG_SIZE - 20) / 2) / FULL_SCALE_G;
+  const cx = SVG_SIZE / 2;
+  const cy = SVG_SIZE / 2;
+  return (
+    <Panel title="G-Forces" icon={<Target size={18} />}>
+      <div className="ggBox">
+        <svg viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`} className="ggChart" role="img" aria-label="Lateral vs longitudinal G plot">
+          {[1, 2, 3].map((g) => (
+            <circle key={g} cx={cx} cy={cy} r={scale * g} className="ggGridRing" />
+          ))}
+          <line x1={cx} y1={5} x2={cx} y2={SVG_SIZE - 5} className="ggGridLine" />
+          <line x1={5} y1={cy} x2={SVG_SIZE - 5} y2={cy} className="ggGridLine" />
+          {points.map((p, i) => (
+            <circle
+              key={i}
+              cx={cx + p.x * scale}
+              cy={cy - p.y * scale}
+              r={1.6}
+              className="ggTrailDot"
+              opacity={((i + 1) / points.length) * 0.7}
+            />
+          ))}
+          {hasImu ? (
+            <circle cx={cx + latG * scale} cy={cy - longG * scale} r={5} className="ggLiveDot" />
+          ) : null}
+          <text x={cx + 3} y={11} className="ggAxisLabel">+Long</text>
+          <text x={cx + 3} y={SVG_SIZE - 4} className="ggAxisLabel">−Long</text>
+          <text x={SVG_SIZE - 4} y={cy - 3} textAnchor="end" className="ggAxisLabel">Lat→</text>
+          <text x={5} y={cy - 3} className="ggAxisLabel">←Lat</text>
+        </svg>
+        <div className="ggSidebar">
+          <Metric label="Long" value={hasImu ? `${longG.toFixed(2)} g` : "--"} />
+          <Metric label="Lat" value={hasImu ? `${latG.toFixed(2)} g` : "--"} />
+          <Metric label="Total" value={hasImu ? `${totalG.toFixed(2)} g` : "--"} />
+          <div className="ggButtons">
+            <button className="tool" disabled={!hasImu} onClick={captureZero} title="Capture current IMU reading as the static zero offset. Press while the car is stationary on level ground.">
+              <Target size={13} /> Zero
+            </button>
+            {zero.long !== 0 || zero.lat !== 0 ? (
+              <button className="tool" onClick={resetZero} title="Clear the zero offset and show raw IMU values">
+                Reset
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      <small className="muted">
+        IMU lives on the chudpi GPS Pi. Raw values include the static gravity component from the IMU mount tilt —
+        press <strong>Zero</strong> on a level surface to subtract it.
+      </small>
     </Panel>
   );
 }
