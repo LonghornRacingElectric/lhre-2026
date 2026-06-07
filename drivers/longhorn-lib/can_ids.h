@@ -1423,7 +1423,7 @@ int unpack_steering_column(const uint8_t* rx_buf, msg_steering_column_t* msg);
 // From: VCU
 // To:   Pi
 #define VCU_STATE_ID 455
-#define VCU_STATE_DLC 6
+#define VCU_STATE_DLC 7
 #define VCU_STATE_FREQ 3
 #define VCU_STATE_TIMEOUT_MS 6
 
@@ -1433,6 +1433,7 @@ typedef struct {
     uint8_t ready_to_drive_buzzer;
     float state_of_charge_estimate;
     uint8_t line_lock_enabled;
+    uint8_t event_mode;
 } msg_vcu_state_t;
 
 // Signal: PRNDL State
@@ -1449,6 +1450,9 @@ typedef struct {
 
 // Signal: Line Lock Enabled
 #define VCU_STATE_LINE_LOCK_ENABLED_PREC 1.0f
+
+// Signal: Event Mode
+#define VCU_STATE_EVENT_MODE_PREC 1.0f
 
 int pack_vcu_state(const msg_vcu_state_t* msg, uint8_t* tx_buf);
 int unpack_vcu_state(const uint8_t* rx_buf, msg_vcu_state_t* msg);

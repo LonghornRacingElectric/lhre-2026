@@ -3396,7 +3396,7 @@
         "to": [
             "Pi"
         ],
-        "data_length": 6,
+        "data_length": 7,
         "frequency_ms": 3,
         "frequency": 333.0,
         "quantity": 1,
@@ -3468,6 +3468,20 @@
                 "protobuf": {
                     "type": "bool",
                     "field": "line_lock_enabled",
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 5,
+                "start_byte": 6,
+                "name": "Event Mode",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "float",
+                    "field": "event_mode",
                     "repeated": false,
                     "field_index": null
                 }

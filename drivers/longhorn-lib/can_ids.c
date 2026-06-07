@@ -1842,6 +1842,9 @@ int pack_vcu_state(const msg_vcu_state_t* msg, uint8_t* tx_buf) {
     // Pack: Line Lock Enabled
     tx_buf[5] = (uint8_t)msg->line_lock_enabled;
 
+    // Pack: Event Mode
+    tx_buf[6] = (uint8_t)msg->event_mode;
+
     return 0;
 }
 
@@ -1863,6 +1866,9 @@ int unpack_vcu_state(const uint8_t* rx_buf, msg_vcu_state_t* msg) {
 
     // Unpack: Line Lock Enabled
     msg->line_lock_enabled = (uint8_t)rx_buf[5];
+
+    // Unpack: Event Mode
+    msg->event_mode = (uint8_t)rx_buf[6];
 
     return 0;
 }
