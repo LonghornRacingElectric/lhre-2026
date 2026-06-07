@@ -2,6 +2,8 @@ import React from 'react';
 import { useDash } from '../context/DashContext';
 import { SHUTDOWN_NAMES } from '../types/DashData';
 import ConnectivityIndicator from '../components/ConnectivityIndicator';
+import { LapCardRenderer } from '../LapCardRenderer';
+import { validateLapCardLayout } from '../dashLayout';
 import './ScreenOne.css';
 import './PitDiagnostic.css';
 
@@ -13,7 +15,12 @@ import './PitDiagnostic.css';
 // inputs + brake bias, running VCU energy usage, pack/LV rails, and active faults.
 // Resolution: 800 x 480.
 //
-// All fields read from the same OrionSensorData snapshot dashd forwards over the
+// Two render paths:
+//   1. If trackside has published a custom park layout (retained
+//      lhre/dash/parkLayout, forwarded as data.parkLayout), render it with the
+//      shared LapCardRenderer — same authoring loop as the lap card.
+//   2. Otherwise the built-in grid below (so the screen never blanks).
+// All fields read from the OrionSensorData snapshot dashd forwards over the
 // WebSocket (BEVO/dashd/main.rs::extract_can_data). A field shows "--" until
 // cand has decoded the matching CAN packet.
 
@@ -32,7 +39,23 @@ const energyUnit = (wh: number | null | undefined): string =>
 
 const PitDiagnostic: React.FC = () => {
     const { data } = useDash();
+    // Follow the dash's current light/dark theme (body.theme-light is toggled by
+    // the car's settings / auto sunrise-sunset), same mechanism ScreenOne uses.
+    const cardTheme: 'dark' | 'light' =
+        (typeof document !== 'undefined' && document.body.classList.contains('theme-light')) ? 'light' : 'dark';
     const can = data?.can;
+
+    // Custom park layout authored on the website (validated; falls back to the
+    // built-in grid below when absent/malformed so the screen never blanks).
+    const customLayout = validateLapCardLayout(data?.parkLayout);
+    if (customLayout && customLayout.widgets.length) {
+        const ctx = { can: data?.can, pacing: data?.pacing, mqtt: data?.mqtt };
+        return (
+            <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
+                <LapCardRenderer layout={customLayout} data={ctx} scale={1} theme={cardTheme} />
+            </div>
+        );
+    }
 
     // ----- Energy / charge -----
     const soe = can?.soc ?? null;                       // state of energy %

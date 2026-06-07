@@ -124,6 +124,9 @@ export interface DashMessage {
     // Website-authored lap-card layout (retained lhre/dash/layout), forwarded by
     // dashd. Validated at render; absent → the built-in lap card is used.
     layout?: unknown;
+    // Website-authored park/pit-screen layout (retained lhre/dash/parkLayout).
+    // Validated at render; absent → the built-in park screen is used.
+    parkLayout?: unknown;
 }
 
 // VCU event mode enum (matches firmware VCU_DEFAULT_PARAMS + per-event override

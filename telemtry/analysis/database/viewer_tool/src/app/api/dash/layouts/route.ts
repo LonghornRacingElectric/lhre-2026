@@ -9,16 +9,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
 
-function libPath(): string {
+// Per-screen library file. `lapCard` keeps the original library.json (so saved
+// lap cards survive this change); any other screen gets library.<screen>.json.
+// `screen` is sanitized to a safe slug so the query param can't escape the dir.
+function libPath(screen: string): string {
   const dir = process.env.CACHE_DIR
     ? path.join(process.env.CACHE_DIR, "dash_layouts")
     : path.join(process.cwd(), ".cache", "dash_layouts");
-  return path.join(dir, "library.json");
+  const slug = (screen || "lapCard").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40) || "lapCard";
+  return path.join(dir, slug === "lapCard" ? "library.json" : `library.${slug}.json`);
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const screen = req.nextUrl.searchParams.get("screen") ?? "lapCard";
   try {
-    const raw = await fs.readFile(libPath(), "utf-8");
+    const raw = await fs.readFile(libPath(screen), "utf-8");
     return NextResponse.json(JSON.parse(raw));
   } catch {
     return NextResponse.json({ items: [], savedAt: 0 });
@@ -26,9 +31,10 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
+  const screen = req.nextUrl.searchParams.get("screen") ?? "lapCard";
   const body = (await req.json().catch(() => ({}))) as { items?: unknown };
   const items = Array.isArray(body.items) ? body.items : [];
-  const p = libPath();
+  const p = libPath(screen);
   await fs.mkdir(path.dirname(p), { recursive: true });
   const tmp = `${p}.tmp`;
   await fs.writeFile(tmp, JSON.stringify({ items, savedAt: Date.now() }));
