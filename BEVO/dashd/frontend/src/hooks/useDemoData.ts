@@ -201,6 +201,17 @@ export function useDemoData(enabled: boolean): DashMessage | null {
             const hvCurrent = 10;
             const lvVoltage = 25;
             const lvCurrent = 9.3;
+            // Cell voltages — track SoC (3.2 V empty → 4.1 V full) with a small
+            // imbalance spread that grows as the pack drains, for a plausible
+            // Park-debug demo. cellVMax/Min straddle the nominal cell V.
+            const cellVNominal = 3.2 + (a.charge / 100) * 0.9;
+            const cellVSpread = 0.02 + (1 - a.charge / 100) * 0.06;
+            const cellVMax = cellVNominal + cellVSpread / 2;
+            const cellVMin = cellVNominal - cellVSpread / 2;
+            // VCU running energy — cumulative drive + regen across the session.
+            // Roughly 180 Wh/lap drive, ~15% recovered as regen.
+            const vcuNetEnergyWh = a.lapTrigger * 180 + a.lapEnergyWh;
+            const vcuRegenEnergyWh = vcuNetEnergyWh * 0.15;
             // Wheel speeds — small per-wheel variance for visual interest.
             const wheelSpeedFL = Math.max(0, s.speed + (Math.random() - 0.5) * 0.4);
             const wheelSpeedFR = Math.max(0, s.speed + (Math.random() - 0.5) * 0.4);
@@ -253,6 +264,11 @@ export function useDemoData(enabled: boolean): DashMessage | null {
                     wheelSpeedFR,
                     wheelSpeedRL,
                     wheelSpeedRR,
+                    cellVMax,
+                    cellVMin,
+                    cellVSpread,
+                    vcuNetEnergyWh,
+                    vcuRegenEnergyWh,
                 },
                 mqtt: {
                     lapDelta,

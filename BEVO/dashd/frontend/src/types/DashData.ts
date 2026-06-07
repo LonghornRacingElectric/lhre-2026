@@ -66,6 +66,17 @@ export interface CanData {
     wheelSpeedFR?: number | null;
     wheelSpeedRL?: number | null;
     wheelSpeedRR?: number | null;
+
+    // Pack cell-voltage aggregates from pack.cells_v[]. cellVSpread (max-min)
+    // is the pack-imbalance health metric watched in the pit.
+    cellVMax?: number | null;         // V, highest cell
+    cellVMin?: number | null;         // V, lowest cell
+    cellVSpread?: number | null;      // V, max - min
+
+    // Running cumulative energy from the VCU's 0x1C9 Energy Estimate (Wh).
+    // VCU is the source of truth for energy — no client-side integration.
+    vcuNetEnergyWh?: number | null;     // net = drive - regen returned
+    vcuRegenEnergyWh?: number | null;   // cumulative regen returned
 }
 
 export interface MqttData {

@@ -183,6 +183,27 @@ struct CanData {
     /// Lives on Controls.event_mode (byte 6 of 0x1C7 VCU State).
     #[serde(rename = "eventMode")]
     event_mode: Option<u8>,
+
+    /// Pack cell-voltage aggregates from pack.cells_v[] (V). None until cand
+    /// has received a cell-voltage packet (empty vec). `spread` (max - min) is
+    /// the pit crew's pack-imbalance health check — a widening spread flags a
+    /// weak/failing cell before it becomes a DNF.
+    #[serde(rename = "cellVMax")]
+    cell_v_max: Option<f32>,
+    #[serde(rename = "cellVMin")]
+    cell_v_min: Option<f32>,
+    #[serde(rename = "cellVSpread")]
+    cell_v_spread: Option<f32>,
+
+    /// Running cumulative energy from the VCU's 0x1C9 Energy Estimate
+    /// (Controls.net_energy / regen_energy, Wh). `net` is drive-minus-regen
+    /// returned; `regen` is cumulative regen. The VCU is the source of truth
+    /// for energy (no client-side integration) — these are what the pit crew
+    /// watches in Park to read session usage.
+    #[serde(rename = "vcuNetEnergyWh")]
+    vcu_net_energy_wh: Option<f32>,
+    #[serde(rename = "vcuRegenEnergyWh")]
+    vcu_regen_energy_wh: Option<f32>,
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -544,16 +565,42 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
     // NOTE: soc_estimate lives on the Pack message (not DiagnosticsHigh).
     let soc = pack.map(|p| p.soc_estimate);
 
-    // Per-cell temp aggregates — None when cand has not received cell-temp
-    // packets yet (empty vec).
+    // Per-cell temp aggregates. Like cells_v[], cand fills cells_temps[] as
+    // packets arrive, so not-yet-received slots sit at exactly 0.0 — exclude
+    // those so min/avg aren't dragged toward 0 by unpopulated cells (max was
+    // already correct, which is why the driving screen's TEMP gauge looked
+    // fine). We filter *exactly* 0.0 rather than `> 0.0` because a real cell
+    // can read sub-zero. None until at least one populated cell is seen.
     let (cell_temp_max, cell_temp_avg, cell_temp_min) = pack
-        .map(|p| p.cells_temps.as_slice())
-        .filter(|t| !t.is_empty())
-        .map(|t| {
-            let max = t.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-            let min = t.iter().cloned().fold(f32::INFINITY, f32::min);
-            let avg = t.iter().sum::<f32>() / t.len() as f32;
-            (Some(max), Some(avg), Some(min))
+        .map(|p| {
+            let vals: Vec<f32> = p.cells_temps.iter().cloned().filter(|&t| t != 0.0).collect();
+            if vals.is_empty() {
+                (None, None, None)
+            } else {
+                let max = vals.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+                let min = vals.iter().cloned().fold(f32::INFINITY, f32::min);
+                let avg = vals.iter().sum::<f32>() / vals.len() as f32;
+                (Some(max), Some(avg), Some(min))
+            }
+        })
+        .unwrap_or((None, None, None));
+
+    // Per-cell voltage aggregates from pack.cells_v[]. spread = max - min, the
+    // pack-imbalance metric. cand fills cells_v[] as per-cell packets arrive, so
+    // not-yet-received slots sit at exactly 0.0 — exclude those (a connected
+    // cell is never 0 V) or a half-populated array drags min/spread to garbage.
+    // None until at least one real (>0 V) cell has been seen. NB: cell *temps*
+    // are NOT filtered this way — 0 °C is a plausible real reading.
+    let (cell_v_max, cell_v_min, cell_v_spread) = pack
+        .map(|p| {
+            let vals: Vec<f32> = p.cells_v.iter().cloned().filter(|&v| v > 0.0).collect();
+            if vals.is_empty() {
+                (None, None, None)
+            } else {
+                let max = vals.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+                let min = vals.iter().cloned().fold(f32::INFINITY, f32::min);
+                (Some(max), Some(min), Some(max - min))
+            }
         })
         .unwrap_or((None, None, None));
 
@@ -656,6 +703,15 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
         // Wire value is uint8 but the proto declares the field as float
         // (matches prndl/soc convention); cast back for the frontend enum.
         event_mode: controls.map(|c| c.event_mode as u8),
+
+        cell_v_max,
+        cell_v_min,
+        cell_v_spread,
+
+        // Running cumulative energy from the VCU (Controls.net_energy /
+        // regen_energy, 0x1C9). Shown on the Park debug screen.
+        vcu_net_energy_wh: controls.map(|c| c.net_energy),
+        vcu_regen_energy_wh: controls.map(|c| c.regen_energy),
     }
 }
 
