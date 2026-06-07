@@ -662,6 +662,8 @@ function App() {
   }, [recordingStartMs]);
   const recordingElapsedMs = recordingStartMs == null ? 0 : Math.max(0, recordingNowMs - recordingStartMs);
   const liveTorqueNm = torqueFeedbackNmFor(filteredLiveState.lastSample);
+  // Driver inputs for the hero (throttle %, front brake psi, steering °).
+  const heroControls = useMemo(() => driverControls(filteredLiveState.lastSample, torqueParamSet), [filteredLiveState.lastSample, torqueParamSet]);
   const liveBadgeLabel = liveState.lastSample ? "Live" : liveState.connected ? "Listening" : liveState.running ? "Connecting" : "Standby";
   const liveBadgeClass = liveState.lastSample ? "liveBadge liveOn" : liveState.connected ? "liveBadge liveListening" : liveState.running ? "liveBadge liveConnecting" : "liveBadge";
 
@@ -2876,6 +2878,19 @@ function App() {
               <h2>{liveState.lapStartMs ? formatLapTime(liveLapElapsedMs) : "0:00.00"}</h2>
               <p>{liveState.lapStartMs ? "Flying lap" : "Out lap / waiting for start"}</p>
               <DeltaBar rate={liveState.deltaRate} totalMs={liveState.deltaMs} />
+              <div className="heroInputs">
+                <div className="heroInputBar">
+                  <span>THR</span>
+                  <div className="barTrack"><div className="barFill thr" style={{ width: `${Math.max(0, Math.min(100, heroControls.throttlePercent ?? 0))}%` }} /></div>
+                  <b>{heroControls.throttlePercent == null ? "--" : `${heroControls.throttlePercent.toFixed(0)}%`}</b>
+                </div>
+                <div className="heroInputBar">
+                  <span>BRK</span>
+                  <div className="barTrack"><div className="barFill brk" style={{ width: `${Math.max(0, Math.min(100, ((heroControls.bse1Psi ?? 0) / 1500) * 100))}%` }} /></div>
+                  <b>{heroControls.bse1Psi == null ? "--" : `${heroControls.bse1Psi.toFixed(0)} psi`}</b>
+                </div>
+                <div className="heroSteer"><span>STR</span><b>{heroControls.steeringAngleDeg == null ? "--" : `${heroControls.steeringAngleDeg.toFixed(0)}°`}</b></div>
+              </div>
             </div>
             <div className="liveHeroStats">
               <Metric label="Best" value={bestLap ? formatLapTime(bestLap.durationMs) : "--"} tone="purple" />
