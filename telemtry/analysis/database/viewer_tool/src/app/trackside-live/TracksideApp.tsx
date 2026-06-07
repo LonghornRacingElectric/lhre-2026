@@ -1839,16 +1839,24 @@ function App() {
       setLiveState((prev) => ({ ...prev, status: "Nothing to stop — no session data yet." }));
       return;
     }
+    // Capture the data first — blob downloads are synchronous, so the files
+    // grab a snapshot of liveStateRef.current before we clear it below.
+    const lapsExported = liveStateRef.current.laps.length;
     downloadSessionCsv();
     downloadSessionJson();
     if (sessionInfo) {
-      patchSession(sessionInfo.id, { endedAt: Date.now(), laps: liveStateRef.current.laps.length });
+      patchSession(sessionInfo.id, { endedAt: Date.now(), laps: lapsExported });
       setSessionInfo(null);
       void endActiveDriveDay(); // close the drive_day record (status → 0)
     }
-    stopLiveData();
+    // Stopping the event ENDS the session — clear the laps/samples/energy too
+    // so the hero reads clean for the next session. The downloaded files are
+    // the on-screen review. liveShouldRunRef is cleared so the feed doesn't
+    // auto-reconnect; a new session will re-arm it.
+    liveShouldRunRef.current = false;
+    clearLiveSessionState();
     setEventEnded(true);
-    setLiveState((prev) => ({ ...prev, status: "Event stopped — session ended and files downloaded." }));
+    setLiveState((prev) => ({ ...prev, status: `Event stopped — ${lapsExported} lap${lapsExported === 1 ? "" : "s"} downloaded, session cleared.` }));
   }
 
   // Manually correct a lap's time (timing glitch / late press). Keeps the lap's
@@ -2619,11 +2627,9 @@ function App() {
               <button className="tool iconOnly" aria-label="Close" onClick={() => setConfirmStopOpen(false)}><X size={16} /></button>
             </div>
             <p className="muted" style={{ marginTop: 0 }}>
-              Ends the live session and downloads <strong>{liveState.laps.length} lap{liveState.laps.length === 1 ? "" : "s"}</strong> + the full session JSON to your machine.
-              Raw car CSVs come from Log Sync.
-            </p>
-            <p className="muted" style={{ marginTop: 4 }}>
-              The laps and gauges stay on screen for review — use the Reset button later if you want to clear them.
+              Downloads <strong>{liveState.laps.length} lap{liveState.laps.length === 1 ? "" : "s"}</strong> + the full session JSON to your machine,
+              then clears the on-screen laps and gauges so the next session starts fresh.
+              Raw car CSVs are still available via Log Sync.
             </p>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: "var(--s-3)" }}>
               <button className="tool" onClick={() => setConfirmStopOpen(false)}>Cancel</button>
