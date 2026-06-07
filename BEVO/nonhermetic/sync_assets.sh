@@ -46,18 +46,25 @@ if [[ ! -f "$PROTO_FILE" ]]; then
 fi
 
 echo "[3/4] Generating descriptor"
-if command -v bazel >/dev/null 2>&1; then
-  bazel run @protobuf//:protoc -- \
-    --descriptor_set_out="$DESC_FILE" \
-    --proto_path="$BEVO_ROOT" \
-    "$PROTO_FILE"
-elif command -v protoc >/dev/null 2>&1; then
+# Prefer the system `protoc` when present — it's instantaneous (single binary).
+# Fall back to `bazel run @protobuf//:protoc` only when there's no system
+# protoc, so hermetic bazel builds still work. Previously the order was
+# reversed: GitHub's ubuntu-latest runner has bazel preinstalled, so CI was
+# going down the bazel path and rebuilding protoc from source on a cold
+# external repo — ~6 min per schema-drift job. Override with USE_BAZEL_PROTOC=1
+# to force the bazel path explicitly.
+if [[ "${USE_BAZEL_PROTOC:-0}" != "1" ]] && command -v protoc >/dev/null 2>&1; then
   protoc \
     --descriptor_set_out="$DESC_FILE" \
     --proto_path="$BEVO_ROOT" \
     "$PROTO_FILE"
+elif command -v bazel >/dev/null 2>&1; then
+  bazel run @protobuf//:protoc -- \
+    --descriptor_set_out="$DESC_FILE" \
+    --proto_path="$BEVO_ROOT" \
+    "$PROTO_FILE"
 else
-  echo "Need either 'bazel' or 'protoc' to generate descriptor" >&2
+  echo "Need either 'protoc' or 'bazel' to generate descriptor" >&2
   exit 1
 fi
 
