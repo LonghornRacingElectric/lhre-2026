@@ -100,6 +100,7 @@ pub fn update_proto_field_generated(data: &mut OrionSensorData, name: &str, val:
             "direction" => _c.direction = val != 0.0,
             "discharge_r_temp" => _t.discharge_r_temp = val,
             "enable" => _c.enable = val != 0.0,
+            "event_mode" => _c.event_mode = val,
             "fan_rpm" => _t.fan_rpm = val,
             "fl_ride_height" => _d.fl_ride_height = val,
             "fl_strain_gauge_v" => _d.fl_strain_gauge_v = val,

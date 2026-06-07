@@ -546,6 +546,7 @@ class OrionControls(BaseOrion):
     line_lock_enabled = Column(Boolean)
     torque_shudder = Column(Float)
     bse3 = Column(Float)
+    event_mode = Column(Float)
     packet = relationship("OrionPacket", back_populates="controls")
 
 class OrionPack(BaseOrion):

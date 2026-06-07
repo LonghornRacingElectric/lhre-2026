@@ -71,6 +71,7 @@ class OrionControls:
     line_lock_enabled: Optional[bool] = None
     torque_shudder: Optional[float] = None
     bse3: Optional[float] = None
+    event_mode: Optional[float] = None
 
 @dataclass
 class OrionPack:
