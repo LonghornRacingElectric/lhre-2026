@@ -84,13 +84,6 @@ static can_message_t *steering_column_mailbox_handle = NULL;
 static msg_vcu_state_t vcu_state_mailbox = {0};
 static can_message_t *vcu_state_mailbox_handle = NULL;
 
-// Energy Estimate (0x1C9 / ENERGY_ESTIMATE_ID @ 100 Hz): cumulative net energy
-// (drive minus regen) and cumulative regen energy, both in Wh. Integrated each
-// CAN tick from the VCU model's instantaneous power → trackside reads them
-// instead of integrating power×dt on the client. See vcu_can_update_energy().
-static msg_energy_estimate_t energy_estimate_mailbox = {0};
-static can_message_t *energy_estimate_mailbox_handle = NULL;
-
 void vcu_can_add_receive_handlers(void);
 void vcu_can_add_send_handlers(void);
 void vcu_init_inverter(void);
@@ -218,12 +211,6 @@ void vcu_can_add_send_handlers(void) {
                              (CAN_pack_message_fn)pack_vcu_state);
   can_rtos_register_send_packet(&critical_bus, vcu_state_mailbox_handle);
   log_printf(LOG_INFO, "[VCU] CAN send handler for VCU state registered\n");
-
-  energy_estimate_mailbox_handle = can_get_message_handle(
-      &energy_estimate_mailbox, ENERGY_ESTIMATE_ID, ENERGY_ESTIMATE_FREQ,
-      ENERGY_ESTIMATE_DLC, (CAN_pack_message_fn)pack_energy_estimate);
-  can_rtos_register_send_packet(&critical_bus, energy_estimate_mailbox_handle);
-  log_printf(LOG_INFO, "[VCU] CAN send handler for energy estimate registered\n");
 }
 
 void vcu_can_clear_inverter_faults(void) {
@@ -313,31 +300,6 @@ void vcu_can_set_steering_angle_deg(float steering_angle_deg) {
 
 void vcu_can_set_event_mode(uint8_t event_mode) {
   vcu_state_mailbox.event_mode = event_mode;
-}
-
-// Integrate pack power into cumulative net + regen energy. Called on every
-// VCU CAN tick with the latest dc-bus power sample (positive = drive, negative
-// = regen) and the elapsed time since the last call in seconds. Energy units
-// are Wh (matches the CSV's "Net Energy (uint32, 0.001 Wh)" / "Regen Energy
-// (uint32, 0.001 Wh)" — the pack function applies the precision scaling).
-//
-// The trackside website now sources its hero Energy / Regen In tiles from
-// these two channels (0x1C9) instead of integrating dc_bus_v×dc_bus_current
-// client-side, so the VCU's running totals are the single source of truth.
-void vcu_can_update_energy(float pack_power_kw, float dt_s) {
-  if (!isfinite(pack_power_kw) || !isfinite(dt_s) || dt_s <= 0.0f) {
-    return;
-  }
-  // kW * s / 3.6 = Wh. Drive accumulates when power > 0; regen accumulates
-  // when power < 0. net_energy holds the (drive - regen) net.
-  const float delta_wh = pack_power_kw * dt_s / 3.6f;
-  if (delta_wh >= 0.0f) {
-    energy_estimate_mailbox.net_energy += delta_wh;
-  } else {
-    // Regen lap: returned energy reduces net AND adds to regen.
-    energy_estimate_mailbox.net_energy += delta_wh; // delta is negative
-    energy_estimate_mailbox.regen_energy += -delta_wh;
-  }
 }
 
 static float compute_brake_bias_pct(const vcu_outputs_t *out) {
