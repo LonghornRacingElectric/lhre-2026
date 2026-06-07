@@ -1002,10 +1002,8 @@ textarea:focus-visible,
 }
 .liveHero p { margin-top: 2px; font-weight: 600; font-size: var(--fs-sm); }
 
-/* Two-row layout: small read-only tiles share row 1 (3 columns); the actionable
-   tiles (Lap, Energy) each get their own full-width row so their chips lay out
-   HORIZONTALLY to the right of the tile instead of stacking under a narrow column.
-   This makes the chips glanceable in a single sweep rather than a tower. */
+/* Read-only metrics — just three small tiles side-by-side. The actionable
+   Lap + Energy tiles live in the controls column under Record/Stop now. */
 .liveHeroStats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1015,9 +1013,25 @@ textarea:focus-visible,
 .liveHeroStats .metric { min-height: 52px; }
 .heroStatCell { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
 .heroStatCell .metric { flex: 1 1 auto; min-width: 0; }
-/* Actionable tiles get the full stats row so chips can flow horizontally. */
-.heroStatCellWide { grid-column: 1 / -1; }
-.heroStatCellWide .metric { flex: 0 0 auto; min-width: 110px; }
+
+/* Lap | Energy pair under Record/Stop in the controls column. Each tile shows
+   the metric on top and its chips wrapping below, in roughly half the controls
+   column width — uses the slack space without making the hero taller. */
+.liveStatsPair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-2);
+  margin-top: 2px;
+}
+.liveStatsTile {
+  display: flex; flex-direction: column; gap: 6px; min-width: 0;
+  padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--surface) 75%, transparent);
+}
+.liveStatsTile .metric { min-height: 0; padding: 0; border: none; background: none; }
+.liveStatsTile .metric strong { font-size: var(--fs-md); }
+.liveStatsTile .heroChipRow { gap: 4px; }
+.liveStatsTile .heroChipRowOpts { gap: 4px 6px; opacity: 0.92; }
 .heroChipRow {
   display: flex; flex-wrap: wrap; align-items: center;
   gap: 4px 6px; flex: 1 1 auto; min-width: 0;
@@ -1489,6 +1503,7 @@ textarea:focus-visible,
      crammed into rigid equal columns. */
   .liveControls { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s-2); }
   .liveControls > .liveAction, .liveControls > .liveActionPair { flex: 1 1 240px; }
+  .liveControls > .liveStatsPair { flex: 1 1 320px; }
   .liveControls > .muted { flex: 1 1 100%; margin: 0; }
   .liveControls .muted { text-align: left; }
   .builderShell { grid-template-columns: 280px minmax(0, 1fr); }
@@ -1541,8 +1556,7 @@ textarea:focus-visible,
 }
 
 @media (max-width: 480px) {
-  .liveHeroStats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  /* Wide cells stay full-width on phone so chips don't crush into 1/2 of a tiny row. */
-  .heroStatCellWide { grid-column: 1 / -1; flex-wrap: wrap; }
-  .heroStatCellWide .metric { flex: 1 1 100%; min-width: 0; }
+  .liveHeroStats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* Phone: stack the Lap | Energy pair so each tile has room for its chips. */
+  .liveStatsPair { grid-template-columns: minmax(0, 1fr); }
 }

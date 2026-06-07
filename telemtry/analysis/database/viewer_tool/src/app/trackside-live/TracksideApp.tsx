@@ -538,6 +538,7 @@ function App() {
   const [driveDaySetup, setDriveDaySetup] = useState<DriveDaySetup>({});
   const [setupOpen, setSetupOpen] = useState(false);
   const [flagScreensOpen, setFlagScreensOpen] = useState(false);
+  const [confirmStopOpen, setConfirmStopOpen] = useState(false);
   const driveDaySetupRef = useRef(driveDaySetup);
   driveDaySetupRef.current = driveDaySetup;
   const [msgSendStatus, setMsgSendStatus] = useState("");
@@ -2610,6 +2611,29 @@ function App() {
       {lapDesignerOpen ? (
         <DashLayoutEditor onClose={() => setLapDesignerOpen(false)} onSend={sendLapLayout} sendStatus={layoutSendStatus} />
       ) : null}
+      {confirmStopOpen ? (
+        <div className="modalOverlay" onMouseDown={() => setConfirmStopOpen(false)}>
+          <div className="modalCard" style={{ maxWidth: 460 }} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modalHead">
+              <h3>Stop event?</h3>
+              <button className="tool iconOnly" aria-label="Close" onClick={() => setConfirmStopOpen(false)}><X size={16} /></button>
+            </div>
+            <p className="muted" style={{ marginTop: 0 }}>
+              Ends the live session and downloads <strong>{liveState.laps.length} lap{liveState.laps.length === 1 ? "" : "s"}</strong> + the full session JSON to your machine.
+              Raw car CSVs come from Log Sync.
+            </p>
+            <p className="muted" style={{ marginTop: 4 }}>
+              The laps and gauges stay on screen for review — use the Reset button later if you want to clear them.
+            </p>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: "var(--s-3)" }}>
+              <button className="tool" onClick={() => setConfirmStopOpen(false)}>Cancel</button>
+              <button className="primary dangerPrimary" onClick={() => { setConfirmStopOpen(false); stopEventAndDownload(); }}>
+                <Power size={14} /> Stop event
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {flagScreensOpen ? (
         <div className="modalOverlay" onMouseDown={() => setFlagScreensOpen(false)}>
           <div className="modalCard" style={{ maxWidth: 480 }} onMouseDown={(e) => e.stopPropagation()}>
@@ -3088,44 +3112,6 @@ function App() {
               <div className="heroStatCell">
                 <Metric label="Torque" value={liveTorqueNm == null ? "--" : formatSignedTorque(liveTorqueNm)} tone={liveTorqueNm != null && liveTorqueNm < 0 ? "good" : ""} />
               </div>
-              {/* Actionable tiles — full-width rows so the chips lay out horizontally
-                  to the right of the tile instead of stacking under a narrow column. */}
-              <div className="heroStatCell heroStatCellWide">
-                <Metric label="Lap" value={`${currentLapNumber} / ${targetLaps > 0 ? targetLaps : "—"}`} />
-                <div className="heroChipRow">
-                  <button className="heroChip" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag a cone hit"} onClick={() => void eventFlag("Hit Cone")}>
-                    <span className="dotIcon" style={{ background: "#f5a524" }} /> Cone
-                  </button>
-                  <button className="heroChip" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag going off-track"} onClick={() => void eventFlag("Off-track")}>
-                    <span className="dotIcon" style={{ background: "#ff4d4f" }} /> Off-track
-                  </button>
-                  <button className="heroChip" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag an incomplete / DNF run"} onClick={() => void eventFlag("Incomplete")}>
-                    <AlertTriangle size={12} /> DNF
-                  </button>
-                  <button className="heroChip" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Custom event flag"} onClick={customFlag}>
-                    <Flag size={12} /> Flag…
-                  </button>
-                  <span className="chipDivider" aria-hidden />
-                  <label className="heroChipOpt" title="When on, each flag above also flashes a message on the driver's dash (needs the dash link connected).">
-                    <input type="checkbox" checked={flagSendsMessage} disabled={isMirror} onChange={(e) => setFlagSendsMessage(e.target.checked)} />
-                    on dash{flagSendsMessage && dashSignals.status !== "connected" ? " (not linked)" : ""}
-                  </label>
-                  {flagSendsMessage ? (
-                    <button type="button" className="heroChip heroChipTiny" disabled={isMirror} onClick={() => setFlagScreensOpen(true)} title="Choose which dash screen each flag fires">
-                      <SlidersHorizontal size={11} /> Screens…
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-              <div className="heroStatCell heroStatCellWide">
-                <Metric label="Energy" value={`${liveState.totalEnergyOutWh.toFixed(1)} Wh`} />
-                <div className="heroChipRow">
-                  <label className="heroChipOpt" title="Auto-export a MoTeC file at each completed lap.">
-                    <input type="checkbox" checked={autoLiveDownload} onChange={(e) => setAutoLiveDownload(e.target.checked)} />
-                    Auto MoTeC / lap
-                  </label>
-                </div>
-              </div>
             </div>
             <div className="liveControls">
               {/* Big, glanceable trackside actions — the live feed auto-starts,
@@ -3155,11 +3141,55 @@ function App() {
                 <button
                   className="tool liveAction"
                   disabled={isMirror || eventEnded || (!liveState.laps.length && !liveState.samples.length)}
-                  onClick={stopEventAndDownload}
+                  onClick={() => setConfirmStopOpen(true)}
                   title={eventEnded ? "Event already stopped — start a new session to run again" : "End the session and download everything to review it locally (laps CSV + full session JSON). Raw car CSVs come from Log Sync."}
                 >
                   <Power size={20} /> {eventEnded ? "Stopped" : "Stop Event"}
                 </button>
+              </div>
+              {/* Lap + Energy live with the controls now — Lap pairs with its
+                  incident flags (each tags a moment in the active drive_day),
+                  Energy pairs with Auto-MoTeC (a lap export is the energy
+                  capture for that window). Side-by-side fills the controls
+                  column's slack without growing the hero. */}
+              <div className="liveStatsPair">
+                <div className="liveStatsTile">
+                  <Metric label="Lap" value={`${currentLapNumber} / ${targetLaps > 0 ? targetLaps : "—"}`} />
+                  <div className="heroChipRow">
+                    <button className="heroChip" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag a cone hit"} onClick={() => void eventFlag("Hit Cone")}>
+                      <span className="dotIcon" style={{ background: "#f5a524" }} /> Cone
+                    </button>
+                    <button className="heroChip" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag going off-track"} onClick={() => void eventFlag("Off-track")}>
+                      <span className="dotIcon" style={{ background: "#ff4d4f" }} /> Off
+                    </button>
+                    <button className="heroChip" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag an incomplete / DNF run"} onClick={() => void eventFlag("Incomplete")}>
+                      <AlertTriangle size={12} /> DNF
+                    </button>
+                    <button className="heroChip" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Custom event flag"} onClick={customFlag}>
+                      <Flag size={12} /> Flag…
+                    </button>
+                  </div>
+                  <div className="heroChipRow heroChipRowOpts">
+                    <label className="heroChipOpt" title="When on, each flag above also flashes a message on the driver's dash (needs the dash link connected).">
+                      <input type="checkbox" checked={flagSendsMessage} disabled={isMirror} onChange={(e) => setFlagSendsMessage(e.target.checked)} />
+                      on dash{flagSendsMessage && dashSignals.status !== "connected" ? " ⚠" : ""}
+                    </label>
+                    {flagSendsMessage ? (
+                      <button type="button" className="heroChip heroChipTiny" disabled={isMirror} onClick={() => setFlagScreensOpen(true)} title="Choose which dash screen each flag fires">
+                        <SlidersHorizontal size={11} /> Screens…
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="liveStatsTile">
+                  <Metric label="Energy" value={`${liveState.totalEnergyOutWh.toFixed(1)} Wh`} />
+                  <div className="heroChipRow heroChipRowOpts">
+                    <label className="heroChipOpt" title="Auto-export a MoTeC file at each completed lap.">
+                      <input type="checkbox" checked={autoLiveDownload} onChange={(e) => setAutoLiveDownload(e.target.checked)} />
+                      Auto MoTeC / lap
+                    </label>
+                  </div>
+                </div>
               </div>
               <small className="muted">{liveState.status}</small>
             </div>
