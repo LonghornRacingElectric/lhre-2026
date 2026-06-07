@@ -37,6 +37,8 @@ typedef struct {
   float open_circuit_cell_voltage;
   float max_open_circuit_cell_voltage;
   float soe_pct;
+  float net_energy_wh;
+  float regen_energy_wh;
 
   bool inverter_enable;
 
