@@ -182,8 +182,22 @@ export function useDashSignals(): DashSignals {
             const text = payload.toString();
             if (topic === `${TOPIC_PREFIX}state`) {
                 try {
-                    setDashState(JSON.parse(text) as DashMirrorState);
+                    const state = JSON.parse(text) as DashMirrorState;
+                    setDashState(state);
                     setLastStateAt(Date.now());
+                    // Sync our local lap counter with the CAR'S authoritative
+                    // lapCount. lapCounterRef resets to 0 on every page load,
+                    // but dashd only fires the lap card on a rising-edge of
+                    // lapTrigger vs the last value it saw. After a reload the
+                    // website would send 1 while dashd still remembered N from
+                    // the previous run -> 1 < N -> no rise -> no card. By
+                    // matching the counter to the car's published lapCount the
+                    // next sendLap is guaranteed to be a rising edge, and the
+                    // two stay aligned across page reloads / leadership changes.
+                    if (Number.isFinite(state.lapCount) && state.lapCount > lapCounterRef.current) {
+                        lapCounterRef.current = state.lapCount;
+                        setLapsSent(state.lapCount);
+                    }
                 } catch {
                     // ignore malformed state frame
                 }
