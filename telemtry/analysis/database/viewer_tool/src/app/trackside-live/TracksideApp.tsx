@@ -2989,6 +2989,18 @@ function App() {
                 <span className="freshTag" title={sfGateDefined ? "GPS auto-lap detection is active and backs up the manual Log Lap button" : "Define a start/finish gate in Track Builder to enable GPS auto-lap"}>
                   <span className={`dot ${gpsTag.dot}`} /> {gpsTag.label}
                 </span>
+                <span
+                  className="freshTag"
+                  title={
+                    isMirror ? "Read-only mirror — the leader holds the dash link"
+                    : dashSignals.status === "connected" ? "Dash uplink connected — lap cards & driver messages reach the car"
+                    : dashSignals.status === "connecting" ? "Dash uplink connecting…"
+                    : "Dash uplink offline — lap cards & driver messages won't reach the car"
+                  }
+                >
+                  <span className={`dot ${dashSignals.status === "connected" ? "live" : dashSignals.status === "connecting" ? "stale pulse" : "dead"}`} />
+                  {dashSignals.status === "connected" ? "Dash linked" : dashSignals.status === "connecting" ? "Dash linking…" : "Dash off"}
+                </span>
               </div>
               <h2>{eventEnded ? "—" : liveState.lapStartMs ? formatLapTime(liveLapElapsedMs) : "0:00.00"}</h2>
               <p>{eventEnded ? "Event ended — start a new session to run again" : liveState.lapStartMs ? "Flying lap" : "Out lap / waiting for start"}</p>
@@ -3006,6 +3018,27 @@ function App() {
                 </div>
                 <div className="heroSteer"><span>STR</span><b>{heroControls.steeringAngleDeg == null ? "--" : `${heroControls.steeringAngleDeg.toFixed(0)}°`}</b></div>
               </div>
+              {!isMirror ? (() => {
+                const msgs = activeMessages(msgLib.lib);
+                if (!msgs.length) return null;
+                const linked = dashSignals.status === "connected";
+                return (
+                  <div className="heroMessages">
+                    {msgs.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className="heroMsgBtn"
+                        disabled={!linked}
+                        title={linked ? `Send “${m.text}” to the driver${m.durationS ? ` (${m.durationS}s)` : " (until cleared)"}` : "Dash not connected — can't reach the driver"}
+                        onClick={() => sendDriverMessage(m)}
+                      >
+                        <span aria-hidden>{MESSAGE_ICON_GLYPH[m.icon]}</span> {m.label}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })() : null}
             </div>
             <div className="liveHeroStats">
               <Metric label="Best" value={bestLap ? formatLapTime(bestLap.durationMs) : "--"} tone="purple" />

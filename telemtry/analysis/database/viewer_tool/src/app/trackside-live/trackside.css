@@ -983,6 +983,15 @@ textarea:focus-visible,
 .heroInputBar .barFill.brk { background: #ff4d4f; }
 .heroInputBar b, .heroSteer b { color: var(--text); font-variant-numeric: tabular-nums; }
 .heroSteer { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; letter-spacing: 1px; color: var(--muted-text); }
+.heroMessages { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.heroMsgBtn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: 7px;
+  background: var(--surface-alt); border: 1px solid var(--border); color: var(--text);
+  font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: background 0.12s, border-color 0.12s;
+}
+.heroMsgBtn:hover:not(:disabled) { background: var(--surface); border-color: var(--accent); }
+.heroMsgBtn:disabled { opacity: 0.45; cursor: not-allowed; }
 .liveHero h2 {
   margin: var(--s-1) 0 0;
   font-size: 44px;
