@@ -3102,20 +3102,63 @@ function App() {
               })() : null}
             </div>
             <div className="liveHeroStats">
-              {/* Read-only metrics — small, side-by-side at the top. */}
-              <div className="heroStatCell">
+              {/* Tier 1 race-state metrics — biggest, glanced every second. */}
+              <div className="heroMetricRow">
                 <Metric label="Best" value={bestLap ? formatLapTime(bestLap.durationMs) : "--"} tone="purple" />
+                <Metric label="Lap" value={`${currentLapNumber} / ${targetLaps > 0 ? targetLaps : "—"}`} />
+                <Metric label="Energy" value={`${liveState.totalEnergyOutWh.toFixed(1)} Wh`} />
               </div>
-              <div className="heroStatCell">
-                <Metric label="Regen In" value={`${liveState.totalEnergyInWh.toFixed(1)} Wh`} tone="good" />
+              {/* Tier 2 — compact inline strip, smaller because they're checked
+                  every few seconds, not every second. */}
+              <div className="heroMetricStrip">
+                <span className="heroMetricInline">
+                  <small>Regen In</small>
+                  <b className={liveState.totalEnergyInWh > 0 ? "goodText" : ""}>{liveState.totalEnergyInWh.toFixed(1)} Wh</b>
+                </span>
+                <span className="heroMetricInline">
+                  <small>Torque</small>
+                  <b className={liveTorqueNm != null && liveTorqueNm < 0 ? "goodText" : ""}>
+                    {liveTorqueNm == null ? "--" : formatSignedTorque(liveTorqueNm)}
+                  </b>
+                </span>
               </div>
-              <div className="heroStatCell">
-                <Metric label="Torque" value={liveTorqueNm == null ? "--" : formatSignedTorque(liveTorqueNm)} tone={liveTorqueNm != null && liveTorqueNm < 0 ? "good" : ""} />
+              {/* Tier 3 — incident flags. Land in the classifier against the
+                  active drive_day (cone hits, off-track, DNF, custom). */}
+              <div className="gateButtons heroFlags">
+                <button className="tool" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag a cone hit"} onClick={() => void eventFlag("Hit Cone")}>
+                  <span style={{ color: "#f5a524" }}>●</span> Cone
+                </button>
+                <button className="tool" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag going off-track"} onClick={() => void eventFlag("Off-track")}>
+                  <span style={{ color: "#ff4d4f" }}>●</span> Off-track
+                </button>
+                <button className="tool" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag an incomplete / DNF run"} onClick={() => void eventFlag("Incomplete")}>
+                  <AlertTriangle size={14} /> Incomplete
+                </button>
+                <button className="tool" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Custom event flag"} onClick={customFlag}>
+                  <Flag size={14} /> Flag…
+                </button>
+              </div>
+              {/* Tier 4 — set-and-forget toggles. Compact options row. */}
+              <div className="liveControlOpts">
+                <label className="checkInline" title="When on, each flag above also flashes a message on the driver's dash (needs the dash link connected).">
+                  <input type="checkbox" checked={flagSendsMessage} disabled={isMirror} onChange={(e) => setFlagSendsMessage(e.target.checked)} />
+                  Show on dash{flagSendsMessage && dashSignals.status !== "connected" ? " ⚠" : ""}
+                </label>
+                {flagSendsMessage ? (
+                  <button type="button" className="tool tinyTool" disabled={isMirror} onClick={() => setFlagScreensOpen(true)} title="Choose which dash screen each flag fires">
+                    <SlidersHorizontal size={13} /> Flag screens…
+                  </button>
+                ) : null}
+                <label className="checkInline">
+                  <input type="checkbox" checked={autoLiveDownload} onChange={(e) => setAutoLiveDownload(e.target.checked)} />
+                  Auto MoTeC / lap
+                </label>
               </div>
             </div>
             <div className="liveControls">
-              {/* Big, glanceable trackside actions — the live feed auto-starts,
-                  so the frequent buttons (lap + record) get the space. */}
+              {/* The three primary trackside actions. Tier 1 (Log/Start Lap is
+                  primary; Record + Stop are paired Tier 3 captures). Everything
+                  else moved into the stats column so this stays short. */}
               <button
                 className="primary liveAction"
                 disabled={isMirror || !telemetryFresh}
@@ -3146,50 +3189,6 @@ function App() {
                 >
                   <Power size={20} /> {eventEnded ? "Stopped" : "Stop Event"}
                 </button>
-              </div>
-              {/* Lap + Energy live with the controls now — use the slack space
-                  next to the big buttons without growing the hero. Just the
-                  metrics — the related controls (flags / Auto MoTeC) sit below
-                  as their own rows so they're easy to scan, not crammed into
-                  a half-column tile. */}
-              <div className="liveStatsPair">
-                <div className="liveStatsTile">
-                  <Metric label="Lap" value={`${currentLapNumber} / ${targetLaps > 0 ? targetLaps : "—"}`} />
-                </div>
-                <div className="liveStatsTile">
-                  <Metric label="Energy" value={`${liveState.totalEnergyOutWh.toFixed(1)} Wh`} />
-                </div>
-              </div>
-              {/* Event flags → classifier (autocross incidents: cones, off-track,
-                  DNF, custom). Need an active session (= drive_day). */}
-              <div className="gateButtons" style={{ gap: 6, marginTop: 2 }}>
-                <button className="tool" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag a cone hit"} onClick={() => void eventFlag("Hit Cone")}>
-                  <span style={{ color: "#f5a524" }}>●</span> Cone
-                </button>
-                <button className="tool" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag going off-track"} onClick={() => void eventFlag("Off-track")}>
-                  <span style={{ color: "#ff4d4f" }}>●</span> Off-track
-                </button>
-                <button className="tool" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag an incomplete / DNF run"} onClick={() => void eventFlag("Incomplete")}>
-                  <AlertTriangle size={14} /> Incomplete
-                </button>
-                <button className="tool" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Custom event flag"} onClick={customFlag}>
-                  <Flag size={14} /> Flag…
-                </button>
-              </div>
-              <div className="liveControlOpts">
-                <label className="checkInline" title="When on, each flag above also flashes a message on the driver's dash (needs the dash link connected).">
-                  <input type="checkbox" checked={flagSendsMessage} disabled={isMirror} onChange={(e) => setFlagSendsMessage(e.target.checked)} />
-                  Show flags on driver dash{flagSendsMessage && dashSignals.status !== "connected" ? " (not linked)" : ""}
-                </label>
-                {flagSendsMessage ? (
-                  <button type="button" className="tool tinyTool" disabled={isMirror} onClick={() => setFlagScreensOpen(true)} title="Choose which dash screen each flag fires">
-                    <SlidersHorizontal size={13} /> Flag screens…
-                  </button>
-                ) : null}
-                <label className="checkInline">
-                  <input type="checkbox" checked={autoLiveDownload} onChange={(e) => setAutoLiveDownload(e.target.checked)} />
-                  Auto MoTeC on lap
-                </label>
               </div>
               <small className="muted">{liveState.status}</small>
             </div>
