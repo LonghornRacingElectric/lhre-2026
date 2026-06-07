@@ -3245,6 +3245,29 @@ function App() {
                 />
               </Panel>
               <PackStatusPanel state={liveState} displayState={filteredLiveState} soeCutoffCellV={soeCutoffCellV} />
+              {/* Live energy-plan tiles: used vs remaining + laps done/left +
+                  live per-lap budget that recomputes from energy used each
+                  completed lap. Configured up in Live Setup; surfaced here
+                  next to Pack Status so the strategist reads pacing in one
+                  glance with pack state. */}
+              {dynamicLapBudgetWh != null ? (
+                <Panel title="Energy Plan" icon={<Zap size={18} />}>
+                  <div className="opsCards">
+                    <Metric label="Used / Remaining" value={`${energyUsedWh.toFixed(0)} / ${(remainingBudgetWh ?? 0).toFixed(0)} Wh`} />
+                    <Metric label="Laps done / left" value={`${lapsCompletedPlan} / ${lapsRemainingPlan ?? "—"}`} />
+                    <Metric
+                      label="Budget / lap (live)"
+                      value={`${dynamicLapBudgetWh.toFixed(0)} Wh`}
+                      tone={budgetVsTargetWh != null && budgetVsTargetWh >= 0 ? "good" : ""}
+                    />
+                  </div>
+                  {budgetVsTargetWh != null ? (
+                    <small style={{ color: budgetVsTargetWh >= 0 ? "#5cb87a" : "#ff4d4f", fontWeight: 600, display: "block", marginTop: 6 }}>
+                      {budgetVsTargetWh >= 0 ? "▲" : "▼"} {Math.abs(budgetVsTargetWh).toFixed(0)} Wh/lap {budgetVsTargetWh >= 0 ? "under" : "over"} budget — recalculates live each completed lap from energy used.
+                    </small>
+                  ) : null}
+                </Panel>
+              ) : null}
             </div>
             <div className="liveMainColumn">
               <Panel title="Live Position" icon={<MapPinned size={18} />} className="liveMapPanel">
@@ -3403,24 +3426,9 @@ function App() {
                       Usable budget {targetEnergyKwh.toFixed(2)} kWh to {soeCutoffCellV.toFixed(2)} V min-cell OCV ÷ {targetLaps} = {targetEnergyPerLapWh.toFixed(0)} Wh/lap even split.
                     </small>
                   ) : null}
-                  {dynamicLapBudgetWh != null ? (
-                    <>
-                      <div className="opsCards" style={{ marginTop: 6 }}>
-                        <Metric label="Used / Remaining" value={`${energyUsedWh.toFixed(0)} / ${(remainingBudgetWh ?? 0).toFixed(0)} Wh`} />
-                        <Metric label="Laps done / left" value={`${lapsCompletedPlan} / ${lapsRemainingPlan ?? "—"}`} />
-                        <Metric
-                          label="Budget / lap (live)"
-                          value={`${dynamicLapBudgetWh.toFixed(0)} Wh`}
-                          tone={budgetVsTargetWh != null && budgetVsTargetWh >= 0 ? "good" : ""}
-                        />
-                      </div>
-                      {budgetVsTargetWh != null ? (
-                        <small style={{ color: budgetVsTargetWh >= 0 ? "#5cb87a" : "#ff4d4f", fontWeight: 600 }}>
-                          {budgetVsTargetWh >= 0 ? "▲" : "▼"} {Math.abs(budgetVsTargetWh).toFixed(0)} Wh/lap {budgetVsTargetWh >= 0 ? "under" : "over"} budget — recalculates live each completed lap from energy used.
-                        </small>
-                      ) : null}
-                    </>
-                  ) : null}
+                  {/* Live energy-plan tiles moved to the Energy Plan panel
+                      under Pack Status — they read better next to pack state
+                      than buried under the configuration inputs. */}
                   <div className="feedControl">
                     <div>
                       <strong>Live feed</strong>
