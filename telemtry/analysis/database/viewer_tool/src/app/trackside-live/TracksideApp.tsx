@@ -3279,6 +3279,11 @@ function App() {
               ) : null}
             </div>
             <div className="liveMainColumn">
+              {/* Live Position hidden until chudpi/GPS is reliable. The RadioLion
+                  receiver's draw browns out the chudpi rail, so no fix reaches
+                  the website. Re-enable this Panel block once chudpi power is
+                  fixed. */}
+              {/*
               <Panel title="Live Position" icon={<MapPinned size={18} />} className="liveMapPanel">
                 <TrackBuilderMap
                   points={filteredLiveState.samples.filter(hasGps).map((sample) => ({ t: sample.t, lat: sample.lat ?? 0, lon: sample.lon ?? 0 }))}
@@ -3292,6 +3297,7 @@ function App() {
                   gpsUnavailable={filteredLiveState.lastSample != null && !filteredLiveState.samples.some(hasGps)}
                 />
               </Panel>
+              */}
               <Panel title="Energy Window" icon={<Zap size={18} />}>
                 <EnergyWindowChart
                   state={filteredLiveState}
