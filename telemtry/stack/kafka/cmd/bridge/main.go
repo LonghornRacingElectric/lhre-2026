@@ -723,6 +723,8 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["line_lock_enabled"] = c.LineLockEnabled
 		m["bse3"] = c.Bse3
 		m["event_mode"] = c.EventMode
+		m["net_energy"] = c.NetEnergy
+		m["regen_energy"] = c.RegenEnergy
 	}
 
 	if p := msg.Pack; p != nil {
