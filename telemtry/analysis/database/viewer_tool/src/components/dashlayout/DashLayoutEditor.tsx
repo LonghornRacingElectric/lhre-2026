@@ -380,6 +380,9 @@ function PropertyPanel({ w, fields, onChange, onDelete }: { w: Widget; fields: F
                 if (fd.bidirectional != null) (p as { bidirectional?: boolean }).bidirectional = fd.bidirectional;
               }
               if ((w.type === 'delta' || w.type === 'bar') && fd.goodSign) (p as { goodSign?: GoodSign }).goodSign = fd.goodSign;
+              // Enum/bitfield fields (e.g. VCU event mode) pre-fill the value→label
+              // map so the widget shows "ENDUR" not 4; clears it for plain numbers.
+              if (w.type === 'value') (p as { valueMap?: Record<string, string> }).valueMap = fd.enumMap;
             }
             onChange(p);
           }}>
@@ -451,6 +454,9 @@ function PropertyPanel({ w, fields, onChange, onDelete }: { w: Widget; fields: F
       {w.type === 'value' && (
         <ThresholdRules rules={w.thresholds ?? []} onChange={(r) => onChange({ thresholds: r })} />
       )}
+      {w.type === 'value' && (
+        <ValueLabels map={w.valueMap} onChange={(m) => onChange({ valueMap: m })} />
+      )}
       <div className="propGrid">
         <Row label="X"><input type="number" value={w.x} onChange={(e) => onChange({ x: Number(e.target.value) })} /></Row>
         <Row label="Y"><input type="number" value={w.y} onChange={(e) => onChange({ y: Number(e.target.value) })} /></Row>
@@ -479,6 +485,35 @@ function ThresholdRules({ rules, onChange }: { rules: ColorRule[]; onChange: (r:
         </div>
       ))}
       {!rules.length && <p className="muted" style={{ fontSize: '0.78rem', margin: '2px 0 0' }}>e.g. &lt; 20 → red for low SoC. Last matching rule wins.</p>}
+    </div>
+  );
+}
+
+// Value→label map editor for value widgets — turns an enum/bitfield number into
+// its meaning (e.g. 4 → ENDUR). Binding an enum field (VCU event mode) pre-fills
+// this; it's editable for any field. A value with no matching key shows numerically.
+function ValueLabels({ map, onChange }: { map?: Record<string, string>; onChange: (m: Record<string, string> | undefined) => void }) {
+  const entries = Object.entries(map ?? {});
+  const rebuild = (next: [string, string][]) => {
+    const obj: Record<string, string> = {};
+    for (const [k, v] of next) if (k.trim() !== '') obj[k.trim()] = v;
+    onChange(Object.keys(obj).length ? obj : undefined);
+  };
+  return (
+    <div className="thresholdRules">
+      <div className="propHead"><span className="muted" style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: 1 }}>Value labels</span>
+        <button className="tool" onClick={() => rebuild([...entries, [String(entries.length), '']])}>+ Label</button>
+      </div>
+      {entries.map(([k, v], i) => (
+        <div key={i} className="thresholdRule">
+          <input type="number" value={k} style={{ width: 56 }} aria-label="value"
+            onChange={(e) => rebuild(entries.map((en, idx) => (idx === i ? [e.target.value, en[1]] : en)))} />
+          <input type="text" value={v} placeholder="label" aria-label="label"
+            onChange={(e) => rebuild(entries.map((en, idx) => (idx === i ? [en[0], e.target.value] : en)))} />
+          <button className="tool iconOnly" aria-label="Remove label" onClick={() => rebuild(entries.filter((_, idx) => idx !== i))}><Trash2 size={12} /></button>
+        </div>
+      ))}
+      {!entries.length && <p className="muted" style={{ fontSize: '0.78rem', margin: '2px 0 0' }}>Map a number to text, e.g. 4 → ENDUR (enums / bitfields).</p>}
     </div>
   );
 }

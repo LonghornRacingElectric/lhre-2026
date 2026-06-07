@@ -841,10 +841,10 @@ textarea:focus-visible,
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
   overflow: hidden;
 }
-.dashEditorHead { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--border); }
-.dashEditorTitle { display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
-.dashEditorTitle input { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 8px; color: var(--text); font-size: var(--fs-sm); }
-.dashEditorActions { display: flex; align-items: center; gap: var(--s-2); }
+.dashEditorHead { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); row-gap: var(--s-2); flex-wrap: wrap; padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--border); }
+.dashEditorTitle { display: flex; align-items: center; gap: var(--s-2); row-gap: var(--s-2); flex-wrap: wrap; min-width: 0; flex: 1 1 auto; }
+.dashEditorTitle input { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 8px; color: var(--text); font-size: var(--fs-sm); max-width: 160px; }
+.dashEditorActions { display: flex; align-items: center; gap: var(--s-2); row-gap: var(--s-2); flex-wrap: wrap; justify-content: flex-end; flex: 0 1 auto; }
 .dashEditorStatus { padding: 6px var(--s-4); font-size: var(--fs-sm); color: var(--fresh); background: color-mix(in srgb, var(--fresh) 10%, transparent); border-bottom: 1px solid var(--border); }
 .dashEditorBody { flex: 1; display: grid; grid-template-columns: 190px 1fr 270px; min-height: 0; }
 .dashEditorRail { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }

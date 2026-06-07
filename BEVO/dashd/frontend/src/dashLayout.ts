@@ -96,6 +96,9 @@ export interface ValueWidget extends BaseWidget {
   label?: string;           // small caption above/beside the value
   labelColor?: string;
   thresholds?: ColorRule[]; // e.g. [{cmp:'lt',value:20,color:'#ff4d4f'}] for low SoC
+  // Map a numeric value to a label (enums / bitfields, e.g. VCU event mode
+  // 4 -> "ENDUR"). Keyed by the rounded integer value as a string.
+  valueMap?: Record<string, string>;
 }
 export interface BarWidget extends BaseWidget {
   type: 'bar';
@@ -232,6 +235,16 @@ export function formatValue(v: number | null | undefined, fmt: FormatId): string
     case 'mph': return `${Math.round(v)}`;
     default: return `${v}`;
   }
+}
+
+// Value widgets with a valueMap (enums/bitfields) show the mapped label; anything
+// without a matching key falls back to the numeric format.
+export function applyValueMap(v: number | null | undefined, fmt: FormatId, valueMap?: Record<string, string>): string {
+  if (v != null && Number.isFinite(v) && valueMap) {
+    const label = valueMap[String(Math.round(v))];
+    if (label != null) return label;
+  }
+  return formatValue(v, fmt);
 }
 
 // ---- default layout (replicates today's hardcoded lap card) ---------------

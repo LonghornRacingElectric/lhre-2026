@@ -8,7 +8,7 @@
 
 import React from 'react';
 import {
-  LAP_CARD_W, LAP_CARD_H, formatValue, getByPath, deltaColor, valueColor,
+  LAP_CARD_W, LAP_CARD_H, formatValue, applyValueMap, getByPath, deltaColor, valueColor,
   resolveColor, resolveBackground, CARD_THEMES,
   type LapCardLayout, type Widget, type CardTheme, type ThemePalette,
 } from '@/lib/dash/dashLayout';
@@ -69,7 +69,7 @@ function WidgetView({ w, data, theme, pal }: { w: Widget; data: unknown; theme: 
         alignItems: w.align === 'left' ? 'flex-start' : w.align === 'right' ? 'flex-end' : 'center',
         justifyContent: 'center', lineHeight: 1, overflow: 'hidden' }}>
         {w.label && <span style={{ color: w.labelColor ?? pal.muted, fontSize: Math.max(11, w.fontSize * 0.28), letterSpacing: 3, marginBottom: 4 }}>{w.label}</span>}
-        <span style={{ color, fontSize: w.fontSize, fontWeight: w.bold ? 800 : 500 }}>{formatValue(val, w.format)}</span>
+        <span style={{ color, fontSize: w.fontSize, fontWeight: w.bold ? 800 : 500 }}>{applyValueMap(val, w.format, w.valueMap)}</span>
       </div>
     );
   }

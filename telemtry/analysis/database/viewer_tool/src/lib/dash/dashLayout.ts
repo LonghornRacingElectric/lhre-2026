@@ -94,6 +94,10 @@ export interface ValueWidget extends BaseWidget {
   label?: string;           // small caption above/beside the value
   labelColor?: string;
   thresholds?: ColorRule[]; // e.g. [{cmp:'lt',value:20,color:'#ff4d4f'}] for low SoC
+  // Map a numeric value to a label (enums / bitfields, e.g. VCU event mode
+  // 4 -> "ENDUR"). Keyed by the rounded integer value as a string. When a key
+  // matches, its label is shown instead of the numeric format.
+  valueMap?: Record<string, string>;
 }
 export interface BarWidget extends BaseWidget {
   type: 'bar';
@@ -164,6 +168,9 @@ export interface FieldDef {
   // delta hint: this field is a signed delta, and which sign is "good" (green)
   isDelta?: boolean;
   goodSign?: GoodSign;
+  // enum/bitfield fields: value -> label map. When bound, the editor pre-fills a
+  // value widget's valueMap with this so it renders labels instead of raw ints.
+  enumMap?: Record<string, string>;
 }
 
 export const FIELD_CATALOG: FieldDef[] = [
@@ -219,7 +226,8 @@ export const FIELD_CATALOG: FieldDef[] = [
   { bind: 'can.lvCurrent', label: 'LV current', group: 'Rails', unit: 'A', defaultFormat: 'amp', min: 0, max: 30 },
   // Dynamics + wheels
   { bind: 'can.speed', label: 'Speed', group: 'Dynamics', unit: 'mph', defaultFormat: 'mph', min: 0, max: 100 },
-  { bind: 'can.eventMode', label: 'VCU event mode', group: 'Dynamics', defaultFormat: 'int', min: 0, max: 4 },
+  { bind: 'can.eventMode', label: 'VCU event mode', group: 'Dynamics', defaultFormat: 'int', min: 0, max: 4,
+    enumMap: { '0': '—', '1': 'ACCEL', '2': 'SKID', '3': 'AUTOX', '4': 'ENDUR' } },
   { bind: 'can.wheelSpeedFL', label: 'Wheel FL', group: 'Wheels', defaultFormat: 'float1', min: 0, max: 100 },
   { bind: 'can.wheelSpeedFR', label: 'Wheel FR', group: 'Wheels', defaultFormat: 'float1', min: 0, max: 100 },
   { bind: 'can.wheelSpeedRL', label: 'Wheel RL', group: 'Wheels', defaultFormat: 'float1', min: 0, max: 100 },
@@ -277,6 +285,16 @@ export function formatValue(v: number | null | undefined, fmt: FormatId): string
     case 'mph': return `${Math.round(v)}`;
     default: return `${v}`;
   }
+}
+
+// Value widgets with a valueMap (enums/bitfields) show the mapped label; anything
+// without a matching key falls back to the numeric format.
+export function applyValueMap(v: number | null | undefined, fmt: FormatId, valueMap?: Record<string, string>): string {
+  if (v != null && Number.isFinite(v) && valueMap) {
+    const label = valueMap[String(Math.round(v))];
+    if (label != null) return label;
+  }
+  return formatValue(v, fmt);
 }
 
 // ---- default layout (replicates today's hardcoded lap card) ---------------
