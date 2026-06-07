@@ -3094,18 +3094,34 @@ function App() {
                 <span className="freshTag" title={sfGateDefined ? "GPS auto-lap detection is active and backs up the manual Log Lap button" : "Define a start/finish gate in Track Builder to enable GPS auto-lap"}>
                   <span className={`dot ${gpsTag.dot}`} /> {gpsTag.label}
                 </span>
-                <span
-                  className="freshTag"
-                  title={
-                    isMirror ? "Read-only mirror — the leader holds the dash link"
-                    : dashSignals.status === "connected" ? "Dash uplink connected — lap cards & driver messages reach the car"
+                {(() => {
+                  // "Dash linked" needs BOTH: broker connection AND fresh state
+                  // from the car's dashd (lhre/dash/state publishes at ~2 Hz).
+                  // Stale lastStateAt → broker is up but car is off / dashd is
+                  // down — show that distinctly so a green pill can't lie about
+                  // an unreachable car.
+                  const carFresh = dashSignals.lastStateAt != null && (liveNowMs - dashSignals.lastStateAt) < 6000;
+                  const connected = dashSignals.status === "connected";
+                  const linkLive = connected && carFresh;
+                  const label = linkLive ? "Dash linked"
+                    : connected ? "Dash silent"
+                    : dashSignals.status === "connecting" ? "Dash linking…"
+                    : "Dash off";
+                  const dot = linkLive ? "live"
+                    : connected ? "stale"
+                    : dashSignals.status === "connecting" ? "stale pulse"
+                    : "dead";
+                  const title = isMirror ? "Read-only mirror — the leader holds the dash link"
+                    : linkLive ? "Dash uplink connected and the car's dashd is publishing state — lap cards & driver messages reach the car"
+                    : connected ? "Broker reachable but no recent state from the car's dashd (car off / dashd down). Lap cards & messages won't be seen."
                     : dashSignals.status === "connecting" ? "Dash uplink connecting…"
-                    : "Dash uplink offline — lap cards & driver messages won't reach the car"
-                  }
-                >
-                  <span className={`dot ${dashSignals.status === "connected" ? "live" : dashSignals.status === "connecting" ? "stale pulse" : "dead"}`} />
-                  {dashSignals.status === "connected" ? "Dash linked" : dashSignals.status === "connecting" ? "Dash linking…" : "Dash off"}
-                </span>
+                    : "Dash uplink offline — broker unreachable";
+                  return (
+                    <span className="freshTag" title={title}>
+                      <span className={`dot ${dot}`} /> {label}
+                    </span>
+                  );
+                })()}
               </div>
               <h2>{liveState.lapStartMs ? formatLapTime(liveLapElapsedMs) : "0:00.00"}</h2>
               <p>{eventEnded ? "Event ended — start a new session to run again" : liveState.lapStartMs ? "Flying lap" : "Out lap / waiting for start"}</p>
