@@ -79,7 +79,7 @@ const osThreadAttr_t controlTask_attributes = {
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define SELECTED_PARAMS endurance_params
+#define SELECTED_PARAMS acceleration_params
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
