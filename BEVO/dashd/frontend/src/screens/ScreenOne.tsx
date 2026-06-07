@@ -2,6 +2,7 @@ import React from 'react';
 import ConnectivityIndicator from '../components/ConnectivityIndicator';
 import { useDash } from '../context/DashContext';
 import { useEnergyPacing } from '../hooks/useEnergyPacing';
+import { eventModeLabel } from '../types/DashData';
 import './ScreenOne.css';
 
 // Screen One: Main Dashboard (Modern EV Style)
@@ -54,6 +55,11 @@ const ScreenOne: React.FC = () => {
     const tcLevel = data?.can.tcLevel ?? null;
     const tcEnabled = data?.can.tcEnabled ?? null;
     const regenEnabled = data?.can.regenEnabled ?? null;
+    // Active VCU event mode (Controls.event_mode). 0/null shows "—"; 1-4 map
+    // to ACCEL/SKID/AUTOX/ENDUR via EVENT_MODE_LABELS in DashData.ts.
+    const eventMode = data?.can.eventMode ?? null;
+    const eventModeText = eventModeLabel(eventMode);
+    const eventModeActive = eventMode !== null && eventMode !== undefined && eventMode !== 0;
     // BACKEND TODO: dashd needs MqttData.lapDeltaRate — d(lapDelta)/dt,
     //   units of seconds per second. Drivers want this as the primary
     //   glance bar because absolute delta lags. Compute off-car to keep
@@ -580,6 +586,33 @@ const ScreenOne: React.FC = () => {
                             {regenEnabled === null || regenEnabled === undefined
                                 ? '—'
                                 : regenEnabled ? 'ON' : 'OFF'}
+                        </span>
+                    </div>
+
+                    {/* MODE pill — which VCU params table is active. Burnt
+                        orange matches TC: same "armed/active" pattern. Shows
+                        the firmware-picked event (ACCEL/SKID/AUTOX/ENDUR);
+                        the driver can't change it here, it's set by which
+                        params header was compiled into the VCU. */}
+                    <div style={{
+                        height: '26px',
+                        padding: '0 14px',
+                        borderRadius: '5px',
+                        border: `2px solid ${eventModeActive ? '#BF5700' : 'var(--card-border-hover)'}`,
+                        background: eventModeActive ? 'rgba(191,87,0,0.20)' : 'var(--card-bg)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        <span className="label-small" style={{ marginBottom: 0, fontSize: '0.9rem', letterSpacing: '2px' }}>MODE</span>
+                        <span className="value-display" style={{
+                            fontSize: '1.3rem',
+                            fontWeight: 'bold',
+                            lineHeight: 1,
+                            color: eventModeActive ? 'var(--fg-primary)' : 'var(--fg-muted)'
+                        }}>
+                            {eventModeText ?? '—'}
                         </span>
                     </div>
                 </div>

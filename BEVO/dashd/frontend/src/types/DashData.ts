@@ -40,6 +40,11 @@ export interface CanData {
     tcEnabled?: boolean | null;     // TC armed?
     regenEnabled?: boolean | null;  // Regenerative braking enabled?
 
+    // Active VCU event mode — which params table the firmware is running.
+    // Source: Controls.event_mode (byte 6 of 0x1C7 VCU State). See
+    // EVENT_MODE_LABELS for the enum->label mapping.
+    eventMode?: number | null;
+
     // Pit-diagnostic fields. Not yet emitted by dashd (per-field BACKEND
     // TODOs in PitDiagnostic.tsx); demo hook synthesizes values so the
     // layout is testable.
@@ -104,6 +109,22 @@ export interface DashMessage {
     can: CanData;
     mqtt: MqttData;
     pacing: PacingData;
+}
+
+// VCU event mode enum (matches firmware VCU_DEFAULT_PARAMS + per-event override
+// in VCU/firmware/Core/Inc/params/*.h). Anything outside this range is shown
+// as the raw integer so a new mode added on the VCU isn't silently dropped.
+export const EVENT_MODE_LABELS: Record<number, string> = {
+    0: "—",
+    1: "ACCEL",
+    2: "SKID",
+    3: "AUTOX",
+    4: "ENDUR",
+};
+
+export function eventModeLabel(mode: number | null | undefined): string | null {
+    if (mode === null || mode === undefined) return null;
+    return EVENT_MODE_LABELS[mode] ?? String(mode);
 }
 
 // Shutdown circuit / safety-fault items, in the order dashd emits them.
