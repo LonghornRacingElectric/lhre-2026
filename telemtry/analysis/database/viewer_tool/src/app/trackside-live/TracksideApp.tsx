@@ -129,7 +129,6 @@ type LiveLap = {
   energyWh: number;
   energyOutWh?: number;
   energyInWh?: number;
-  batteryEnergyWh?: number | null;
   distanceM: number;
   avgSpeedMps: number | null;
   samples: LiveSample[];
@@ -156,8 +155,6 @@ type LiveSessionState = {
   lapEnergyWh: number;
   lapEnergyOutWh: number;
   lapEnergyInWh: number;
-  batteryTotalEnergyWh: number | null;
-  batteryLapEnergyWh: number | null;
   lapDistanceM: number;
   deltaRate: number | null;
   deltaMs: number;
@@ -170,7 +167,6 @@ type SavedCurrentLap = {
   lapEnergyWh: number;
   lapEnergyOutWh?: number;
   lapEnergyInWh?: number;
-  batteryLapEnergyWh: number | null;
   lapDistanceM: number;
   lapSamples: LiveSample[];
   deltaMs: number;
@@ -186,7 +182,6 @@ type SavedSession = {
   totalEnergyWh: number;
   totalEnergyOutWh?: number;
   totalEnergyInWh?: number;
-  batteryTotalEnergyWh?: number | null;
   laps: LiveLap[];
   selectedLapIds: string[];
   selectionSaved?: boolean;
@@ -255,8 +250,6 @@ const EMPTY_LIVE_STATE: LiveSessionState = {
   lapEnergyWh: 0,
   lapEnergyOutWh: 0,
   lapEnergyInWh: 0,
-  batteryTotalEnergyWh: null,
-  batteryLapEnergyWh: null,
   lapDistanceM: 0,
   deltaRate: null,
   deltaMs: 0,
@@ -665,18 +658,13 @@ function App() {
         avgEnergyWh: null as number | null,
         avgEnergyOutWh: null as number | null,
         avgEnergyInWh: null as number | null,
-        avgBatteryEnergyWh: null as number | null,
       };
     }
     const avgMs = selectedLaps.reduce((sum, lap) => sum + lap.durationMs, 0) / selectedLaps.length;
     const avgEnergyWh = selectedLaps.reduce((sum, lap) => sum + lap.energyWh, 0) / selectedLaps.length;
     const avgEnergyOutWh = selectedLaps.reduce((sum, lap) => sum + lapEnergyOutWh(lap), 0) / selectedLaps.length;
     const avgEnergyInWh = selectedLaps.reduce((sum, lap) => sum + lapEnergyInWh(lap), 0) / selectedLaps.length;
-    const batteryLaps = selectedLaps.filter((lap) => lap.batteryEnergyWh != null);
-    const avgBatteryEnergyWh = batteryLaps.length
-      ? batteryLaps.reduce((sum, lap) => sum + (lap.batteryEnergyWh ?? 0), 0) / batteryLaps.length
-      : null;
-    return { count: selectedLaps.length, avgMs, avgEnergyWh, avgEnergyOutWh, avgEnergyInWh, avgBatteryEnergyWh };
+    return { count: selectedLaps.length, avgMs, avgEnergyWh, avgEnergyOutWh, avgEnergyInWh };
   }, [selectedLaps]);
   // Hero "Lap" tile reads COMPLETED laps, not click count. A lap is counted
   // when its end-of-lap click closes it (or when GPS auto-detect crosses S/F).
@@ -1058,11 +1046,9 @@ function App() {
     liveState.lapEnergyWh,
     liveState.lapEnergyOutWh,
     liveState.lapEnergyInWh,
-    liveState.batteryLapEnergyWh,
     liveState.totalEnergyWh,
     liveState.totalEnergyOutWh,
     liveState.totalEnergyInWh,
-    liveState.batteryTotalEnergyWh,
     liveState.topic,
     source,
     targetLaps,
@@ -1900,6 +1886,10 @@ function App() {
     // the on-screen review. liveShouldRunRef is cleared so the feed doesn't
     // auto-reconnect; a new session will re-arm it.
     liveShouldRunRef.current = false;
+    // Reset the car's lap_count too so the dash starts the next session at
+    // Lap 0 instead of holding this session's high water mark. Same publish
+    // as startNewSession — symmetrical with how a new session starts.
+    if (dashSignals.status === "connected") dashSignals.resetLapCounter();
     clearLiveSessionState();
     setEventEnded(true);
     setLiveState((prev) => ({ ...prev, status: `Event stopped — ${lapsExported} lap${lapsExported === 1 ? "" : "s"} downloaded, session cleared.` }));
@@ -2101,9 +2091,7 @@ function App() {
     // are 0 and the website shows 0 Wh — that's correct: we don't know the
     // truth so we don't fake it.
     const { outDeltaWh: energyOutDeltaWh, inDeltaWh: energyInDeltaWh } = vcuEnergyDeltaWh(previous, sample);
-    const batteryPowerKw = signedBatteryTerminalPowerKwFor(sample);
     const energyDeltaWh = energyOutDeltaWh - energyInDeltaWh;
-    const batteryEnergyDeltaWh = batteryPowerKw == null ? null : batteryPowerKw * dtSeconds / 3.6;
     const distanceDeltaM = previous && hasGps(previous) && hasGps(sample) ? distanceMeters(previous.lat, previous.lon, sample.lat, sample.lon) : 0;
     let lapStartMs = current.lapStartMs;
     let sectorStartMs = current.sectorStartMs;
@@ -2112,9 +2100,6 @@ function App() {
     let lapEnergyWh = current.lapEnergyWh + energyDeltaWh;
     let lapEnergyOutWh = current.lapEnergyOutWh + energyOutDeltaWh;
     let lapEnergyInWh = current.lapEnergyInWh + energyInDeltaWh;
-    let batteryLapEnergyWh = batteryEnergyDeltaWh == null
-      ? current.batteryLapEnergyWh
-      : (current.batteryLapEnergyWh ?? 0) + batteryEnergyDeltaWh;
     let lapDistanceM = current.lapDistanceM + distanceDeltaM;
     let lapSamples = [...current.lapSamples, sample].slice(-LIVE_LAP_SAMPLE_MEMORY_CAP);
     let resetDelta = false;
@@ -2145,7 +2130,6 @@ function App() {
             energyWh: lapEnergyWh,
             energyOutWh: lapEnergyOutWh,
             energyInWh: lapEnergyInWh,
-            batteryEnergyWh: batteryLapEnergyWh,
             distanceM: lapDistanceM,
             avgSpeedMps: durationMs > 0 && lapDistanceM > 0 ? lapDistanceM / (durationMs / 1000) : null,
             samples: [],
@@ -2159,7 +2143,6 @@ function App() {
         lapEnergyWh = 0;
         lapEnergyOutWh = 0;
         lapEnergyInWh = 0;
-        batteryLapEnergyWh = null;
         lapDistanceM = 0;
         lapSamples = [sample];
         resetDelta = true;
@@ -2200,10 +2183,6 @@ function App() {
       lapEnergyWh,
       lapEnergyOutWh,
       lapEnergyInWh,
-      batteryTotalEnergyWh: batteryEnergyDeltaWh == null
-        ? current.batteryTotalEnergyWh
-        : (current.batteryTotalEnergyWh ?? 0) + batteryEnergyDeltaWh,
-      batteryLapEnergyWh,
       lapDistanceM,
       deltaRate,
       deltaMs,
@@ -2238,7 +2217,6 @@ function App() {
         lapEnergyWh: 0,
         lapEnergyOutWh: 0,
         lapEnergyInWh: 0,
-        batteryLapEnergyWh: null,
         lapDistanceM: 0,
         lapSamples: [sample],
         deltaMs: 0,
@@ -2270,7 +2248,6 @@ function App() {
       energyWh: current.lapEnergyWh,
       energyOutWh: current.lapEnergyOutWh,
       energyInWh: current.lapEnergyInWh,
-      batteryEnergyWh: current.batteryLapEnergyWh,
       distanceM: current.lapDistanceM,
       avgSpeedMps: durationMs > 0 && current.lapDistanceM > 0 ? current.lapDistanceM / (durationMs / 1000) : null,
       samples: [],
@@ -2286,7 +2263,6 @@ function App() {
       lapEnergyWh: 0,
       lapEnergyOutWh: 0,
       lapEnergyInWh: 0,
-      batteryLapEnergyWh: null,
       lapDistanceM: 0,
       lapSamples: [sample],
       deltaMs: 0,
@@ -2385,7 +2361,6 @@ function App() {
           lapEnergyWh: current.lapEnergyWh,
           lapEnergyOutWh: current.lapEnergyOutWh,
           lapEnergyInWh: current.lapEnergyInWh,
-          batteryLapEnergyWh: current.batteryLapEnergyWh,
           lapDistanceM: current.lapDistanceM,
           lapSamples: current.lapSamples.slice(includeFullLapSamples ? 0 : -SESSION_AUTOSAVE_SAMPLE_CAP),
           deltaMs: current.deltaMs,
@@ -2402,7 +2377,6 @@ function App() {
       totalEnergyWh: current.totalEnergyWh,
       totalEnergyOutWh: current.totalEnergyOutWh,
       totalEnergyInWh: current.totalEnergyInWh,
-      batteryTotalEnergyWh: current.batteryTotalEnergyWh,
       laps: current.laps.map((lap) => ({ ...lap, samples: includeFullLapSamples ? lap.samples : [] })),
       selectedLapIds: selectedLapIdsForSave(current.laps),
       selectionSaved: true,
@@ -2446,11 +2420,9 @@ function App() {
       totalEnergyWh: current.totalEnergyWh !== 0 ? current.totalEnergyWh : (saved.totalEnergyWh ?? 0),
       totalEnergyOutWh: current.totalEnergyOutWh > 0 ? current.totalEnergyOutWh : (saved.totalEnergyOutWh ?? Math.max(0, saved.totalEnergyWh ?? 0)),
       totalEnergyInWh: current.totalEnergyInWh > 0 ? current.totalEnergyInWh : (saved.totalEnergyInWh ?? 0),
-      batteryTotalEnergyWh: saved.batteryTotalEnergyWh ?? null,
       lapEnergyWh: cur?.lapEnergyWh ?? 0,
       lapEnergyOutWh: cur?.lapEnergyOutWh ?? Math.max(0, cur?.lapEnergyWh ?? 0),
       lapEnergyInWh: cur?.lapEnergyInWh ?? 0,
-      batteryLapEnergyWh: cur?.batteryLapEnergyWh ?? null,
       lapDistanceM: cur?.lapDistanceM ?? 0,
       deltaMs: cur?.deltaMs ?? 0,
     };
@@ -2518,11 +2490,9 @@ function App() {
       totalEnergyWh: saved.totalEnergyWh ?? 0,
       totalEnergyOutWh: saved.totalEnergyOutWh ?? Math.max(0, saved.totalEnergyWh ?? 0),
       totalEnergyInWh: saved.totalEnergyInWh ?? 0,
-      batteryTotalEnergyWh: saved.batteryTotalEnergyWh ?? null,
       lapEnergyWh: currentLap?.lapEnergyWh ?? 0,
       lapEnergyOutWh: currentLap?.lapEnergyOutWh ?? Math.max(0, currentLap?.lapEnergyWh ?? 0),
       lapEnergyInWh: currentLap?.lapEnergyInWh ?? 0,
-      batteryLapEnergyWh: currentLap?.batteryLapEnergyWh ?? null,
       lapDistanceM: currentLap?.lapDistanceM ?? 0,
       deltaMs: currentLap?.deltaMs ?? 0,
     };
@@ -3401,7 +3371,6 @@ function App() {
                   currentLapEnergyWh={liveState.lapEnergyWh}
                   currentLapEnergyOutWh={liveState.lapEnergyOutWh}
                   currentLapEnergyInWh={liveState.lapEnergyInWh}
-                  currentLapBatteryEnergyWh={liveState.batteryLapEnergyWh}
                   sectorCount={liveSectorCount}
                   selectedLapIds={selectedLapIds}
                   onToggleLap={toggleLapSelected}
@@ -4377,7 +4346,8 @@ function PackStatusPanel({
 }) {
   const pack = packStatus(state.samples, soeCutoffCellV, displayState.lastSample);
   const sample = displayState.lastSample;
-  const inverterPowerKw = inverterPowerKwFor(sample);
+  const signedPowerKw = signedVcuPowerKwFor(displayState.previousSample, sample);
+  const powerKw = signedPowerKw == null ? null : Math.abs(signedPowerKw);
   return (
     <Panel title="Pack Status" icon={<Zap size={18} />}>
       <div className="packStatus">
@@ -4398,7 +4368,7 @@ function PackStatusPanel({
         </small>
         <div className="packMetricGrid">
           <Metric label={pack.voltageSource === "cell-est" ? "Pack V Est" : "Voltage"} value={pack.voltage == null ? "--" : `${pack.voltage.toFixed(1)} V`} />
-          <Metric label="Inv Power" value={inverterPowerKw == null ? "--" : `${inverterPowerKw.toFixed(2)} kW`} />
+          <Metric label="Power" value={powerKw == null ? "--" : `${powerKw.toFixed(2)} kW`} />
           <Metric label="OCV Derate" value={pack.lowVoltageDeratePct == null ? "--" : `${pack.lowVoltageDeratePct.toFixed(0)}%`} />
           <Metric label="Min Cell" value={pack.minCellV == null ? "--" : `${pack.minCellV.toFixed(3)} V`} />
           <Metric label="Max Cell" value={pack.maxCellV == null ? "--" : `${pack.maxCellV.toFixed(3)} V`} />
@@ -4428,26 +4398,23 @@ function EnergyStrategyPanel({
     avgEnergyWh: number | null;
     avgEnergyOutWh: number | null;
     avgEnergyInWh: number | null;
-    avgBatteryEnergyWh: number | null;
   };
 }) {
   const sample = state.lastSample;
-  const signedInverterPowerKw = signedInverterPowerKwFor(sample);
-  const inverterPowerKw = signedInverterPowerKw == null ? null : Math.max(0, signedInverterPowerKw);
-  const regenPowerKw = signedInverterPowerKw == null ? null : Math.max(0, -signedInverterPowerKw);
-  const batteryPowerKw = batteryTerminalPowerKwFor(sample);
+  const signedPowerKw = signedVcuPowerKwFor(state.previousSample, sample);
+  const drivePowerKw = signedPowerKw == null ? null : Math.max(0, signedPowerKw);
+  const regenPowerKw = signedPowerKw == null ? null : Math.max(0, -signedPowerKw);
   const pack = packStatus(state.samples, soeCutoffCellV, sample);
   const targetWh = targetEnergyKwh > 0 ? targetEnergyKwh * 1000 : null;
-  const batteryUsedWh = state.batteryTotalEnergyWh;
+  const vcuUsedWh = state.totalEnergyWh;
   const soeUsedFromFullWh = pack.soePercent == null ? null : (1 - pack.soePercent / 100) * PACK_ENERGY_KWH * 1000;
   const soeRemainingWh = pack.soeKwh == null ? null : pack.soeKwh * 1000;
-  const packUsedForBudgetWh = soeUsedFromFullWh ?? batteryUsedWh;
+  const packUsedForBudgetWh = soeUsedFromFullWh ?? vcuUsedWh;
   const packRemainingWh = targetWh == null || packUsedForBudgetWh == null ? null : targetWh - packUsedForBudgetWh;
   const packUsedPercent = targetWh == null || packUsedForBudgetWh == null ? 0 : clamp((packUsedForBudgetWh / targetWh) * 100, 0, 100);
-  const projectedPackWh = averages.avgBatteryEnergyWh != null && targetLaps > 0 ? averages.avgBatteryEnergyWh * targetLaps : null;
-  const projectedInverterWh = averages.avgEnergyWh != null && targetLaps > 0 ? averages.avgEnergyWh * targetLaps : null;
-  const selectedPackAvgDelta = averages.avgBatteryEnergyWh != null && targetEnergyPerLapWh != null
-    ? averages.avgBatteryEnergyWh - targetEnergyPerLapWh
+  const projectedNetWh = averages.avgEnergyWh != null && targetLaps > 0 ? averages.avgEnergyWh * targetLaps : null;
+  const selectedAvgDelta = averages.avgEnergyWh != null && targetEnergyPerLapWh != null
+    ? averages.avgEnergyWh - targetEnergyPerLapWh
     : null;
 
   return (
@@ -4471,26 +4438,22 @@ function EnergyStrategyPanel({
         <div className="energyPlanGrid">
           <Metric label="Budget Remaining" value={packRemainingWh == null ? "--" : formatKwhFromWh(packRemainingWh)} />
           <Metric label="SOE Remaining" value={soeRemainingWh == null ? "--" : formatKwhFromWh(soeRemainingWh)} />
-          <Metric label="Pack VxI Used" value={batteryUsedWh == null ? "--" : formatKwhFromWh(batteryUsedWh)} />
-          <Metric label="Pack / Lap" value={targetEnergyPerLapWh == null ? "--" : `${targetEnergyPerLapWh.toFixed(0)} Wh`} />
-          <Metric label="Current Lap Pack" value={state.batteryLapEnergyWh == null ? "--" : `${state.batteryLapEnergyWh.toFixed(1)} Wh`} />
-          <Metric label="Avg Pack Lap" value={averages.avgBatteryEnergyWh == null ? "--" : `${averages.avgBatteryEnergyWh.toFixed(1)} Wh`} />
-          <Metric label="Net Inv (e-meter)" value={formatKwhFromWh(state.totalEnergyWh)} />
-          <Metric label="Inv Out" value={formatKwhFromWh(state.totalEnergyOutWh)} />
-          <Metric label="Regen In" value={formatKwhFromWh(state.totalEnergyInWh)} />
-          <Metric label="Power Out" value={inverterPowerKw == null ? "--" : `${inverterPowerKw.toFixed(2)} kW`} />
+          <Metric label="Net Used (VCU)" value={formatKwhFromWh(vcuUsedWh)} />
+          <Metric label="Net / Lap" value={targetEnergyPerLapWh == null ? "--" : `${targetEnergyPerLapWh.toFixed(0)} Wh`} />
+          <Metric label="Drive (VCU)" value={formatKwhFromWh(state.totalEnergyOutWh)} />
+          <Metric label="Regen (VCU)" value={formatKwhFromWh(state.totalEnergyInWh)} />
+          <Metric label="Drive Power" value={drivePowerKw == null ? "--" : `${drivePowerKw.toFixed(2)} kW`} />
           <Metric label="Regen Power" value={regenPowerKw == null ? "--" : `${regenPowerKw.toFixed(2)} kW`} />
-          <Metric label="Batt Est Power" value={batteryPowerKw == null ? "--" : `${batteryPowerKw.toFixed(2)} kW`} />
-          <Metric label="Lap Net Inv" value={`${state.lapEnergyWh.toFixed(1)} Wh`} />
-          <Metric label="Lap Inv Out" value={`${state.lapEnergyOutWh.toFixed(1)} Wh`} />
+          <Metric label="Lap Net" value={`${state.lapEnergyWh.toFixed(1)} Wh`} />
+          <Metric label="Lap Drive" value={`${state.lapEnergyOutWh.toFixed(1)} Wh`} />
           <Metric label="Lap Regen" value={`${state.lapEnergyInWh.toFixed(1)} Wh`} />
-          <Metric label="Avg Net Inv" value={averages.avgEnergyWh == null ? "--" : `${averages.avgEnergyWh.toFixed(1)} Wh`} />
+          <Metric label="Avg Net Lap" value={averages.avgEnergyWh == null ? "--" : `${averages.avgEnergyWh.toFixed(1)} Wh`} />
           <Metric label="Avg Regen" value={averages.avgEnergyInWh == null ? "--" : `${averages.avgEnergyInWh.toFixed(1)} Wh`} />
         </div>
         <small className="muted">
-          {selectedPackAvgDelta != null
-            ? `Selected pack-energy laps are ${formatEnergyDelta(selectedPackAvgDelta)} per lap; projected pack total ${projectedPackWh == null ? "--" : formatKwhFromWh(projectedPackWh)}.`
-            : `SOE gives a pack-from-full estimate; e-meter projected total ${projectedInverterWh == null ? "--" : formatKwhFromWh(projectedInverterWh)} stays separate.`}
+          {selectedAvgDelta != null
+            ? `Selected laps are ${formatEnergyDelta(selectedAvgDelta)} per lap; projected total ${projectedNetWh == null ? "--" : formatKwhFromWh(projectedNetWh)}.`
+            : `SOE gives a pack-from-full estimate; VCU projected total ${projectedNetWh == null ? "--" : formatKwhFromWh(projectedNetWh)} stays separate.`}
         </small>
       </div>
     </Panel>
@@ -4800,11 +4763,9 @@ function LiveDataPanel({ state }: { state: LiveSessionState }) {
   const dcBusV = dcBusVoltageFor(sample);
   const energyV = energyVoltageFor(sample);
   const dcBusCurrent = dcBusCurrentFor(sample);
-  const signedInverterPowerKw = signedInverterPowerKwFor(sample);
-  const powerSource = energyPowerSourceFor(sample);
-  const inverterPowerKw = signedInverterPowerKw == null ? null : Math.max(0, signedInverterPowerKw);
-  const regenPowerKw = signedInverterPowerKw == null ? null : Math.max(0, -signedInverterPowerKw);
-  const batteryPowerKw = batteryTerminalPowerKwFor(sample);
+  const signedPowerKw = signedVcuPowerKwFor(state.previousSample, sample);
+  const drivePowerKw = signedPowerKw == null ? null : Math.max(0, signedPowerKw);
+  const regenPowerKw = signedPowerKw == null ? null : Math.max(0, -signedPowerKw);
   const motorRpm = firstLiveValue(values, ["controls_motor_speed", "motor_speed", "dynamics_inverter_rpm", "inverter_rpm"]);
   const rawApps = rawAppsTravelDetails(values);
   const rawRows = [...rawAppsLiveRows(rawApps), ...topLiveValues(values)];
@@ -4813,11 +4774,10 @@ function LiveDataPanel({ state }: { state: LiveSessionState }) {
       <div className="liveDataGrid">
         <Metric label="Samples" value={state.samples.length.toLocaleString()} />
         <Metric label="Last Sample" value={sample ? formatTime(sample.t) : "--"} />
-        <Metric label="Power Out" value={inverterPowerKw == null ? "--" : `${inverterPowerKw.toFixed(2)} kW`} />
+        <Metric label="Drive Power" value={drivePowerKw == null ? "--" : `${drivePowerKw.toFixed(2)} kW`} />
         <Metric label="Regen Power" value={regenPowerKw == null ? "--" : `${regenPowerKw.toFixed(2)} kW`} tone="good" />
-        <Metric label="Batt Est Pwr" value={batteryPowerKw == null ? "--" : `${batteryPowerKw.toFixed(2)} kW`} />
         <Metric label={dcBusV == null && energyV != null ? "Est V / I" : "DC Bus"} value={energyV == null || dcBusCurrent == null ? "--" : `${energyV.toFixed(1)} V / ${dcBusCurrent.toFixed(1)} A`} />
-        <Metric label="Power Src" value={powerSource} />
+        <Metric label="Power Src" value="VCU 0x1C9" />
         <Metric label="Motor RPM" value={motorRpm == null ? "--" : `${Math.round(motorRpm).toLocaleString()} rpm`} />
         <Metric label="Raw APPS" value={rawApps == null ? "--" : `${(rawApps.average * 100).toFixed(1)}%`} />
         <Metric label="Raw Channels" value={Object.keys(values).length.toLocaleString()} />
@@ -4854,7 +4814,6 @@ function LiveLapTable({
   currentLapEnergyWh,
   currentLapEnergyOutWh,
   currentLapEnergyInWh,
-  currentLapBatteryEnergyWh,
   sectorCount,
   selectedLapIds,
   onToggleLap,
@@ -4873,7 +4832,6 @@ function LiveLapTable({
   currentLapEnergyWh: number;
   currentLapEnergyOutWh: number;
   currentLapEnergyInWh: number;
-  currentLapBatteryEnergyWh: number | null;
   sectorCount: number;
   selectedLapIds: Set<string>;
   onToggleLap: (lapId: string) => void;
@@ -4888,17 +4846,15 @@ function LiveLapTable({
     avgEnergyWh: number | null;
     avgEnergyOutWh: number | null;
     avgEnergyInWh: number | null;
-    avgBatteryEnergyWh: number | null;
   };
 }) {
   const columns = sectorCount;
-  const showBatteryEnergy = currentLapBatteryEnergyWh != null || laps.some((lap) => lap.batteryEnergyWh != null);
-  const totalCols = 3 + columns + 3 + (showBatteryEnergy ? 1 : 0) + (targetEnergyPerLapWh != null ? 1 : 0) + 1; // +1 = Notes
-  const currentTargetEnergyWh = showBatteryEnergy ? currentLapBatteryEnergyWh : currentLapEnergyWh;
-  const averageTargetEnergyWh = showBatteryEnergy ? averages.avgBatteryEnergyWh : averages.avgEnergyWh;
+  const totalCols = 3 + columns + 3 + (targetEnergyPerLapWh != null ? 1 : 0) + 1; // +1 = Notes
+  const currentTargetEnergyWh = currentLapEnergyWh;
+  const averageTargetEnergyWh = averages.avgEnergyWh;
   const tableWrapRef = useRef<HTMLDivElement | null>(null);
   const lastLap = laps[laps.length - 1] ?? null;
-  const lastLapTargetEnergyWh = lastLap == null ? null : showBatteryEnergy ? lastLap.batteryEnergyWh ?? null : lastLap.energyWh;
+  const lastLapTargetEnergyWh = lastLap == null ? null : lastLap.energyWh;
   const lastLapDeltaWh = targetEnergyPerLapWh != null && lastLapTargetEnergyWh != null ? lastLapTargetEnergyWh - targetEnergyPerLapWh : null;
   const averageDeltaWh = targetEnergyPerLapWh != null && averageTargetEnergyWh != null ? averageTargetEnergyWh - targetEnergyPerLapWh : null;
 
@@ -4918,19 +4874,18 @@ function LiveLapTable({
               <th>Lap</th>
               <th>Time</th>
               {Array.from({ length: columns }, (_sector, index) => <th key={`sector-head-${index}`}>S{index + 1}</th>)}
-              <th>Inv Out</th>
-              <th>Regen In</th>
-              <th>Net Inv</th>
-              {showBatteryEnergy ? <th>Batt Est</th> : null}
-              {targetEnergyPerLapWh != null ? <th>{showBatteryEnergy ? "Δ Pack" : "Δ Net Inv"}</th> : null}
+              <th>Drive</th>
+              <th>Regen</th>
+              <th>Net</th>
+              {targetEnergyPerLapWh != null ? <th>Δ Net</th> : null}
               <th>Notes</th>
             </tr>
           </thead>
           <tbody>
             {laps.map((lap) => {
               const selected = selectedLapIds.has(lap.id);
-              const targetEnergyWh = showBatteryEnergy ? (lap.batteryEnergyWh ?? null) : lap.energyWh;
-              const delta = targetEnergyPerLapWh != null && targetEnergyWh != null ? targetEnergyWh - targetEnergyPerLapWh : null;
+              const targetEnergyWh = lap.energyWh;
+              const delta = targetEnergyPerLapWh != null ? targetEnergyWh - targetEnergyPerLapWh : null;
               return (
                 <tr key={lap.id} className={selected ? "" : "lapDeselected"}>
                   <td>
@@ -4973,7 +4928,6 @@ function LiveLapTable({
                   <td>{lapEnergyOutWh(lap).toFixed(1)} Wh</td>
                   <td className="goodText">{lapEnergyInWh(lap).toFixed(1)} Wh</td>
                   <td>{lap.energyWh.toFixed(1)} Wh</td>
-                  {showBatteryEnergy ? <td>{lap.batteryEnergyWh == null ? "--" : `${lap.batteryEnergyWh.toFixed(1)} Wh`}</td> : null}
                   {targetEnergyPerLapWh != null ? <td className={delta != null && delta > 0 ? "deltaOver" : "deltaUnder"}>{delta == null ? "--" : formatEnergyDelta(delta)}</td> : null}
                   <td>
                     {editable ? (
@@ -5008,8 +4962,7 @@ function LiveLapTable({
                 <td>{currentLapEnergyOutWh.toFixed(1)} Wh</td>
                 <td className="goodText">{currentLapEnergyInWh.toFixed(1)} Wh</td>
                 <td>{currentLapEnergyWh.toFixed(1)} Wh</td>
-                {showBatteryEnergy ? <td>{currentLapBatteryEnergyWh == null ? "--" : `${currentLapBatteryEnergyWh.toFixed(1)} Wh`}</td> : null}
-                {targetEnergyPerLapWh != null ? <td>{currentTargetEnergyWh == null ? "--" : formatEnergyDelta(currentTargetEnergyWh - targetEnergyPerLapWh)}</td> : null}
+                {targetEnergyPerLapWh != null ? <td>{formatEnergyDelta(currentTargetEnergyWh - targetEnergyPerLapWh)}</td> : null}
                 <td />
               </tr>
             ) : null}
@@ -5024,7 +4977,6 @@ function LiveLapTable({
                 <td>{averages.avgEnergyOutWh == null ? "--" : `${averages.avgEnergyOutWh.toFixed(1)} Wh`}</td>
                 <td className="goodText">{averages.avgEnergyInWh == null ? "--" : `${averages.avgEnergyInWh.toFixed(1)} Wh`}</td>
                 <td>{averages.avgEnergyWh == null ? "--" : `${averages.avgEnergyWh.toFixed(1)} Wh`}</td>
-                {showBatteryEnergy ? <td>{averages.avgBatteryEnergyWh == null ? "--" : `${averages.avgBatteryEnergyWh.toFixed(1)} Wh`}</td> : null}
                 {targetEnergyPerLapWh != null ? (
                   <td>{averageTargetEnergyWh == null ? "--" : formatEnergyDelta(averageTargetEnergyWh - targetEnergyPerLapWh)}</td>
                 ) : null}
@@ -5042,10 +4994,9 @@ function LiveLapTable({
           </div>
           <div className="lapMiniGrid">
             <Metric label="Time" value={lastLap == null ? "--" : formatLapTime(lastLap.durationMs)} />
-            <Metric label="Net Inv" value={lastLap == null ? "--" : `${lastLap.energyWh.toFixed(1)} Wh`} />
-            <Metric label="Inv Out" value={lastLap == null ? "--" : `${lapEnergyOutWh(lastLap).toFixed(1)} Wh`} />
-            <Metric label="Regen In" value={lastLap == null ? "--" : `${lapEnergyInWh(lastLap).toFixed(1)} Wh`} />
-            {showBatteryEnergy ? <Metric label="Pack Est" value={lastLap?.batteryEnergyWh == null ? "--" : `${lastLap.batteryEnergyWh.toFixed(1)} Wh`} /> : null}
+            <Metric label="Net" value={lastLap == null ? "--" : `${lastLap.energyWh.toFixed(1)} Wh`} />
+            <Metric label="Drive" value={lastLap == null ? "--" : `${lapEnergyOutWh(lastLap).toFixed(1)} Wh`} />
+            <Metric label="Regen" value={lastLap == null ? "--" : `${lapEnergyInWh(lastLap).toFixed(1)} Wh`} />
             <Metric label="Target Δ" value={lastLapDeltaWh == null ? "--" : formatEnergyDelta(lastLapDeltaWh)} />
           </div>
         </div>
@@ -5056,10 +5007,9 @@ function LiveLapTable({
           </div>
           <div className="lapMiniGrid">
             <Metric label="Time" value={averages.avgMs == null ? "--" : formatLapTime(averages.avgMs)} />
-            <Metric label="Net Inv" value={averages.avgEnergyWh == null ? "--" : `${averages.avgEnergyWh.toFixed(1)} Wh`} />
-            <Metric label="Inv Out" value={averages.avgEnergyOutWh == null ? "--" : `${averages.avgEnergyOutWh.toFixed(1)} Wh`} />
-            <Metric label="Regen In" value={averages.avgEnergyInWh == null ? "--" : `${averages.avgEnergyInWh.toFixed(1)} Wh`} />
-            {showBatteryEnergy ? <Metric label="Pack Est" value={averages.avgBatteryEnergyWh == null ? "--" : `${averages.avgBatteryEnergyWh.toFixed(1)} Wh`} /> : null}
+            <Metric label="Net" value={averages.avgEnergyWh == null ? "--" : `${averages.avgEnergyWh.toFixed(1)} Wh`} />
+            <Metric label="Drive" value={averages.avgEnergyOutWh == null ? "--" : `${averages.avgEnergyOutWh.toFixed(1)} Wh`} />
+            <Metric label="Regen" value={averages.avgEnergyInWh == null ? "--" : `${averages.avgEnergyInWh.toFixed(1)} Wh`} />
             <Metric label="Target Δ" value={averageDeltaWh == null ? "--" : formatEnergyDelta(averageDeltaWh)} />
           </div>
         </div>
@@ -6231,20 +6181,11 @@ function smoothLiveSample(sample: LiveSample, previous: LiveSample | null) {
 
     const previousVoltage = previous ? packVoltageFor(previous) : null;
     const previousCurrent = previous ? packCurrentFor(previous) : null;
-    const previousPowerKw = signedLiveEnergyPowerKwFor(previous);
-    const previousBatteryPowerKw = signedBatteryTerminalPowerKwFor(previous);
     const previousSpeed = previous?.speed ?? previous?.values.speed ?? null;
 
     const filteredVoltage = smoothPresentNumber(voltage, previousVoltage, dtSeconds, 3.5);
     const filteredCurrent = smoothPresentNumber(current, previousCurrent, dtSeconds, 1.1);
     const filteredSpeed = smoothPresentNumber(speed, previousSpeed, dtSeconds, 0.8);
-
-    // Derive power live from the inverter DC bus voltage * current so it tracks
-    // the latest sample and falls to ~0 when current drops at a stop, instead of
-    // smoothing a backend power value that can hold stale when a packet omits it.
-    const instantPowerKw = signedLiveEnergyPowerKwFor(sample);
-    const filteredPowerKw = smoothPresentNumber(instantPowerKw, previousPowerKw, dtSeconds, 1.1);
-    const filteredBatteryPowerKw = smoothPresentNumber(signedBatteryTerminalPowerKwFor(sample), previousBatteryPowerKw, dtSeconds, 1.1);
 
     if (filteredVoltage != null) {
       smoothed.hv_pack_v = filteredVoltage;
@@ -6255,16 +6196,6 @@ function smoothLiveSample(sample: LiveSample, previous: LiveSample | null) {
       smoothed.hv_c = filteredCurrent;
       values.hv_c = filteredCurrent;
       values.dc_bus_current = filteredCurrent;
-    }
-    if (filteredPowerKw != null) {
-      smoothed.power_kw = Math.abs(filteredPowerKw);
-      values.power_kw = Math.abs(filteredPowerKw);
-      values.inverter_power_kw = Math.abs(filteredPowerKw);
-      values.inverter_power_kw_signed = filteredPowerKw;
-    }
-    if (filteredBatteryPowerKw != null) {
-      values.battery_terminal_power_kw = Math.abs(filteredBatteryPowerKw);
-      values.battery_terminal_power_kw_signed = filteredBatteryPowerKw;
     }
     if (filteredSpeed != null) {
       smoothed.speed = filteredSpeed;
@@ -6550,18 +6481,6 @@ function validDcBusCurrent(value: number | null | undefined): value is number {
   return value != null && Number.isFinite(value) && value >= -600 && value <= 600;
 }
 
-function inverterPowerKwFor(sample: LiveSample | null) {
-  const signed = signedInverterPowerKwFor(sample);
-  return signed == null ? null : Math.abs(signed);
-}
-
-function signedInverterPowerKwFor(sample: LiveSample | null) {
-  if (!sample) return null;
-  const directPower = signedDcBusPowerKwFor(sample);
-  if (directPower != null) return directPower;
-  return firstLiveValue(sample.values, ["inverter_power_kw_signed", "signed_inverter_power_kw", "inverter_power_kw", "power_kw"]) ?? sample.power_kw ?? null;
-}
-
 // Per-sample energy delta sourced from the VCU's cumulative net_energy /
 // regen_energy (CAN 0x1C9 Energy Estimate, units Wh). The website trusts the
 // VCU as the source of truth — no client-side power×dt integration anywhere.
@@ -6596,80 +6515,27 @@ function vcuEnergyDeltaWh(
   };
 }
 
-function signedLiveEnergyPowerKwFor(sample: LiveSample | null) {
-  if (!sample) return null;
-  const directPower = signedDcBusPowerKwFor(sample);
-  const mechanicalPower = signedMechanicalPowerKwFor(sample);
-  if (mechanicalPower != null && mechanicalPower < 0) {
-    if (directPower == null || directPower >= 0 || Math.abs(mechanicalPower) > Math.abs(directPower) * 1.25) {
-      return mechanicalPower;
-    }
-  }
-  if (directPower != null) return directPower;
-  if (mechanicalPower != null) return mechanicalPower;
-  return firstLiveValue(sample.values, [
-    "inverter_power_kw_signed",
-    "signed_inverter_power_kw",
-    "mechanical_power_kw_signed",
-    "estimated_power_kw_signed",
-    "inverter_power_kw",
-    "power_kw",
-  ]) ?? sample.power_kw ?? null;
-}
-
-function signedDcBusPowerKwFor(sample: LiveSample | null) {
-  if (!sample) return null;
-  const dcBusV = energyVoltageFor(sample);
-  const dcBusI = dcBusCurrentFor(sample);
-  if (dcBusV != null && dcBusI != null) return (dcBusV * dcBusI) / 1000;
-  return null;
-}
-
-function signedMechanicalPowerKwFor(sample: LiveSample | null) {
-  if (!sample) return null;
-  const channelValue = firstLiveValue(sample.values, ["mechanical_power_kw_signed", "estimated_power_kw_signed"]);
-  if (channelValue != null) return channelValue;
-  const torqueNm = torqueFeedbackNmFor(sample);
-  const rpm = firstLiveValue(sample.values, ["controls_motor_speed", "motor_speed", "dynamics_inverter_rpm", "inverter_rpm"]);
-  if (torqueNm == null || rpm == null || Math.abs(torqueNm) > 800 || Math.abs(rpm) > 30000) return null;
-  return torqueNm * rpm * (2 * Math.PI / 60) / 1000;
+// Signed instantaneous kW between two samples, derived from the VCU's
+// cumulative energy. Positive = drive (energy leaving the pack), negative =
+// regen (energy returning). Needs both samples present and a finite dt; otherwise
+// null (the caller falls back to a stale-but-finite display).
+function signedVcuPowerKwFor(previous: LiveSample | null, sample: LiveSample | null) {
+  if (!previous || !sample) return null;
+  const dtSeconds = (sample.t - previous.t) / 1000;
+  if (!Number.isFinite(dtSeconds) || dtSeconds <= 0) return null;
+  const { outDeltaWh, inDeltaWh } = vcuEnergyDeltaWh(previous, sample);
+  if (outDeltaWh === 0 && inDeltaWh === 0) return null;
+  // Wh / s = W; *3.6 = kW.
+  return (outDeltaWh - inDeltaWh) * 3.6 / dtSeconds;
 }
 
 function energyVoltageFor(sample: LiveSample | null) {
   return dcBusVoltageFor(sample) ?? cellPackVoltageEstimateFor(sample);
 }
 
-function energyPowerSourceFor(sample: LiveSample | null) {
-  if (!sample) return "--";
-  const directPower = signedDcBusPowerKwFor(sample);
-  const mechanicalPower = signedMechanicalPowerKwFor(sample);
-  const livePower = signedLiveEnergyPowerKwFor(sample);
-  if (mechanicalPower != null && livePower === mechanicalPower) return "Torque x RPM";
-  if (directPower != null && dcBusVoltageFor(sample) != null) return "DC bus V x I";
-  if (directPower != null && cellPackVoltageEstimateFor(sample) != null) return "Pack est V x I";
-  if (firstLiveValue(sample.values, ["mechanical_power_kw_signed", "estimated_power_kw_signed"]) != null) return "Torque x RPM";
-  if (firstLiveValue(sample.values, ["inverter_power_kw_signed", "signed_inverter_power_kw", "inverter_power_kw", "power_kw"]) != null) return "Power channel";
-  return "Missing current";
-}
-
 function cellPackVoltageEstimateFor(sample: LiveSample | null) {
   const value = firstLiveValue(sample?.values ?? {}, ["cell_pack_voltage_est"]);
   return validDcBusVoltage(value) ? value : null;
-}
-
-function batteryTerminalPowerKwFor(sample: LiveSample | null) {
-  const signed = signedBatteryTerminalPowerKwFor(sample);
-  return signed == null ? null : Math.abs(signed);
-}
-
-function signedBatteryTerminalPowerKwFor(sample: LiveSample | null) {
-  if (!sample) return null;
-  return firstLiveValue(sample.values, [
-    "battery_terminal_power_kw_signed",
-    "pack_terminal_power_kw_signed",
-    "battery_terminal_power_kw",
-    "pack_terminal_power_kw",
-  ]);
 }
 
 function torqueFeedbackNmFor(sample: LiveSample | null) {
