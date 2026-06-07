@@ -64,7 +64,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Orion Driver Inputs \u2014 Retrospective",
+  "title": "Orion Driver Inputs — Retrospective",
   "uid": "orion_driver_inputs_ret_v1",
   "version": 1,
   "weekStart": "",
@@ -155,7 +155,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(dynamics.accel_pedal_travel) AS \"Throttle Travel [%]\", AVG(controls.brake_pressure_f) AS \"Brake Pressure Front [psi]\", AVG(controls.brake_bias) AS \"Brake Bias [%]\" FROM controls JOIN packet ON packet.packet_id = controls.packet_id JOIN dynamics ON dynamics.packet_id = controls.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS (\n  SELECT MIN(p.start_time) AS effective_start, MAX(p.end_time) AS effective_end\n  FROM partitions p\n  WHERE p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n),\ngranularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT\n  to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n  AVG(dynamics.accel_pedal_travel) AS \"Throttle Travel [%]\",\n  AVG(controls.brake_pressure_f)   AS \"Brake Pressure Front [psi]\",\n  AVG(controls.brake_bias)         AS \"Brake Bias [%]\"\nFROM controls\nJOIN packet   ON packet.packet_id = controls.packet_id\nJOIN dynamics ON dynamics.packet_id = controls.packet_id\nCROSS JOIN bounds\nCROSS JOIN granularity\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\nGROUP BY 1\nORDER BY time;",
           "refId": "A"
         }
       ],
@@ -265,7 +265,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(dynamics.steer_col_angle) AS \"Steering Angle [deg]\", AVG(dynamics.gps_speed) AS \"GPS Speed [m/s]\" FROM dynamics JOIN packet ON packet.packet_id = dynamics.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS (\n  SELECT MIN(p.start_time) AS effective_start, MAX(p.end_time) AS effective_end\n  FROM partitions p\n  WHERE p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n),\ngranularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT\n  to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n  AVG(dynamics.steer_col_angle) AS \"Steering Angle [deg]\",\n  AVG(dynamics.gps_speed)       AS \"GPS Speed [m/s]\"\nFROM dynamics\nJOIN packet ON packet.packet_id = dynamics.packet_id\nCROSS JOIN bounds\nCROSS JOIN granularity\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\nGROUP BY 1\nORDER BY time;",
           "refId": "A"
         }
       ],
@@ -358,7 +358,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(controls.torque_request) AS \"Torque Request [Nm]\", AVG(controls.torque_command) AS \"Torque Command [Nm]\", AVG(controls.torque_feedback) AS \"Torque Feedback [Nm]\", AVG(controls.torque_limit) AS \"Torque Limit [Nm]\" FROM controls JOIN packet ON packet.packet_id = controls.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS (\n  SELECT MIN(p.start_time) AS effective_start, MAX(p.end_time) AS effective_end\n  FROM partitions p\n  WHERE p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n),\ngranularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT\n  to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n  AVG(controls.torque_request)  AS \"Torque Request [Nm]\",\n  AVG(controls.torque_command)  AS \"Torque Command [Nm]\",\n  AVG(controls.torque_feedback) AS \"Torque Feedback [Nm]\",\n  AVG(controls.torque_limit)    AS \"Torque Limit [Nm]\"\nFROM controls\nJOIN packet ON packet.packet_id = controls.packet_id\nCROSS JOIN bounds\nCROSS JOIN granularity\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\nGROUP BY 1\nORDER BY time;",
           "refId": "A"
         }
       ],
@@ -546,7 +546,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH bounds AS ( SELECT p.start_time AS effective_start, p.end_time AS effective_end FROM partitions p WHERE (COALESCE(array_length(ARRAY[${Zoom:singlequote}]::text[],1),0) = 0 OR p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])) ), granularity AS ( SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms ) SELECT to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time, AVG(controls.apps1_v) AS \"APPS1 [V]\", AVG(controls.apps2_v) AS \"APPS2 [V]\", AVG(controls.bpps1_v) AS \"BPPS1 [V]\", AVG(controls.bpps2_v) AS \"BPPS2 [V]\" FROM controls JOIN packet ON packet.packet_id = controls.packet_id JOIN bounds ON true JOIN granularity ON true WHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end GROUP BY 1 ORDER BY time;",
+          "rawSql": "WITH bounds AS (\n  SELECT MIN(p.start_time) AS effective_start, MAX(p.end_time) AS effective_end\n  FROM partitions p\n  WHERE p.partition_name = ANY(ARRAY[${Zoom:singlequote}]::text[])\n),\ngranularity AS (\n  SELECT GREATEST($__interval_ms::double precision, 1) AS step_ms\n)\nSELECT\n  to_timestamp(floor(packet.time / granularity.step_ms) * granularity.step_ms / 1000.0) AS time,\n  AVG(controls.apps1_v) AS \"APPS1 [V]\",\n  AVG(controls.apps2_v) AS \"APPS2 [V]\",\n  AVG(controls.bpps1_v) AS \"BPPS1 [V]\",\n  AVG(controls.bpps2_v) AS \"BPPS2 [V]\"\nFROM controls\nJOIN packet ON packet.packet_id = controls.packet_id\nCROSS JOIN bounds\nCROSS JOIN granularity\nWHERE packet.time BETWEEN bounds.effective_start AND bounds.effective_end\nGROUP BY 1\nORDER BY time;",
           "refId": "A"
         }
       ],

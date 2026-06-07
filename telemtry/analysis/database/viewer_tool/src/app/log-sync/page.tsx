@@ -12,6 +12,7 @@ import {
   hasAnnotation,
 } from '@/components/logsync/FileAnnotationModal';
 import { FilePreviewModal } from '@/components/logsync/FilePreviewModal';
+import { fetchSessionsFromServer, parseLogStartMs, type TracksideSessionInfo } from '@/lib/trackside/sessionRegistry';
 
 // ---- types mirrored from the worker's Job.to_dict() ----
 type FileProgress = { name: string; size: number; transferred: number; done: boolean; start_ms?: number; end_ms?: number };
@@ -114,6 +115,9 @@ export default function LogSyncPage() {
   const [starredOnly, setStarredOnly] = useState(false);
   const [qualityFilter, setQualityFilter] = useState<Set<string>>(new Set());
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
+  // Logged trackside sessions, for "query by the sessions we logged".
+  const [sessions, setSessions] = useState<TracksideSessionInfo[]>([]);
+  const [sessionFilter, setSessionFilter] = useState<string>(''); // session id, '' = all
   const esRef = useRef<EventSource | null>(null);
 
   const fromMs = () => new Date(from).getTime();
@@ -158,6 +162,13 @@ export default function LogSyncPage() {
         if (alive && r.ok) setAnnotations(await r.json());
       } catch {/* annotations are non-critical; ignore */}
     })();
+    return () => { alive = false; };
+  }, []);
+
+  // Load the logged trackside sessions for the "query by session" filter.
+  useEffect(() => {
+    let alive = true;
+    void fetchSessionsFromServer().then((s) => { if (alive) setSessions(s); }).catch(() => {});
     return () => { alive = false; };
   }, []);
 
@@ -229,14 +240,23 @@ export default function LogSyncPage() {
     return [...s].sort();
   }, [annotations]);
 
-  const filterActive = query.trim() !== '' || starredOnly || qualityFilter.size > 0 || tagFilter.size > 0;
+  const filterActive = query.trim() !== '' || starredOnly || qualityFilter.size > 0 || tagFilter.size > 0 || sessionFilter !== '';
 
-  // Does a file pass the active filters? Matches filename + all annotation text.
+  // Does a file pass the active filters? Matches filename + all annotation text,
+  // and (when a logged session is picked) the file's loggerd timestamp falling
+  // inside that session's start–end window.
   const matchFile = useCallback((name: string): boolean => {
     const a = annotations[name];
     if (starredOnly && !a?.starred) return false;
     if (qualityFilter.size > 0 && !(a && qualityFilter.has(a.quality))) return false;
     if (tagFilter.size > 0 && !(a && [...tagFilter].some((t) => a.tags.includes(t)))) return false;
+    if (sessionFilter) {
+      const s = sessions.find((x) => x.id === sessionFilter);
+      const ms = parseLogStartMs(name);
+      if (!s || ms == null) return false;
+      const end = s.endedAt ?? s.startedAt + 6 * 60 * 60 * 1000; // open session: cap window at 6h
+      if (ms < s.startedAt || ms > end) return false;
+    }
     const q = query.trim().toLowerCase();
     if (q) {
       const hay = [name, a?.notes, a?.driver, a?.track, a?.session, a?.weather, a?.tires, a?.setup, ...(a?.tags ?? [])]
@@ -244,14 +264,14 @@ export default function LogSyncPage() {
       if (!hay.includes(q)) return false;
     }
     return true;
-  }, [annotations, query, starredOnly, qualityFilter, tagFilter]);
+  }, [annotations, query, starredOnly, qualityFilter, tagFilter, sessionFilter, sessions]);
 
   const toggleSetItem = (set: Set<string>, setter: (s: Set<string>) => void, v: string) => {
     const next = new Set(set);
     next.has(v) ? next.delete(v) : next.add(v);
     setter(next);
   };
-  const clearFilters = () => { setQuery(''); setStarredOnly(false); setQualityFilter(new Set()); setTagFilter(new Set()); };
+  const clearFilters = () => { setQuery(''); setStarredOnly(false); setQualityFilter(new Set()); setTagFilter(new Set()); setSessionFilter(''); };
 
   const jobList = Object.values(jobs).sort((a, b) => b.created_ms - a.created_ms);
   const matchCount = useMemo(
@@ -303,8 +323,17 @@ export default function LogSyncPage() {
           </label>
         </div>
         <div className="flex items-center gap-3 mt-4">
-          <Button variant="outline" onClick={doPreview} disabled={busy}>Preview</Button>
-          <Button onClick={startJob} disabled={busy}>Start sync</Button>
+          {(() => {
+            const rangeValid = !!from && !!to && new Date(from).getTime() < new Date(to).getTime();
+            const reason = busy ? "Working…" : !from || !to ? "Set a From and To time" : !rangeValid ? "“To” must be after “From”" : undefined;
+            return (
+              <>
+                <Button variant="outline" onClick={doPreview} disabled={busy || !rangeValid} title={reason}>Preview</Button>
+                <Button onClick={startJob} disabled={busy || !rangeValid} title={reason}>Start sync</Button>
+                {reason && !busy ? <span className="text-sm text-muted-foreground">{reason}</span> : null}
+              </>
+            );
+          })()}
           {preview && (
             <span className="text-sm text-muted-foreground">
               {preview.count === 0
@@ -354,6 +383,22 @@ export default function LogSyncPage() {
             )}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {sessions.length > 0 && (
+              <select
+                className="rounded-md border bg-background px-2 py-1 text-sm"
+                value={sessionFilter}
+                onChange={(e) => setSessionFilter(e.target.value)}
+                title="Show only files logged during a trackside session"
+              >
+                <option value="">All sessions</option>
+                {sessions.slice().sort((a, b) => b.startedAt - a.startedAt).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} · {s.car} · {new Date(s.startedAt).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </option>
+                ))}
+              </select>
+            )}
+            {sessions.length > 0 && <span className="mx-1 h-4 w-px bg-border" />}
             <FilterChip on={starredOnly} onClick={() => setStarredOnly((v) => !v)}>★ Starred</FilterChip>
             {(['good', 'bad', 'corrupt'] as const).map((q) => (
               <FilterChip key={q} on={qualityFilter.has(q)} onClick={() => toggleSetItem(qualityFilter, setQualityFilter, q)}>

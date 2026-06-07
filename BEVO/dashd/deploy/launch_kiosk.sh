@@ -37,23 +37,38 @@ done
 #                          so this can be omitted there, but launching by
 #                          hand from SSH (where DISPLAY/WAYLAND_DISPLAY
 #                          weren't set up the same way) needs it explicit.
+CHROMIUM_BIN=""
 for bin in chromium-browser chromium; do
     if command -v "$bin" >/dev/null 2>&1; then
-        exec "$bin" \
-            --kiosk \
-            --incognito \
-            --ozone-platform=wayland \
-            --noerrdialogs \
-            --disable-restore-session-state \
-            --disable-infobars \
-            --disable-translate \
-            --disable-features=TranslateUI \
-            --check-for-update-interval=604800 \
-            --overscroll-history-navigation=0 \
-            --password-store=basic \
-            "$URL"
+        CHROMIUM_BIN="$bin"
+        break
     fi
 done
 
-echo "[BEVO] No chromium binary found (tried: chromium-browser, chromium)" >&2
-exit 1
+if [[ -z "$CHROMIUM_BIN" ]]; then
+    echo "[BEVO] No chromium binary found (tried: chromium-browser, chromium)" >&2
+    exit 1
+fi
+
+# Supervise the kiosk: a renderer/GPU crash or OOM kill must NOT leave a blank
+# dash for the rest of an endurance run. dashd and the static server already
+# auto-restart via systemd, but the browser did not until this loop — XDG
+# autostart launches it once and never again. Relaunch on exit with a short
+# backoff. `|| true` keeps `set -e` from aborting the loop on a nonzero exit.
+while true; do
+    "$CHROMIUM_BIN" \
+        --kiosk \
+        --incognito \
+        --ozone-platform=wayland \
+        --noerrdialogs \
+        --disable-restore-session-state \
+        --disable-infobars \
+        --disable-translate \
+        --disable-features=TranslateUI \
+        --check-for-update-interval=604800 \
+        --overscroll-history-navigation=0 \
+        --password-store=basic \
+        "$URL" || true
+    echo "[BEVO] Chromium kiosk exited; relaunching in 2s" >&2
+    sleep 2
+done

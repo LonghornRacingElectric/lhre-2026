@@ -333,6 +333,9 @@ message OrionControls {
     bool line_lock_enabled = 28;
     float torque_shudder = 29;
     float bse3 = 30;
+    float event_mode = 39;
+    float net_energy = 40;
+    float regen_energy = 41;
 }
 
 message OrionPack {

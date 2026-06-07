@@ -94,10 +94,23 @@ export function normalizeLivePayload(raw: string | Record<string, unknown>, sour
   const values = flattenNumeric(payload);
   const t = timestampMs(first(payload, ["time", "timestamp", "packet_time", "packet.time"]));
   const [lat, lon] = gpsOf(payload);
-  let speed = num(first(payload, ["speed", "dash_speed", "gps_speed", "gps_velocity", "wheel_speed", "dynamics.gps_speed"]));
+  // Prefer a speed source that's actually carrying signal: a flatlined 0 on the
+  // top-level `speed` channel used to shadow a real gps/wheel speed (and leaves
+  // the live delta bar with nothing to work from). Walk GPS → derived avg →
+  // wheel avg → raw, taking the first non-zero; fall back to 0 only if every
+  // present source is zero (a genuine standstill / no speed sensor).
+  let speed: number | null = null;
+  let sawZeroSpeed = false;
+  for (const k of ["gps_speed", "dynamics.gps_speed", "dynamics_gps_speed", "gps_velocity", "dash_speed", "wheel_speed_avg", "wheel_speed", "speed"]) {
+    const v = num(first(payload, [k]));
+    if (v === null) continue;
+    if (v > 0) { speed = v; break; }
+    sawZeroSpeed = true;
+  }
   if (speed === null) {
-    const wheels = ["flw_speed", "frw_speed", "blw_speed", "brw_speed"].map((k) => num(first(payload, [k, `dynamics.${k}`]))).filter((v): v is number => v !== null);
-    speed = wheels.length ? wheels.reduce((a, b) => a + b, 0) / wheels.length : null;
+    const wheels = ["flw_speed", "frw_speed", "blw_speed", "brw_speed"].map((k) => num(first(payload, [k, `dynamics.${k}`]))).filter((v): v is number => v !== null && v > 0);
+    if (wheels.length) speed = wheels.reduce((a, b) => a + b, 0) / wheels.length;
+    else if (sawZeroSpeed) speed = 0;
   }
   const dcV = num(first(payload, ["dc_bus_v", "bus_voltage", "pack.dc_bus_v", "pack.bus_voltage"]));
   const dcC = num(first(payload, ["dc_bus_current", "pack.dc_bus_current"]));

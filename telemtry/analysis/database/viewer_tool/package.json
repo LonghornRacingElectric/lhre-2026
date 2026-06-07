@@ -42,6 +42,7 @@
     "kafkajs": "^2.2.4",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.544.0",
+    "mqtt": "^5.15.1",
     "nanoid": "^5.1.6",
     "next": "^15.5.7",
     "next-auth": "^4.24.11",

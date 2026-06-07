@@ -40,6 +40,11 @@ export interface CanData {
     tcEnabled?: boolean | null;     // TC armed?
     regenEnabled?: boolean | null;  // Regenerative braking enabled?
 
+    // Active VCU event mode — which params table the firmware is running.
+    // Source: Controls.event_mode (byte 6 of 0x1C7 VCU State). See
+    // EVENT_MODE_LABELS for the enum->label mapping.
+    eventMode?: number | null;
+
     // Pit-diagnostic fields. Not yet emitted by dashd (per-field BACKEND
     // TODOs in PitDiagnostic.tsx); demo hook synthesizes values so the
     // layout is testable.
@@ -68,6 +73,16 @@ export interface MqttData {
     energyDelta: number | null;     // Energy delta vs target in Wh
     lapsRemaining: number | null;   // Estimated session laps remaining
 
+    // Endurance pacing signals from the trackside "Dash" sender tab
+    // (BEVO/dashd/MQTT_CONTRACT.md). targetPower is the live power budget the
+    // strategist dials in; lapTrigger is a monotonic counter bumped each lap.
+    // The dash integrates CAN power on-board against targetPower to drive the
+    // energy-budget bar, and fires the lap card when lapTrigger increases.
+    targetPower?: number | null;    // kW — live target power budget (held last-known)
+    targetPowerStale?: boolean | null; // true when the held targetPower is past staleness
+    lapTrigger?: number | null;     // monotonic lap counter (rising edge = new lap)
+    lapCardMs?: number | null;      // ms the full-screen lap card stays up (website-set)
+
     // Optional driver-thread additions. Not yet emitted by dashd; the
     // demo data hook provides synthetic values so the layout is testable.
     lapsRemainingEnergy?: number | null; // Energy-based laps remaining
@@ -77,10 +92,43 @@ export interface MqttData {
     lapDeltaRate?: number | null;        // d(lapDelta)/dt, s/s
 }
 
+// Endurance pacing, computed authoritatively on-car by dashd (see
+// useEnergyPacing + BEVO/dashd/main.rs PacingData). The frontend just displays
+// these — integrating here would reset the lap on a chromium reload.
+export interface PacingData {
+    lapEnergyWh: number;             // net energy used this lap (Wh)
+    budgetDeltaWh: number | null;    // used - budget; >0 over (red), <0 under (green)
+    lapElapsedS: number;             // seconds since the current lap started
+    lapNumber: number;               // 1-based lap in progress
+    lastLapNumber: number | null;    // most recently completed lap (drives the card)
+    lastLapTimeS: number | null;
+    lastLapEnergyWh: number | null;
+}
+
 export interface DashMessage {
     seq: number;
     can: CanData;
     mqtt: MqttData;
+    pacing: PacingData;
+    // Website-authored lap-card layout (retained lhre/dash/layout), forwarded by
+    // dashd. Validated at render; absent → the built-in lap card is used.
+    layout?: unknown;
+}
+
+// VCU event mode enum (matches firmware VCU_DEFAULT_PARAMS + per-event override
+// in VCU/firmware/Core/Inc/params/*.h). Anything outside this range is shown
+// as the raw integer so a new mode added on the VCU isn't silently dropped.
+export const EVENT_MODE_LABELS: Record<number, string> = {
+    0: "—",
+    1: "ACCEL",
+    2: "SKID",
+    3: "AUTOX",
+    4: "ENDUR",
+};
+
+export function eventModeLabel(mode: number | null | undefined): string | null {
+    if (mode === null || mode === undefined) return null;
+    return EVENT_MODE_LABELS[mode] ?? String(mode);
 }
 
 // Shutdown circuit / safety-fault items, in the order dashd emits them.

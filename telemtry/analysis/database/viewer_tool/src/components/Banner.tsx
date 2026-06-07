@@ -42,20 +42,19 @@ const Banner = () => {
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem asChild><Link href="/">Home</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/driveday">Driveday Page</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/tune">Texas Tune</Link></DropdownMenuItem>
+            <DropdownMenuItem asChild><Link href="/trackside-live">Trackside Live</Link></DropdownMenuItem>
+            <DropdownMenuItem asChild><Link href="/trackside-live?focus=car">Car Status</Link></DropdownMenuItem>
+            <DropdownMenuItem asChild><Link href="/log-sync">Log Sync</Link></DropdownMenuItem>
             <DropdownMenuItem asChild><Link href="/dashboards">Grafana</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/live-viewer">Live Viewer</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/replay">Replay</Link></DropdownMenuItem>
             <DropdownMenuItem onClick={handleSignOut}>Logout</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <Image src="/telem_logo.png" alt="Telemetry Logo" width={40} height={40} className="ml-2" />
-        <span className="ml-2">Welcome, {session?.user?.name || session?.user?.username || 'Guest'}</span>
+        <span className="ml-2 hidden sm:inline truncate max-w-[40vw]">Welcome, {session?.user?.name || session?.user?.username || 'Guest'}</span>
       </div>
       <div className="flex items-center">
-        <span className="mr-4">{date}</span>
-        <span>{time}</span>
+        <span className="mr-4 hidden sm:inline">{date}</span>
+        <span className="whitespace-nowrap">{time}</span>
       </div>
     </div>
   );

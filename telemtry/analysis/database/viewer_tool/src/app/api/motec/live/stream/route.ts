@@ -5,11 +5,24 @@ import { NextRequest } from "next/server";
 import { bus } from "@/lib/kafka/bus";
 import { ensureSubscribe, startKafkaConsumer } from "@/lib/kafka/kafkaConsumer";
 import { getSettings } from "@/lib/motec/config";
-import { enrichOrionLiveSample, kafkaTopicFor, kafkaTransportFor, normalizeLivePayload } from "@/lib/motec/live";
+import { enrichOrionLiveSample, kafkaTransportFor, normalizeLivePayload } from "@/lib/motec/live";
 import type { LiveStreamEvent } from "@/lib/motec/types";
 
-// The raw nested telemetry feed that normalizeLivePayload understands (dynamics/pack/gps).
+// The raw nested protobuf feed (sparse subsystem tables) — kept as a fallback.
 const RAW_TELEMETRY_TOPIC = process.env.KAFKA_SENSOR_TOPIC || "sensor_data";
+
+// The live feed now defaults to the enriched per-car topic produced by the
+// field_enricher (grafana_data_<car>_derived): a FLAT, COMPLETE, already-computed
+// JSON frame (power_kw, regen, cell deltas, g-forces, …). The raw sensor_data
+// path stays available as a reversible fallback — type "sensor_data" in the
+// Dash/Live "Topic" (Connection · advanced) field, or set KAFKA_LIVE_TOPIC.
+function liveTopicFor(source: string, requested?: string | null): string {
+  const r = (requested || "").trim();
+  if (r) return r;
+  const env = process.env.KAFKA_LIVE_TOPIC?.trim();
+  if (env) return env;
+  return `grafana_data_${source}_derived`;
+}
 
 function sampleIntervalMs(sampleHz: number | null): number | null {
   if (sampleHz === null || !Number.isFinite(sampleHz) || sampleHz <= 0) return null;
@@ -33,9 +46,12 @@ export async function GET(req: NextRequest) {
   const sampleHz = sampleHzRaw !== null ? Number(sampleHzRaw) : null;
   const minSampleMs = sampleIntervalMs(sampleHz);
 
-  const settings = getSettings(source);
-  // The topic label reported back to the UI (mirrors the reference contract).
-  const reportedTopic = kafkaTopicFor(source, settings, requestedTopic);
+  getSettings(source);
+  // The topic we actually consume (enriched per-car by default; sensor_data or a
+  // typed topic as fallback). Also the label reported back to the UI.
+  const liveTopic = liveTopicFor(source, requestedTopic);
+  const isRawProtobuf = liveTopic === RAW_TELEMETRY_TOPIC;
+  const reportedTopic = liveTopic;
 
   const enc = new TextEncoder();
   let closed = false;
@@ -61,7 +77,6 @@ export async function GET(req: NextRequest) {
       // as a non-ok status frame and close, rather than hanging the connection.
       try {
         await startKafkaConsumer();
-        await ensureSubscribe(RAW_TELEMETRY_TOPIC);
       } catch (e) {
         emit({
           type: "status",
@@ -78,6 +93,15 @@ export async function GET(req: NextRequest) {
           // already closed
         }
         return;
+      }
+      // Best-effort subscribe. Topics in the consumer's startup list (KAFKA_TOPICS)
+      // are already subscribed and this is a no-op; KafkaJS can't add a topic to a
+      // running consumer, so a brand-new topic logs a warning here and simply
+      // yields no samples (the UI shows "no telemetry") rather than erroring out.
+      try {
+        await ensureSubscribe(liveTopic);
+      } catch (e) {
+        console.warn(`live/stream: could not subscribe to ${liveTopic} at runtime; ensure it is in KAFKA_TOPICS`, e);
       }
 
       let lastSampleEmit = 0;
@@ -110,37 +134,45 @@ export async function GET(req: NextRequest) {
 
       const onMessage = (msg: { topic?: string; payload?: unknown }) => {
         if (closed) return;
-        if (msg?.topic !== RAW_TELEMETRY_TOPIC) return;
+        if (msg?.topic !== liveTopic) return;
         const raw = typeof msg.payload === "string" ? msg.payload : JSON.stringify(msg.payload ?? {});
+        const now = Date.now();
 
-        // Always fold this (possibly sparse) message into the running snapshot,
-        // regardless of the sample-rate throttle, so we never drop a rare
-        // pack/thermal update just because it arrived inside a throttle window.
-        let decoded: Record<string, unknown> | null = null;
-        try {
-          const obj = JSON.parse(raw) as Record<string, unknown>;
-          if (obj && typeof obj === "object") {
-            decoded = obj;
-            mergeSnapshot(obj);
+        if (isRawProtobuf) {
+          // sensor_data: sparse nested frames — fold each (even inside a throttle
+          // window) into the running snapshot, then normalize + Orion-enrich.
+          let decoded: Record<string, unknown> | null = null;
+          try {
+            const obj = JSON.parse(raw) as Record<string, unknown>;
+            if (obj && typeof obj === "object") {
+              decoded = obj;
+              mergeSnapshot(obj);
+            }
+          } catch {
+            // raw wasn't JSON (already-flat) — fall through to base-only normalize.
           }
-        } catch {
-          // raw wasn't JSON (already-flat payload) — handled below via base only.
+          if (minSampleMs !== null && now - lastSampleEmit < minSampleMs) return;
+          const snapshotRaw = decoded ? JSON.stringify(merged) : raw;
+          const base = normalizeLivePayload(snapshotRaw, source);
+          if (!base) return;
+          const sample = decoded ? enrichOrionLiveSample(merged, base) : base;
+          lastSampleEmit = now;
+          lastActivity = now;
+          emit({ type: "sample", topic: reportedTopic, transport, sample });
+          return;
         }
 
-        const now = Date.now();
+        // Enriched grafana_data_<car>_derived: each frame is FLAT, complete and
+        // already has the computed channels — no merge, no Orion enrichment.
         if (minSampleMs !== null && now - lastSampleEmit < minSampleMs) return;
-
-        const snapshotRaw = decoded ? JSON.stringify(merged) : raw;
-        const base = normalizeLivePayload(snapshotRaw, source);
+        const base = normalizeLivePayload(raw, source);
         if (!base) return;
-        const sample = decoded ? enrichOrionLiveSample(merged, base) : base;
-
         lastSampleEmit = now;
         lastActivity = now;
-        emit({ type: "sample", topic: reportedTopic, transport, sample });
+        emit({ type: "sample", topic: reportedTopic, transport, sample: base });
       };
 
-      bus.on(`kafka:${RAW_TELEMETRY_TOPIC}`, onMessage);
+      bus.on(`kafka:${liveTopic}`, onMessage);
 
       // Heartbeat keeps the connection alive and lets the UI detect staleness.
       const heartbeat = setInterval(() => {
@@ -154,7 +186,7 @@ export async function GET(req: NextRequest) {
         if (closed) return;
         closed = true;
         clearInterval(heartbeat);
-        bus.off(`kafka:${RAW_TELEMETRY_TOPIC}`, onMessage);
+        bus.off(`kafka:${liveTopic}`, onMessage);
         try {
           controller.close();
         } catch {

@@ -2,7 +2,7 @@
 #define CAN_IDS_H
 
 // Auto-generated CAN packet definition header file
-// Generated from: drivers/longhorn-lib/can.json
+// Generated from: can.json
 // DO NOT EDIT MANUALLY
 
 #include <stdint.h>
@@ -1423,7 +1423,7 @@ int unpack_steering_column(const uint8_t* rx_buf, msg_steering_column_t* msg);
 // From: VCU
 // To:   Pi
 #define VCU_STATE_ID 455
-#define VCU_STATE_DLC 6
+#define VCU_STATE_DLC 7
 #define VCU_STATE_FREQ 3
 #define VCU_STATE_TIMEOUT_MS 6
 
@@ -1433,6 +1433,7 @@ typedef struct {
     uint8_t ready_to_drive_buzzer;
     float state_of_charge_estimate;
     uint8_t line_lock_enabled;
+    uint8_t event_mode;
 } msg_vcu_state_t;
 
 // Signal: PRNDL State
@@ -1449,6 +1450,9 @@ typedef struct {
 
 // Signal: Line Lock Enabled
 #define VCU_STATE_LINE_LOCK_ENABLED_PREC 1.0f
+
+// Signal: Event Mode
+#define VCU_STATE_EVENT_MODE_PREC 1.0f
 
 int pack_vcu_state(const msg_vcu_state_t* msg, uint8_t* tx_buf);
 int unpack_vcu_state(const uint8_t* rx_buf, msg_vcu_state_t* msg);
@@ -2016,5 +2020,29 @@ typedef struct {
 
 int pack_bse_3(const msg_bse_3_t* msg, uint8_t* tx_buf);
 int unpack_bse_3(const uint8_t* rx_buf, msg_bse_3_t* msg);
+
+// ==========================================================================
+// Packet: Energy Estimate (457)
+// ==========================================================================
+// From: VCU
+// To:   Pi
+#define ENERGY_ESTIMATE_ID 457
+#define ENERGY_ESTIMATE_DLC 8
+#define ENERGY_ESTIMATE_FREQ 100
+#define ENERGY_ESTIMATE_TIMEOUT_MS 200
+
+typedef struct {
+    float net_energy;
+    float regen_energy;
+} msg_energy_estimate_t;
+
+// Signal: Net Energy
+#define ENERGY_ESTIMATE_NET_ENERGY_PREC 0.001f
+
+// Signal: Regen Energy
+#define ENERGY_ESTIMATE_REGEN_ENERGY_PREC 0.001f
+
+int pack_energy_estimate(const msg_energy_estimate_t* msg, uint8_t* tx_buf);
+int unpack_energy_estimate(const uint8_t* rx_buf, msg_energy_estimate_t* msg);
 
 #endif // CAN_IDS_H

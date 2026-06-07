@@ -1,0 +1,32 @@
+services:
+  car_status:
+    build:
+      # Build context = repo root so COPY can reach files under stack/ + analysis/.
+      context: ../../..
+      dockerfile: stack/processors/car_status/Dockerfile
+    image: car_status_processor
+    container_name: car_status_processor
+    restart: unless-stopped
+    env_file:
+      # Provides DB passwords (ELECTRIC_PWD, ...) for segment persistence.
+      - path: ../../../.env
+        required: true
+    environment:
+      PYTHONUNBUFFERED: 1
+      IN_DOCKER: 1
+      LOGLEVEL: INFO
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_INPUT_TOPIC: sensor_data
+      KAFKA_CONFIG_TOPIC: car_status_config
+      KAFKA_OUTPUT_TOPIC: car_status
+      KAFKA_GROUP_ID: car-status-group
+      CAR_STATUS_PERSIST: 1
+    volumes:
+      # DB host resolution (IN_DOCKER -> 'db' host) reads this at runtime.
+      - ../../../net_configs.json:/app/net_configs.json
+    networks:
+      - telemetry_network
+
+networks:
+  telemetry_network:
+    external: true

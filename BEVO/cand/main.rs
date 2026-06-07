@@ -671,6 +671,23 @@ fn process_raw_data(
         }
 
         let val = match signal.conv_type.as_str() {
+            "uint32" => {
+                // 0x1C9 net_energy / regen_energy use uint32 with precision
+                // 0.001 (Wh). Previously fell through the `_ => continue` arm
+                // so the fields were silently dropped and the website saw 0.
+                let bytes = [
+                    payload[signal.start_byte], payload[signal.start_byte+1],
+                    payload[signal.start_byte+2], payload[signal.start_byte+3],
+                ];
+                (u32::from_le_bytes(bytes) as f64) * signal.precision
+            },
+            "int32" => {
+                let bytes = [
+                    payload[signal.start_byte], payload[signal.start_byte+1],
+                    payload[signal.start_byte+2], payload[signal.start_byte+3],
+                ];
+                (i32::from_le_bytes(bytes) as f64) * signal.precision
+            },
             "uint16" => {
                 let bytes = [payload[signal.start_byte], payload[signal.start_byte+1]];
                 (u16::from_le_bytes(bytes) as f64) * signal.precision
