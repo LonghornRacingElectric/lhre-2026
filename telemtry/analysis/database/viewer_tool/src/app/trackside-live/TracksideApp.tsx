@@ -3226,21 +3226,33 @@ function App() {
                 </span>
               </div>
               {/* Tier 3 — incident flags. Land in the classifier against the
-                  active drive_day (cone hits, off-track, DNF, custom). */}
-              <div className="gateButtons heroFlags">
-                <button className="tool" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag a cone hit"} onClick={() => void eventFlag("Hit Cone")}>
-                  <span style={{ color: "#f5a524" }}>●</span> Cone
-                </button>
-                <button className="tool" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag going off-track"} onClick={() => void eventFlag("Off-track")}>
-                  <span style={{ color: "#ff4d4f" }}>●</span> Off-track
-                </button>
-                <button className="tool" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag an incomplete / DNF run"} onClick={() => void eventFlag("Incomplete")}>
-                  <AlertTriangle size={14} /> Incomplete
-                </button>
-                <button className="tool" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Custom event flag"} onClick={customFlag}>
-                  <Flag size={14} /> Flag…
-                </button>
-              </div>
+                  active drive_day (cone hits, off-track, DNF, custom). Disabled
+                  until a session is active (no drive_day to attach to) — when
+                  that's the case, show the reason inline instead of mystery-
+                  greying the row. */}
+              {!sessionInfo && !isMirror ? (
+                <div className="heroFlagsHint">
+                  <span>Flags need an active session.</span>
+                  <button type="button" className="tool" onClick={() => setNewSessionOpen(true)}>
+                    <Plus size={13} /> Start a session
+                  </button>
+                </div>
+              ) : (
+                <div className="gateButtons heroFlags">
+                  <button className="tool" disabled={isMirror || !sessionInfo} title={isMirror ? "Read-only mirror — the leader logs flags" : "Flag a cone hit"} onClick={() => void eventFlag("Hit Cone")}>
+                    <span style={{ color: "#f5a524" }}>●</span> Cone
+                  </button>
+                  <button className="tool" disabled={isMirror || !sessionInfo} title={isMirror ? "Read-only mirror — the leader logs flags" : "Flag going off-track"} onClick={() => void eventFlag("Off-track")}>
+                    <span style={{ color: "#ff4d4f" }}>●</span> Off-track
+                  </button>
+                  <button className="tool" disabled={isMirror || !sessionInfo} title={isMirror ? "Read-only mirror — the leader logs flags" : "Flag an incomplete / DNF run"} onClick={() => void eventFlag("Incomplete")}>
+                    <AlertTriangle size={14} /> Incomplete
+                  </button>
+                  <button className="tool" disabled={isMirror || !sessionInfo} title={isMirror ? "Read-only mirror — the leader logs flags" : "Custom event flag"} onClick={customFlag}>
+                    <Flag size={14} /> Flag…
+                  </button>
+                </div>
+              )}
               {/* Tier 4 — set-and-forget toggles. Compact options row. */}
               <div className="liveControlOpts">
                 <label className="checkInline" title="When on, each flag above also flashes a message on the driver's dash (needs the dash link connected).">

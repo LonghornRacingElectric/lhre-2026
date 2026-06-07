@@ -1075,6 +1075,13 @@ textarea:focus-visible,
 /* Tier 3 flag buttons inside the hero — gateButtons base spacing but tighter
    horizontal margin since we're already in a packed stack. */
 .heroFlags { gap: 6px; margin: 0; }
+.heroFlagsHint {
+  display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap;
+  font-size: var(--fs-sm); color: var(--muted-text);
+  padding: 6px 10px; border: 1px dashed var(--border); border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--surface-alt) 60%, transparent);
+}
+.heroFlagsHint .tool { padding: 4px 10px; font-size: var(--fs-sm); min-height: 0; }
 /* Tier 4 options row. */
 .liveControlOpts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin: 0; }
 .liveControlOpts .checkInline { margin: 0; }
