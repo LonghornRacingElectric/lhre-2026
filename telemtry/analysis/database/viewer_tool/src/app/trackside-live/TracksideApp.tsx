@@ -3087,8 +3087,8 @@ function App() {
               </div>
               {!isMirror ? (() => {
                 const msgs = activeMessages(msgLib.lib);
-                if (!msgs.length) return null;
                 const linked = dashSignals.status === "connected";
+                if (!msgs.length) return null;
                 return (
                   <div className="heroMessages">
                     {msgs.map((m) => (
@@ -3103,6 +3103,15 @@ function App() {
                         <span aria-hidden>{MESSAGE_ICON_GLYPH[m.icon]}</span> {m.label}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      className="heroMsgBtn heroMsgClear"
+                      disabled={!linked}
+                      title={linked ? "Clear the message currently showing on the driver's dash" : "Dash not connected — can't clear"}
+                      onClick={clearDriverMessage}
+                    >
+                      <X size={13} /> Clear
+                    </button>
                   </div>
                 );
               })() : null}

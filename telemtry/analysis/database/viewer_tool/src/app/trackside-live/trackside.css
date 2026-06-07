@@ -995,6 +995,10 @@ textarea:focus-visible,
 }
 .heroMsgBtn:hover:not(:disabled) { background: var(--surface); border-color: var(--accent); }
 .heroMsgBtn:disabled { opacity: 0.45; cursor: not-allowed; }
+/* Visually-distinct "clear" — reads as destructive without being alarming. */
+.heroMsgClear { color: var(--muted-text); border-style: dashed; padding: 5px 8px; }
+.heroMsgClear:hover:not(:disabled) { color: #ff4d4f; border-color: #ff4d4f; background: var(--surface); }
+.heroMsgClear svg { width: 13px; height: 13px; flex: none; }
 .liveHero h2 {
   margin: 2px 0 0;
   font-size: 38px;
