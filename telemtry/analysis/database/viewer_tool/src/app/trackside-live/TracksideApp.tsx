@@ -5908,7 +5908,13 @@ function packStatus(samples: LiveSample[], soeCutoffCellV: number, displaySample
   const dcBusV = dcBusVoltageFor(sample);
   const minCellV = minCellVoltageFor(sample);
   const soeCellV = estimateSoeCellVoltage(samples);
-  const soePercent = soeCellV != null ? estimateP30bSoc(soeCellV, soeCutoffCellV) : null;
+  // Prefer the car's own SOC (VCU soc_estimate, the same value the car dash
+  // shows) when the feed carries it; fall back to the min-cell OCV estimate,
+  // which sags under load. soeSource drives the caption under the gauge.
+  const carSoePercent = carSoePercentFor(sample);
+  const ocvSoePercent = soeCellV != null ? estimateP30bSoc(soeCellV, soeCutoffCellV) : null;
+  const soePercent = carSoePercent ?? ocvSoePercent;
+  const soeSource = carSoePercent != null ? "car" : "viewer";
   const soeKwh = soePercent != null ? (soePercent / 100) * PACK_ENERGY_KWH : null;
   const lowVoltageDeratePct =
     soeCellV != null ? lowVoltageDerateFromOcv(soeCellV, DEFAULT_SOE_DERATE_START_CELL_V, soeCutoffCellV) * 100 : null;
@@ -5921,7 +5927,7 @@ function packStatus(samples: LiveSample[], soeCutoffCellV: number, displaySample
     dcBusV,
     soeCellV,
     soePercent,
-    soeSource: "viewer",
+    soeSource,
     soeKwh,
     lowVoltageDeratePct,
     minCellV,
@@ -5953,9 +5959,17 @@ function maxCellVoltageFor(sample: LiveSample | null) {
 }
 
 function carSoePercentFor(sample: LiveSample | null) {
-  const value = firstLiveValue(sample?.values ?? {}, ["soc_estimate", "pack_soc_estimate", "hv_soc", "pack_hv_soc"]);
-  if (value == null || !Number.isFinite(value)) return null;
-  return clamp(value > 1 ? value : value * 100, 0, 100);
+  // The car's own SOC: VCU soc_estimate (what the car dash shows), then hv_soc.
+  // Both sit at 0 when their CAN packet is down, so skip non-positive
+  // placeholders and only trust a real reading. Accepts 0–1 or 0–100 scaling.
+  const values = sample?.values ?? {};
+  for (const key of ["soc_estimate", "pack_soc_estimate", "hv_soc", "pack_hv_soc"]) {
+    const value = values[key];
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+      return clamp(value > 1 ? value : value * 100, 0, 100);
+    }
+  }
+  return null;
 }
 
 function validCellVoltage(value: number | null | undefined): value is number {
