@@ -5,6 +5,10 @@
 
 static const vcu_parameters_t acceleration_params = {
     VCU_DEFAULT_PARAMS,
+    .traction_control = { \
+        .enabled = true, \
+        // TODO put tc params here
+    }, \
     .event_mode = 1, \
 };
 
