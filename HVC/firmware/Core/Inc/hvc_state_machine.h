@@ -29,7 +29,7 @@ extern "C" {
 /* Exported constants --------------------------------------------------------*/
 
 #define HVC_PRECHARGE_THRESHOLD_PERCENT 0.90f
-#define HVC_PRECHARGE_VALID_MS 5000
+#define HVC_PRECHARGE_VALID_MS 6000
 
 /* Exported functions --------------------------------------------------------*/
 
@@ -70,7 +70,7 @@ bool is_shutdown_closed(void);
  * @brief Check if charge enable is active
  * @return true if charge enable active, false otherwise
  */
-bool is_charge_enable_active(void);
+bool is_charger_connected(void);
 
 /**
  * @brief Get tractive system voltage (V)

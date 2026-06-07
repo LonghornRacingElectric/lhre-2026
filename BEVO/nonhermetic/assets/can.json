@@ -4794,6 +4794,160 @@
         "bytes": []
     },
     {
+        "packet_id": 80,
+        "packet_name": "HVC Charger Command",
+        "from": [
+            "HVC"
+        ],
+        "to": [
+            "Charger"
+        ],
+        "data_length": 7,
+        "frequency_ms": 100,
+        "frequency": 10.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Max Charge Voltage",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "max_charge_voltage",
+                    "proto_id": 36,
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Max Charge Current",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "max_charge_current",
+                    "proto_id": 35,
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "IMD LED State",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "bool",
+                    "field": "imd_led",
+                    "proto_id": 17,
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 5,
+                "name": "BMS LED State",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "bool",
+                    "field": "bms_led",
+                    "proto_id": 37,
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 4,
+                "start_byte": 6,
+                "name": "Charger Enable",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "bool",
+                    "field": "charger_enable",
+                    "proto_id": 38,
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
+        "packet_id": 81,
+        "packet_name": "Charger Status",
+        "from": [
+            "Charger"
+        ],
+        "to": [
+            "HVC"
+        ],
+        "data_length": 5,
+        "frequency_ms": 100,
+        "frequency": 10.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Actual Voltage",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "charger_voltage",
+                    "proto_id": 15,
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Actual Current",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.01,
+                "protobuf": {
+                    "type": "float",
+                    "field": "charger_current",
+                    "proto_id": 14,
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Charger Enabled",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0,
+                "protobuf": {
+                    "type": "bool",
+                    "field": "charger_enabled",
+                    "proto_id": 16,
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
+    },
+    {
         "packet_id": 48,
         "packet_name": "HVC Bounds Parameters",
         "from": [

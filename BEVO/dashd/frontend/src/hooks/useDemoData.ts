@@ -170,6 +170,9 @@ export function useDemoData(enabled: boolean): DashMessage | null {
             const tcLevel = (Math.floor(Date.now() / 5000) % 3) + 1;        // 1,2,3
             const tcEnabled = (Math.floor(Date.now() / 9000) % 3) !== 0;     // ~66% on
             const regenEnabled = (Math.floor(Date.now() / 8000) % 4) !== 0;  // ~75% on
+            // Rotate through 1=ACCEL, 2=SKID, 3=AUTOX, 4=ENDUR so each pill
+            // label is visible during demo.
+            const eventMode = (Math.floor(Date.now() / 6000) % 4) + 1;
 
             // Pit-diagnostic fakes — derived from the existing sim where
             // possible so values move with the rest of the dash.
@@ -232,6 +235,7 @@ export function useDemoData(enabled: boolean): DashMessage | null {
                     tcLevel,
                     tcEnabled,
                     regenEnabled,
+                    eventMode,
                     apps,
                     bpps,
                     brakePressureFront,

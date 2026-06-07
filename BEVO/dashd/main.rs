@@ -177,6 +177,12 @@ struct CanData {
     /// `regenEnabled` pill.
     #[serde(rename = "regenEnabled")]
     regen_enabled: Option<bool>,
+
+    /// Active VCU event mode (which params table the VCU is running).
+    /// 0 = unassigned, 1 = acceleration, 2 = skidpad, 3 = autocross, 4 = endurance.
+    /// Lives on Controls.event_mode (byte 6 of 0x1C7 VCU State).
+    #[serde(rename = "eventMode")]
+    event_mode: Option<u8>,
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -209,6 +215,12 @@ struct MqttData {
     /// increase. Always emitted fresh — it's local state, not a network value.
     #[serde(rename = "lapTrigger")]
     lap_trigger: Option<f32>,
+
+    /// Website-set duration (ms) the full-screen lap card stays up after a lap.
+    /// Held last-known (it's a config value, not a live signal). None until the
+    /// trackside team sets it → frontend uses its built-in default.
+    #[serde(rename = "lapCardMs")]
+    lap_card_ms: Option<f32>,
 }
 
 /// Endurance pacing, computed authoritatively on-car so the driver and the
@@ -238,6 +250,11 @@ struct DashMessage {
     can: CanData,
     mqtt: MqttData,
     pacing: PacingData,
+    /// Website-authored lap-card layout (retained `lhre/dash/layout`), forwarded
+    /// verbatim to the frontend. None until one is sent → frontend uses its
+    /// built-in lap card.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    layout: Option<serde_json::Value>,
 }
 
 /// Snapshot published to `lhre/dash/state` for the trackside link-health /
@@ -265,6 +282,7 @@ struct MqttState {
     energy_delta: Option<f32>,
     laps_remaining: Option<f32>,
     target_power: Option<f32>,
+    lap_card_ms: Option<f32>,
     last_lap_delta: Instant,
     last_energy_delta: Instant,
     last_laps_remaining: Instant,
@@ -279,6 +297,7 @@ impl MqttState {
             energy_delta: None,
             laps_remaining: None,
             target_power: None,
+            lap_card_ms: None,
             last_lap_delta: epoch,
             last_energy_delta: epoch,
             last_laps_remaining: epoch,
@@ -310,6 +329,8 @@ impl MqttState {
                 .map(|_| target_power_age >= MQTT_STALE_TIMEOUT),
             // Overwritten by the WS sender with lap_count.
             lap_trigger: None,
+            // Config value — held last-known, never nulled on staleness.
+            lap_card_ms: self.lap_card_ms,
         }
     }
 }
@@ -349,21 +370,30 @@ struct DashState {
     last_energy_update: Option<Instant>,
     /// Snapshot of the most recently completed lap (for the lap card / mirror).
     last_lap: Option<(u32, f32, f32)>, // (lap_number, time_s, energy_wh)
+
+    /// Website-authored lap-card layout (retained `lhre/dash/layout`), held as
+    /// raw JSON and forwarded to the frontend. None → frontend's built-in card.
+    layout: Option<serde_json::Value>,
 }
 
 impl DashState {
     /// Close the in-progress lap: snapshot its time + energy for the card,
-    /// bump the counter, and reset the per-lap integrators. Called from both
+    /// set the counter, and reset the per-lap integrators. Called from both
     /// lap sources (on-car GPS crossing, trackside lapTrigger) so the energy
     /// reset can never drift from the lap boundary.
-    fn complete_lap(&mut self, now: Instant) {
-        let completed = (self.lap_count + 1) as u32;
+    ///
+    /// `set_count`: if Some, ADOPT that as the new lap_count (trackside is the
+    /// source of truth — the website's `liveState.laps.length` always wins so
+    /// the dash and the website display the same number). If None, bump by 1
+    /// (the GPS path doesn't know the absolute number, just that one closed).
+    fn complete_lap(&mut self, now: Instant, set_count: Option<u64>) {
+        let next_count = set_count.unwrap_or(self.lap_count + 1);
         self.last_lap = Some((
-            completed,
+            next_count as u32,
             now.duration_since(self.lap_start).as_secs_f32(),
             self.lap_energy_wh as f32,
         ));
-        self.lap_count += 1;
+        self.lap_count = next_count;
         self.lap_energy_wh = 0.0;
         self.lap_budget_wh = 0.0;
         self.lap_start = now;
@@ -395,6 +425,11 @@ impl DashState {
 // car reboot even if the broker drops its retained copy. Override with
 // DASHD_SFGATE_PATH.
 const SFGATE_PATH: &str = "/tmp/BEVO_dash_sfgate.json";
+
+// Path the website-authored lap-card layout is cached to (retained on
+// `lhre/dash/layout`), so it survives a dashd/car reboot. Override with
+// DASHD_LAYOUT_PATH.
+const LAYOUT_PATH: &str = "/tmp/BEVO_dash_layout.json";
 
 /// Does the car's path segment (prev->cur GPS) cross the gate line? Both car
 /// points are (lat, lon); the gate is [lat1, lon1, lat2, lon2]. Lat/lon are
@@ -443,6 +478,31 @@ fn load_sf_gate() -> Option<[f64; 4]> {
         Ok(gate) => {
             println!("[DASHD] Restored start/finish gate from {}: {:?}", path, gate);
             Some(gate)
+        }
+        Err(_) => None,
+    }
+}
+
+fn layout_path() -> String {
+    env_or_default("DASHD_LAYOUT_PATH", LAYOUT_PATH)
+}
+
+/// Cache the lap-card layout to disk so it survives a dashd/car reboot even if
+/// the broker drops its retained copy.
+fn persist_layout(raw: &str) {
+    if let Err(e) = std::fs::write(layout_path(), raw) {
+        eprintln!("[DASHD] Failed to persist layout: {}", e);
+    }
+}
+
+/// Restore the last-known layout on boot, before the broker (re)delivers it.
+fn load_layout() -> Option<serde_json::Value> {
+    let path = layout_path();
+    let data = std::fs::read_to_string(&path).ok()?;
+    match serde_json::from_str::<serde_json::Value>(data.trim()) {
+        Ok(v) => {
+            println!("[DASHD] Restored lap-card layout from {}", path);
+            Some(v)
         }
         Err(_) => None,
     }
@@ -592,6 +652,10 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
         // confirmed it carries the regen-enabled bit. Plumb to the
         // frontend's regenEnabled pill. Lives on the Controls message.
         regen_enabled: controls.map(|c| c.line_lock_enabled),
+
+        // Wire value is uint8 but the proto declares the field as float
+        // (matches prndl/soc convention); cast back for the frontend enum.
+        event_mode: controls.map(|c| c.event_mode as u8),
     }
 }
 
@@ -662,7 +726,7 @@ fn ipc_reader_loop(state: Arc<Mutex<DashState>>) {
                             if let Some(cur) = gps {
                                 if let (Some(gate), Some(prev)) = (locked.sf_gate, locked.last_gps) {
                                     if segments_cross(prev, cur, gate) {
-                                        locked.complete_lap(now);
+                                        locked.complete_lap(now, None);
                                         println!("[DASHD] GPS lap crossing -> lap {}", locked.lap_count);
                                     }
                                 }
@@ -720,7 +784,8 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                 // (GPS- or trackside-driven). Always fresh.
                                 mqtt.lap_trigger = Some(locked.lap_count as f32);
                                 let pacing = locked.pacing(Instant::now());
-                                DashMessage { seq, can, mqtt, pacing }
+                                let layout = locked.layout.clone();
+                                DashMessage { seq, can, mqtt, pacing, layout }
                             };
 
                             let json = match serde_json::to_string(&message) {
@@ -845,6 +910,40 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                         continue;
                     }
 
+                    // layout carries the lap-card layout as a JSON object; retained,
+                    // so the dash re-loads it on reconnect. Cached to disk for reboot.
+                    // We don't interpret it here — the frontend renders it.
+                    if field == "layout" {
+                        match serde_json::from_str::<serde_json::Value>(payload_str) {
+                            Ok(v) => {
+                                {
+                                    let mut locked = state.lock().unwrap();
+                                    locked.layout = Some(v);
+                                }
+                                persist_layout(payload_str);
+                                let _ = client.publish(
+                                    format!("{}ack/layout", MQTT_TOPIC_PREFIX),
+                                    QoS::AtMostOnce,
+                                    true,
+                                    payload_str.as_bytes().to_vec(),
+                                );
+                                println!("[DASHD] Loaded lap-card layout ({} bytes)", payload_str.len());
+                            }
+                            Err(e) => {
+                                eprintln!("[DASHD] MQTT bad layout payload: {}", e)
+                            }
+                        }
+                        continue;
+                    }
+
+                    // We subscribe to lhre/dash/# and therefore hear our own
+                    // publishes echoed back (state @2Hz + ack/* retained). Those
+                    // aren't numeric inputs — skip them silently so they don't
+                    // spam "bad payload" every frame.
+                    if field == "state" || field.starts_with("ack/") {
+                        continue;
+                    }
+
                     let val: f32 = match payload_str.parse() {
                         Ok(v) => v,
                         Err(_) => {
@@ -871,6 +970,11 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                             locked.mqtt.laps_remaining = Some(val);
                             locked.mqtt.last_laps_remaining = now;
                         }
+                        "lapCardMs" => {
+                            // How long the full-screen lap card stays up (ms).
+                            // Retained config — held last-known, no staleness.
+                            locked.mqtt.lap_card_ms = Some(val);
+                        }
                         "targetPower" => {
                             locked.mqtt.target_power = Some(val);
                             locked.mqtt.last_target_power = now;
@@ -883,16 +987,36 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                             );
                         }
                         "lapTrigger" => {
-                            // Trackside override / fallback for the on-car GPS
-                            // detector: each rising edge closes a lap. First
-                            // value just sets the baseline (no phantom lap on a
-                            // retained/stale value already on the broker).
-                            let rising = locked.last_offcar_trigger.is_some_and(|last| val > last);
+                            // Trackside is the AUTHORITATIVE lap count. The
+                            // website publishes its `liveState.laps.length`
+                            // (the absolute number of completed laps from its
+                            // own counter); we adopt it directly into
+                            // `lap_count` so the dash and the website always
+                            // display the same number.
+                            //
+                            // Treatment:
+                            //   - +1 increment (normal lap)  -> complete_lap,
+                            //     fire the dash card. This MUST cover lap 1
+                            //     too (the prior 'first publish = silent
+                            //     baseline' branch swallowed every session's
+                            //     first card). lapReset already drops
+                            //     lap_count to 0, so 1 > 0 fires correctly.
+                            //   - multi-lap jump  -> adopt silently. The
+                            //     trackside drain re-publishes the website's
+                            //     authoritative count after a dashd reboot,
+                            //     and we don't want a card with bogus
+                            //     time/energy for laps that never ran here.
+                            //   - same or backwards -> ignore (republish of a
+                            //     value we already processed).
+                            let new_count = val.round().max(0.0) as u64;
                             locked.last_offcar_trigger = Some(val);
-                            if rising {
-                                locked.complete_lap(now);
+                            if new_count > locked.lap_count + 1 {
+                                locked.lap_count = new_count;
+                                println!("[DASHD] Trackside lapTrigger {} adopted silently (multi-lap jump from {})", val, locked.lap_count);
+                            } else if new_count > locked.lap_count {
+                                locked.complete_lap(now, Some(new_count));
                                 let lap = locked.lap_count;
-                                println!("[DASHD] Trackside lapTrigger -> lap {}", lap);
+                                println!("[DASHD] Trackside lapTrigger {} -> lap {}", val, lap);
                                 let _ = client.publish(
                                     format!("{}ack/lapTrigger", MQTT_TOPIC_PREFIX),
                                     QoS::AtMostOnce,
@@ -900,6 +1024,23 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                                     lap.to_string(),
                                 );
                             }
+                        }
+                        "lapReset" => {
+                            // Trackside started a new session: drop both the
+                            // baseline and the running lap_count. The next
+                            // lapTrigger publish (typically 1) becomes the new
+                            // baseline at lap 1, not "ignored because
+                            // 1 < stale_count". Without this a fresh website
+                            // session would have its first ~N clicks silently
+                            // dropped while dashd was still pinned at the prior
+                            // session's high water mark.
+                            locked.last_offcar_trigger = None;
+                            locked.lap_count = 0;
+                            locked.lap_energy_wh = 0.0;
+                            locked.lap_budget_wh = 0.0;
+                            locked.lap_start = now;
+                            locked.last_lap = None;
+                            println!("[DASHD] Trackside lapReset -> counters cleared");
                         }
                         _ => {} // ignore unknown subtopics
                     }
@@ -1023,6 +1164,8 @@ fn main() -> Result<()> {
         lap_start: Instant::now(),
         last_energy_update: None,
         last_lap: None,
+        // Restore the last layout from disk; the retained MQTT topic refreshes it.
+        layout: load_layout(),
     }));
 
     let ipc_state = Arc::clone(&state);

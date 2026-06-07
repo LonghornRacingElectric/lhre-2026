@@ -6,7 +6,6 @@ import { DEFAULT_CHANNEL_KEY, ORION_CHANNELS, getChannel } from "./channels";
 import type { Settings } from "./config";
 import { ReadOnlyDatabase } from "./db";
 import { detectSplitRanges } from "./split";
-import * as sample from "./sampleData";
 import type {
   ChannelDef, DayDetail, DriveDay, GpsResponse, SegmentSummary, SeriesPoint, SeriesResponse, SessionSummary,
 } from "./types";
@@ -93,7 +92,7 @@ export class TelemetryService {
   }
 
   async calendar(channelKey: string | null, threshold = 0, minDurationS = 0, validOnly = false): Promise<DriveDay[]> {
-    if (!this.settings.usePostgres) return sample.listDays();
+    if (!this.settings.usePostgres) return []; // no sample mode — honest empty when DB not connected
     const rows = await this.db.query<{ start_ms: string; end_ms: string }>(
       `select start_time::bigint as start_ms, end_time::bigint as end_ms
        from partitions where end_time > start_time order by end_time desc limit 2000`,
@@ -154,7 +153,7 @@ export class TelemetryService {
   }
 
   async sessionsForDay(date: string): Promise<SessionSummary[]> {
-    if (!this.settings.usePostgres) return sample.listSessions(date);
+    if (!this.settings.usePostgres) return [];
     const [dayStart, dayEnd] = localDayBoundsMs(date, this.settings.displayTimezone);
     const rows = await this.db.query<{ start_ms: string; end_ms: string }>(
       `select start_time::bigint as start_ms, end_time::bigint as end_ms
@@ -185,12 +184,12 @@ export class TelemetryService {
     const mp = maxPoints || this.settings.maxPreviewPoints;
     const points = this.settings.usePostgres
       ? await this.postgresSeries(channel, startMs, endMs, mp)
-      : sample.series(channel.key, startMs, endMs, mp);
+      : [];
     return { channel: channel.key, label: channel.label, unit: channel.unit, points };
   }
 
   async gps(startMs: number, endMs: number, maxPoints = 2000): Promise<GpsResponse> {
-    if (!this.settings.usePostgres) return { points: sample.gps(startMs, endMs, maxPoints) };
+    if (!this.settings.usePostgres) return { points: [] };
     const span = Math.max(1, endMs - startMs);
     const stepMs = Math.max(1, Math.floor(span / Math.max(1, maxPoints)));
     const rows = await this.db.query<{ t: string; lat: number | null; lon: number | null }>(
@@ -240,7 +239,7 @@ export class TelemetryService {
   }
 
   async autoSegments(startMs: number, endMs: number, channelKey = DEFAULT_CHANNEL_KEY): Promise<SegmentSummary[]> {
-    if (!this.settings.usePostgres) return sample.autoSegments(startMs, endMs, channelKey);
+    if (!this.settings.usePostgres) return [];
     const series = await this.series(channelKey, startMs, endMs, 20000);
     const channel = await this.getChannel(channelKey);
     const splitChannel = new Channel(
@@ -267,7 +266,7 @@ export class TelemetryService {
     threshold = 0, maxPoints = 20000, minDurationS = 0,
   ): Promise<SegmentSummary[]> {
     if (!this.settings.usePostgres) {
-      return sample.autoSegments(startMs, endMs, channelKey).filter((s) => s.duration_s >= minDurationS);
+      return [];
     }
     if (endMs <= startMs) return [];
     const channel = await this.getChannel(channelKey);
@@ -298,7 +297,7 @@ export class TelemetryService {
 
   async datalog(channelKeys: string[], startMs: number, endMs: number): Promise<DataLog> {
     const selected = channelKeys.length ? channelKeys : ORION_CHANNELS.map((c) => c.key);
-    if (!this.settings.usePostgres) return sample.datalog(selected, startMs, endMs);
+    if (!this.settings.usePostgres) throw new Error("Telemetry database is not connected (set TELEMETRY_SOURCE=postgres).");
     const channelByKey = new Map((await this.channels()).map((c) => [c.key, c]));
     const definitions = selected.map((k) => channelByKey.get(k)).filter((d): d is ChannelDef => Boolean(d));
     const tables = [...new Set(definitions.map((d) => d.table))].sort();

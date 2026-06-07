@@ -81,7 +81,7 @@ static void set_tssi_fault(uint32_t tick) {
 }
 
 static void set_tssi_no_comms(uint32_t tick, uint32_t startup_tick) {
-  const uint32_t startup_grace_period_ms = 3500U;
+  const uint32_t startup_grace_period_ms = 6000U;
 
   if (tick - startup_tick < startup_grace_period_ms) {
     set_tssi_normal();

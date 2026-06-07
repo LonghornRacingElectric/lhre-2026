@@ -44,12 +44,14 @@ export const authOptions = {
     async jwt({ token, user }: { token: JWT; user: User }) {
       if (user) {
         token.username = user.username;
+        token.isAdmin = !!user.isAdmin;
       }
       return token;
     },
     async session({ session, token }: { session: Session; token: JWT }) {
       if (session.user) {
         session.user.username = token.username;
+        session.user.isAdmin = !!token.isAdmin;
       }
       return session;
     },

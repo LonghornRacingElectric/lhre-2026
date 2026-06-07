@@ -125,17 +125,17 @@ int main(void) {
     totalTime += elapsedTime;
     uint8_t led_high = (totalTime / 150) % 2;
 
-    if (getImdError()) {
-      HAL_GPIO_WritePin(IMD_LED_GPIO_Port, IMD_LED_Pin, led_high);
-    }
-    if (getAmsError()) {
-      HAL_GPIO_WritePin(BMS_LED_GPIO_Port, BMS_LED_Pin, !led_high);
-    }
+    // HAL_GPIO_WritePin(IMD_LED_GPIO_Port, IMD_LED_Pin, getImdError()); // doesn't work
+    // HAL_GPIO_WritePin(BMS_LED_GPIO_Port, BMS_LED_Pin, getBmsError());
+    // HAL_GPIO_WritePin(BMS_LED_GPIO_Port, BMS_LED_Pin, getImdError()); // temp
+
+    HAL_GPIO_WritePin(BMS_LED_GPIO_Port, BMS_LED_Pin, led_high);
+    HAL_GPIO_WritePin(IMD_LED_GPIO_Port, IMD_LED_Pin, !led_high);
 
     float deltaTime = elapsedTime / 1000.0f;
     charging_periodic(deltaTime);
 
-    if (rainbow == 3) { // currently 2
+    if (getEnabled()) {
       led_rainbow(deltaTime);
     }
     /* USER CODE END WHILE */

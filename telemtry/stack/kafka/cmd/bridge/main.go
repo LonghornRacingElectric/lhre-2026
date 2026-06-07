@@ -720,6 +720,11 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["direction"] = c.Direction
 		m["enable"] = c.Enable
 		m["torque_shudder"] = c.TorqueShudder
+		m["line_lock_enabled"] = c.LineLockEnabled
+		m["bse3"] = c.Bse3
+		m["event_mode"] = c.EventMode
+		m["net_energy"] = c.NetEnergy
+		m["regen_energy"] = c.RegenEnergy
 	}
 
 	if p := msg.Pack; p != nil {
@@ -738,6 +743,11 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["hv_c"] = p.HvC
 		m["hv_pack_v"] = p.HvPackV
 		m["hv_soc"] = p.HvSoc
+		// VCU coulomb-counted SOC (Pack 0x.. soc_estimate). This is the value the
+		// car dash shows (dashd uses pack.soc_estimate); hv_soc is currently 0
+		// because the BMS 0x132 packet is down, so surface soc_estimate too and
+		// let the viewer prefer it.
+		m["soc_estimate"] = p.SocEstimate
 		m["lv_batt_c"] = p.LvBattC
 		m["lv_batt_t"] = p.LvBattT
 		m["lv_batt_v"] = p.LvBattV

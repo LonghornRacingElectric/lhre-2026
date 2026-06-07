@@ -448,6 +448,10 @@ CREATE TABLE public.diagnostics_low (
     temp_imd_2           boolean,
     temp_shutdown_1      boolean,
     temp_shutdown_2      boolean,
+    charger_current      real,
+    charger_voltage      real,
+    charger_enabled      boolean,
+    imd_led              boolean,
     CONSTRAINT fk_diagnostics_low_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
 
@@ -488,6 +492,10 @@ CREATE TABLE public.thermal (
     temp_command_2       boolean,
     temp_output_1        boolean,
     temp_output_2        boolean,
+    max_charge_current   real,
+    max_charge_voltage   real,
+    bms_led              boolean,
+    charger_enable       boolean,
     CONSTRAINT fk_thermal_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
 

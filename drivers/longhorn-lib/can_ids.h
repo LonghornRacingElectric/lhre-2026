@@ -2,7 +2,7 @@
 #define CAN_IDS_H
 
 // Auto-generated CAN packet definition header file
-// Generated from: drivers/longhorn-lib/can.json
+// Generated from: can.json
 // DO NOT EDIT MANUALLY
 
 #include <stdint.h>

@@ -1,52 +1,44 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { AppState } from '@/lib/types';
 
-const SplashBox = ({ href, title, imageUrl, textColor, gradient }: { href: string; title: string; imageUrl?: string; textColor?: string; gradient?: string }) => (
+const SplashBox = ({ href, title, subtitle, gradient }: { href: string; title: string; subtitle?: string; gradient: string }) => (
   <Link href={href} className="flex-grow">
-    <div className={`relative flex items-center justify-center h-full min-h-[180px] rounded-lg shadow-lg cursor-pointer overflow-hidden group ${gradient ?? ''}`}>
-      {imageUrl && <Image src={imageUrl} alt={title} fill style={{ objectFit: "cover" }} className="transition-transform duration-300 group-hover:scale-105" />}
-      <span className={`relative text-3xl font-bold text-center z-20 ${textColor || 'text-white'}`}>{title}</span>
+    <div className={`relative flex flex-col items-center justify-center h-full min-h-[200px] rounded-lg shadow-lg cursor-pointer overflow-hidden group transition-colors ${gradient}`}>
+      <span className="relative text-3xl font-bold text-center z-20 text-white">{title}</span>
+      {subtitle && <span className="relative mt-2 text-sm text-center z-20 text-white/70 px-6">{subtitle}</span>}
     </div>
   </Link>
 );
 
 export default function SplashPage() {
-  const [appState, setAppState] = useState<AppState>({});
-
-  useEffect(() => {
-    const eventSource = new EventSource('/api/event-sync');
-    eventSource.onmessage = (event) => {
-      const newState: AppState = JSON.parse(event.data);
-      setAppState(newState);
-    };
-    return () => eventSource.close();
-  }, []);
-
-  const getDrivedayHref = () => {
-    if (appState.currentPage) {
-      return appState.currentPage;
-    }
-    if (appState.driveDay?.dayId) {
-      return '/driveday-active';
-    }
-    return '/driveday';
-  };
-
   return (
     <div className="min-h-screen flex flex-col justify-between pt-14">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 flex-grow p-8">
-        <SplashBox href={getDrivedayHref()} title="Driveday Page" imageUrl="/car.png" />
-        <SplashBox href="/live-viewer" title="Live Viewer" imageUrl="/images/live.png" textColor="text-black" />
-        <SplashBox href="/replay" title="Replay Mode" imageUrl="/images/replay.png" textColor="text-black" />
-        <SplashBox href="/tune" title="Texas Tune" imageUrl="/tune.png" textColor="text-black" />
-        <SplashBox href="/dashboards" title="Grafana & Database" imageUrl="/graph.png" />
-        <SplashBox href="/trackside-live" title="Trackside Live" gradient="bg-gradient-to-br from-teal-700 to-emerald-900 group-hover:from-teal-600 group-hover:to-emerald-800 transition-colors" />
-        <SplashBox href="/car-status" title="Car Status" gradient="bg-gradient-to-br from-indigo-700 to-violet-900 group-hover:from-indigo-600 group-hover:to-violet-800 transition-colors" />
-        <SplashBox href="/log-sync" title="Log Sync" gradient="bg-gradient-to-br from-slate-700 to-slate-900 group-hover:from-slate-600 group-hover:to-slate-800 transition-colors" />
+        <SplashBox
+          href="/trackside-live"
+          title="Trackside Live"
+          subtitle="Live lap timing, energy & dash comms"
+          gradient="bg-gradient-to-br from-[#d97757] to-[#7a3a26] group-hover:from-[#e0876a] group-hover:to-[#8c452e]"
+        />
+        <SplashBox
+          href="/trackside-live?focus=car"
+          title="Car Status"
+          subtitle="Is the car online? Orion / BEVO health"
+          gradient="bg-gradient-to-br from-[#2f5fb0] to-[#16243d] group-hover:from-[#3a6ec5] group-hover:to-[#1c2e4d]"
+        />
+        <SplashBox
+          href="/log-sync"
+          title="Log Sync"
+          subtitle="Pull & annotate CSV logs from the car"
+          gradient="bg-gradient-to-br from-[#33312e] to-[#161514] group-hover:from-[#42403c] group-hover:to-[#1d1c1a]"
+        />
+        <SplashBox
+          href="/dashboards"
+          title="Grafana"
+          subtitle="Live dashboards & historical database"
+          gradient="bg-gradient-to-br from-[#b07712] to-[#3a2a08] group-hover:from-[#c98916] group-hover:to-[#4a360c]"
+        />
       </div>
     </div>
   );

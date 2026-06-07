@@ -18,18 +18,21 @@
 #include "longhorn/rtos/logger.h"
 #include "hvc_bms.h"
 #include "cmsis_os2.h"
+#include <stdint.h>
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 
 
-float fault_timer_bms_comms = 0.0f;
-float fault_timer_bms_overvoltage = 0.0f;
-float fault_timer_bms_undervoltage = 0.0f;
-float fault_timer_bms_overtemp = 0.0f;
-float fault_timer_pack_overvoltage = 0.0f;
-float fault_timer_vsense_implausible = 0.0f;
-float fault_timer_overcurrent = 0.0f;
-float fault_timer_isense_implausible = 0.0f;
+static uint32_t latched_fault_vector = 0;
+
+static float fault_timer_bms_comms = 0.0f;
+static float fault_timer_bms_overvoltage = 0.0f;
+static float fault_timer_bms_undervoltage = 0.0f;
+static float fault_timer_bms_overtemp = 0.0f;
+static float fault_timer_pack_overvoltage = 0.0f;
+static float fault_timer_vsense_implausible = 0.0f;
+static float fault_timer_overcurrent = 0.0f;
+static float fault_timer_isense_implausible = 0.0f;
 
 
 void faults_init() {
@@ -148,6 +151,16 @@ uint32_t get_faults() {
     // ...
 
     return current_fault_vector;
+}
+
+
+void latch_faults(uint32_t current_fault_vector) {
+    latched_fault_vector |= current_fault_vector;
+}
+
+
+uint32_t get_latched_faults() {
+    return latched_fault_vector;
 }
 
 

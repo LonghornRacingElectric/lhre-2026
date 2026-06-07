@@ -236,6 +236,7 @@ void StartDefaultTask(void *argument)
  * @details Runs at 10Hz to manage HVC states, precharge, and contactor control
  * @param argument Not used
  */
+
 void StartStateMachineTask(void *argument) {
   // Wait for USB
   osDelay(3500);
@@ -250,25 +251,31 @@ void StartStateMachineTask(void *argument) {
 
   // Task loop - 10Hz update rate (100ms period)
   const uint32_t task_period_ms = 100;
-  uint32_t latched_fault_vector = 0;
+  
+  // state
+  static bool bms_indicator_error = false;
+  static bool imd_indicator_error = false;
 
   for (;;) {
     // Update state machine
     uint32_t current_fault_vector = get_faults();
-    latched_fault_vector |= current_fault_vector;
+    latch_faults(current_fault_vector);
     set_bms_fault_pin(current_fault_vector != 0);
-    bool bms_indicator_error =
-        (current_fault_vector &
-         (FAULT_BMS_COMMS | FAULT_BMS_OVERVOLTAGE |
-          FAULT_BMS_UNDERVOLTAGE | FAULT_BMS_OVERTEMP)) != 0;
+
+    bool startup_complete = (osKernelGetTickCount() > 8000);
+    if(startup_complete) {
+      bms_indicator_error = bms_indicator_error || (current_fault_vector != 0);
+      imd_indicator_error = imd_indicator_error || hvc_gpio_is_imd_error_active();
+    }
+
     hvc_set_indicator_status(bms_indicator_error,
-                             hvc_gpio_is_imd_error_active(),
+                             imd_indicator_error,
                              hvc_gpio_is_shutdown_leg1_closed(),
                              hvc_gpio_is_shutdown_leg2_closed(),
                              hvc_gpio_is_shutdown_leg3_closed(),
                              hvc_gpio_is_shutdown_leg4_closed());
-    bool any_faults = (latched_fault_vector != 0) ||
-                      (osKernelGetTickCount() < 5000);
+
+    bool any_faults = (get_latched_faults() != 0) || !startup_complete;
 
     update_state_machine(any_faults);
     hvc_update_contactor_status();
@@ -299,7 +306,7 @@ void StartStateMachineTask(void *argument) {
                "BMS[resp:%u disc:%u uv:%u ov:%u ot:%u], "
                "State:%d Shutdown:%d BalCnt:%u\n",
                pack_v,
-               current_fault_vector, latched_fault_vector,
+               current_fault_vector, get_latched_faults(),
                min_v, max_v, delta_mv, min_temp_c, max_temp_c,
                max_die_temp_c,
                responsive_ics, bms_disc, bms_uv, bms_ov, bms_ot,
