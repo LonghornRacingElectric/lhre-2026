@@ -1823,7 +1823,17 @@ function App() {
   // offline EXCEPT the raw car CSVs (those are fetched via Log Sync).
   function downloadSessionJson() {
     const saved = buildSavedSession(liveStateRef.current, true);
-    const full = { ...saved, metadata: { ...liveMetadataRef.current }, exportedAt: Date.now() };
+    // Surface the live drive-day setup + plan at the top level so a reviewer
+    // gets the conditions/car-setup/tires/aero in one obvious place without
+    // walking sessionInfo. (sessionInfo.setup is still the canonical copy.)
+    const full = {
+      ...saved,
+      metadata: { ...liveMetadataRef.current },
+      plan: { targetLaps, targetEnergyKwh, soeCutoffCellV },
+      driveDaySetup: { ...driveDaySetupRef.current },
+      dayId: sessionInfo?.dayId ?? null,
+      exportedAt: Date.now(),
+    };
     const blob = new Blob([JSON.stringify(full, null, 2) + "\n"], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -1848,6 +1858,18 @@ function App() {
     const lapsExported = liveStateRef.current.laps.length;
     downloadSessionCsv();
     downloadSessionJson();
+    // Flush the debounced laps-sync now so the FINAL lap set lands in the DB
+    // even if Stop is clicked within 1500 ms of the last lap. Cancel the
+    // queued timer first so it can't race with the clear below.
+    if (sessionInfo?.dayId != null) {
+      if (lapSyncTimerRef.current) { window.clearTimeout(lapSyncTimerRef.current); lapSyncTimerRef.current = null; }
+      const dayId = sessionInfo.dayId;
+      const laps = liveStateRef.current.laps.map((l) => ({ start_time: l.startMs, end_time: l.endMs, notes: l.notes ?? "" }));
+      void fetch("/api/laps/sync", {
+        method: "POST", headers: { "content-type": "application/json" }, keepalive: true,
+        body: JSON.stringify({ day_id: dayId, laps }),
+      }).catch(() => { /* offline — JSON download still has them */ });
+    }
     if (sessionInfo) {
       patchSession(sessionInfo.id, { endedAt: Date.now(), laps: lapsExported });
       setSessionInfo(null);
@@ -2326,7 +2348,19 @@ function App() {
       sampleTail: current.samples.slice(includeFullLapSamples ? 0 : -SESSION_AUTOSAVE_SAMPLE_CAP),
       currentLap,
       hasSectors: sessionFromFile || current.laps.some((lap) => lap.sectors.length > 0),
-      sessionInfo,
+      // Inject the LIVE metadata / plan / setup into sessionInfo so the saved
+      // session always reflects the latest edits. patchSession only writes to
+      // localStorage + server, not React state — without this merge,
+      // downloadSessionJson and the autosave snapshot carry whatever values
+      // were captured at session-create time (often empty setup).
+      sessionInfo: sessionInfo
+        ? {
+            ...sessionInfo,
+            metadata: { ...sessionInfo.metadata, ...metadataDraft },
+            plan: { targetLaps, targetEnergyKwh, soeCutoffCellV },
+            setup: { ...sessionInfo.setup, ...driveDaySetup } as Record<string, string | number | boolean>,
+          }
+        : null,
     };
   }
 
