@@ -17,6 +17,7 @@ extern "C" {
 #include "PowerLimit.h"
 #include "RegenLinelock.h"
 #include "TorqueMap.h"
+#include "TractionControl.h"
 
 typedef struct {
   prndl_machine_t prndl_machine;
@@ -27,6 +28,7 @@ typedef struct {
   bse_state_t bse_state;
   cooling_state_t cooling_state;
   power_limit_state_t power_limit_state;
+  traction_control_state_t traction_control_state;
   regen_linelock_state_t regen_linelock_state;
 } vcu_model_context_t;
 

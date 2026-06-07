@@ -116,6 +116,10 @@ typedef struct {
     float max_cell_temp_c;
     float min_motor_speed_rpm;
   } regen_linelock;
+
+  struct {
+    bool enabled;
+  } traction_control;
 } vcu_parameters_t;
 
 #ifdef __cplusplus

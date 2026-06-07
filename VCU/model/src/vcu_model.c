@@ -1,4 +1,5 @@
 #include "vcu_model.h"
+#include "TractionControl.h"
 #include "string.h"
 #include "util.h"
 #include <math.h>
@@ -22,6 +23,7 @@ void vcu_model_init(vcu_model_context_t *ctx, const vcu_parameters_t *params) {
   cooling_init(&ctx->cooling_state, &ctx->params);
   torque_map_init(&ctx->params);
   power_limit_init(&ctx->power_limit_state, &ctx->params);
+  traction_control_init(&ctx->traction_control_state, &ctx->params);
   regen_linelock_init(&ctx->regen_linelock_state, &ctx->params);
 }
 
@@ -55,6 +57,7 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
   bse_evaluate(in, out, &ctx->bse_state, &ctx->params, dt_ms);
   torque_map_evaluate(in, out, &ctx->params, dt_ms);
   power_limit_evaluate(in, out, &ctx->power_limit_state, &ctx->params, dt_ms);
+  traction_control_evaluate(in, out, &ctx->traction_control_state, &ctx->params, dt_ms);
   prndl_evaluate(&ctx->prndl_machine, in, out, &ctx->params, ctx->time_ms);
   regen_linelock_evaluate(in, out, &ctx->regen_linelock_state, &ctx->params,
                           dt_ms);
