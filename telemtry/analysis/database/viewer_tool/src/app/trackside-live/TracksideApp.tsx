@@ -1926,15 +1926,27 @@ function App() {
 
   function processLiveSample(sample: LiveSample) {
     const current = liveStateRef.current;
-    // Mirror clients don't run lap/energy detection (the leader owns the session
-    // and we adopt its doc); just refresh the live gauges from this client's own
-    // stream so dials/charts stay real-time.
+    // Mirror clients don't run lap detection (the leader owns lap boundaries and
+    // we adopt its doc) — but they DO integrate session energy from their own
+    // feed. Every client gets the same car telemetry, so this stays in lockstep
+    // with the leader while making the hero Energy/Regen totals immune to a
+    // leader whose tab is on a stale build (which would otherwise broadcast a
+    // zeroed total that the mirror blindly adopted). adoptSharedSession keeps
+    // these locally-integrated totals rather than clobbering them.
     if (isMirrorRef.current) {
+      const prev = current.lastSample;
+      const dtSeconds = prev ? Math.max(0, (sample.t - prev.t) / 1000) : 0;
+      const signedPowerKw = signedLiveEnergyPowerKwFor(smoothLiveSample(sample, prev)) ?? 0;
+      const outDeltaWh = Math.max(0, signedPowerKw * dtSeconds / 3.6);
+      const inDeltaWh = Math.max(0, -signedPowerKw * dtSeconds / 3.6);
       const mirrored: LiveSessionState = {
         ...current,
         previousSample: current.lastSample,
         lastSample: sample,
         samples: [...current.samples, sample].slice(-LIVE_SAMPLE_MEMORY_CAP),
+        totalEnergyOutWh: current.totalEnergyOutWh + outDeltaWh,
+        totalEnergyInWh: current.totalEnergyInWh + inDeltaWh,
+        totalEnergyWh: current.totalEnergyWh + (outDeltaWh - inDeltaWh),
       };
       liveStateRef.current = mirrored;
       setLiveState(mirrored);
@@ -2251,9 +2263,14 @@ function App() {
       sectorStartMs: cur?.sectorStartMs ?? null,
       nextSplitIndex: cur?.nextSplitIndex ?? 0,
       currentSectors: cur?.currentSectors ?? [],
-      totalEnergyWh: saved.totalEnergyWh ?? 0,
-      totalEnergyOutWh: saved.totalEnergyOutWh ?? Math.max(0, saved.totalEnergyWh ?? 0),
-      totalEnergyInWh: saved.totalEnergyInWh ?? 0,
+      // Energy totals are integrated locally from this client's own feed (see
+      // processLiveSample's mirror branch). Seed them from the leader the first
+      // time (so a late-joining mirror starts at the running total) but never
+      // overwrite a non-zero local total afterward — otherwise a leader on a
+      // stale build that reports OUT=0 would keep zeroing our hero tiles.
+      totalEnergyWh: current.totalEnergyWh !== 0 ? current.totalEnergyWh : (saved.totalEnergyWh ?? 0),
+      totalEnergyOutWh: current.totalEnergyOutWh > 0 ? current.totalEnergyOutWh : (saved.totalEnergyOutWh ?? Math.max(0, saved.totalEnergyWh ?? 0)),
+      totalEnergyInWh: current.totalEnergyInWh > 0 ? current.totalEnergyInWh : (saved.totalEnergyInWh ?? 0),
       batteryTotalEnergyWh: saved.batteryTotalEnergyWh ?? null,
       lapEnergyWh: cur?.lapEnergyWh ?? 0,
       lapEnergyOutWh: cur?.lapEnergyOutWh ?? Math.max(0, cur?.lapEnergyWh ?? 0),
