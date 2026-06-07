@@ -1965,13 +1965,28 @@ function App() {
   // on). The per-flag picker decides which screen: a chosen message-library
   // screen, "none" (skip), or "auto" (build one from the flag text below).
   function fireFlagDriverMessage(label: string) {
-    if (isMirrorRef.current || dashSignals.status !== "connected") return;
+    if (isMirrorRef.current) return;
+    if (dashSignals.status !== "connected") {
+      setMsgSendStatus(`Flag "${label}" not sent to driver — dash uplink ${dashSignals.status}.`);
+      window.setTimeout(() => setMsgSendStatus(""), 4000);
+      return;
+    }
     const choice = flagMessageMap[label];
-    if (choice === "none") return;
+    if (choice === "none") {
+      setMsgSendStatus(`Flag "${label}" logged (no driver message — "Don't send" selected).`);
+      window.setTimeout(() => setMsgSendStatus(""), 4000);
+      return;
+    }
     if (choice && choice !== "auto") {
       const picked = msgLib.lib.items.find((m) => m.id === choice);
-      if (picked) { dashSignals.sendMessage(picked, picked.durationS || undefined); return; }
+      if (picked) {
+        const ok = dashSignals.sendMessage(picked, picked.durationS || undefined);
+        setMsgSendStatus(ok ? `Sent "${picked.label}" to driver (flag: ${label}) ✓` : `Send failed — check the dash link.`);
+        window.setTimeout(() => setMsgSendStatus(""), 4000);
+        return;
+      }
       // picked screen was deleted — fall through to the auto-built one.
+      setMsgSendStatus(`Picked screen for "${label}" was deleted; sending auto fallback.`);
     }
     const key = label.toLowerCase();
     const style: { icon: DashMessage["icon"]; color: string } =
@@ -1987,7 +2002,9 @@ function App() {
       color: style.color,
       durationS: 4,
     };
-    dashSignals.sendMessage(msg, 4);
+    const ok = dashSignals.sendMessage(msg, 4);
+    setMsgSendStatus(ok ? `Sent auto "${label}" to driver ✓` : `Send failed — check the dash link.`);
+    window.setTimeout(() => setMsgSendStatus(""), 4000);
   }
   function customFlag() {
     const note = window.prompt("Custom event flag (note):");
@@ -3251,8 +3268,23 @@ function App() {
                   <button className="tool" disabled={isMirror || !sessionInfo} title={isMirror ? "Read-only mirror — the leader logs flags" : "Custom event flag"} onClick={customFlag}>
                     <Flag size={14} /> Flag…
                   </button>
+                  {/* Clear the message currently on the driver's dash. Useful
+                      after firing a flag with a long-duration screen, or to
+                      dismiss a stale message left over from a prior flag. */}
+                  <button
+                    type="button"
+                    className="tool flagClearBtn"
+                    disabled={isMirror || dashSignals.status !== "connected"}
+                    title={isMirror ? "Read-only mirror" : dashSignals.status !== "connected" ? "Dash uplink not connected" : "Clear the message currently on the driver's dash"}
+                    onClick={clearDriverMessage}
+                  >
+                    <X size={13} /> Clear
+                  </button>
                 </div>
               )}
+              {msgSendStatus ? (
+                <small className="heroFlagStatus" role="status">{msgSendStatus}</small>
+              ) : null}
               {/* Tier 4 — set-and-forget toggles. Compact options row. */}
               <div className="liveControlOpts">
                 <label className="checkInline" title="When on, each flag above also flashes a message on the driver's dash (needs the dash link connected).">
