@@ -8,22 +8,22 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 
-export interface RacePlan { totalLaps: number; budgetKwh: number; savedAt: number; }
+export interface RacePlan { totalLaps: number; budgetKwh: number; soeCutoffCellV?: number; savedAt: number; }
 
 const POLL_MS = 4000;
 const LOCAL_EDIT_GRACE_MS = 6000; // ignore server for this long after a local edit
 
-export function useRacePlan(onRemote: (p: RacePlan) => void): { push: (totalLaps: number, budgetKwh: number) => void } {
+export function useRacePlan(onRemote: (p: RacePlan) => void): { push: (totalLaps: number, budgetKwh: number, soeCutoffCellV?: number) => void } {
   const lastLocalEditRef = useRef(0);
   const onRemoteRef = useRef(onRemote);
   onRemoteRef.current = onRemote;
 
-  const push = useCallback((totalLaps: number, budgetKwh: number) => {
+  const push = useCallback((totalLaps: number, budgetKwh: number, soeCutoffCellV?: number) => {
     lastLocalEditRef.current = Date.now();
     void fetch('/api/dash/raceplan', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ totalLaps, budgetKwh }),
+      body: JSON.stringify({ totalLaps, budgetKwh, soeCutoffCellV }),
     }).catch(() => { /* offline — local value still holds */ });
   }, []);
 

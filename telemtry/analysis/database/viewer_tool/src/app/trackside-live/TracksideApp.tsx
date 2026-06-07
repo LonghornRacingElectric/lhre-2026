@@ -622,10 +622,17 @@ function App() {
     ? dynamicLapBudgetWh / (avgLapTimeS / 3600) / 1000 : null;
   const effectiveTargetPowerKw = dashPowerMode === "manual" ? dashTargetPower : autoTargetPowerKw;
 
-  // Keep total laps + usable budget synced across every trackside client.
+  // The race plan (total laps + usable budget + OCV cutoff) syncs across every
+  // trackside client through THIS dedicated channel only — it's the single
+  // source of truth. The shared saved-session doc must NOT also apply these
+  // fields (it lags behind edits and would fight this poll, causing the value
+  // to flip between the fresh and stale numbers).
   const racePlan = useRacePlan((p) => {
     if (p.totalLaps !== targetLaps) setTargetLaps(p.totalLaps);
     if (p.budgetKwh > 0 && p.budgetKwh !== targetEnergyKwh) setTargetEnergyKwh(p.budgetKwh);
+    if (p.soeCutoffCellV && p.soeCutoffCellV > 0 && p.soeCutoffCellV !== soeCutoffCellV) {
+      setSoeCutoffCellV(normalizeSoeCutoffCellV(p.soeCutoffCellV));
+    }
   });
   const selectedLaps = useMemo(() => liveState.laps.filter((lap) => selectedLapIds.has(lap.id)), [liveState.laps, selectedLapIds]);
   const lapAverages = useMemo(() => {
@@ -850,7 +857,9 @@ function App() {
   // server as the strategist edits it (debounced), so the logged session is
   // always complete — not just the name/driver summary.
   useEffect(() => {
-    if (!sessionInfo) return;
+    // Leader only: a mirror's plan fields can lag (or sit at the local default)
+    // and would clobber the stored session's real plan on the server.
+    if (!sessionInfo || isMirror) return;
     const id = window.setTimeout(() => {
       patchSession(sessionInfo.id, {
         metadata: { ...metadataDraft },
@@ -859,7 +868,7 @@ function App() {
       });
     }, 1500);
     return () => window.clearTimeout(id);
-  }, [sessionInfo, metadataDraft, targetLaps, targetEnergyKwh, soeCutoffCellV, driveDaySetup]);
+  }, [sessionInfo, isMirror, metadataDraft, targetLaps, targetEnergyKwh, soeCutoffCellV, driveDaySetup]);
 
   // Push drive-day SETUP edits to the drive_day record (debounced) once the
   // session has a linked day. Leader only.
@@ -2235,9 +2244,10 @@ function App() {
     knownLapIdsRef.current = new Set(laps.map((lap) => lap.id));
     liveStateRef.current = merged;
     setLiveState(merged);
-    setTargetLaps(saved.targetLaps ?? 0);
-    if (saved.targetEnergyKwh && saved.targetEnergyKwh > 0) setTargetEnergyKwh(saved.targetEnergyKwh);
-    if (saved.soeCutoffCellV) setSoeCutoffCellV(saved.soeCutoffCellV);
+    // NOTE: targetLaps / targetEnergyKwh / soeCutoffCellV are intentionally NOT
+    // applied here — the race plan syncs through useRacePlan (the raceplan
+    // endpoint), which is always fresh. Adopting them from this lagging
+    // saved-session doc made the budget flip between the stale and live values.
     setSelectedLapIds(new Set(saved.selectedLapIds ?? []));
     if (saved.sessionInfo) setSessionInfo(saved.sessionInfo);
   }
@@ -3103,7 +3113,7 @@ function App() {
                       onChange={(e) => {
                         const n = Math.max(0, Math.floor(Number(e.target.value) || 0));
                         setTargetLaps(n);
-                        racePlan.push(n, targetEnergyKwh);
+                        racePlan.push(n, targetEnergyKwh, soeCutoffCellV);
                       }}
                     />
                   </label>
@@ -3118,7 +3128,7 @@ function App() {
                       onChange={(e) => {
                         const v = Math.max(0, Number(e.target.value) || 0);
                         setTargetEnergyKwh(v);
-                        racePlan.push(targetLaps, v);
+                        racePlan.push(targetLaps, v, soeCutoffCellV);
                       }}
                     />
                   </label>
@@ -3132,7 +3142,11 @@ function App() {
                       value={soeCutoffCellV || ""}
                       placeholder={DEFAULT_SOE_CUTOFF_CELL_V.toFixed(2)}
                       disabled={isMirror}
-                      onChange={(e) => setSoeCutoffCellV(normalizeSoeCutoffCellV(Number(e.target.value) || DEFAULT_SOE_CUTOFF_CELL_V))}
+                      onChange={(e) => {
+                        const v = normalizeSoeCutoffCellV(Number(e.target.value) || DEFAULT_SOE_CUTOFF_CELL_V);
+                        setSoeCutoffCellV(v);
+                        racePlan.push(targetLaps, targetEnergyKwh, v);
+                      }}
                     />
                   </label>
                   {targetEnergyPerLapWh != null ? (

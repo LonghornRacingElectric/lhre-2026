@@ -20,18 +20,21 @@ export async function GET() {
     const raw = await fs.readFile(planPath(), "utf-8");
     return NextResponse.json(JSON.parse(raw));
   } catch {
-    return NextResponse.json({ totalLaps: 0, budgetKwh: 0, savedAt: 0 });
+    return NextResponse.json({ totalLaps: 0, budgetKwh: 0, soeCutoffCellV: 0, savedAt: 0 });
   }
 }
 
 export async function PUT(req: NextRequest) {
-  const body = (await req.json().catch(() => ({}))) as { totalLaps?: unknown; budgetKwh?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { totalLaps?: unknown; budgetKwh?: unknown; soeCutoffCellV?: unknown };
   const totalLaps = Number.isFinite(Number(body.totalLaps)) ? Math.max(0, Math.floor(Number(body.totalLaps))) : 0;
   const budgetKwh = Number.isFinite(Number(body.budgetKwh)) ? Math.max(0, Number(body.budgetKwh)) : 0;
+  // OCV cutoff is optional; 0 means "unset" so a client that omits it doesn't
+  // clobber a previously-shared value with a spurious zero.
+  const soeCutoffCellV = Number.isFinite(Number(body.soeCutoffCellV)) ? Math.max(0, Number(body.soeCutoffCellV)) : 0;
   const p = planPath();
   await fs.mkdir(path.dirname(p), { recursive: true });
   const tmp = `${p}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify({ totalLaps, budgetKwh, savedAt: Date.now() }));
+  await fs.writeFile(tmp, JSON.stringify({ totalLaps, budgetKwh, soeCutoffCellV, savedAt: Date.now() }));
   await fs.rename(tmp, p); // atomic
   return NextResponse.json({ ok: true });
 }
