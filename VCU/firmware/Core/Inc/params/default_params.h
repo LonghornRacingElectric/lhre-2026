@@ -17,11 +17,11 @@
         .apps1_min_adc_v          = 1.730f, \
         .apps1_max_adc_v          = 1.500f, \
         .apps2_min_adc_v          = 0.197f, \
-        .apps2_max_adc_v          = -0.020f, \
+        .apps2_max_adc_v          = -0.050f, \
         .implaus_debounce_time_ms = 100u, \
         .max_allowable_diff       = 0.15f, \
         .min_travel_deadzone      = 0.09f, \
-        .max_travel_deadzone      = 0.88f, \
+        .max_travel_deadzone      = 0.74f, \
         .pedal_ema_alpha          = 0.35f, \
     }, \
     .bse = { \
