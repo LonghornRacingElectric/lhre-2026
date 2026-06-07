@@ -3256,7 +3256,7 @@ function App() {
                   glance with pack state. */}
               {dynamicLapBudgetWh != null ? (
                 <Panel title="Energy Plan" icon={<Zap size={18} />}>
-                  <div className="opsCards">
+                  <div className="energyPlanTiles">
                     <Metric label="Used / Remaining" value={`${energyUsedWh.toFixed(0)} / ${(remainingBudgetWh ?? 0).toFixed(0)} Wh`} />
                     <Metric label="Laps done / left" value={`${lapsCompletedPlan} / ${lapsRemainingPlan ?? "—"}`} />
                     <Metric
