@@ -57,11 +57,14 @@ export function useEnergyPacing(data: DashMessage | null): EnergyPacing {
     }, [lastLapNumber, lastLapTimeS, lastLapEnergyWh]);
 
     // Auto-clear the card after LAP_CARD_MS.
+    // Trackside-set duration (lapCardMs) with the built-in default as fallback,
+    // clamped so a bad value can't pin the card forever or flash it away.
+    const lapCardMs = Math.min(30000, Math.max(1000, data?.mqtt?.lapCardMs ?? LAP_CARD_MS));
     useEffect(() => {
         if (!lapCard) return;
-        const id = window.setTimeout(() => setLapCard(null), LAP_CARD_MS);
+        const id = window.setTimeout(() => setLapCard(null), lapCardMs);
         return () => window.clearTimeout(id);
-    }, [lapCard]);
+    }, [lapCard, lapCardMs]);
 
     return {
         lapEnergyWh: pacing?.lapEnergyWh ?? 0,

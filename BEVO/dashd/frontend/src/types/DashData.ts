@@ -76,6 +76,7 @@ export interface MqttData {
     targetPower?: number | null;    // kW — live target power budget (held last-known)
     targetPowerStale?: boolean | null; // true when the held targetPower is past staleness
     lapTrigger?: number | null;     // monotonic lap counter (rising edge = new lap)
+    lapCardMs?: number | null;      // ms the full-screen lap card stays up (website-set)
 
     // Optional driver-thread additions. Not yet emitted by dashd; the
     // demo data hook provides synthetic values so the layout is testable.

@@ -209,6 +209,12 @@ struct MqttData {
     /// increase. Always emitted fresh — it's local state, not a network value.
     #[serde(rename = "lapTrigger")]
     lap_trigger: Option<f32>,
+
+    /// Website-set duration (ms) the full-screen lap card stays up after a lap.
+    /// Held last-known (it's a config value, not a live signal). None until the
+    /// trackside team sets it → frontend uses its built-in default.
+    #[serde(rename = "lapCardMs")]
+    lap_card_ms: Option<f32>,
 }
 
 /// Endurance pacing, computed authoritatively on-car so the driver and the
@@ -270,6 +276,7 @@ struct MqttState {
     energy_delta: Option<f32>,
     laps_remaining: Option<f32>,
     target_power: Option<f32>,
+    lap_card_ms: Option<f32>,
     last_lap_delta: Instant,
     last_energy_delta: Instant,
     last_laps_remaining: Instant,
@@ -284,6 +291,7 @@ impl MqttState {
             energy_delta: None,
             laps_remaining: None,
             target_power: None,
+            lap_card_ms: None,
             last_lap_delta: epoch,
             last_energy_delta: epoch,
             last_laps_remaining: epoch,
@@ -315,6 +323,8 @@ impl MqttState {
                 .map(|_| target_power_age >= MQTT_STALE_TIMEOUT),
             // Overwritten by the WS sender with lap_count.
             lap_trigger: None,
+            // Config value — held last-known, never nulled on staleness.
+            lap_card_ms: self.lap_card_ms,
         }
     }
 }
@@ -944,6 +954,11 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                         "lapsRemaining" => {
                             locked.mqtt.laps_remaining = Some(val);
                             locked.mqtt.last_laps_remaining = now;
+                        }
+                        "lapCardMs" => {
+                            // How long the full-screen lap card stays up (ms).
+                            // Retained config — held last-known, no staleness.
+                            locked.mqtt.lap_card_ms = Some(val);
                         }
                         "targetPower" => {
                             locked.mqtt.target_power = Some(val);

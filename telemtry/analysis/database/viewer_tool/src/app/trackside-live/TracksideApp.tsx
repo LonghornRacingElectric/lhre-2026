@@ -490,6 +490,9 @@ function App() {
   const [selectedLapIds, setSelectedLapIds] = useState<Set<string>>(() => new Set());
   const [sessionFromFile, setSessionFromFile] = useState(false);
   const [resumeAvailable, setResumeAvailable] = useState<SavedSession | null>(null);
+  // True after Stop Event until the next session/feed (re)start, so the UI shows
+  // a clearly-ended state instead of looking like a lap is still running.
+  const [eventEnded, setEventEnded] = useState(false);
   const knownLapIdsRef = useRef<Set<string>>(new Set());
   const lastLocalSessionSaveRef = useRef(0);
   const lastBackendSessionSaveRef = useRef(0);
@@ -513,6 +516,14 @@ function App() {
   const [dashPowerMode, setDashPowerMode] = useState<"auto" | "manual">(() => (localStorage.getItem("dash-power-mode") === "manual" ? "manual" : "auto"));
   const [dashAutoLap, setDashAutoLap] = useState(() => localStorage.getItem("dash-auto-lap") === "1");
   const [dashGatePushed, setDashGatePushed] = useState(false);
+  // How long the on-car full-screen lap card stays up after a lap (seconds).
+  const [lapCardDurationS, setLapCardDurationS] = useState(() => {
+    const v = Number(localStorage.getItem("dash-lap-card-duration-s"));
+    return Number.isFinite(v) && v > 0 ? v : 5;
+  });
+  // When on, the event-flag buttons (Cone / Off-track / Incomplete / custom)
+  // also flash a matching message on the driver's dash.
+  const [flagSendsMessage, setFlagSendsMessage] = useState(() => localStorage.getItem("flag-sends-message") === "1");
   // Driver-message palette (quick-send nudges to the dash) — shared server-side.
   const msgLib = useMessageLibrary();
   const [msgEditorOpen, setMsgEditorOpen] = useState(false);
@@ -856,6 +867,19 @@ function App() {
   useEffect(() => {
     localStorage.setItem("dash-auto-lap", dashAutoLap ? "1" : "0");
   }, [dashAutoLap]);
+
+  useEffect(() => {
+    localStorage.setItem("flag-sends-message", flagSendsMessage ? "1" : "0");
+  }, [flagSendsMessage]);
+
+  // Persist + publish the lap-card duration to the car (retained, leader only),
+  // and re-push on (re)connect so a freshly-booted dash picks it up.
+  useEffect(() => {
+    localStorage.setItem("dash-lap-card-duration-s", String(lapCardDurationS));
+    if (!isMirror && dashSignals.status === "connected") {
+      dashSignals.publishLapCardMs(Math.round(lapCardDurationS * 1000));
+    }
+  }, [lapCardDurationS, isMirror, dashSignals.status, dashSignals.publishLapCardMs]);
 
   // Keep the active session's registry record current as it runs, so the Log Sync
   // page can match a CSV's loggerd timestamp into the right session window and
@@ -1569,6 +1593,7 @@ function App() {
 
   async function startLiveData(sourceOverride?: "orion" | "angelique") {
     const useSource = sourceOverride ?? source;
+    setEventEnded(false);
     liveSourceRef.current?.close();
     liveShouldRunRef.current = true;
     if (reconnectTimerRef.current != null) {
@@ -1810,6 +1835,7 @@ function App() {
       void endActiveDriveDay(); // close the drive_day record (status → 0)
     }
     stopLiveData();
+    setEventEnded(true);
     setLiveState((prev) => ({ ...prev, status: "Event stopped — session ended and files downloaded." }));
   }
 
@@ -1867,10 +1893,32 @@ function App() {
   async function eventFlag(label: string) {
     if (isMirrorRef.current || !label.trim()) return;
     if (!sessionInfo) { setLiveState((prev) => ({ ...prev, status: "Start a session before flagging events." })); return; }
+    // Optionally flash the same flag on the driver's dash.
+    if (flagSendsMessage) fireFlagDriverMessage(label);
     try {
       const res = await fetch("/api/event-flag", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ eventFlag: label }) });
       setLiveState((prev) => ({ ...prev, status: res.ok ? `Flagged: ${label}` : "Flag failed — no active drive day on the server." }));
     } catch { setLiveState((prev) => ({ ...prev, status: "Flag failed — offline?" })); }
+  }
+  // Flash an event flag on the driver's dash (used when "Show on driver dash" is
+  // on). Maps the flag to a sensible icon/color; falls back to a generic warning.
+  function fireFlagDriverMessage(label: string) {
+    if (isMirrorRef.current || dashSignals.status !== "connected") return;
+    const key = label.toLowerCase();
+    const style: { icon: DashMessage["icon"]; color: string } =
+      key.includes("cone") ? { icon: "warning", color: "#f5a524" }
+      : key.includes("off") ? { icon: "warning", color: "#ff4d4f" }
+      : key.includes("incomplete") || key.includes("dnf") ? { icon: "flag", color: "#ff4d4f" }
+      : { icon: "warning", color: "#f5a524" };
+    const msg: DashMessage = {
+      id: `flag-${label}`,
+      label,
+      text: label.toUpperCase(),
+      icon: style.icon,
+      color: style.color,
+      durationS: 4,
+    };
+    dashSignals.sendMessage(msg, 4);
   }
   function customFlag() {
     const note = window.prompt("Custom event flag (note):");
@@ -2355,6 +2403,7 @@ function App() {
     setSelectedLapIds(defaultSelectedLapIds(laps, saved.selectedLapIds, saved.selectionSaved));
     setSessionFromFile(fromFile || !!saved.hasSectors);
     setResumeAvailable(null);
+    setEventEnded(false);
   }
 
   function resumeSavedSession() {
@@ -2923,8 +2972,8 @@ function App() {
                   <span className={`dot ${gpsTag.dot}`} /> {gpsTag.label}
                 </span>
               </div>
-              <h2>{liveState.lapStartMs ? formatLapTime(liveLapElapsedMs) : "0:00.00"}</h2>
-              <p>{liveState.lapStartMs ? "Flying lap" : "Out lap / waiting for start"}</p>
+              <h2>{eventEnded ? "—" : liveState.lapStartMs ? formatLapTime(liveLapElapsedMs) : "0:00.00"}</h2>
+              <p>{eventEnded ? "Event ended — start a new session to run again" : liveState.lapStartMs ? "Flying lap" : "Out lap / waiting for start"}</p>
               <DeltaBar rate={liveState.deltaRate} totalMs={liveState.deltaMs} />
               <div className="heroInputs">
                 <div className="heroInputBar">
@@ -2973,11 +3022,11 @@ function App() {
               </button>
               <button
                 className="tool liveAction"
-                disabled={isMirror || (!liveState.laps.length && !liveState.samples.length)}
+                disabled={isMirror || eventEnded || (!liveState.laps.length && !liveState.samples.length)}
                 onClick={stopEventAndDownload}
-                title="End the session and download everything to review it locally (laps CSV + full session JSON). Raw car CSVs come from Log Sync."
+                title={eventEnded ? "Event already stopped — start a new session to run again" : "End the session and download everything to review it locally (laps CSV + full session JSON). Raw car CSVs come from Log Sync."}
               >
-                <Power size={22} /> Stop Event
+                <Power size={22} /> {eventEnded ? "Event Stopped" : "Stop Event"}
               </button>
               {/* Event flags → classifier (autocross incidents: cones, off-track,
                   DNF, custom). Need an active session (= drive_day). */}
@@ -2995,6 +3044,10 @@ function App() {
                   <Flag size={14} /> Flag…
                 </button>
               </div>
+              <label className="checkInline" title="When on, each flag above also flashes a matching message on the driver's dash (needs the dash link connected).">
+                <input type="checkbox" checked={flagSendsMessage} disabled={isMirror} onChange={(e) => setFlagSendsMessage(e.target.checked)} />
+                Show flags on driver dash{flagSendsMessage && dashSignals.status !== "connected" ? " (dash not connected)" : ""}
+              </label>
               <label className="checkInline">
                 <input type="checkbox" checked={autoLiveDownload} onChange={(e) => setAutoLiveDownload(e.target.checked)} />
                 Auto MoTeC on lap
@@ -3570,8 +3623,25 @@ function App() {
                 <SlidersHorizontal size={15} /> Design lap screen
               </button>
             </div>
+            <label style={{ marginTop: 10 }}>
+              <span>Lap screen duration (s)</span>
+              <input
+                type="number"
+                min={1}
+                max={30}
+                step={0.5}
+                value={lapCardDurationS || ""}
+                disabled={isMirror}
+                title="How long the full-screen lap card stays up on the driver's dash after each lap. Sent to the car (retained)."
+                onChange={(e) => {
+                  const v = Math.max(1, Math.min(30, Number(e.target.value) || 5));
+                  setLapCardDurationS(v);
+                }}
+              />
+            </label>
             <p style={{ margin: "6px 0 0", opacity: 0.7, fontSize: "0.8rem" }}>
               Lay out what the driver sees on each lap card, then send it to the car (used until replaced).
+              The lap card auto-clears after the duration above.
             </p>
           </Panel>
 

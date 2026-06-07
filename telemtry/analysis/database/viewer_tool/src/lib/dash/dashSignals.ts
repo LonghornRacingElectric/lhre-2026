@@ -80,6 +80,7 @@ export interface DashSignals {
     publishLayout: (layout: unknown) => boolean;
     /** Push the live dynamic per-lap energy budget (Wh) the dash shows (retained). */
     publishLapBudget: (wh: number) => boolean;
+    publishLapCardMs: (ms: number) => boolean;
     /** Push the active driver-message set the car holds (retained — survives dash reboot). */
     publishMessages: (messages: DashMessage[]) => boolean;
     /** Fire one driver message onto the dash now (not retained). durationS overrides the message's own. */
@@ -240,6 +241,15 @@ export function useDashSignals(): DashSignals {
         return true;
     }, []);
 
+    // Retained: how long the on-car full-screen lap card stays up (ms). The dash
+    // holds it and re-loads it on reconnect/reboot.
+    const publishLapCardMs = useCallback((ms: number): boolean => {
+        const client = clientRef.current;
+        if (!client || !client.connected) return false;
+        client.publish(`${TOPIC_PREFIX}lapCardMs`, String(Math.round(ms)), { qos: 1, retain: true });
+        return true;
+    }, []);
+
     // Retained, like sfGate/layout: the car re-loads the current quick-send set
     // on reconnect/reboot. This is the bounded set the dash holds.
     const publishMessages = useCallback((messages: DashMessage[]): boolean => {
@@ -292,6 +302,7 @@ export function useDashSignals(): DashSignals {
         publishGate,
         publishLayout,
         publishLapBudget,
+        publishLapCardMs,
         publishMessages,
         sendMessage,
         clearMessage,
