@@ -808,6 +808,18 @@ function App() {
     localStorage.setItem("motec-soe-cutoff-cell-v", String(soeCutoffCellV));
   }, [soeCutoffCellV]);
 
+  // Keep the dash uplink connected for the whole session (leader only) so EVERY
+  // lap/power/message action reaches the car — not just while the Dash tab is
+  // open. Without this, a "Log Lap" pressed from the Live tab would log locally
+  // but silently miss the car whenever nobody had hit "Connect to dash" on the
+  // Dash tab, making the two lap buttons behave differently. We only auto-connect
+  // from the initial 'idle' state, so an explicit Disconnect (→ 'closed') and the
+  // hook's own reconnect loop are both respected.
+  useEffect(() => {
+    if (isMirror) return;
+    if (dashSignals.status === "idle") dashSignals.connect();
+  }, [isMirror, dashSignals.status, dashSignals.connect]);
+
   // Persist + live-publish the dash power budget. Re-publishing on every change
   // keeps the on-car dash's energy bar in sync the instant the strategist
   // adjusts it; the hook's keepalive covers the gaps in between.
@@ -2139,9 +2151,11 @@ function App() {
     const before = liveStateRef.current.laps.length;
     triggerManualLap();
     const after = liveStateRef.current.laps.length;
-    if (after > before && dashSignals.status === "connected") {
-      dashSignals.sendLap();
-    }
+    // On a completed lap, always fire the car's lap card. sendLap advances the
+    // lap counter in lockstep with the Live tab even if the publish is dropped
+    // (link mid-handshake), and the auto-connect keeps the uplink up — so both
+    // lap buttons reliably log to the Live tab AND reach the car.
+    if (after > before) dashSignals.sendLap();
     dashLastLapCountRef.current = after;
   }
 
@@ -2915,7 +2929,7 @@ function App() {
               <button
                 className="primary liveAction"
                 disabled={isMirror || !telemetryFresh}
-                title={isMirror ? "Read-only mirror — the leader logs laps" : !telemetryFresh ? "No live telemetry from the car" : undefined}
+                title={isMirror ? "Read-only mirror — the leader logs laps" : !telemetryFresh ? "No live telemetry from the car" : "Logs the lap here on the Live tab and fires the driver's dash lap card on the car — same button as the Dash tab"}
                 onClick={markLap}
               >
                 <Flag size={22} /> {liveState.lapStartMs ? "Log Lap" : "Start Lap"}
@@ -3508,14 +3522,15 @@ function App() {
               className="primary"
               style={{ fontSize: "1.3rem", padding: "16px 18px", width: "100%", justifyContent: "center" }}
               disabled={isMirror || !telemetryFresh}
-              title={isMirror ? "Read-only mirror" : !telemetryFresh ? "No live telemetry from the car" : undefined}
+              title={isMirror ? "Read-only mirror" : !telemetryFresh ? "No live telemetry from the car" : "Same action as the Live tab's Start/Log Lap button"}
               onClick={markLap}
             >
-              <Flag size={18} /> Send Lap
+              <Flag size={18} /> {liveState.lapStartMs ? "Log Lap" : "Start Lap"}
             </button>
             <p style={{ margin: "8px 0 0", opacity: 0.7, fontSize: "0.82rem" }}>
-              Logs the lap in the Live Viewer and fires the driver&apos;s dash lap card
-              {dashSignals.status === "connected" ? "" : " (connect the dash to reach the car)"}.
+              The same button as the Live tab&apos;s <strong>{liveState.lapStartMs ? "Log Lap" : "Start Lap"}</strong>:
+              it logs the lap on the Live tab and fires the driver&apos;s dash lap card on the car
+              {dashSignals.status === "connected" ? "." : " (uplink connecting…)."}
             </p>
             <label className="checkInline" style={{ marginTop: 10 }}>
               <input type="checkbox" checked={dashAutoLap} onChange={(e) => setDashAutoLap(e.target.checked)} />
