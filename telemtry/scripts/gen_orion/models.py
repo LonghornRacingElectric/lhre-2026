@@ -85,6 +85,7 @@ class OrionControls(BaseOrion):
     enable = Column(Boolean)
     line_lock_enabled = Column(Boolean)
     torque_shudder = Column(Float)
+    bse3 = Column(Float)
     packet = relationship("OrionPacket", back_populates="controls")
 
 class OrionPack(BaseOrion):
@@ -176,6 +177,10 @@ class OrionDiagnosticsLow(BaseOrion):
     temp_imd_2 = Column(Boolean)
     temp_shutdown_1 = Column(Boolean)
     temp_shutdown_2 = Column(Boolean)
+    charger_current = Column(Float)
+    charger_voltage = Column(Float)
+    charger_enabled = Column(Boolean)
+    imd_led = Column(Boolean)
     packet = relationship("OrionPacket", back_populates="diagnostics_low")
 
 class OrionThermal(BaseOrion):
@@ -216,6 +221,10 @@ class OrionThermal(BaseOrion):
     temp_command_2 = Column(Boolean)
     temp_output_1 = Column(Boolean)
     temp_output_2 = Column(Boolean)
+    max_charge_current = Column(Float)
+    max_charge_voltage = Column(Float)
+    bms_led = Column(Boolean)
+    charger_enable = Column(Boolean)
     packet = relationship("OrionPacket", back_populates="thermal")
 
 class OrionBoardStatus(BaseOrion):
