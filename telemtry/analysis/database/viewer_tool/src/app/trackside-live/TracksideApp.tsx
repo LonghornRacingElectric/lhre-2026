@@ -3276,7 +3276,11 @@ function App() {
               <Panel title="Vitals Window" icon={<Gauge size={18} />}>
                 <VitalsWindowChart state={filteredLiveState} windowS={energyWindowS} />
               </Panel>
-              <GForcePanel state={filteredLiveState} />
+              {/* G-Forces hidden until the chudpi power issue is fixed — the
+                  RadioLion GPS receiver's draw is browning out the chudpi rail
+                  so no PIMU sentences reach cand. Re-enable with <GForcePanel
+                  state={filteredLiveState} /> once the chudpi holds a stable
+                  link. */}
               <DriverControlsPanel sample={filteredLiveState.lastSample} torqueParamSet={torqueParamSet} />
               <TempsStatusPanel sample={filteredLiveState.lastSample} />
             </div>
