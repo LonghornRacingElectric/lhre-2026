@@ -74,6 +74,10 @@ export interface DashSignals {
     publishTargetPower: (kw: number) => void;
     /** Bump the lap counter — fires the dash's full-screen lap card + per-lap reset. */
     sendLap: (value?: number) => void;
+    /** Re-publish a lap value without bumping the internal counter — for the drain
+     *  effect that catches up the car after a missed publish. dashd's forward-only
+     *  edge check makes a duplicate publish harmless. */
+    republishLap: (value: number) => void;
     resetLapCounter: () => void;
     /** Push the start/finish gate [lat1,lon1,lat2,lon2] so the car counts laps itself (retained). */
     publishGate: (gate: [number, number, number, number]) => void;
@@ -122,10 +126,15 @@ export function useDashSignals(): DashSignals {
     const lapCounterRef = useRef(0);
     const keepaliveRef = useRef<number | null>(null);
 
-    const publish = useCallback((field: string, value: number) => {
+    // qos 0 = fire-and-forget (used for the targetPower keepalive — losing a
+    // tick is fine, the next one corrects it). qos 1 = mqtt.js buffers the
+    // publish in its outgoing store while disconnected and flushes on
+    // reconnect, so a momentary link blip doesn't silently eat the message
+    // (lapTrigger / lapReset can't tolerate a drop — see the call sites).
+    const publish = useCallback((field: string, value: number, qos: 0 | 1 = 0) => {
         const client = clientRef.current;
-        if (!client || !client.connected) return;
-        client.publish(`${TOPIC_PREFIX}${field}`, String(value), { qos: 0 });
+        if (!client) return;
+        client.publish(`${TOPIC_PREFIX}${field}`, String(value), { qos });
     }, []);
 
     const disconnect = useCallback(() => {
@@ -233,8 +242,22 @@ export function useDashSignals(): DashSignals {
         // even when the caller's number happens to equal what we last sent.
         const n = Math.max(desired, lapCounterRef.current + 1);
         lapCounterRef.current = n;
-        publish('lapTrigger', n);
+        // qos 1: mqtt.js buffers the publish if the link is mid-reconnect and
+        // flushes it on the next 'connect'. Without this a Tailscale blip at
+        // the wrong moment silently swallowed the lap card.
+        publish('lapTrigger', n, 1);
         setLapsSent(n);
+    }, [publish]);
+
+    // Belt-and-braces for the drain effect: re-publish a known lap value without
+    // touching lapCounterRef. Use case: website thinks it sent N (so the local
+    // counter is at N), but the car shows lapCount < N — either dashd missed the
+    // publish entirely (restarted between the broker and dashd) or our publish
+    // landed before dashd subscribed. Re-publishing the same value is safe
+    // because dashd's edge check is forward-only.
+    const republishLap = useCallback((value: number) => {
+        if (!Number.isFinite(value) || value <= 0) return;
+        publish('lapTrigger', value, 1);
     }, [publish]);
 
     // Tell dashd to drop its lap counter + baseline (new session on trackside).
@@ -244,7 +267,7 @@ export function useDashSignals(): DashSignals {
     const resetLapCounter = useCallback(() => {
         lapCounterRef.current = 0;
         setLapsSent(0);
-        publish('lapReset', 1);
+        publish('lapReset', 1, 1);
     }, [publish]);
 
     const publishGate = useCallback((gate: [number, number, number, number]) => {
@@ -332,6 +355,7 @@ export function useDashSignals(): DashSignals {
         disconnect,
         publishTargetPower,
         sendLap,
+        republishLap,
         resetLapCounter,
         publishGate,
         publishLayout,

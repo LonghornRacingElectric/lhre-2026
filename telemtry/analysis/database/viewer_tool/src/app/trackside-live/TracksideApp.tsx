@@ -1003,6 +1003,30 @@ function App() {
     }
   }, [liveState.laps.length, dashAutoLap, dashSignals.status, dashSignals.sendLap, isMirror]);
 
+  // Drain: re-publish the website's lap count whenever the car's mirror shows
+  // fewer laps than we've logged. Catches both the dashd-restart and
+  // broker-to-dashd drop cases — situations where the original sendLap left
+  // the website thinking it succeeded but the car never got the trigger. qos:1
+  // on the publish handles the website-side disconnect blip; this handles the
+  // far-side gap. dashd's forward-only edge check makes the re-publish a no-op
+  // when the car is just temporarily lagged on its state frame.
+  useEffect(() => {
+    if (isMirror) return;
+    if (dashSignals.status !== "connected") return;
+    const carLapCount = dashSignals.dashState?.lapCount ?? null;
+    if (carLapCount == null) return; // no mirror yet — nothing to compare against
+    const websiteLapCount = liveState.laps.length;
+    if (websiteLapCount > carLapCount) {
+      dashSignals.republishLap(websiteLapCount);
+    }
+  }, [
+    liveState.laps.length,
+    dashSignals.status,
+    dashSignals.dashState?.lapCount,
+    dashSignals.republishLap,
+    isMirror,
+  ]);
+
   // Auto-select newly completed laps for the average (preserving manual deselections).
   useEffect(() => {
     setSelectedLapIds((prev) => {
