@@ -156,6 +156,10 @@ class OrionDiagnosticsLow:
     temp_imd_2: Optional[bool] = None
     temp_shutdown_1: Optional[bool] = None
     temp_shutdown_2: Optional[bool] = None
+    charger_current: Optional[float] = None
+    charger_voltage: Optional[float] = None
+    charger_enabled: Optional[bool] = None
+    imd_led: Optional[bool] = None
 
 @dataclass
 class OrionThermal:
@@ -193,6 +197,10 @@ class OrionThermal:
     temp_command_2: Optional[bool] = None
     temp_output_1: Optional[bool] = None
     temp_output_2: Optional[bool] = None
+    max_charge_current: Optional[float] = None
+    max_charge_voltage: Optional[float] = None
+    bms_led: Optional[bool] = None
+    charger_enable: Optional[bool] = None
 
 @dataclass
 class OrionBoardStatus:

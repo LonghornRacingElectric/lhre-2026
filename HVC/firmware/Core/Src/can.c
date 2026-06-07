@@ -1,4 +1,5 @@
 #include "can.h"
+#include "hvc_state_machine.h"
 
 #include <ota_flash.h>
 #include <cmsis_os2.h>
@@ -17,6 +18,12 @@
 /* USER CODE BEGIN 0 */
 
 static msg_contactor_status_t contactor_status_tx;
+
+static msg_hvc_charger_command_t charger_command_tx = {0};
+static msg_charger_status_t charger_status_rx = {0};
+static can_message_t *charger_command_handle = NULL;
+static can_receive_message_t *charger_status_handle = NULL;
+static bool charger_tx_registered = false;
 
 // static msg_vcu_current_sense_t vcu_current_tx;
 
@@ -97,6 +104,17 @@ void hvc_can_init(void) {
         CELL_VOLTAGES_DLC, (CAN_pack_message_fn)pack_cell_voltages);
     can_rtos_register_send_packet(&critical_can_bus, cell_voltage_handle);
   }
+
+  // TX (deferred): HVC charger command — handle prepared but registered only after charger is heard
+  charger_command_handle = can_get_message_handle(
+      &charger_command_tx, HVC_CHARGER_COMMAND_ID, HVC_CHARGER_COMMAND_FREQ,
+      HVC_CHARGER_COMMAND_DLC, (CAN_pack_message_fn)pack_hvc_charger_command);
+
+  // RX: charger status
+  charger_status_handle = can_get_receive_message_handle(
+      &charger_status_rx, CHARGER_STATUS_ID,
+      (CAN_unpack_message_fn)unpack_charger_status);
+  can_rtos_register_receive_packet(&critical_can_bus, charger_status_handle);
 
   can_rtos_start_interface(&critical_can_bus);
 
@@ -196,4 +214,38 @@ void hvc_set_cell_voltages(float *cell_voltages) {
 
   taskEXIT_CRITICAL();    
 }
+// Overrides the weak default in hvc_state_machine.c.
+// Registers the outbound charger command TX on first successful receive.
+bool is_charger_connected(void) {
+  if (charger_status_handle == NULL) return false;
+
+  bool connected = !message_timed_out(charger_status_handle, CHARGER_STATUS_TIMEOUT_MS);
+
+  if (connected && !charger_tx_registered) {
+    can_rtos_register_send_packet(&critical_can_bus, charger_command_handle);
+    charger_tx_registered = true;
+  }
+
+  return connected;
+}
+
+void hvc_set_charger_command(float max_charge_v, float max_charge_a,
+                             bool imd_led, bool bms_led, bool enable) {
+  taskENTER_CRITICAL();
+  charger_command_tx.max_charge_voltage = max_charge_v;
+  charger_command_tx.max_charge_current = max_charge_a;
+  charger_command_tx.imd_led_state = imd_led ? 1 : 0;
+  charger_command_tx.bms_led_state = bms_led ? 1 : 0;
+  charger_command_tx.charger_enable = enable ? 1 : 0;
+  taskEXIT_CRITICAL();
+}
+
+void hvc_get_charger_status(float *voltage, float *current, bool *enabled) {
+  taskENTER_CRITICAL();
+  if (voltage) *voltage = charger_status_rx.actual_voltage;
+  if (current) *current = charger_status_rx.actual_current;
+  if (enabled) *enabled = charger_status_rx.charger_enabled;
+  taskEXIT_CRITICAL();
+}
+
 /* USER CODE END 0 */

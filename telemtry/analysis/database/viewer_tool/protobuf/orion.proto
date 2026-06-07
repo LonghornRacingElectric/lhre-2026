@@ -178,6 +178,10 @@ message DiagnosticsLow {
     bool temp_imd_2 = 11;
     bool temp_shutdown_1 = 12;
     bool temp_shutdown_2 = 13;
+    float charger_current = 14;
+    float charger_voltage = 15;
+    bool charger_enabled = 16;
+    bool imd_led = 17;
 }
 
 message Thermal {
@@ -215,4 +219,8 @@ message Thermal {
     bool temp_command_2 = 32;
     bool temp_output_1 = 33;
     bool temp_output_2 = 34;
+    float max_charge_current = 35;
+    float max_charge_voltage = 36;
+    bool bms_led = 37;
+    bool charger_enable = 38;
 }

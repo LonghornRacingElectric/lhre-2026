@@ -372,6 +372,10 @@ model diagnostics_low {
   temp_imd_2           Boolean?
   temp_shutdown_1      Boolean?
   temp_shutdown_2      Boolean?
+  charger_current      Float?
+  charger_voltage      Float?
+  charger_enabled      Boolean?
+  imd_led              Boolean?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }
@@ -412,6 +416,10 @@ model thermal {
   temp_command_2       Boolean?
   temp_output_1        Boolean?
   temp_output_2        Boolean?
+  max_charge_current   Float?
+  max_charge_voltage   Float?
+  bms_led              Boolean?
+  charger_enable       Boolean?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }

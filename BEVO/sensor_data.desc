@@ -1,5 +1,5 @@
 
-Ÿ9
+Ï;
 $nonhermetic/assets/can_packets.protoorion"¡
 OrionSensorData
 time (Rtime
@@ -173,7 +173,7 @@ stompFault&
 tssi_red_fuse# (RtssiRedFuse(
 neg_hv_contactor$ (RnegHvContactor(
 pos_hv_contactor% (RposHvContactor/
-precharge_contactor& (RprechargeContactor"ý
+precharge_contactor& (RprechargeContactor"‘
 DiagnosticsLow(
 precharge_r_temp (RprechargeRTemp$
 bmb_comm_error (RbmbCommError5
@@ -191,8 +191,11 @@ temp_imd_1
 
 temp_imd_2 (RtempImd2&
 temp_shutdown_1 (RtempShutdown1&
-temp_shutdown_2 (RtempShutdown2"ã
-
+temp_shutdown_2 (RtempShutdown2'
+charger_current (RchargerCurrent'
+charger_voltage (RchargerVoltage'
+charger_enabled (RchargerEnabled
+imd_led (RimdLed"ÿ
 Thermal0
 batt_cooling_current (RbattCoolingCurrent2
 motor_cooling_current (RmotorCoolingCurrent!
@@ -231,4 +234,8 @@ temp_ams_2 (RtempAms2$
 temp_command_1 (RtempCommand1$
 temp_command_2  (RtempCommand2"
 temp_output_1! (RtempOutput1"
-temp_output_2" (RtempOutput2bproto3
+temp_output_2" (RtempOutput2,
+max_charge_current# (RmaxChargeCurrent,
+max_charge_voltage$ (RmaxChargeVoltage
+bms_led% (RbmsLed%
+charger_enable& (RchargerEnablebproto3
