@@ -1774,6 +1774,11 @@ function App() {
     setMetadataDraft((prev) => ({ ...prev, driver: info.driver, venue: info.venue, event: info.eventType, session: info.name }));
     if (draft.car !== source) setSource(draft.car);
     setNewSessionOpen(false);
+    // Tell dashd to drop its stale lap counter + baseline so the new session
+    // starts at lap 1 on both sides. Without this, dashd would still hold the
+    // prior session's high water mark and silently ignore the first few
+    // sendLap publishes (1 < N).
+    if (dashSignals.status === "connected") dashSignals.resetLapCounter();
     void startLiveData(draft.car);
   }
 
@@ -2310,7 +2315,9 @@ function App() {
     // lap counter in lockstep with the Live tab even if the publish is dropped
     // (link mid-handshake), and the auto-connect keeps the uplink up — so both
     // lap buttons reliably log to the Live tab AND reach the car.
-    if (lapClosed) dashSignals.sendLap();
+    // Send the website's authoritative lap count to the car so dashd adopts it
+    // (rather than running its own +1 counter that drifted from trackside).
+    if (lapClosed) dashSignals.sendLap(after);
     dashLastLapCountRef.current = after;
     // Visible feedback so the user knows whether this click STARTED a lap (no
     // dash card yet — by design, the card represents 'lap COMPLETE') or CLOSED

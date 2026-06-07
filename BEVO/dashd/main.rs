@@ -372,17 +372,22 @@ struct DashState {
 
 impl DashState {
     /// Close the in-progress lap: snapshot its time + energy for the card,
-    /// bump the counter, and reset the per-lap integrators. Called from both
+    /// set the counter, and reset the per-lap integrators. Called from both
     /// lap sources (on-car GPS crossing, trackside lapTrigger) so the energy
     /// reset can never drift from the lap boundary.
-    fn complete_lap(&mut self, now: Instant) {
-        let completed = (self.lap_count + 1) as u32;
+    ///
+    /// `set_count`: if Some, ADOPT that as the new lap_count (trackside is the
+    /// source of truth — the website's `liveState.laps.length` always wins so
+    /// the dash and the website display the same number). If None, bump by 1
+    /// (the GPS path doesn't know the absolute number, just that one closed).
+    fn complete_lap(&mut self, now: Instant, set_count: Option<u64>) {
+        let next_count = set_count.unwrap_or(self.lap_count + 1);
         self.last_lap = Some((
-            completed,
+            next_count as u32,
             now.duration_since(self.lap_start).as_secs_f32(),
             self.lap_energy_wh as f32,
         ));
-        self.lap_count += 1;
+        self.lap_count = next_count;
         self.lap_energy_wh = 0.0;
         self.lap_budget_wh = 0.0;
         self.lap_start = now;
@@ -711,7 +716,7 @@ fn ipc_reader_loop(state: Arc<Mutex<DashState>>) {
                             if let Some(cur) = gps {
                                 if let (Some(gate), Some(prev)) = (locked.sf_gate, locked.last_gps) {
                                     if segments_cross(prev, cur, gate) {
-                                        locked.complete_lap(now);
+                                        locked.complete_lap(now, None);
                                         println!("[DASHD] GPS lap crossing -> lap {}", locked.lap_count);
                                     }
                                 }
@@ -972,16 +977,28 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                             );
                         }
                         "lapTrigger" => {
-                            // Trackside override / fallback for the on-car GPS
-                            // detector: each rising edge closes a lap. First
-                            // value just sets the baseline (no phantom lap on a
-                            // retained/stale value already on the broker).
-                            let rising = locked.last_offcar_trigger.is_some_and(|last| val > last);
+                            // Trackside is the AUTHORITATIVE lap count. The
+                            // website publishes its `liveState.laps.length`
+                            // (the absolute number of completed laps from its
+                            // own counter); we adopt it directly into
+                            // `lap_count` so the dash and the website always
+                            // display the same number. First publish only sets
+                            // the baseline so a retained/stale value doesn't
+                            // fire a phantom card.
+                            let new_count = val.round().max(0.0) as u64;
+                            let first = locked.last_offcar_trigger.is_none();
                             locked.last_offcar_trigger = Some(val);
-                            if rising {
-                                locked.complete_lap(now);
+                            if first {
+                                // Adopt baseline silently. If the website's
+                                // count is higher than what dashd had (e.g.
+                                // dashd just rebooted), jump to that.
+                                if new_count > locked.lap_count {
+                                    locked.lap_count = new_count;
+                                }
+                            } else if new_count > locked.lap_count {
+                                locked.complete_lap(now, Some(new_count));
                                 let lap = locked.lap_count;
-                                println!("[DASHD] Trackside lapTrigger -> lap {}", lap);
+                                println!("[DASHD] Trackside lapTrigger {} -> lap {}", val, lap);
                                 let _ = client.publish(
                                     format!("{}ack/lapTrigger", MQTT_TOPIC_PREFIX),
                                     QoS::AtMostOnce,
@@ -989,6 +1006,23 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                                     lap.to_string(),
                                 );
                             }
+                        }
+                        "lapReset" => {
+                            // Trackside started a new session: drop both the
+                            // baseline and the running lap_count. The next
+                            // lapTrigger publish (typically 1) becomes the new
+                            // baseline at lap 1, not "ignored because
+                            // 1 < stale_count". Without this a fresh website
+                            // session would have its first ~N clicks silently
+                            // dropped while dashd was still pinned at the prior
+                            // session's high water mark.
+                            locked.last_offcar_trigger = None;
+                            locked.lap_count = 0;
+                            locked.lap_energy_wh = 0.0;
+                            locked.lap_budget_wh = 0.0;
+                            locked.lap_start = now;
+                            locked.last_lap = None;
+                            println!("[DASHD] Trackside lapReset -> counters cleared");
                         }
                         _ => {} // ignore unknown subtopics
                     }

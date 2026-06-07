@@ -73,7 +73,8 @@ export interface DashSignals {
     /** Set the live power budget (kW) shown on the dash energy bar. */
     publishTargetPower: (kw: number) => void;
     /** Bump the lap counter — fires the dash's full-screen lap card + per-lap reset. */
-    sendLap: () => void;
+    sendLap: (value?: number) => void;
+    resetLapCounter: () => void;
     /** Push the start/finish gate [lat1,lon1,lat2,lon2] so the car counts laps itself (retained). */
     publishGate: (gate: [number, number, number, number]) => void;
     /** Push the lap-card layout the dash renders (retained: sent once, used until replaced). */
@@ -222,10 +223,28 @@ export function useDashSignals(): DashSignals {
         publish('targetPower', kw);
     }, [publish]);
 
-    const sendLap = useCallback(() => {
-        lapCounterRef.current += 1;
-        publish('lapTrigger', lapCounterRef.current);
-        setLapsSent(lapCounterRef.current);
+    const sendLap = useCallback((value?: number) => {
+        // Caller passes an ABSOLUTE lap number (the website's authoritative
+        // count). dashd adopts this directly so the dash displays the same
+        // number as trackside. Falls back to incrementing the local counter
+        // for backwards compat when no value is given.
+        const desired = typeof value === 'number' && Number.isFinite(value) ? value : lapCounterRef.current + 1;
+        // Keep the published value strictly rising so dashd's edge check passes
+        // even when the caller's number happens to equal what we last sent.
+        const n = Math.max(desired, lapCounterRef.current + 1);
+        lapCounterRef.current = n;
+        publish('lapTrigger', n);
+        setLapsSent(n);
+    }, [publish]);
+
+    // Tell dashd to drop its lap counter + baseline (new session on trackside).
+    // Without this the FIRST few clicks of a fresh session would be silently
+    // ignored on the car because dashd was still holding the prior session's
+    // high water mark.
+    const resetLapCounter = useCallback(() => {
+        lapCounterRef.current = 0;
+        setLapsSent(0);
+        publish('lapReset', 1);
     }, [publish]);
 
     const publishGate = useCallback((gate: [number, number, number, number]) => {
@@ -313,6 +332,7 @@ export function useDashSignals(): DashSignals {
         disconnect,
         publishTargetPower,
         sendLap,
+        resetLapCounter,
         publishGate,
         publishLayout,
         publishLapBudget,
