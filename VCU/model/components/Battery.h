@@ -16,6 +16,8 @@ typedef struct {
   float remembered_open_circuit_cell_voltage;
   float remembered_max_open_circuit_cell_voltage;
   uint32_t current_in_bounds_ms;
+  float net_energy_wh;
+  float regen_energy_wh;
 } battery_state_t;
 
 void battery_init(battery_state_t *state, const vcu_parameters_t *params);
