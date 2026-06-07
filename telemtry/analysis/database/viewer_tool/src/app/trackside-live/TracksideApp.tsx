@@ -3078,13 +3078,20 @@ function App() {
               })() : null}
             </div>
             <div className="liveHeroStats">
+              {/* Read-only metrics — small, side-by-side at the top. */}
               <div className="heroStatCell">
                 <Metric label="Best" value={bestLap ? formatLapTime(bestLap.durationMs) : "--"} tone="purple" />
               </div>
               <div className="heroStatCell">
+                <Metric label="Regen In" value={`${liveState.totalEnergyInWh.toFixed(1)} Wh`} tone="good" />
+              </div>
+              <div className="heroStatCell">
+                <Metric label="Torque" value={liveTorqueNm == null ? "--" : formatSignedTorque(liveTorqueNm)} tone={liveTorqueNm != null && liveTorqueNm < 0 ? "good" : ""} />
+              </div>
+              {/* Actionable tiles — full-width rows so the chips lay out horizontally
+                  to the right of the tile instead of stacking under a narrow column. */}
+              <div className="heroStatCell heroStatCellWide">
                 <Metric label="Lap" value={`${currentLapNumber} / ${targetLaps > 0 ? targetLaps : "—"}`} />
-                {/* Lap-incident flags sit with the Lap tile — these tag a moment in
-                    the active drive_day (cones, off-track, DNF, custom). */}
                 <div className="heroChipRow">
                   <button className="heroChip" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Flag a cone hit"} onClick={() => void eventFlag("Hit Cone")}>
                     <span className="dotIcon" style={{ background: "#f5a524" }} /> Cone
@@ -3098,8 +3105,7 @@ function App() {
                   <button className="heroChip" disabled={isMirror || !sessionInfo} title={!sessionInfo ? "Start a session first" : "Custom event flag"} onClick={customFlag}>
                     <Flag size={12} /> Flag…
                   </button>
-                </div>
-                <div className="heroChipRow heroChipRowOpts">
+                  <span className="chipDivider" aria-hidden />
                   <label className="heroChipOpt" title="When on, each flag above also flashes a message on the driver's dash (needs the dash link connected).">
                     <input type="checkbox" checked={flagSendsMessage} disabled={isMirror} onChange={(e) => setFlagSendsMessage(e.target.checked)} />
                     on dash{flagSendsMessage && dashSignals.status !== "connected" ? " (not linked)" : ""}
@@ -3111,22 +3117,14 @@ function App() {
                   ) : null}
                 </div>
               </div>
-              <div className="heroStatCell">
+              <div className="heroStatCell heroStatCellWide">
                 <Metric label="Energy" value={`${liveState.totalEnergyOutWh.toFixed(1)} Wh`} />
-                {/* Auto-MoTeC export per lap pairs with energy — a lap export is the
-                    capture for the energy + everything else in that window. */}
-                <div className="heroChipRow heroChipRowOpts">
+                <div className="heroChipRow">
                   <label className="heroChipOpt" title="Auto-export a MoTeC file at each completed lap.">
                     <input type="checkbox" checked={autoLiveDownload} onChange={(e) => setAutoLiveDownload(e.target.checked)} />
                     Auto MoTeC / lap
                   </label>
                 </div>
-              </div>
-              <div className="heroStatCell">
-                <Metric label="Regen In" value={`${liveState.totalEnergyInWh.toFixed(1)} Wh`} tone="good" />
-              </div>
-              <div className="heroStatCell">
-                <Metric label="Torque" value={liveTorqueNm == null ? "--" : formatSignedTorque(liveTorqueNm)} tone={liveTorqueNm != null && liveTorqueNm < 0 ? "good" : ""} />
               </div>
             </div>
             <div className="liveControls">

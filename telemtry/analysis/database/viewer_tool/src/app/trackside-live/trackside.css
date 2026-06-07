@@ -1002,34 +1002,45 @@ textarea:focus-visible,
 }
 .liveHero p { margin-top: 2px; font-weight: 600; font-size: var(--fs-sm); }
 
+/* Two-row layout: small read-only tiles share row 1 (3 columns); the actionable
+   tiles (Lap, Energy) each get their own full-width row so their chips lay out
+   HORIZONTALLY to the right of the tile instead of stacking under a narrow column.
+   This makes the chips glanceable in a single sweep rather than a tower. */
 .liveHeroStats {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--s-2);
-  align-items: start;
+  align-items: stretch;
 }
 .liveHeroStats .metric { min-height: 52px; }
-/* A stats cell can carry inline action chips beneath the tile (e.g. Lap-flag
-   incidents under Lap, Auto-MoTeC under Energy). */
-.heroStatCell { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.heroChipRow { display: flex; flex-wrap: wrap; gap: 4px; }
-.heroChipRowOpts { gap: 6px 8px; opacity: 0.92; }
+.heroStatCell { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
+.heroStatCell .metric { flex: 1 1 auto; min-width: 0; }
+/* Actionable tiles get the full stats row so chips can flow horizontally. */
+.heroStatCellWide { grid-column: 1 / -1; }
+.heroStatCellWide .metric { flex: 0 0 auto; min-width: 110px; }
+.heroChipRow {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 4px 6px; flex: 1 1 auto; min-width: 0;
+}
 .heroChip {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 7px; border-radius: 6px; min-height: 0;
+  padding: 4px 8px; border-radius: 6px; min-height: 0; white-space: nowrap;
   background: var(--surface-alt); border: 1px solid var(--border); color: var(--text);
-  font-size: 0.72rem; font-weight: 600; cursor: pointer; transition: background 0.12s, border-color 0.12s;
+  font-size: 0.74rem; font-weight: 600; cursor: pointer; transition: background 0.12s, border-color 0.12s;
 }
 .heroChip:hover:not(:disabled) { background: var(--surface); border-color: var(--accent); }
 .heroChip:disabled { opacity: 0.4; cursor: not-allowed; }
 .heroChip svg { width: 12px; height: 12px; flex: none; }
 .heroChip .dotIcon { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-.heroChipTiny { padding: 2px 6px; font-size: 0.68rem; }
+.heroChipTiny { padding: 3px 7px; font-size: 0.7rem; }
 .heroChipOpt {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 0.7rem; color: var(--muted-text); cursor: pointer; user-select: none;
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  font-size: 0.72rem; color: var(--muted-text); cursor: pointer; user-select: none;
 }
-.heroChipOpt input { width: 12px; height: 12px; margin: 0; }
+.heroChipOpt input { width: 13px; height: 13px; margin: 0; }
+.chipDivider {
+  width: 1px; align-self: stretch; background: var(--border); margin: 2px 4px;
+}
 
 .liveControls { display: grid; gap: var(--s-2); align-content: start; }
 .liveControls .muted { font-size: var(--fs-sm); }
@@ -1531,4 +1542,7 @@ textarea:focus-visible,
 
 @media (max-width: 480px) {
   .liveHeroStats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Wide cells stay full-width on phone so chips don't crush into 1/2 of a tiny row. */
+  .heroStatCellWide { grid-column: 1 / -1; flex-wrap: wrap; }
+  .heroStatCellWide .metric { flex: 1 1 100%; min-width: 0; }
 }
