@@ -522,8 +522,14 @@ function App() {
     return Number.isFinite(v) && v > 0 ? v : 5;
   });
   // When on, the event-flag buttons (Cone / Off-track / Incomplete / custom)
-  // also flash a matching message on the driver's dash.
+  // also flash a message on the driver's dash.
   const [flagSendsMessage, setFlagSendsMessage] = useState(() => localStorage.getItem("flag-sends-message") === "1");
+  // Per-flag choice of WHICH dash screen fires. Maps flag label → message-library
+  // id, or the sentinels "auto" (build one from the flag text) / "none" (skip).
+  const [flagMessageMap, setFlagMessageMap] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem("flag-message-map") || "{}") as Record<string, string>; }
+    catch { return {}; }
+  });
   // Driver-message palette (quick-send nudges to the dash) — shared server-side.
   const msgLib = useMessageLibrary();
   const [msgEditorOpen, setMsgEditorOpen] = useState(false);
@@ -871,6 +877,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem("flag-sends-message", flagSendsMessage ? "1" : "0");
   }, [flagSendsMessage]);
+
+  useEffect(() => {
+    localStorage.setItem("flag-message-map", JSON.stringify(flagMessageMap));
+  }, [flagMessageMap]);
 
   // Persist + publish the lap-card duration to the car (retained, leader only),
   // and re-push on (re)connect so a freshly-booted dash picks it up.
@@ -1901,9 +1911,17 @@ function App() {
     } catch { setLiveState((prev) => ({ ...prev, status: "Flag failed — offline?" })); }
   }
   // Flash an event flag on the driver's dash (used when "Show on driver dash" is
-  // on). Maps the flag to a sensible icon/color; falls back to a generic warning.
+  // on). The per-flag picker decides which screen: a chosen message-library
+  // screen, "none" (skip), or "auto" (build one from the flag text below).
   function fireFlagDriverMessage(label: string) {
     if (isMirrorRef.current || dashSignals.status !== "connected") return;
+    const choice = flagMessageMap[label];
+    if (choice === "none") return;
+    if (choice && choice !== "auto") {
+      const picked = msgLib.lib.items.find((m) => m.id === choice);
+      if (picked) { dashSignals.sendMessage(picked, picked.durationS || undefined); return; }
+      // picked screen was deleted — fall through to the auto-built one.
+    }
     const key = label.toLowerCase();
     const style: { icon: DashMessage["icon"]; color: string } =
       key.includes("cone") ? { icon: "warning", color: "#f5a524" }
@@ -3044,10 +3062,35 @@ function App() {
                   <Flag size={14} /> Flag…
                 </button>
               </div>
-              <label className="checkInline" title="When on, each flag above also flashes a matching message on the driver's dash (needs the dash link connected).">
+              <label className="checkInline" title="When on, each flag above also flashes a message on the driver's dash (needs the dash link connected).">
                 <input type="checkbox" checked={flagSendsMessage} disabled={isMirror} onChange={(e) => setFlagSendsMessage(e.target.checked)} />
                 Show flags on driver dash{flagSendsMessage && dashSignals.status !== "connected" ? " (dash not connected)" : ""}
               </label>
+              {flagSendsMessage ? (
+                <div className="flagMsgMap" style={{ display: "grid", gap: 6, marginTop: 4, paddingLeft: 4 }}>
+                  <span style={{ opacity: 0.7, fontSize: "0.78rem" }}>Driver-dash screen per flag:</span>
+                  {["Hit Cone", "Off-track", "Incomplete"].map((fl) => (
+                    <label key={fl} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.82rem" }}>
+                      <span style={{ minWidth: 78 }}>{fl}</span>
+                      <select
+                        value={flagMessageMap[fl] ?? "auto"}
+                        disabled={isMirror}
+                        onChange={(e) => setFlagMessageMap((p) => ({ ...p, [fl]: e.target.value }))}
+                        style={{ flex: 1 }}
+                      >
+                        <option value="auto">Auto (flag text)</option>
+                        <option value="none">Don&apos;t send</option>
+                        {msgLib.lib.items.map((m) => (
+                          <option key={m.id} value={m.id}>{m.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                  ))}
+                  <span style={{ opacity: 0.6, fontSize: "0.74rem" }}>
+                    “Auto” builds a screen from the flag name. Custom “Flag…” always uses its typed text. Edit screens in the Dash tab → Messages.
+                  </span>
+                </div>
+              ) : null}
               <label className="checkInline">
                 <input type="checkbox" checked={autoLiveDownload} onChange={(e) => setAutoLiveDownload(e.target.checked)} />
                 Auto MoTeC on lap
