@@ -51,19 +51,15 @@ void hvc_control_charging(bool enable) {
     float cell_delta = max_cell - min_cell;
 
     // CV taper ---------------------------------------------------------------
-    // As max_cell climbs from CELL_CV_START_V toward CELL_MAX_V, pull the
-    // commanded voltage from MAX_PACK_VOLTAGE_V down to the actual pack
-    // voltage.  At t=0 the charger sees full headroom (CC mode); at t=1 the
-    // setpoint matches actual voltage and the charger's output current tapers
-    // naturally to zero (CV mode) without overshooting cell limits.
     float t = clampf(
-        (max_cell - CELL_CV_START_V) / (CELL_MAX_V - CELL_CV_START_V),
+        (CELL_MAX_V - max_cell) / (CELL_MAX_V - CELL_CV_START_V),
         0.0f, 1.0f);
-    float commanded_v = MAX_PACK_VOLTAGE_V + t * (pack_v - MAX_PACK_VOLTAGE_V);
+    float commanded_v = MAX_PACK_VOLTAGE_V;// + t * (pack_v - MAX_PACK_VOLTAGE_V);
+    float commanded_a = MAX_CHARGE_CURRENT_A * t;
 
     // LED / fault states for the charger -------------------------------------
     bool bms_led = get_latched_faults() != 0;
     bool imd_led = hvc_gpio_is_imd_error_active();
 
-    hvc_set_charger_command(commanded_v, MAX_CHARGE_CURRENT_A, imd_led, bms_led, enable);
+    hvc_set_charger_command(commanded_v, commanded_a, imd_led, bms_led, enable);
 }
