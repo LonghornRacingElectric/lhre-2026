@@ -681,25 +681,32 @@ function App() {
   // from handleLiveEvent on every "sample" event.
   const [lastDataAtMs, setLastDataAtMs] = useState<number | null>(null);
   const [liveNowMs, setLiveNowMs] = useState(() => Date.now());
+  // Tick once a second unconditionally so the data-age stays accurate even if
+  // the local `running` flag briefly flips (e.g. a mirror mid-adopt) while real
+  // samples are still arriving.
   useEffect(() => {
-    if (!liveState.running) return;
     setLiveNowMs(Date.now());
     const id = window.setInterval(() => setLiveNowMs(Date.now()), 1000);
     return () => window.clearInterval(id);
-  }, [liveState.running]);
+  }, []);
   const dataAgeMs = lastDataAtMs == null ? null : Math.max(0, liveNowMs - lastDataAtMs);
-  // Telemetry (sample) freshness — separate from broker connectivity. A
-  // connected broker with no samples means the car is almost certainly off,
-  // which is exactly the case the old "ready" badge got wrong.
-  const uplink: "idle" | "connecting" | "waiting" | "live" | "stale" | "down" = !liveState.running
-    ? "idle"
-    : dataAgeMs == null
-      ? (liveState.connected ? "waiting" : "connecting")
-      : dataAgeMs < 3500
-        ? "live"
-        : dataAgeMs < 12000
-          ? "stale"
-          : "down";
+  // Telemetry (sample) freshness drives the badge. Fresh samples mean the car
+  // is online RIGHT NOW, so freshness wins over the local `running`/connection
+  // flags — those can momentarily desync on a mirror that's mid-adopt, which
+  // used to flip the badge to "Offline" even while gauges kept updating. We
+  // only fall back to the connection state when no data is actually flowing.
+  const uplink: "idle" | "connecting" | "waiting" | "live" | "stale" | "down" =
+    dataAgeMs != null && dataAgeMs < 3500
+      ? "live"
+      : dataAgeMs != null && dataAgeMs < 12000
+        ? "stale"
+        : dataAgeMs != null
+          ? (liveState.running ? "down" : "idle") // had data, now silent
+          : !liveState.running
+            ? "idle"
+            : liveState.connected
+              ? "waiting"
+              : "connecting";
   const UPLINK_META: Record<typeof uplink, { label: string; dot: string }> = {
     idle: { label: "Offline", dot: "dead" },
     connecting: { label: "Connecting…", dot: "stale pulse" },
@@ -5626,6 +5633,54 @@ function firstLiveValue(values: Record<string, number>, keys: string[]) {
   return null;
 }
 
+// Like firstLiveValue but skips channels whose value fails `valid` — so a
+// flatlined placeholder (e.g. hv_pack_v stuck at 0 while dc_bus_v carries the
+// real voltage) doesn't shadow the channel that's actually reporting. Plain
+// firstLiveValue returns the first *finite* hit and then a validity check on
+// only that hit nulls the whole thing, which is exactly how the energy/voltage
+// readouts were landing on 0.
+function firstValidLiveValue(
+  values: Record<string, number>,
+  keys: string[],
+  valid: (v: number) => boolean,
+): number | null {
+  for (const key of keys) {
+    const value = values[key];
+    if (typeof value === "number" && Number.isFinite(value) && valid(value)) return value;
+  }
+  const index = liveValueIndex(values);
+  for (const key of keys) {
+    const value = index.get(normalizeLiveKey(key));
+    if (value !== undefined && valid(value)) return value;
+  }
+  return null;
+}
+
+// Pick a live bus/pack current. Prefer a channel that's actually carrying
+// signal — some feeds (e.g. Orion right now) sit hv_c at a flatline 0 while
+// dc_bus_current carries the real current, and listing hv_c first used to win
+// and zero out the DC-bus power. A flatlined 0 only wins if EVERY current
+// channel reads 0 (a genuine standstill), in which case 0 is correct.
+function liveCurrentFor(values: Record<string, number>, keys: string[]): number | null {
+  let sawValidZero = false;
+  const consider = (v: number | undefined): number | undefined => {
+    if (typeof v !== "number" || !Number.isFinite(v) || !validDcBusCurrent(v)) return undefined;
+    if (v !== 0) return v;
+    sawValidZero = true;
+    return undefined;
+  };
+  for (const key of keys) {
+    const r = consider(values[key]);
+    if (r !== undefined) return r;
+  }
+  const index = liveValueIndex(values);
+  for (const key of keys) {
+    const r = consider(index.get(normalizeLiveKey(key)));
+    if (r !== undefined) return r;
+  }
+  return sawValidZero ? 0 : null;
+}
+
 function smoothLiveSamples(samples: LiveSample[]) {
   let previous: LiveSample | null = null;
   return samples.map((sample) => {
@@ -5912,13 +5967,13 @@ function packVoltageSourceFor(sample: LiveSample | null) {
 
 function measuredPackVoltageFor(sample: LiveSample | null) {
   const values = sample?.values ?? {};
-  const value = firstLiveValue(values, ["hv_pack_v", "dc_bus_v", "bus_voltage", "pack_hv_pack_v", "pack_dc_bus_v"]) ?? sample?.hv_pack_v ?? null;
-  return validDcBusVoltage(value) ? value : null;
+  return firstValidLiveValue(values, ["hv_pack_v", "dc_bus_v", "bus_voltage", "pack_hv_pack_v", "pack_dc_bus_v"], validDcBusVoltage)
+    ?? (validDcBusVoltage(sample?.hv_pack_v) ? sample!.hv_pack_v! : null);
 }
 
 function dcBusVoltageFor(sample: LiveSample | null) {
   const values = sample?.values ?? {};
-  const value = firstLiveValue(values, [
+  return firstValidLiveValue(values, [
     "dc_bus_v",
     "pack_dc_bus_v",
     "bus_voltage",
@@ -5926,13 +5981,12 @@ function dcBusVoltageFor(sample: LiveSample | null) {
     "inverter_dc_bus_v",
     "inverter_dc_bus_voltage",
     "inverter_dc_bus_voltage_v",
-  ]) ?? null;
-  return validDcBusVoltage(value) ? value : null;
+  ], validDcBusVoltage);
 }
 
 function dcBusCurrentFor(sample: LiveSample | null) {
   const values = sample?.values ?? {};
-  const value = firstLiveValue(values, [
+  return liveCurrentFor(values, [
     "dc_bus_current",
     "pack_dc_bus_current",
     "inverter_dc_bus_current",
@@ -5940,8 +5994,7 @@ function dcBusCurrentFor(sample: LiveSample | null) {
     "inverter_dc_bus_c",
     "hv_c",
     "pack_hv_c",
-  ]) ?? null;
-  return validDcBusCurrent(value) ? value : null;
+  ]);
 }
 
 function validDcBusVoltage(value: number | null | undefined): value is number {
@@ -6061,15 +6114,15 @@ function torqueFeedbackNmFor(sample: LiveSample | null) {
 
 function packCurrentFor(sample: LiveSample | null) {
   const values = sample?.values ?? {};
-  return firstLiveValue(values, [
-    "hv_c",
+  return liveCurrentFor(values, [
     "dc_bus_current",
-    "pack_hv_c",
+    "hv_c",
     "pack_dc_bus_current",
+    "pack_hv_c",
     "inverter_dc_bus_current",
     "inverter_dc_bus_current_a",
     "inverter_dc_bus_c",
-  ]) ?? sample?.hv_c ?? null;
+  ]) ?? (validDcBusCurrent(sample?.hv_c) ? sample!.hv_c! : null);
 }
 
 
