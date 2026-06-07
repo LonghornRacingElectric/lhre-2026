@@ -30,6 +30,12 @@ void vcu_can_set_model_outputs(const vcu_outputs_t *out);
 void vcu_can_set_steering_angle_deg(float steering_angle_deg);
 void vcu_can_set_event_mode(uint8_t event_mode);
 
+// Integrate pack power (kW, signed: + drive, − regen) over dt seconds into the
+// cumulative net + regen Wh totals broadcast on 0x1C9 Energy Estimate. Call
+// every CAN tick from app_freertos so the trackside website can read the
+// VCU's running totals directly instead of integrating power×dt on the client.
+void vcu_can_update_energy(float pack_power_kw, float dt_s);
+
 bool is_drive_switch_pressed(void);
 
 bool hvc_tractive_ready(void);

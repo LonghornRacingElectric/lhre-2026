@@ -2074,10 +2074,10 @@ function App() {
     // these locally-integrated totals rather than clobbering them.
     if (isMirrorRef.current) {
       const prev = current.lastSample;
-      const dtSeconds = prev ? Math.max(0, (sample.t - prev.t) / 1000) : 0;
-      const signedPowerKw = signedLiveEnergyPowerKwFor(smoothLiveSample(sample, prev)) ?? 0;
-      const outDeltaWh = Math.max(0, signedPowerKw * dtSeconds / 3.6);
-      const inDeltaWh = Math.max(0, -signedPowerKw * dtSeconds / 3.6);
+      // VCU is the source of truth for energy. No client-side integrator;
+      // we just relay the per-sample DELTAS of the VCU's cumulative
+      // net_energy + regen_energy. Energy reads 0 until the VCU emits 0x1C9.
+      const { outDeltaWh, inDeltaWh } = vcuEnergyDeltaWh(prev, sample);
       const mirrored: LiveSessionState = {
         ...current,
         previousSample: current.lastSample,
@@ -2095,11 +2095,13 @@ function App() {
     const trackForLive = liveTrackRef.current;
     let completedLap: LiveLap | null = null;
     const dtSeconds = previous ? Math.max(0, (sample.t - previous.t) / 1000) : 0;
-    const energySample = smoothLiveSample(sample, previous);
-    const signedPowerKw = signedLiveEnergyPowerKwFor(energySample) ?? 0;
+    // VCU is the source of truth for energy — read it from 0x1C9 (net + regen
+    // cumulative Wh) per sample, relay the deltas. We DON'T integrate
+    // power×dt on the client any more. Until the VCU emits 0x1C9, the deltas
+    // are 0 and the website shows 0 Wh — that's correct: we don't know the
+    // truth so we don't fake it.
+    const { outDeltaWh: energyOutDeltaWh, inDeltaWh: energyInDeltaWh } = vcuEnergyDeltaWh(previous, sample);
     const batteryPowerKw = signedBatteryTerminalPowerKwFor(sample);
-    const energyOutDeltaWh = Math.max(0, signedPowerKw * dtSeconds / 3.6);
-    const energyInDeltaWh = Math.max(0, -signedPowerKw * dtSeconds / 3.6);
     const energyDeltaWh = energyOutDeltaWh - energyInDeltaWh;
     const batteryEnergyDeltaWh = batteryPowerKw == null ? null : batteryPowerKw * dtSeconds / 3.6;
     const distanceDeltaM = previous && hasGps(previous) && hasGps(sample) ? distanceMeters(previous.lat, previous.lon, sample.lat, sample.lon) : 0;
@@ -6560,6 +6562,40 @@ function signedInverterPowerKwFor(sample: LiveSample | null) {
   return firstLiveValue(sample.values, ["inverter_power_kw_signed", "signed_inverter_power_kw", "inverter_power_kw", "power_kw"]) ?? sample.power_kw ?? null;
 }
 
+// Per-sample energy delta sourced from the VCU's cumulative net_energy /
+// regen_energy (CAN 0x1C9 Energy Estimate, units Wh). The website trusts the
+// VCU as the source of truth — no client-side power×dt integration anywhere.
+//
+// `net_energy` is the cumulative drive-minus-regen total, `regen_energy` is the
+// cumulative regen returned. So:
+//   drive_cumulative = net + regen
+//   regen_cumulative = regen
+// And the per-sample deltas drop out cleanly from (this - previous).
+//
+// Returns {0, 0} when either side is missing or the previous value is unknown,
+// and clamps to non-negative deltas so a VCU reboot (counters reset to 0)
+// doesn't subtract from the session totals.
+function vcuEnergyDeltaWh(
+  previous: LiveSample | null,
+  sample: LiveSample,
+): { outDeltaWh: number; inDeltaWh: number } {
+  if (!previous) return { outDeltaWh: 0, inDeltaWh: 0 };
+  const prevNet = previous.values?.net_energy;
+  const prevRegen = previous.values?.regen_energy;
+  const curNet = sample.values?.net_energy;
+  const curRegen = sample.values?.regen_energy;
+  if (typeof prevNet !== "number" || typeof prevRegen !== "number"
+    || typeof curNet !== "number" || typeof curRegen !== "number") {
+    return { outDeltaWh: 0, inDeltaWh: 0 };
+  }
+  const driveDelta = (curNet - prevNet) + (curRegen - prevRegen);
+  const regenDelta = curRegen - prevRegen;
+  return {
+    outDeltaWh: Math.max(0, driveDelta),
+    inDeltaWh: Math.max(0, regenDelta),
+  };
+}
+
 function signedLiveEnergyPowerKwFor(sample: LiveSample | null) {
   if (!sample) return null;
   const directPower = signedDcBusPowerKwFor(sample);
@@ -6999,16 +7035,17 @@ function energyTrace(samples: LiveSample[], windowS: number) {
   const startT = lastT - windowS * 1000;
   const windowSamples = samples.filter((sample) => sample.t >= startT);
   if (!windowSamples.length) return [];
+  // Use VCU deltas (0x1C9) the same way the session accumulator does — no
+  // client-side power×dt integration on the chart either.
   let energyOutWh = 0;
   let energyInWh = 0;
   const points = [{ t: windowSamples[0].t, energyWh: 0, energyOutWh: 0, energyInWh: 0 }];
   for (let index = 1; index < windowSamples.length; index += 1) {
     const previous = windowSamples[index - 1];
     const sample = windowSamples[index];
-    const dtSeconds = Math.max(0, (sample.t - previous.t) / 1000);
-    const powerKw = signedLiveEnergyPowerKwFor(sample) ?? 0;
-    energyOutWh += Math.max(0, powerKw * dtSeconds / 3.6);
-    energyInWh += Math.max(0, -powerKw * dtSeconds / 3.6);
+    const { outDeltaWh, inDeltaWh } = vcuEnergyDeltaWh(previous, sample);
+    energyOutWh += outDeltaWh;
+    energyInWh += inDeltaWh;
     points.push({ t: sample.t, energyWh: energyOutWh - energyInWh, energyOutWh, energyInWh });
   }
   return points;
