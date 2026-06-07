@@ -713,6 +713,11 @@ function App() {
     return () => window.clearInterval(id);
   }, []);
   const dataAgeMs = lastDataAtMs == null ? null : Math.max(0, liveNowMs - lastDataAtMs);
+  // Time spent trying to get telemetry since the feed started — used to escalate
+  // 'waiting' to a hard 'down' after a grace period so a car-off page-load
+  // doesn't sit on yellow forever just because the broker is reachable.
+  const waitingForMs = lastDataAtMs == null && liveState.startedAt != null
+    ? Math.max(0, liveNowMs - liveState.startedAt) : 0;
   // Telemetry (sample) freshness drives the badge. Fresh samples mean the car
   // is online RIGHT NOW, so freshness wins over the local `running`/connection
   // flags — those can momentarily desync on a mirror that's mid-adopt, which
@@ -727,12 +732,17 @@ function App() {
           ? (liveState.running ? "down" : "idle") // had data, now silent
           : !liveState.running
             ? "idle"
-            : liveState.connected
-              ? "waiting"
-              : "connecting";
+            : waitingForMs > 12000
+              ? "down" // never got data after 12s of running — car is off
+              : liveState.connected
+                ? "waiting"
+                : "connecting";
   const UPLINK_META: Record<typeof uplink, { label: string; dot: string }> = {
     idle: { label: "Offline", dot: "dead" },
     connecting: { label: "Connecting…", dot: "stale pulse" },
+    // 'waiting' is the brief window right after feed start before any sample
+    // arrives — yellow because it MIGHT be transitional. After 12s we escalate
+    // to 'down' (red) so a car-off state reads as dead, not as in-between.
     waiting: { label: "No telemetry", dot: "stale" },
     live: { label: "Live", dot: "live" },
     stale: { label: "Delayed", dot: "stale" },
@@ -3107,8 +3117,10 @@ function App() {
                     : connected ? "Dash silent"
                     : dashSignals.status === "connecting" ? "Dash linking…"
                     : "Dash off";
+                  // Broker-up-but-no-car-state and broker-unreachable both mean
+                  // the dash is unreachable from a user perspective → both red.
+                  // Yellow is reserved for genuinely in-between (connecting).
                   const dot = linkLive ? "live"
-                    : connected ? "stale"
                     : dashSignals.status === "connecting" ? "stale pulse"
                     : "dead";
                   const title = isMirror ? "Read-only mirror — the leader holds the dash link"
