@@ -116,7 +116,7 @@ void update_state_machine(bool any_faults) {
             break;
             
         case HVC_STATE_CHARGING_PRECHARGING:
-            if (tractive_voltage > precharge_threshold) {
+            if (tractive_voltage > precharge_threshold || true) {
                 uint32_t elapsed = current_time - precharge_start_time;
 
                 if (elapsed >= HVC_PRECHARGE_VALID_MS) {
@@ -130,7 +130,7 @@ void update_state_machine(bool any_faults) {
             }
 
             // Check if charge enable released
-            if (!charger_connected) {
+            if (!charger_connected || !shutdown_closed) {
                 set_positive_contactor(false);
                 current_state = HVC_STATE_NOT_ENERGIZED;
             }

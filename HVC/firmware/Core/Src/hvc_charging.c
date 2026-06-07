@@ -30,7 +30,8 @@
 #define CELL_CV_START_V      4.1f
 
 // Absolute maximum charge current commanded to the charger.
-#define MAX_CHARGE_CURRENT_A 15.0f
+// #define MAX_CHARGE_CURRENT_A 15.0f
+#define MAX_CHARGE_CURRENT_A 9.5f
 
 
 /* ---- Private helpers ------------------------------------------------------*/

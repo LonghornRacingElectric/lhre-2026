@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""BMS serial logger — streams HVC output to CSV and a live cell-voltage scatter plot."""
+"""BMS serial logger — streams HVC output to CSV and a live cell-voltage plot.
+
+Works in two modes automatically:
+  - Pack-only: min/max lines from the Pack summary (always available)
+  - Full: per-cell scatter plot when BMB lines are also present
+"""
 from __future__ import annotations
 
 import re
@@ -37,6 +42,15 @@ RE_BMB = re.compile(
 RE_CELL = re.compile(r'(\d+\.\d+)(\*?)')
 RE_ANSI = re.compile(r'\x1b\[[0-9;]*m')
 
+PACK_HEADER = [
+    'timestamp_ms', 'pack_v',
+    'fault_live', 'fault_latched',
+    'cell_min_v', 'cell_max_v', 'cell_dv_mv',
+    'temp_min_c', 'temp_max_c', 'die_temp_max_c',
+    'bms_resp', 'bms_disc', 'bms_uv', 'bms_ov', 'bms_ot',
+    'state', 'shutdown', 'bal_cnt',
+]
+
 
 def select_port() -> str:
     ports = serial.tools.list_ports.comports()
@@ -63,19 +77,22 @@ class BMSLogger:
         self._debug = debug
         self.ser = serial.Serial(port, BAUD_RATE, timeout=1)
 
-        # Snapshot accumulator — only touched from the reader thread
-        self._pack_data: dict | None = None
-        self._bmbs: dict[int, dict]  = {}
+        # Per-cell scatter (populated only when BMB lines arrive)
+        self._cell_times: list[float] = []
+        self._cell_volts: list[float] = []
+        self._cell_bals:  list[bool]  = []
 
-        # Plot data — guarded by _lock
-        self._lock      = threading.Lock()
-        self._times: list[float] = []
-        self._volts: list[float] = []
-        self._bals:  list[bool]  = []
-        self._min_times: list[float] = []
-        self._min_volts: list[float] = []
-        self._max_volts: list[float] = []
-        self._t0_ms: int | None  = None
+        # Pack-level min/max (always populated)
+        self._pack_times:    list[float] = []
+        self._pack_min_v:    list[float] = []
+        self._pack_max_v:    list[float] = []
+
+        self._lock    = threading.Lock()
+        self._t0_ms: int | None = None
+
+        # BMB accumulator (per pack cycle, reader-thread only)
+        self._pending_pack: dict | None = None
+        self._bmbs: dict[int, dict]    = {}
 
         out_dir = Path(__file__).parent / 'out'
         out_dir.mkdir(exist_ok=True)
@@ -95,80 +112,58 @@ class BMSLogger:
             csv_path     = out_dir / f"{datetime.now().strftime('%Y-%m-%d_%H%M%S')}.csv"
             self._csvf   = open(csv_path, 'w', newline='')
             self._writer = csv.writer(self._csvf)
-            self._write_header()
+            self._writer.writerow(PACK_HEADER)
+            self._csvf.flush()
             print(f"Logging → {csv_path}")
 
     def _load_existing(self, path: Path) -> None:
-        n_cells = TOTAL_IC * CELLS_PER_IC
         with open(path, newline='') as f:
             reader = csv.reader(f)
             header = next(reader)
-            ts_col  = header.index('timestamp_ms')
-            v_start = header.index('cell_1_1_v')
-            b_start = header.index('cell_1_1_bal')
+            ts_col   = header.index('timestamp_ms')
+            cmin_col = header.index('cell_min_v')
+            cmax_col = header.index('cell_max_v')
             rows = list(reader)
         if not rows:
             return
         self._t0_ms = int(rows[0][ts_col])
         for row in rows:
             t_s = (int(row[ts_col]) - self._t0_ms) / 1000.0
-            for i in range(n_cells):
-                self._times.append(t_s)
-                self._volts.append(float(row[v_start + i]))
-                self._bals.append(bool(int(row[b_start + i])))
-        print(f"  loaded {len(rows)} existing rows ({len(self._times)} points)")
+            self._pack_times.append(t_s)
+            self._pack_min_v.append(float(row[cmin_col]))
+            self._pack_max_v.append(float(row[cmax_col]))
+        print(f"  loaded {len(rows)} existing rows")
 
-    def _write_header(self) -> None:
-        cell_v = [f'cell_{ic}_{c}_v'   for ic in range(1, TOTAL_IC+1) for c in range(1, CELLS_PER_IC+1)]
-        cell_b = [f'cell_{ic}_{c}_bal' for ic in range(1, TOTAL_IC+1) for c in range(1, CELLS_PER_IC+1)]
-        die_t  = [f'die_temp_{ic}_c'   for ic in range(1, TOTAL_IC+1)]
-        self._writer.writerow([
-            'timestamp_ms', 'pack_v',
-            'fault_live', 'fault_latched',
-            'cell_min_v', 'cell_max_v', 'cell_dv_mv',
-            'temp_min_c', 'temp_max_c', 'die_temp_max_c',
-            'bms_resp', 'bms_disc', 'bms_uv', 'bms_ov', 'bms_ot',
-            'state', 'shutdown', 'bal_cnt',
-            *cell_v, *cell_b, *die_t,
-        ])
-        self._csvf.flush()
-
-    def _emit(self) -> None:
-        p = self._pack_data
-        cell_vs, cell_bs, die_ts = [], [], []
-        for ic in range(1, TOTAL_IC + 1):
-            for v, b in self._bmbs[ic]['cells']:
-                cell_vs.append(v)
-                cell_bs.append(1 if b else 0)
-            die_ts.append(self._bmbs[ic]['die'])
-
-        self._writer.writerow([
-            p['ts'], p['v'],
-            p['fl'], p['fla'],
-            p['cmin'], p['cmax'], p['cdv'],
-            p['tmin'], p['tmax'], p['dtmax'],
-            p['resp'], p['disc'], p['uv'], p['ov'], p['ot'],
-            p['state'], p['sd'], p['bal'],
-            *cell_vs, *cell_bs, *die_ts,
-        ])
-        self._csvf.flush()
+    def _t_s(self, ts_ms: int) -> float:
+        if self._t0_ms is None:
+            self._t0_ms = ts_ms
+        return (ts_ms - self._t0_ms) / 1000.0
 
     def handle_line(self, line: str) -> None:
         m = RE_PACK.search(line)
         if m:
-            if int(m.group('state')) == 2:
-                # No BMB lines follow in State 2 — record min/max from pack summary directly
-                ts_ms = int(m.group('ts'))
-                if self._t0_ms is None:
-                    self._t0_ms = ts_ms
-                t_s = (ts_ms - self._t0_ms) / 1000.0
-                with self._lock:
-                    self._min_times.append(t_s)
-                    self._min_volts.append(float(m.group('cmin')))
-                    self._max_volts.append(float(m.group('cmax')))
-            else:
-                self._pack_data = m.groupdict()
-                self._bmbs = {}
+            ts_ms = int(m.group('ts'))
+            t_s   = self._t_s(ts_ms)
+
+            # Always write a CSV row and update pack-level plot data
+            p = m.groupdict()
+            self._writer.writerow([
+                p['ts'], p['v'],
+                p['fl'], p['fla'],
+                p['cmin'], p['cmax'], p['cdv'],
+                p['tmin'], p['tmax'], p['dtmax'],
+                p['resp'], p['disc'], p['uv'], p['ov'], p['ot'],
+                p['state'], p['sd'], p['bal'],
+            ])
+            self._csvf.flush()
+
+            with self._lock:
+                self._pack_times.append(t_s)
+                self._pack_min_v.append(float(m.group('cmin')))
+                self._pack_max_v.append(float(m.group('cmax')))
+
+            self._pending_pack = m.groupdict()
+            self._bmbs = {}
             return
 
         m = RE_BMB.search(line)
@@ -177,26 +172,20 @@ class BMSLogger:
 
         ic    = int(m.group('ic'))
         ts_ms = int(m.group('ts'))
-        cells = [(float(v), bool(star)) for v, star in RE_CELL.findall(m.group('cells')) if 2.5 <= float(v) <= 4.3]
+        t_s   = self._t_s(ts_ms)
+        cells = [(float(v), bool(star)) for v, star in RE_CELL.findall(m.group('cells'))
+                 if 2.5 <= float(v) <= 4.3]
         self._bmbs[ic] = {'die': float(m.group('die')), 'cells': cells}
 
-        if self._t0_ms is None:
-            self._t0_ms = ts_ms
-        t_s = (ts_ms - self._t0_ms) / 1000.0
         with self._lock:
             for v, b in cells:
-                self._times.append(t_s)
-                self._volts.append(v)
-                self._bals.append(b)
-
-        if self._pack_data is not None and len(self._bmbs) == TOTAL_IC:
-            self._emit()
-            self._pack_data = None
-            self._bmbs = {}
+                self._cell_times.append(t_s)
+                self._cell_volts.append(v)
+                self._cell_bals.append(b)
 
     def run(self) -> None:
         print("Streaming serial... (close the plot or Ctrl+C to stop)")
-        snaps = 0
+        rows = 0
         try:
             while True:
                 raw = self.ser.readline()
@@ -207,25 +196,25 @@ class BMSLogger:
                     continue
                 if self._debug:
                     print(f"RX: {repr(line)}")
-                prev_snaps = snaps
+                prev = rows
                 self.handle_line(line)
                 with self._lock:
-                    snaps = len(self._times) // (TOTAL_IC * CELLS_PER_IC) + len(self._min_times)
-                if snaps != prev_snaps:
-                    print(f"  snapshot #{snaps}", flush=True)
+                    rows = len(self._pack_times)
+                if rows != prev:
+                    print(f"  row #{rows}", flush=True)
         except KeyboardInterrupt:
             pass
         finally:
             self._csvf.close()
             self.ser.close()
 
-    def plot_snapshot(self) -> tuple[list, list, list]:
+    def pack_snapshot(self) -> tuple[list, list, list]:
         with self._lock:
-            return list(self._times), list(self._volts), list(self._bals)
+            return list(self._pack_times), list(self._pack_min_v), list(self._pack_max_v)
 
-    def minmax_snapshot(self) -> tuple[list, list, list]:
+    def cell_snapshot(self) -> tuple[list, list, list]:
         with self._lock:
-            return list(self._min_times), list(self._min_volts), list(self._max_volts)
+            return list(self._cell_times), list(self._cell_volts), list(self._cell_bals)
 
 
 def main() -> None:
@@ -243,37 +232,36 @@ def main() -> None:
     ax.set_xlabel('Time (s)')
     ax.set_ylabel('Cell Voltage (V)')
     ax.set_title('Live Cell Voltages')
-    sc_idle = ax.scatter([], [], s=2, c='steelblue',   linewidths=0, label='idle')
-    sc_bal  = ax.scatter([], [], s=2, c='tomato',      linewidths=0, label='balancing')
-    ln_min, = ax.plot([], [], '-', color='royalblue',  lw=1.5, label='cell min (State 2)')
-    ln_max, = ax.plot([], [], '-', color='orangered',  lw=1.5, label='cell max (State 2)')
+    sc_idle = ax.scatter([], [], s=2, c='steelblue',  linewidths=0, label='idle')
+    sc_bal  = ax.scatter([], [], s=2, c='tomato',     linewidths=0, label='balancing')
+    ln_min, = ax.plot([], [], '-', color='royalblue', lw=1.5, label='cell min')
+    ln_max, = ax.plot([], [], '-', color='orangered', lw=1.5, label='cell max')
     ax.legend(loc='upper left', markerscale=4, framealpha=0.7)
     ax.grid(True, linestyle='--', alpha=0.5)
 
     def update(_frame):
-        times, volts, bals = logger.plot_snapshot()
-        mt, mv_min, mv_max = logger.minmax_snapshot()
+        pt, pmin, pmax = logger.pack_snapshot()
+        ct, cv, cb     = logger.cell_snapshot()
 
         all_t: list[float] = []
         all_v: list[float] = []
 
-        if times:
-            t = np.asarray(times)
-            v = np.asarray(volts)
-            b = np.asarray(bals, dtype=bool)
-            idle, bal = ~b, b
-            sc_idle.set_offsets(np.column_stack([t[idle], v[idle]]) if idle.any() else np.empty((0, 2)))
-            sc_bal.set_offsets( np.column_stack([t[bal],  v[bal]])  if bal.any()  else np.empty((0, 2)))
-            all_t.extend(times)
-            all_v.extend(volts)
+        if ct:
+            t = np.asarray(ct)
+            v = np.asarray(cv)
+            b = np.asarray(cb, dtype=bool)
+            sc_idle.set_offsets(np.column_stack([t[~b], v[~b]]) if (~b).any() else np.empty((0, 2)))
+            sc_bal.set_offsets( np.column_stack([t[b],  v[b]])  if b.any()    else np.empty((0, 2)))
+            all_t.extend(ct)
+            all_v.extend(cv)
 
-        if mt:
-            mt_arr = np.asarray(mt)
-            ln_min.set_data(mt_arr, np.asarray(mv_min))
-            ln_max.set_data(mt_arr, np.asarray(mv_max))
-            all_t.extend(mt)
-            all_v.extend(mv_min)
-            all_v.extend(mv_max)
+        if pt:
+            t_arr = np.asarray(pt)
+            ln_min.set_data(t_arr, np.asarray(pmin))
+            ln_max.set_data(t_arr, np.asarray(pmax))
+            all_t.extend(pt)
+            all_v.extend(pmin)
+            all_v.extend(pmax)
 
         if all_t:
             ax.set_xlim(0, max(all_t) + 1)
