@@ -214,6 +214,9 @@ struct MqttData {
     #[serde(rename = "energyDelta")]
     energy_delta: Option<f32>,
 
+    #[serde(rename = "energyDeltaStatic")]
+    energy_delta_static: Option<f32>,
+
     #[serde(rename = "lapsRemaining")]
     laps_remaining: Option<f32>,
 
@@ -323,11 +326,13 @@ struct DashStateMsg {
 struct MqttState {
     lap_delta: Option<f32>,
     energy_delta: Option<f32>,
+    energy_delta_static: Option<f32>,
     laps_remaining: Option<f32>,
     target_power: Option<f32>,
     lap_card_ms: Option<f32>,
     last_lap_delta: Instant,
     last_energy_delta: Instant,
+    last_energy_delta_static: Instant,
     last_laps_remaining: Instant,
     last_target_power: Instant,
 }
@@ -338,11 +343,13 @@ impl MqttState {
         Self {
             lap_delta: None,
             energy_delta: None,
+            energy_delta_static: None,
             laps_remaining: None,
             target_power: None,
             lap_card_ms: None,
             last_lap_delta: epoch,
             last_energy_delta: epoch,
+            last_energy_delta_static: epoch,
             last_laps_remaining: epoch,
             last_target_power: epoch,
         }
@@ -362,6 +369,9 @@ impl MqttState {
             energy_delta: self
                 .energy_delta
                 .filter(|_| now.duration_since(self.last_energy_delta) < MQTT_STALE_TIMEOUT),
+            energy_delta_static: self
+                .energy_delta_static
+                .filter(|_| now.duration_since(self.last_energy_delta_static) < MQTT_STALE_TIMEOUT),
             laps_remaining: self
                 .laps_remaining
                 .filter(|_| now.duration_since(self.last_laps_remaining) < MQTT_STALE_TIMEOUT),
@@ -1216,6 +1226,10 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                         "energyDelta" => {
                             locked.mqtt.energy_delta = Some(val);
                             locked.mqtt.last_energy_delta = now;
+                        }
+                        "energyDeltaStatic" => {
+                            locked.mqtt.energy_delta_static = Some(val);
+                            locked.mqtt.last_energy_delta_static = now;
                         }
                         "lapsRemaining" => {
                             locked.mqtt.laps_remaining = Some(val);

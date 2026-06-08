@@ -77,6 +77,11 @@ export interface DashSignals {
     disconnect: () => void;
     /** Set the live power budget (kW) shown on the dash energy bar. */
     publishTargetPower: (kw: number) => void;
+    /** Trackside strategy deltas (re-sent on keepalive; pass null to stop sending). */
+    publishLapDelta: (seconds: number | null) => void;
+    publishEnergyDelta: (wh: number | null) => void;
+    publishEnergyDeltaStatic: (wh: number | null) => void;
+    publishLapsRemaining: (laps: number | null) => void;
     /** Bump the lap counter — fires the dash's full-screen lap card + per-lap reset. */
     sendLap: (value?: number) => void;
     /** Re-publish a lap value without bumping the internal counter — for the drain
@@ -132,6 +137,12 @@ export function useDashSignals(): DashSignals {
 
     const clientRef = useRef<MqttClient | null>(null);
     const targetPowerRef = useRef<number | null>(null);
+    // Trackside-computed strategy deltas; re-sent each keepalive tick because dashd
+    // nulls them after 5 s of silence (MqttState staleness).
+    const lapDeltaRef = useRef<number | null>(null);
+    const energyDeltaRef = useRef<number | null>(null);
+    const energyDeltaStaticRef = useRef<number | null>(null);
+    const lapsRemainingRef = useRef<number | null>(null);
     const lapCounterRef = useRef(0);
     const keepaliveRef = useRef<number | null>(null);
 
@@ -233,12 +244,37 @@ export function useDashSignals(): DashSignals {
 
         keepaliveRef.current = window.setInterval(() => {
             if (targetPowerRef.current !== null) publish('targetPower', targetPowerRef.current);
+            // Re-send the strategy deltas so dashd's 5 s staleness gate doesn't blank them.
+            if (lapDeltaRef.current !== null) publish('lapDelta', lapDeltaRef.current);
+            if (energyDeltaRef.current !== null) publish('energyDelta', energyDeltaRef.current);
+            if (energyDeltaStaticRef.current !== null) publish('energyDeltaStatic', energyDeltaStaticRef.current);
+            if (lapsRemainingRef.current !== null) publish('lapsRemaining', lapsRemainingRef.current);
         }, KEEPALIVE_MS);
     }, [brokerUrl, publish]);
 
     const publishTargetPower = useCallback((kw: number) => {
         targetPowerRef.current = kw;
         publish('targetPower', kw);
+    }, [publish]);
+
+    // Trackside-computed strategy deltas. Each stores its value (for the keepalive
+    // re-send) and publishes immediately; pass null to stop sending (dashd nulls it
+    // out after the staleness window).
+    const publishLapDelta = useCallback((seconds: number | null) => {
+        lapDeltaRef.current = seconds;
+        if (seconds !== null) publish('lapDelta', seconds);
+    }, [publish]);
+    const publishEnergyDelta = useCallback((wh: number | null) => {
+        energyDeltaRef.current = wh;
+        if (wh !== null) publish('energyDelta', wh);
+    }, [publish]);
+    const publishEnergyDeltaStatic = useCallback((wh: number | null) => {
+        energyDeltaStaticRef.current = wh;
+        if (wh !== null) publish('energyDeltaStatic', wh);
+    }, [publish]);
+    const publishLapsRemaining = useCallback((laps: number | null) => {
+        lapsRemainingRef.current = laps;
+        if (laps !== null) publish('lapsRemaining', laps);
     }, [publish]);
 
     const sendLap = useCallback((value?: number) => {
@@ -381,6 +417,10 @@ export function useDashSignals(): DashSignals {
         connect,
         disconnect,
         publishTargetPower,
+        publishLapDelta,
+        publishEnergyDelta,
+        publishEnergyDeltaStatic,
+        publishLapsRemaining,
         sendLap,
         republishLap,
         resetLapCounter,

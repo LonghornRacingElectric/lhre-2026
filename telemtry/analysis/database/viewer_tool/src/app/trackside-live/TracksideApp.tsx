@@ -660,6 +660,14 @@ function App() {
   // + = banked margin vs the even split; − = over budget, must conserve.
   const budgetVsTargetWh = dynamicLapBudgetWh != null && targetEnergyPerLapWh != null
     ? dynamicLapBudgetWh - targetEnergyPerLapWh : null;
+  // --- per-lap strategy deltas published to the car dash (mqtt.lapDelta /
+  // energyDelta / energyDeltaStatic). All from the last COMPLETED lap vs the best
+  // lap / per-lap energy budgets. Null (→ stops publishing, dash shows nothing
+  // rather than a bogus 0) until there's a completed lap + a plan.
+  const lastLap = liveState.laps.length ? liveState.laps[liveState.laps.length - 1] : null;
+  const lapDeltaS = lastLap && bestLap ? (lastLap.durationMs - bestLap.durationMs) / 1000 : null;
+  const energyDeltaDynWh = lastLap && dynamicLapBudgetWh != null ? lastLap.energyWh - dynamicLapBudgetWh : null;
+  const energyDeltaStaticWh = lastLap && targetEnergyPerLapWh != null ? lastLap.energyWh - targetEnergyPerLapWh : null;
   // Auto-derive the dash target power from the energy plan: the live Wh/lap
   // budget ÷ the rolling average lap time is the power rate that spends the
   // budget evenly. A manual override (dashPowerMode='manual') wins when set.
@@ -903,6 +911,16 @@ function App() {
     if (isMirror || dashSignals.status !== "connected") return;
     if (dynamicLapBudgetWh != null) dashSignals.publishLapBudget(Math.round(dynamicLapBudgetWh));
   }, [dynamicLapBudgetWh, isMirror, dashSignals.status, dashSignals.publishLapBudget]);
+
+  // Push the per-lap strategy deltas to the car dash (leader only). Each rides the
+  // dashSignals keepalive; passing null stops it (dashd nulls it after ~5 s).
+  useEffect(() => {
+    if (isMirror || dashSignals.status !== "connected") return;
+    dashSignals.publishLapDelta(lapDeltaS);
+    dashSignals.publishEnergyDelta(energyDeltaDynWh);
+    dashSignals.publishEnergyDeltaStatic(energyDeltaStaticWh);
+    dashSignals.publishLapsRemaining(lapsRemainingPlan);
+  }, [lapDeltaS, energyDeltaDynWh, energyDeltaStaticWh, lapsRemainingPlan, isMirror, dashSignals.status, dashSignals.publishLapDelta, dashSignals.publishEnergyDelta, dashSignals.publishEnergyDeltaStatic, dashSignals.publishLapsRemaining]);
 
   // Push the active driver-message set to the car (retained) whenever it changes
   // or the link (re)connects, so the dash holds the current quick-send palette

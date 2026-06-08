@@ -191,28 +191,24 @@ export const FIELD_CATALOG: FieldDef[] = [
   { bind: 'lapCard.timeS', label: 'Lap time', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120, source: 'on-car: wall-clock since lap start' },
   { bind: 'lapCard.energyWh', label: 'Lap energy', group: 'Lap', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400, source: 'on-car: ∫ CAN power over the lap' },
   // Last completed lap — REAL, on-car (PacingData), forwarded every frame on ALL
-  // screens (unlike lapCard.* which only exists on the lap card). Prefer these over
-  // the mqtt.* lap stubs below. Null until the first lap completes.
+  // screens (unlike lapCard.* which only exists on the lap card). Null until the
+  // first lap completes.
   { bind: 'pacing.lastLapTimeS', label: 'Last lap time', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120, source: 'on-car: time of the last completed lap (PacingData — any screen)' },
   { bind: 'pacing.lastLapEnergyWh', label: 'Last lap energy', group: 'Lap', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400, source: 'on-car: net Wh of the last completed lap (PacingData)' },
   { bind: 'pacing.lastLapNumber', label: 'Last lap #', group: 'Lap', defaultFormat: 'int', min: 0, max: 30, source: 'on-car: number of the last completed lap (PacingData)' },
-  { bind: 'mqtt.bestLapTime', label: 'Best lap (demo)', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120, source: 'demo-only — best lap not tracked on-car yet (always —)' },
-  { bind: 'mqtt.lastLapTime', label: 'Last lap (demo)', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120, source: 'demo-only — not emitted; use pacing.lastLapTimeS instead (real, any screen)' },
-  { bind: 'mqtt.currentLapTime', label: 'Current lap (demo)', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120, source: 'demo-only — not emitted; use pacing.lapElapsedS for the live lap time' },
   { bind: 'mqtt.lapTrigger', label: 'Lap count', group: 'Lap', defaultFormat: 'int', min: 0, max: 30, source: 'on-car monotonic lap count (lhre/dash/lapTrigger)' },
   // Pacing / strategy (on-car authoritative pacing snapshot)
   { bind: 'pacing.lapEnergyWh', label: 'Energy (this lap)', group: 'Pacing', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400, source: 'on-car: ∫ CAN power this lap' },
   { bind: 'pacing.lapBudgetWh', label: 'Per-lap budget', group: 'Pacing', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400, source: 'trackside (lhre/dash/lapBudgetWh)' },
   { bind: 'pacing.lapElapsedS', label: 'Lap elapsed', group: 'Pacing', unit: 's', defaultFormat: 'laptime', min: 0, max: 120, source: 'on-car: wall-clock since lap start' },
   { bind: 'pacing.lapNumber', label: 'Lap (in progress)', group: 'Pacing', defaultFormat: 'int', min: 0, max: 30, source: 'on-car: lap_count + 1' },
-  { bind: 'mqtt.lapsRemaining', label: 'Laps remaining', group: 'Pacing', defaultFormat: 'int', min: 0, max: 30, source: 'trackside (lhre/dash/lapsRemaining) — no current publisher' },
-  { bind: 'mqtt.lapsRemainingEnergy', label: 'Laps left (energy)', group: 'Pacing', defaultFormat: 'int', min: 0, max: 30, source: 'demo-only — dashd does not emit this (always —)' },
+  { bind: 'mqtt.lapsRemaining', label: 'Laps remaining', group: 'Pacing', defaultFormat: 'int', min: 0, max: 30, source: 'trackside: target laps − completed (lhre/dash/lapsRemaining)' },
   { bind: 'mqtt.targetPower', label: 'Target power', group: 'Pacing', unit: 'kW', defaultFormat: 'kw', min: 0, max: 80, source: 'trackside (lhre/dash/targetPower)' },
   // Deltas (signed — green/red by sign; lower/negative is "good" by default)
-  { bind: 'mqtt.lapDelta', label: 'Lap Δ vs ref', group: 'Deltas', unit: 's', defaultFormat: 'float2', min: -5, max: 5, bidirectional: true, isDelta: true, goodSign: 'negative', source: 'trackside (lhre/dash/lapDelta) — no current publisher' },
-  { bind: 'pacing.budgetDeltaWh', label: 'Energy budget Δ', group: 'Deltas', unit: 'Wh', defaultFormat: 'whSigned', min: -100, max: 100, bidirectional: true, isDelta: true, goodSign: 'negative', source: 'on-car derived: lapEnergyWh − targetPower·elapsed' },
-  { bind: 'mqtt.energyDelta', label: 'Energy Δ vs target', group: 'Deltas', unit: 'Wh', defaultFormat: 'whSigned', min: -100, max: 100, bidirectional: true, isDelta: true, goodSign: 'negative', source: 'trackside (lhre/dash/energyDelta) — no current publisher' },
-  { bind: 'mqtt.lapDeltaRate', label: 'Lap Δ rate', group: 'Deltas', unit: 's/s', defaultFormat: 'float2', min: -2, max: 2, bidirectional: true, isDelta: true, goodSign: 'negative', source: 'demo-only — dashd does not emit this (always —)' },
+  { bind: 'mqtt.lapDelta', label: 'Lap Δ vs best', group: 'Deltas', unit: 's', defaultFormat: 'float2', min: -5, max: 5, bidirectional: true, isDelta: true, goodSign: 'negative', source: 'trackside: last lap − best lap (lhre/dash/lapDelta)' },
+  { bind: 'pacing.budgetDeltaWh', label: 'Energy budget Δ (power)', group: 'Deltas', unit: 'Wh', defaultFormat: 'whSigned', min: -100, max: 100, bidirectional: true, isDelta: true, goodSign: 'negative', source: 'on-car: lapEnergyWh − targetPower·elapsed (POWER-based, live within lap)' },
+  { bind: 'mqtt.energyDelta', label: 'Energy Δ vs dyn budget', group: 'Deltas', unit: 'Wh', defaultFormat: 'whSigned', min: -100, max: 100, bidirectional: true, isDelta: true, goodSign: 'negative', source: 'trackside: last lap − DYNAMIC budget (remaining ÷ laps left); lhre/dash/energyDelta' },
+  { bind: 'mqtt.energyDeltaStatic', label: 'Energy Δ vs plan', group: 'Deltas', unit: 'Wh', defaultFormat: 'whSigned', min: -100, max: 100, bidirectional: true, isDelta: true, goodSign: 'negative', source: 'trackside: last lap − STATIC plan budget (kWh ÷ laps); lhre/dash/energyDeltaStatic' },
   // Energy / charge (VCU is the source of truth for running energy)
   { bind: 'can.soc', label: 'State of energy', group: 'Energy', unit: '%', defaultFormat: 'pct', min: 0, max: 100, source: '0x1C7 soc_estimate (VCU State)' },
   { bind: 'can.vcuNetEnergyWh', label: 'VCU net energy', group: 'Energy', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 8000, source: '0x1C9 net_energy (VCU Energy Estimate)' },
