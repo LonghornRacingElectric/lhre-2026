@@ -170,9 +170,6 @@ export function useDemoData(enabled: boolean): DashMessage | null {
             const tcLevel = (Math.floor(Date.now() / 5000) % 3) + 1;        // 1,2,3
             const tcEnabled = (Math.floor(Date.now() / 9000) % 3) !== 0;     // ~66% on
             const regenEnabled = (Math.floor(Date.now() / 8000) % 4) !== 0;  // ~75% on
-            // Rotate through 1=ACCEL, 2=SKID, 3=AUTOX, 4=ENDUR so each pill
-            // label is visible during demo.
-            const eventMode = (Math.floor(Date.now() / 6000) % 4) + 1;
 
             // Pit-diagnostic fakes — derived from the existing sim where
             // possible so values move with the rest of the dash.
@@ -201,7 +198,7 @@ export function useDemoData(enabled: boolean): DashMessage | null {
             const hvCurrent = 10;
             const lvVoltage = 25;
             const lvCurrent = 9.3;
-            // Cell voltages — track SoC (3.2 V empty → 4.1 V full) with a small
+            // Cell voltages — track SoC (3.2 V empty -> 4.1 V full) with a small
             // imbalance spread that grows as the pack drains, for a plausible
             // Park-debug demo. cellVMax/Min straddle the nominal cell V.
             const cellVNominal = 3.2 + (a.charge / 100) * 0.9;
@@ -246,7 +243,6 @@ export function useDemoData(enabled: boolean): DashMessage | null {
                     tcLevel,
                     tcEnabled,
                     regenEnabled,
-                    eventMode,
                     apps,
                     bpps,
                     brakePressureFront,

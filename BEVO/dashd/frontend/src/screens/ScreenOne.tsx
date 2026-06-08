@@ -2,8 +2,6 @@ import React from 'react';
 import ConnectivityIndicator from '../components/ConnectivityIndicator';
 import { useDash } from '../context/DashContext';
 import { useEnergyPacing } from '../hooks/useEnergyPacing';
-import { useSettings } from '../context/SettingsContext';
-import { effectiveAutoTheme } from '../util/sunCalc';
 import { LapCardRenderer } from '../LapCardRenderer';
 import { validateLapCardLayout } from '../dashLayout';
 import { eventModeLabel } from '../types/DashData';
@@ -14,9 +12,6 @@ import './ScreenOne.css';
 
 const ScreenOne: React.FC = () => {
     const { data } = useDash();
-    // The lap card follows the dash's effective theme (auto = sunrise/sunset).
-    const { settings } = useSettings();
-    const cardTheme: 'dark' | 'light' = settings.theme === 'auto' ? effectiveAutoTheme() : settings.theme;
 
     // Endurance energy pacing: integrates CAN power on-board against the
     // trackside-set targetPower budget, resets each lap on lapTrigger, and
@@ -32,6 +27,10 @@ const ScreenOne: React.FC = () => {
     // Extract values with null fallback
     const speed = data?.can.speed;
     const power = data?.can.power;
+    // Lap card + message overlays follow the car's current light/dark theme
+    // (body.theme-light is toggled by SettingsContext / auto sunrise-sunset).
+    const dashTheme: 'light' | 'dark' =
+        (typeof document !== 'undefined' && document.body.classList.contains('theme-light')) ? 'light' : 'dark';
     const charge = data?.can.soc;
     const temp = data?.can.temperature;
     const lapDelta = data?.mqtt.lapDelta;
@@ -356,7 +355,10 @@ const ScreenOne: React.FC = () => {
                 gap: '10px',
                 padding: '0 20px'
             }}>
-                <span className="label-small" style={{ marginBottom: 0, flexShrink: 0 }}>NRG</span>
+                <span className="label-small" style={{ marginBottom: 0, flexShrink: 0, display: 'flex', flexDirection: 'column', lineHeight: 1.05 }}>
+                    <span>NRG</span>
+                    {pacing.lapBudgetWh != null ? <span style={{ fontSize: '0.6rem', color: 'var(--fg-secondary)', whiteSpace: 'nowrap' }}>{pacing.lapBudgetWh.toFixed(0)} Wh/lap</span> : null}
+                </span>
                 <div style={{ flex: 1, height: '22px', background: 'var(--bar-track)', borderRadius: '4px', position: 'relative', overflow: 'hidden', opacity: targetPowerStale ? 0.4 : 1 }}>
                     {/* Zero marker (dead center) */}
                     <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '2px', background: 'var(--bar-center)', transform: 'translateX(-50%)', zIndex: 2 }} />
@@ -482,16 +484,35 @@ const ScreenOne: React.FC = () => {
                     justifyContent: 'center',
                     gap: '10px'
                 }}>
-                    {/* Power readout (left) + Energy laps remaining (right) */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', width: '95%' }}>
-                        <div className="value-display" style={{ fontSize: '2.5rem', fontWeight: 'bold', lineHeight: 1 }}>
-                            {fmt(power)}
-                            <span className="label-small" style={{ fontSize: '0.9rem', marginLeft: '6px' }}>kW</span>
+                    {/* Side-by-side: USED / BUDGET (energy) + PWR + BB, big */}
+                    <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', width: '95%', gap: '16px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div className="label-small" style={{ fontSize: '0.95rem', letterSpacing: '3px', color: 'var(--fg-muted)', marginBottom: '2px' }}>USED</div>
+                            <div className="value-display" style={{ fontSize: '2.6rem', fontWeight: 'bold', lineHeight: 1 }}>
+                                {pacing.lapEnergyWh != null ? pacing.lapEnergyWh.toFixed(0) : '--'}
+                                <span className="label-small" style={{ fontSize: '0.9rem', marginLeft: '3px' }}>Wh</span>
+                            </div>
                         </div>
-                        <div className="value-display" style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--fg-secondary)', lineHeight: 1 }}>
-                            <span className="label-small" style={{ fontSize: '0.9rem', marginRight: '6px' }}>BB</span>
-                            {brakeBias !== null && brakeBias !== undefined ? brakeBias.toFixed(0) : '--'}
-                            <span className="label-small" style={{ fontSize: '0.9rem', marginLeft: '3px' }}>%</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div className="label-small" style={{ fontSize: '0.95rem', letterSpacing: '3px', color: 'var(--fg-muted)', marginBottom: '2px' }}>BUDGET</div>
+                            <div className="value-display" style={{ fontSize: '2.6rem', fontWeight: 'bold', lineHeight: 1, color: pacing.budgetDeltaWh == null ? 'var(--fg-primary)' : pacing.budgetDeltaWh < 0 ? '#00FF66' : '#FF3333' }}>
+                                {pacing.lapBudgetWh != null ? pacing.lapBudgetWh.toFixed(0) : '--'}
+                                <span className="label-small" style={{ fontSize: '0.9rem', marginLeft: '3px' }}>Wh/lap</span>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div className="label-small" style={{ fontSize: '0.95rem', letterSpacing: '3px', color: 'var(--fg-muted)', marginBottom: '2px' }}>PWR</div>
+                            <div className="value-display" style={{ fontSize: '2.6rem', fontWeight: 'bold', lineHeight: 1 }}>
+                                {fmt(power)}
+                                <span className="label-small" style={{ fontSize: '0.9rem', marginLeft: '3px' }}>kW</span>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div className="label-small" style={{ fontSize: '0.95rem', letterSpacing: '3px', color: 'var(--fg-muted)', marginBottom: '2px' }}>BB</div>
+                            <div className="value-display" style={{ fontSize: '2.6rem', fontWeight: 'bold', lineHeight: 1, color: 'var(--fg-secondary)' }}>
+                                {brakeBias !== null && brakeBias !== undefined ? brakeBias.toFixed(0) : '--'}
+                                <span className="label-small" style={{ fontSize: '0.9rem', marginLeft: '3px' }}>%</span>
+                            </div>
                         </div>
                     </div>
 
@@ -814,7 +835,7 @@ const ScreenOne: React.FC = () => {
                     };
                     return (
                         <div style={{ position: 'absolute', inset: 0, zIndex: 1000 }}>
-                            <LapCardRenderer layout={customLayout} data={ctx} scale={1} theme={cardTheme} />
+                            <LapCardRenderer layout={customLayout} data={ctx} scale={1} theme={dashTheme} />
                         </div>
                     );
                 }
@@ -823,7 +844,7 @@ const ScreenOne: React.FC = () => {
                         position: 'absolute',
                         inset: 0,
                         zIndex: 1000,
-                        background: 'rgba(8,8,10,0.92)',
+                        background: dashTheme === 'light' ? 'rgba(244,241,237,0.94)' : 'rgba(8,8,10,0.92)',
                         backdropFilter: 'blur(6px)',
                         display: 'flex',
                         flexDirection: 'column',

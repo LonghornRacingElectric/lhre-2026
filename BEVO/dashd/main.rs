@@ -263,6 +263,8 @@ struct PacingData {
     last_lap_number: Option<u32>,
     last_lap_time_s: Option<f32>,
     last_lap_energy_wh: Option<f32>,
+    /// Live per-lap energy budget (Wh) from trackside (remaining / remaining laps).
+    lap_budget_wh: Option<f32>,
 }
 
 #[derive(Serialize, Clone)]
@@ -407,6 +409,8 @@ struct DashState {
     lap_energy_wh: f64,
     /// Energy budget consumed this lap at targetPower (Wh). Reset each lap.
     lap_budget_wh: f64,
+    /// Live per-lap energy budget (Wh) pushed by trackside (lhre/dash/lapBudgetWh), held.
+    lap_budget_target_wh: Option<f32>,
     /// Start of the current lap, for elapsed time.
     lap_start: Instant,
     /// Previous integration tick, for dt. None until the first frame.
@@ -469,6 +473,7 @@ impl DashState {
             last_lap_number: last_n,
             last_lap_time_s: last_t,
             last_lap_energy_wh: last_e,
+            lap_budget_wh: self.lap_budget_target_wh,
         }
     }
 }
@@ -1161,6 +1166,11 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                             // Retained config — held last-known, no staleness.
                             locked.mqtt.lap_card_ms = Some(val);
                         }
+                        "lapBudgetWh" => {
+                            // Live per-lap energy budget pushed by trackside; held
+                            // and surfaced on the lap card as the BUDGET readout.
+                            locked.lap_budget_target_wh = Some(val);
+                        }
                         "targetPower" => {
                             locked.mqtt.target_power = Some(val);
                             locked.mqtt.last_target_power = now;
@@ -1384,6 +1394,7 @@ fn main() -> Result<()> {
         last_offcar_trigger: None,
         lap_energy_wh: 0.0,
         lap_budget_wh: 0.0,
+        lap_budget_target_wh: None,
         lap_start: Instant::now(),
         last_energy_update: None,
         last_lap: None,
