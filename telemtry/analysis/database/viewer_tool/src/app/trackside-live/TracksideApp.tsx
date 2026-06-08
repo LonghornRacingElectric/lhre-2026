@@ -3438,6 +3438,7 @@ function App() {
                   ) : null}
                 </Panel>
               ) : null}
+              <TractionControlPanel sample={filteredLiveState.lastSample} />
             </div>
             <div className="liveMainColumn">
               {/* Live Position hidden until chudpi/GPS is reliable. The RadioLion
@@ -4399,6 +4400,43 @@ function DeltaBar({ rate, totalMs }: { rate: number | null; totalMs: number }) {
         <span className={gaining ? "deltaFill gaining" : "deltaFill losing"} style={style} />
       </div>
     </div>
+  );
+}
+
+// Traction-control torque path from VCU 0x1CA (CAN: torque_lookup -> derated ->
+// power_limited -> traction_controlled, all Nm). Shows each stage so the crew
+// can see where torque is being trimmed, and flags when the TC stage is actively
+// cutting (final < power-limited). Reads the flat derived-stream keys the kafka
+// bridge emits; "--" until the VCU is emitting 0x1CA.
+function TractionControlPanel({ sample }: { sample: LiveSample | null }) {
+  const values = sample?.values ?? {};
+  const lookup = firstLiveValue(values, ["torque_lookup", "controls_torque_lookup"]);
+  const derated = firstLiveValue(values, ["torque_derated", "controls_torque_derated"]);
+  const powerLimited = firstLiveValue(values, ["torque_power_limited", "controls_torque_power_limited"]);
+  const finalTq = firstLiveValue(values, ["torque_traction_controlled", "controls_torque_traction_controlled"]);
+  // TC intervention = how much the traction-control stage trims below the
+  // power-limited torque (it only ever reduces). >0.5 Nm = actively cutting.
+  const tcCut = powerLimited != null && finalTq != null ? Math.max(0, powerLimited - finalTq) : null;
+  const tcActive = tcCut != null && tcCut > 0.5;
+  const fmtNm = (v: number | null) => (v == null ? "--" : `${v.toFixed(1)} Nm`);
+  return (
+    <Panel
+      title="Traction Control"
+      icon={<Disc3 size={18} />}
+      headerRight={
+        tcActive
+          ? <span style={{ color: "#d97757", fontWeight: 700 }}>● CUTTING −{tcCut!.toFixed(1)} Nm</span>
+          : <span className="muted">{finalTq == null ? "no data" : "not cutting"}</span>
+      }
+    >
+      <div className="packMetricGrid">
+        <Metric label="Lookup" value={fmtNm(lookup)} />
+        <Metric label="Derated" value={fmtNm(derated)} />
+        <Metric label="Pwr Lim" value={fmtNm(powerLimited)} />
+        <Metric label="Final (TC)" value={fmtNm(finalTq)} tone={tcActive ? "" : "good"} />
+      </div>
+      <small className="muted">VCU torque path: lookup → derated → power-limited → traction-controlled.</small>
+    </Panel>
   );
 }
 
