@@ -12,6 +12,9 @@ static const vcu_parameters_t acceleration_params = {
         .accel_filter_alpha = 0.2f, \
         .min_accel_rad_s2 = 100.0f, \
         .slip_J_threshold_kg_m2 = 0.0f, \
+        .alpha_threshold_rad_s2 = 200.0f, \
+        .pi_kp = 0.1f, \
+        .pi_ki = 1.0f, \
     }, \
     .event_mode = 1, \
 };

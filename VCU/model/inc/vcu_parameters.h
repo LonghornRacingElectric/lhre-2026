@@ -124,6 +124,9 @@ typedef struct {
     float accel_filter_alpha;  // EMA alpha for RPM derivative smoothing [0,1]
     float min_accel_rad_s2;    // minimum |alpha| to trust the inertia estimate
     float slip_J_threshold_kg_m2; // J_eff below this → slip detected
+    float alpha_threshold_rad_s2; // alpha above this triggers PI trim
+    float pi_kp;                  // proportional gain (Nm / (rad/s²))
+    float pi_ki;                  // integral gain (Nm / (rad/s²·s))
   } traction_control;
 } vcu_parameters_t;
 
