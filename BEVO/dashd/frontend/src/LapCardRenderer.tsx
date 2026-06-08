@@ -98,7 +98,7 @@ function WidgetView({ w, data, theme, pal }: { w: Widget; data: unknown; theme: 
   if (w.type === 'delta') {
     const val = getByPath(data, w.bind);
     const color = deltaColor(val, w.goodSign ?? 'negative', w.goodColor, w.badColor, w.zeroColor ?? pal.muted);
-    const mag = formatValue(val, w.format);
+    const mag = formatValue(val, w.format, w.decimals);
     const signed = val != null && val > 0 && w.showSign !== false ? `+${mag}` : mag;
     const arrow = w.showArrow && val != null && val !== 0 ? (val > 0 ? '▲ ' : '▼ ') : '';
     return (
@@ -115,7 +115,7 @@ function WidgetView({ w, data, theme, pal }: { w: Widget; data: unknown; theme: 
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <MiniRadialGauge value={val} min={w.min} max={w.max} label={w.label} color={resolveColor(w, theme, w.color ?? 'gradient')}
-        mode={w.mode} valueText={formatValue(val, w.format ?? 'int')} pal={pal} />
+        mode={w.mode} valueText={formatValue(val, w.format ?? 'int', w.decimals)} pal={pal} />
     </div>
   );
 }

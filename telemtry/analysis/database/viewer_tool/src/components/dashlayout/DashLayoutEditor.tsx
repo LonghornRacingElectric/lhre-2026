@@ -401,6 +401,19 @@ function PropertyPanel({ w, fields, onChange, onDelete }: { w: Widget; fields: F
           </select>
         </Row>
       )}
+      {(w.type === 'value' || w.type === 'gauge' || w.type === 'delta') && (
+        <Row label="Decimals">
+          <select value={(w as { decimals?: number }).decimals ?? ''}
+            onChange={(e) => onChange({ decimals: e.target.value === '' ? undefined : Number(e.target.value) } as Partial<Widget>)}>
+            <option value="">Auto</option>
+            <option value="0">0</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </Row>
+      )}
       {(w.type === 'value' || w.type === 'bar' || w.type === 'gauge' || w.type === 'delta') && (
         <Row label="Label"><input value={(w as { label?: string }).label ?? ''} onChange={(e) => onChange({ label: e.target.value } as Partial<Widget>)} /></Row>
       )}
