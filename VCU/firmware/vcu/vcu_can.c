@@ -87,6 +87,9 @@ static can_message_t *vcu_state_mailbox_handle = NULL;
 static msg_energy_estimate_t energy_estimate_mailbox = {0};
 static can_message_t *energy_estimate_mailbox_handle = NULL;
 
+static msg_torque_path_t torque_path_mailbox = {0};
+static can_message_t *torque_path_mailbox_handle = NULL;
+
 void vcu_can_add_receive_handlers(void);
 void vcu_can_add_send_handlers(void);
 void vcu_init_inverter(void);
@@ -220,6 +223,12 @@ void vcu_can_add_send_handlers(void) {
       ENERGY_ESTIMATE_DLC, (CAN_pack_message_fn)pack_energy_estimate);
   can_rtos_register_send_packet(&critical_bus, energy_estimate_mailbox_handle);
   log_printf(LOG_INFO, "[VCU] CAN send handler for energy estimate registered\n");
+
+  torque_path_mailbox_handle = can_get_message_handle(
+      &torque_path_mailbox, TORQUE_PATH_ID, TORQUE_PATH_FREQ, TORQUE_PATH_DLC,
+      (CAN_pack_message_fn)pack_torque_path);
+  can_rtos_register_send_packet(&critical_bus, torque_path_mailbox_handle);
+  log_printf(LOG_INFO, "[VCU] CAN send handler for torque path registered\n");
 }
 
 void vcu_can_clear_inverter_faults(void) {
@@ -279,6 +288,11 @@ void vcu_can_set_model_outputs(const vcu_outputs_t *out) {
 
   energy_estimate_mailbox.net_energy = out->net_energy_wh;
   energy_estimate_mailbox.regen_energy = out->regen_energy_wh;
+
+  torque_path_mailbox.torque_lookup = out->torque_lookup_output;
+  torque_path_mailbox.torque_derated = out->torque_derated;
+  torque_path_mailbox.torque_power_limited = out->torque_power_limited;
+  torque_path_mailbox.torque_traction_controlled = out->torque_cmd;
 
   vcu_state_mailbox.prndl_state = out->prndl_state;
   vcu_state_mailbox.stomp_fault = out->faults.brake_latched;

@@ -2045,4 +2045,36 @@ typedef struct {
 int pack_energy_estimate(const msg_energy_estimate_t* msg, uint8_t* tx_buf);
 int unpack_energy_estimate(const uint8_t* rx_buf, msg_energy_estimate_t* msg);
 
+// ==========================================================================
+// Packet: Torque Path (458)
+// ==========================================================================
+// From: VCU
+// To:   Pi
+#define TORQUE_PATH_ID 458
+#define TORQUE_PATH_DLC 8
+#define TORQUE_PATH_FREQ 100
+#define TORQUE_PATH_TIMEOUT_MS 200
+
+typedef struct {
+    float torque_lookup;
+    float torque_derated;
+    float torque_power_limited;
+    float torque_traction_controlled;
+} msg_torque_path_t;
+
+// Signal: Torque Lookup
+#define TORQUE_PATH_TORQUE_LOOKUP_PREC 0.1f
+
+// Signal: Torque Derated
+#define TORQUE_PATH_TORQUE_DERATED_PREC 0.1f
+
+// Signal: Torque Power Limited
+#define TORQUE_PATH_TORQUE_POWER_LIMITED_PREC 0.1f
+
+// Signal: Torque Traction Controlled
+#define TORQUE_PATH_TORQUE_TRACTION_CONTROLLED_PREC 0.1f
+
+int pack_torque_path(const msg_torque_path_t* msg, uint8_t* tx_buf);
+int unpack_torque_path(const uint8_t* rx_buf, msg_torque_path_t* msg);
+
 #endif // CAN_IDS_H
