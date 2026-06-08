@@ -280,6 +280,10 @@ struct DashMessage {
     /// None until one is sent → frontend uses its built-in park screen.
     #[serde(rename = "parkLayout", skip_serializing_if = "Option::is_none")]
     park_layout: Option<serde_json::Value>,
+    /// Active driver message to overlay now (from `lhre/dash/message`); None when
+    /// nothing is showing or it has expired.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    message: Option<serde_json::Value>,
 }
 
 /// Snapshot published to `lhre/dash/state` for the trackside link-health /
@@ -416,6 +420,12 @@ struct DashState {
     /// Website-authored park/pit-screen layout (retained `lhre/dash/parkLayout`).
     /// None → frontend's built-in park screen.
     park_layout: Option<serde_json::Value>,
+    /// Driver-message palette the car holds (retained `lhre/dash/messages`).
+    messages: Option<serde_json::Value>,
+    /// Active driver message + its expiry (from `lhre/dash/message`). expiry None
+    /// while a sticky (durationS=0) message is up; both cleared on replace.
+    active_message: Option<serde_json::Value>,
+    message_expiry: Option<Instant>,
 }
 
 impl DashState {
@@ -900,7 +910,12 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                 let pacing = locked.pacing(Instant::now());
                                 let layout = locked.layout.clone();
                                 let park_layout = locked.park_layout.clone();
-                                DashMessage { seq, can, mqtt, pacing, layout, park_layout }
+                                // Expire a timed message before forwarding it.
+                                let message = match locked.message_expiry {
+                                    Some(exp) if Instant::now() >= exp => None,
+                                    _ => locked.active_message.clone(),
+                                };
+                                DashMessage { seq, can, mqtt, pacing, layout, park_layout, message }
                             };
 
                             let json = match serde_json::to_string(&message) {
@@ -1072,6 +1087,37 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                             Err(e) => {
                                 eprintln!("[DASHD] MQTT bad parkLayout payload: {}", e)
                             }
+                        }
+                        continue;
+                    }
+
+                    // Driver-message palette (retained set the car holds). Stored so a
+                    // fresh dash has it; rendering is driven by the trigger below.
+                    if field == "messages" {
+                        if let Ok(v) = serde_json::from_str::<serde_json::Value>(payload_str) {
+                            state.lock().unwrap().messages = Some(v);
+                        }
+                        continue;
+                    }
+                    // One-shot driver-message trigger { at, clear?, durationS?, msg }.
+                    // Sets/clears the message the frontend overlays; expires after
+                    // durationS seconds (0 = sticky until cleared or replaced).
+                    if field == "message" {
+                        match serde_json::from_str::<serde_json::Value>(payload_str) {
+                            Ok(v) => {
+                                let mut locked = state.lock().unwrap();
+                                if v.get("clear").and_then(|c| c.as_bool()).unwrap_or(false) {
+                                    locked.active_message = None;
+                                    locked.message_expiry = None;
+                                } else {
+                                    let dur = v.get("durationS").and_then(|d| d.as_f64()).unwrap_or(0.0);
+                                    locked.active_message = v.get("msg").cloned();
+                                    locked.message_expiry = if dur > 0.0 {
+                                        Some(Instant::now() + Duration::from_secs_f64(dur))
+                                    } else { None };
+                                }
+                            }
+                            Err(e) => eprintln!("[DASHD] MQTT bad message payload: {}", e),
                         }
                         continue;
                     }
@@ -1344,6 +1390,9 @@ fn main() -> Result<()> {
         // Restore the last layout from disk; the retained MQTT topic refreshes it.
         layout: load_layout(),
         park_layout: load_park_layout(),
+        messages: None,
+        active_message: None,
+        message_expiry: None,
     }));
 
     let ipc_state = Arc::clone(&state);

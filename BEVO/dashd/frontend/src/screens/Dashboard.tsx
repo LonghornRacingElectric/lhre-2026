@@ -4,6 +4,8 @@ import ScreenTwo from './ScreenTwo';
 import PitDiagnostic from './PitDiagnostic';
 import Settings from './Settings';
 import { useDash } from '../context/DashContext';
+import { MessageCardRenderer } from '../MessageCardRenderer';
+import { validateMessage } from '../dashMessages';
 
 // Add new screens by appending to this array. Enter cycles in order.
 const SCREENS: { name: string; component: React.FC }[] = [
@@ -50,9 +52,22 @@ const Dashboard: React.FC = () => {
 
     const ActiveScreen = SCREENS[screenIndex].component;
 
+    // Driver-message overlay floats on top of WHATEVER screen is active — Drive,
+    // Park/PitDiagnostic (built-in OR custom layout), Shutdown, Settings — so a
+    // strategist nudge is never hidden behind the current screen. Lifted here
+    // from ScreenOne so it is rendered exactly once, for every screen.
+    const driverMsg = validateMessage(data?.message);
+    const dashTheme: 'light' | 'dark' =
+        (typeof document !== 'undefined' && document.body.classList.contains('theme-light')) ? 'light' : 'dark';
+
     return (
-        <div style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
+        <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
             <ActiveScreen />
+            {driverMsg ? (
+                <div style={{ position: 'absolute', inset: 0, zIndex: 1100 }}>
+                    <MessageCardRenderer message={driverMsg} theme={dashTheme} scale={1} />
+                </div>
+            ) : null}
         </div>
     );
 };

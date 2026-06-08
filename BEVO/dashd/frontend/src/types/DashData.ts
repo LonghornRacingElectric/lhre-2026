@@ -127,6 +127,9 @@ export interface DashMessage {
     // Website-authored park/pit-screen layout (retained lhre/dash/parkLayout).
     // Validated at render; absent → the built-in park screen is used.
     parkLayout?: unknown;
+    // Active driver message to overlay (from lhre/dash/message), forwarded by
+    // dashd. Validated at render; absent → nothing shown.
+    message?: unknown;
 }
 
 // VCU event mode enum (matches firmware VCU_DEFAULT_PARAMS + per-event override
