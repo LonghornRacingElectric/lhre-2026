@@ -830,6 +830,34 @@ textarea:focus-visible,
 .syncBanner.leader { border-color: color-mix(in srgb, var(--fresh) 45%, var(--border)); background: color-mix(in srgb, var(--fresh) 8%, transparent); }
 
 /* ---- Lap-screen designer (dash layout editor) ---- */
+/* Thin car-storage / runtime bar pinned at the top edge of the live view.
+   Mirrors the on-car kill switch (free < 1 GB or runtime > 1 h stops telemetry). */
+.carStorageBar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 3px 12px;
+  font-size: 0.72rem;
+  background: var(--surface-alt, var(--surface));
+  border-bottom: 1px solid var(--border);
+  min-height: 22px;
+}
+.carStorageBar .csbTag { font-weight: 700; letter-spacing: 1px; color: var(--muted-text); flex-shrink: 0; }
+.csbSeg { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 0; max-width: 360px; }
+.csbSeg .csbCap { color: var(--muted-text); letter-spacing: 1px; flex-shrink: 0; }
+.csbTrack {
+  position: relative; flex: 1 1 auto; height: 8px; min-width: 60px;
+  background: var(--bar-track, rgba(255,255,255,0.1)); border-radius: 4px; overflow: hidden;
+}
+.csbFill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: #2ee06a; transition: width 0.4s ease; }
+.csbSeg.warn .csbFill { background: #FFD700; }
+.csbSeg.crit .csbFill { background: #FF3333; }
+/* kill marker: where free space hits the 1 GB cutoff */
+.csbKill { position: absolute; top: -1px; bottom: -1px; width: 2px; background: #FF3333; opacity: 0.85; }
+.csbVal { flex-shrink: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.csbSeg.warn .csbVal { color: #FFD700; }
+.csbSeg.crit .csbVal { color: #FF3333; }
+
 .dashEditor {
   width: min(1180px, 96vw);
   height: min(760px, 92vh);
@@ -841,10 +869,10 @@ textarea:focus-visible,
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
   overflow: hidden;
 }
-.dashEditorHead { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--border); }
-.dashEditorTitle { display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
-.dashEditorTitle input { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 8px; color: var(--text); font-size: var(--fs-sm); }
-.dashEditorActions { display: flex; align-items: center; gap: var(--s-2); }
+.dashEditorHead { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); row-gap: var(--s-2); flex-wrap: wrap; padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--border); }
+.dashEditorTitle { display: flex; align-items: center; gap: var(--s-2); row-gap: var(--s-2); flex-wrap: wrap; min-width: 0; flex: 1 1 auto; }
+.dashEditorTitle input { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 8px; color: var(--text); font-size: var(--fs-sm); max-width: 160px; }
+.dashEditorActions { display: flex; align-items: center; gap: var(--s-2); row-gap: var(--s-2); flex-wrap: wrap; justify-content: flex-end; flex: 0 1 auto; }
 .dashEditorStatus { padding: 6px var(--s-4); font-size: var(--fs-sm); color: var(--fresh); background: color-mix(in srgb, var(--fresh) 10%, transparent); border-bottom: 1px solid var(--border); }
 .dashEditorBody { flex: 1; display: grid; grid-template-columns: 190px 1fr 270px; min-height: 0; }
 .dashEditorRail { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }

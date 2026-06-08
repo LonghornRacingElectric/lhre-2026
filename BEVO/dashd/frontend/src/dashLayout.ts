@@ -87,6 +87,7 @@ export interface ValueWidget extends BaseWidget {
   type: 'value';
   bind: string;             // dotted path into the data context (see FIELD_CATALOG)
   format: FormatId;
+  decimals?: number;        // override the format's decimal places (0–6); undefined = format default
   fontSize: number;
   color: string;            // hex, or "auto" to follow the theme foreground
   colorDark?: string;
@@ -96,6 +97,9 @@ export interface ValueWidget extends BaseWidget {
   label?: string;           // small caption above/beside the value
   labelColor?: string;
   thresholds?: ColorRule[]; // e.g. [{cmp:'lt',value:20,color:'#ff4d4f'}] for low SoC
+  // Map a numeric value to a label (enums / bitfields, e.g. VCU event mode
+  // 4 -> "ENDUR"). Keyed by the rounded integer value as a string.
+  valueMap?: Record<string, string>;
 }
 export interface BarWidget extends BaseWidget {
   type: 'bar';
@@ -113,6 +117,7 @@ export interface DeltaWidget extends BaseWidget {
   type: 'delta';
   bind: string;
   format: FormatId;
+  decimals?: number;        // override the format's decimal places (0–6)
   fontSize: number;
   align?: Align;
   bold?: boolean;
@@ -135,6 +140,7 @@ export interface GaugeWidget extends BaseWidget {
   colorLight?: string;
   mode?: 'standard' | 'bidirectional';
   format?: FormatId;        // center read-out format
+  decimals?: number;        // override the center read-out's decimal places (0–6)
 }
 export type Widget = TextWidget | ValueWidget | BarWidget | GaugeWidget | DeltaWidget;
 
@@ -210,8 +216,16 @@ export function valueColor(v: number | null | undefined, base: string, rules?: C
   return c;
 }
 
-export function formatValue(v: number | null | undefined, fmt: FormatId): string {
+export function formatValue(v: number | null | undefined, fmt: FormatId, decimals?: number): string {
   if (v == null || !Number.isFinite(v)) return '--';
+  // Optional per-widget precision override. Applies to the numeric formats —
+  // keeps kwh's /1000 scaling and whSigned's +/- sign; lap-time ignores it.
+  if (decimals != null && Number.isFinite(decimals) && fmt !== 'laptime') {
+    const d = Math.max(0, Math.min(6, Math.floor(decimals)));
+    if (fmt === 'kwh') return (v / 1000).toFixed(d);
+    if (fmt === 'whSigned') return `${v >= 0 ? '+' : ''}${v.toFixed(d)}`;
+    return v.toFixed(d);
+  }
   switch (fmt) {
     case 'laptime': {
       const m = Math.floor(v / 60);
@@ -232,6 +246,16 @@ export function formatValue(v: number | null | undefined, fmt: FormatId): string
     case 'mph': return `${Math.round(v)}`;
     default: return `${v}`;
   }
+}
+
+// Value widgets with a valueMap (enums/bitfields) show the mapped label; anything
+// without a matching key falls back to the numeric format.
+export function applyValueMap(v: number | null | undefined, fmt: FormatId, valueMap?: Record<string, string>, decimals?: number): string {
+  if (v != null && Number.isFinite(v) && valueMap) {
+    const label = valueMap[String(Math.round(v))];
+    if (label != null) return label;
+  }
+  return formatValue(v, fmt, decimals);
 }
 
 // ---- default layout (replicates today's hardcoded lap card) ---------------

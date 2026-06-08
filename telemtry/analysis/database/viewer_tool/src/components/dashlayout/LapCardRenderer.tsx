@@ -8,7 +8,7 @@
 
 import React from 'react';
 import {
-  LAP_CARD_W, LAP_CARD_H, formatValue, getByPath, deltaColor, valueColor,
+  LAP_CARD_W, LAP_CARD_H, formatValue, applyValueMap, getByPath, deltaColor, valueColor,
   resolveColor, resolveBackground, CARD_THEMES,
   type LapCardLayout, type Widget, type CardTheme, type ThemePalette,
 } from '@/lib/dash/dashLayout';
@@ -69,7 +69,7 @@ function WidgetView({ w, data, theme, pal }: { w: Widget; data: unknown; theme: 
         alignItems: w.align === 'left' ? 'flex-start' : w.align === 'right' ? 'flex-end' : 'center',
         justifyContent: 'center', lineHeight: 1, overflow: 'hidden' }}>
         {w.label && <span style={{ color: w.labelColor ?? pal.muted, fontSize: Math.max(11, w.fontSize * 0.28), letterSpacing: 3, marginBottom: 4 }}>{w.label}</span>}
-        <span style={{ color, fontSize: w.fontSize, fontWeight: w.bold ? 800 : 500 }}>{formatValue(val, w.format)}</span>
+        <span style={{ color, fontSize: w.fontSize, fontWeight: w.bold ? 800 : 500 }}>{applyValueMap(val, w.format, w.valueMap, w.decimals)}</span>
       </div>
     );
   }
@@ -97,7 +97,7 @@ function WidgetView({ w, data, theme, pal }: { w: Widget; data: unknown; theme: 
   if (w.type === 'delta') {
     const val = getByPath(data, w.bind);
     const color = deltaColor(val, w.goodSign ?? 'negative', w.goodColor, w.badColor, w.zeroColor ?? pal.muted);
-    const mag = formatValue(val, w.format);
+    const mag = formatValue(val, w.format, w.decimals);
     const signed = val != null && val > 0 && w.showSign !== false ? `+${mag}` : mag;
     const arrow = w.showArrow && val != null && val !== 0 ? (val > 0 ? '▲ ' : '▼ ') : '';
     return (
@@ -114,7 +114,7 @@ function WidgetView({ w, data, theme, pal }: { w: Widget; data: unknown; theme: 
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <MiniRadialGauge value={val} min={w.min} max={w.max} label={w.label} color={resolveColor(w, theme, w.color ?? 'gradient')}
-        mode={w.mode} valueText={formatValue(val, w.format ?? 'int')} pal={pal} />
+        mode={w.mode} valueText={formatValue(val, w.format ?? 'int', w.decimals)} pal={pal} />
     </div>
   );
 }

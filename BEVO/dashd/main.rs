@@ -183,6 +183,27 @@ struct CanData {
     /// Lives on Controls.event_mode (byte 6 of 0x1C7 VCU State).
     #[serde(rename = "eventMode")]
     event_mode: Option<u8>,
+
+    /// Pack cell-voltage aggregates from pack.cells_v[] (V). None until cand
+    /// has received a cell-voltage packet (empty vec). `spread` (max - min) is
+    /// the pit crew's pack-imbalance health check — a widening spread flags a
+    /// weak/failing cell before it becomes a DNF.
+    #[serde(rename = "cellVMax")]
+    cell_v_max: Option<f32>,
+    #[serde(rename = "cellVMin")]
+    cell_v_min: Option<f32>,
+    #[serde(rename = "cellVSpread")]
+    cell_v_spread: Option<f32>,
+
+    /// Running cumulative energy from the VCU's 0x1C9 Energy Estimate
+    /// (Controls.net_energy / regen_energy, Wh). `net` is drive-minus-regen
+    /// returned; `regen` is cumulative regen. The VCU is the source of truth
+    /// for energy (no client-side integration) — these are what the pit crew
+    /// watches in Park to read session usage.
+    #[serde(rename = "vcuNetEnergyWh")]
+    vcu_net_energy_wh: Option<f32>,
+    #[serde(rename = "vcuRegenEnergyWh")]
+    vcu_regen_energy_wh: Option<f32>,
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -255,6 +276,10 @@ struct DashMessage {
     /// built-in lap card.
     #[serde(skip_serializing_if = "Option::is_none")]
     layout: Option<serde_json::Value>,
+    /// Website-authored park/pit-screen layout (retained `lhre/dash/parkLayout`).
+    /// None until one is sent → frontend uses its built-in park screen.
+    #[serde(rename = "parkLayout", skip_serializing_if = "Option::is_none")]
+    park_layout: Option<serde_json::Value>,
 }
 
 /// Snapshot published to `lhre/dash/state` for the trackside link-health /
@@ -271,6 +296,14 @@ struct DashStateMsg {
     soc: Option<f32>,
     temperature: Option<f32>,
     pacing: PacingData,
+    /// Free + total space on `/` (MB). The car's storage kill switch
+    /// (start_telemetry.sh) stops telemetry when free < 1024 MB, so trackside
+    /// can warn before that. None until the first disk poll.
+    disk_free_mb: Option<f64>,
+    disk_total_mb: Option<f64>,
+    /// Seconds the telemetry stack has been running. The same kill switch stops
+    /// at 3600 s (1 h); surfaced so trackside can watch the runtime cap too.
+    runtime_s: Option<f32>,
 }
 
 // ---------------------------------------------------------------------------
@@ -337,6 +370,12 @@ impl MqttState {
 
 struct DashState {
     can: CanData,
+    /// When this dashd (i.e. the telemetry stack) started — for the runtime
+    /// readout vs the 1-hour storage kill switch.
+    boot: Instant,
+    /// Latest free / total space on `/` (MB), refreshed by disk_monitor_loop.
+    disk_free_mb: Option<f64>,
+    disk_total_mb: Option<f64>,
     /// Wall-clock time of the most recent successful IPC decode. Used by the
     /// WS sender to null out CanData once cand has stopped publishing.
     last_can_update: Instant,
@@ -374,6 +413,9 @@ struct DashState {
     /// Website-authored lap-card layout (retained `lhre/dash/layout`), held as
     /// raw JSON and forwarded to the frontend. None → frontend's built-in card.
     layout: Option<serde_json::Value>,
+    /// Website-authored park/pit-screen layout (retained `lhre/dash/parkLayout`).
+    /// None → frontend's built-in park screen.
+    park_layout: Option<serde_json::Value>,
 }
 
 impl DashState {
@@ -508,6 +550,32 @@ fn load_layout() -> Option<serde_json::Value> {
     }
 }
 
+// Park/pit-screen layout — same disk-cache pattern as the lap-card layout, own
+// file + env override so the two survive a reboot independently.
+const PARK_LAYOUT_PATH: &str = "/tmp/BEVO_dash_parklayout.json";
+
+fn park_layout_path() -> String {
+    env_or_default("DASHD_PARK_LAYOUT_PATH", PARK_LAYOUT_PATH)
+}
+
+fn persist_park_layout(raw: &str) {
+    if let Err(e) = std::fs::write(park_layout_path(), raw) {
+        eprintln!("[DASHD] Failed to persist park layout: {}", e);
+    }
+}
+
+fn load_park_layout() -> Option<serde_json::Value> {
+    let path = park_layout_path();
+    let data = std::fs::read_to_string(&path).ok()?;
+    match serde_json::from_str::<serde_json::Value>(data.trim()) {
+        Ok(v) => {
+            println!("[DASHD] Restored park layout from {}", path);
+            Some(v)
+        }
+        Err(_) => None,
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Protobuf -> CanData extraction
 // ---------------------------------------------------------------------------
@@ -544,16 +612,42 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
     // NOTE: soc_estimate lives on the Pack message (not DiagnosticsHigh).
     let soc = pack.map(|p| p.soc_estimate);
 
-    // Per-cell temp aggregates — None when cand has not received cell-temp
-    // packets yet (empty vec).
+    // Per-cell temp aggregates. Like cells_v[], cand fills cells_temps[] as
+    // packets arrive, so not-yet-received slots sit at exactly 0.0 — exclude
+    // those so min/avg aren't dragged toward 0 by unpopulated cells (max was
+    // already correct, which is why the driving screen's TEMP gauge looked
+    // fine). We filter *exactly* 0.0 rather than `> 0.0` because a real cell
+    // can read sub-zero. None until at least one populated cell is seen.
     let (cell_temp_max, cell_temp_avg, cell_temp_min) = pack
-        .map(|p| p.cells_temps.as_slice())
-        .filter(|t| !t.is_empty())
-        .map(|t| {
-            let max = t.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-            let min = t.iter().cloned().fold(f32::INFINITY, f32::min);
-            let avg = t.iter().sum::<f32>() / t.len() as f32;
-            (Some(max), Some(avg), Some(min))
+        .map(|p| {
+            let vals: Vec<f32> = p.cells_temps.iter().cloned().filter(|&t| t != 0.0).collect();
+            if vals.is_empty() {
+                (None, None, None)
+            } else {
+                let max = vals.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+                let min = vals.iter().cloned().fold(f32::INFINITY, f32::min);
+                let avg = vals.iter().sum::<f32>() / vals.len() as f32;
+                (Some(max), Some(avg), Some(min))
+            }
+        })
+        .unwrap_or((None, None, None));
+
+    // Per-cell voltage aggregates from pack.cells_v[]. spread = max - min, the
+    // pack-imbalance metric. cand fills cells_v[] as per-cell packets arrive, so
+    // not-yet-received slots sit at exactly 0.0 — exclude those (a connected
+    // cell is never 0 V) or a half-populated array drags min/spread to garbage.
+    // None until at least one real (>0 V) cell has been seen. NB: cell *temps*
+    // are NOT filtered this way — 0 °C is a plausible real reading.
+    let (cell_v_max, cell_v_min, cell_v_spread) = pack
+        .map(|p| {
+            let vals: Vec<f32> = p.cells_v.iter().cloned().filter(|&v| v > 0.0).collect();
+            if vals.is_empty() {
+                (None, None, None)
+            } else {
+                let max = vals.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+                let min = vals.iter().cloned().fold(f32::INFINITY, f32::min);
+                (Some(max), Some(min), Some(max - min))
+            }
         })
         .unwrap_or((None, None, None));
 
@@ -656,6 +750,15 @@ fn extract_can_data(data: &OrionSensorData, last_qualified_soc: &mut Option<f32>
         // Wire value is uint8 but the proto declares the field as float
         // (matches prndl/soc convention); cast back for the frontend enum.
         event_mode: controls.map(|c| c.event_mode as u8),
+
+        cell_v_max,
+        cell_v_min,
+        cell_v_spread,
+
+        // Running cumulative energy from the VCU (Controls.net_energy /
+        // regen_energy, 0x1C9). Shown on the Park debug screen.
+        vcu_net_energy_wh: controls.map(|c| c.net_energy),
+        vcu_regen_energy_wh: controls.map(|c| c.regen_energy),
     }
 }
 
@@ -785,7 +888,8 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                 mqtt.lap_trigger = Some(locked.lap_count as f32);
                                 let pacing = locked.pacing(Instant::now());
                                 let layout = locked.layout.clone();
-                                DashMessage { seq, can, mqtt, pacing, layout }
+                                let park_layout = locked.park_layout.clone();
+                                DashMessage { seq, can, mqtt, pacing, layout, park_layout }
                             };
 
                             let json = match serde_json::to_string(&message) {
@@ -931,6 +1035,31 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                             }
                             Err(e) => {
                                 eprintln!("[DASHD] MQTT bad layout payload: {}", e)
+                            }
+                        }
+                        continue;
+                    }
+
+                    // parkLayout: the park/pit-screen layout. Same handling as
+                    // `layout` — retained, cached to disk, forwarded verbatim.
+                    if field == "parkLayout" {
+                        match serde_json::from_str::<serde_json::Value>(payload_str) {
+                            Ok(v) => {
+                                {
+                                    let mut locked = state.lock().unwrap();
+                                    locked.park_layout = Some(v);
+                                }
+                                persist_park_layout(payload_str);
+                                let _ = client.publish(
+                                    format!("{}ack/parkLayout", MQTT_TOPIC_PREFIX),
+                                    QoS::AtMostOnce,
+                                    true,
+                                    payload_str.as_bytes().to_vec(),
+                                );
+                                println!("[DASHD] Loaded park layout ({} bytes)", payload_str.len());
+                            }
+                            Err(e) => {
+                                eprintln!("[DASHD] MQTT bad parkLayout payload: {}", e)
                             }
                         }
                         continue;
@@ -1121,6 +1250,9 @@ fn mqtt_state_publisher_loop(state: Arc<Mutex<DashState>>) {
                     soc: locked.can.soc,
                     temperature: locked.can.temperature,
                     pacing: locked.pacing(now),
+                    disk_free_mb: locked.disk_free_mb,
+                    disk_total_mb: locked.disk_total_mb,
+                    runtime_s: Some(locked.boot.elapsed().as_secs_f32()),
                 };
                 serde_json::to_string(&msg)
             };
@@ -1146,9 +1278,43 @@ fn mqtt_state_publisher_loop(state: Arc<Mutex<DashState>>) {
 // Main
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Thread 5: disk monitor — polls free space on `/` so trackside can watch the
+// storage kill switch (start_telemetry.sh stops telemetry when free < 1024 MB).
+// ---------------------------------------------------------------------------
+
+/// (free_mb, total_mb) on `/` via `df -k` — the same filesystem + metric the
+/// kill switch reads (`df / | awk 'NR==2 {print $4/1024}'`). None on parse fail.
+fn read_disk_mb() -> Option<(f64, f64)> {
+    let out = std::process::Command::new("df").arg("-k").arg("/").output().ok()?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    // Header line, then the root filesystem row:
+    //   Filesystem  1K-blocks  Used  Available  Use%  Mounted-on
+    let cols: Vec<&str> = text.lines().nth(1)?.split_whitespace().collect();
+    let total_kb: f64 = cols.get(1)?.parse().ok()?;
+    let avail_kb: f64 = cols.get(3)?.parse().ok()?;
+    Some((avail_kb / 1024.0, total_kb / 1024.0))
+}
+
+fn disk_monitor_loop(state: Arc<Mutex<DashState>>) {
+    loop {
+        if let Some((free_mb, total_mb)) = read_disk_mb() {
+            let mut locked = state.lock().unwrap();
+            locked.disk_free_mb = Some(free_mb);
+            locked.disk_total_mb = Some(total_mb);
+        }
+        // The kill switch checks every 60 s; 15 s here gives trackside a little
+        // more lead time without being chatty.
+        thread::sleep(Duration::from_secs(15));
+    }
+}
+
 fn main() -> Result<()> {
     let state = Arc::new(Mutex::new(DashState {
         can: CanData::default(),
+        boot: Instant::now(),
+        disk_free_mb: None,
+        disk_total_mb: None,
         // Start stale so the dash shows "--" until cand actually connects.
         last_can_update: Instant::now() - CAN_STALE_TIMEOUT,
         last_qualified_soc: None,
@@ -1166,6 +1332,7 @@ fn main() -> Result<()> {
         last_lap: None,
         // Restore the last layout from disk; the retained MQTT topic refreshes it.
         layout: load_layout(),
+        park_layout: load_park_layout(),
     }));
 
     let ipc_state = Arc::clone(&state);
@@ -1179,6 +1346,9 @@ fn main() -> Result<()> {
 
     let pub_state = Arc::clone(&state);
     thread::spawn(move || mqtt_state_publisher_loop(pub_state));
+
+    let disk_state = Arc::clone(&state);
+    thread::spawn(move || disk_monitor_loop(disk_state));
 
     println!(
         "[DASHD] Started (IPC reader + WebSocket on :{} + MQTT subscriber + state publisher)",

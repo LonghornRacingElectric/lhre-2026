@@ -43,6 +43,11 @@ export interface DashMirrorState {
     power: number | null;
     soc: number | null;
     temperature: number | null;
+    // Car storage + runtime vs the on-car kill switch (free < 1 GB or > 1 h
+    // stops telemetry). null until the car's dashd reports them.
+    diskFreeMb?: number | null;
+    diskTotalMb?: number | null;
+    runtimeS?: number | null;
     pacing: {
         lapEnergyWh: number;
         budgetDeltaWh: number | null;
@@ -83,6 +88,8 @@ export interface DashSignals {
     publishGate: (gate: [number, number, number, number]) => void;
     /** Push the lap-card layout the dash renders (retained: sent once, used until replaced). */
     publishLayout: (layout: unknown) => boolean;
+    /** Push the park/pit-screen layout (retained, separate topic from the lap card). */
+    publishParkLayout: (layout: unknown) => boolean;
     /** Push the live dynamic per-lap energy budget (Wh) the dash shows (retained). */
     publishLapBudget: (wh: number) => boolean;
     publishLapCardMs: (ms: number) => boolean;
@@ -287,6 +294,15 @@ export function useDashSignals(): DashSignals {
         return true;
     }, []);
 
+    // Park / pit-screen layout — same retained pattern, separate topic so the
+    // two screens are authored independently.
+    const publishParkLayout = useCallback((layout: unknown): boolean => {
+        const client = clientRef.current;
+        if (!client || !client.connected) return false;
+        client.publish(`${TOPIC_PREFIX}parkLayout`, JSON.stringify(layout), { qos: 1, retain: true });
+        return true;
+    }, []);
+
     // Retained: the live per-lap Wh budget (remaining energy / remaining laps),
     // republished by trackside whenever it changes. The dash holds it and shows
     // the driver the current Wh/lap target.
@@ -359,6 +375,7 @@ export function useDashSignals(): DashSignals {
         resetLapCounter,
         publishGate,
         publishLayout,
+        publishParkLayout,
         publishLapBudget,
         publishLapCardMs,
         publishMessages,
