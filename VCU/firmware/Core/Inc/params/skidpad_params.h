@@ -8,9 +8,9 @@ static const vcu_parameters_t skidpad_params = {
     VCU_DEFAULT_PARAMS,
     .torque_map.pedal_map = {
         /* apps= 0.0 */ 0.00f,
-        /* apps= 0.1 */ 0.30f,
-        /* apps= 0.2 */ 0.50f,
-        /* apps= 0.3 */ 0.70f,
+        /* apps= 0.1 */ 0.20f,
+        /* apps= 0.2 */ 0.40f,
+        /* apps= 0.3 */ 0.60f,
         /* apps= 0.4 */ 0.70f,
         /* apps= 0.5 */ 0.70f,
         /* apps= 0.6 */ 0.70f,
