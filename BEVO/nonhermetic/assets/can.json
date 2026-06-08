@@ -5041,5 +5041,82 @@
                 }
             }
         ]
+    },
+    {
+        "packet_id": 458,
+        "packet_name": "Torque Path",
+        "from": [
+            "VCU"
+        ],
+        "to": [
+            "Pi"
+        ],
+        "data_length": 8,
+        "frequency_ms": 10,
+        "frequency": 100.0,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Torque Lookup",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "torque_lookup",
+                    "proto_id": 42,
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 1,
+                "start_byte": 2,
+                "name": "Torque Derated",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "torque_derated",
+                    "proto_id": 43,
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 2,
+                "start_byte": 4,
+                "name": "Torque Power Limited",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "torque_power_limited",
+                    "proto_id": 44,
+                    "repeated": false,
+                    "field_index": null
+                }
+            },
+            {
+                "index": 3,
+                "start_byte": 6,
+                "name": "Torque Traction Controlled",
+                "length": 2,
+                "conv_type": "uint16",
+                "precision": 0.1,
+                "protobuf": {
+                    "type": "float",
+                    "field": "torque_traction_controlled",
+                    "proto_id": 45,
+                    "repeated": false,
+                    "field_index": null
+                }
+            }
+        ]
     }
 ]
