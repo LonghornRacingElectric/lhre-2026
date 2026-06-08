@@ -345,7 +345,7 @@ export function DashLayoutEditor({ onClose, onSend, sendStatus, initialScreenId 
           {/* property panel */}
           <aside className="dashEditorProps">
             {!selected ? <p className="muted" style={{ padding: 8 }}>Select a widget to edit its data &amp; style.</p> : (
-              <PropertyPanel w={selected} fields={fields} onChange={(p) => patch(selected.id, p)} onDelete={removeSelected} />
+              <PropertyPanel key={selected.id} w={selected} fields={fields} onChange={(p) => patch(selected.id, p)} onDelete={removeSelected} />
             )}
           </aside>
         </div>
@@ -455,7 +455,7 @@ function PropertyPanel({ w, fields, onChange, onDelete }: { w: Widget; fields: F
         <ThresholdRules rules={w.thresholds ?? []} onChange={(r) => onChange({ thresholds: r })} />
       )}
       {w.type === 'value' && (
-        <ValueLabels map={w.valueMap} onChange={(m) => onChange({ valueMap: m })} />
+        <ValueLabels key={w.bind} map={w.valueMap} onChange={(m) => onChange({ valueMap: m })} />
       )}
       <div className="propGrid">
         <Row label="X"><input type="number" value={w.x} onChange={(e) => onChange({ x: Number(e.target.value) })} /></Row>
@@ -492,28 +492,35 @@ function ThresholdRules({ rules, onChange }: { rules: ColorRule[]; onChange: (r:
 // Value→label map editor for value widgets — turns an enum/bitfield number into
 // its meaning (e.g. 4 → ENDUR). Binding an enum field (VCU event mode) pre-fills
 // this; it's editable for any field. A value with no matching key shows numerically.
+//
+// Edits an ordered ROW LIST internally (not the value→label object directly) so
+// "+ Label" always appends a fresh blank row, blank/half-typed rows persist while
+// you fill them, and typing a key never reorders or overwrites another row. The
+// object is rebuilt (deduped, blank keys dropped) only when emitting. Remounted
+// per field via key={w.bind} at the call site, so an external prefill flows in.
 function ValueLabels({ map, onChange }: { map?: Record<string, string>; onChange: (m: Record<string, string> | undefined) => void }) {
-  const entries = Object.entries(map ?? {});
-  const rebuild = (next: [string, string][]) => {
+  const [rows, setRows] = useState<[string, string][]>(() => Object.entries(map ?? {}));
+  const emit = (next: [string, string][]) => {
+    setRows(next);
     const obj: Record<string, string> = {};
-    for (const [k, v] of next) if (k.trim() !== '') obj[k.trim()] = v;
+    for (const [k, v] of next) { const kk = k.trim(); if (kk !== '') obj[kk] = v; } // last wins on dup key
     onChange(Object.keys(obj).length ? obj : undefined);
   };
   return (
     <div className="thresholdRules">
       <div className="propHead"><span className="muted" style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: 1 }}>Value labels</span>
-        <button className="tool" onClick={() => rebuild([...entries, [String(entries.length), '']])}>+ Label</button>
+        <button className="tool" onClick={() => emit([...rows, ['', '']])}>+ Label</button>
       </div>
-      {entries.map(([k, v], i) => (
+      {rows.map(([k, v], i) => (
         <div key={i} className="thresholdRule">
-          <input type="number" value={k} style={{ width: 56 }} aria-label="value"
-            onChange={(e) => rebuild(entries.map((en, idx) => (idx === i ? [e.target.value, en[1]] : en)))} />
+          <input type="number" value={k} placeholder="#" style={{ width: 56 }} aria-label="value"
+            onChange={(e) => emit(rows.map((r, idx) => (idx === i ? [e.target.value, r[1]] : r)))} />
           <input type="text" value={v} placeholder="label" aria-label="label"
-            onChange={(e) => rebuild(entries.map((en, idx) => (idx === i ? [en[0], e.target.value] : en)))} />
-          <button className="tool iconOnly" aria-label="Remove label" onClick={() => rebuild(entries.filter((_, idx) => idx !== i))}><Trash2 size={12} /></button>
+            onChange={(e) => emit(rows.map((r, idx) => (idx === i ? [r[0], e.target.value] : r)))} />
+          <button className="tool iconOnly" aria-label="Remove label" onClick={() => emit(rows.filter((_, idx) => idx !== i))}><Trash2 size={12} /></button>
         </div>
       ))}
-      {!entries.length && <p className="muted" style={{ fontSize: '0.78rem', margin: '2px 0 0' }}>Map a number to text, e.g. 4 → ENDUR (enums / bitfields).</p>}
+      {!rows.length && <p className="muted" style={{ fontSize: '0.78rem', margin: '2px 0 0' }}>Map a number to text, e.g. 4 → ENDUR (enums / bitfields).</p>}
     </div>
   );
 }
