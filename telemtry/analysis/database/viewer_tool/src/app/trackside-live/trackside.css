@@ -883,6 +883,11 @@ textarea:focus-visible,
 .widgetItem.sel { border-color: #4ea1ff; background: color-mix(in srgb, #4ea1ff 14%, transparent); }
 .widgetItem .widgetKind { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted-text); }
 .widgetItem .widgetBind { font-size: var(--fs-sm); font-family: ui-monospace, monospace; word-break: break-all; }
+/* Data-source provenance caption under the field picker (DashLayoutEditor). */
+.fieldSource { font-size: 0.68rem; line-height: 1.3; color: var(--muted-text); margin: 2px 0 6px; padding: 3px 7px; background: color-mix(in srgb, var(--muted-text) 9%, transparent); border-radius: 4px; font-family: ui-monospace, monospace; word-break: break-word; }
+.fieldSource .fieldSourceTag { font-weight: 700; letter-spacing: 1px; color: var(--accent, #d97757); margin-right: 5px; }
+.fieldSource.fieldSourceWarn { color: #b58900; background: color-mix(in srgb, #FFCC00 14%, transparent); }
+.fieldSource.fieldSourceWarn .fieldSourceTag { color: #b58900; }
 .dashEditorStage { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--s-3); background: #0b0c0e; overflow: auto; }
 .dashEditorProps { border-left: 1px solid var(--border); overflow-y: auto; }
 .propPanel { display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-3); }

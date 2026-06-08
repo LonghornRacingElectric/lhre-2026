@@ -395,6 +395,7 @@ function PropertyPanel({ w, fields, onChange, onDelete }: { w: Widget; fields: F
         <Row label="Text"><input value={w.text} onChange={(e) => onChange({ text: e.target.value })} /></Row>
       )}
       {hasBind && (
+        <>
         <Row label="Data field">
           <select value={(w as { bind: string }).bind} onChange={(e) => {
             const fd = fieldDef(e.target.value);
@@ -415,11 +416,25 @@ function PropertyPanel({ w, fields, onChange, onDelete }: { w: Widget; fields: F
           }}>
             {Array.from(new Set(fields.map((f) => f.group))).map((g) => (
               <optgroup key={g} label={g}>
-                {fields.filter((f) => f.group === g).map((f) => <option key={f.bind} value={f.bind}>{f.label}{f.unit ? ` (${f.unit})` : ''}</option>)}
+                {fields.filter((f) => f.group === g).map((f) => <option key={f.bind} value={f.bind} title={f.source}>{f.label}{f.unit ? ` (${f.unit})` : ''}</option>)}
               </optgroup>
             ))}
           </select>
         </Row>
+        {/* True data-source provenance for the selected field — the CAN packet /
+            derivation / trackside topic, so the strategist isn't misled by the
+            abstract `can.*` bind path. "demo-only" fields never carry real data. */}
+        {(() => {
+          const fd = fieldDef((w as { bind?: string }).bind ?? '');
+          if (!fd?.source) return null;
+          const demo = fd.source.startsWith('demo-only');
+          return (
+            <div className={`fieldSource${demo ? ' fieldSourceWarn' : ''}`} title={fd.source}>
+              <span className="fieldSourceTag">SRC</span> {fd.source}
+            </div>
+          );
+        })()}
+        </>
       )}
       {(w.type === 'value' || w.type === 'gauge' || w.type === 'delta') && (
         <Row label="Format">
