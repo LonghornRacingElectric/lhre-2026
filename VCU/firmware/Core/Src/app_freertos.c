@@ -354,6 +354,7 @@ void StartControlTask(void *argument) {
     vcu_battery_pack_status_t pack_status = vcu_can_get_battery_pack_status();
 
     in.motor_speed_rpm = fabsf(vcu_can_get_motor_speed_rpm());
+    in.torque_feedback_nm = vcu_can_get_torque_feedback_nm();
     in.motor_speed_valid = vcu_can_is_motor_speed_valid();
     in.min_cell_voltage_v = vcu_can_get_min_cell_voltage_v();
     in.max_cell_voltage_v = vcu_can_get_max_cell_voltage_v();

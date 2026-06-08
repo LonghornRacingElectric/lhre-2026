@@ -1,6 +1,7 @@
 #ifndef TRACTION_CONTROL_H
 #define TRACTION_CONTROL_H
 
+#include "low_pass.h"
 #include "vcu_inputs.h"
 #include "vcu_outputs.h"
 #include "vcu_parameters.h"
@@ -10,6 +11,9 @@ extern "C" {
 #endif
 
 typedef struct {
+  float prev_motor_speed_rpm;
+  ema_filter_t accel_filter;
+  float mtte_nm;
 } traction_control_state_t;
 
 void traction_control_init(traction_control_state_t *state,

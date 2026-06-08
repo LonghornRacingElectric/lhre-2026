@@ -119,6 +119,11 @@ typedef struct {
 
   struct {
     bool enabled;
+    float J_drivetrain_kg_m2;  // rotational inertia of motor+drivetrain at motor shaft
+    float J_vehicle_kg_m2;     // effective inertia when gripping (mass reflected to motor shaft)
+    float accel_filter_alpha;  // EMA alpha for RPM derivative smoothing [0,1]
+    float min_accel_rad_s2;    // minimum |alpha| to trust the inertia estimate
+    float slip_J_threshold_kg_m2; // J_eff below this → slip detected
   } traction_control;
 } vcu_parameters_t;
 

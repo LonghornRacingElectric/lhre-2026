@@ -381,6 +381,10 @@ float vcu_can_get_motor_speed_rpm(void) {
   return (float)inverter_status_mailbox.motor_speed;
 }
 
+float vcu_can_get_torque_feedback_nm(void) {
+  return inverter_speed_mailbox.torque_feedback;
+}
+
 float vcu_can_get_delta_resolver_angle_deg(void) {
   return (float)inverter_status_mailbox.delta_resolver_angle;
 }

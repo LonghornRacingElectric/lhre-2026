@@ -21,6 +21,15 @@ typedef struct {
   float torque_power_limited; // torque after power limit trim loop (Nm)
   float torque_cmd;           // final torque command (Nm)
 
+  /* Traction control */
+  struct {
+    float accel_rad_s2;            // filtered angular acceleration at motor shaft
+    float effective_inertia_kg_m2; // estimated J = T_feedback / alpha
+    float ground_torque_nm;        // T_feedback - J_drivetrain * alpha
+    float mtte_nm;                 // maximum transmissible torque estimate
+    float trim_torque_nm;          // torque trimmed by TC
+  } traction_control;
+
   /* Regen linelock */
   bool linelock_enabled;
   bool regen_available;
