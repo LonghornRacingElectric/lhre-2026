@@ -32,12 +32,29 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const screen = req.nextUrl.searchParams.get("screen") ?? "lapCard";
-  const body = (await req.json().catch(() => ({}))) as { items?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { items?: unknown; baseSavedAt?: unknown };
   const items = Array.isArray(body.items) ? body.items : [];
+  const baseSavedAt = typeof body.baseSavedAt === "number" ? body.baseSavedAt : null;
   const p = libPath(screen);
+
+  // Optimistic concurrency: if the caller passed the savedAt it loaded and the
+  // file has since moved on (another editor saved), reject so the client can
+  // merge instead of silently clobbering. First write (no file) always allowed;
+  // callers that don't pass baseSavedAt keep the old overwrite behavior.
+  let current: { items?: unknown; savedAt?: unknown } | null = null;
+  try { current = JSON.parse(await fs.readFile(p, "utf-8")); } catch { /* no file yet */ }
+  const currentSavedAt = typeof current?.savedAt === "number" ? current.savedAt : null;
+  if (baseSavedAt != null && currentSavedAt != null && baseSavedAt !== currentSavedAt) {
+    return NextResponse.json(
+      { conflict: true, items: Array.isArray(current?.items) ? current!.items : [], savedAt: currentSavedAt },
+      { status: 409 },
+    );
+  }
+
+  const savedAt = Date.now();
   await fs.mkdir(path.dirname(p), { recursive: true });
   const tmp = `${p}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify({ items, savedAt: Date.now() }));
+  await fs.writeFile(tmp, JSON.stringify({ items, savedAt }));
   await fs.rename(tmp, p); // atomic
-  return NextResponse.json({ ok: true, count: items.length });
+  return NextResponse.json({ ok: true, count: items.length, savedAt });
 }

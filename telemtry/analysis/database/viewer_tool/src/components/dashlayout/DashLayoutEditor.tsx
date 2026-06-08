@@ -139,34 +139,61 @@ export function DashLayoutEditor({ onClose, onSend, sendStatus, initialScreenId 
   snapRef.current = snap;
   const drag = useRef<null | { mode: 'move' | 'resize'; id: string; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number }>(null);
 
+  const [syncMsg, setSyncMsg] = useState('Syncing…');
+  // The server library version we last loaded — sent with each save so the
+  // server can reject (409) if another editor saved in between, rather than us
+  // silently clobbering their work. null = unknown (first save / offline).
+  const serverSavedAtRef = useRef<number | null>(null);
+
+  // Push the library to the shared server with optimistic concurrency. On a
+  // conflict the server returns its current copy; we MERGE (server as the base,
+  // our actively-edited layout wins, plus any layouts only we have) and re-save
+  // on the fresh version — so concurrent edits to *different* layouts both
+  // survive, and only simultaneous edits to the *same* layout are last-wins.
+  const pushToServer = useCallback(async (screen: string, items: LapCardLayout[], activeId: string) => {
+    const r = await saveServerLayouts(screen, items, serverSavedAtRef.current);
+    if (r.ok) { serverSavedAtRef.current = r.savedAt ?? serverSavedAtRef.current; setSyncMsg('Synced'); return; }
+    if (r.conflict && r.items) {
+      const byId = new Map<string, LapCardLayout>(r.items.map(withId).map((l) => [l.id!, l]));
+      for (const l of items) if (l.id === activeId || !byId.has(l.id!)) byId.set(l.id!, withId(l));
+      const merged = Array.from(byId.values());
+      serverSavedAtRef.current = r.savedAt ?? null; // adopt the server's new base
+      setSyncMsg('Merged changes from another editor');
+      // setLib re-triggers the debounced effect, which re-saves on the fresh base.
+      setLib((prev) => ({ items: merged, activeId: merged.some((i) => i.id === prev.activeId) ? prev.activeId : (merged[0]?.id ?? prev.activeId) }));
+    }
+  }, []);
+
   // Persist locally on every change; debounce a push to the shared server copy
   // so every client sees the same saved layouts.
   const serverSaveTimer = useRef<number | null>(null);
   useEffect(() => {
     const key = screenDef(libScreenRef.current).libraryKey;
     const screen = libScreenRef.current;
-    try { localStorage.setItem(key, JSON.stringify(lib)); } catch { /* quota */ }
+    const snapshot = lib;
+    try { localStorage.setItem(key, JSON.stringify(snapshot)); } catch { /* quota */ }
     if (serverSaveTimer.current) window.clearTimeout(serverSaveTimer.current);
-    serverSaveTimer.current = window.setTimeout(() => { void saveServerLayouts(screen, lib.items); }, 800);
+    serverSaveTimer.current = window.setTimeout(() => { void pushToServer(screen, snapshot.items, snapshot.activeId); }, 800);
     return () => { if (serverSaveTimer.current) window.clearTimeout(serverSaveTimer.current); };
-  }, [lib]);
+  }, [lib, pushToServer]);
 
   // Pull a screen's shared library. Server is the source of truth if it has
   // anything; if it's empty but we have local layouts, seed it from local.
-  const [syncMsg, setSyncMsg] = useState('Syncing…');
   const pullFromServer = useCallback(async (screen: string, localItems: LapCardLayout[], announce = true) => {
     if (announce) setSyncMsg('Syncing…');
     const server = await fetchServerLayouts(screen);
     if (server === null) { setSyncMsg('Offline — local only'); return; }
-    if (server.length) {
-      const items = server.map(withId);
+    serverSavedAtRef.current = server.savedAt; // remember the base we loaded
+    if (server.items.length) {
+      const items = server.items.map(withId);
       libScreenRef.current = screen;
       setLib((prev) => ({ items, activeId: items.some((i) => i.id === prev.activeId) ? prev.activeId : items[0].id! }));
       setSyncMsg('Synced');
     } else {
       // server empty — seed it from whatever we have locally
       setSyncMsg('Synced');
-      void saveServerLayouts(screen, localItems);
+      const r = await saveServerLayouts(screen, localItems, server.savedAt);
+      if (r.ok) serverSavedAtRef.current = r.savedAt ?? serverSavedAtRef.current;
     }
   }, []);
   useEffect(() => { void pullFromServer(screenId, lib.items); /* on open only */ // eslint-disable-next-line react-hooks/exhaustive-deps
