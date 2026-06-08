@@ -190,9 +190,15 @@ export const FIELD_CATALOG: FieldDef[] = [
   { bind: 'lapCard.lapNumber', label: 'Lap number', group: 'Lap', defaultFormat: 'int', min: 0, max: 30, source: 'on-car lap counter (GPS gate / trackside lapTrigger)' },
   { bind: 'lapCard.timeS', label: 'Lap time', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120, source: 'on-car: wall-clock since lap start' },
   { bind: 'lapCard.energyWh', label: 'Lap energy', group: 'Lap', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400, source: 'on-car: ∫ CAN power over the lap' },
-  { bind: 'mqtt.bestLapTime', label: 'Best lap', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120, source: 'demo-only — dashd does not track best lap (always —)' },
-  { bind: 'mqtt.lastLapTime', label: 'Last lap', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120, source: 'demo-only — not emitted; real last-lap time is the lap card (lapCard.timeS), timed on-car' },
-  { bind: 'mqtt.currentLapTime', label: 'Current lap time', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120, source: 'demo-only — not emitted; use pacing.lapElapsedS for the live lap time' },
+  // Last completed lap — REAL, on-car (PacingData), forwarded every frame on ALL
+  // screens (unlike lapCard.* which only exists on the lap card). Prefer these over
+  // the mqtt.* lap stubs below. Null until the first lap completes.
+  { bind: 'pacing.lastLapTimeS', label: 'Last lap time', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120, source: 'on-car: time of the last completed lap (PacingData — any screen)' },
+  { bind: 'pacing.lastLapEnergyWh', label: 'Last lap energy', group: 'Lap', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400, source: 'on-car: net Wh of the last completed lap (PacingData)' },
+  { bind: 'pacing.lastLapNumber', label: 'Last lap #', group: 'Lap', defaultFormat: 'int', min: 0, max: 30, source: 'on-car: number of the last completed lap (PacingData)' },
+  { bind: 'mqtt.bestLapTime', label: 'Best lap (demo)', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120, source: 'demo-only — best lap not tracked on-car yet (always —)' },
+  { bind: 'mqtt.lastLapTime', label: 'Last lap (demo)', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120, source: 'demo-only — not emitted; use pacing.lastLapTimeS instead (real, any screen)' },
+  { bind: 'mqtt.currentLapTime', label: 'Current lap (demo)', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120, source: 'demo-only — not emitted; use pacing.lapElapsedS for the live lap time' },
   { bind: 'mqtt.lapTrigger', label: 'Lap count', group: 'Lap', defaultFormat: 'int', min: 0, max: 30, source: 'on-car monotonic lap count (lhre/dash/lapTrigger)' },
   // Pacing / strategy (on-car authoritative pacing snapshot)
   { bind: 'pacing.lapEnergyWh', label: 'Energy (this lap)', group: 'Pacing', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400, source: 'on-car: ∫ CAN power this lap' },
