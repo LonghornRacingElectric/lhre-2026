@@ -282,6 +282,10 @@ struct DashMessage {
     /// None until one is sent → frontend uses its built-in park screen.
     #[serde(rename = "parkLayout", skip_serializing_if = "Option::is_none")]
     park_layout: Option<serde_json::Value>,
+    /// Website-authored primary/driving-screen layout (retained `lhre/dash/drivingLayout`).
+    /// None until one is sent → frontend uses its built-in driving screen.
+    #[serde(rename = "drivingLayout", skip_serializing_if = "Option::is_none")]
+    driving_layout: Option<serde_json::Value>,
     /// Active driver message to overlay now (from `lhre/dash/message`); None when
     /// nothing is showing or it has expired.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -424,6 +428,9 @@ struct DashState {
     /// Website-authored park/pit-screen layout (retained `lhre/dash/parkLayout`).
     /// None → frontend's built-in park screen.
     park_layout: Option<serde_json::Value>,
+    /// Website-authored primary/driving-screen layout (retained `lhre/dash/drivingLayout`).
+    /// None → frontend's built-in driving screen.
+    driving_layout: Option<serde_json::Value>,
     /// Driver-message palette the car holds (retained `lhre/dash/messages`).
     messages: Option<serde_json::Value>,
     /// Active driver message + its expiry (from `lhre/dash/message`). expiry None
@@ -596,6 +603,36 @@ fn load_park_layout() -> Option<serde_json::Value> {
     match serde_json::from_str::<serde_json::Value>(data.trim()) {
         Ok(v) => {
             println!("[DASHD] Restored park layout from {}", path);
+            Some(v)
+        }
+        Err(_) => None,
+    }
+}
+
+// Primary/driving-screen layout — same disk-cache pattern + reboot-durable path
+// as the lap-card and park layouts, own file + env override.
+const DRIVING_LAYOUT_PATH: &str = "/var/lib/bevo-dash/drivinglayout.json";
+
+fn driving_layout_path() -> String {
+    env_or_default("DASHD_DRIVING_LAYOUT_PATH", DRIVING_LAYOUT_PATH)
+}
+
+fn persist_driving_layout(raw: &str) {
+    let path = driving_layout_path();
+    if let Some(dir) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    if let Err(e) = std::fs::write(&path, raw) {
+        eprintln!("[DASHD] Failed to persist driving layout: {}", e);
+    }
+}
+
+fn load_driving_layout() -> Option<serde_json::Value> {
+    let path = driving_layout_path();
+    let data = std::fs::read_to_string(&path).ok()?;
+    match serde_json::from_str::<serde_json::Value>(data.trim()) {
+        Ok(v) => {
+            println!("[DASHD] Restored driving layout from {}", path);
             Some(v)
         }
         Err(_) => None,
@@ -915,12 +952,13 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                 let pacing = locked.pacing(Instant::now());
                                 let layout = locked.layout.clone();
                                 let park_layout = locked.park_layout.clone();
+                                let driving_layout = locked.driving_layout.clone();
                                 // Expire a timed message before forwarding it.
                                 let message = match locked.message_expiry {
                                     Some(exp) if Instant::now() >= exp => None,
                                     _ => locked.active_message.clone(),
                                 };
-                                DashMessage { seq, can, mqtt, pacing, layout, park_layout, message }
+                                DashMessage { seq, can, mqtt, pacing, layout, park_layout, driving_layout, message }
                             };
 
                             let json = match serde_json::to_string(&message) {
@@ -1091,6 +1129,28 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                             }
                             Err(e) => {
                                 eprintln!("[DASHD] MQTT bad parkLayout payload: {}", e)
+                            }
+                        }
+                        continue;
+                    }
+                    if field == "drivingLayout" {
+                        match serde_json::from_str::<serde_json::Value>(payload_str) {
+                            Ok(v) => {
+                                {
+                                    let mut locked = state.lock().unwrap();
+                                    locked.driving_layout = Some(v);
+                                }
+                                persist_driving_layout(payload_str);
+                                let _ = client.publish(
+                                    format!("{}ack/drivingLayout", MQTT_TOPIC_PREFIX),
+                                    QoS::AtMostOnce,
+                                    true,
+                                    payload_str.as_bytes().to_vec(),
+                                );
+                                println!("[DASHD] Loaded driving layout ({} bytes)", payload_str.len());
+                            }
+                            Err(e) => {
+                                eprintln!("[DASHD] MQTT bad drivingLayout payload: {}", e)
                             }
                         }
                         continue;
@@ -1401,6 +1461,7 @@ fn main() -> Result<()> {
         // Restore the last layout from disk; the retained MQTT topic refreshes it.
         layout: load_layout(),
         park_layout: load_park_layout(),
+        driving_layout: load_driving_layout(),
         messages: None,
         active_message: None,
         message_expiry: None,

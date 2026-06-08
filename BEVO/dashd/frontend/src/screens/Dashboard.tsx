@@ -6,6 +6,7 @@ import Settings from './Settings';
 import { useDash } from '../context/DashContext';
 import { MessageCardRenderer } from '../MessageCardRenderer';
 import { validateMessage } from '../dashMessages';
+import { LapCardOverlay } from '../components/LapCardOverlay';
 
 // Add new screens by appending to this array. Enter cycles in order.
 const SCREENS: { name: string; component: React.FC }[] = [
@@ -63,6 +64,9 @@ const Dashboard: React.FC = () => {
     return (
         <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
             <ActiveScreen />
+            {/* Lap card (z-1000) floats over every screen — built-in or custom driving
+                layout, Park, etc. — lifted out of ScreenOne so it isn't tied to one screen. */}
+            <LapCardOverlay data={data} theme={dashTheme} />
             {driverMsg ? (
                 <div style={{ position: 'absolute', inset: 0, zIndex: 1100 }}>
                     <MessageCardRenderer message={driverMsg} theme={dashTheme} scale={1} />

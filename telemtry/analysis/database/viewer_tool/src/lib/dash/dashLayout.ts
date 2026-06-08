@@ -378,9 +378,38 @@ export function defaultParkLayout(): LapCardLayout {
   };
 }
 
+// Default starter for the Primary / Driving screen — speed + power gauges, SoE,
+// lap delta, and per-lap energy used vs budget. Binds can.* + pacing.* + mqtt.*
+// (no lapCard.* — the lap card is its own overlay). The on-car built-in driving
+// view stays as the fallback whenever no custom driving layout is published.
+export function defaultDrivingLayout(): LapCardLayout {
+  return {
+    version: DASH_LAYOUT_VERSION,
+    name: 'Default driving screen',
+    background: 'auto',
+    widgets: [
+      { id: 'soe', type: 'value', bind: 'can.soc', format: 'pct', label: 'SoE',
+        x: 300, y: 6, w: 200, h: 60, fontSize: 40, color: 'auto', align: 'center', bold: true,
+        thresholds: [{ cmp: 'lt', value: 20, color: '#FFD700' }, { cmp: 'lt', value: 10, color: '#FF3333' }] },
+      { id: 'speed', type: 'gauge', bind: 'can.speed', min: 0, max: 80, label: 'MPH', color: 'gradient', format: 'int',
+        x: 40, y: 80, w: 320, h: 300 },
+      { id: 'power', type: 'gauge', bind: 'can.power', min: -80, max: 80, label: 'kW', mode: 'bidirectional', format: 'kw',
+        x: 440, y: 80, w: 320, h: 300 },
+      { id: 'delta', type: 'delta', bind: 'mqtt.lapDelta', format: 'laptime', label: 'Δ LAP', fontSize: 44,
+        x: 40, y: 396, w: 240, h: 76, goodSign: 'negative', showArrow: true },
+      { id: 'used', type: 'value', bind: 'pacing.lapEnergyWh', format: 'wh', label: 'USED Wh', fontSize: 40,
+        x: 300, y: 396, w: 200, h: 76, color: 'auto', align: 'center', bold: true },
+      { id: 'budget', type: 'delta', bind: 'pacing.budgetDeltaWh', format: 'whSigned', label: 'BUDGET Δ', fontSize: 40,
+        x: 520, y: 396, w: 240, h: 76, goodSign: 'negative', showArrow: false },
+    ],
+  };
+}
+
 export const DASH_SCREENS: ScreenDef[] = [
   { id: 'lapCard', name: 'Lap Card', topic: 'layout', libraryKey: 'dash-lap-layouts',
     contextRoots: ['lapCard', 'pacing', 'can', 'mqtt'], build: defaultLapCardLayout },
+  { id: 'driving', name: 'Primary / Driving', topic: 'drivingLayout', libraryKey: 'dash-driving-layouts',
+    contextRoots: ['can', 'pacing', 'mqtt'], build: defaultDrivingLayout },
   { id: 'park', name: 'Park / Pit', topic: 'parkLayout', libraryKey: 'dash-park-layouts',
     contextRoots: ['can', 'pacing', 'mqtt'], build: defaultParkLayout },
 ];

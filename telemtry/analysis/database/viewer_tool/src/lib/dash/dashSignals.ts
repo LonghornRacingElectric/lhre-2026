@@ -90,6 +90,8 @@ export interface DashSignals {
     publishLayout: (layout: unknown) => boolean;
     /** Push the park/pit-screen layout (retained, separate topic from the lap card). */
     publishParkLayout: (layout: unknown) => boolean;
+    /** Push the primary/driving-screen layout (retained, its own topic). */
+    publishDrivingLayout: (layout: unknown) => boolean;
     /** Push the live dynamic per-lap energy budget (Wh) the dash shows (retained). */
     publishLapBudget: (wh: number) => boolean;
     publishLapCardMs: (ms: number) => boolean;
@@ -303,6 +305,15 @@ export function useDashSignals(): DashSignals {
         return true;
     }, []);
 
+    // Primary / driving-screen layout — same retained pattern, its own topic so
+    // all three screens (lap card, driving, park) are authored independently.
+    const publishDrivingLayout = useCallback((layout: unknown): boolean => {
+        const client = clientRef.current;
+        if (!client || !client.connected) return false;
+        client.publish(`${TOPIC_PREFIX}drivingLayout`, JSON.stringify(layout), { qos: 1, retain: true });
+        return true;
+    }, []);
+
     // Retained: the live per-lap Wh budget (remaining energy / remaining laps),
     // republished by trackside whenever it changes. The dash holds it and shows
     // the driver the current Wh/lap target.
@@ -376,6 +387,7 @@ export function useDashSignals(): DashSignals {
         publishGate,
         publishLayout,
         publishParkLayout,
+        publishDrivingLayout,
         publishLapBudget,
         publishLapCardMs,
         publishMessages,
