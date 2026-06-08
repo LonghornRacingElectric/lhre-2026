@@ -263,6 +263,8 @@ struct PacingData {
     last_lap_number: Option<u32>,
     last_lap_time_s: Option<f32>,
     last_lap_energy_wh: Option<f32>,
+    /// Live per-lap energy budget (Wh) from trackside (remaining / remaining laps).
+    lap_budget_wh: Option<f32>,
 }
 
 #[derive(Serialize, Clone)]
@@ -280,6 +282,10 @@ struct DashMessage {
     /// None until one is sent → frontend uses its built-in park screen.
     #[serde(rename = "parkLayout", skip_serializing_if = "Option::is_none")]
     park_layout: Option<serde_json::Value>,
+    /// Active driver message to overlay now (from `lhre/dash/message`); None when
+    /// nothing is showing or it has expired.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    message: Option<serde_json::Value>,
 }
 
 /// Snapshot published to `lhre/dash/state` for the trackside link-health /
@@ -403,6 +409,8 @@ struct DashState {
     lap_energy_wh: f64,
     /// Energy budget consumed this lap at targetPower (Wh). Reset each lap.
     lap_budget_wh: f64,
+    /// Live per-lap energy budget (Wh) pushed by trackside (lhre/dash/lapBudgetWh), held.
+    lap_budget_target_wh: Option<f32>,
     /// Start of the current lap, for elapsed time.
     lap_start: Instant,
     /// Previous integration tick, for dt. None until the first frame.
@@ -416,6 +424,12 @@ struct DashState {
     /// Website-authored park/pit-screen layout (retained `lhre/dash/parkLayout`).
     /// None → frontend's built-in park screen.
     park_layout: Option<serde_json::Value>,
+    /// Driver-message palette the car holds (retained `lhre/dash/messages`).
+    messages: Option<serde_json::Value>,
+    /// Active driver message + its expiry (from `lhre/dash/message`). expiry None
+    /// while a sticky (durationS=0) message is up; both cleared on replace.
+    active_message: Option<serde_json::Value>,
+    message_expiry: Option<Instant>,
 }
 
 impl DashState {
@@ -459,6 +473,7 @@ impl DashState {
             last_lap_number: last_n,
             last_lap_time_s: last_t,
             last_lap_energy_wh: last_e,
+            lap_budget_wh: self.lap_budget_target_wh,
         }
     }
 }
@@ -469,9 +484,11 @@ impl DashState {
 const SFGATE_PATH: &str = "/tmp/BEVO_dash_sfgate.json";
 
 // Path the website-authored lap-card layout is cached to (retained on
-// `lhre/dash/layout`), so it survives a dashd/car reboot. Override with
-// DASHD_LAYOUT_PATH.
-const LAYOUT_PATH: &str = "/tmp/BEVO_dash_layout.json";
+// `lhre/dash/layout`). Must be a REBOOT-DURABLE path, not /tmp — /tmp is a
+// tmpfs on the car (wiped on every reboot), so a /tmp cache only survived a
+// dashd restart, not a power cycle, leaving the dash on the built-in card until
+// the (slow, cellular) retained MQTT re-delivered. Override with DASHD_LAYOUT_PATH.
+const LAYOUT_PATH: &str = "/var/lib/bevo-dash/layout.json";
 
 /// Does the car's path segment (prev->cur GPS) cross the gate line? Both car
 /// points are (lat, lon); the gate is [lat1, lon1, lat2, lon2]. Lat/lon are
@@ -530,9 +547,14 @@ fn layout_path() -> String {
 }
 
 /// Cache the lap-card layout to disk so it survives a dashd/car reboot even if
-/// the broker drops its retained copy.
+/// the broker drops its retained copy. Creates the parent dir (durable path may
+/// not exist on a fresh image).
 fn persist_layout(raw: &str) {
-    if let Err(e) = std::fs::write(layout_path(), raw) {
+    let path = layout_path();
+    if let Some(dir) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    if let Err(e) = std::fs::write(&path, raw) {
         eprintln!("[DASHD] Failed to persist layout: {}", e);
     }
 }
@@ -551,15 +573,19 @@ fn load_layout() -> Option<serde_json::Value> {
 }
 
 // Park/pit-screen layout — same disk-cache pattern as the lap-card layout, own
-// file + env override so the two survive a reboot independently.
-const PARK_LAYOUT_PATH: &str = "/tmp/BEVO_dash_parklayout.json";
+// file + env override. Reboot-durable path (NOT /tmp; see LAYOUT_PATH).
+const PARK_LAYOUT_PATH: &str = "/var/lib/bevo-dash/parklayout.json";
 
 fn park_layout_path() -> String {
     env_or_default("DASHD_PARK_LAYOUT_PATH", PARK_LAYOUT_PATH)
 }
 
 fn persist_park_layout(raw: &str) {
-    if let Err(e) = std::fs::write(park_layout_path(), raw) {
+    let path = park_layout_path();
+    if let Some(dir) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    if let Err(e) = std::fs::write(&path, raw) {
         eprintln!("[DASHD] Failed to persist park layout: {}", e);
     }
 }
@@ -889,7 +915,12 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                 let pacing = locked.pacing(Instant::now());
                                 let layout = locked.layout.clone();
                                 let park_layout = locked.park_layout.clone();
-                                DashMessage { seq, can, mqtt, pacing, layout, park_layout }
+                                // Expire a timed message before forwarding it.
+                                let message = match locked.message_expiry {
+                                    Some(exp) if Instant::now() >= exp => None,
+                                    _ => locked.active_message.clone(),
+                                };
+                                DashMessage { seq, can, mqtt, pacing, layout, park_layout, message }
                             };
 
                             let json = match serde_json::to_string(&message) {
@@ -1065,6 +1096,37 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                         continue;
                     }
 
+                    // Driver-message palette (retained set the car holds). Stored so a
+                    // fresh dash has it; rendering is driven by the trigger below.
+                    if field == "messages" {
+                        if let Ok(v) = serde_json::from_str::<serde_json::Value>(payload_str) {
+                            state.lock().unwrap().messages = Some(v);
+                        }
+                        continue;
+                    }
+                    // One-shot driver-message trigger { at, clear?, durationS?, msg }.
+                    // Sets/clears the message the frontend overlays; expires after
+                    // durationS seconds (0 = sticky until cleared or replaced).
+                    if field == "message" {
+                        match serde_json::from_str::<serde_json::Value>(payload_str) {
+                            Ok(v) => {
+                                let mut locked = state.lock().unwrap();
+                                if v.get("clear").and_then(|c| c.as_bool()).unwrap_or(false) {
+                                    locked.active_message = None;
+                                    locked.message_expiry = None;
+                                } else {
+                                    let dur = v.get("durationS").and_then(|d| d.as_f64()).unwrap_or(0.0);
+                                    locked.active_message = v.get("msg").cloned();
+                                    locked.message_expiry = if dur > 0.0 {
+                                        Some(Instant::now() + Duration::from_secs_f64(dur))
+                                    } else { None };
+                                }
+                            }
+                            Err(e) => eprintln!("[DASHD] MQTT bad message payload: {}", e),
+                        }
+                        continue;
+                    }
+
                     // We subscribe to lhre/dash/# and therefore hear our own
                     // publishes echoed back (state @2Hz + ack/* retained). Those
                     // aren't numeric inputs — skip them silently so they don't
@@ -1103,6 +1165,11 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                             // How long the full-screen lap card stays up (ms).
                             // Retained config — held last-known, no staleness.
                             locked.mqtt.lap_card_ms = Some(val);
+                        }
+                        "lapBudgetWh" => {
+                            // Live per-lap energy budget pushed by trackside; held
+                            // and surfaced on the lap card as the BUDGET readout.
+                            locked.lap_budget_target_wh = Some(val);
                         }
                         "targetPower" => {
                             locked.mqtt.target_power = Some(val);
@@ -1327,12 +1394,16 @@ fn main() -> Result<()> {
         last_offcar_trigger: None,
         lap_energy_wh: 0.0,
         lap_budget_wh: 0.0,
+        lap_budget_target_wh: None,
         lap_start: Instant::now(),
         last_energy_update: None,
         last_lap: None,
         // Restore the last layout from disk; the retained MQTT topic refreshes it.
         layout: load_layout(),
         park_layout: load_park_layout(),
+        messages: None,
+        active_message: None,
+        message_expiry: None,
     }));
 
     let ipc_state = Arc::clone(&state);

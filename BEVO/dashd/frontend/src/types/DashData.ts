@@ -109,6 +109,7 @@ export interface MqttData {
 export interface PacingData {
     lapEnergyWh: number;             // net energy used this lap (Wh)
     budgetDeltaWh: number | null;    // used - budget; >0 over (red), <0 under (green)
+    lapBudgetWh?: number | null;     // live per-lap budget target (Wh) from trackside
     lapElapsedS: number;             // seconds since the current lap started
     lapNumber: number;               // 1-based lap in progress
     lastLapNumber: number | null;    // most recently completed lap (drives the card)
@@ -127,6 +128,9 @@ export interface DashMessage {
     // Website-authored park/pit-screen layout (retained lhre/dash/parkLayout).
     // Validated at render; absent → the built-in park screen is used.
     parkLayout?: unknown;
+    // Active driver message to overlay (from lhre/dash/message), forwarded by
+    // dashd. Validated at render; absent → nothing shown.
+    message?: unknown;
 }
 
 // VCU event mode enum (matches firmware VCU_DEFAULT_PARAMS + per-event override

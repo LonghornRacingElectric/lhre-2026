@@ -205,6 +205,12 @@ const SESSION_AUTO_RESTORE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 const SESSION_RESUME_OFFER_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const SESSION_IDB_NAME = "motec-live-session-cache";
 const SESSION_IDB_STORE = "sessions";
+// Synchronous "this client explicitly ended the live session" marker. The cache
+// clears on Stop Event / Reset are async (backend DELETE + IndexedDB), so a quick
+// reload can still find a just-ended session in a lagging store and restore it.
+// This localStorage timestamp is the authority: restore ignores any saved session
+// stamped at/before it.
+const SESSION_ENDED_KEY = "motec-live-session-ended-at";
 type CarPreset = {
   id: string;
   name: string;
@@ -275,6 +281,35 @@ function writeLocalSavedSession(saved: SavedSession) {
 function removeLocalSavedSession() {
   try {
     localStorage.removeItem(SESSION_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+// Stamp "the operator ended the session just now" so a reload before the async
+// cache clears land does NOT restore the dead session.
+function markLiveSessionEnded() {
+  try {
+    localStorage.setItem(SESSION_ENDED_KEY, String(Date.now()));
+  } catch {
+    // best-effort; the cache clears still run
+  }
+}
+
+function readLiveSessionEndedAt(): number {
+  try {
+    const raw = localStorage.getItem(SESSION_ENDED_KEY);
+    const n = raw ? Number(raw) : 0;
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+// A new/resumed session supersedes the marker so its own saves restore normally.
+function clearLiveSessionEnded() {
+  try {
+    localStorage.removeItem(SESSION_ENDED_KEY);
   } catch {
     // ignore
   }
@@ -1117,10 +1152,16 @@ function App() {
       } catch {
         // backend cache is optional
       }
-      if (cancelled || !candidates.length) return;
+      // Drop anything saved at/before this client's last explicit Stop Event /
+      // Reset. The cache clears are async (backend DELETE, IndexedDB), so a quick
+      // reload can still surface a just-ended session from a lagging store — this
+      // synchronous marker is the authority on "I ended it."
+      const endedAt = readLiveSessionEndedAt();
+      const candidates2 = candidates.filter((item) => item.savedAt > endedAt);
+      if (cancelled || !candidates2.length) return;
       // Take the most recent of local + indexed + backend. The backend cache
       // wins on equality so a freshly-leader client reads the running session.
-      const offer = candidates.reduce((best, item) => (item.savedAt >= best.savedAt ? item : best), candidates[0]);
+      const offer = candidates2.reduce((best, item) => (item.savedAt >= best.savedAt ? item : best), candidates2[0]);
       if (Date.now() - offer.savedAt <= SESSION_AUTO_RESTORE_MAX_AGE_MS) {
         restoreLiveState(offer, false);
         return;
@@ -1735,6 +1776,7 @@ function App() {
       patchSession(sessionInfo.id, { endedAt: Date.now(), laps: liveStateRef.current.laps.length });
       setSessionInfo(null);
     }
+    markLiveSessionEnded();
     clearLiveSessionState();
     // The manual Start button is gone, so a reset re-arms the auto feed; the
     // cleared session keeps streaming rather than stranding the strategist.
@@ -1747,6 +1789,7 @@ function App() {
     if (isMirrorRef.current) return;
     if (sessionInfo) patchSession(sessionInfo.id, { endedAt: Date.now(), laps: liveStateRef.current.laps.length });
     clearLiveSessionState();
+    clearLiveSessionEnded();
     const startedAt = Date.now();
     const info: TracksideSessionInfo = {
       id: `sess-${startedAt}-${Math.floor(Math.random() * 1e6)}`,
@@ -1881,15 +1924,22 @@ function App() {
   // session on screen. Does NOT pull the raw car CSVs — Log Sync handles those.
   function stopEventAndDownload() {
     if (isMirrorRef.current) return;
-    if (!liveStateRef.current.laps.length && !liveStateRef.current.samples.length) {
+    const hasData = liveStateRef.current.laps.length > 0 || liveStateRef.current.samples.length > 0;
+    // Nothing to stop ONLY if there's no data AND no active session. A named
+    // session with no laps yet must still be ended + cleared here — otherwise its
+    // persisted sessionInfo restores on the next reload (looks like "stop didn't
+    // take"). Skip the empty downloads in that case.
+    if (!hasData && !sessionInfo) {
       setLiveState((prev) => ({ ...prev, status: "Nothing to stop — no session data yet." }));
       return;
     }
     // Capture the data first — blob downloads are synchronous, so the files
     // grab a snapshot of liveStateRef.current before we clear it below.
     const lapsExported = liveStateRef.current.laps.length;
-    downloadSessionCsv();
-    downloadSessionJson();
+    if (hasData) {
+      downloadSessionCsv();
+      downloadSessionJson();
+    }
     // Flush the debounced laps-sync now so the FINAL lap set lands in the DB
     // even if Stop is clicked within 1500 ms of the last lap. Cancel the
     // queued timer first so it can't race with the clear below.
@@ -1916,6 +1966,7 @@ function App() {
     // Lap 0 instead of holding this session's high water mark. Same publish
     // as startNewSession — symmetrical with how a new session starts.
     if (dashSignals.status === "connected") dashSignals.resetLapCounter();
+    markLiveSessionEnded();
     clearLiveSessionState();
     setEventEnded(true);
     setLiveState((prev) => ({ ...prev, status: `Event stopped — ${lapsExported} lap${lapsExported === 1 ? "" : "s"} downloaded, session cleared.` }));
@@ -2533,8 +2584,21 @@ function App() {
     setSoeCutoffCellV(normalizeSavedSoeCutoffCellV(saved.soeCutoffCellV));
     setSelectedLapIds(defaultSelectedLapIds(laps, saved.selectedLapIds, saved.selectionSaved));
     setSessionFromFile(fromFile || !!saved.hasSectors);
+    // Restore the active session identity too — without this a reload dropped
+    // the running session (name, drive-day link, enabled flag row) even though
+    // it was saved. Mirrors adoptSharedSession. Repopulate the export metadata
+    // from it so Live Setup shows the right driver/venue/event/name.
+    if (saved.sessionInfo) {
+      setSessionInfo(saved.sessionInfo);
+      if (saved.sessionInfo.metadata) setMetadataDraft((prev) => ({ ...prev, ...saved.sessionInfo!.metadata }));
+    } else {
+      setSessionInfo(null);
+    }
     setResumeAvailable(null);
     setEventEnded(false);
+    // We're showing a live session again — drop any stale "ended" marker so this
+    // session's own autosaves restore normally on the next reload.
+    clearLiveSessionEnded();
   }
 
   function resumeSavedSession() {
@@ -3166,6 +3230,14 @@ function App() {
           <div className="liveHero">
             <div className="liveHeroMain">
               <div className="carStatusStrip">
+                {sessionInfo ? (
+                  <span
+                    className="freshTag sessionTag"
+                    title={`Active session${sessionInfo.driver ? ` · ${sessionInfo.driver}` : ""}${sessionInfo.eventType ? ` · ${sessionInfo.eventType}` : ""}${sessionInfo.venue ? ` · ${sessionInfo.venue}` : ""}`}
+                  >
+                    <NotebookText size={13} /> {sessionInfo.name}
+                  </span>
+                ) : null}
                 {carState ? (
                   <span className={`carStateBadge ${CAR_STATE_META[carState].cls}`} title="Car state from the on-stack classifier">
                     <span className="stateDot" /> {CAR_STATE_META[carState].label}
@@ -3438,6 +3510,7 @@ function App() {
                   ) : null}
                 </Panel>
               ) : null}
+              <TractionControlPanel sample={filteredLiveState.lastSample} />
             </div>
             <div className="liveMainColumn">
               {/* Live Position hidden until chudpi/GPS is reliable. The RadioLion
@@ -4285,7 +4358,11 @@ function CarStatusPanel({
 }) {
   const ev = feed.event;
   return (
-    <Panel title="Car Status" icon={<Power size={18} />}>
+    <Panel
+      title="Car Status"
+      icon={<Power size={18} />}
+      headerRight={ev?.time_in_state_ms != null ? <>in state <strong>{formatStateDuration(ev.time_in_state_ms)}</strong></> : undefined}
+    >
       <div className="carStatusCard">
         <div className="carStatusHead">
           {carState ? (
@@ -4311,12 +4388,17 @@ function CarStatusPanel({
                 ))}
               </div>
             ) : null}
-            <div className="carStatusMetaGrid">
-              <Metric label="HV SoC" value={ev?.hv_soc != null ? `${ev.hv_soc.toFixed(0)}%` : "--"} />
-              <Metric label="HV Pack" value={ev?.hv_pack_v != null ? `${ev.hv_pack_v.toFixed(1)} V` : "--"} />
-              <Metric label="LV Batt" value={ev?.lv_v != null ? `${ev.lv_v.toFixed(1)} V` : "--"} />
-              <Metric label="In State" value={ev?.time_in_state_ms != null ? formatStateDuration(ev.time_in_state_ms) : "--"} />
-            </div>
+            {/* Pack readouts (HV SoC / HV Pack / LV Batt) render only when the
+                classifier carries the `pack`/BMS block — when HV/BMS is down in the
+                pit they'd all be N/A, so the whole grid is hidden rather than wasting
+                space. In-state time lives in the panel header (small, top-right). */}
+            {ev?.hv_soc != null || ev?.hv_pack_v != null || ev?.lv_v != null ? (
+              <div className="carStatusMetaGrid">
+                {ev?.hv_soc != null ? <Metric label="HV SoC" value={`${ev.hv_soc.toFixed(0)}%`} /> : null}
+                {ev?.hv_pack_v != null ? <Metric label="HV Pack" value={`${ev.hv_pack_v.toFixed(1)} V`} /> : null}
+                {ev?.lv_v != null ? <Metric label="LV Batt" value={`${ev.lv_v.toFixed(1)} V`} /> : null}
+              </div>
+            ) : null}
             {stale ? (
               <small className="muted">Classifier silent for {ageMs != null ? `${Math.round(ageMs / 1000)}s` : "a while"} — state may be stale.</small>
             ) : null}
@@ -4399,6 +4481,43 @@ function DeltaBar({ rate, totalMs }: { rate: number | null; totalMs: number }) {
         <span className={gaining ? "deltaFill gaining" : "deltaFill losing"} style={style} />
       </div>
     </div>
+  );
+}
+
+// Traction-control torque path from VCU 0x1CA (CAN: torque_lookup -> derated ->
+// power_limited -> traction_controlled, all Nm). Shows each stage so the crew
+// can see where torque is being trimmed, and flags when the TC stage is actively
+// cutting (final < power-limited). Reads the flat derived-stream keys the kafka
+// bridge emits; "--" until the VCU is emitting 0x1CA.
+function TractionControlPanel({ sample }: { sample: LiveSample | null }) {
+  const values = sample?.values ?? {};
+  const lookup = firstLiveValue(values, ["torque_lookup", "controls_torque_lookup"]);
+  const derated = firstLiveValue(values, ["torque_derated", "controls_torque_derated"]);
+  const powerLimited = firstLiveValue(values, ["torque_power_limited", "controls_torque_power_limited"]);
+  const finalTq = firstLiveValue(values, ["torque_traction_controlled", "controls_torque_traction_controlled"]);
+  // TC intervention = how much the traction-control stage trims below the
+  // power-limited torque (it only ever reduces). >0.5 Nm = actively cutting.
+  const tcCut = powerLimited != null && finalTq != null ? Math.max(0, powerLimited - finalTq) : null;
+  const tcActive = tcCut != null && tcCut > 0.5;
+  const fmtNm = (v: number | null) => (v == null ? "--" : `${v.toFixed(1)} Nm`);
+  return (
+    <Panel
+      title="Traction Control"
+      icon={<Disc3 size={18} />}
+      headerRight={
+        tcActive
+          ? <span style={{ color: "#d97757", fontWeight: 700 }}>● CUTTING −{tcCut!.toFixed(1)} Nm</span>
+          : <span className="muted">{finalTq == null ? "no data" : "not cutting"}</span>
+      }
+    >
+      <div className="packMetricGrid">
+        <Metric label="Lookup" value={fmtNm(lookup)} />
+        <Metric label="Derated" value={fmtNm(derated)} />
+        <Metric label="Pwr Lim" value={fmtNm(powerLimited)} />
+        <Metric label="Final (TC)" value={fmtNm(finalTq)} tone={tcActive ? "" : "good"} />
+      </div>
+      <small className="muted">VCU torque path: lookup → derated → power-limited → traction-controlled.</small>
+    </Panel>
   );
 }
 
