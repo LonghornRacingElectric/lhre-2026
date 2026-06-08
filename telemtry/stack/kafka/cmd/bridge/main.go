@@ -725,6 +725,10 @@ func orionToMap(msg *sensor.OrionSensorData) map[string]interface{} {
 		m["event_mode"] = c.EventMode
 		m["net_energy"] = c.NetEnergy
 		m["regen_energy"] = c.RegenEnergy
+		m["torque_lookup"] = c.TorqueLookup
+		m["torque_derated"] = c.TorqueDerated
+		m["torque_power_limited"] = c.TorquePowerLimited
+		m["torque_traction_controlled"] = c.TorqueTractionControlled
 	}
 
 	if p := msg.Pack; p != nil {
