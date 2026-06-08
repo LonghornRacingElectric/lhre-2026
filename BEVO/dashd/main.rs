@@ -296,6 +296,14 @@ struct DashStateMsg {
     soc: Option<f32>,
     temperature: Option<f32>,
     pacing: PacingData,
+    /// Free + total space on `/` (MB). The car's storage kill switch
+    /// (start_telemetry.sh) stops telemetry when free < 1024 MB, so trackside
+    /// can warn before that. None until the first disk poll.
+    disk_free_mb: Option<f64>,
+    disk_total_mb: Option<f64>,
+    /// Seconds the telemetry stack has been running. The same kill switch stops
+    /// at 3600 s (1 h); surfaced so trackside can watch the runtime cap too.
+    runtime_s: Option<f32>,
 }
 
 // ---------------------------------------------------------------------------
@@ -362,6 +370,12 @@ impl MqttState {
 
 struct DashState {
     can: CanData,
+    /// When this dashd (i.e. the telemetry stack) started — for the runtime
+    /// readout vs the 1-hour storage kill switch.
+    boot: Instant,
+    /// Latest free / total space on `/` (MB), refreshed by disk_monitor_loop.
+    disk_free_mb: Option<f64>,
+    disk_total_mb: Option<f64>,
     /// Wall-clock time of the most recent successful IPC decode. Used by the
     /// WS sender to null out CanData once cand has stopped publishing.
     last_can_update: Instant,
@@ -1236,6 +1250,9 @@ fn mqtt_state_publisher_loop(state: Arc<Mutex<DashState>>) {
                     soc: locked.can.soc,
                     temperature: locked.can.temperature,
                     pacing: locked.pacing(now),
+                    disk_free_mb: locked.disk_free_mb,
+                    disk_total_mb: locked.disk_total_mb,
+                    runtime_s: Some(locked.boot.elapsed().as_secs_f32()),
                 };
                 serde_json::to_string(&msg)
             };
@@ -1261,9 +1278,43 @@ fn mqtt_state_publisher_loop(state: Arc<Mutex<DashState>>) {
 // Main
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Thread 5: disk monitor — polls free space on `/` so trackside can watch the
+// storage kill switch (start_telemetry.sh stops telemetry when free < 1024 MB).
+// ---------------------------------------------------------------------------
+
+/// (free_mb, total_mb) on `/` via `df -k` — the same filesystem + metric the
+/// kill switch reads (`df / | awk 'NR==2 {print $4/1024}'`). None on parse fail.
+fn read_disk_mb() -> Option<(f64, f64)> {
+    let out = std::process::Command::new("df").arg("-k").arg("/").output().ok()?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    // Header line, then the root filesystem row:
+    //   Filesystem  1K-blocks  Used  Available  Use%  Mounted-on
+    let cols: Vec<&str> = text.lines().nth(1)?.split_whitespace().collect();
+    let total_kb: f64 = cols.get(1)?.parse().ok()?;
+    let avail_kb: f64 = cols.get(3)?.parse().ok()?;
+    Some((avail_kb / 1024.0, total_kb / 1024.0))
+}
+
+fn disk_monitor_loop(state: Arc<Mutex<DashState>>) {
+    loop {
+        if let Some((free_mb, total_mb)) = read_disk_mb() {
+            let mut locked = state.lock().unwrap();
+            locked.disk_free_mb = Some(free_mb);
+            locked.disk_total_mb = Some(total_mb);
+        }
+        // The kill switch checks every 60 s; 15 s here gives trackside a little
+        // more lead time without being chatty.
+        thread::sleep(Duration::from_secs(15));
+    }
+}
+
 fn main() -> Result<()> {
     let state = Arc::new(Mutex::new(DashState {
         can: CanData::default(),
+        boot: Instant::now(),
+        disk_free_mb: None,
+        disk_total_mb: None,
         // Start stale so the dash shows "--" until cand actually connects.
         last_can_update: Instant::now() - CAN_STALE_TIMEOUT,
         last_qualified_soc: None,
@@ -1295,6 +1346,9 @@ fn main() -> Result<()> {
 
     let pub_state = Arc::clone(&state);
     thread::spawn(move || mqtt_state_publisher_loop(pub_state));
+
+    let disk_state = Arc::clone(&state);
+    thread::spawn(move || disk_monitor_loop(disk_state));
 
     println!(
         "[DASHD] Started (IPC reader + WebSocket on :{} + MQTT subscriber + state publisher)",

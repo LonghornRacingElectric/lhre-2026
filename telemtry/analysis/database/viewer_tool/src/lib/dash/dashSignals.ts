@@ -43,6 +43,11 @@ export interface DashMirrorState {
     power: number | null;
     soc: number | null;
     temperature: number | null;
+    // Car storage + runtime vs the on-car kill switch (free < 1 GB or > 1 h
+    // stops telemetry). null until the car's dashd reports them.
+    diskFreeMb?: number | null;
+    diskTotalMb?: number | null;
+    runtimeS?: number | null;
     pacing: {
         lapEnergyWh: number;
         budgetDeltaWh: number | null;

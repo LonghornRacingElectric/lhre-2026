@@ -11,7 +11,7 @@ import { useSession } from "next-auth/react";
 import { DashLayoutEditor } from "@/components/dashlayout/DashLayoutEditor";
 import { DashMessageEditor } from "@/components/dashlayout/DashMessageEditor";
 import type { LapCardLayout } from "@/lib/dash/dashLayout";
-import { useDashSignals } from "@/lib/dash/dashSignals";
+import { useDashSignals, type DashMirrorState } from "@/lib/dash/dashSignals";
 import { useMessageLibrary } from "@/lib/dash/useMessageLibrary";
 import { activeMessages, MESSAGE_ICON_GLYPH, type DashMessage } from "@/lib/dash/dashMessages";
 import { useRacePlan } from "@/lib/dash/useRacePlan";
@@ -2694,6 +2694,7 @@ function App() {
 
   return (
     <main className="shell">
+      {activeTab === "live" ? <CarStorageBar dash={dashSignals.dashState} /> : null}
       {showTour ? (
         <TracksideTour
           onNavigate={(tab) => setActiveTab(tab)}
@@ -4328,6 +4329,46 @@ function CarStatusPanel({
         )}
       </div>
     </Panel>
+  );
+}
+
+// Thin top-edge bar that mirrors the car's on-board storage kill switch
+// (start_telemetry.sh stops telemetry when free space on / < 1 GB, or after 1 h
+// runtime). Renders nothing until the car's dashd reports the fields, so it's
+// invisible pre-deploy / when the car isn't publishing. Tracks the SAME metric
+// + thresholds the kill switch uses, so "approaching red" = "about to be cut".
+function CarStorageBar({ dash }: { dash: DashMirrorState | null }) {
+  const freeMb = dash?.diskFreeMb ?? null;
+  const totalMb = dash?.diskTotalMb ?? null;
+  const runtimeS = dash?.runtimeS ?? null;
+  if (freeMb == null && runtimeS == null) return null; // car not reporting yet
+
+  const KILL_FREE = 1024, WARN_FREE = 2048;     // MB
+  const KILL_RUN = 3600, WARN_RUN = 3000;       // s (1 h kill, 50 min warn)
+  const freeGb = freeMb == null ? null : freeMb / 1024;
+  const usedFrac = freeMb != null && totalMb ? Math.max(0, Math.min(1, 1 - freeMb / totalMb)) : 0;
+  const diskTone = freeMb == null ? "" : freeMb < KILL_FREE ? "crit" : freeMb < WARN_FREE ? "warn" : "ok";
+  const runFrac = runtimeS == null ? 0 : Math.max(0, Math.min(1, runtimeS / KILL_RUN));
+  const runTone = runtimeS == null ? "" : runtimeS > KILL_RUN ? "crit" : runtimeS > WARN_RUN ? "warn" : "ok";
+  const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+  return (
+    <div className="carStorageBar" role="status" aria-label="Car storage and runtime">
+      <span className="csbTag">BEVO</span>
+      <div className={`csbSeg ${diskTone}`} title={`Free space on / — telemetry stops below 1 GB${totalMb ? ` (disk ${(totalMb / 1024).toFixed(0)} GB)` : ""}`}>
+        <span className="csbCap">DISK</span>
+        <div className="csbTrack">
+          <span className="csbFill" style={{ width: `${usedFrac * 100}%` }} />
+          {totalMb ? <span className="csbKill" style={{ left: `${Math.max(0, Math.min(100, (1 - KILL_FREE / totalMb) * 100))}%` }} /> : null}
+        </div>
+        <b className="csbVal">{freeGb == null ? "--" : `${freeGb.toFixed(1)} GB free`}</b>
+      </div>
+      <div className={`csbSeg ${runTone}`} title="Telemetry stops after 1 h of runtime">
+        <span className="csbCap">RUN</span>
+        <div className="csbTrack"><span className="csbFill" style={{ width: `${runFrac * 100}%` }} /></div>
+        <b className="csbVal">{runtimeS == null ? "--" : `${mmss(runtimeS)} / 60:00`}</b>
+      </div>
+    </div>
   );
 }
 
