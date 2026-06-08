@@ -8,6 +8,9 @@ void battery_init(battery_state_t *state, const vcu_parameters_t *params) {
   ema_filter_init(&state->cell_voltage_filter);
   ema_filter_init(&state->max_cell_voltage_filter);
 
+  state->net_energy_wh = 0;
+  state->regen_energy_wh = 0;
+
   Lookup1D_init(&soe_from_cell_voltage_lookup, params->battery.min_soe_cell_voltage,
                 params->battery.max_soe_cell_voltage, params->battery.soe_from_cell_voltage);
 }
@@ -39,4 +42,17 @@ void battery_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
 
   out->soe_pct = Lookup1D_evaluate(&soe_from_cell_voltage_lookup,
                                    out->open_circuit_cell_voltage);
+
+  float energy_step_wh = in->battery_current_a * in->battery_voltage_v * (dt_ms / 3600000.0f);
+  if(energy_step_wh < 0) {
+    state->regen_energy_wh -= energy_step_wh;
+  }
+  state->net_energy_wh += energy_step_wh;
+
+  if(state->net_energy_wh < 0) {
+    state->net_energy_wh = 0;
+  }
+
+  out->net_energy_wh = state->net_energy_wh;
+  out->regen_energy_wh = state->regen_energy_wh;
 }
