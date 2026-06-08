@@ -4358,7 +4358,11 @@ function CarStatusPanel({
 }) {
   const ev = feed.event;
   return (
-    <Panel title="Car Status" icon={<Power size={18} />}>
+    <Panel
+      title="Car Status"
+      icon={<Power size={18} />}
+      headerRight={ev?.time_in_state_ms != null ? <>in state <strong>{formatStateDuration(ev.time_in_state_ms)}</strong></> : undefined}
+    >
       <div className="carStatusCard">
         <div className="carStatusHead">
           {carState ? (
@@ -4384,16 +4388,17 @@ function CarStatusPanel({
                 ))}
               </div>
             ) : null}
-            <div className="carStatusMetaGrid">
-              {/* Pack readouts only render when the classifier actually carries them
-                  (the `pack`/BMS block is present in the frame). When HV/BMS is down
-                  in the pit they'd all be N/A, so we hide them rather than waste the
-                  space — they reappear the moment the pack data flows. */}
-              {ev?.hv_soc != null ? <Metric label="HV SoC" value={`${ev.hv_soc.toFixed(0)}%`} /> : null}
-              {ev?.hv_pack_v != null ? <Metric label="HV Pack" value={`${ev.hv_pack_v.toFixed(1)} V`} /> : null}
-              {ev?.lv_v != null ? <Metric label="LV Batt" value={`${ev.lv_v.toFixed(1)} V`} /> : null}
-              <Metric label="In State" value={ev?.time_in_state_ms != null ? formatStateDuration(ev.time_in_state_ms) : "--"} />
-            </div>
+            {/* Pack readouts (HV SoC / HV Pack / LV Batt) render only when the
+                classifier carries the `pack`/BMS block — when HV/BMS is down in the
+                pit they'd all be N/A, so the whole grid is hidden rather than wasting
+                space. In-state time lives in the panel header (small, top-right). */}
+            {ev?.hv_soc != null || ev?.hv_pack_v != null || ev?.lv_v != null ? (
+              <div className="carStatusMetaGrid">
+                {ev?.hv_soc != null ? <Metric label="HV SoC" value={`${ev.hv_soc.toFixed(0)}%`} /> : null}
+                {ev?.hv_pack_v != null ? <Metric label="HV Pack" value={`${ev.hv_pack_v.toFixed(1)} V`} /> : null}
+                {ev?.lv_v != null ? <Metric label="LV Batt" value={`${ev.lv_v.toFixed(1)} V`} /> : null}
+              </div>
+            ) : null}
             {stale ? (
               <small className="muted">Classifier silent for {ageMs != null ? `${Math.round(ageMs / 1000)}s` : "a while"} — state may be stale.</small>
             ) : null}
