@@ -1290,6 +1290,16 @@ textarea:focus-visible,
   color: var(--muted-text);
 }
 .freshTag .dot { width: 8px; height: 8px; }
+/* Active-session name chip — accent so the session identity reads first. */
+.sessionTag {
+  color: var(--accent, #d97757);
+  text-transform: none;
+  letter-spacing: 0;
+  max-width: 220px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 
 .faultRow { display: flex; flex-wrap: wrap; gap: 6px; }
 .faultChip {

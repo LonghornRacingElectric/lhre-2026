@@ -2533,6 +2533,16 @@ function App() {
     setSoeCutoffCellV(normalizeSavedSoeCutoffCellV(saved.soeCutoffCellV));
     setSelectedLapIds(defaultSelectedLapIds(laps, saved.selectedLapIds, saved.selectionSaved));
     setSessionFromFile(fromFile || !!saved.hasSectors);
+    // Restore the active session identity too — without this a reload dropped
+    // the running session (name, drive-day link, enabled flag row) even though
+    // it was saved. Mirrors adoptSharedSession. Repopulate the export metadata
+    // from it so Live Setup shows the right driver/venue/event/name.
+    if (saved.sessionInfo) {
+      setSessionInfo(saved.sessionInfo);
+      if (saved.sessionInfo.metadata) setMetadataDraft((prev) => ({ ...prev, ...saved.sessionInfo!.metadata }));
+    } else {
+      setSessionInfo(null);
+    }
     setResumeAvailable(null);
     setEventEnded(false);
   }
@@ -3166,6 +3176,14 @@ function App() {
           <div className="liveHero">
             <div className="liveHeroMain">
               <div className="carStatusStrip">
+                {sessionInfo ? (
+                  <span
+                    className="freshTag sessionTag"
+                    title={`Active session${sessionInfo.driver ? ` · ${sessionInfo.driver}` : ""}${sessionInfo.eventType ? ` · ${sessionInfo.eventType}` : ""}${sessionInfo.venue ? ` · ${sessionInfo.venue}` : ""}`}
+                  >
+                    <NotebookText size={13} /> {sessionInfo.name}
+                  </span>
+                ) : null}
                 {carState ? (
                   <span className={`carStateBadge ${CAR_STATE_META[carState].cls}`} title="Car state from the on-stack classifier">
                     <span className="stateDot" /> {CAR_STATE_META[carState].label}
