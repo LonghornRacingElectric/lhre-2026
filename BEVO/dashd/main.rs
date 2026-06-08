@@ -469,9 +469,11 @@ impl DashState {
 const SFGATE_PATH: &str = "/tmp/BEVO_dash_sfgate.json";
 
 // Path the website-authored lap-card layout is cached to (retained on
-// `lhre/dash/layout`), so it survives a dashd/car reboot. Override with
-// DASHD_LAYOUT_PATH.
-const LAYOUT_PATH: &str = "/tmp/BEVO_dash_layout.json";
+// `lhre/dash/layout`). Must be a REBOOT-DURABLE path, not /tmp — /tmp is a
+// tmpfs on the car (wiped on every reboot), so a /tmp cache only survived a
+// dashd restart, not a power cycle, leaving the dash on the built-in card until
+// the (slow, cellular) retained MQTT re-delivered. Override with DASHD_LAYOUT_PATH.
+const LAYOUT_PATH: &str = "/var/lib/bevo-dash/layout.json";
 
 /// Does the car's path segment (prev->cur GPS) cross the gate line? Both car
 /// points are (lat, lon); the gate is [lat1, lon1, lat2, lon2]. Lat/lon are
@@ -530,9 +532,14 @@ fn layout_path() -> String {
 }
 
 /// Cache the lap-card layout to disk so it survives a dashd/car reboot even if
-/// the broker drops its retained copy.
+/// the broker drops its retained copy. Creates the parent dir (durable path may
+/// not exist on a fresh image).
 fn persist_layout(raw: &str) {
-    if let Err(e) = std::fs::write(layout_path(), raw) {
+    let path = layout_path();
+    if let Some(dir) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    if let Err(e) = std::fs::write(&path, raw) {
         eprintln!("[DASHD] Failed to persist layout: {}", e);
     }
 }
@@ -551,15 +558,19 @@ fn load_layout() -> Option<serde_json::Value> {
 }
 
 // Park/pit-screen layout — same disk-cache pattern as the lap-card layout, own
-// file + env override so the two survive a reboot independently.
-const PARK_LAYOUT_PATH: &str = "/tmp/BEVO_dash_parklayout.json";
+// file + env override. Reboot-durable path (NOT /tmp; see LAYOUT_PATH).
+const PARK_LAYOUT_PATH: &str = "/var/lib/bevo-dash/parklayout.json";
 
 fn park_layout_path() -> String {
     env_or_default("DASHD_PARK_LAYOUT_PATH", PARK_LAYOUT_PATH)
 }
 
 fn persist_park_layout(raw: &str) {
-    if let Err(e) = std::fs::write(park_layout_path(), raw) {
+    let path = park_layout_path();
+    if let Some(dir) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    if let Err(e) = std::fs::write(&path, raw) {
         eprintln!("[DASHD] Failed to persist park layout: {}", e);
     }
 }
