@@ -74,6 +74,10 @@ class OrionControls:
     event_mode: Optional[float] = None
     net_energy: Optional[float] = None
     regen_energy: Optional[float] = None
+    torque_lookup: Optional[float] = None
+    torque_derated: Optional[float] = None
+    torque_power_limited: Optional[float] = None
+    torque_traction_controlled: Optional[float] = None
 
 @dataclass
 class OrionPack:

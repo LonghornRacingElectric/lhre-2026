@@ -336,6 +336,10 @@ message OrionControls {
     float event_mode = 39;
     float net_energy = 40;
     float regen_energy = 41;
+    float torque_lookup = 42;
+    float torque_derated = 43;
+    float torque_power_limited = 44;
+    float torque_traction_controlled = 45;
 }
 
 message OrionPack {

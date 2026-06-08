@@ -357,6 +357,10 @@ CREATE TABLE public.controls (
     event_mode           real,
     net_energy           real,
     regen_energy         real,
+    torque_lookup        real,
+    torque_derated       real,
+    torque_power_limited real,
+    torque_traction_controlled real,
     CONSTRAINT fk_controls_packet_id FOREIGN KEY(packet_id) REFERENCES packet(packet_id)
 );
 
