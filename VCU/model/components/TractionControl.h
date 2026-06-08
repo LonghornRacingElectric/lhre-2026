@@ -12,9 +12,7 @@ extern "C" {
 
 typedef struct {
   float prev_motor_speed_rpm;
-  float prev_alpha_raw;
   ema_filter_t accel_filter;
-  float mtte_nm;
   float pi_integral;
 } traction_control_state_t;
 
