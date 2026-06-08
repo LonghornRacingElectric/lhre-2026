@@ -205,6 +205,12 @@ const SESSION_AUTO_RESTORE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 const SESSION_RESUME_OFFER_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const SESSION_IDB_NAME = "motec-live-session-cache";
 const SESSION_IDB_STORE = "sessions";
+// Synchronous "this client explicitly ended the live session" marker. The cache
+// clears on Stop Event / Reset are async (backend DELETE + IndexedDB), so a quick
+// reload can still find a just-ended session in a lagging store and restore it.
+// This localStorage timestamp is the authority: restore ignores any saved session
+// stamped at/before it.
+const SESSION_ENDED_KEY = "motec-live-session-ended-at";
 type CarPreset = {
   id: string;
   name: string;
@@ -275,6 +281,35 @@ function writeLocalSavedSession(saved: SavedSession) {
 function removeLocalSavedSession() {
   try {
     localStorage.removeItem(SESSION_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+// Stamp "the operator ended the session just now" so a reload before the async
+// cache clears land does NOT restore the dead session.
+function markLiveSessionEnded() {
+  try {
+    localStorage.setItem(SESSION_ENDED_KEY, String(Date.now()));
+  } catch {
+    // best-effort; the cache clears still run
+  }
+}
+
+function readLiveSessionEndedAt(): number {
+  try {
+    const raw = localStorage.getItem(SESSION_ENDED_KEY);
+    const n = raw ? Number(raw) : 0;
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+// A new/resumed session supersedes the marker so its own saves restore normally.
+function clearLiveSessionEnded() {
+  try {
+    localStorage.removeItem(SESSION_ENDED_KEY);
   } catch {
     // ignore
   }
@@ -1117,10 +1152,16 @@ function App() {
       } catch {
         // backend cache is optional
       }
-      if (cancelled || !candidates.length) return;
+      // Drop anything saved at/before this client's last explicit Stop Event /
+      // Reset. The cache clears are async (backend DELETE, IndexedDB), so a quick
+      // reload can still surface a just-ended session from a lagging store — this
+      // synchronous marker is the authority on "I ended it."
+      const endedAt = readLiveSessionEndedAt();
+      const candidates2 = candidates.filter((item) => item.savedAt > endedAt);
+      if (cancelled || !candidates2.length) return;
       // Take the most recent of local + indexed + backend. The backend cache
       // wins on equality so a freshly-leader client reads the running session.
-      const offer = candidates.reduce((best, item) => (item.savedAt >= best.savedAt ? item : best), candidates[0]);
+      const offer = candidates2.reduce((best, item) => (item.savedAt >= best.savedAt ? item : best), candidates2[0]);
       if (Date.now() - offer.savedAt <= SESSION_AUTO_RESTORE_MAX_AGE_MS) {
         restoreLiveState(offer, false);
         return;
@@ -1735,6 +1776,7 @@ function App() {
       patchSession(sessionInfo.id, { endedAt: Date.now(), laps: liveStateRef.current.laps.length });
       setSessionInfo(null);
     }
+    markLiveSessionEnded();
     clearLiveSessionState();
     // The manual Start button is gone, so a reset re-arms the auto feed; the
     // cleared session keeps streaming rather than stranding the strategist.
@@ -1747,6 +1789,7 @@ function App() {
     if (isMirrorRef.current) return;
     if (sessionInfo) patchSession(sessionInfo.id, { endedAt: Date.now(), laps: liveStateRef.current.laps.length });
     clearLiveSessionState();
+    clearLiveSessionEnded();
     const startedAt = Date.now();
     const info: TracksideSessionInfo = {
       id: `sess-${startedAt}-${Math.floor(Math.random() * 1e6)}`,
@@ -1881,15 +1924,22 @@ function App() {
   // session on screen. Does NOT pull the raw car CSVs — Log Sync handles those.
   function stopEventAndDownload() {
     if (isMirrorRef.current) return;
-    if (!liveStateRef.current.laps.length && !liveStateRef.current.samples.length) {
+    const hasData = liveStateRef.current.laps.length > 0 || liveStateRef.current.samples.length > 0;
+    // Nothing to stop ONLY if there's no data AND no active session. A named
+    // session with no laps yet must still be ended + cleared here — otherwise its
+    // persisted sessionInfo restores on the next reload (looks like "stop didn't
+    // take"). Skip the empty downloads in that case.
+    if (!hasData && !sessionInfo) {
       setLiveState((prev) => ({ ...prev, status: "Nothing to stop — no session data yet." }));
       return;
     }
     // Capture the data first — blob downloads are synchronous, so the files
     // grab a snapshot of liveStateRef.current before we clear it below.
     const lapsExported = liveStateRef.current.laps.length;
-    downloadSessionCsv();
-    downloadSessionJson();
+    if (hasData) {
+      downloadSessionCsv();
+      downloadSessionJson();
+    }
     // Flush the debounced laps-sync now so the FINAL lap set lands in the DB
     // even if Stop is clicked within 1500 ms of the last lap. Cancel the
     // queued timer first so it can't race with the clear below.
@@ -1916,6 +1966,7 @@ function App() {
     // Lap 0 instead of holding this session's high water mark. Same publish
     // as startNewSession — symmetrical with how a new session starts.
     if (dashSignals.status === "connected") dashSignals.resetLapCounter();
+    markLiveSessionEnded();
     clearLiveSessionState();
     setEventEnded(true);
     setLiveState((prev) => ({ ...prev, status: `Event stopped — ${lapsExported} lap${lapsExported === 1 ? "" : "s"} downloaded, session cleared.` }));
@@ -2545,6 +2596,9 @@ function App() {
     }
     setResumeAvailable(null);
     setEventEnded(false);
+    // We're showing a live session again — drop any stale "ended" marker so this
+    // session's own autosaves restore normally on the next reload.
+    clearLiveSessionEnded();
   }
 
   function resumeSavedSession() {
@@ -4331,9 +4385,13 @@ function CarStatusPanel({
               </div>
             ) : null}
             <div className="carStatusMetaGrid">
-              <Metric label="HV SoC" value={ev?.hv_soc != null ? `${ev.hv_soc.toFixed(0)}%` : "--"} />
-              <Metric label="HV Pack" value={ev?.hv_pack_v != null ? `${ev.hv_pack_v.toFixed(1)} V` : "--"} />
-              <Metric label="LV Batt" value={ev?.lv_v != null ? `${ev.lv_v.toFixed(1)} V` : "--"} />
+              {/* Pack readouts only render when the classifier actually carries them
+                  (the `pack`/BMS block is present in the frame). When HV/BMS is down
+                  in the pit they'd all be N/A, so we hide them rather than waste the
+                  space — they reappear the moment the pack data flows. */}
+              {ev?.hv_soc != null ? <Metric label="HV SoC" value={`${ev.hv_soc.toFixed(0)}%`} /> : null}
+              {ev?.hv_pack_v != null ? <Metric label="HV Pack" value={`${ev.hv_pack_v.toFixed(1)} V`} /> : null}
+              {ev?.lv_v != null ? <Metric label="LV Batt" value={`${ev.lv_v.toFixed(1)} V`} /> : null}
               <Metric label="In State" value={ev?.time_in_state_ms != null ? formatStateDuration(ev.time_in_state_ms) : "--"} />
             </div>
             {stale ? (
