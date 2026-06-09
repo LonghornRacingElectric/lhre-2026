@@ -300,12 +300,12 @@ void StartStateMachineTask(void *argument) {
     bool bms_ot = bms_check_overtemp();
     
     log_printf(LOG_INFO,
-               "Pack: %.2f V, Faults[live:0x%08lX latched:0x%08lX], "
+               "Pack: %.2f V, Tractive: %.2f V, Faults[live:0x%08lX latched:0x%08lX], "
                "Cell[min:%.3f max:%.3f dV:%.1f mV], Temp[min:%.1f max:%.1f], "
                "DieTemp[max:%.1f], "
                "BMS[resp:%u disc:%u uv:%u ov:%u ot:%u], "
                "State:%d Shutdown:%d BalCnt:%u\n",
-               pack_v,
+               pack_v, tractive_v,  // TODO temp
                current_fault_vector, get_latched_faults(),
                min_v, max_v, delta_mv, min_temp_c, max_temp_c,
                max_die_temp_c,

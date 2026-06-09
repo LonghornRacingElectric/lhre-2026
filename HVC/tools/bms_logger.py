@@ -27,6 +27,7 @@ BAUD_RATE    = 115200
 
 RE_PACK = re.compile(
     r'\[(?P<ts>\d+)\] \[INFO\] Pack: (?P<v>[\d.]+) V, '
+    r'Tractive: (?P<tv>[\d.]+) V, '
     r'Faults\[live:(?P<fl>[^\s\]]+) latched:(?P<fla>[^\s\]]+)\], '
     r'Cell\[min:(?P<cmin>[\d.]+) max:(?P<cmax>[\d.]+) dV:(?P<cdv>[\d.]+) mV\], '
     r'Temp\[min:(?P<tmin>[\d.]+) max:(?P<tmax>[\d.]+)\], '
@@ -43,7 +44,7 @@ RE_CELL = re.compile(r'(\d+\.\d+)(\*?)')
 RE_ANSI = re.compile(r'\x1b\[[0-9;]*m')
 
 PACK_HEADER = [
-    'timestamp_ms', 'pack_v',
+    'timestamp_ms', 'pack_v', 'tractive_v',
     'fault_live', 'fault_latched',
     'cell_min_v', 'cell_max_v', 'cell_dv_mv',
     'temp_min_c', 'temp_max_c', 'die_temp_max_c',
@@ -148,7 +149,7 @@ class BMSLogger:
             # Always write a CSV row and update pack-level plot data
             p = m.groupdict()
             self._writer.writerow([
-                p['ts'], p['v'],
+                p['ts'], p['v'], p['tv'],
                 p['fl'], p['fla'],
                 p['cmin'], p['cmax'], p['cdv'],
                 p['tmin'], p['tmax'], p['dtmax'],
