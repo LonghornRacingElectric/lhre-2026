@@ -305,7 +305,7 @@ void StartStateMachineTask(void *argument) {
                "DieTemp[max:%.1f], "
                "BMS[resp:%u disc:%u uv:%u ov:%u ot:%u], "
                "State:%d Shutdown:%d BalCnt:%u\n",
-               pack_v, tractive_v,  // TODO temp
+               pack_v, tractive_v,
                current_fault_vector, get_latched_faults(),
                min_v, max_v, delta_mv, min_temp_c, max_temp_c,
                max_die_temp_c,
