@@ -293,6 +293,12 @@ struct DashMessage {
     /// nothing is showing or it has expired.
     #[serde(skip_serializing_if = "Option::is_none")]
     message: Option<serde_json::Value>,
+    /// Debug screen override from trackside (`lhre/dash/screen`): forces the dash
+    /// to show a named screen ("driving"/"park"/"shutdown"/"settings") regardless
+    /// of PRNDL. None = follow PRNDL normally. Cleared automatically on a real
+    /// gear transition so it can never strand the driver on the wrong screen.
+    #[serde(rename = "screenOverride", skip_serializing_if = "Option::is_none")]
+    screen_override: Option<String>,
 }
 
 /// Snapshot published to `lhre/dash/state` for the trackside link-health /
@@ -447,6 +453,13 @@ struct DashState {
     /// while a sticky (durationS=0) message is up; both cleared on replace.
     active_message: Option<serde_json::Value>,
     message_expiry: Option<Instant>,
+    /// Debug screen override from trackside (`lhre/dash/screen`). Forces the
+    /// named screen regardless of PRNDL; None = follow PRNDL. Auto-cleared on a
+    /// real gear transition (see `last_prndl`) so it can't strand the driver.
+    screen_override: Option<String>,
+    /// Last PRNDL seen by the IPC loop, for rising-edge detection of a real
+    /// gear change (which clears any active screen_override).
+    last_prndl: Option<&'static str>,
 }
 
 impl DashState {
@@ -876,8 +889,21 @@ fn ipc_reader_loop(state: Arc<Mutex<DashState>>) {
                             let mut locked = state.lock().unwrap();
                             let can_data = extract_can_data(&data, &mut locked.last_qualified_soc);
                             let power = can_data.power;
+                            let new_prndl = can_data.prndl;
                             locked.can = can_data;
                             locked.last_can_update = now;
+
+                            // A real gear change clears any trackside screen
+                            // override — the override is a debug convenience, and
+                            // the driver moving the shifter must always win so we
+                            // can't strand them on the wrong screen at speed.
+                            if let (Some(prev), Some(cur)) = (locked.last_prndl, new_prndl) {
+                                if prev != cur && locked.screen_override.is_some() {
+                                    println!("[DASHD] clearing screen override (PRNDL {} -> {})", prev, cur);
+                                    locked.screen_override = None;
+                                }
+                            }
+                            locked.last_prndl = new_prndl;
 
                             // Integrate energy for this lap: Wh += kW * dt(s) / 3.6.
                             // Regen (negative power) credits back. Budget tracks
@@ -968,7 +994,8 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                     Some(exp) if Instant::now() >= exp => None,
                                     _ => locked.active_message.clone(),
                                 };
-                                DashMessage { seq, can, mqtt, pacing, layout, park_layout, driving_layout, message }
+                                let screen_override = locked.screen_override.clone();
+                                DashMessage { seq, can, mqtt, pacing, layout, park_layout, driving_layout, message, screen_override }
                             };
 
                             let json = match serde_json::to_string(&message) {
@@ -1194,6 +1221,22 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                             }
                             Err(e) => eprintln!("[DASHD] MQTT bad message payload: {}", e),
                         }
+                        continue;
+                    }
+
+                    // Debug screen override (lhre/dash/screen): a bare string
+                    // naming the screen to force ("driving"/"park"/"shutdown"/
+                    // "settings"), or "auto"/"" to release back to PRNDL. Not
+                    // numeric — handle before the numeric parse below.
+                    if field == "screen" {
+                        let s = payload_str.trim();
+                        let mut locked = state.lock().unwrap();
+                        locked.screen_override = if s.is_empty() || s == "auto" {
+                            None
+                        } else {
+                            Some(s.to_string())
+                        };
+                        println!("[DASHD] screen override -> {:?}", locked.screen_override);
                         continue;
                     }
 
@@ -1479,6 +1522,8 @@ fn main() -> Result<()> {
         messages: None,
         active_message: None,
         message_expiry: None,
+        screen_override: None,
+        last_prndl: None,
     }));
 
     let ipc_state = Arc::clone(&state);

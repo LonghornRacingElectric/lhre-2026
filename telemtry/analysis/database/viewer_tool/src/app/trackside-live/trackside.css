@@ -919,6 +919,9 @@ textarea:focus-visible,
 }
 
 .gateButtons { display: flex; flex-wrap: wrap; gap: var(--s-2); margin: var(--s-3) 0; }
+.screenOverrideButtons { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--s-2); }
+.screenOverrideButtons .tool { justify-content: center; }
+.screenOverrideButtons .tool.active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .fileTool { position: relative; overflow: hidden; }
 .fileTool input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 

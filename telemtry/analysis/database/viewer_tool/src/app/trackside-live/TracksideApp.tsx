@@ -2,7 +2,7 @@
 import './trackside.css';
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type Dispatch, type MouseEvent, type ReactNode, type SetStateAction } from "react";
-import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, Moon, NotebookText, Plus, Power, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, Users, WifiOff, X, Zap } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, MonitorCog, Moon, NotebookText, Plus, Power, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, Users, WifiOff, X, Zap } from "lucide-react";
 import { api } from "@/lib/trackside/api";
 import { useCarStatus, CAR_STATE_META, humanizeReason, type CarState, type CarStatusFeed } from "@/lib/trackside/useCarStatus";
 import { EVENT_TYPES, upsertSession, patchSession, syncRegistryWithServer, type TracksideSessionInfo } from "@/lib/trackside/sessionRegistry";
@@ -544,6 +544,10 @@ function App() {
   const [dashPowerMode, setDashPowerMode] = useState<"auto" | "manual">(() => (localStorage.getItem("dash-power-mode") === "manual" ? "manual" : "auto"));
   const [dashAutoLap, setDashAutoLap] = useState(() => localStorage.getItem("dash-auto-lap") === "1");
   const [dashGatePushed, setDashGatePushed] = useState(false);
+  // Debug screen override the strategist is forcing on the dash (null = auto /
+  // follow PRNDL). Not persisted — it's a transient bench/pit aid, and the car
+  // clears it on a real gear change anyway, so it shouldn't survive a reload.
+  const [dashScreenOverride, setDashScreenOverride] = useState<string | null>(null);
   // How long the on-car full-screen lap card stays up after a lap (seconds).
   const [lapCardDurationS, setLapCardDurationS] = useState(() => {
     const v = Number(localStorage.getItem("dash-lap-card-duration-s"));
@@ -4079,6 +4083,63 @@ function App() {
               Lay out what the driver sees on each lap card, then send it to the car (used until replaced).
               The lap card auto-clears after the duration above.
             </p>
+          </Panel>
+
+          <Panel title="Dash Screen — debug override" icon={<MonitorCog size={18} />}>
+            <p style={{ margin: "0 0 8px", opacity: 0.75, fontSize: "0.85rem" }}>
+              Force the driver dash onto a specific screen without shifting the car into gear —
+              for bench checks and pit demos. The car snaps back to normal PRNDL routing the
+              moment the driver actually shifts, and a dash reboot drops the override too.
+            </p>
+            {(() => {
+              const connected = !isMirror && dashSignals.status === "connected";
+              const SCREENS: { id: string; label: string }[] = [
+                { id: "driving", label: "Driving" },
+                { id: "park", label: "Park / Pit" },
+                { id: "shutdown", label: "Shutdown" },
+                { id: "settings", label: "Settings" },
+              ];
+              const setOverride = (id: string | null) => {
+                if (!connected) return;
+                dashSignals.publishScreen(id);
+                setDashScreenOverride(id);
+              };
+              return (
+                <>
+                  <div className="screenOverrideButtons">
+                    {SCREENS.map((s) => (
+                      <button
+                        key={s.id}
+                        className={dashScreenOverride === s.id ? "tool active" : "tool"}
+                        disabled={!connected}
+                        onClick={() => setOverride(s.id)}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="gateButtons" style={{ marginTop: 8 }}>
+                    <button
+                      className="primary"
+                      disabled={!connected || dashScreenOverride === null}
+                      onClick={() => setOverride(null)}
+                    >
+                      <Radio size={15} /> Release to auto (PRNDL)
+                    </button>
+                    <span style={{ alignSelf: "center", opacity: 0.8, fontSize: "0.85rem" }}>
+                      {dashScreenOverride
+                        ? `Forcing: ${dashScreenOverride}`
+                        : "Following PRNDL"}
+                    </span>
+                  </div>
+                  {!connected ? (
+                    <p style={{ marginTop: 6, opacity: 0.7, fontSize: "0.8rem" }}>
+                      Connect to the dash first (Dash tab → Connect to dash).
+                    </p>
+                  ) : null}
+                </>
+              );
+            })()}
           </Panel>
 
           <Panel title="Start/Finish — on-car laps" icon={<MapPinned size={18} />}>

@@ -106,6 +106,11 @@ export interface DashSignals {
     sendMessage: (message: DashMessage, durationS?: number) => boolean;
     /** Dismiss whatever message is currently on the dash. */
     clearMessage: () => boolean;
+    /** Debug: force the dash to show a named screen ("driving"/"park"/"shutdown"/
+     *  "settings"), or pass "auto"/null to release back to PRNDL routing. Not
+     *  retained, so a dash reboot returns to normal; dashd also auto-clears it on
+     *  a real gear change. */
+    publishScreen: (screen: string | null) => boolean;
     /** Latest mirror of the driver's screen (null until the car publishes state). */
     dashState: DashMirrorState | null;
     /** Wall-clock ms of the last lhre/dash/state message — for a link-silent warning. */
@@ -397,6 +402,17 @@ export function useDashSignals(): DashSignals {
         return true;
     }, []);
 
+    // Debug screen override (lhre/dash/screen). NOT retained: a one-shot string
+    // the dash applies as a precedence layer over PRNDL routing. dashd clears it
+    // on a real gear change and a dash reboot drops it (no replay), so it can't
+    // strand the driver. qos 1 so the press reliably lands. null/"auto" releases.
+    const publishScreen = useCallback((screen: string | null): boolean => {
+        const client = clientRef.current;
+        if (!client || !client.connected) return false;
+        client.publish(`${TOPIC_PREFIX}screen`, screen ?? 'auto', { qos: 1 });
+        return true;
+    }, []);
+
     const setBrokerUrl = useCallback((url: string) => {
         setBrokerUrlState(url);
         if (typeof window !== 'undefined') localStorage.setItem(BROKER_STORAGE_KEY, url);
@@ -433,6 +449,7 @@ export function useDashSignals(): DashSignals {
         publishMessages,
         sendMessage,
         clearMessage,
+        publishScreen,
         dashState,
         lastStateAt,
         acks,
