@@ -1798,6 +1798,11 @@ function App() {
       patchSession(sessionInfo.id, { endedAt: Date.now(), laps: liveStateRef.current.laps.length });
       setSessionInfo(null);
     }
+    // Reset the car's lap_count + baseline too, so the driver dash starts the
+    // re-armed session at Lap 0 instead of holding the prior high water mark —
+    // symmetric with Stop Event (stopEventAndDownload). Without this, Reset
+    // cleared the trackside laps but left the dash showing the old count.
+    if (dashSignals.status === "connected") dashSignals.resetLapCounter();
     markLiveSessionEnded();
     clearLiveSessionState();
     // The manual Start button is gone, so a reset re-arms the auto feed; the
