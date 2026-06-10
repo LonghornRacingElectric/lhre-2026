@@ -1344,8 +1344,12 @@ function App() {
           .map((segment, index) => ({ ...segment, label: `Session ${index + 1}` }));
         setSegments(nextSegments);
         setSelectedSegments(new Set(nextSegments.map((segment) => segment.id)));
-        setPreviewSelectedSegments(new Set(nextSegments[0] ? [nextSegments[0].id] : []));
-        setLastPreviewSegmentId(nextSegments[0]?.id ?? "");
+        // Don't auto-preview the first session: that pulled its GPS into the
+        // shared `gps` state and made the Track Builder map open non-empty with
+        // a trace nobody picked. Start with no preview — the user clicks a
+        // session (Analysis) or checks a reference (Builder) to load a trace.
+        setPreviewSelectedSegments(new Set());
+        setLastPreviewSegmentId("");
         setSessionMetadata((prev) => {
           const next = { ...prev };
           nextSegments.forEach((segment) => {
