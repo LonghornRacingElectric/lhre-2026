@@ -3543,25 +3543,6 @@ function App() {
               <TractionControlPanel sample={filteredLiveState.lastSample} />
             </div>
             <div className="liveMainColumn">
-              {/* Live Position hidden until chudpi/GPS is reliable. The RadioLion
-                  receiver's draw browns out the chudpi rail, so no fix reaches
-                  the website. Re-enable this Panel block once chudpi power is
-                  fixed. */}
-              {/*
-              <Panel title="Live Position" icon={<MapPinned size={18} />} className="liveMapPanel">
-                <TrackBuilderMap
-                  points={filteredLiveState.samples.filter(hasGps).map((sample) => ({ t: sample.t, lat: sample.lat ?? 0, lon: sample.lon ?? 0 }))}
-                  liveSample={filteredLiveState.lastSample}
-                  gates={track.gates}
-                  drawMode={null}
-                  onDrawGate={handleDrawGate}
-                  center={builderCenter}
-                  onCenter={setBuilderCenter}
-                  targetSpanM={selectedTrackView?.spanM}
-                  gpsUnavailable={filteredLiveState.lastSample != null && !filteredLiveState.samples.some(hasGps)}
-                />
-              </Panel>
-              */}
               <Panel title="Energy Window" icon={<Zap size={18} />}>
                 <EnergyWindowChart
                   state={filteredLiveState}
@@ -3585,6 +3566,22 @@ function App() {
                   link. */}
               <DriverControlsPanel sample={filteredLiveState.lastSample} torqueParamSet={torqueParamSet} />
               <TempsStatusPanel sample={filteredLiveState.lastSample} />
+              {/* Live Position — re-enabled now that chudpi/GPS is reliable. Kept
+                  last in the column so it's available but out of the way; it
+                  self-indicates (gpsUnavailable) if a session has no fix. */}
+              <Panel title="Live Position" icon={<MapPinned size={18} />} className="liveMapPanel">
+                <TrackBuilderMap
+                  points={filteredLiveState.samples.filter(hasGps).map((sample) => ({ t: sample.t, lat: sample.lat ?? 0, lon: sample.lon ?? 0 }))}
+                  liveSample={filteredLiveState.lastSample}
+                  gates={track.gates}
+                  drawMode={null}
+                  onDrawGate={handleDrawGate}
+                  center={builderCenter}
+                  onCenter={setBuilderCenter}
+                  targetSpanM={selectedTrackView?.spanM}
+                  gpsUnavailable={filteredLiveState.lastSample != null && !filteredLiveState.samples.some(hasGps)}
+                />
+              </Panel>
             </div>
             <div className="rightRail">
               {/* Energy Strategy widget hidden for now — revisit later.
