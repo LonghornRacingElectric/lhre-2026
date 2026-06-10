@@ -670,6 +670,16 @@ textarea:focus-visible,
 }
 .map.drawing, .builderMap.drawing { cursor: crosshair; }
 .builderMap { height: auto; max-height: 72vh; cursor: grab; }
+/* Map zoom controls — replace scroll-wheel zoom (which hijacked page scroll). */
+.mapWrap { position: relative; }
+.mapZoomBtns { position: absolute; top: var(--s-2); right: var(--s-2); display: flex; flex-direction: column; gap: 4px; }
+.mapZoomBtns button {
+  width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--surface) 88%, transparent); color: var(--text);
+  cursor: pointer; backdrop-filter: blur(3px); padding: 0;
+}
+.mapZoomBtns button:hover { background: var(--surface); border-color: var(--accent); }
 .map .startGate { stroke: #ff5a40; stroke-width: 3; }
 .map .splitGate { stroke: #5bc7ff; stroke-width: 2.4; }
 .map .drawingGate { stroke-dasharray: 7 5; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7)); }
@@ -702,6 +712,17 @@ textarea:focus-visible,
 }
 
 .gpsPanel, .liveMapPanel, .builderMapPanel { align-self: start; }
+
+/* Raw lat/lon + freshness readout above the Live Position map. */
+.gpsReadout { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap;
+  margin-bottom: var(--s-2); font-size: var(--fs-sm); }
+.gpsReadout .gpsDot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; background: var(--dead); }
+.gpsReadout .gpsDot.live { background: var(--fresh); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fresh) 26%, transparent); }
+.gpsReadout .gpsDot.stale { background: var(--stale); box-shadow: 0 0 0 3px color-mix(in srgb, var(--stale) 26%, transparent); }
+.gpsReadout .gpsDot.dead { background: var(--dead); }
+.gpsReadout .gpsCoord { font-variant-numeric: tabular-nums; letter-spacing: 0.3px; opacity: 0.85; }
+.gpsReadout .gpsCoord strong { font-variant-numeric: tabular-nums; opacity: 1; }
+.gpsReadout .gpsAge { margin-left: auto; opacity: 0.6; font-variant-numeric: tabular-nums; }
 
 /* ── Metadata grids ────────────────────────────────────────────────────────── */
 .metadataGrid {

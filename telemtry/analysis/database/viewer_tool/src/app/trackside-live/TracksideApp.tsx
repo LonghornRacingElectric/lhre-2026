@@ -2,7 +2,7 @@
 import './trackside.css';
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type Dispatch, type MouseEvent, type ReactNode, type SetStateAction } from "react";
-import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, MonitorCog, Moon, NotebookText, Plus, Power, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, Users, WifiOff, X, Zap } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, Minus, MonitorCog, Moon, NotebookText, Plus, Power, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, Users, WifiOff, X, Zap } from "lucide-react";
 import { api } from "@/lib/trackside/api";
 import { useCarStatus, CAR_STATE_META, humanizeReason, type CarState, type CarStatusFeed } from "@/lib/trackside/useCarStatus";
 import { EVENT_TYPES, upsertSession, patchSession, syncRegistryWithServer, type TracksideSessionInfo } from "@/lib/trackside/sessionRegistry";
@@ -751,6 +751,9 @@ function App() {
     return () => window.clearInterval(id);
   }, []);
   const dataAgeMs = lastDataAtMs == null ? null : Math.max(0, liveNowMs - lastDataAtMs);
+  // Last GPS coordinate we saw + when it last changed, for the Live Position
+  // readout's freshness (see gpsFixAgeMs).
+  const lastGpsFixRef = useRef<{ lat: number; lon: number; at: number } | null>(null);
   // Time spent trying to get telemetry since the feed started — used to escalate
   // 'waiting' to a hard 'down' after a grace period so a car-off page-load
   // doesn't sit on yellow forever just because the broker is reachable.
@@ -802,6 +805,21 @@ function App() {
     : liveHasGpsFix
       ? { dot: "live", label: sfGateDefined ? "GPS · auto-lap armed" : "GPS fix" }
       : { dot: "dead", label: "No GPS fix" };
+
+  // Raw lat/lon readout for the Live Position panel. We track when the coordinate
+  // last CHANGED (not just when a sample arrived) so a stuck/frozen fix reads as
+  // stale even while telemetry keeps flowing — that's the case the strategist
+  // wants to catch. `liveNowMs` ticks at 1 Hz to keep the age live.
+  const curGpsFix = liveHasGpsFix
+    ? { lat: liveState.lastSample!.lat as number, lon: liveState.lastSample!.lon as number }
+    : null;
+  if (curGpsFix) {
+    const prev = lastGpsFixRef.current;
+    if (!prev || prev.lat !== curGpsFix.lat || prev.lon !== curGpsFix.lon) {
+      lastGpsFixRef.current = { ...curGpsFix, at: liveNowMs };
+    }
+  }
+  const gpsFixAgeMs = lastGpsFixRef.current == null ? null : Math.max(0, liveNowMs - lastGpsFixRef.current.at);
 
   // Authoritative car state from the central classifier (PR #282), if reachable.
   const carStatus = useCarStatus(source, liveState.running);
@@ -3570,6 +3588,20 @@ function App() {
                   last in the column so it's available but out of the way; it
                   self-indicates (gpsUnavailable) if a session has no fix. */}
               <Panel title="Live Position" icon={<MapPinned size={18} />} className="liveMapPanel">
+                <div className="gpsReadout">
+                  <span className={`gpsDot ${liveHasGpsFix && dataAgeMs != null && dataAgeMs < 3000 ? "live" : liveHasGpsFix ? "stale" : "dead"}`} />
+                  <span className="gpsCoord">LAT <strong>{curGpsFix ? curGpsFix.lat.toFixed(6) : "—"}</strong></span>
+                  <span className="gpsCoord">LON <strong>{curGpsFix ? curGpsFix.lon.toFixed(6) : "—"}</strong></span>
+                  <span className="gpsAge">
+                    {curGpsFix == null
+                      ? "no fix"
+                      : gpsFixAgeMs == null
+                        ? "—"
+                        : gpsFixAgeMs < 2000
+                          ? "updating"
+                          : `unchanged ${(gpsFixAgeMs / 1000).toFixed(0)}s`}
+                  </span>
+                </div>
                 <TrackBuilderMap
                   points={filteredLiveState.samples.filter(hasGps).map((sample) => ({ t: sample.t, lat: sample.lat ?? 0, lon: sample.lon ?? 0 }))}
                   liveSample={filteredLiveState.lastSample}
@@ -5704,14 +5736,16 @@ function TrackBuilderMap({
       lon2: b.lon,
     });
   };
+  // Zoom via explicit buttons rather than the scroll wheel. React's wheel
+  // listener is passive, so an onWheel preventDefault() couldn't stop the page
+  // from also scrolling — zooming the map hijacked the whole page. Buttons keep
+  // pan-by-drag intact without fighting the page scroll. Smaller spanM = closer.
+  const zoomBy = (factor: number) => setSpanM((current) => Math.max(80, Math.min(8000, current * factor)));
   return (
+    <div className="mapWrap">
     <svg
       className={drawMode ? "map builderMap drawing" : "map builderMap"}
       viewBox={`0 0 ${width} ${height}`}
-      onWheel={(event) => {
-        event.preventDefault();
-        setSpanM((current) => nextMapSpan(current, event.deltaY));
-      }}
       onMouseDown={(event) => {
         const start = pointer(event);
         if (drawMode) {
@@ -5784,6 +5818,11 @@ function TrackBuilderMap({
       ) : null}
       <text className="mapCredit" x={width - 10} y={height - 10} textAnchor="end">Esri World Imagery</text>
     </svg>
+      <div className="mapZoomBtns">
+        <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => zoomBy(1 / 1.3)}><Plus size={16} /></button>
+        <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => zoomBy(1.3)}><Minus size={16} /></button>
+      </div>
+    </div>
   );
 }
 
@@ -6078,11 +6117,6 @@ function distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) 
   return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function nextMapSpan(currentSpanM: number, deltaY: number) {
-  const boundedDelta = Math.max(-120, Math.min(120, deltaY));
-  const zoomFactor = Math.exp(boundedDelta * 0.0007);
-  return Math.max(80, Math.min(8000, currentSpanM * zoomFactor));
-}
 
 function sampleCrossesGate(previous: LiveSample, current: LiveSample, gate: GateLine) {
   if (!hasGps(previous) || !hasGps(current)) return false;
