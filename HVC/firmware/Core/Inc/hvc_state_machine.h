@@ -28,8 +28,8 @@ extern "C" {
 
 /* Exported constants --------------------------------------------------------*/
 
-#define HVC_PRECHARGE_THRESHOLD_PERCENT 0.90f
-#define HVC_PRECHARGE_VALID_MS 6000
+#define HVC_PRECHARGE_THRESHOLD_PERCENT 0.85f
+#define HVC_PRECHARGE_VALID_MS 5000
 
 /* Exported functions --------------------------------------------------------*/
 

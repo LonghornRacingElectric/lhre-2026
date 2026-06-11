@@ -85,7 +85,7 @@ void update_state_machine(bool any_faults) {
             
         case HVC_STATE_PRECHARGING:
             // Check if precharge complete
-            if (tractive_voltage > precharge_threshold || true) {
+            if (tractive_voltage > precharge_threshold) {
                 uint32_t elapsed = current_time - precharge_start_time;
                 // log_printf(LOG_INFO, "shutdown closed: %d, elapsed: %lu ms, tractive voltage: %.2f V, pack voltage: %.2f V, threshold: %.2f V\n",
                 //             is_shutdown_closed(), elapsed, tractive_voltage, pack_voltage, precharge_threshold);
@@ -116,7 +116,7 @@ void update_state_machine(bool any_faults) {
             break;
             
         case HVC_STATE_CHARGING_PRECHARGING:
-            if (tractive_voltage > precharge_threshold || true) {
+            if (tractive_voltage > precharge_threshold) {
                 uint32_t elapsed = current_time - precharge_start_time;
 
                 if (elapsed >= HVC_PRECHARGE_VALID_MS) {
