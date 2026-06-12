@@ -23,6 +23,7 @@ export interface EnergyPacing {
     lapEnergyWh: number;
     lapElapsedS: number;
     budgetDeltaWh: number | null;  // >0 over budget (red), <0 under (green), null until a target is set
+    lapBudgetWh: number | null;    // live per-lap budget target (Wh) from trackside
     targetPowerKw: number | null;
     lapNumber: number;             // 1-based lap in progress
     lapCard: LapSummary | null;    // the most recent completed lap, shown briefly
@@ -74,9 +75,9 @@ export function useEnergyPacing(data: DashMessage | null): EnergyPacing {
         }
     }, [data, lastLapNumber, lastLapTimeS, lastLapEnergyWh]);
 
-    // Auto-clear the card after LAP_CARD_MS.
-    // Trackside-set duration (lapCardMs) with the built-in default as fallback,
-    // clamped so a bad value can't pin the card forever or flash it away.
+    // Auto-clear the card after the trackside-set duration (lapCardMs), falling
+    // back to the built-in default. Clamped to a sane range so a bad value can't
+    // pin the card forever or flash it away.
     const lapCardMs = Math.min(30000, Math.max(1000, data?.mqtt?.lapCardMs ?? LAP_CARD_MS));
     useEffect(() => {
         if (!lapCard) return;
@@ -88,6 +89,7 @@ export function useEnergyPacing(data: DashMessage | null): EnergyPacing {
         lapEnergyWh: pacing?.lapEnergyWh ?? 0,
         lapElapsedS: pacing?.lapElapsedS ?? 0,
         budgetDeltaWh: pacing?.budgetDeltaWh ?? null,
+        lapBudgetWh: pacing?.lapBudgetWh ?? null,
         targetPowerKw: data?.mqtt.targetPower ?? null,
         lapNumber: pacing?.lapNumber ?? 1,
         lapCard,

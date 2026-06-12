@@ -581,10 +581,12 @@ export async function startKafkaConsumer(): Promise<void> {
 
     // KafkaJS can only subscribe before consumer.run(), so the trackside-live
     // feed's enriched topics (grafana_data_<car>_derived) must be subscribed here
-    // at startup rather than on-demand from the SSE route. Best-effort: a missing
-    // or uncreatable derived topic (e.g. a car with no enricher) must never break
-    // the core feed. Override the set via KAFKA_LIVE_TOPICS.
-    const liveTopics = (process.env.KAFKA_LIVE_TOPICS || "grafana_data_orion_derived,grafana_data_angelique_derived")
+    // at startup rather than on-demand from the SSE route. Same goes for car_status
+    // (the classifier's output, read by the car-status SSE route) — an on-demand
+    // ensureSubscribe after run() is a silent no-op, so it must be in this set too.
+    // Best-effort: a missing or uncreatable topic (e.g. a car with no enricher) must
+    // never break the core feed. Override the set via KAFKA_LIVE_TOPICS.
+    const liveTopics = (process.env.KAFKA_LIVE_TOPICS || "grafana_data_orion_derived,grafana_data_angelique_derived,car_status")
       .split(",")
       .map((t) => t.trim())
       .filter((t) => t && !defaultTopics.includes(t));

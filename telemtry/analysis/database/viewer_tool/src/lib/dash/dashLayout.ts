@@ -85,6 +85,7 @@ export interface ValueWidget extends BaseWidget {
   type: 'value';
   bind: string;             // dotted path into the data context (see FIELD_CATALOG)
   format: FormatId;
+  decimals?: number;        // override the format's decimal places (0–6); undefined = format default
   fontSize: number;
   color: string;            // hex, or "auto" to follow the theme foreground
   colorDark?: string;
@@ -94,6 +95,10 @@ export interface ValueWidget extends BaseWidget {
   label?: string;           // small caption above/beside the value
   labelColor?: string;
   thresholds?: ColorRule[]; // e.g. [{cmp:'lt',value:20,color:'#ff4d4f'}] for low SoC
+  // Map a numeric value to a label (enums / bitfields, e.g. VCU event mode
+  // 4 -> "ENDUR"). Keyed by the rounded integer value as a string. When a key
+  // matches, its label is shown instead of the numeric format.
+  valueMap?: Record<string, string>;
 }
 export interface BarWidget extends BaseWidget {
   type: 'bar';
@@ -111,6 +116,7 @@ export interface DeltaWidget extends BaseWidget {
   type: 'delta';
   bind: string;
   format: FormatId;
+  decimals?: number;        // override the format's decimal places (0–6)
   fontSize: number;
   align?: Align;
   bold?: boolean;
@@ -133,6 +139,7 @@ export interface GaugeWidget extends BaseWidget {
   colorLight?: string;
   mode?: 'standard' | 'bidirectional';
   format?: FormatId;        // center read-out format
+  decimals?: number;        // override the center read-out's decimal places (0–6)
 }
 export type Widget = TextWidget | ValueWidget | BarWidget | GaugeWidget | DeltaWidget;
 
@@ -145,7 +152,12 @@ export interface LapCardLayout {
 }
 
 // ---- bindable fields (the "pick a data point" catalog) ---------------------
-// Paths resolve against the lap-card data context: { lapCard, pacing, can, mqtt }.
+// Paths resolve against the dash data context. The lap card binds against
+// { lapCard, pacing, can, mqtt }; the park screen against { can, pacing, mqtt }.
+// This catalog is intentionally COMPREHENSIVE — every numeric channel dashd
+// forwards is exposed so any of them can be bound in the editor ("auto-expose
+// all upstream, refine labels/formats later"). `root` (derived from the bind
+// path) lets a screen filter to only the contexts it actually receives.
 export interface FieldDef {
   bind: string;
   label: string;
@@ -159,33 +171,79 @@ export interface FieldDef {
   // delta hint: this field is a signed delta, and which sign is "good" (green)
   isDelta?: boolean;
   goodSign?: GoodSign;
+  // enum/bitfield fields: value -> label map. When bound, the editor pre-fills a
+  // value widget's valueMap with this so it renders labels instead of raw ints.
+  enumMap?: Record<string, string>;
 }
 
 export const FIELD_CATALOG: FieldDef[] = [
-  // The just-finished lap (what the card is fundamentally about)
+  // The just-finished lap (lap card only — lapCard.* is null on other screens)
   { bind: 'lapCard.lapNumber', label: 'Lap number', group: 'Lap', defaultFormat: 'int', min: 0, max: 30 },
   { bind: 'lapCard.timeS', label: 'Lap time', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120 },
   { bind: 'lapCard.energyWh', label: 'Lap energy', group: 'Lap', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400 },
   { bind: 'mqtt.bestLapTime', label: 'Best lap', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120 },
   { bind: 'mqtt.lastLapTime', label: 'Last lap', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120 },
-  // Pacing / strategy
+  { bind: 'mqtt.currentLapTime', label: 'Current lap time', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120 },
+  { bind: 'mqtt.lapTrigger', label: 'Lap count', group: 'Lap', defaultFormat: 'int', min: 0, max: 30 },
+  // Pacing / strategy (on-car authoritative pacing snapshot)
   { bind: 'pacing.lapEnergyWh', label: 'Energy (this lap)', group: 'Pacing', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400 },
+  { bind: 'pacing.lapBudgetWh', label: 'Per-lap budget', group: 'Pacing', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400 },
+  { bind: 'pacing.lapElapsedS', label: 'Lap elapsed', group: 'Pacing', unit: 's', defaultFormat: 'laptime', min: 0, max: 120 },
+  { bind: 'pacing.lapNumber', label: 'Lap (in progress)', group: 'Pacing', defaultFormat: 'int', min: 0, max: 30 },
   { bind: 'mqtt.lapsRemaining', label: 'Laps remaining', group: 'Pacing', defaultFormat: 'int', min: 0, max: 30 },
+  { bind: 'mqtt.lapsRemainingEnergy', label: 'Laps left (energy)', group: 'Pacing', defaultFormat: 'int', min: 0, max: 30 },
   { bind: 'mqtt.targetPower', label: 'Target power', group: 'Pacing', unit: 'kW', defaultFormat: 'kw', min: 0, max: 80 },
   // Deltas (signed — green/red by sign; lower/negative is "good" by default)
   { bind: 'mqtt.lapDelta', label: 'Lap Δ vs ref', group: 'Deltas', unit: 's', defaultFormat: 'float2', min: -5, max: 5, bidirectional: true, isDelta: true, goodSign: 'negative' },
   { bind: 'pacing.budgetDeltaWh', label: 'Energy budget Δ', group: 'Deltas', unit: 'Wh', defaultFormat: 'whSigned', min: -100, max: 100, bidirectional: true, isDelta: true, goodSign: 'negative' },
   { bind: 'mqtt.energyDelta', label: 'Energy Δ vs target', group: 'Deltas', unit: 'Wh', defaultFormat: 'whSigned', min: -100, max: 100, bidirectional: true, isDelta: true, goodSign: 'negative' },
   { bind: 'mqtt.lapDeltaRate', label: 'Lap Δ rate', group: 'Deltas', unit: 's/s', defaultFormat: 'float2', min: -2, max: 2, bidirectional: true, isDelta: true, goodSign: 'negative' },
-  // Live car
-  { bind: 'can.soc', label: 'State of charge', group: 'Battery', unit: '%', defaultFormat: 'pct', min: 0, max: 100 },
-  { bind: 'can.temperature', label: 'Battery temp', group: 'Battery', unit: '°C', defaultFormat: 'temp', min: 0, max: 80 },
-  { bind: 'can.power', label: 'Power', group: 'Dynamics', unit: 'kW', defaultFormat: 'kw', min: -80, max: 80, bidirectional: true },
+  // Energy / charge (VCU is the source of truth for running energy)
+  { bind: 'can.soc', label: 'State of energy', group: 'Energy', unit: '%', defaultFormat: 'pct', min: 0, max: 100 },
+  { bind: 'can.vcuNetEnergyWh', label: 'VCU net energy', group: 'Energy', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 8000 },
+  { bind: 'can.vcuRegenEnergyWh', label: 'VCU regen energy', group: 'Energy', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 2000 },
+  { bind: 'can.power', label: 'Pack power', group: 'Energy', unit: 'kW', defaultFormat: 'kw', min: -80, max: 80, bidirectional: true },
+  // Cell voltages (pack health)
+  { bind: 'can.cellVMax', label: 'Cell V max', group: 'Cells', unit: 'V', defaultFormat: 'volt', min: 2.5, max: 4.3 },
+  { bind: 'can.cellVMin', label: 'Cell V min', group: 'Cells', unit: 'V', defaultFormat: 'volt', min: 2.5, max: 4.3 },
+  { bind: 'can.cellVSpread', label: 'Cell V spread', group: 'Cells', unit: 'V', defaultFormat: 'float2', min: 0, max: 0.5 },
+  // Cell + pack temps
+  { bind: 'can.cellTempMax', label: 'Cell T max', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 80 },
+  { bind: 'can.cellTempAvg', label: 'Cell T avg', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 80 },
+  { bind: 'can.cellTempMin', label: 'Cell T min', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 80 },
+  { bind: 'can.temperature', label: 'Battery temp', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 80 },
+  // Powertrain temps
+  { bind: 'can.motorTemp', label: 'Motor temp', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 120 },
+  { bind: 'can.inverterTemp', label: 'Inverter temp', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 100 },
+  { bind: 'can.coolantTemp', label: 'Coolant temp', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 80 },
+  // Driver inputs
+  { bind: 'can.apps', label: 'APPS (accel)', group: 'Driver', unit: '%', defaultFormat: 'pct', min: 0, max: 100 },
+  { bind: 'can.bpps', label: 'BPPS (brake)', group: 'Driver', unit: '%', defaultFormat: 'pct', min: 0, max: 100 },
+  { bind: 'can.brakeBias', label: 'Brake bias (front)', group: 'Driver', unit: '%', defaultFormat: 'pct', min: 0, max: 100 },
+  { bind: 'can.brakePressureFront', label: 'Brake pressure F', group: 'Driver', unit: 'psi', defaultFormat: 'int', min: 0, max: 1000 },
+  { bind: 'can.brakePressureRear', label: 'Brake pressure R', group: 'Driver', unit: 'psi', defaultFormat: 'int', min: 0, max: 1000 },
+  // Rails
+  { bind: 'can.hvVoltage', label: 'HV voltage', group: 'Rails', unit: 'V', defaultFormat: 'volt', min: 0, max: 600 },
+  { bind: 'can.hvCurrent', label: 'HV current', group: 'Rails', unit: 'A', defaultFormat: 'amp', min: -400, max: 400, bidirectional: true },
+  { bind: 'can.lvVoltage', label: 'LV voltage', group: 'Rails', unit: 'V', defaultFormat: 'volt', min: 0, max: 30 },
+  { bind: 'can.lvCurrent', label: 'LV current', group: 'Rails', unit: 'A', defaultFormat: 'amp', min: 0, max: 30 },
+  // Dynamics + wheels
   { bind: 'can.speed', label: 'Speed', group: 'Dynamics', unit: 'mph', defaultFormat: 'mph', min: 0, max: 100 },
+  { bind: 'can.eventMode', label: 'VCU event mode', group: 'Dynamics', defaultFormat: 'int', min: 0, max: 4,
+    enumMap: { '0': '—', '1': 'ACCEL', '2': 'SKID', '3': 'AUTOX', '4': 'ENDUR' } },
+  { bind: 'can.wheelSpeedFL', label: 'Wheel FL', group: 'Wheels', defaultFormat: 'float1', min: 0, max: 100 },
+  { bind: 'can.wheelSpeedFR', label: 'Wheel FR', group: 'Wheels', defaultFormat: 'float1', min: 0, max: 100 },
+  { bind: 'can.wheelSpeedRL', label: 'Wheel RL', group: 'Wheels', defaultFormat: 'float1', min: 0, max: 100 },
+  { bind: 'can.wheelSpeedRR', label: 'Wheel RR', group: 'Wheels', defaultFormat: 'float1', min: 0, max: 100 },
 ];
 
 export function fieldDef(bind: string): FieldDef | undefined {
   return FIELD_CATALOG.find((f) => f.bind === bind);
+}
+
+// The top-level context object a bind path reads from (e.g. 'can.cellVMax' -> 'can').
+export function bindRoot(bind: string): string {
+  return bind.split('.')[0];
 }
 
 // ---- value access + formatting --------------------------------------------
@@ -208,8 +266,16 @@ export function valueColor(v: number | null | undefined, base: string, rules?: C
   return c;
 }
 
-export function formatValue(v: number | null | undefined, fmt: FormatId): string {
+export function formatValue(v: number | null | undefined, fmt: FormatId, decimals?: number): string {
   if (v == null || !Number.isFinite(v)) return '--';
+  // Optional per-widget precision override. Applies to the numeric formats —
+  // keeps kwh's /1000 scaling and whSigned's +/- sign; lap-time ignores it.
+  if (decimals != null && Number.isFinite(decimals) && fmt !== 'laptime') {
+    const d = Math.max(0, Math.min(6, Math.floor(decimals)));
+    if (fmt === 'kwh') return (v / 1000).toFixed(d);
+    if (fmt === 'whSigned') return `${v >= 0 ? '+' : ''}${v.toFixed(d)}`;
+    return v.toFixed(d);
+  }
   switch (fmt) {
     case 'laptime': {
       const m = Math.floor(v / 60);
@@ -232,6 +298,16 @@ export function formatValue(v: number | null | undefined, fmt: FormatId): string
   }
 }
 
+// Value widgets with a valueMap (enums/bitfields) show the mapped label; anything
+// without a matching key falls back to the numeric format.
+export function applyValueMap(v: number | null | undefined, fmt: FormatId, valueMap?: Record<string, string>, decimals?: number): string {
+  if (v != null && Number.isFinite(v) && valueMap) {
+    const label = valueMap[String(Math.round(v))];
+    if (label != null) return label;
+  }
+  return formatValue(v, fmt, decimals);
+}
+
 // ---- default layout (replicates today's hardcoded lap card) ---------------
 export function defaultLapCardLayout(): LapCardLayout {
   return {
@@ -247,6 +323,77 @@ export function defaultLapCardLayout(): LapCardLayout {
         x: 250, y: 330, w: 300, h: 70, fontSize: 48, color: 'auto', align: 'center', bold: true },
     ],
   };
+}
+
+// ---- screens ---------------------------------------------------------------
+// Each editable dash screen authors independently: its own retained MQTT topic
+// (lhre/dash/<topic>), library namespace, default layout, and the set of data
+// contexts available to bind. Add a screen here + a render site that reads the
+// matching DashMessage field, and the unified editor picks it up automatically.
+export interface ScreenDef {
+  id: string;
+  name: string;
+  topic: string;            // lhre/dash/<topic> (retained)
+  libraryKey: string;       // localStorage key + server library namespace
+  contextRoots: string[];   // top-level ctx objects the screen receives
+  build: () => LapCardLayout;
+}
+
+// Default starter for the Park / pit-debug screen — SoE, cell-voltage health,
+// running VCU energy, key temps, brake bias. All can.* (no lapCard.* — that
+// only exists on the lap card).
+export function defaultParkLayout(): LapCardLayout {
+  return {
+    version: DASH_LAYOUT_VERSION,
+    name: 'Default park screen',
+    background: 'auto',
+    widgets: [
+      { id: 'soe', type: 'value', bind: 'can.soc', format: 'pct', label: 'SoE %',
+        x: 30, y: 24, w: 320, h: 150, fontSize: 110, color: 'auto', align: 'center', bold: true },
+      { id: 'vmax', type: 'value', bind: 'can.cellVMax', format: 'volt', label: 'CELL V MAX',
+        x: 380, y: 30, w: 180, h: 96, fontSize: 46, color: 'auto', align: 'center', bold: true },
+      { id: 'vmin', type: 'value', bind: 'can.cellVMin', format: 'volt', label: 'CELL V MIN',
+        x: 580, y: 30, w: 180, h: 96, fontSize: 46, color: 'auto', align: 'center', bold: true },
+      { id: 'vspread', type: 'value', bind: 'can.cellVSpread', format: 'float2', label: 'SPREAD V',
+        x: 380, y: 140, w: 180, h: 96, fontSize: 46, color: 'auto', align: 'center', bold: true,
+        thresholds: [{ cmp: 'gt', value: 0.05, color: '#FFD700' }, { cmp: 'gt', value: 0.1, color: '#FF3333' }] },
+      { id: 'net', type: 'value', bind: 'can.vcuNetEnergyWh', format: 'wh', label: 'NET Wh',
+        x: 580, y: 140, w: 180, h: 96, fontSize: 46, color: 'auto', align: 'center', bold: true },
+      { id: 'tmax', type: 'value', bind: 'can.cellTempMax', format: 'temp', label: 'CELL T MAX',
+        x: 30, y: 260, w: 180, h: 90, fontSize: 42, color: 'auto', align: 'center', bold: true,
+        thresholds: [{ cmp: 'gt', value: 50, color: '#FFD700' }, { cmp: 'gt', value: 60, color: '#FF3333' }] },
+      { id: 'motor', type: 'value', bind: 'can.motorTemp', format: 'temp', label: 'MOTOR °C',
+        x: 230, y: 260, w: 180, h: 90, fontSize: 42, color: 'auto', align: 'center', bold: true },
+      { id: 'inv', type: 'value', bind: 'can.inverterTemp', format: 'temp', label: 'INV °C',
+        x: 430, y: 260, w: 160, h: 90, fontSize: 42, color: 'auto', align: 'center', bold: true },
+      { id: 'hv', type: 'value', bind: 'can.hvVoltage', format: 'volt', label: 'HV V',
+        x: 610, y: 260, w: 150, h: 90, fontSize: 42, color: 'auto', align: 'center', bold: true },
+      { id: 'bias', type: 'value', bind: 'can.brakeBias', format: 'pct', label: 'BIAS F %',
+        x: 30, y: 372, w: 180, h: 84, fontSize: 40, color: 'auto', align: 'center', bold: true },
+      { id: 'pwr', type: 'value', bind: 'can.power', format: 'kw', label: 'PACK kW',
+        x: 230, y: 372, w: 180, h: 84, fontSize: 40, color: 'auto', align: 'center', bold: true },
+      { id: 'regen', type: 'value', bind: 'can.vcuRegenEnergyWh', format: 'wh', label: 'REGEN Wh',
+        x: 430, y: 372, w: 330, h: 84, fontSize: 40, color: 'auto', align: 'center', bold: true },
+    ],
+  };
+}
+
+export const DASH_SCREENS: ScreenDef[] = [
+  { id: 'lapCard', name: 'Lap Card', topic: 'layout', libraryKey: 'dash-lap-layouts',
+    contextRoots: ['lapCard', 'pacing', 'can', 'mqtt'], build: defaultLapCardLayout },
+  { id: 'park', name: 'Park / Pit', topic: 'parkLayout', libraryKey: 'dash-park-layouts',
+    contextRoots: ['can', 'pacing', 'mqtt'], build: defaultParkLayout },
+];
+
+export function screenDef(id: string): ScreenDef {
+  return DASH_SCREENS.find((s) => s.id === id) ?? DASH_SCREENS[0];
+}
+
+// Catalog fields a screen can bind — only those whose context it actually
+// receives (so the park picker doesn't offer lapCard.* which is always null).
+export function fieldsForScreen(screenId: string): FieldDef[] {
+  const roots = screenDef(screenId).contextRoots;
+  return FIELD_CATALOG.filter((f) => roots.includes(bindRoot(f.bind)));
 }
 
 // Starter presets the strategist can load and then tweak.
@@ -308,14 +455,26 @@ export function validateLapCardLayout(raw: unknown): LapCardLayout | null {
   };
 }
 
-// Synthetic data so the editor preview is realistic with the car off.
+// Synthetic data so the editor preview is realistic with the car off. Covers
+// every catalog field across all contexts so any bound widget renders a value
+// (both the lap card and the park screen preview from this).
 export function sampleLapCardData() {
   return {
     lapCard: { lapNumber: 7, timeS: 84.36, energyWh: 213 },
-    pacing: { lapEnergyWh: 213, budgetDeltaWh: -12, lapElapsedS: 84.36, lapNumber: 7,
-      lastLapNumber: 7, lastLapTimeS: 84.36, lastLapEnergyWh: 213 },
-    can: { soc: 62, temperature: 41.5, power: 47, speed: 38 },
-    mqtt: { lapDelta: -0.42, energyDelta: -12, lapsRemaining: 15, targetPower: 30,
-      bestLapTime: 83.1, lastLapTime: 84.36, lapDeltaRate: 0.08 },
+    pacing: { lapEnergyWh: 213, budgetDeltaWh: -12, lapBudgetWh: 225, lapElapsedS: 84.36,
+      lapNumber: 7, lastLapNumber: 7, lastLapTimeS: 84.36, lastLapEnergyWh: 213 },
+    can: {
+      soc: 62, temperature: 41.5, power: 47, speed: 38, eventMode: 4,
+      vcuNetEnergyWh: 4120, vcuRegenEnergyWh: 615,
+      cellVMax: 4.02, cellVMin: 3.91, cellVSpread: 0.11,
+      cellTempMax: 46.2, cellTempAvg: 42.8, cellTempMin: 38.4,
+      motorTemp: 64, inverterTemp: 52, coolantTemp: 38,
+      apps: 0, bpps: 0, brakeBias: 54, brakePressureFront: 0, brakePressureRear: 0,
+      hvVoltage: 449.3, hvCurrent: 10, lvVoltage: 25, lvCurrent: 9.3,
+      wheelSpeedFL: 38, wheelSpeedFR: 38, wheelSpeedRL: 38, wheelSpeedRR: 38,
+    },
+    mqtt: { lapDelta: -0.42, energyDelta: -12, lapsRemaining: 15, lapsRemainingEnergy: 14,
+      targetPower: 30, bestLapTime: 83.1, lastLapTime: 84.36, currentLapTime: 84.36,
+      lapDeltaRate: 0.08, lapTrigger: 7 },
   };
 }

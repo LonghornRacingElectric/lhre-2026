@@ -9,13 +9,13 @@ import { X, Send, Plus, Copy, RotateCcw, Trash2, Type, Hash, BarChart3, Gauge as
 import LapCardRenderer from './LapCardRenderer';
 import { fetchServerLayouts, saveServerLayouts } from '@/lib/dash/layoutStore';
 import {
-  LAP_CARD_W, LAP_CARD_H, FIELD_CATALOG, fieldDef, defaultLapCardLayout, validateLapCardLayout,
-  sampleLapCardData, LAYOUT_TEMPLATES, type LapCardLayout, type Widget, type WidgetType,
+  LAP_CARD_W, LAP_CARD_H, fieldDef, validateLapCardLayout,
+  sampleLapCardData, LAYOUT_TEMPLATES, DASH_SCREENS, screenDef, fieldsForScreen,
+  type LapCardLayout, type Widget, type WidgetType, type FieldDef,
   type FormatId, type Align, type GoodSign, type ColorRule,
 } from '@/lib/dash/dashLayout';
 
 const STORAGE_KEY = 'dash-lap-layout';   // legacy single-layout key (migrated on load)
-const LIBRARY_KEY = 'dash-lap-layouts';  // { items: LapCardLayout[], activeId }
 const SCALE = 0.82; // 800 -> 656 on the editor stage
 const GRID = 10;        // snap-to-grid step (layout px)
 const SNAP_THRESH = 7;  // alignment-guide snap distance (layout px)
@@ -55,11 +55,14 @@ function withId(l: LapCardLayout): LapCardLayout { return l.id ? l : { ...l, id:
 
 interface Library { items: LapCardLayout[]; activeId: string; }
 
-// Load the saved layout library, migrating the legacy single-layout key.
-function loadLibrary(): Library {
+// Load a screen's saved layout library from its localStorage namespace. The lap
+// card also migrates the legacy single-layout key; other screens start from
+// their built-in default.
+function loadLibrary(screenId: string): Library {
+  const sd = screenDef(screenId);
   if (typeof window !== 'undefined') {
     try {
-      const raw = localStorage.getItem(LIBRARY_KEY);
+      const raw = localStorage.getItem(sd.libraryKey);
       if (raw) {
         const parsed = JSON.parse(raw) as { items?: unknown[]; activeId?: string };
         const items = (parsed.items ?? [])
@@ -70,11 +73,13 @@ function loadLibrary(): Library {
           return { items, activeId };
         }
       }
-      const old = localStorage.getItem(STORAGE_KEY); // migrate legacy single layout
-      if (old) { const v = validateLapCardLayout(JSON.parse(old)); if (v) { const w = withId(v); return { items: [w], activeId: w.id! }; } }
+      if (screenId === 'lapCard') {
+        const old = localStorage.getItem(STORAGE_KEY); // migrate legacy single layout
+        if (old) { const v = validateLapCardLayout(JSON.parse(old)); if (v) { const w = withId(v); return { items: [w], activeId: w.id! }; } }
+      }
     } catch { /* fall through to default */ }
   }
-  const d = withId(defaultLapCardLayout());
+  const d = withId(sd.build());
   return { items: [d], activeId: d.id! };
 }
 
@@ -89,22 +94,38 @@ function newWidget(type: WidgetType): Widget {
   return { ...base, type: 'gauge', w: 180, h: 180, bind: 'can.soc', min: 0, max: 100, label: 'SOC', color: 'gradient', mode: 'standard', format: 'pct' };
 }
 
-export function DashLayoutEditor({ onClose, onSend, sendStatus }: {
+export function DashLayoutEditor({ onClose, onSend, sendStatus, initialScreenId }: {
   onClose: () => void;
-  onSend: (layout: LapCardLayout) => void;
+  onSend: (screenId: string, layout: LapCardLayout) => void;
   sendStatus?: string;
+  initialScreenId?: string;
 }) {
-  const [lib, setLib] = useState<Library>(loadLibrary);
+  // Which dash screen is being authored (lap card / park / …). Each has its own
+  // layout library + publish topic; switching reloads that screen's library.
+  const [screenId, setScreenId] = useState<string>(initialScreenId ?? 'lapCard');
+  const [lib, setLib] = useState<Library>(() => loadLibrary(initialScreenId ?? 'lapCard'));
+  // The screen `lib` currently holds — so the persist effect writes to the right
+  // namespace even on the render where screenId has changed but lib hasn't yet.
+  const libScreenRef = useRef<string>(initialScreenId ?? 'lapCard');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [snap, setSnap] = useState(true);
   const [guides, setGuides] = useState<Guide[]>([]);
   const [previewTheme, setPreviewTheme] = useState<'dark' | 'light'>('dark');
   const data = useMemo(() => sampleLapCardData(), []);
   const stageRef = useRef<HTMLDivElement>(null);
+  const fields = useMemo(() => fieldsForScreen(screenId), [screenId]);
+  // Templates offered for the active screen. The lap card has its curated set;
+  // other screens just offer their built-in default as a starting point.
+  const screenTemplates = useMemo(
+    () => (screenId === 'lapCard'
+      ? LAYOUT_TEMPLATES
+      : [{ id: 'default', name: `Default ${screenDef(screenId).name}`, build: screenDef(screenId).build }]),
+    [screenId],
+  );
 
   // The active layout being edited. setLayout updates just that library entry,
   // so all the existing widget handlers keep working unchanged.
-  const layout = lib.items.find((l) => l.id === lib.activeId) ?? lib.items[0] ?? withId(defaultLapCardLayout());
+  const layout = lib.items.find((l) => l.id === lib.activeId) ?? lib.items[0] ?? withId(screenDef(screenId).build());
   const setLayout = useCallback((upd: LapCardLayout | ((p: LapCardLayout) => LapCardLayout)) => {
     setLib((prev) => ({
       ...prev,
@@ -118,35 +139,77 @@ export function DashLayoutEditor({ onClose, onSend, sendStatus }: {
   snapRef.current = snap;
   const drag = useRef<null | { mode: 'move' | 'resize'; id: string; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number }>(null);
 
+  const [syncMsg, setSyncMsg] = useState('Syncing…');
+  // The server library version we last loaded — sent with each save so the
+  // server can reject (409) if another editor saved in between, rather than us
+  // silently clobbering their work. null = unknown (first save / offline).
+  const serverSavedAtRef = useRef<number | null>(null);
+
+  // Push the library to the shared server with optimistic concurrency. On a
+  // conflict the server returns its current copy; we MERGE (server as the base,
+  // our actively-edited layout wins, plus any layouts only we have) and re-save
+  // on the fresh version — so concurrent edits to *different* layouts both
+  // survive, and only simultaneous edits to the *same* layout are last-wins.
+  const pushToServer = useCallback(async (screen: string, items: LapCardLayout[], activeId: string) => {
+    const r = await saveServerLayouts(screen, items, serverSavedAtRef.current);
+    if (r.ok) { serverSavedAtRef.current = r.savedAt ?? serverSavedAtRef.current; setSyncMsg('Synced'); return; }
+    if (r.conflict && r.items) {
+      const byId = new Map<string, LapCardLayout>(r.items.map(withId).map((l) => [l.id!, l]));
+      for (const l of items) if (l.id === activeId || !byId.has(l.id!)) byId.set(l.id!, withId(l));
+      const merged = Array.from(byId.values());
+      serverSavedAtRef.current = r.savedAt ?? null; // adopt the server's new base
+      setSyncMsg('Merged changes from another editor');
+      // setLib re-triggers the debounced effect, which re-saves on the fresh base.
+      setLib((prev) => ({ items: merged, activeId: merged.some((i) => i.id === prev.activeId) ? prev.activeId : (merged[0]?.id ?? prev.activeId) }));
+    }
+  }, []);
+
   // Persist locally on every change; debounce a push to the shared server copy
   // so every client sees the same saved layouts.
   const serverSaveTimer = useRef<number | null>(null);
   useEffect(() => {
-    try { localStorage.setItem(LIBRARY_KEY, JSON.stringify(lib)); } catch { /* quota */ }
+    const key = screenDef(libScreenRef.current).libraryKey;
+    const screen = libScreenRef.current;
+    const snapshot = lib;
+    try { localStorage.setItem(key, JSON.stringify(snapshot)); } catch { /* quota */ }
     if (serverSaveTimer.current) window.clearTimeout(serverSaveTimer.current);
-    serverSaveTimer.current = window.setTimeout(() => { void saveServerLayouts(lib.items); }, 800);
+    serverSaveTimer.current = window.setTimeout(() => { void pushToServer(screen, snapshot.items, snapshot.activeId); }, 800);
     return () => { if (serverSaveTimer.current) window.clearTimeout(serverSaveTimer.current); };
-  }, [lib]);
+  }, [lib, pushToServer]);
 
-  // Pull the shared library on open. Server is the source of truth if it has
+  // Pull a screen's shared library. Server is the source of truth if it has
   // anything; if it's empty but we have local layouts, seed it from local.
-  const [syncMsg, setSyncMsg] = useState('Syncing…');
-  const pullFromServer = useCallback(async (announce = true) => {
+  const pullFromServer = useCallback(async (screen: string, localItems: LapCardLayout[], announce = true) => {
     if (announce) setSyncMsg('Syncing…');
-    const server = await fetchServerLayouts();
+    const server = await fetchServerLayouts(screen);
     if (server === null) { setSyncMsg('Offline — local only'); return; }
-    if (server.length) {
-      const items = server.map(withId);
+    serverSavedAtRef.current = server.savedAt; // remember the base we loaded
+    if (server.items.length) {
+      const items = server.items.map(withId);
+      libScreenRef.current = screen;
       setLib((prev) => ({ items, activeId: items.some((i) => i.id === prev.activeId) ? prev.activeId : items[0].id! }));
       setSyncMsg('Synced');
     } else {
       // server empty — seed it from whatever we have locally
       setSyncMsg('Synced');
-      void saveServerLayouts(lib.items);
+      const r = await saveServerLayouts(screen, localItems, server.savedAt);
+      if (r.ok) serverSavedAtRef.current = r.savedAt ?? serverSavedAtRef.current;
     }
-  }, [lib.items]);
-  useEffect(() => { void pullFromServer(); /* on open only */ // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEffect(() => { void pullFromServer(screenId, lib.items); /* on open only */ // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Switch the screen being authored: load that screen's library + pull its
+  // shared copy. Persisting the outgoing screen already happened via the effect.
+  const switchScreen = useCallback((id: string) => {
+    if (id === screenId) return;
+    const next = loadLibrary(id);
+    libScreenRef.current = id;
+    setScreenId(id);
+    setLib(next);
+    setSelectedId(null);
+    void pullFromServer(id, next.items);
+  }, [screenId, pullFromServer]);
 
   const uniqueName = (base: string): string => {
     const names = new Set(lib.items.map((l) => l.name));
@@ -154,7 +217,7 @@ export function DashLayoutEditor({ onClose, onSend, sendStatus }: {
     let n = 2; while (names.has(`${base} ${n}`)) n++; return `${base} ${n}`;
   };
   const addLayout = (l: LapCardLayout) => {
-    const w = withId({ ...l, id: undefined, name: uniqueName(l.name || 'Lap card') });
+    const w = withId({ ...l, id: undefined, name: uniqueName(l.name || screenDef(screenId).name) });
     setLib((p) => ({ items: [...p.items, w], activeId: w.id! }));
     setSelectedId(null);
   };
@@ -162,7 +225,7 @@ export function DashLayoutEditor({ onClose, onSend, sendStatus }: {
     if (!window.confirm(`Delete layout “${layout.name}”?`)) return;
     setLib((p) => {
       const items = p.items.filter((l) => l.id !== p.activeId);
-      if (!items.length) { const d = withId(defaultLapCardLayout()); return { items: [d], activeId: d.id! }; }
+      if (!items.length) { const d = withId(screenDef(screenId).build()); return { items: [d], activeId: d.id! }; }
       return { items, activeId: items[0].id! };
     });
     setSelectedId(null);
@@ -213,40 +276,44 @@ export function DashLayoutEditor({ onClose, onSend, sendStatus }: {
 
   const addWidget = (t: WidgetType) => { const w = newWidget(t); setLayout((l) => ({ ...l, widgets: [...l.widgets, w] })); setSelectedId(w.id); };
   const removeSelected = () => { if (!selected) return; setLayout((l) => ({ ...l, widgets: l.widgets.filter((w) => w.id !== selected.id) })); setSelectedId(null); };
-  const resetDefault = () => { if (window.confirm('Reset this layout to the default lap card?')) { setLayout((l) => ({ ...defaultLapCardLayout(), id: l.id, name: l.name })); setSelectedId(null); } };
+  const resetDefault = () => { if (window.confirm(`Reset this layout to the default ${screenDef(screenId).name}?`)) { setLayout((l) => ({ ...screenDef(screenId).build(), id: l.id, name: l.name })); setSelectedId(null); } };
 
   return (
     <div className="modalOverlay" onMouseDown={onClose}>
       <div className="dashEditor" onMouseDown={(e) => e.stopPropagation()}>
         <div className="dashEditorHead">
           <div className="dashEditorTitle">
-            <strong>Lap-screen designer</strong>
+            <strong>Dash designer</strong>
+            <select className="tmplSelect" value={screenId} aria-label="Screen"
+              title="Which dash screen to design" onChange={(e) => switchScreen(e.target.value)}>
+              {DASH_SCREENS.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
             <select className="tmplSelect" value={lib.activeId} aria-label="Saved layout"
               onChange={(e) => { setLib((p) => ({ ...p, activeId: e.target.value })); setSelectedId(null); }}>
               {lib.items.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select>
             <input value={layout.name} onChange={(e) => setLayout((l) => ({ ...l, name: e.target.value }))} aria-label="Layout name" title="Rename this layout" />
-            <button className="tool" onClick={() => addLayout(defaultLapCardLayout())} title="New layout"><Plus size={14} /> New</button>
+            <button className="tool" onClick={() => addLayout(screenDef(screenId).build())} title="New layout"><Plus size={14} /> New</button>
             <button className="tool" onClick={() => addLayout({ ...layout, name: `${layout.name} copy` })} title="Duplicate"><Copy size={14} /></button>
             <button className="tool dangerTool" disabled={lib.items.length <= 1} onClick={deleteActive} title="Delete layout"><Trash2 size={14} /></button>
           </div>
           <div className="dashEditorActions">
             <span className="syncChip" title="Saved layouts are shared with all clients"><Cloud size={13} /> {syncMsg}</span>
-            <button className="tool iconOnly" title="Refresh from server" onClick={() => pullFromServer()}><RefreshCw size={14} /></button>
+            <button className="tool iconOnly" title="Refresh from server" onClick={() => pullFromServer(screenId, lib.items)}><RefreshCw size={14} /></button>
             <select className="tmplSelect" value="" aria-label="New from template"
               onChange={(e) => {
-                const t = LAYOUT_TEMPLATES.find((x) => x.id === e.target.value);
+                const t = screenTemplates.find((x) => x.id === e.target.value);
                 if (t) addLayout(t.build());
                 e.target.value = '';
               }}>
               <option value="">New from template…</option>
-              {LAYOUT_TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {screenTemplates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
             <label className="checkInline" style={{ whiteSpace: 'nowrap' }}>
               <input type="checkbox" checked={snap} onChange={(e) => setSnap(e.target.checked)} /> Snap
             </label>
             <button className="tool" onClick={resetDefault}><RotateCcw size={14} /> Reset</button>
-            <button className="primary" onClick={() => onSend(layout)}><Send size={14} /> Send to car</button>
+            <button className="primary" onClick={() => onSend(screenId, layout)}><Send size={14} /> Send to car</button>
             <button className="tool iconOnly" onClick={onClose} aria-label="Close"><X size={16} /></button>
           </div>
         </div>
@@ -305,7 +372,7 @@ export function DashLayoutEditor({ onClose, onSend, sendStatus }: {
           {/* property panel */}
           <aside className="dashEditorProps">
             {!selected ? <p className="muted" style={{ padding: 8 }}>Select a widget to edit its data &amp; style.</p> : (
-              <PropertyPanel w={selected} onChange={(p) => patch(selected.id, p)} onDelete={removeSelected} />
+              <PropertyPanel key={selected.id} w={selected} fields={fields} onChange={(p) => patch(selected.id, p)} onDelete={removeSelected} />
             )}
           </aside>
         </div>
@@ -318,7 +385,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   return <label className="propRow"><span>{label}</span>{children}</label>;
 }
 
-function PropertyPanel({ w, onChange, onDelete }: { w: Widget; onChange: (p: Partial<Widget>) => void; onDelete: () => void }) {
+function PropertyPanel({ w, fields, onChange, onDelete }: { w: Widget; fields: FieldDef[]; onChange: (p: Partial<Widget>) => void; onDelete: () => void }) {
   const hasBind = w.type !== 'text';
   return (
     <div className="propPanel">
@@ -340,12 +407,15 @@ function PropertyPanel({ w, onChange, onDelete }: { w: Widget; onChange: (p: Par
                 if (fd.bidirectional != null) (p as { bidirectional?: boolean }).bidirectional = fd.bidirectional;
               }
               if ((w.type === 'delta' || w.type === 'bar') && fd.goodSign) (p as { goodSign?: GoodSign }).goodSign = fd.goodSign;
+              // Enum/bitfield fields (e.g. VCU event mode) pre-fill the value→label
+              // map so the widget shows "ENDUR" not 4; clears it for plain numbers.
+              if (w.type === 'value') (p as { valueMap?: Record<string, string> }).valueMap = fd.enumMap;
             }
             onChange(p);
           }}>
-            {Array.from(new Set(FIELD_CATALOG.map((f) => f.group))).map((g) => (
+            {Array.from(new Set(fields.map((f) => f.group))).map((g) => (
               <optgroup key={g} label={g}>
-                {FIELD_CATALOG.filter((f) => f.group === g).map((f) => <option key={f.bind} value={f.bind}>{f.label}{f.unit ? ` (${f.unit})` : ''}</option>)}
+                {fields.filter((f) => f.group === g).map((f) => <option key={f.bind} value={f.bind}>{f.label}{f.unit ? ` (${f.unit})` : ''}</option>)}
               </optgroup>
             ))}
           </select>
@@ -355,6 +425,19 @@ function PropertyPanel({ w, onChange, onDelete }: { w: Widget; onChange: (p: Par
         <Row label="Format">
           <select value={(w as { format?: FormatId }).format ?? 'int'} onChange={(e) => onChange({ format: e.target.value as FormatId } as Partial<Widget>)}>
             {FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
+          </select>
+        </Row>
+      )}
+      {(w.type === 'value' || w.type === 'gauge' || w.type === 'delta') && (
+        <Row label="Decimals">
+          <select value={(w as { decimals?: number }).decimals ?? ''}
+            onChange={(e) => onChange({ decimals: e.target.value === '' ? undefined : Number(e.target.value) } as Partial<Widget>)}>
+            <option value="">Auto</option>
+            <option value="0">0</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
           </select>
         </Row>
       )}
@@ -411,6 +494,9 @@ function PropertyPanel({ w, onChange, onDelete }: { w: Widget; onChange: (p: Par
       {w.type === 'value' && (
         <ThresholdRules rules={w.thresholds ?? []} onChange={(r) => onChange({ thresholds: r })} />
       )}
+      {w.type === 'value' && (
+        <ValueLabels key={w.bind} map={w.valueMap} onChange={(m) => onChange({ valueMap: m })} />
+      )}
       <div className="propGrid">
         <Row label="X"><input type="number" value={w.x} onChange={(e) => onChange({ x: Number(e.target.value) })} /></Row>
         <Row label="Y"><input type="number" value={w.y} onChange={(e) => onChange({ y: Number(e.target.value) })} /></Row>
@@ -439,6 +525,42 @@ function ThresholdRules({ rules, onChange }: { rules: ColorRule[]; onChange: (r:
         </div>
       ))}
       {!rules.length && <p className="muted" style={{ fontSize: '0.78rem', margin: '2px 0 0' }}>e.g. &lt; 20 → red for low SoC. Last matching rule wins.</p>}
+    </div>
+  );
+}
+
+// Value→label map editor for value widgets — turns an enum/bitfield number into
+// its meaning (e.g. 4 → ENDUR). Binding an enum field (VCU event mode) pre-fills
+// this; it's editable for any field. A value with no matching key shows numerically.
+//
+// Edits an ordered ROW LIST internally (not the value→label object directly) so
+// "+ Label" always appends a fresh blank row, blank/half-typed rows persist while
+// you fill them, and typing a key never reorders or overwrites another row. The
+// object is rebuilt (deduped, blank keys dropped) only when emitting. Remounted
+// per field via key={w.bind} at the call site, so an external prefill flows in.
+function ValueLabels({ map, onChange }: { map?: Record<string, string>; onChange: (m: Record<string, string> | undefined) => void }) {
+  const [rows, setRows] = useState<[string, string][]>(() => Object.entries(map ?? {}));
+  const emit = (next: [string, string][]) => {
+    setRows(next);
+    const obj: Record<string, string> = {};
+    for (const [k, v] of next) { const kk = k.trim(); if (kk !== '') obj[kk] = v; } // last wins on dup key
+    onChange(Object.keys(obj).length ? obj : undefined);
+  };
+  return (
+    <div className="thresholdRules">
+      <div className="propHead"><span className="muted" style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: 1 }}>Value labels</span>
+        <button className="tool" onClick={() => emit([...rows, ['', '']])}>+ Label</button>
+      </div>
+      {rows.map(([k, v], i) => (
+        <div key={i} className="thresholdRule">
+          <input type="number" value={k} placeholder="#" style={{ width: 56 }} aria-label="value"
+            onChange={(e) => emit(rows.map((r, idx) => (idx === i ? [e.target.value, r[1]] : r)))} />
+          <input type="text" value={v} placeholder="label" aria-label="label"
+            onChange={(e) => emit(rows.map((r, idx) => (idx === i ? [r[0], e.target.value] : r)))} />
+          <button className="tool iconOnly" aria-label="Remove label" onClick={() => emit(rows.filter((_, idx) => idx !== i))}><Trash2 size={12} /></button>
+        </div>
+      ))}
+      {!rows.length && <p className="muted" style={{ fontSize: '0.78rem', margin: '2px 0 0' }}>Map a number to text, e.g. 4 → ENDUR (enums / bitfields).</p>}
     </div>
   );
 }

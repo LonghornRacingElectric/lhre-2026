@@ -54,6 +54,24 @@
     color: var(--fg-secondary);
 }
 
+/* SoE headline (top-right of the tray) — the number the crew reads first. */
+.pit-soe {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.pit-soe .label-small {
+    margin-bottom: 0;
+}
+
+.pit-soe-val {
+    font-size: 2.2rem;
+    font-weight: bold;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
 .fault-light {
     width: 10px;
     height: 10px;
@@ -115,15 +133,17 @@
     left: 12px;
     right: 12px;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
     gap: 10px;
 }
 
 .pit-section {
     display: flex;
     flex-direction: column;
-    padding: 10px 14px;
+    padding: 8px 14px;
     overflow: hidden;
+    min-height: 0;   /* let cards shrink within the grid row instead of overflowing */
 }
 
 .pit-section-title {
@@ -139,7 +159,7 @@
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    padding: 5px 0;
+    padding: 3px 0;
     min-width: 0;
 }
 
@@ -149,12 +169,13 @@
 }
 
 .diag-value {
-    font-size: 1.2rem;
+    font-size: 1.15rem;
     font-weight: bold;
     text-align: right;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
 }
 
 .diag-value.warn {
@@ -163,6 +184,10 @@
 
 .diag-value.bad {
     color: #FF3333;
+}
+
+.diag-value.good {
+    color: #00FF66;
 }
 
 .diag-fault-row {

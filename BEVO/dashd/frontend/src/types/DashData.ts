@@ -66,6 +66,17 @@ export interface CanData {
     wheelSpeedFR?: number | null;
     wheelSpeedRL?: number | null;
     wheelSpeedRR?: number | null;
+
+    // Pack cell-voltage aggregates from pack.cells_v[]. cellVSpread (max-min)
+    // is the pack-imbalance health metric watched in the pit.
+    cellVMax?: number | null;         // V, highest cell
+    cellVMin?: number | null;         // V, lowest cell
+    cellVSpread?: number | null;      // V, max - min
+
+    // Running cumulative energy from the VCU's 0x1C9 Energy Estimate (Wh).
+    // VCU is the source of truth for energy — no client-side integration.
+    vcuNetEnergyWh?: number | null;     // net = drive - regen returned
+    vcuRegenEnergyWh?: number | null;   // cumulative regen returned
 }
 
 export interface MqttData {
@@ -98,6 +109,7 @@ export interface MqttData {
 export interface PacingData {
     lapEnergyWh: number;             // net energy used this lap (Wh)
     budgetDeltaWh: number | null;    // used - budget; >0 over (red), <0 under (green)
+    lapBudgetWh?: number | null;     // live per-lap budget target (Wh) from trackside
     lapElapsedS: number;             // seconds since the current lap started
     lapNumber: number;               // 1-based lap in progress
     lastLapNumber: number | null;    // most recently completed lap (drives the card)
@@ -113,6 +125,12 @@ export interface DashMessage {
     // Website-authored lap-card layout (retained lhre/dash/layout), forwarded by
     // dashd. Validated at render; absent → the built-in lap card is used.
     layout?: unknown;
+    // Website-authored park/pit-screen layout (retained lhre/dash/parkLayout).
+    // Validated at render; absent → the built-in park screen is used.
+    parkLayout?: unknown;
+    // Active driver message to overlay (from lhre/dash/message), forwarded by
+    // dashd. Validated at render; absent → nothing shown.
+    message?: unknown;
 }
 
 // VCU event mode enum (matches firmware VCU_DEFAULT_PARAMS + per-event override
