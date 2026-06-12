@@ -103,6 +103,8 @@ typedef struct can_message_t {
 typedef struct can_receive_message_t {
   void *latest_msg;
   uint32_t _latest_rx_ms;
+  uint32_t _previous_rx_ms;
+  uint32_t _rx_count;
   uint32_t packet_id;
   struct can_receive_message_t *_next;
   CAN_unpack_message_fn unpacking_fn;

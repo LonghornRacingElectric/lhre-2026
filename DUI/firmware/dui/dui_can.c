@@ -35,8 +35,18 @@ static can_receive_message_t *indicator_status_mailbox_handle = NULL;
 static msg_vcu_state_t vcu_state_mailbox = {0};
 static can_receive_message_t *vcu_state_mailbox_handle = NULL;
 
+#define VCU_STATE_RX_DEBUG_PERIOD_MS 250U
+#define VCU_STATE_RX_STALE_LOG_PERIOD_MS 1000U
+
+static osThreadAttr_t can_rx_debug_thread_attrs = {
+    .name = "CAN_RxDbg",
+    .priority = osPriorityLow,
+    .stack_size = 128 * 8,
+};
+
 void dui_can_add_receive_handlers(void);
 void dui_can_add_send_handlers(void);
+static void can_rx_debug_task(void *argument);
 
 /**
  * @brief Initializes the CAN interface with the RTOS library and registers
@@ -83,6 +93,7 @@ void dui_can_init(void) {
 
   can_rtos_start_transceiver_task(osPriorityNormal);
   can_rtos_start_receiver_task(osPriorityAboveNormal);
+  osThreadNew(can_rx_debug_task, NULL, &can_rx_debug_thread_attrs);
 
   log_printf(LOG_INFO, "[DUI] CAN RTOS initialized\n");
 }
@@ -99,6 +110,11 @@ void dui_can_add_receive_handlers(void) {
   indicator_status_mailbox_handle = can_get_receive_message_handle(
       &indicator_status_mailbox, INDICATORS_SHUTDOWN_STATUS_ID,
       (CAN_unpack_message_fn)unpack_indicators_shutdown_status);
+  if (indicator_status_mailbox_handle == NULL) {
+    log_printf(LOG_ERROR,
+               "[DUI] Failed to allocate Indicators Shutdown CAN handler\n");
+    return;
+  }
 
   can_rtos_register_receive_packet(&critical_bus,
                                    indicator_status_mailbox_handle);
@@ -108,6 +124,10 @@ void dui_can_add_receive_handlers(void) {
   // VCU State
   vcu_state_mailbox_handle = can_get_receive_message_handle(
       &vcu_state_mailbox, VCU_STATE_ID, (CAN_unpack_message_fn)unpack_vcu_state);
+  if (vcu_state_mailbox_handle == NULL) {
+    log_printf(LOG_ERROR, "[DUI] Failed to allocate VCU State CAN handler\n");
+    return;
+  }
 
   can_rtos_register_receive_packet(&critical_bus, vcu_state_mailbox_handle);
 
@@ -148,4 +168,44 @@ void dui_set_r2d(bool enabled) { r2d_status_mailbox.r2d_status = enabled; }
 
 bool dui_r2d_buzzer_active(void) {
   return vcu_state_mailbox.ready_to_drive_buzzer != 0;
+}
+
+static void can_rx_debug_task(void *argument) {
+  (void)argument;
+
+  uint32_t last_rx_count = 0;
+  uint32_t last_stale_log_ms = 0;
+
+  while (true) {
+    uint32_t now_ms = HAL_GetTick();
+
+    if (vcu_state_mailbox_handle != NULL &&
+        vcu_state_mailbox_handle->_rx_count != last_rx_count) {
+      uint32_t latest_rx_ms = vcu_state_mailbox_handle->_latest_rx_ms;
+      uint32_t previous_rx_ms = vcu_state_mailbox_handle->_previous_rx_ms;
+
+      log_printf(LOG_INFO,
+                 "[DUI] VCU State RX dt=%lu ms age=%lu ms count=%lu "
+                 "buzzer=%u\n",
+                 (unsigned long)(latest_rx_ms - previous_rx_ms),
+                 (unsigned long)(now_ms - latest_rx_ms),
+                 (unsigned long)vcu_state_mailbox_handle->_rx_count,
+                 (unsigned)dui_r2d_buzzer_active());
+
+      last_rx_count = vcu_state_mailbox_handle->_rx_count;
+      last_stale_log_ms = now_ms;
+    } else if (vcu_state_mailbox_handle != NULL &&
+               now_ms - last_stale_log_ms >=
+                   VCU_STATE_RX_STALE_LOG_PERIOD_MS) {
+      log_printf(LOG_WARNING,
+                 "[DUI] VCU State RX stale age=%lu ms count=%lu buzzer=%u\n",
+                 (unsigned long)(now_ms -
+                                 vcu_state_mailbox_handle->_latest_rx_ms),
+                 (unsigned long)vcu_state_mailbox_handle->_rx_count,
+                 (unsigned)dui_r2d_buzzer_active());
+      last_stale_log_ms = now_ms;
+    }
+
+    osDelay(pdMS_TO_TICKS(VCU_STATE_RX_DEBUG_PERIOD_MS));
+  }
 }

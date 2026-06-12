@@ -137,6 +137,8 @@ can_get_receive_message_handle(void *msg, uint32_t packet_id,
   new_msg->unpacking_fn = unpacking_fn;
   new_msg->packet_id = packet_id;
   new_msg->_latest_rx_ms = can.tick_fn();
+  new_msg->_previous_rx_ms = new_msg->_latest_rx_ms;
+  new_msg->_rx_count = 0;
 
   new_msg->_next = NULL;
 
@@ -164,6 +166,8 @@ can_register_receive_packet(can_interface_t *interface,
   }
 
   msg->_latest_rx_ms = can.tick_fn();
+  msg->_previous_rx_ms = msg->_latest_rx_ms;
+  msg->_rx_count = 0;
   msg->timed_out = false;
 
   // Configure the hardware filter. This should be called BEFORE
@@ -345,8 +349,10 @@ void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t RxFifo0ITs) {
         // call the unpack function
         can_rx_hook(msg, rx_data);
 
-        // update the latest rx time
+        // update RX timing after this frame is accepted for a registered packet
+        msg->_previous_rx_ms = msg->_latest_rx_ms;
         msg->_latest_rx_ms = can.tick_fn();
+        msg->_rx_count++;
       }
     }
   }
