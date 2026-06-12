@@ -31,9 +31,9 @@ RE_PACK = re.compile(
     r'Faults\[live:(?P<fl>[^\s\]]+) latched:(?P<fla>[^\s\]]+)\], '
     r'Cell\[min:(?P<cmin>[\d.]+) max:(?P<cmax>[\d.]+) dV:(?P<cdv>[\d.]+) mV\], '
     r'Temp\[min:(?P<tmin>[\d.]+) max:(?P<tmax>[\d.]+)\], '
-    r'DieTemp\[max:(?P<dtmax>[\d.]+)\], '
+    r'Die\[max:(?P<dtmax>[\d.]+)\], '
     r'BMS\[resp:(?P<resp>\d+) disc:(?P<disc>\d+) uv:(?P<uv>\d+) ov:(?P<ov>\d+) ot:(?P<ot>\d+)\], '
-    r'State:(?P<state>\d+) Shutdown:(?P<sd>\d+) BalCnt:(?P<bal>\d+)'
+    r'State:(?P<state>\d+) Shdn:(?P<sd>\d+) Bal:(?P<bal>\d+)'
 )
 
 RE_BMB = re.compile(
@@ -87,6 +87,8 @@ class BMSLogger:
         self._pack_times:    list[float] = []
         self._pack_min_v:    list[float] = []
         self._pack_max_v:    list[float] = []
+        self._pack_temp_min: list[float] = []
+        self._pack_temp_max: list[float] = []
 
         self._lock    = threading.Lock()
         self._t0_ms: int | None = None
@@ -124,6 +126,8 @@ class BMSLogger:
             ts_col   = header.index('timestamp_ms')
             cmin_col = header.index('cell_min_v')
             cmax_col = header.index('cell_max_v')
+            tmin_col = header.index('temp_min_c')
+            tmax_col = header.index('temp_max_c')
             rows = list(reader)
         if not rows:
             return
@@ -133,6 +137,8 @@ class BMSLogger:
             self._pack_times.append(t_s)
             self._pack_min_v.append(float(row[cmin_col]))
             self._pack_max_v.append(float(row[cmax_col]))
+            self._pack_temp_min.append(float(row[tmin_col]))
+            self._pack_temp_max.append(float(row[tmax_col]))
         print(f"  loaded {len(rows)} existing rows")
 
     def _t_s(self, ts_ms: int) -> float:
@@ -162,6 +168,8 @@ class BMSLogger:
                 self._pack_times.append(t_s)
                 self._pack_min_v.append(float(m.group('cmin')))
                 self._pack_max_v.append(float(m.group('cmax')))
+                self._pack_temp_min.append(float(m.group('tmin')))
+                self._pack_temp_max.append(float(m.group('tmax')))
 
             self._pending_pack = m.groupdict()
             self._bmbs = {}
@@ -209,9 +217,10 @@ class BMSLogger:
             self._csvf.close()
             self.ser.close()
 
-    def pack_snapshot(self) -> tuple[list, list, list]:
+    def pack_snapshot(self) -> tuple[list, list, list, list, list]:
         with self._lock:
-            return list(self._pack_times), list(self._pack_min_v), list(self._pack_max_v)
+            return (list(self._pack_times), list(self._pack_min_v), list(self._pack_max_v),
+                    list(self._pack_temp_min), list(self._pack_temp_max))
 
     def cell_snapshot(self) -> tuple[list, list, list]:
         with self._lock:
@@ -229,8 +238,8 @@ def main() -> None:
 
     threading.Thread(target=logger.run, daemon=True).start()
 
-    fig, ax = plt.subplots(figsize=(13, 5))
-    ax.set_xlabel('Time (s)')
+    fig, (ax, ax_temp) = plt.subplots(2, 1, figsize=(13, 9), sharex=True)
+
     ax.set_ylabel('Cell Voltage (V)')
     ax.set_title('Live Cell Voltages')
     sc_idle = ax.scatter([], [], s=2, c='steelblue',  linewidths=0, label='idle')
@@ -240,8 +249,16 @@ def main() -> None:
     ax.legend(loc='upper left', markerscale=4, framealpha=0.7)
     ax.grid(True, linestyle='--', alpha=0.5)
 
+    ax_temp.set_xlabel('Time (s)')
+    ax_temp.set_ylabel('Temperature (C)')
+    ax_temp.set_title('Live Pack Temperatures')
+    ln_tmin, = ax_temp.plot([], [], '-', color='royalblue', lw=1.5, label='temp min')
+    ln_tmax, = ax_temp.plot([], [], '-', color='orangered', lw=1.5, label='temp max')
+    ax_temp.legend(loc='upper left', framealpha=0.7)
+    ax_temp.grid(True, linestyle='--', alpha=0.5)
+
     def update(_frame):
-        pt, pmin, pmax = logger.pack_snapshot()
+        pt, pmin, pmax, ptmin, ptmax = logger.pack_snapshot()
         ct, cv, cb     = logger.cell_snapshot()
 
         all_t: list[float] = []
@@ -263,6 +280,11 @@ def main() -> None:
             all_t.extend(pt)
             all_v.extend(pmin)
             all_v.extend(pmax)
+
+            ln_tmin.set_data(t_arr, np.asarray(ptmin))
+            ln_tmax.set_data(t_arr, np.asarray(ptmax))
+            ax_temp.set_xlim(0, max(pt) + 1)
+            ax_temp.set_ylim(min(ptmin) - 0.5, max(ptmax) + 0.5)
 
         if all_t:
             ax.set_xlim(0, max(all_t) + 1)
