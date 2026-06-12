@@ -116,6 +116,15 @@ typedef struct {
     float max_cell_temp_c;
     float min_motor_speed_rpm;
   } regen_linelock;
+
+  struct {
+    bool enabled;
+    float accel_filter_alpha;     // EMA alpha for RPM derivative smoothing [0,1]
+    float alpha_threshold_rad_s2; // alpha above this triggers PI trim
+    float pi_kp;                  // proportional gain (Nm / (rad/s²))
+    float pi_ki;                  // integral gain (Nm / (rad/s²·s))
+    float max_torque_trim_nm;     // maximum torque reduction from traction control
+  } traction_control;
 } vcu_parameters_t;
 
 #ifdef __cplusplus

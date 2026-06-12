@@ -2738,3 +2738,58 @@ int unpack_energy_estimate(const uint8_t* rx_buf, msg_energy_estimate_t* msg) {
 
     return 0;
 }
+
+// Packet: Torque Path
+int pack_torque_path(const msg_torque_path_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, TORQUE_PATH_DLC);
+
+    // Pack: Torque Lookup
+    uint16_t raw_torque_lookup = (uint16_t)(msg->torque_lookup / 0.1f);
+    tx_buf[0 + 0] = (uint8_t)(raw_torque_lookup & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_torque_lookup >> 8) & 0xFF);
+
+    // Pack: Torque Derated
+    uint16_t raw_torque_derated = (uint16_t)(msg->torque_derated / 0.1f);
+    tx_buf[2 + 0] = (uint8_t)(raw_torque_derated & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((raw_torque_derated >> 8) & 0xFF);
+
+    // Pack: Torque Power Limited
+    uint16_t raw_torque_power_limited = (uint16_t)(msg->torque_power_limited / 0.1f);
+    tx_buf[4 + 0] = (uint8_t)(raw_torque_power_limited & 0xFF);
+    tx_buf[4 + 1] = (uint8_t)((raw_torque_power_limited >> 8) & 0xFF);
+
+    // Pack: Torque Traction Controlled
+    uint16_t raw_torque_traction_controlled = (uint16_t)(msg->torque_traction_controlled / 0.1f);
+    tx_buf[6 + 0] = (uint8_t)(raw_torque_traction_controlled & 0xFF);
+    tx_buf[6 + 1] = (uint8_t)((raw_torque_traction_controlled >> 8) & 0xFF);
+
+    return 0;
+}
+
+int unpack_torque_path(const uint8_t* rx_buf, msg_torque_path_t* msg) {
+    // Unpack: Torque Lookup
+    uint16_t raw_torque_lookup = 0;
+    raw_torque_lookup = (uint16_t)rx_buf[0 + 0];
+    raw_torque_lookup |= (uint16_t)(rx_buf[0 + 1] << 8);
+    msg->torque_lookup = (float)raw_torque_lookup * 0.1f;
+
+    // Unpack: Torque Derated
+    uint16_t raw_torque_derated = 0;
+    raw_torque_derated = (uint16_t)rx_buf[2 + 0];
+    raw_torque_derated |= (uint16_t)(rx_buf[2 + 1] << 8);
+    msg->torque_derated = (float)raw_torque_derated * 0.1f;
+
+    // Unpack: Torque Power Limited
+    uint16_t raw_torque_power_limited = 0;
+    raw_torque_power_limited = (uint16_t)rx_buf[4 + 0];
+    raw_torque_power_limited |= (uint16_t)(rx_buf[4 + 1] << 8);
+    msg->torque_power_limited = (float)raw_torque_power_limited * 0.1f;
+
+    // Unpack: Torque Traction Controlled
+    uint16_t raw_torque_traction_controlled = 0;
+    raw_torque_traction_controlled = (uint16_t)rx_buf[6 + 0];
+    raw_torque_traction_controlled |= (uint16_t)(rx_buf[6 + 1] << 8);
+    msg->torque_traction_controlled = (float)raw_torque_traction_controlled * 0.1f;
+
+    return 0;
+}

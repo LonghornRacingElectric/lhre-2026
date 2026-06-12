@@ -281,6 +281,10 @@ model controls {
   event_mode           Float?
   net_energy           Float?
   regen_energy         Float?
+  torque_lookup        Float?
+  torque_derated       Float?
+  torque_power_limited Float?
+  torque_traction_controlled Float?
 
   packet packet @relation(fields: [packet_id], references: [packet_id])
 }

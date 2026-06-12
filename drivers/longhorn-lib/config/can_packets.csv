@@ -69,3 +69,4 @@ CAN ID,CAN ID Binary,From,To,Packet Info,Frequency (Hz),Data Length Code (DLC),Q
 0x030,110000,Pi,HVC,HVC Bounds Parameters,NA,,,,,,,,,,,,,
 0x1C8,111001000,PDU,VCU,BSE 3,100,2,1,"Brake Pressure 3 (uint16, 0.05 psi); bse3 (float) #30",unused,unused,unused,unused,unused,unused,Critical,,
 0x1C9,111001001,VCU,Pi,Energy Estimate,10,8,1,"Net Energy (uint32, 0.001 Wh); net_energy (float) #40",,,,"Regen Energy (uint32, 0.001 Wh); regen_energy (float) #41",,,,Critical,,
+0x1CA,111001010,VCU,Pi,Torque Path,100,8,1,"Torque Lookup (uint16, 0.1 Nm); torque_lookup (float) #42",,"Torque Derated (uint16, 0.1 Nm); torque_derated (float) #43",,"Torque Power Limited (uint16, 0.1 Nm); torque_power_limited (float) #44",,"Torque Traction Controlled (uint16, 0.1 Nm); torque_traction_controlled (float) #45",,Critical,,

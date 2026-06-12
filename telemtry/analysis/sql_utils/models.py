@@ -549,6 +549,10 @@ class OrionControls(BaseOrion):
     event_mode = Column(Float)
     net_energy = Column(Float)
     regen_energy = Column(Float)
+    torque_lookup = Column(Float)
+    torque_derated = Column(Float)
+    torque_power_limited = Column(Float)
+    torque_traction_controlled = Column(Float)
     packet = relationship("OrionPacket", back_populates="controls")
 
 class OrionPack(BaseOrion):
