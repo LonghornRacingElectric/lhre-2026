@@ -37,6 +37,7 @@ static can_receive_message_t *vcu_state_mailbox_handle = NULL;
 
 #define VCU_STATE_RX_DEBUG_PERIOD_MS 250U
 #define VCU_STATE_RX_STALE_LOG_PERIOD_MS 1000U
+#define VCU_STATE_BUZZER_TIMEOUT_MS 100U
 
 static osThreadAttr_t can_rx_debug_thread_attrs = {
     .name = "CAN_RxDbg",
@@ -167,6 +168,13 @@ bool hvc_bms_fault(void) {
 void dui_set_r2d(bool enabled) { r2d_status_mailbox.r2d_status = enabled; }
 
 bool dui_r2d_buzzer_active(void) {
+  if (vcu_state_mailbox_handle == NULL ||
+      vcu_state_mailbox_handle->_rx_count == 0 ||
+      message_timed_out(vcu_state_mailbox_handle,
+                        VCU_STATE_BUZZER_TIMEOUT_MS)) {
+    return false;
+  }
+
   return vcu_state_mailbox.ready_to_drive_buzzer != 0;
 }
 
