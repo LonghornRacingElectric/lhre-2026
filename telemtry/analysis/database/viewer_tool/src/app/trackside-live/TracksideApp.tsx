@@ -3482,6 +3482,7 @@ function App() {
                 />
               </Panel>
               <PackStatusPanel state={liveState} displayState={filteredLiveState} soeCutoffCellV={soeCutoffCellV} />
+              <CellThermalsPanel sample={filteredLiveState.lastSample} />
               {/* Live energy-plan tiles: used vs remaining + laps done/left +
                   live per-lap budget that recomputes from energy used each
                   completed lap. Configured up in Live Setup; surfaced here
@@ -4517,6 +4518,60 @@ function TractionControlPanel({ sample }: { sample: LiveSample | null }) {
         <Metric label="Final (TC)" value={fmtNm(finalTq)} tone={tcActive ? "" : "good"} />
       </div>
       <small className="muted">VCU torque path: lookup → derated → power-limited → traction-controlled.</small>
+    </Panel>
+  );
+}
+
+// Realtime per-cell thermal grid (Grafana-style heatmap). Reads the cellTemps
+// array carried through the derived feed — same data dashd uses on-car. Each
+// populated cell (temp > 0; the array is zero-padded for cells not yet reported)
+// is a colored tile on a fixed 20-60 °C blue→red scale so colors mean the same
+// thing across sessions.
+function CellThermalsPanel({ sample }: { sample: LiveSample | null }) {
+  const populated = (sample?.cellTemps ?? [])
+    .map((t, i) => ({ i, t }))
+    .filter((c) => c.t > 0);
+  if (!populated.length) {
+    return (
+      <Panel title="Cell Thermals" icon={<Thermometer size={18} />}>
+        <small className="muted">No per-cell temperatures in the live feed yet.</small>
+      </Panel>
+    );
+  }
+  const vals = populated.map((c) => c.t);
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const LO = 20, HI = 60; // fixed color domain (°C)
+  const cellColor = (t: number) => {
+    const frac = Math.max(0, Math.min(1, (t - LO) / (HI - LO)));
+    return `hsl(${Math.round(220 - 220 * frac)}, 70%, 45%)`; // 220 blue (cool) → 0 red (hot)
+  };
+  return (
+    <Panel
+      title="Cell Thermals"
+      icon={<Thermometer size={18} />}
+      headerRight={
+        <>{populated.length} cells · min <strong>{min.toFixed(0)}</strong> · avg <strong>{avg.toFixed(0)}</strong> · max <strong style={{ color: "#ff6b4a" }}>{max.toFixed(0)}</strong> °C</>
+      }
+    >
+      <div className="cellThermalGrid">
+        {populated.map((c) => (
+          <div
+            key={c.i}
+            className="cellThermalCell"
+            style={{ background: cellColor(c.t) }}
+            title={`Cell ${c.i}: ${c.t.toFixed(1)} °C`}
+          >
+            {c.t.toFixed(0)}
+          </div>
+        ))}
+      </div>
+      <div className="cellThermalLegend">
+        <span>{LO}°C</span>
+        <div className="cellThermalScale" />
+        <span>≥{HI}°C</span>
+      </div>
     </Panel>
   );
 }
@@ -6609,10 +6664,19 @@ function validCellVoltage(value: number | null | undefined): value is number {
 
 function maxCellTempFor(sample: LiveSample | null) {
   if (!sample) return null;
+  // Prefer the per-cell array — the same source dashd uses — taking the max over
+  // POSITIVE temps so the zero-padded unreported slots don't count. This is the
+  // fix for "Max Cell T stuck at 0": the old path read cell_top_temp (CAN 0x132),
+  // which HVC doesn't emit, so it sat at 0. Fall back to the enricher's
+  // max_cell_temp scalar, then the legacy 0x132 fields; require > 0 so a no-data
+  // 0 reads as "--" instead of a misleading 0.
+  const fromArray = sample.cellTemps?.filter((t) => t > 0) ?? [];
+  if (fromArray.length) return Math.max(...fromArray);
   const candidates = [
+    firstLiveValue(sample.values, ["max_cell_temp"]),
     firstLiveValue(sample.values, ["cell_top_temp", "thermal_cell_top_temp"]),
     firstLiveValue(sample.values, ["cell_bottom_temp", "thermal_cell_bottom_temp"]),
-  ].map(validTemp).filter((value): value is number => value != null);
+  ].map(validTemp).filter((value): value is number => value != null && value > 0);
   return candidates.length ? Math.max(...candidates) : null;
 }
 

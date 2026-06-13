@@ -1183,6 +1183,43 @@ textarea:focus-visible,
 }
 .opsCards, .liveHeroStats { min-width: 0; }
 .opsCards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-2); }
+
+/* Cell-thermals heatmap grid (realtime per-cell pack temps). */
+.cellThermalGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+  gap: 3px;
+}
+.cellThermalCell {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  cursor: default;
+}
+.cellThermalLegend {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: var(--s-2);
+  font-size: var(--fs-sm);
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+.cellThermalScale {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  /* Match cellColor(): hsl 220 (cool) -> 0 (hot). */
+  background: linear-gradient(to right,
+    hsl(220, 70%, 45%), hsl(165, 70%, 45%), hsl(110, 70%, 45%), hsl(55, 70%, 45%), hsl(0, 70%, 45%));
+}
 /* Energy Plan tiles live in the leftRail (narrow), so the values like
    "450 / 4150 Wh" don't fit a 4-col grid. Use horizontal pills: small
    label on top of the value, font sized to fit a compact tile, and the
