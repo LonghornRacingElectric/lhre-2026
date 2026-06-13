@@ -2665,6 +2665,113 @@ int unpack_usm_enter_bootloader(const uint8_t* rx_buf, msg_usm_enter_bootloader_
     return 0;
 }
 
+// Packet: VCU Mode Command
+int pack_vcu_mode_command(const msg_vcu_mode_command_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, VCU_MODE_COMMAND_DLC);
+
+    // Pack: Event Mode
+    tx_buf[0] = (uint8_t)msg->event_mode;
+
+    return 0;
+}
+
+int unpack_vcu_mode_command(const uint8_t* rx_buf, msg_vcu_mode_command_t* msg) {
+    // Unpack: Event Mode
+    msg->event_mode = (uint8_t)rx_buf[0];
+
+    return 0;
+}
+
+// Packet: HVC Charger Command
+int pack_hvc_charger_command(const msg_hvc_charger_command_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, HVC_CHARGER_COMMAND_DLC);
+
+    // Pack: Max Charge Voltage
+    uint16_t raw_max_charge_voltage = (uint16_t)(msg->max_charge_voltage / 0.01f);
+    tx_buf[0 + 0] = (uint8_t)(raw_max_charge_voltage & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_max_charge_voltage >> 8) & 0xFF);
+
+    // Pack: Max Charge Current
+    uint16_t raw_max_charge_current = (uint16_t)(msg->max_charge_current / 0.01f);
+    tx_buf[2 + 0] = (uint8_t)(raw_max_charge_current & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((raw_max_charge_current >> 8) & 0xFF);
+
+    // Pack: IMD LED State
+    tx_buf[4] = (uint8_t)msg->imd_led_state;
+
+    // Pack: BMS LED State
+    tx_buf[5] = (uint8_t)msg->bms_led_state;
+
+    // Pack: Charger Enable
+    tx_buf[6] = (uint8_t)msg->charger_enable;
+
+    return 0;
+}
+
+int unpack_hvc_charger_command(const uint8_t* rx_buf, msg_hvc_charger_command_t* msg) {
+    // Unpack: Max Charge Voltage
+    uint16_t raw_max_charge_voltage = 0;
+    raw_max_charge_voltage = (uint16_t)rx_buf[0 + 0];
+    raw_max_charge_voltage |= (uint16_t)(rx_buf[0 + 1] << 8);
+    msg->max_charge_voltage = (float)raw_max_charge_voltage * 0.01f;
+
+    // Unpack: Max Charge Current
+    uint16_t raw_max_charge_current = 0;
+    raw_max_charge_current = (uint16_t)rx_buf[2 + 0];
+    raw_max_charge_current |= (uint16_t)(rx_buf[2 + 1] << 8);
+    msg->max_charge_current = (float)raw_max_charge_current * 0.01f;
+
+    // Unpack: IMD LED State
+    msg->imd_led_state = (uint8_t)rx_buf[4];
+
+    // Unpack: BMS LED State
+    msg->bms_led_state = (uint8_t)rx_buf[5];
+
+    // Unpack: Charger Enable
+    msg->charger_enable = (uint8_t)rx_buf[6];
+
+    return 0;
+}
+
+// Packet: Charger Status
+int pack_charger_status(const msg_charger_status_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, CHARGER_STATUS_DLC);
+
+    // Pack: Actual Voltage
+    uint16_t raw_actual_voltage = (uint16_t)(msg->actual_voltage / 0.01f);
+    tx_buf[0 + 0] = (uint8_t)(raw_actual_voltage & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_actual_voltage >> 8) & 0xFF);
+
+    // Pack: Actual Current
+    uint16_t raw_actual_current = (uint16_t)(msg->actual_current / 0.01f);
+    tx_buf[2 + 0] = (uint8_t)(raw_actual_current & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((raw_actual_current >> 8) & 0xFF);
+
+    // Pack: Charger Enabled
+    tx_buf[4] = (uint8_t)msg->charger_enabled;
+
+    return 0;
+}
+
+int unpack_charger_status(const uint8_t* rx_buf, msg_charger_status_t* msg) {
+    // Unpack: Actual Voltage
+    uint16_t raw_actual_voltage = 0;
+    raw_actual_voltage = (uint16_t)rx_buf[0 + 0];
+    raw_actual_voltage |= (uint16_t)(rx_buf[0 + 1] << 8);
+    msg->actual_voltage = (float)raw_actual_voltage * 0.01f;
+
+    // Unpack: Actual Current
+    uint16_t raw_actual_current = 0;
+    raw_actual_current = (uint16_t)rx_buf[2 + 0];
+    raw_actual_current |= (uint16_t)(rx_buf[2 + 1] << 8);
+    msg->actual_current = (float)raw_actual_current * 0.01f;
+
+    // Unpack: Charger Enabled
+    msg->charger_enabled = (uint8_t)rx_buf[4];
+
+    return 0;
+}
+
 // Packet: HVC Bounds Parameters
 int pack_hvc_bounds_parameters(const msg_hvc_bounds_parameters_t* msg, uint8_t* tx_buf) {
     memset(tx_buf, 0, HVC_BOUNDS_PARAMETERS_DLC);
