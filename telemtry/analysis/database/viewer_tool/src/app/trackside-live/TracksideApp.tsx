@@ -3332,15 +3332,11 @@ function App() {
               <div className="heroMetricRow">
                 <Metric label="Best" value={bestLap ? formatLapTime(bestLap.durationMs) : "--"} tone="purple" />
                 <Metric label="Lap" value={`${currentLapNumber} / ${targetLaps > 0 ? targetLaps : "—"}`} />
-                <Metric label="Energy" value={`${liveState.totalEnergyOutWh.toFixed(1)} Wh`} />
+                <Metric label="Energy" value={`${liveState.totalEnergyWh.toFixed(1)} Wh`} />
               </div>
               {/* Tier 2 — compact inline strip, smaller because they're checked
                   every few seconds, not every second. */}
               <div className="heroMetricStrip">
-                <span className="heroMetricInline">
-                  <small>Regen In</small>
-                  <b className={liveState.totalEnergyInWh > 0 ? "goodText" : ""}>{liveState.totalEnergyInWh.toFixed(1)} Wh</b>
-                </span>
                 <span className="heroMetricInline">
                   <small>Torque</small>
                   <b className={liveTorqueNm != null && liveTorqueNm < 0 ? "goodText" : ""}>
@@ -4643,8 +4639,6 @@ function EnergyStrategyPanel({
 }) {
   const sample = state.lastSample;
   const signedPowerKw = signedVcuPowerKwFor(state.previousSample, sample);
-  const drivePowerKw = signedPowerKw == null ? null : Math.max(0, signedPowerKw);
-  const regenPowerKw = signedPowerKw == null ? null : Math.max(0, -signedPowerKw);
   const pack = packStatus(state.samples, soeCutoffCellV, sample);
   const targetWh = targetEnergyKwh > 0 ? targetEnergyKwh * 1000 : null;
   const vcuUsedWh = state.totalEnergyWh;
@@ -4681,15 +4675,9 @@ function EnergyStrategyPanel({
           <Metric label="SOE Remaining" value={soeRemainingWh == null ? "--" : formatKwhFromWh(soeRemainingWh)} />
           <Metric label="Net Used (VCU)" value={formatKwhFromWh(vcuUsedWh)} />
           <Metric label="Net / Lap" value={targetEnergyPerLapWh == null ? "--" : `${targetEnergyPerLapWh.toFixed(0)} Wh`} />
-          <Metric label="Drive (VCU)" value={formatKwhFromWh(state.totalEnergyOutWh)} />
-          <Metric label="Regen (VCU)" value={formatKwhFromWh(state.totalEnergyInWh)} />
-          <Metric label="Drive Power" value={drivePowerKw == null ? "--" : `${drivePowerKw.toFixed(2)} kW`} />
-          <Metric label="Regen Power" value={regenPowerKw == null ? "--" : `${regenPowerKw.toFixed(2)} kW`} />
+          <Metric label="Power" value={signedPowerKw == null ? "--" : `${signedPowerKw.toFixed(2)} kW`} tone={signedPowerKw != null && signedPowerKw < 0 ? "good" : ""} />
           <Metric label="Lap Net" value={`${state.lapEnergyWh.toFixed(1)} Wh`} />
-          <Metric label="Lap Drive" value={`${state.lapEnergyOutWh.toFixed(1)} Wh`} />
-          <Metric label="Lap Regen" value={`${state.lapEnergyInWh.toFixed(1)} Wh`} />
           <Metric label="Avg Net Lap" value={averages.avgEnergyWh == null ? "--" : `${averages.avgEnergyWh.toFixed(1)} Wh`} />
-          <Metric label="Avg Regen" value={averages.avgEnergyInWh == null ? "--" : `${averages.avgEnergyInWh.toFixed(1)} Wh`} />
         </div>
         <small className="muted">
           {selectedAvgDelta != null
@@ -4894,18 +4882,11 @@ function EnergyWindowChart({
   const plotH = height - padTop - padBottom;
   const lastT = state.lastSample?.t ?? Date.now();
   const startT = lastT - windowS * 1000;
-  const maxEnergy = Math.max(1, ...trace.flatMap((point) => [point.energyOutWh, point.energyInWh, Math.max(0, point.energyWh)]));
-  const outPoints = trace
+  const maxEnergy = Math.max(1, ...trace.map((point) => Math.max(0, point.energyWh)));
+  const netPoints = trace
     .map((point) => {
       const x = padLeft + Math.max(0, Math.min(1, (point.t - startT) / (windowS * 1000))) * plotW;
-      const y = padTop + (1 - Math.max(0, Math.min(1, point.energyOutWh / maxEnergy))) * plotH;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-  const inPoints = trace
-    .map((point) => {
-      const x = padLeft + Math.max(0, Math.min(1, (point.t - startT) / (windowS * 1000))) * plotW;
-      const y = padTop + (1 - Math.max(0, Math.min(1, point.energyInWh / maxEnergy))) * plotH;
+      const y = padTop + (1 - Math.max(0, Math.min(1, point.energyWh / maxEnergy))) * plotH;
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(" ");
@@ -4915,9 +4896,7 @@ function EnergyWindowChart({
   return (
     <div className="energyWindow">
       <div className="energyToolbar">
-        <Metric label="Window Out" value={`${(latest?.energyOutWh ?? 0).toFixed(1)} Wh`} />
-        <Metric label="Regen In" value={`${(latest?.energyInWh ?? 0).toFixed(1)} Wh`} tone="good" />
-        <Metric label="Net" value={`${latestEnergy.toFixed(1)} Wh`} />
+        <Metric label="Energy" value={`${latestEnergy.toFixed(1)} Wh`} />
         <label>
           <span>Window</span>
           <select value={windowS} onChange={(event) => onWindowS(Number(event.target.value))}>
@@ -4937,8 +4916,7 @@ function EnergyWindowChart({
         <text x={width - padRight - 28} y={height - 7}>now</text>
         <text x={6} y={padTop + 10}>{maxEnergy.toFixed(1)} Wh</text>
         <text x={10} y={height - padBottom}>0 Wh</text>
-        {outPoints ? <polyline className="energyOutLine" points={outPoints} /> : null}
-        {inPoints ? <polyline className="energyInLine" points={inPoints} /> : null}
+        {netPoints ? <polyline className="energyNetLine" points={netPoints} /> : null}
         {lapBreaks.map((lap) => {
           const x = padLeft + Math.max(0, Math.min(1, (lap.endMs - startT) / (windowS * 1000))) * plotW;
           return (
@@ -5005,8 +4983,6 @@ function LiveDataPanel({ state }: { state: LiveSessionState }) {
   const energyV = energyVoltageFor(sample);
   const dcBusCurrent = dcBusCurrentFor(sample);
   const signedPowerKw = signedVcuPowerKwFor(state.previousSample, sample);
-  const drivePowerKw = signedPowerKw == null ? null : Math.max(0, signedPowerKw);
-  const regenPowerKw = signedPowerKw == null ? null : Math.max(0, -signedPowerKw);
   const motorRpm = firstLiveValue(values, ["controls_motor_speed", "motor_speed", "dynamics_inverter_rpm", "inverter_rpm"]);
   const rawApps = rawAppsTravelDetails(values);
   const rawRows = [...rawAppsLiveRows(rawApps), ...topLiveValues(values)];
@@ -5015,8 +4991,7 @@ function LiveDataPanel({ state }: { state: LiveSessionState }) {
       <div className="liveDataGrid">
         <Metric label="Samples" value={state.samples.length.toLocaleString()} />
         <Metric label="Last Sample" value={sample ? formatTime(sample.t) : "--"} />
-        <Metric label="Drive Power" value={drivePowerKw == null ? "--" : `${drivePowerKw.toFixed(2)} kW`} />
-        <Metric label="Regen Power" value={regenPowerKw == null ? "--" : `${regenPowerKw.toFixed(2)} kW`} tone="good" />
+        <Metric label="Power" value={signedPowerKw == null ? "--" : `${signedPowerKw.toFixed(2)} kW`} tone={signedPowerKw != null && signedPowerKw < 0 ? "good" : ""} />
         <Metric label={dcBusV == null && energyV != null ? "Est V / I" : "DC Bus"} value={energyV == null || dcBusCurrent == null ? "--" : `${energyV.toFixed(1)} V / ${dcBusCurrent.toFixed(1)} A`} />
         <Metric label="Power Src" value="VCU 0x1C9" />
         <Metric label="Motor RPM" value={motorRpm == null ? "--" : `${Math.round(motorRpm).toLocaleString()} rpm`} />
@@ -5090,7 +5065,7 @@ function LiveLapTable({
   };
 }) {
   const columns = sectorCount;
-  const totalCols = 3 + columns + 3 + (targetEnergyPerLapWh != null ? 1 : 0) + 1; // +1 = Notes
+  const totalCols = 3 + columns + 1 + (targetEnergyPerLapWh != null ? 1 : 0) + 1; // energy col (Net) + optional Δ + Notes
   const currentTargetEnergyWh = currentLapEnergyWh;
   const averageTargetEnergyWh = averages.avgEnergyWh;
   const tableWrapRef = useRef<HTMLDivElement | null>(null);
@@ -5115,10 +5090,8 @@ function LiveLapTable({
               <th>Lap</th>
               <th>Time</th>
               {Array.from({ length: columns }, (_sector, index) => <th key={`sector-head-${index}`}>S{index + 1}</th>)}
-              <th>Drive</th>
-              <th>Regen</th>
-              <th>Net</th>
-              {targetEnergyPerLapWh != null ? <th>Δ Net</th> : null}
+              <th>Energy</th>
+              {targetEnergyPerLapWh != null ? <th>Δ Energy</th> : null}
               <th>Notes</th>
             </tr>
           </thead>
@@ -5166,8 +5139,6 @@ function LiveLapTable({
                     </td>
                     );
                   })}
-                  <td>{lapEnergyOutWh(lap).toFixed(1)} Wh</td>
-                  <td className="goodText">{lapEnergyInWh(lap).toFixed(1)} Wh</td>
                   <td>{lap.energyWh.toFixed(1)} Wh</td>
                   {targetEnergyPerLapWh != null ? <td className={delta != null && delta > 0 ? "deltaOver" : "deltaUnder"}>{delta == null ? "--" : formatEnergyDelta(delta)}</td> : null}
                   <td>
@@ -5200,8 +5171,6 @@ function LiveLapTable({
                 {Array.from({ length: columns }, (_unused, index) => (
                   <td key={`current-sector-${index}`}>{currentSectors[index] == null ? "--" : formatLapTime(currentSectors[index])}</td>
                 ))}
-                <td>{currentLapEnergyOutWh.toFixed(1)} Wh</td>
-                <td className="goodText">{currentLapEnergyInWh.toFixed(1)} Wh</td>
                 <td>{currentLapEnergyWh.toFixed(1)} Wh</td>
                 {targetEnergyPerLapWh != null ? <td>{formatEnergyDelta(currentTargetEnergyWh - targetEnergyPerLapWh)}</td> : null}
                 <td />
@@ -5215,8 +5184,6 @@ function LiveLapTable({
                 <td>Avg ({averages.count})</td>
                 <td>{averages.avgMs == null ? "--" : formatLapTime(averages.avgMs)}</td>
                 {Array.from({ length: columns }, (_unused, index) => <td key={`avg-sector-${index}`} />)}
-                <td>{averages.avgEnergyOutWh == null ? "--" : `${averages.avgEnergyOutWh.toFixed(1)} Wh`}</td>
-                <td className="goodText">{averages.avgEnergyInWh == null ? "--" : `${averages.avgEnergyInWh.toFixed(1)} Wh`}</td>
                 <td>{averages.avgEnergyWh == null ? "--" : `${averages.avgEnergyWh.toFixed(1)} Wh`}</td>
                 {targetEnergyPerLapWh != null ? (
                   <td>{averageTargetEnergyWh == null ? "--" : formatEnergyDelta(averageTargetEnergyWh - targetEnergyPerLapWh)}</td>
@@ -5235,9 +5202,7 @@ function LiveLapTable({
           </div>
           <div className="lapMiniGrid">
             <Metric label="Time" value={lastLap == null ? "--" : formatLapTime(lastLap.durationMs)} />
-            <Metric label="Net" value={lastLap == null ? "--" : `${lastLap.energyWh.toFixed(1)} Wh`} />
-            <Metric label="Drive" value={lastLap == null ? "--" : `${lapEnergyOutWh(lastLap).toFixed(1)} Wh`} />
-            <Metric label="Regen" value={lastLap == null ? "--" : `${lapEnergyInWh(lastLap).toFixed(1)} Wh`} />
+            <Metric label="Energy" value={lastLap == null ? "--" : `${lastLap.energyWh.toFixed(1)} Wh`} />
             <Metric label="Target Δ" value={lastLapDeltaWh == null ? "--" : formatEnergyDelta(lastLapDeltaWh)} />
           </div>
         </div>
@@ -5248,9 +5213,7 @@ function LiveLapTable({
           </div>
           <div className="lapMiniGrid">
             <Metric label="Time" value={averages.avgMs == null ? "--" : formatLapTime(averages.avgMs)} />
-            <Metric label="Net" value={averages.avgEnergyWh == null ? "--" : `${averages.avgEnergyWh.toFixed(1)} Wh`} />
-            <Metric label="Drive" value={averages.avgEnergyOutWh == null ? "--" : `${averages.avgEnergyOutWh.toFixed(1)} Wh`} />
-            <Metric label="Regen" value={averages.avgEnergyInWh == null ? "--" : `${averages.avgEnergyInWh.toFixed(1)} Wh`} />
+            <Metric label="Energy" value={averages.avgEnergyWh == null ? "--" : `${averages.avgEnergyWh.toFixed(1)} Wh`} />
             <Metric label="Target Δ" value={averageDeltaWh == null ? "--" : formatEnergyDelta(averageDeltaWh)} />
           </div>
         </div>

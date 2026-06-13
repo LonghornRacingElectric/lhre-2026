@@ -1460,8 +1460,7 @@ textarea:focus-visible,
 .energyChart rect { fill: var(--surface-alt); stroke: var(--border); }
 .energyChart line { stroke: var(--border); stroke-width: 1; }
 .energyChart polyline { fill: none; stroke: var(--info); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
-.energyChart .energyInLine { stroke: var(--good); }
-.energyChart .energyOutLine { stroke: var(--info); }
+.energyChart .energyNetLine { stroke: var(--accent); }
 .energyChart text { font-weight: 800; }
 .energyChart .lapBreak line { stroke: var(--best); stroke-dasharray: 4 4; }
 .energyChart .lapBreak text { fill: var(--best); }
