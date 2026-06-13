@@ -390,6 +390,8 @@ TEST_F(CanBaseTest, RxCallback_UnpacksDataCorrectly) {
 
   // 7. Verify internal state
   EXPECT_EQ(rx_msg->_latest_rx_ms, 1000);
+  EXPECT_EQ(rx_msg->_previous_rx_ms, 1000);
+  EXPECT_EQ(rx_msg->_rx_count, 1);
 
   free(rx_msg);
 }
@@ -460,9 +462,13 @@ TEST_F(CanBaseTest, RxCallback_HandlesHashCollisionsCorrectly) {
   // 6. Verify State
   // rx_msg_2 should be updated to the "Receive Time" (2000)
   EXPECT_EQ(rx_msg_2->_latest_rx_ms, 2000);
+  EXPECT_EQ(rx_msg_2->_previous_rx_ms, 100);
+  EXPECT_EQ(rx_msg_2->_rx_count, 1);
 
   // rx_msg_1 should still be at "Initialization Time" (100)
   EXPECT_EQ(rx_msg_1->_latest_rx_ms, 100);
+  EXPECT_EQ(rx_msg_1->_previous_rx_ms, 100);
+  EXPECT_EQ(rx_msg_1->_rx_count, 0);
 
   free(rx_msg_1);
   free(rx_msg_2);
