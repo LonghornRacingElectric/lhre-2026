@@ -1,7 +1,7 @@
 use anyhow::Result;
 use prost::Message;
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, UdpSocket};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
@@ -16,7 +16,7 @@ use sensor_proto::config::PacketConfig;
 use sensor_proto::generated_mapping;
 
 #[cfg(target_os = "linux")]
-use socketcan::{CanSocket, EmbeddedFrame, Id, Socket};
+use socketcan::{CanFrame, CanSocket, EmbeddedFrame, Id, Socket, StandardId};
 
 //use std::process::Command;
 
@@ -24,6 +24,10 @@ const MOCK_ADDR_0: &str = "127.0.0.1:5005";
 const MOCK_ADDR_1: &str = "127.0.0.1:5006";
 const SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
 const PUBLISHD_SOCKET_PATH: &str = "/tmp/BEVO_cand_publishd.sock";
+/// CAN transmit request socket. dashd connects here and sends frame requests;
+/// cand owns the only write socket on the critical bus, so it stays the sole
+/// CAN writer. Wire format below in `can_tx_listener_loop`.
+const CAND_TX_SOCKET_PATH: &str = "/tmp/BEVO_cand_tx.sock";
 const STARTUP_SEMAPHORE_PATH: &str = "/tmp/BEVO_publishd_ready";
 //const OTA_SEMAPHORE_PATH: &str = "/tmp/BEVO_ota_request"; 
 const CAN_INTERFACE_0: &str = "can0";
@@ -113,6 +117,16 @@ fn main() -> Result<()> {
         thread::spawn(move || {
             if let Err(e) = can_socket_reader_loop(can_reader_tx_1, can_interface_1_clone) {
                 eprintln!("[CAND-CAN-1] Error: {:?}", e);
+            }
+        });
+
+        // CAN transmit path on the critical bus (can0) — where the VCU listens.
+        // Single writer thread owns the only TX socket; dashd feeds it frame
+        // requests over CAND_TX_SOCKET_PATH (e.g. the 0x029 VCU Mode Command).
+        let can_interface_tx = can_interface_0.clone();
+        thread::spawn(move || {
+            if let Err(e) = can_tx_listener_loop(can_interface_tx) {
+                eprintln!("[CAND-TX] Error: {:?}", e);
             }
         });
     }
@@ -328,6 +342,57 @@ fn can_socket_reader_loop(raw_tx: Sender<RawCanMessage>, can_interface: String) 
             }
         }
     }
+}
+
+// Single-writer CAN transmit path. dashd connects to CAND_TX_SOCKET_PATH and
+// sends frame requests; we own the only write socket on `can_interface` so cand
+// stays the sole CAN writer. One write socket is opened up front and reused.
+//
+// Wire format per request (13 bytes, fixed):
+//   [0..4]  CAN id   (u32, little-endian; standard 11-bit)
+//   [4]     dlc      (u8, clamped 0..=8)
+//   [5..13] data     (8 bytes; only the first `dlc` are transmitted)
+// A client may send multiple back-to-back requests on one connection.
+#[cfg(target_os = "linux")]
+fn can_tx_listener_loop(can_interface: String) -> Result<()> {
+    let _ = std::fs::remove_file(CAND_TX_SOCKET_PATH);
+    let listener = UnixListener::bind(CAND_TX_SOCKET_PATH)?;
+    let socket = CanSocket::open(&can_interface)?;
+    println!(
+        "[CAND-TX] CAN transmit listener on {} -> {}",
+        CAND_TX_SOCKET_PATH, can_interface
+    );
+    for stream in listener.incoming() {
+        let mut stream = match stream {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+        let mut buf = [0u8; 13];
+        // read_exact returns Err at EOF / short read -> connection done.
+        while stream.read_exact(&mut buf).is_ok() {
+            let id = u32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]]);
+            let dlc = (buf[4] as usize).min(8);
+            let data = &buf[5..5 + dlc];
+            let sid = match StandardId::new(id as u16) {
+                Some(s) => s,
+                None => {
+                    eprintln!("[CAND-TX] rejecting non-standard CAN id {:#x}", id);
+                    continue;
+                }
+            };
+            match CanFrame::new(sid, data) {
+                Some(frame) => match socket.write_frame(&frame) {
+                    Ok(()) => println!(
+                        "[CAND-TX] sent CAN {:#05x} dlc={} data={:02x?}",
+                        id, dlc, data
+                    ),
+                    Err(e) => eprintln!("[CAND-TX] write_frame failed: {:?}", e),
+                },
+                None => eprintln!("[CAND-TX] could not build frame (dlc {})", dlc),
+            }
+        }
+    }
+    Ok(())
 }
 
 // reads CAN frames from the mock UDP socket used for local testing.
