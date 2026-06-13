@@ -373,7 +373,10 @@ fn can_tx_listener_loop(can_interface: String) -> Result<()> {
             let id = u32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]]);
             let dlc = (buf[4] as usize).min(8);
             let data = &buf[5..5 + dlc];
-            let sid = match StandardId::new(id as u16) {
+            // Standard CAN ids are 11-bit (<= 0x7FF). Range-check BEFORE casting:
+            // `id as u16` would silently truncate a >16-bit / extended id
+            // (e.g. 0x10005 -> 0x5) and transmit to the wrong node.
+            let sid = match (id <= 0x7FF).then(|| StandardId::new(id as u16)).flatten() {
                 Some(s) => s,
                 None => {
                     eprintln!("[CAND-TX] rejecting non-standard CAN id {:#x}", id);

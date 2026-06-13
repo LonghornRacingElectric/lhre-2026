@@ -544,7 +544,12 @@ function App() {
   const [dashPowerMode, setDashPowerMode] = useState<"auto" | "manual">(() => (localStorage.getItem("dash-power-mode") === "manual" ? "manual" : "auto"));
   const [dashAutoLap, setDashAutoLap] = useState(() => localStorage.getItem("dash-auto-lap") === "1");
   // Selected VCU params table to command (event_mode); persisted for convenience.
-  const [vcuMode, setVcuMode] = useState<number>(() => Number(localStorage.getItem("dash-vcu-mode") || 4));
+  // Validate against the known modes so a corrupted/empty value (NaN, 0, 5…)
+  // can't preselect an invalid mode — fall back to 4 (Endurance).
+  const [vcuMode, setVcuMode] = useState<number>(() => {
+    const parsed = Number(localStorage.getItem("dash-vcu-mode"));
+    return [1, 2, 3, 4].includes(parsed) ? parsed : 4;
+  });
   const [vcuModeStatus, setVcuModeStatus] = useState("");
   const [dashGatePushed, setDashGatePushed] = useState(false);
   // How long the on-car full-screen lap card stays up after a lap (seconds).
