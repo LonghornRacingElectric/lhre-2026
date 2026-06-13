@@ -543,6 +543,9 @@ function App() {
   // Power-budget mode: 'auto' derives kW from the energy plan; 'manual' uses the slider.
   const [dashPowerMode, setDashPowerMode] = useState<"auto" | "manual">(() => (localStorage.getItem("dash-power-mode") === "manual" ? "manual" : "auto"));
   const [dashAutoLap, setDashAutoLap] = useState(() => localStorage.getItem("dash-auto-lap") === "1");
+  // Selected VCU params table to command (event_mode); persisted for convenience.
+  const [vcuMode, setVcuMode] = useState<number>(() => Number(localStorage.getItem("dash-vcu-mode") || 4));
+  const [vcuModeStatus, setVcuModeStatus] = useState("");
   const [dashGatePushed, setDashGatePushed] = useState(false);
   // How long the on-car full-screen lap card stays up after a lap (seconds).
   const [lapCardDurationS, setLapCardDurationS] = useState(() => {
@@ -4007,6 +4010,58 @@ function App() {
                 : " Manual override — switch to Auto to track the energy plan."}
               {" "}Sent live + republished ~1 Hz so it never goes stale.
             </p>
+          </Panel>
+
+          <Panel title="VCU Mode" icon={<SlidersHorizontal size={18} />}>
+            <p style={{ margin: "0 0 8px", opacity: 0.75, fontSize: "0.85rem" }}>
+              Select the VCU params table at runtime (no re-flash). Relayed to the car as the
+              0x029 CAN command; the VCU applies it (its firmware gates the swap to a safe
+              state) and re-broadcasts its active mode for confirmation.
+            </p>
+            {(() => {
+              const connected = !isMirror && dashSignals.status === "connected";
+              const MODES: { v: number; label: string }[] = [
+                { v: 1, label: "Acceleration" },
+                { v: 2, label: "Skidpad" },
+                { v: 3, label: "Autocross" },
+                { v: 4, label: "Endurance" },
+              ];
+              return (
+                <>
+                  <div className="gateButtons">
+                    <select
+                      value={vcuMode}
+                      disabled={!connected}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        setVcuMode(v);
+                        localStorage.setItem("dash-vcu-mode", String(v));
+                      }}
+                    >
+                      {MODES.map((m) => <option key={m.v} value={m.v}>{m.v} · {m.label}</option>)}
+                    </select>
+                    <button
+                      className="primary"
+                      disabled={!connected}
+                      onClick={() => {
+                        dashSignals.publishEventMode(vcuMode);
+                        const lbl = MODES.find((m) => m.v === vcuMode)?.label ?? String(vcuMode);
+                        setVcuModeStatus(`Sent mode ${vcuMode} (${lbl}) to VCU ✓`);
+                        window.setTimeout(() => setVcuModeStatus(""), 4000);
+                      }}
+                    >
+                      <Radio size={15} /> Send to VCU
+                    </button>
+                  </div>
+                  {vcuModeStatus ? <span className="goodText">{vcuModeStatus}</span> : null}
+                  {!connected ? (
+                    <p style={{ marginTop: 6, opacity: 0.7, fontSize: "0.8rem" }}>
+                      Connect to the dash first (Dash tab → Connect to dash).
+                    </p>
+                  ) : null}
+                </>
+              );
+            })()}
           </Panel>
 
           <Panel title="Lap Control" icon={<Flag size={18} />}>
