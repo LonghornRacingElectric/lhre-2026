@@ -18,7 +18,7 @@ void battery_init(battery_state_t *state, const vcu_parameters_t *params) {
 void battery_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
                       battery_state_t *state, const vcu_parameters_t *params,
                       uint32_t dt_ms) {
-  if(in->battery_current_a > -1.0f && in->battery_current_a < 1.0f) {
+  if(in->battery_current_a > -5.0f && in->battery_current_a < 5.0f) {
     state->current_in_bounds_ms += dt_ms;
   } else {
     state->current_in_bounds_ms = 0;
