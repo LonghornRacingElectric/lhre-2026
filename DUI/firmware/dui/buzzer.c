@@ -31,6 +31,7 @@ static void buzzer_task(void *argument) {
       HAL_GPIO_WritePin(SPEAKER_GPIO_Port, SPEAKER_Pin,
                         speaker_high ? GPIO_PIN_SET : GPIO_PIN_RESET);
       delay_us(BUZZER_HALF_PERIOD_US);
+      osThreadYield();
     } else {
       if (speaker_high) {
         speaker_high = false;
