@@ -1221,6 +1221,24 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                                 );
                             }
                         }
+                        "lapCount" => {
+                            // Absolute lap-count correction from trackside (its
+                            // SELECTED completed-lap count). Adopt in EITHER
+                            // direction with NO card and no integrator reset —
+                            // this is how the dash count follows a DESELECT on
+                            // the live list (lapTrigger above is forward-only and
+                            // would ignore a backward value).
+                            let new_count = val.round().max(0.0) as u64;
+                            locked.lap_count = new_count;
+                            locked.last_offcar_trigger = Some(val);
+                            let _ = client.publish(
+                                format!("{}ack/lapCount", MQTT_TOPIC_PREFIX),
+                                QoS::AtMostOnce,
+                                true,
+                                new_count.to_string(),
+                            );
+                            println!("[DASHD] Trackside lapCount -> lap_count {}", new_count);
+                        }
                         "lapReset" => {
                             // Trackside started a new session: drop both the
                             // baseline and the running lap_count. The next

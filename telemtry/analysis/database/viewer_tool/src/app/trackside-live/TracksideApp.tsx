@@ -575,6 +575,10 @@ function App() {
   const [msgSendStatus, setMsgSendStatus] = useState("");
   const [dashNow, setDashNow] = useState(0); // 1 Hz tick for link-health "age" displays
   const dashLastLapCountRef = useRef(0);
+  // Set by markLap so the dash-count sync effect fires a lap CARD for the next
+  // newly-counted lap even when GPS auto-card (dashAutoLap) is off — a manual
+  // "Log Lap" is an explicit request to show the card.
+  const dashCardForceRef = useRef(false);
   const lastRegistryPatchRef = useRef(0);
   // Multi-client sync: one leader owns the session, others mirror it read-only.
   const presence = usePresence(true);
@@ -1039,13 +1043,29 @@ function App() {
 
   // Auto-fire a dash lap card whenever the trackside lap detector completes a
   // lap — optional, off by default so the thread's "manual for now" still holds.
+  // Keep the dash lap count in sync with the SELECTED (counted) laps — the same
+  // source as lapsCompletedPlan — in BOTH directions:
+  //   • count up (new counted lap)   -> fire the card via lapTrigger if auto-card
+  //     is on OR a manual Log Lap requested it; otherwise just sync the number.
+  //   • count down (a lap deselected) -> publishLapCount pulls the dash count
+  //     down with NO card (lapTrigger is forward-only by design).
+  // So deselecting a double-count / driver-change lap updates the driver dash too.
   useEffect(() => {
-    const count = liveState.laps.length;
-    if (count > dashLastLapCountRef.current) {
-      if (!isMirror && dashAutoLap && dashSignals.status === "connected") dashSignals.sendLap();
-      dashLastLapCountRef.current = count;
+    if (isMirror || dashSignals.status !== "connected") return;
+    const n = selectedLaps.length;
+    const prev = dashLastLapCountRef.current;
+    if (n === prev) return;
+    dashLastLapCountRef.current = n;
+    if (n > prev) {
+      const wantCard = dashAutoLap || dashCardForceRef.current;
+      dashCardForceRef.current = false;
+      if (wantCard) dashSignals.sendLap(n);
+      else dashSignals.publishLapCount(n); // count up, no card
+    } else {
+      dashCardForceRef.current = false;
+      dashSignals.publishLapCount(n); // deselect: pull the dash count down, no card
     }
-  }, [liveState.laps.length, dashAutoLap, dashSignals.status, dashSignals.sendLap, isMirror]);
+  }, [selectedLaps.length, dashAutoLap, dashSignals.status, dashSignals.sendLap, dashSignals.publishLapCount, isMirror]);
 
   // Drain: re-publish the website's lap count whenever the car's mirror shows
   // fewer laps than we've logged. Catches both the dashd-restart and
@@ -1059,12 +1079,12 @@ function App() {
     if (dashSignals.status !== "connected") return;
     const carLapCount = dashSignals.dashState?.lapCount ?? null;
     if (carLapCount == null) return; // no mirror yet — nothing to compare against
-    const websiteLapCount = liveState.laps.length;
+    const websiteLapCount = selectedLaps.length;
     if (websiteLapCount > carLapCount) {
       dashSignals.republishLap(websiteLapCount);
     }
   }, [
-    liveState.laps.length,
+    selectedLaps.length,
     dashSignals.status,
     dashSignals.dashState?.lapCount,
     dashSignals.republishLap,
@@ -2375,14 +2395,11 @@ function App() {
     triggerManualLap();
     const after = liveStateRef.current.laps.length;
     const lapClosed = after > beforeLaps;
-    // On a completed lap, always fire the car's lap card. sendLap advances the
-    // lap counter in lockstep with the Live tab even if the publish is dropped
-    // (link mid-handshake), and the auto-connect keeps the uplink up — so both
-    // lap buttons reliably log to the Live tab AND reach the car.
-    // Send the website's authoritative lap count to the car so dashd adopts it
-    // (rather than running its own +1 counter that drifted from trackside).
-    if (lapClosed) dashSignals.sendLap(after);
-    dashLastLapCountRef.current = after;
+    // On a completed lap, request the car's lap card. The actual lapTrigger is
+    // sent by the dash-count sync effect when the newly-logged lap shows up in
+    // the SELECTED count — so the card fires at the corrected lap number, and a
+    // manual Log Lap always cards even if GPS auto-card is off.
+    if (lapClosed) dashCardForceRef.current = true;
     // Visible feedback so the user knows whether this click STARTED a lap (no
     // dash card yet — by design, the card represents 'lap COMPLETE') or CLOSED
     // a lap (dash card fires). Earlier this was silent, which made the two
