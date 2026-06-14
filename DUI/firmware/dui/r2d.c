@@ -1,5 +1,6 @@
 #include "r2d.h"
 
+#include "buzzer.h"
 #include "dui_can.h"
 #include "gpio.h"
 
@@ -25,8 +26,10 @@ void r2d_task(void *argument) {
     dui_set_r2d(r2d_enabled);
     osDelay(pdMS_TO_TICKS(10));
 
-    log_printf(LOG_INFO, "R2D: %u vcu_r2d_buzzer=%u\n",
-               (unsigned)r2d_enabled, (unsigned)dui_r2d_buzzer_active());
+    log_printf(LOG_INFO, "R2D: %u vcu_r2d_buzzer=%u buzzer_ticks=%lu active_ticks=%lu\n",
+               (unsigned)r2d_enabled, (unsigned)dui_r2d_buzzer_active(),
+               (unsigned long)dui_buzzer_tick_count(),
+               (unsigned long)dui_buzzer_active_tick_count());
   }
 }
 

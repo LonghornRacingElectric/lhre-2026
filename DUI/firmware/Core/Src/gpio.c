@@ -61,9 +61,9 @@ void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_10, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : PE2 PE3 Switch_Top_L_UP_Pin Switch_Top_L_DOWN_Pin
-                           Switch_Top_R_UP_Pin Switch_Top_R_DOWN_Pin Switch_Bottom_R_UP_Pin Switch_Bottom_L_DOWN_Pin
-                           Switch_Bottom_R_DOWN_Pin Switch_Bottom_L_UP_Pin SDWN_Sense_Inertia_SW_Pin */
+  /*Configure GPIO pins : PE2 PE3 PEPin PEPin
+                           PEPin PEPin PEPin PEPin
+                           PEPin PEPin PEPin */
   GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_3|Switch_Top_L_UP_Pin|Switch_Top_L_DOWN_Pin
                           |Switch_Top_R_UP_Pin|Switch_Top_R_DOWN_Pin|Switch_Bottom_R_UP_Pin|Switch_Bottom_L_DOWN_Pin
                           |Switch_Bottom_R_DOWN_Pin|Switch_Bottom_L_UP_Pin|SDWN_Sense_Inertia_SW_Pin;
@@ -78,24 +78,31 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : BMS_Error_SW_Pin IMD_Error_SW_Pin SPEAKER_Pin PB7 */
-  GPIO_InitStruct.Pin = BMS_Error_SW_Pin|IMD_Error_SW_Pin|SPEAKER_Pin|GPIO_PIN_7;
+  /*Configure GPIO pins : PBPin PBPin PB7 */
+  GPIO_InitStruct.Pin = BMS_Error_SW_Pin|IMD_Error_SW_Pin|GPIO_PIN_7;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : SDSW_Sense_EStop_Pin */
+  /*Configure GPIO pin : PtPin */
   GPIO_InitStruct.Pin = SDSW_Sense_EStop_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(SDSW_Sense_EStop_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : RTD_SWITCH_Pin */
+  /*Configure GPIO pin : PtPin */
   GPIO_InitStruct.Pin = RTD_SWITCH_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(RTD_SWITCH_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PtPin */
+  GPIO_InitStruct.Pin = SPEAKER_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  HAL_GPIO_Init(SPEAKER_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PD10 */
   GPIO_InitStruct.Pin = GPIO_PIN_10;
