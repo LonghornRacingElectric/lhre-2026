@@ -1461,6 +1461,10 @@ textarea:focus-visible,
 .energyChart line { stroke: var(--border); stroke-width: 1; }
 .energyChart polyline { fill: none; stroke: var(--info); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
 .energyChart .energyNetLine { stroke: var(--accent); }
+/* Battery thermal projection chart */
+.energyChart .thermalLimitLine { stroke: #ff4d4f; stroke-width: 1.5; stroke-dasharray: 6 5; opacity: 0.85; }
+.energyChart .thermalProjLine { stroke-width: 2.6; stroke-dasharray: 7 5; fill: none; stroke-linecap: round; } /* stroke color set inline by margin */
+.energyChart .thermalNowDot { fill: var(--text); }
 .energyChart text { font-weight: 800; }
 .energyChart .lapBreak line { stroke: var(--best); stroke-dasharray: 4 4; }
 .energyChart .lapBreak text { fill: var(--best); }

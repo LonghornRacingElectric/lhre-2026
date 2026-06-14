@@ -132,6 +132,9 @@ type LiveLap = {
   distanceM: number;
   avgSpeedMps: number | null;
   samples: LiveSample[];
+  /** Peak battery (max-cell) temp °C reached during this lap, captured at close
+   *  from the lap's samples. Drives the battery thermal-projection trend. */
+  maxCellTempC?: number;
   notes?: string; // per-lap note (synced to the classifier DB)
 };
 type LiveSessionState = {
@@ -513,6 +516,13 @@ function App() {
   const [recordingBusy, setRecordingBusy] = useState(false);
   const [energyWindowS, setEnergyWindowS] = useState(60);
   const [targetLaps, setTargetLaps] = useState(() => Number(localStorage.getItem("motec-target-laps") || 0));
+  // Battery max-cell-temp limit (°C) for the thermal projection — the line the
+  // projection colors against. Configurable trackside (the team is still dialing
+  // it in); persisted. Default 60 °C (the design target from PTN thermals).
+  const [batteryTempLimitC, setBatteryTempLimitC] = useState(() => {
+    const v = Number(localStorage.getItem("battery-temp-limit-c"));
+    return Number.isFinite(v) && v > 0 ? v : 60;
+  });
   const [targetEnergyKwh, setTargetEnergyKwh] = useState(() => Number(localStorage.getItem("motec-target-energy-kwh") || PACK_ENERGY_KWH));
   const [soeCutoffCellV, setSoeCutoffCellV] = useState(loadSoeCutoffCellV);
   const [selectedLapIds, setSelectedLapIds] = useState<Set<string>>(() => new Set());
@@ -667,6 +677,29 @@ function App() {
   const totalBudgetWh = targetEnergyKwh > 0 ? targetEnergyKwh * 1000 : null;
   const remainingBudgetWh = totalBudgetWh != null ? totalBudgetWh - energyUsedWh : null;
   const lapsRemainingPlan = targetLaps > 0 ? Math.max(0, targetLaps - lapsCompletedPlan) : null;
+
+  // --- battery thermal projection (computa's 80/20 recent-lap trend) ---------
+  // Per-lap PEAK battery temp from SELECTED laps; project to the finish with a
+  // conservative deg/lap slope: max(median(last 3 deltas), last delta), clamped
+  // >= 0 so it catches the end-of-run ramp and biases hot. Frontend-only.
+  const batteryThermalProjection = useMemo(() => {
+    const lapTemps = selectedLaps
+      .map((lap) => lap.maxCellTempC)
+      .filter((t): t is number => t != null && Number.isFinite(t));
+    const currentTemp = maxCellTempFor(filteredLiveState.lastSample);
+    if (lapTemps.length < 2 || currentTemp == null) {
+      return { ready: false as const, lapTemps, currentTemp };
+    }
+    const deltas: number[] = [];
+    for (let i = 1; i < lapTemps.length; i++) deltas.push(lapTemps[i] - lapTemps[i - 1]);
+    const recent = deltas.slice(-3);
+    const slopeDegPerLap = Math.max(0, Math.max(medianOf(recent), deltas[deltas.length - 1]));
+    const projectedFinishTemp = lapsRemainingPlan != null
+      ? currentTemp + slopeDegPerLap * lapsRemainingPlan
+      : null;
+    return { ready: true as const, lapTemps, currentTemp, slopeDegPerLap, projectedFinishTemp };
+  }, [selectedLaps, filteredLiveState.lastSample, lapsRemainingPlan]);
+
   // Headline budget: how much you can spend on EACH remaining lap from here.
   // Over-use shrinks remaining Wh → this drops; under-use grows it → this rises.
   const dynamicLapBudgetWh = remainingBudgetWh != null && lapsRemainingPlan != null && lapsRemainingPlan > 0
@@ -2239,6 +2272,7 @@ function App() {
             distanceM: lapDistanceM,
             avgSpeedMps: durationMs > 0 && lapDistanceM > 0 ? lapDistanceM / (durationMs / 1000) : null,
             samples: [],
+            maxCellTempC: lapMaxCellTempC(lapSamples),
           };
           laps.push(completedLap);
         }
@@ -2357,6 +2391,7 @@ function App() {
       distanceM: current.lapDistanceM,
       avgSpeedMps: durationMs > 0 && current.lapDistanceM > 0 ? current.lapDistanceM / (durationMs / 1000) : null,
       samples: [],
+      maxCellTempC: lapMaxCellTempC(current.lapSamples),
     };
     laps.push(completedLap);
     const nextState = {
@@ -3574,6 +3609,14 @@ function App() {
                   windowS={energyWindowS}
                 />
               </Panel>
+              <BatteryThermalProjectionPanel
+                projection={batteryThermalProjection}
+                targetLaps={targetLaps}
+                lapsCompleted={lapsCompletedPlan}
+                limitC={batteryTempLimitC}
+                onLimitC={(v) => { setBatteryTempLimitC(v); localStorage.setItem("battery-temp-limit-c", String(v)); }}
+                isMirror={isMirror}
+              />
               <Panel title="Vitals Window" icon={<Gauge size={18} />}>
                 <VitalsWindowChart state={filteredLiveState} windowS={energyWindowS} />
               </Panel>
@@ -4546,6 +4589,88 @@ function TractionControlPanel({ sample }: { sample: LiveSample | null }) {
         <Metric label="Final (TC)" value={fmtNm(finalTq)} tone={tcActive ? "" : "good"} />
       </div>
       <small className="muted">VCU torque path: lookup → derated → power-limited → traction-controlled.</small>
+    </Panel>
+  );
+}
+
+// Battery thermal projection — computa's 80/20 recent-lap trend (NOT a thermal
+// model). Plots per-lap PEAK battery temp vs lap, then a dashed projection from
+// the current temp to the finish at the recent deg/lap slope, against a limit
+// line. Battery only. "Color by margin to limit, not confidence."
+function BatteryThermalProjectionPanel({
+  projection, targetLaps, lapsCompleted, limitC, onLimitC, isMirror,
+}: {
+  projection: { ready: boolean; lapTemps: number[]; currentTemp: number | null; slopeDegPerLap?: number; projectedFinishTemp?: number | null };
+  targetLaps: number;
+  lapsCompleted: number;
+  limitC: number;
+  onLimitC: (v: number) => void;
+  isMirror: boolean;
+}) {
+  const width = 900, height = 180, padLeft = 52, padRight = 16, padTop = 16, padBottom = 28;
+  const plotW = width - padLeft - padRight;
+  const plotH = height - padTop - padBottom;
+  const { ready, lapTemps, currentTemp } = projection;
+  const proj = ready ? projection.projectedFinishTemp ?? null : null;
+  const slope = ready ? projection.slopeDegPerLap ?? 0 : 0;
+  const fmt1 = (v: number | null | undefined) => (v == null ? "--" : v.toFixed(1));
+  const overLimit = proj != null && proj >= limitC;
+  const nearLimit = proj != null && proj >= limitC - 5;
+  const projColor = overLimit ? "#ff4d4f" : nearLimit ? "#FFD700" : "var(--fresh)";
+
+  const limitInput = (
+    <label>
+      <span>Limit °C</span>
+      <input
+        type="number" min={20} max={120} step={1} value={limitC} disabled={isMirror}
+        onChange={(e) => onLimitC(Math.max(20, Math.min(120, Number(e.target.value) || 60)))}
+      />
+    </label>
+  );
+
+  if (!ready || currentTemp == null) {
+    return (
+      <Panel title="Battery Thermal Projection" icon={<Thermometer size={18} />}
+        headerRight={<span style={{ opacity: 0.7 }}>collecting…</span>}>
+        <div className="energyToolbar">{limitInput}</div>
+        <small className="muted">Collecting — need 2+ completed (selected) laps with battery temp to project.</small>
+      </Panel>
+    );
+  }
+
+  const xMax = Math.max(targetLaps || 0, lapsCompleted, lapTemps.length, 1);
+  const xOf = (lap: number) => padLeft + (lap / xMax) * plotW;
+  const ys = [...lapTemps, limitC, currentTemp];
+  if (proj != null) ys.push(proj);
+  const yLo = Math.min(...ys) - 3;
+  const yHi = Math.max(...ys) + 3;
+  const yOf = (t: number) => padTop + (1 - (t - yLo) / Math.max(1, yHi - yLo)) * plotH;
+  const histPts = lapTemps.map((t, i) => `${xOf(i + 1).toFixed(1)},${yOf(t).toFixed(1)}`).join(" ");
+
+  return (
+    <Panel title="Battery Thermal Projection" icon={<Thermometer size={18} />}
+      headerRight={<span style={{ color: projColor }}><strong>{fmt1(currentTemp)}</strong>°C now → <strong>{fmt1(proj)}</strong>°C @ finish</span>}>
+      <div className="energyToolbar">
+        <Metric label="Now" value={`${fmt1(currentTemp)} °C`} />
+        <Metric label="@ Finish" value={proj == null ? "--" : `${fmt1(proj)} °C`} />
+        <Metric label="Trend" value={`+${fmt1(slope)} °C/lap`} />
+        {limitInput}
+      </div>
+      <svg className="energyChart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Battery temperature projected to finish">
+        <rect x={padLeft} y={padTop} width={plotW} height={plotH} rx="6" />
+        <line className="thermalLimitLine" x1={padLeft} x2={width - padRight} y1={yOf(limitC)} y2={yOf(limitC)} />
+        <text x={width - padRight} y={yOf(limitC) - 4} textAnchor="end">limit {limitC}°C</text>
+        {histPts ? <polyline className="energyNetLine" points={histPts} /> : null}
+        {proj != null && targetLaps > 0 ? (
+          <line className="thermalProjLine" x1={xOf(lapsCompleted)} y1={yOf(currentTemp)} x2={xOf(targetLaps)} y2={yOf(proj)} style={{ stroke: projColor }} />
+        ) : null}
+        <circle className="thermalNowDot" cx={xOf(lapsCompleted)} cy={yOf(currentTemp)} r="4" />
+        <text x={padLeft} y={height - 8}>lap 0</text>
+        <text x={width - padRight - 36} y={height - 8}>{targetLaps > 0 ? `lap ${targetLaps}` : "now"}</text>
+        <text x={8} y={padTop + 10}>{yHi.toFixed(0)}°C</text>
+        <text x={8} y={height - padBottom}>{yLo.toFixed(0)}°C</text>
+      </svg>
+      <small className="muted">Linear recent-lap trend — projects current battery temp by deg/lap to the finish (selected laps, biased hot). Not a thermal model.</small>
     </Panel>
   );
 }
@@ -6674,6 +6799,24 @@ function maxCellTempFor(sample: LiveSample | null) {
     firstLiveValue(sample.values, ["cell_bottom_temp", "thermal_cell_bottom_temp"]),
   ].map(validTemp).filter((value): value is number => value != null && value > 0);
   return candidates.length ? Math.max(...candidates) : null;
+}
+
+// Peak battery (max-cell) temp °C over a lap's samples — captured at lap close
+// as the lap's representative battery temp for the thermal-projection trend.
+function lapMaxCellTempC(samples: LiveSample[]): number | undefined {
+  let max: number | null = null;
+  for (const s of samples) {
+    const t = maxCellTempFor(s);
+    if (t != null && (max == null || t > max)) max = t;
+  }
+  return max ?? undefined;
+}
+
+function medianOf(values: number[]): number {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 function packVoltageFor(sample: LiveSample | null) {
