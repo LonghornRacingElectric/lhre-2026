@@ -12,15 +12,19 @@
 
 // clang-format off
 #define VCU_DEFAULT_PARAMS \
+    .brake_enable_threshold = 0.1f, \
+    .buzzer_duration_ms     = 1200u, \
     .apps = { \
         .apps1_min_adc_v          = 1.750f, \
         .apps1_max_adc_v          = 1.520f, \
         .apps2_min_adc_v          = 0.190f, \
         .apps2_max_adc_v          = -0.020f, \
-        .implaus_debounce_time_ms = 100u, \
+        .min_travel_threshold     = 0.1f, \
+        .max_travel_restore_threshold = 0.05f, \
         .max_allowable_diff       = 0.15f, \
-        .min_travel_deadzone      = 0.09f, \
         .max_travel_deadzone      = 0.88f, \
+        .min_travel_deadzone      = 0.09f, \
+        .implaus_debounce_time_ms = 100u, \
         .pedal_ema_alpha          = 0.35f, \
     }, \
     .bse = { \
@@ -84,9 +88,7 @@
         }, \
         .min_soe_cell_voltage = 2.8f, \
         .max_soe_cell_voltage = 4.2f, \
-    }, \
-    .buzzer_duration_ms     = 1200u, \
-    .brake_enable_threshold = 0.1f
+    }
 // clang-format on
 
 #endif /* DEFAULT_PARAMS_H */

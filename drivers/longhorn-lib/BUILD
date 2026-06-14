@@ -7,6 +7,7 @@ cc_library(
     name = "longhorn_led",
     srcs = ["led_base.c"],
     hdrs = ["led_base.h"],
+    copts = MCU_FLAGS,
     include_prefix = "longhorn",
     visibility = ["//visibility:public"],
 )
@@ -49,6 +50,7 @@ cc_library(
         "generated_can_stm32g4",
         "//drivers/stm32g4:freertos_headers",
         "//drivers/stm32g4:stm32_headers",
+        "//drivers/lal",
     ],
 )
 
@@ -263,9 +265,11 @@ filegroup(
     srcs = glob(
         [
             "**/*.c",
+            "**/*.cpp",
         ],
         exclude = [
             "tests/*.c",
+            "tests/*.cpp",
         ],
     ),
     visibility = ["//visibility:public"],

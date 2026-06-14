@@ -1,6 +1,10 @@
 #ifndef DRIVERS_LONGHORN_LIB_RTOS_LOGGER_H
 #define DRIVERS_LONGHORN_LIB_RTOS_LOGGER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "longhorn/usb_base.h"
 
 typedef enum LOG_LEVEL {
@@ -81,14 +85,14 @@ typedef enum LOG_LEVEL {
 #define BHWHT "\e[1;97m"
 
 // Reset
-#define reset "\e[0m"
-#define CRESET "\e[0m"
-#define COLOR_RESET "\e[0m"
+#define LOG_RESET_COLOR "\e[0m"
 
-#define INFO_PREFIX BLU "[INFO]" reset
-#define SUCCESS_PREFIX GRN "[SUCCESS]" reset
-#define WARNING_PREFIX YEL "[WARNING]" reset
-#define ERROR_PREFIX RED "[ERROR]" reset
+// Terminal string definitions
+#define CLEAR_SCREEN "\033[2J\033[H"
+#define INFO_PREFIX BLU "[INFO]" LOG_RESET_COLOR
+#define SUCCESS_PREFIX GRN "[SUCCESS]" LOG_RESET_COLOR
+#define WARNING_PREFIX YEL "[WARNING]" LOG_RESET_COLOR
+#define ERROR_PREFIX RED "[ERROR]" LOG_RESET_COLOR
 
 /**
  * @brief Initializes the logging system.
@@ -115,5 +119,9 @@ int init_logging(CDC_Transmit_Fn_ptr transmit_fn);
  * @param ...    Variable arguments for the format string.
  */
 void log_printf(LOG_LEVEL log_level, const char* format, ...);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

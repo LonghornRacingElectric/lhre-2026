@@ -27,7 +27,7 @@ void can_init(can_config_t *config) {
   // set our can library to use the correct functions
   can = *config;
 
-  fw_update_init(can.write_memory_fn, can.abort_update_fn);
+  fw_update_init(can.write_memory, can.abort_update);
 
   dfu_response_msg = can_get_message_handle(
       &dfu_response, DEVICE_FIRMWARE_UPDATE_RESPONSE_PACKET_ID,
@@ -294,8 +294,8 @@ void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t RxFifo0ITs) {
                                                     &dfu_command_packet);
 
               if (dfu_command_packet.command == UPDATE_COMMAND_WRITE &&
-                  can.fw_update_begin_fn) {
-                can.fw_update_begin_fn(dfu_command_packet.num_blocks);
+                  can.fw_update_begin) {
+                can.fw_update_begin(dfu_command_packet.num_blocks);
               }
 
               update_response_t response =

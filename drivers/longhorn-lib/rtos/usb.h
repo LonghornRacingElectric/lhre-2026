@@ -7,6 +7,11 @@
 
 #include "FreeRTOS.h"
 #include "longhorn/usb_base.h"
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief Initializes a thread-safe variant of the USB logging interface.
@@ -25,5 +30,9 @@ void init_usb(CDC_Transmit_Fn_ptr transmit_fn);
  * @param ... any arguments that should be applied to the format
  */
 void ts_printf(const char* format, ...);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

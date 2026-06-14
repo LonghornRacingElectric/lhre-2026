@@ -5,13 +5,16 @@
 #include "longhorn/can_base.h"
 #include "task.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief Initialize the thread-safe CAN library wrapper.
  *        Calls can_init internally and initializes synchronization primitives.
  *
- * @param config configuration for all the functions that the lib needs to call
  */
-void can_rtos_init(can_config_t *config);
+void can_rtos_init(void);
 
 /**
  * @brief Thread-safe registration of a CAN interface.
@@ -75,5 +78,9 @@ BaseType_t can_rtos_start_transceiver_task(UBaseType_t priority);
  * @return BaseType_t pdPASS if successful
  */
 BaseType_t can_rtos_start_receiver_task(UBaseType_t priority);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // LONGHORN_LIB_RTOS_CAN_H

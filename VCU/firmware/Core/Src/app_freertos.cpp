@@ -7,33 +7,38 @@
  */
 /* USER CODE END Header */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "cmsis_os.h"
-#include "main.h"
 #include "task.h"
-
-#include "usb_device.h"
+#include "main.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
 #include "adc.h"
 #include "tim.h"
 #include "usbd_cdc_if.h"
+#include "usb_device.h"
+#include "ota/ota_flash.h"
 
 #include "longhorn/rtos/dfu.h"
 #include "longhorn/rtos/led.h"
 #include "longhorn/rtos/logger.h"
 #include "longhorn/rtos/usb.h"
 #include "longhorn/usb_base.h"
-#include "ota/ota_flash.h"
+#include "vcu_can.h"
 
 #include "vcu_model/inc/vcu_inputs.h"
 #include "vcu_model/inc/vcu_model.h"
 #include "vcu_model/inc/vcu_outputs.h"
 
-#include "vcu_can.h"
+#ifdef __cplusplus
+}
+#endif
 
 #include "params/acceleration_params.h"
 #include "params/autocross_params.h"
@@ -43,6 +48,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <math.h>
+
+#include "drivers/lal/stm32/Stm32Can.hpp"
+#include "drivers/lal/stm32/Stm32Led.hpp"
+#include "drivers/lal/stm32/Stm32Dfu.hpp"
+#include "drivers/lal/stm32/Stm32Usb.hpp"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -58,6 +68,12 @@ extern volatile uint16_t adc3_dma_buf[2];
 // BSE from ADC2
 extern volatile uint16_t adc2_dma_buf[2];
 
+extern FDCAN_HandleTypeDef hfdcan1;
+extern FDCAN_HandleTypeDef hfdcan2;
+
+static lal::Stm32Can critical_bus_impl(&hfdcan1);
+static lal::Stm32Can data_acq_bus_impl(&hfdcan2);
+
 // Thread handles
 osThreadId_t systemTaskHandle;
 osThreadId_t controlTaskHandle;
@@ -66,14 +82,14 @@ osThreadId_t ledHandle;
 // Thread attributes
 const osThreadAttr_t systemTask_attributes = {
     .name = "SystemTask",
-    .priority = osPriorityNormal,
     .stack_size = 512 * 4,
+    .priority = osPriorityNormal,
 };
 
 const osThreadAttr_t controlTask_attributes = {
     .name = "ControlTask",
-    .priority = osPriorityAboveNormal,
     .stack_size = 2048,
+    .priority = osPriorityAboveNormal,
 };
 /* USER CODE END PTD */
 
@@ -102,7 +118,7 @@ const osThreadAttr_t controlTask_attributes = {
 
 static vcu_parameters_t s_params;
 
-static vcu_model_context_t ctx = {0};
+static vcu_model_context_t ctx = {};
 
 
 /* USER CODE END Variables */
@@ -110,8 +126,9 @@ static vcu_model_context_t ctx = {0};
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
     .name = "defaultTask",
+    .stack_size = 128 * 4,
     .priority = (osPriority_t)osPriorityNormal,
-    .stack_size = 128 * 4};
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -127,7 +144,7 @@ static float steering_sensor_voltage_to_angle_deg(float sensor_voltage_v);
 
 void StartDefaultTask(void *argument);
 
-void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
+extern "C" void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /**
  * @brief  FreeRTOS initialization
@@ -145,13 +162,14 @@ void MX_FREERTOS_Init(void) {
       .ccr1 = &TIM2->CCR2,
       .ccr2 = &TIM2->CCR1,
       .ccr3 = &TIM2->CCR3,
+      .timer_handle = &htim2,
+      .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
       .channel1 = TIM_CHANNEL_1,
       .channel2 = TIM_CHANNEL_2,
       .channel3 = TIM_CHANNEL_3,
-      .pwm_start = (HAL_PWM_Start_Fn)HAL_TIM_PWM_Start,
-      .timer_handle = &htim2,
   };
-  led_init(&led);
+  lal::Stm32Led led_driver(&led);
+  led_driver.init();
   ledHandle = led_start_thread();
 
   // Create main control task
@@ -226,6 +244,7 @@ static float steering_sensor_voltage_to_angle_deg(float sensor_voltage_v) {
   float raw_angle_deg = (angle_pct * STEERING_SENSOR_ANGLE_RANGE_DEG) -
          (0.5f * STEERING_SENSOR_ANGLE_RANGE_DEG);
   float adjusted_angle_deg = raw_angle_deg + STEERING_SENSOR_ANGLE_OFFSET_DEG;
+  return adjusted_angle_deg;
 }
 
 static float steering_sensor_voltage_to_percent(float sensor_voltage_v) {
@@ -246,6 +265,8 @@ static float steering_sensor_voltage_to_percent(float sensor_voltage_v) {
 void StartSystemTask(void *argument) {
   // USB + logging
   MX_USB_Device_Init();
+  lal::Stm32Usb usb(CDC_Transmit_FS);
+  usb.init();
 
   if (init_logging(CDC_Transmit_FS) == -1) {
     // If USB logging fails, stop LED thread so we notice
@@ -254,14 +275,15 @@ void StartSystemTask(void *argument) {
 
   // DFU (bootloader) config
   dfu_config dfu = {
+      .reset_fn = (SystemReset_fn)HAL_NVIC_SystemReset,
       .delay_fn = (Delay_fn)osDelay,
+      .pin_set_fn = (PinSet_fn)HAL_GPIO_WritePin,
       .gpiox = GPIOB,
       .pin = GPIO_PIN_7,
-      .pin_set_fn = (PinSet_fn)HAL_GPIO_WritePin,
-      .reset_fn = (SystemReset_fn)HAL_NVIC_SystemReset,
       .set_bank1_fn = (SetBank1_fn)ota_set_bank1,
   };
-  init_dfu(dfu);
+  lal::Stm32Dfu dfu_driver(dfu);
+  dfu_driver.init();
   dfu_start_thread();
 
   // Start DMA conversions for APPS (ADC3) and BSE (ADC2) once
@@ -273,7 +295,7 @@ void StartSystemTask(void *argument) {
   }
 
   // Initialize CAN (longhorn-lib, inverter torque command + feedback)
-  vcu_can_init();
+  vcu_can_init(&critical_bus_impl, &data_acq_bus_impl);
 
   // Nothing else to do here; keep the task alive for future use
   for (;;) {

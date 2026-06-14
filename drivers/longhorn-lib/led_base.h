@@ -3,6 +3,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** Time in seconds we want the Rainbow LED to cycle back to starting color */
 #define RAINBOW_CYCLE_TIME_S 5.0f
 
@@ -54,5 +58,9 @@ void led_init(const rainbow_led_t* config);
  *
  */
 void led_disable();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

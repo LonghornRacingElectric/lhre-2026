@@ -10,12 +10,15 @@ firmware_project_g4(
     extra_deps = [
         "//VCU/model:vcu_model_2026_embedded",
         "//HVC/firmware:hvc_state_machine_h",
+        "//drivers/lal:lal_stm32g4",
     ],
     extra_includes = ["vcu/"],
     extra_srcs = glob([
         "vcu/*.c",
         "vcu/*.h",
-    ]),
+        "vcu/*.cpp",
+        "vcu/*.hpp",
+    ], allow_empty = True),
     linker_script = "STM32G474XX_FLASH.ld",
     startup_script = "startup_stm32g474xx.s",
     usb_device_name = "Vehicle Control Unit",

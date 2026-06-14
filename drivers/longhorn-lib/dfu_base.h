@@ -6,6 +6,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef void (*SystemReset_fn)(void);
 typedef void (*Delay_fn)(uint32_t delay);
 typedef void (*PinSet_fn)(void *gpiox, uint16_t pin, uint8_t pin_state);
@@ -48,5 +52,9 @@ void dfu_receiveData(uint8_t *buf, uint32_t len);
  *
  */
 void check_dfu();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

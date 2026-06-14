@@ -8,6 +8,10 @@
 #include "longhorn/can_hal.h"
 #include "longhorn/fw_update.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Function Pointers for HAL functions */
 
 #define RECEIVE_TABLE_SIZE 61
@@ -77,9 +81,9 @@ typedef struct can_config_t {
   Free_fn free_fn;
   uint32_t init_bit;
   can_device_t device_id;
-  write_memory_fn write_memory_fn;
-  fw_update_begin_fn fw_update_begin_fn;
-  abort_update_fn abort_update_fn;
+  write_memory_fn write_memory;
+  fw_update_begin_fn fw_update_begin;
+  abort_update_fn abort_update;
 } can_config_t;
 
 typedef struct can_handle_t {
@@ -111,6 +115,7 @@ typedef struct can_receive_message_t {
 
 typedef struct can_interface_t {
   void *handle;
+  void *lal_ican;
   struct can_message_t *_head;
   struct can_message_t *_tail;
   uint32_t dropped_packets;
@@ -180,5 +185,9 @@ bool message_timed_out(can_receive_message_t *msg, uint32_t timeout_ms);
 bool message_timed_out_sticky(can_receive_message_t *msg, uint32_t timeout_ms);
 
 void can_reset_internals(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // LONGHORN_LIB_CAN_BASE_H

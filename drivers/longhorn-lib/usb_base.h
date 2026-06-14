@@ -4,6 +4,10 @@
 #include <stdarg.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef uint8_t (*CDC_Transmit_Fn_ptr)(uint8_t* Buf, uint16_t Len);
 
 /**
@@ -43,6 +47,10 @@ void usb_printf(const char* format, ...);
  * @param format
  * @param args
  */
-void v_usb_printf(const char* format, va_list args);
+void v_usb_printf(const char *format, va_list args);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // DRIVERS_LONGHORN_LIB_USB_BASE_H

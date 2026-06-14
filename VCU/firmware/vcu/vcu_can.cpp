@@ -1,6 +1,10 @@
 
 #include "vcu_can.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "FreeRTOS.h"
 #include "cmsis_os.h"
 #include "fdcan.h"
@@ -12,6 +16,10 @@
 #include <PRNDL.h>
 #include <stm32g4xx_hal_fdcan.h>
 #include <vcu_inputs.h>
+
+#ifdef __cplusplus
+}
+#endif
 
 /** ==
  *  CAN Interface and Configuration Setup
@@ -89,38 +97,18 @@ static uint8_t pack_bse_faults(const vcu_outputs_t *out);
  * @brief Initializes the CAN interface with the RTOS library and registers
  * handlers. Also starts the CAN transceiver and receiver tasks.
  */
-void vcu_can_init(void) {
+void vcu_can_init(lal::ICan* critical_bus_ptr, lal::ICan* data_acq_bus_ptr) {
   ota_flash_init();
-
-  can_config_t vcu_can_config = {
-      .init_fn = (CAN_Init_fn)HAL_FDCAN_Init,
-      .start_fn = (CAN_Start_fn)HAL_FDCAN_Start,
-      .noti_fn = (CAN_ActivateNotifications_fn)HAL_FDCAN_ActivateNotification,
-      .stop_fn = (CAN_Stop_fn)HAL_FDCAN_Stop,
-      .add_to_queue_fn = (CAN_AddToQ_fn)HAL_FDCAN_AddMessageToTxFifoQ,
-      .get_tx_fifo_free_level_fn =
-          (CAN_GetTxFifoFreeLevel_fn)HAL_FDCAN_GetTxFifoFreeLevel,
-      .get_rx_message_fn = (CAN_GetRxMessage_fn)HAL_FDCAN_GetRxMessage,
-      .get_rx_fifo_fill_level_fn =
-          (CAN_GetRxFifoFillLevel_fn)HAL_FDCAN_GetRxFifoFillLevel,
-      .tick_fn = HAL_GetTick,
-      .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
-      .malloc_fn = pvPortMalloc,
-      .free_fn = vPortFree,
-      .init_bit = FDCAN_CCCR_INIT,
-      .device_id = DEVICE_ID_VCU,
-      .write_memory_fn = ota_flash_write_memory,
-      .fw_update_begin_fn = ota_flash_begin,
-      .abort_update_fn = ota_flash_abort,
-  };
 
   critical_bus.handle = &hfdcan1;
   critical_bus.cccr_reg = &hfdcan1.Instance->CCCR;
+  critical_bus.lal_ican = critical_bus_ptr;
 
   data_acq_bus.handle = &hfdcan2;
   data_acq_bus.cccr_reg = &hfdcan2.Instance->CCCR;
+  data_acq_bus.lal_ican = data_acq_bus_ptr;
 
-  can_rtos_init(&vcu_can_config);
+  can_rtos_init();
 
   // Register physical interfaces (init only, doesn't start the peripheral)
   can_rtos_register_interface(&critical_bus);

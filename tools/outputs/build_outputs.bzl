@@ -196,6 +196,8 @@ def firmware_project_g4(
             srcs = native.glob([
                        "Core/Src/**/*.c",
                        "Core/Inc/**/*.h",
+                       "Core/Src/**/*.cpp",
+                       "Core/Inc/**/*.hpp",
                    ], allow_empty = True) +
                    [
                        # Include the HAL for compilation
@@ -217,6 +219,7 @@ def firmware_project_g4(
                 "-lnosys",
                 "-lc",
                 "-lm",
+                "-lstdc++",
                 "-u _printf_float",
             ],
             defines = final_defines + location_defines + ["USE_HAL_DRIVER"],

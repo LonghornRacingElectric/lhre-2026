@@ -4,6 +4,10 @@
 #include "cmsis_os2.h"
 #include "longhorn/dfu_base.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief Initializes DFU
  *
@@ -18,5 +22,9 @@ void init_dfu(dfu_config config);
  * @return osThreadId_t the thread id handle
  */
 osThreadId_t dfu_start_thread();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

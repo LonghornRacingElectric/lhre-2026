@@ -7,11 +7,11 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
+#include "drivers/lal/ICan.hpp"
 extern "C" {
 #endif
 
-
-void vcu_can_init(void);
+void vcu_can_init(lal::ICan* critical_bus, lal::ICan* data_acq_bus);
 
 // Send torque request in Nm
 void vcu_can_set_torque(float torque_nm);
