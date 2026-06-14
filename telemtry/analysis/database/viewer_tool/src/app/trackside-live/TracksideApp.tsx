@@ -644,12 +644,22 @@ function App() {
     [torqueParamSetId],
   );
   const targetEnergyPerLapWh = targetLaps > 0 && targetEnergyKwh > 0 ? (targetEnergyKwh * 1000) / targetLaps : null;
+  // Laps the strategist counts as REAL completed laps = the checkbox selection in
+  // the live list. Deselecting a double-counted trigger or a driver-change lap
+  // drops the completed count (and raises laps-remaining), so the plan/budget
+  // aren't offset by them. Every lap is auto-selected on completion, so the
+  // default count equals the raw lap count until something is deselected.
+  const selectedLaps = useMemo(() => liveState.laps.filter((lap) => selectedLapIds.has(lap.id)), [liveState.laps, selectedLapIds]);
   // --- dynamic per-lap energy budget (Wh), recomputed each completed lap ---
+  // energyUsedWh stays the ACTUAL total over ALL laps: a deselected lap's energy
+  // was still physically consumed, and a double-count splits one real lap's
+  // energy across two records (total conserved). So only the COUNT follows the
+  // selection — the energy figure must not.
   const energyUsedWh = useMemo(
     () => liveState.laps.reduce((sum, lap) => sum + (lap.energyWh || 0), 0),
     [liveState.laps],
   );
-  const lapsCompletedPlan = liveState.laps.length;
+  const lapsCompletedPlan = selectedLaps.length;
   const totalBudgetWh = targetEnergyKwh > 0 ? targetEnergyKwh * 1000 : null;
   const remainingBudgetWh = totalBudgetWh != null ? totalBudgetWh - energyUsedWh : null;
   const lapsRemainingPlan = targetLaps > 0 ? Math.max(0, targetLaps - lapsCompletedPlan) : null;
@@ -684,7 +694,6 @@ function App() {
       setSoeCutoffCellV(normalizeSoeCutoffCellV(p.soeCutoffCellV));
     }
   });
-  const selectedLaps = useMemo(() => liveState.laps.filter((lap) => selectedLapIds.has(lap.id)), [liveState.laps, selectedLapIds]);
   const lapAverages = useMemo(() => {
     if (!selectedLaps.length) {
       return {
@@ -701,11 +710,11 @@ function App() {
     const avgEnergyInWh = selectedLaps.reduce((sum, lap) => sum + lapEnergyInWh(lap), 0) / selectedLaps.length;
     return { count: selectedLaps.length, avgMs, avgEnergyWh, avgEnergyOutWh, avgEnergyInWh };
   }, [selectedLaps]);
-  // Hero "Lap" tile reads COMPLETED laps, not click count. A lap is counted
-  // when its end-of-lap click closes it (or when GPS auto-detect crosses S/F).
-  // The lap currently in progress is implied by the running timer above, not
-  // by the counter — so 4/22 means "4 done, on the 5th".
-  const currentLapNumber = liveState.laps.length;
+  // Hero "Lap" tile reads SELECTED completed laps (same source as the plan's
+  // lapsCompletedPlan), so deselecting a double-count / driver-change lap in the
+  // live list updates "4/22" to the real count. The lap in progress is implied
+  // by the running timer above, not the counter — so 4/22 means "4 done, on 5th".
+  const currentLapNumber = selectedLaps.length;
   const liveSectorCount = sessionFromFile && hasStartFinish && splitGates.length ? splitGates.length + 1 : 0;
   const liveLapElapsedMs = liveState.lastSample && liveState.lapStartMs ? Math.max(0, liveState.lastSample.t - liveState.lapStartMs) : 0;
   // Wall-clock ticker for the manual recording timer (runs only while recording).
@@ -3456,7 +3465,13 @@ function App() {
                 running={liveState.running}
               />
               </div>
-              <Panel title="Live Laps" icon={<Timer size={18} />}>
+              <Panel
+                title="Live Laps"
+                icon={<Timer size={18} />}
+                headerRight={liveState.laps.length !== selectedLaps.length
+                  ? <><strong>{selectedLaps.length}</strong>/{liveState.laps.length} counted</>
+                  : undefined}
+              >
                 <LiveLapTable
                   laps={liveState.laps}
                   bestLap={bestLap}
@@ -5086,7 +5101,7 @@ function LiveLapTable({
         <table className="lapTable">
           <thead>
             <tr>
-              <th aria-label="Include in average" />
+              <th aria-label="Count this lap (completed total + average); deselect double-counts / driver-change laps" title="Counts toward completed laps & the average. Deselect double-counts or driver-change laps to correct the lap count." />
               <th>Lap</th>
               <th>Time</th>
               {Array.from({ length: columns }, (_sector, index) => <th key={`sector-head-${index}`}>S{index + 1}</th>)}
@@ -5107,7 +5122,8 @@ function LiveLapTable({
                       type="checkbox"
                       checked={selected}
                       onChange={() => onToggleLap(lap.id)}
-                      aria-label={`Include ${lap.label} in average`}
+                      aria-label={`Count ${lap.label} toward completed laps and the average`}
+                      title={`Count ${lap.label} toward completed laps & the average — deselect a double-count or driver-change lap`}
                     />
                   </td>
                   <td className={bestLap?.id === lap.id ? "purpleText" : ""}>
