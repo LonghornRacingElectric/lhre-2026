@@ -15,6 +15,7 @@
 #include "hvc_bms.h"
 #include "hvc_faults.h"
 #include "can.h"
+#include "gpio.h"
 
 /* ---- Pack geometry --------------------------------------------------------*/
 #define NUM_SERIES_CELLS     130
