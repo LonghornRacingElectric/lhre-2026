@@ -47,7 +47,18 @@
 
 #define BAL_PERIOD_CYCLES        8
 #define THERMISTOR_PERIOD_CYCLES 4
-#define BAL_DCTO_MAX             0x3FU
+
+// ADBMS6830 discharge-timer fail-safe. The chip is powered off the cell
+// stack and keeps driving its commanded PWM duty cycle even if the HVC
+// goes away, until this on-chip timer expires. WRCFG (bms_write_config)
+// reloads the timer, so we refresh it every balance cycle while bleeds
+// are active (BAL_PERIOD_CYCLES * 250ms << this timeout) but a dead/absent
+// master stops refreshing it and the IC shuts off discharging on its own
+// within this window instead of cooking the die for hours.
+// DCTO_TIMEOUT (0) disables the timer entirely, so TIME_1MIN_OR_0_26HR (1)
+// is the shortest real timeout available.
+#define BAL_DCTO_RANGE           RANG_0_TO_63_MIN
+#define BAL_DCTO_VALUE           TIME_1MIN_OR_0_26HR
 
 // IC die-temperature derating for internal discharge switches.
 // ITMP in Status A: T(C) = (code * 150uV + 1.5V) / 7.5mV/C - 273  (datasheet Table 105)
@@ -148,8 +159,8 @@ static void bms_init_config(void)
         IC[ic].tx_cfgb.vov = SetOverVoltageThreshold(CELL_OVERVOLTAGE_THRESHOLD);
         IC[ic].tx_cfgb.vuv = SetUnderVoltageThreshold(CELL_UNDERVOLTAGE_THRESHOLD);
         IC[ic].tx_cfgb.dtmen = DTMEN_ON;
-        IC[ic].tx_cfgb.dtrng = RANG_0_TO_16_8_HR;
-        IC[ic].tx_cfgb.dcto = BAL_DCTO_MAX;
+        IC[ic].tx_cfgb.dtrng = BAL_DCTO_RANGE;
+        IC[ic].tx_cfgb.dcto = BAL_DCTO_VALUE;
         IC[ic].tx_cfgb.dcc = 0;
     }
     bms_clear_pwm_registers();
@@ -470,6 +481,15 @@ void bms_balance_cells(void)
     if (changed || (bal_was_active && !any_on)) {
         bms_write_pwm();
     }
+
+    // Reload each IC's discharge-timer fail-safe while bleeds are active.
+    // If the HVC stops running this cycle (e.g. master powered off), the
+    // timer is left to expire and the ADBMS6830 shuts off discharging on
+    // its own per BAL_DCTO_VALUE/BAL_DCTO_RANGE above.
+    if (any_on) {
+        bms_write_config();
+    }
+
     bal_was_active   = any_on;
     discharge_active = any_on ? 1 : 0;
 }
