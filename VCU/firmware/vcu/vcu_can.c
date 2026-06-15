@@ -54,6 +54,9 @@ static can_receive_message_t *inverter_voltage_mailbox_handle = NULL;
 
 static msg_inverter_faults_t inverter_faults_mailbox = {0};
 static can_receive_message_t *inverter_faults_mailbox_handle = NULL;
+
+static msg_vcu_mode_command_t vcu_mode_command_mailbox = {0};
+static can_receive_message_t *vcu_mode_command_mailbox_handle = NULL;
 // #define DUI_R2D_STATUS_TIMEOUT_MS 1000u
 
 // static bool dui_r2d_timed_out_logged = false;
@@ -328,6 +331,10 @@ void vcu_can_set_event_mode(uint8_t event_mode) {
   vcu_state_mailbox.event_mode = event_mode;
 }
 
+uint8_t vcu_can_get_requested_event_mode(void) {
+  return vcu_mode_command_mailbox.event_mode;
+}
+
 static float compute_brake_bias_pct(const vcu_outputs_t *out) {
   static float remembered_brake_bias = 0.0f;
   float total = out->bse1_psi + out->bse2_psi;
@@ -551,4 +558,12 @@ void vcu_can_add_receive_handlers(void) {
                                    inverter_faults_mailbox_handle);
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for inverter faults registered\n");
+
+  vcu_mode_command_mailbox_handle = can_get_receive_message_handle(
+      &vcu_mode_command_mailbox, VCU_MODE_COMMAND_ID,
+      (CAN_unpack_message_fn)unpack_vcu_mode_command);
+  can_rtos_register_receive_packet(&critical_bus,
+                                   vcu_mode_command_mailbox_handle);
+  log_printf(LOG_INFO,
+             "[VCU] CAN receive handler for VCU mode command registered\n");
 }
