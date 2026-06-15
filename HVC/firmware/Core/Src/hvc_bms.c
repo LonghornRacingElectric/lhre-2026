@@ -47,7 +47,9 @@
 
 #define BAL_PERIOD_CYCLES        8
 #define THERMISTOR_PERIOD_CYCLES 4
-#define BAL_DCTO_MAX             0x3FU
+#define BMS_UPDATE_PERIOD_MS     250U
+#define BAL_DCTO_REFRESH_MS      30000U
+#define BAL_DCTO_REFRESH_CYCLES  (BAL_DCTO_REFRESH_MS / BMS_UPDATE_PERIOD_MS)
 
 // IC die-temperature derating for internal discharge switches.
 // ITMP in Status A: T(C) = (code * 150uV + 1.5V) / 7.5mV/C - 273  (datasheet Table 105)
@@ -134,6 +136,22 @@ static void bms_clear_pwm_registers(void)
     }
 }
 
+static void bms_set_short_discharge_timeout(void)
+{
+    for (uint8_t ic = 0; ic < TOTAL_IC; ic++) {
+        IC[ic].tx_cfgb.dtmen = DTMEN_ON;
+        IC[ic].tx_cfgb.dtrng = RANG_0_TO_63_MIN;
+        IC[ic].tx_cfgb.dcto = TIME_1MIN_OR_0_26HR;
+        IC[ic].tx_cfgb.dcc = 0;
+    }
+}
+
+static void bms_refresh_discharge_timeout(void)
+{
+    bms_set_short_discharge_timeout();
+    bms_write_config();
+}
+
 static void bms_init_config(void)
 {
     memset(IC, 0, sizeof(IC));
@@ -147,11 +165,8 @@ static void bms_init_config(void)
 
         IC[ic].tx_cfgb.vov = SetOverVoltageThreshold(CELL_OVERVOLTAGE_THRESHOLD);
         IC[ic].tx_cfgb.vuv = SetUnderVoltageThreshold(CELL_UNDERVOLTAGE_THRESHOLD);
-        IC[ic].tx_cfgb.dtmen = DTMEN_ON;
-        IC[ic].tx_cfgb.dtrng = RANG_0_TO_16_8_HR;
-        IC[ic].tx_cfgb.dcto = BAL_DCTO_MAX;
-        IC[ic].tx_cfgb.dcc = 0;
     }
+    bms_set_short_discharge_timeout();
     bms_clear_pwm_registers();
 }
 
@@ -578,6 +593,25 @@ static void bms_update_discharge_mute(void)
     bms_set_discharge_muted(!balancing_allowed);
 }
 
+static void bms_update_discharge_timeout(uint32_t bms_tick)
+{
+    static uint32_t last_refresh_tick = 0;
+    static bool was_balancing = false;
+
+    if (!bal_was_active) {
+        was_balancing = false;
+        return;
+    }
+
+    if (!was_balancing ||
+        ((uint32_t)(bms_tick - last_refresh_tick) >= BAL_DCTO_REFRESH_CYCLES)) {
+        bms_refresh_discharge_timeout();
+        last_refresh_tick = bms_tick;
+    }
+
+    was_balancing = true;
+}
+
 void bms_update(void)
 {
     static uint32_t bms_tick = 0;
@@ -602,6 +636,7 @@ void bms_update(void)
     }
 
     bms_update_discharge_mute();
+    bms_update_discharge_timeout(bms_tick);
 }
 
 void bms_print_all_cells() {
@@ -632,7 +667,7 @@ void StartBmsTask(void *argument)
     bms_init();
     
     for (;;) {
-        osDelay(250);
+        osDelay(BMS_UPDATE_PERIOD_MS);
         bms_update();
     }
 }
