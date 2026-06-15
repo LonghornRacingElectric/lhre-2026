@@ -523,6 +523,9 @@ function App() {
     const v = Number(localStorage.getItem("battery-temp-limit-c"));
     return Number.isFinite(v) && v > 0 ? v : 60;
   });
+  // Diagnostics & charts (Live Data, energy/temp windows, non-battery temps) are
+  // collapsed by default so the glance panels fit without scrolling. Persisted.
+  const [showDiagnostics, setShowDiagnostics] = useState(() => localStorage.getItem("live-show-diagnostics") === "1");
   const [targetEnergyKwh, setTargetEnergyKwh] = useState(() => Number(localStorage.getItem("motec-target-energy-kwh") || PACK_ENERGY_KWH));
   const [soeCutoffCellV, setSoeCutoffCellV] = useState(loadSoeCutoffCellV);
   const [selectedLapIds, setSelectedLapIds] = useState<Set<string>>(() => new Set());
@@ -652,6 +655,8 @@ function App() {
     samples: filteredLiveSamples,
   }), [liveState, filteredLiveLastSample, filteredLiveSamples]);
   const bestLap = useMemo(() => liveState.laps.reduce<LiveLap | null>((best, lap) => (!best || lap.durationMs < best.durationMs ? lap : best), null), [liveState.laps]);
+  // Most recently completed lap — drives the hero "Last lap" (net + time) tile.
+  const lastLap = liveState.laps.length ? liveState.laps[liveState.laps.length - 1] : null;
   const bestSectors = useMemo(() => bestSectorTimes(liveState.laps), [liveState.laps]);
   const torqueParamSet = useMemo(
     () => VCU_TORQUE_PARAM_SETS.find((item) => item.id === torqueParamSetId) ?? VCU_TORQUE_PARAM_SETS[0],
@@ -3391,9 +3396,16 @@ function App() {
             <div className="liveHeroStats">
               {/* Tier 1 race-state metrics — biggest, glanced every second. */}
               <div className="heroMetricRow">
+                <div className="heroLapBig">
+                  <small>LAP</small>
+                  <strong>{currentLapNumber}<span className="heroLapTarget"> / {targetLaps > 0 ? targetLaps : "—"}</span></strong>
+                </div>
+                <div className="heroLastLap">
+                  <small>LAST LAP</small>
+                  <strong>{lastLap ? formatLapTime(lastLap.durationMs) : "--:--"}</strong>
+                  <span>{lastLap ? `${lastLap.energyWh.toFixed(0)} Wh net` : "—"}</span>
+                </div>
                 <Metric label="Best" value={bestLap ? formatLapTime(bestLap.durationMs) : "--"} tone="purple" />
-                <Metric label="Lap" value={`${currentLapNumber} / ${targetLaps > 0 ? targetLaps : "—"}`} />
-                <Metric label="Energy" value={`${liveState.totalEnergyWh.toFixed(1)} Wh`} />
               </div>
               {/* Tier 2 — compact inline strip, smaller because they're checked
                   every few seconds, not every second. */}
@@ -3577,38 +3589,7 @@ function App() {
               <TractionControlPanel sample={filteredLiveState.lastSample} />
             </div>
             <div className="liveMainColumn">
-              {/* Live Position hidden until chudpi/GPS is reliable. The RadioLion
-                  receiver's draw browns out the chudpi rail, so no fix reaches
-                  the website. Re-enable this Panel block once chudpi power is
-                  fixed. */}
-              {/*
-              <Panel title="Live Position" icon={<MapPinned size={18} />} className="liveMapPanel">
-                <TrackBuilderMap
-                  points={filteredLiveState.samples.filter(hasGps).map((sample) => ({ t: sample.t, lat: sample.lat ?? 0, lon: sample.lon ?? 0 }))}
-                  liveSample={filteredLiveState.lastSample}
-                  gates={track.gates}
-                  drawMode={null}
-                  onDrawGate={handleDrawGate}
-                  center={builderCenter}
-                  onCenter={setBuilderCenter}
-                  targetSpanM={selectedTrackView?.spanM}
-                  gpsUnavailable={filteredLiveState.lastSample != null && !filteredLiveState.samples.some(hasGps)}
-                />
-              </Panel>
-              */}
-              <Panel title="Energy Window" icon={<Zap size={18} />}>
-                <EnergyWindowChart
-                  state={filteredLiveState}
-                  windowS={energyWindowS}
-                  onWindowS={setEnergyWindowS}
-                />
-              </Panel>
-              <Panel title="Temperature Window" icon={<Thermometer size={18} />}>
-                <TemperatureWindowChart
-                  state={filteredLiveState}
-                  windowS={energyWindowS}
-                />
-              </Panel>
+              {/* Primary glance: battery thermals + vitals up top. */}
               <BatteryThermalProjectionPanel
                 projection={batteryThermalProjection}
                 targetLaps={targetLaps}
@@ -3620,13 +3601,39 @@ function App() {
               <Panel title="Vitals Window" icon={<Gauge size={18} />}>
                 <VitalsWindowChart state={filteredLiveState} windowS={energyWindowS} />
               </Panel>
-              {/* G-Forces hidden until the chudpi power issue is fixed — the
-                  RadioLion GPS receiver's draw is browning out the chudpi rail
-                  so no PIMU sentences reach cand. Re-enable with <GForcePanel
-                  state={filteredLiveState} /> once the chudpi holds a stable
-                  link. */}
+              {/* Cool-to-see, lower priority — kept visible but below the glance set. */}
               <DriverControlsPanel sample={filteredLiveState.lastSample} torqueParamSet={torqueParamSet} />
-              <TempsStatusPanel sample={filteredLiveState.lastSample} />
+              {/* Diagnostics & charts — collapsed by default so the glance panels
+                  fit without scrolling. Live Data (right rail) collapses too. */}
+              <button
+                type="button"
+                className="diagToggle"
+                onClick={() => setShowDiagnostics((v) => { const n = !v; localStorage.setItem("live-show-diagnostics", n ? "1" : "0"); return n; })}
+                aria-expanded={showDiagnostics}
+              >
+                <ChevronRight size={15} style={{ transform: showDiagnostics ? "rotate(90deg)" : "none", transition: "transform 0.15s" }} />
+                Diagnostics &amp; charts
+              </button>
+              {showDiagnostics ? (
+                <>
+                  <Panel title="Energy Window" icon={<Zap size={18} />}>
+                    <EnergyWindowChart
+                      state={filteredLiveState}
+                      windowS={energyWindowS}
+                      onWindowS={setEnergyWindowS}
+                    />
+                  </Panel>
+                  <Panel title="Temperature Window" icon={<Thermometer size={18} />}>
+                    <TemperatureWindowChart
+                      state={filteredLiveState}
+                      windowS={energyWindowS}
+                    />
+                  </Panel>
+                  {/* Non-battery temps (motor/inverter/coolant) — battery is the
+                      thermal priority; these live in diagnostics. */}
+                  <TempsStatusPanel sample={filteredLiveState.lastSample} />
+                </>
+              ) : null}
             </div>
             <div className="rightRail">
               {/* Energy Strategy widget hidden for now — revisit later.
@@ -3639,9 +3646,11 @@ function App() {
                 averages={lapAverages}
               />
               */}
-              <Panel title="Live Data" icon={<Gauge size={18} />}>
-                <LiveDataPanel state={filteredLiveState} />
-              </Panel>
+              {showDiagnostics ? (
+                <Panel title="Live Data" icon={<Gauge size={18} />}>
+                  <LiveDataPanel state={filteredLiveState} />
+                </Panel>
+              ) : null}
               <Panel title="Live Setup" icon={<SlidersHorizontal size={18} />}>
                 <div className="trackForm">
                   <label>
@@ -5253,7 +5262,23 @@ function LiveLapTable({
             </tr>
           </thead>
           <tbody>
-            {laps.map((lap) => {
+            {/* Recent-at-top: in-progress lap first, then completed laps newest-first. */}
+            {currentLapElapsedMs > 0 ? (
+              <tr className="currentLapRow">
+                <td>
+                  <span className="lapCurrentDot" aria-hidden="true" />
+                </td>
+                <td>Current</td>
+                <td>{formatLapTime(currentLapElapsedMs)}</td>
+                {Array.from({ length: columns }, (_unused, index) => (
+                  <td key={`current-sector-${index}`}>{currentSectors[index] == null ? "--" : formatLapTime(currentSectors[index])}</td>
+                ))}
+                <td>{currentLapEnergyWh.toFixed(1)} Wh</td>
+                {targetEnergyPerLapWh != null ? <td>{formatEnergyDelta(currentTargetEnergyWh - targetEnergyPerLapWh)}</td> : null}
+                <td />
+              </tr>
+            ) : null}
+            {[...laps].reverse().map((lap) => {
               const selected = selectedLapIds.has(lap.id);
               const targetEnergyWh = lap.energyWh;
               const delta = targetEnergyPerLapWh != null ? targetEnergyWh - targetEnergyPerLapWh : null;
@@ -5317,21 +5342,6 @@ function LiveLapTable({
             {!laps.length && currentLapElapsedMs <= 0 ? (
               <tr>
                 <td colSpan={totalCols}>No completed flying laps yet. Out lap and in lap are excluded from best lap.</td>
-              </tr>
-            ) : null}
-            {currentLapElapsedMs > 0 ? (
-              <tr className="currentLapRow">
-                <td>
-                  <span className="lapCurrentDot" aria-hidden="true" />
-                </td>
-                <td>Current</td>
-                <td>{formatLapTime(currentLapElapsedMs)}</td>
-                {Array.from({ length: columns }, (_unused, index) => (
-                  <td key={`current-sector-${index}`}>{currentSectors[index] == null ? "--" : formatLapTime(currentSectors[index])}</td>
-                ))}
-                <td>{currentLapEnergyWh.toFixed(1)} Wh</td>
-                {targetEnergyPerLapWh != null ? <td>{formatEnergyDelta(currentTargetEnergyWh - targetEnergyPerLapWh)}</td> : null}
-                <td />
               </tr>
             ) : null}
           </tbody>

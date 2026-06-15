@@ -1080,6 +1080,25 @@ textarea:focus-visible,
   gap: var(--s-2);
 }
 .heroMetricRow .metric { min-height: 52px; }
+/* Hero: dominant lap counter + prominent last-lap (net + time). */
+.heroLapBig, .heroLastLap {
+  display: flex; flex-direction: column; justify-content: center; min-width: 0;
+  background: var(--surface-alt); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 6px 12px; min-height: 52px;
+}
+.heroLapBig small, .heroLastLap small { color: var(--muted-text); font-size: var(--fs-sm); letter-spacing: 1.5px; }
+.heroLapBig strong { font-size: clamp(2.2rem, 5vw, 3.4rem); line-height: 1; font-variant-numeric: tabular-nums; }
+.heroLapBig .heroLapTarget { font-size: 0.5em; color: var(--muted-text); font-weight: 600; }
+.heroLastLap strong { font-size: clamp(1.6rem, 3.4vw, 2.3rem); line-height: 1.05; font-variant-numeric: tabular-nums; }
+.heroLastLap span { color: var(--muted-text); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+/* Diagnostics & charts collapse toggle. */
+.diagToggle {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--r-md);
+  color: var(--muted-text); padding: 8px 12px; margin-top: var(--s-2);
+  cursor: pointer; font-size: var(--fs-sm); font-weight: 600; letter-spacing: 0.3px;
+}
+.diagToggle:hover { border-color: var(--accent); color: var(--text); }
 /* Tier 2: Regen In + Torque — compact inline label/value pairs, no tile chrome
    so they're visibly subordinate to Tier 1. */
 .heroMetricStrip {
