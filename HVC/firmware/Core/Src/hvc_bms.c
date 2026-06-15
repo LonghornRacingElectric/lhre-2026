@@ -281,6 +281,15 @@ float bms_get_max_temp(void) {
     return max_t;
 }
 
+float bms_get_avg_temp(void) {
+    float sum_t = 0.0f;
+    const int n = TOTAL_IC * THERMISTORS_PER_IC;
+    for (int i = 0; i < n; i++) {
+        sum_t += cell_temps[i];
+    }
+    return sum_t / (float)n;
+}
+
 float bms_get_ic_die_temp(uint8_t ic) {
     if (ic >= TOTAL_IC) return 0.0f;
     return ic_die_temps[ic];
