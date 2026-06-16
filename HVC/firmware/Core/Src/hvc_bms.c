@@ -34,7 +34,7 @@
 
 // BMS Safety Thresholds
 #define CELL_OVERVOLTAGE_THRESHOLD   4.2f  // Volts
-#define CELL_UNDERVOLTAGE_THRESHOLD  2.8f  // Volts
+#define CELL_UNDERVOLTAGE_THRESHOLD  2.5f  // Volts
 #define CELL_OVERTEMP_THRESHOLD      60.0f // Celsius
 
 // BMS Balance Thresholds
@@ -205,22 +205,26 @@ uint8_t bms_get_balance_count(void) {
 
 bool bms_check_undervoltage(void)
 {
+    int num = 0;
     for (int i = 0; i < NUM_CELLS; i++) {
         if (cell_voltages[i] < CELL_UNDERVOLTAGE_THRESHOLD) {
-            return true;
+            num++;
         }
     }
-    return false;
+    return num > 0;
+    // return num > 2;
 }
 
 bool bms_check_overvoltage(void)
 {
+    int num = 0;
     for (int i = 0; i < NUM_CELLS; i++) {
         if (cell_voltages[i] > CELL_OVERVOLTAGE_THRESHOLD) {
-            return true;
+            num++;
         }
     }
-    return false;
+    return num > 0;
+    // return num > 2;
 }
 
 bool bms_check_overtemp(void)
@@ -243,21 +247,29 @@ bool bms_check_disconnection(void) {
 
 float bms_get_min_voltage(void) {
     float min_v = FLT_MAX;
+    int min_i = 0;
     for (int i = 0; i < TOTAL_IC * CELLS_PER_IC; i++) {
+        // if(i >= 80 && i <= 83) continue;
         if (cell_voltages[i] < min_v && cell_voltages[i] > 0.0f) {
             min_v = cell_voltages[i];
+            min_i = i;
         }
     }
+    // return min_i;
     return min_v;
 }
 
 float bms_get_max_voltage(void) {
     float max_v = -FLT_MAX;
+    int max_i = 0;
     for (int i = 0; i < TOTAL_IC * CELLS_PER_IC; i++) {
+        // if(i >= 80 && i <= 83) continue;
         if (cell_voltages[i] > max_v) {
             max_v = cell_voltages[i];
+            max_i = i;
         }
     }
+    // return max_i;
     return max_v;
 }
 
@@ -378,7 +390,8 @@ static void limit_max_cells_per_board(bool balance_cmd[NUM_CELLS],
  */
 static bool bms_balance_gates_failed(void)
 {
-    bool driving     = (get_current_state() == HVC_STATE_ENERGIZED);
+    // bool driving     = (get_current_state() == HVC_STATE_ENERGIZED);
+    bool driving     = (get_current_state() != HVC_STATE_CHARGING);
     int32_t pack_mA  = (int32_t)(get_tractive_current() * 1000.0f);
     bool overcurrent = false;//(pack_mA > PACK_I_MAX_MA) || (pack_mA < -PACK_I_MAX_MA);
     bool fault       = bms_check_disconnection() || bms_check_undervoltage() || bms_check_overtemp();
