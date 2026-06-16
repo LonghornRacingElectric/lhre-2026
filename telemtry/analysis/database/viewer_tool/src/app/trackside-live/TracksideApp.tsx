@@ -2,7 +2,7 @@
 import './trackside.css';
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type Dispatch, type MouseEvent, type ReactNode, type SetStateAction } from "react";
-import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, Minus, MonitorCog, Moon, NotebookText, Plus, Power, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, Users, WifiOff, X, Zap } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Crosshair, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, Minus, MonitorCog, Moon, NotebookText, Plus, Power, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, Users, WifiOff, X, Zap } from "lucide-react";
 import { api } from "@/lib/trackside/api";
 import { useCarStatus, CAR_STATE_META, humanizeReason, type CarState, type CarStatusFeed } from "@/lib/trackside/useCarStatus";
 import { EVENT_TYPES, upsertSession, patchSession, syncRegistryWithServer, type TracksideSessionInfo } from "@/lib/trackside/sessionRegistry";
@@ -3611,6 +3611,7 @@ function App() {
                   center={builderCenter}
                   onCenter={setBuilderCenter}
                   targetSpanM={selectedTrackView?.spanM}
+                  follow
                   gpsUnavailable={filteredLiveState.lastSample != null && !filteredLiveState.samples.some(hasGps)}
                 />
               </Panel>
@@ -5682,6 +5683,7 @@ function TrackBuilderMap({
   onCenter,
   targetSpanM,
   gpsUnavailable = false,
+  follow = false,
 }: {
   points: GpsPoint[];
   liveSample: LiveSample | null;
@@ -5692,11 +5694,19 @@ function TrackBuilderMap({
   onCenter: (center: { lat: number; lon: number }) => void;
   targetSpanM?: number;
   gpsUnavailable?: boolean;
+  // When true, the viewport auto-centers on the live car position (liveSample)
+  // and stays locked on it as it moves. Panning disengages follow; the recenter
+  // button re-engages it. Off for the track-builder usage (manual center).
+  follow?: boolean;
 }) {
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
   const [drawEnd, setDrawEnd] = useState<{ x: number; y: number } | null>(null);
   const [panStart, setPanStart] = useState<{ x: number; y: number; cx: number; cy: number } | null>(null);
   const [spanM, setSpanM] = useState(520);
+  // Follow-the-car: when `follow` is on, the viewport tracks the live position.
+  // `following` is the live toggle — panning turns it off, the recenter button
+  // turns it back on. Defaults on so the map opens centered on the car.
+  const [following, setFollowing] = useState(true);
   const width = 920;
   const height = 620;
   const pad = 0;
@@ -5704,7 +5714,13 @@ function TrackBuilderMap({
     if (targetSpanM == null) return;
     setSpanM(Math.max(80, Math.min(8000, targetSpanM)));
   }, [targetSpanM]);
-  const projectedCenter = project(center.lat, center.lon);
+  // The car's current position, when follow is enabled and we have a fix.
+  const followPoint = follow && liveSample && liveSample.lat != null && liveSample.lon != null
+    ? { lat: liveSample.lat, lon: liveSample.lon }
+    : null;
+  // Viewport center: lock onto the car while following, else the manual center.
+  const viewCenter = followPoint && following ? followPoint : center;
+  const projectedCenter = project(viewCenter.lat, viewCenter.lon);
   const bounds = mapBoundsFromCenter(projectedCenter.mx, projectedCenter.my, width, height, spanM, pad);
   const tiles = satelliteTiles(bounds);
   const line = points.length >= 2
@@ -5754,6 +5770,12 @@ function TrackBuilderMap({
           return;
         }
         setPanStart({ ...start, cx: projectedCenter.mx, cy: projectedCenter.my });
+        // Grabbing to pan = manual control: hand the current (car) center to the
+        // parent so the drag continues from here, then stop following.
+        if (following && followPoint) {
+          onCenter(followPoint);
+          setFollowing(false);
+        }
       }}
       onMouseMove={(event) => {
         const current = pointer(event);
@@ -5819,6 +5841,18 @@ function TrackBuilderMap({
       <text className="mapCredit" x={width - 10} y={height - 10} textAnchor="end">Esri World Imagery</text>
     </svg>
       <div className="mapZoomBtns">
+        {follow ? (
+          <button
+            type="button"
+            aria-label="Center on car"
+            title={followPoint ? (following ? "Following car — drag to look around" : "Recenter on car") : "Waiting for GPS fix"}
+            className={following && followPoint ? "follow active" : "follow"}
+            disabled={!followPoint}
+            onClick={() => setFollowing(true)}
+          >
+            <Crosshair size={16} />
+          </button>
+        ) : null}
         <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => zoomBy(1 / 1.3)}><Plus size={16} /></button>
         <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => zoomBy(1.3)}><Minus size={16} /></button>
       </div>
