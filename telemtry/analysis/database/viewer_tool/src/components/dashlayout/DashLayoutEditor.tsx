@@ -46,7 +46,7 @@ function snapMove(nx: number, ny: number, ow: number, oh: number, others: Widget
     guides,
   };
 }
-const FORMATS: FormatId[] = ['raw', 'int', 'float1', 'float2', 'laptime', 'wh', 'whSigned', 'kwh', 'kw', 'pct', 'temp', 'volt', 'amp', 'mph'];
+const FORMATS: FormatId[] = ['raw', 'int', 'float1', 'float2', 'laptime', 'wh', 'whSigned', 'kwh', 'kw', 'pct', 'temp', 'volt', 'amp', 'mph', 'bool'];
 
 function genLayoutId(): string {
   return `lay-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;

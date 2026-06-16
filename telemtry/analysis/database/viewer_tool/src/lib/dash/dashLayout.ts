@@ -59,7 +59,8 @@ export type FormatId =
   | 'raw' | 'int' | 'float1' | 'float2'
   | 'laptime'   // M:SS.ss
   | 'wh' | 'whSigned' | 'kwh'
-  | 'kw' | 'pct' | 'temp' | 'volt' | 'amp' | 'mph';
+  | 'kw' | 'pct' | 'temp' | 'volt' | 'amp' | 'mph'
+  | 'bool';     // ON/OFF — booleans (e.g. can.regenEnabled) coerce to 1/0 in getByPath
 
 export interface BaseWidget {
   id: string;
@@ -246,6 +247,13 @@ export const FIELD_CATALOG: FieldDef[] = [
   { bind: 'can.wheelSpeedFR', label: 'Wheel FR', group: 'Wheels', defaultFormat: 'float1', min: 0, max: 100, source: '0x403 fr_wheel_speed (USM)' },
   { bind: 'can.wheelSpeedRL', label: 'Wheel RL', group: 'Wheels', defaultFormat: 'float1', min: 0, max: 100, source: '0x404 bl_wheel_speed (USM rear-left)' },
   { bind: 'can.wheelSpeedRR', label: 'Wheel RR', group: 'Wheels', defaultFormat: 'float1', min: 0, max: 100, source: '0x405 br_wheel_speed (USM rear-right)' },
+  // Boolean status flags (rendered ON/OFF; booleans → 1/0 in getByPath). The
+  // editor pre-fills each widget's valueMap from enumMap, so the labels (and
+  // colors, via thresholds) are editable per widget.
+  { bind: 'can.regenEnabled', label: 'Regen', group: 'Controls', defaultFormat: 'bool', min: 0, max: 1, enumMap: { '0': 'OFF', '1': 'ON' }, source: '0x1C7 byte 5 (VCU State) — "line_lock_enabled" bit, used as the regen-armed flag' },
+  { bind: 'can.posContactor', label: 'HV+ contactor', group: 'Contactors', defaultFormat: 'bool', min: 0, max: 1, enumMap: { '0': 'OPEN', '1': 'CLOSED' }, source: '0x131 pos contactor (HVC)' },
+  { bind: 'can.negContactor', label: 'HV− contactor', group: 'Contactors', defaultFormat: 'bool', min: 0, max: 1, enumMap: { '0': 'OPEN', '1': 'CLOSED' }, source: '0x131 neg contactor (HVC)' },
+  { bind: 'can.prechargeContactor', label: 'Precharge', group: 'Contactors', defaultFormat: 'bool', min: 0, max: 1, enumMap: { '0': 'OPEN', '1': 'CLOSED' }, source: '0x131 precharge contactor (HVC)' },
 ];
 
 export function fieldDef(bind: string): FieldDef | undefined {
@@ -264,6 +272,9 @@ export function getByPath(ctx: unknown, path: string): number | null {
     if (cur == null || typeof cur !== 'object') return null;
     cur = (cur as Record<string, unknown>)[key];
   }
+  // Booleans (e.g. can.regenEnabled, contactors) are exposed as 1/0 so they can
+  // bind to value widgets — rendered ON/OFF via the 'bool' format or a valueMap.
+  if (typeof cur === 'boolean') return cur ? 1 : 0;
   return typeof cur === 'number' && Number.isFinite(cur) ? cur : null;
 }
 
@@ -279,6 +290,9 @@ export function valueColor(v: number | null | undefined, base: string, rules?: C
 
 export function formatValue(v: number | null | undefined, fmt: FormatId, decimals?: number): string {
   if (v == null || !Number.isFinite(v)) return '--';
+  // ON/OFF for booleans (already coerced to 1/0 by getByPath). A widget valueMap
+  // (e.g. {0:'OPEN',1:'CLOSED'}) overrides these via applyValueMap.
+  if (fmt === 'bool') return v >= 0.5 ? 'ON' : 'OFF';
   // Optional per-widget precision override. Applies to the numeric formats —
   // keeps kwh's /1000 scaling and whSigned's +/- sign; lap-time ignores it.
   if (decimals != null && Number.isFinite(decimals) && fmt !== 'laptime') {
