@@ -110,6 +110,11 @@ export type LiveSample = {
   hv_c: number | null;
   power_kw: number | null;
   values: Record<string, number>;
+  /** Per-cell pack temperatures (°C) from pack.cells_temps[], carried through
+   *  the derived feed. Zero-padded for cells not yet reported this frame. Kept
+   *  as an array (values{} can't hold it) for the cell-thermals grid + a
+   *  dashd-equivalent zero-filtered max. */
+  cellTemps?: number[];
 };
 
 export type LiveStreamEvent =

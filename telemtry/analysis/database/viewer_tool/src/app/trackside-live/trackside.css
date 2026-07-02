@@ -1112,6 +1112,25 @@ textarea:focus-visible,
   gap: var(--s-2);
 }
 .heroMetricRow .metric { min-height: 52px; }
+/* Hero: dominant lap counter + prominent last-lap (net + time). */
+.heroLapBig, .heroLastLap {
+  display: flex; flex-direction: column; justify-content: center; min-width: 0;
+  background: var(--surface-alt); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 6px 12px; min-height: 52px;
+}
+.heroLapBig small, .heroLastLap small { color: var(--muted-text); font-size: var(--fs-sm); letter-spacing: 1.5px; }
+.heroLapBig strong { font-size: clamp(2.2rem, 5vw, 3.4rem); line-height: 1; font-variant-numeric: tabular-nums; }
+.heroLapBig .heroLapTarget { font-size: 0.5em; color: var(--muted-text); font-weight: 600; }
+.heroLastLap strong { font-size: clamp(1.6rem, 3.4vw, 2.3rem); line-height: 1.05; font-variant-numeric: tabular-nums; }
+.heroLastLap span { color: var(--muted-text); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+/* Diagnostics & charts collapse toggle. */
+.diagToggle {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--r-md);
+  color: var(--muted-text); padding: 8px 12px; margin-top: var(--s-2);
+  cursor: pointer; font-size: var(--fs-sm); font-weight: 600; letter-spacing: 0.3px;
+}
+.diagToggle:hover { border-color: var(--accent); color: var(--text); }
 /* Tier 2: Regen In + Torque — compact inline label/value pairs, no tile chrome
    so they're visibly subordinate to Tier 1. */
 .heroMetricStrip {
@@ -1215,6 +1234,43 @@ textarea:focus-visible,
 }
 .opsCards, .liveHeroStats { min-width: 0; }
 .opsCards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-2); }
+
+/* Cell-thermals heatmap grid (realtime per-cell pack temps). */
+.cellThermalGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+  gap: 3px;
+}
+.cellThermalCell {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  cursor: default;
+}
+.cellThermalLegend {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: var(--s-2);
+  font-size: var(--fs-sm);
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+.cellThermalScale {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  /* Match cellColor(): hsl 220 (cool) -> 0 (hot). */
+  background: linear-gradient(to right,
+    hsl(220, 70%, 45%), hsl(165, 70%, 45%), hsl(110, 70%, 45%), hsl(55, 70%, 45%), hsl(0, 70%, 45%));
+}
 /* Energy Plan tiles live in the leftRail (narrow), so the values like
    "450 / 4150 Wh" don't fit a 4-col grid. Use horizontal pills: small
    label on top of the value, font sized to fit a compact tile, and the
@@ -1455,8 +1511,11 @@ textarea:focus-visible,
 .energyChart rect { fill: var(--surface-alt); stroke: var(--border); }
 .energyChart line { stroke: var(--border); stroke-width: 1; }
 .energyChart polyline { fill: none; stroke: var(--info); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
-.energyChart .energyInLine { stroke: var(--good); }
-.energyChart .energyOutLine { stroke: var(--info); }
+.energyChart .energyNetLine { stroke: var(--accent); }
+/* Battery thermal projection chart */
+.energyChart .thermalLimitLine { stroke: #ff4d4f; stroke-width: 1.5; stroke-dasharray: 6 5; opacity: 0.85; }
+.energyChart .thermalProjLine { stroke-width: 2.6; stroke-dasharray: 7 5; fill: none; stroke-linecap: round; } /* stroke color set inline by margin */
+.energyChart .thermalNowDot { fill: var(--text); }
 .energyChart text { font-weight: 800; }
 .energyChart .lapBreak line { stroke: var(--best); stroke-dasharray: 4 4; }
 .energyChart .lapBreak text { fill: var(--best); }
