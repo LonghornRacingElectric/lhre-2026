@@ -214,6 +214,9 @@ struct MqttData {
     #[serde(rename = "energyDelta")]
     energy_delta: Option<f32>,
 
+    #[serde(rename = "energyDeltaStatic")]
+    energy_delta_static: Option<f32>,
+
     #[serde(rename = "lapsRemaining")]
     laps_remaining: Option<f32>,
 
@@ -282,10 +285,20 @@ struct DashMessage {
     /// None until one is sent → frontend uses its built-in park screen.
     #[serde(rename = "parkLayout", skip_serializing_if = "Option::is_none")]
     park_layout: Option<serde_json::Value>,
+    /// Website-authored primary/driving-screen layout (retained `lhre/dash/drivingLayout`).
+    /// None until one is sent → frontend uses its built-in driving screen.
+    #[serde(rename = "drivingLayout", skip_serializing_if = "Option::is_none")]
+    driving_layout: Option<serde_json::Value>,
     /// Active driver message to overlay now (from `lhre/dash/message`); None when
     /// nothing is showing or it has expired.
     #[serde(skip_serializing_if = "Option::is_none")]
     message: Option<serde_json::Value>,
+    /// Debug screen override from trackside (`lhre/dash/screen`): forces the dash
+    /// to show a named screen ("driving"/"park"/"shutdown"/"settings") regardless
+    /// of PRNDL. None = follow PRNDL normally. Cleared automatically on a real
+    /// gear transition so it can never strand the driver on the wrong screen.
+    #[serde(rename = "screenOverride", skip_serializing_if = "Option::is_none")]
+    screen_override: Option<String>,
 }
 
 /// Snapshot published to `lhre/dash/state` for the trackside link-health /
@@ -319,11 +332,13 @@ struct DashStateMsg {
 struct MqttState {
     lap_delta: Option<f32>,
     energy_delta: Option<f32>,
+    energy_delta_static: Option<f32>,
     laps_remaining: Option<f32>,
     target_power: Option<f32>,
     lap_card_ms: Option<f32>,
     last_lap_delta: Instant,
     last_energy_delta: Instant,
+    last_energy_delta_static: Instant,
     last_laps_remaining: Instant,
     last_target_power: Instant,
 }
@@ -334,11 +349,13 @@ impl MqttState {
         Self {
             lap_delta: None,
             energy_delta: None,
+            energy_delta_static: None,
             laps_remaining: None,
             target_power: None,
             lap_card_ms: None,
             last_lap_delta: epoch,
             last_energy_delta: epoch,
+            last_energy_delta_static: epoch,
             last_laps_remaining: epoch,
             last_target_power: epoch,
         }
@@ -358,6 +375,9 @@ impl MqttState {
             energy_delta: self
                 .energy_delta
                 .filter(|_| now.duration_since(self.last_energy_delta) < MQTT_STALE_TIMEOUT),
+            energy_delta_static: self
+                .energy_delta_static
+                .filter(|_| now.duration_since(self.last_energy_delta_static) < MQTT_STALE_TIMEOUT),
             laps_remaining: self
                 .laps_remaining
                 .filter(|_| now.duration_since(self.last_laps_remaining) < MQTT_STALE_TIMEOUT),
@@ -424,12 +444,22 @@ struct DashState {
     /// Website-authored park/pit-screen layout (retained `lhre/dash/parkLayout`).
     /// None → frontend's built-in park screen.
     park_layout: Option<serde_json::Value>,
+    /// Website-authored primary/driving-screen layout (retained `lhre/dash/drivingLayout`).
+    /// None → frontend's built-in driving screen.
+    driving_layout: Option<serde_json::Value>,
     /// Driver-message palette the car holds (retained `lhre/dash/messages`).
     messages: Option<serde_json::Value>,
     /// Active driver message + its expiry (from `lhre/dash/message`). expiry None
     /// while a sticky (durationS=0) message is up; both cleared on replace.
     active_message: Option<serde_json::Value>,
     message_expiry: Option<Instant>,
+    /// Debug screen override from trackside (`lhre/dash/screen`). Forces the
+    /// named screen regardless of PRNDL; None = follow PRNDL. Auto-cleared on a
+    /// real gear transition (see `last_prndl`) so it can't strand the driver.
+    screen_override: Option<String>,
+    /// Last PRNDL seen by the IPC loop, for rising-edge detection of a real
+    /// gear change (which clears any active screen_override).
+    last_prndl: Option<&'static str>,
 }
 
 impl DashState {
@@ -596,6 +626,36 @@ fn load_park_layout() -> Option<serde_json::Value> {
     match serde_json::from_str::<serde_json::Value>(data.trim()) {
         Ok(v) => {
             println!("[DASHD] Restored park layout from {}", path);
+            Some(v)
+        }
+        Err(_) => None,
+    }
+}
+
+// Primary/driving-screen layout — same disk-cache pattern + reboot-durable path
+// as the lap-card and park layouts, own file + env override.
+const DRIVING_LAYOUT_PATH: &str = "/var/lib/bevo-dash/drivinglayout.json";
+
+fn driving_layout_path() -> String {
+    env_or_default("DASHD_DRIVING_LAYOUT_PATH", DRIVING_LAYOUT_PATH)
+}
+
+fn persist_driving_layout(raw: &str) {
+    let path = driving_layout_path();
+    if let Some(dir) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    if let Err(e) = std::fs::write(&path, raw) {
+        eprintln!("[DASHD] Failed to persist driving layout: {}", e);
+    }
+}
+
+fn load_driving_layout() -> Option<serde_json::Value> {
+    let path = driving_layout_path();
+    let data = std::fs::read_to_string(&path).ok()?;
+    match serde_json::from_str::<serde_json::Value>(data.trim()) {
+        Ok(v) => {
+            println!("[DASHD] Restored driving layout from {}", path);
             Some(v)
         }
         Err(_) => None,
@@ -829,8 +889,21 @@ fn ipc_reader_loop(state: Arc<Mutex<DashState>>) {
                             let mut locked = state.lock().unwrap();
                             let can_data = extract_can_data(&data, &mut locked.last_qualified_soc);
                             let power = can_data.power;
+                            let new_prndl = can_data.prndl;
                             locked.can = can_data;
                             locked.last_can_update = now;
+
+                            // A real gear change clears any trackside screen
+                            // override — the override is a debug convenience, and
+                            // the driver moving the shifter must always win so we
+                            // can't strand them on the wrong screen at speed.
+                            if let (Some(prev), Some(cur)) = (locked.last_prndl, new_prndl) {
+                                if prev != cur && locked.screen_override.is_some() {
+                                    println!("[DASHD] clearing screen override (PRNDL {} -> {})", prev, cur);
+                                    locked.screen_override = None;
+                                }
+                            }
+                            locked.last_prndl = new_prndl;
 
                             // Integrate energy for this lap: Wh += kW * dt(s) / 3.6.
                             // Regen (negative power) credits back. Budget tracks
@@ -915,12 +988,14 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                 let pacing = locked.pacing(Instant::now());
                                 let layout = locked.layout.clone();
                                 let park_layout = locked.park_layout.clone();
+                                let driving_layout = locked.driving_layout.clone();
                                 // Expire a timed message before forwarding it.
                                 let message = match locked.message_expiry {
                                     Some(exp) if Instant::now() >= exp => None,
                                     _ => locked.active_message.clone(),
                                 };
-                                DashMessage { seq, can, mqtt, pacing, layout, park_layout, message }
+                                let screen_override = locked.screen_override.clone();
+                                DashMessage { seq, can, mqtt, pacing, layout, park_layout, driving_layout, message, screen_override }
                             };
 
                             let json = match serde_json::to_string(&message) {
@@ -1095,6 +1170,28 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                         }
                         continue;
                     }
+                    if field == "drivingLayout" {
+                        match serde_json::from_str::<serde_json::Value>(payload_str) {
+                            Ok(v) => {
+                                {
+                                    let mut locked = state.lock().unwrap();
+                                    locked.driving_layout = Some(v);
+                                }
+                                persist_driving_layout(payload_str);
+                                let _ = client.publish(
+                                    format!("{}ack/drivingLayout", MQTT_TOPIC_PREFIX),
+                                    QoS::AtMostOnce,
+                                    true,
+                                    payload_str.as_bytes().to_vec(),
+                                );
+                                println!("[DASHD] Loaded driving layout ({} bytes)", payload_str.len());
+                            }
+                            Err(e) => {
+                                eprintln!("[DASHD] MQTT bad drivingLayout payload: {}", e)
+                            }
+                        }
+                        continue;
+                    }
 
                     // Driver-message palette (retained set the car holds). Stored so a
                     // fresh dash has it; rendering is driven by the trigger below.
@@ -1127,6 +1224,22 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                         continue;
                     }
 
+                    // Debug screen override (lhre/dash/screen): a bare string
+                    // naming the screen to force ("driving"/"park"/"shutdown"/
+                    // "settings"), or "auto"/"" to release back to PRNDL. Not
+                    // numeric — handle before the numeric parse below.
+                    if field == "screen" {
+                        let s = payload_str.trim();
+                        let mut locked = state.lock().unwrap();
+                        locked.screen_override = if s.is_empty() || s == "auto" {
+                            None
+                        } else {
+                            Some(s.to_string())
+                        };
+                        println!("[DASHD] screen override -> {:?}", locked.screen_override);
+                        continue;
+                    }
+
                     // We subscribe to lhre/dash/# and therefore hear our own
                     // publishes echoed back (state @2Hz + ack/* retained). Those
                     // aren't numeric inputs — skip them silently so they don't
@@ -1156,6 +1269,10 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                         "energyDelta" => {
                             locked.mqtt.energy_delta = Some(val);
                             locked.mqtt.last_energy_delta = now;
+                        }
+                        "energyDeltaStatic" => {
+                            locked.mqtt.energy_delta_static = Some(val);
+                            locked.mqtt.last_energy_delta_static = now;
                         }
                         "lapsRemaining" => {
                             locked.mqtt.laps_remaining = Some(val);
@@ -1401,9 +1518,12 @@ fn main() -> Result<()> {
         // Restore the last layout from disk; the retained MQTT topic refreshes it.
         layout: load_layout(),
         park_layout: load_park_layout(),
+        driving_layout: load_driving_layout(),
         messages: None,
         active_message: None,
         message_expiry: None,
+        screen_override: None,
+        last_prndl: None,
     }));
 
     let ipc_state = Arc::clone(&state);
