@@ -82,6 +82,9 @@ export interface DashSignals {
     publishEnergyDelta: (wh: number | null) => void;
     publishEnergyDeltaStatic: (wh: number | null) => void;
     publishLapsRemaining: (laps: number | null) => void;
+    /** Command the VCU's params table by event_mode (1=accel 2=skid 3=autox 4=endur).
+     *  Relayed by dashd onto CAN as the 0x029 VCU Mode Command (byte0=mode). */
+    publishEventMode: (mode: number) => void;
     /** Bump the lap counter — fires the dash's full-screen lap card + per-lap reset. */
     sendLap: (value?: number) => void;
     /** Re-publish a lap value without bumping the internal counter — for the drain
@@ -281,6 +284,11 @@ export function useDashSignals(): DashSignals {
         energyDeltaStaticRef.current = wh;
         if (wh !== null) publish('energyDeltaStatic', wh);
     }, [publish]);
+    // VCU mode command. qos 1 so a momentary link blip can't drop a deliberate
+    // one-shot command (dashd relays it onto CAN as the 0x029 packet).
+    const publishEventMode = useCallback((mode: number) => {
+        publish('eventMode', Math.round(mode), 1);
+    }, [publish]);
     const publishLapsRemaining = useCallback((laps: number | null) => {
         lapsRemainingRef.current = laps;
         if (laps !== null) publish('lapsRemaining', laps);
@@ -452,6 +460,7 @@ export function useDashSignals(): DashSignals {
         publishEnergyDelta,
         publishEnergyDeltaStatic,
         publishLapsRemaining,
+        publishEventMode,
         sendLap,
         republishLap,
         publishLapCount,

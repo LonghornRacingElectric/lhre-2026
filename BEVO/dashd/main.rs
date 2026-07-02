@@ -2,7 +2,7 @@ use anyhow::Result;
 use prost::Message;
 use rumqttc::{Client, Event, Incoming, MqttOptions, QoS};
 use serde::Serialize;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::os::unix::net::UnixStream;
 use std::sync::{Arc, Mutex};
@@ -16,6 +16,11 @@ use sensor_proto::proto::orion::OrionSensorData;
 // ---------------------------------------------------------------------------
 
 const SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
+/// cand's CAN transmit request socket — dashd relays trackside commands (the
+/// 0x029 VCU Mode Command) here; cand owns the actual CAN write.
+const CAND_TX_SOCKET_PATH: &str = "/tmp/BEVO_cand_tx.sock";
+/// CAN id of the Pi->VCU "VCU Mode Command" packet (see can_packets.csv 0x029).
+const VCU_MODE_COMMAND_ID: u32 = 0x029;
 const WS_PORT: u16 = 8001;
 const WS_SEND_HZ: u64 = 30;
 
@@ -1039,6 +1044,21 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
 }
 
 // ---------------------------------------------------------------------------
+// Relay a VCU mode command to cand's CAN TX socket. Builds the 13-byte request
+// cand::can_tx_listener_loop expects: u32 LE CAN id, u8 dlc, 8 data bytes. The
+// 0x029 packet is 8 bytes; byte0 = event_mode, bytes 1-7 reserved (left zero).
+// dashd doesn't interpret the mode — it just bridges trackside MQTT -> CAN.
+fn send_can_mode_command(event_mode: u8) -> std::io::Result<()> {
+    let mut req = [0u8; 13];
+    req[0..4].copy_from_slice(&VCU_MODE_COMMAND_ID.to_le_bytes());
+    req[4] = 8; // DLC
+    req[5] = event_mode; // data[0]; data[1..8] reserved
+    let mut stream = UnixStream::connect(CAND_TX_SOCKET_PATH)?;
+    stream.write_all(&req)?;
+    stream.flush()?;
+    Ok(())
+}
+
 // Thread 3: MQTT subscriber — receives off-car computed values
 // ---------------------------------------------------------------------------
 
@@ -1237,6 +1257,35 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                             Some(s.to_string())
                         };
                         println!("[DASHD] screen override -> {:?}", locked.screen_override);
+                        continue;
+                    }
+
+                    // VCU mode command from trackside (lhre/dash/eventMode).
+                    // Relay it to cand as the 0x029 CAN frame; dashd doesn't act
+                    // on it. The VCU re-broadcasts its active event_mode in 0x1C7,
+                    // which trackside already reads as confirmation (closed loop).
+                    if field == "eventMode" {
+                        match payload_str.trim().parse::<u8>() {
+                            Ok(mode) => match send_can_mode_command(mode) {
+                                Ok(()) => {
+                                    println!("[DASHD] relayed VCU mode command: event_mode={}", mode);
+                                    let _ = client.publish(
+                                        format!("{}ack/eventMode", MQTT_TOPIC_PREFIX),
+                                        QoS::AtMostOnce,
+                                        false,
+                                        payload_str.as_bytes().to_vec(),
+                                    );
+                                }
+                                Err(e) => eprintln!(
+                                    "[DASHD] eventMode relay to cand TX failed (is cand up?): {}",
+                                    e
+                                ),
+                            },
+                            Err(_) => eprintln!(
+                                "[DASHD] MQTT bad eventMode payload: {:?}",
+                                payload_str
+                            ),
+                        }
                         continue;
                     }
 
