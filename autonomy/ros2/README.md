@@ -1,8 +1,10 @@
 # Autonomy – ROS 2 Workspace
 
-Colcon workspace for LHR driverless / autonomy nodes.
+Colcon workspace for LHR driverless / autonomy nodes. This file is the **reference**: packages, data flow, topics, parameters.
 
-**Supported platform:** Ubuntu 24.04 (native or WSL2) + **ROS 2 Jazzy**
+**New here?** Follow [GETTING-STARTED.md](GETTING-STARTED.md) first.
+
+**Supported platform:** Ubuntu 24.04 (native only, no WSL) + **ROS 2 Jazzy**
 
 ## Packages
 
@@ -86,61 +88,7 @@ ros2 run lhr_track_builder track_builder --ros-args -p cone_topic:=/lhr/track/co
 
 ## Prerequisites
 
-### 1. WSL2 (Windows only)
-
-If you're on Windows, install WSL2 with Ubuntu first:
-
-```powershell
-# In PowerShell (as admin)
-wsl --install -d Ubuntu-24.04
-```
-
-Restart, then open the Ubuntu terminal and continue below.
-
-### 2. Install ROS 2
-
-ROS 2 isn't in Ubuntu's default repos — you need to add the ROS apt source first.
-
-```bash
-# Install prerequisites
-sudo apt update && sudo apt install -y software-properties-common curl
-
-# Add the ROS 2 GPG key
-sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
-  -o /usr/share/keyrings/ros-archive-keyring.gpg
-
-# Add the ROS 2 apt repository
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] \
-  http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" \
-  | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
-
-# Update package index
-sudo apt update
-```
-
-### 3. Install ROS 2 packages
-
-```bash
-sudo apt install -y ros-jazzy-desktop ros-jazzy-ackermann-msgs ros-jazzy-tf2-ros
-```
-
-### 4. Install colcon (build tool)
-
-```bash
-sudo apt install -y python3-colcon-common-extensions
-```
-
-### 5. Install Gazebo Harmonic (optional — for physics simulation)
-
-```bash
-sudo apt install -y ros-jazzy-ros-gz
-```
-
-### 6. Install PlotJuggler (optional — for plotting debug signals)
-
-```bash
-sudo apt install -y ros-jazzy-plotjuggler-ros
-```
+Machine setup lives in [GETTING-STARTED.md](GETTING-STARTED.md): Ubuntu 24.04 native + ROS 2 Jazzy + Gazebo Harmonic. No WSL.
 
 ## Quick start
 
@@ -159,8 +107,6 @@ sudo apt install -y ros-jazzy-plotjuggler-ros
 ```
 
 In PlotJuggler: click **Streaming** → **ROS2 Topic Subscriber** → **Start**, select topics, then drag them onto the plot area. Useful topics: `/lhr/debug/curvature`, `/lhr/debug/v_cmd`, `/lhr/debug/mission_state`, `/lhr/vehicle/cmd`.
-
-> **WSL2 note:** `run_plotjuggler.sh` uses `setsid` to launch in a separate process session, which avoids WSLg focus/input conflicts between Qt apps. If RViz becomes unresponsive (no mouse/keyboard input), close it, run `wsl --shutdown` from PowerShell, reopen WSL, and relaunch.
 
 Launch arguments can be passed through `run_demo.sh`:
 
@@ -235,7 +181,7 @@ The `track_style` argument selects the track generator (`oval`, `autocross`, or 
 
 ### Vehicle model
 
-The FSAE vehicle (`models/fsae_vehicle/model.sdf`) is a simplified box-and-cylinder model:
+The FSAE vehicle (`models/fsae_vehicle/model.sdf`) uses STL meshes (`meshes/carBody.stl`, `meshes/carTire.stl`) for visuals with simplified collision geometry:
 
 | Parameter | Value |
 |-----------|-------|
@@ -515,8 +461,8 @@ Processes LiDAR pointcloud to detect cones. Pipeline: ground removal → range f
 | `min_range` | `0.8` | Min detection range — avoids vehicle self-hits (m) |
 | `ground_z_min` | `-0.40` | Ground removal lower threshold in sensor frame (m) |
 | `ground_z_max` | `0.5` | Ground removal upper threshold in sensor frame (m) |
-| `cluster_radius` | `0.35` | Euclidean clustering radius (m) |
-| `min_cluster_points` | `2` | Minimum points for a valid cluster |
+| `cluster_radius` | `0.5` | Euclidean clustering radius (m) |
+| `min_cluster_points` | `1` | Minimum points for a valid cluster |
 | `max_cluster_extent` | `0.5` | Maximum cluster bounding box extent (m) |
 | `max_cluster_points` | `50` | Maximum points in a valid cone cluster |
 | `dedup_radius` | `1.5` | Spatial dedup radius — new detections within this distance of existing ones are ignored (m) |

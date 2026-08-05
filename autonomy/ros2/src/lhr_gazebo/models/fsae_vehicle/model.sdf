@@ -22,8 +22,12 @@
         </inertia>
       </inertial>
       <visual name="body_visual">
+        <pose>-0.07 -0.02 0.0 0 0 0</pose>
         <geometry>
-          <box><size>2.2 1.0 0.25</size></box>
+          <mesh>
+            <uri>model://fsae_vehicle/meshes/carBody.stl</uri>
+            <scale>1.7 1.7 1.7</scale>
+          </mesh>
         </geometry>
         <material>
           <ambient>0.8 0.3 0.0 1</ambient>
@@ -44,7 +48,12 @@
         <topic>/imu/data</topic>
       </sensor>
 
-      <!-- LiDAR sensor (VLP-16 inspired, front-mounted) -->
+      <!-- LiDAR sensor (VLP-16 Puck, front-mounted)
+           Matches real Velodyne VLP-16 datasheet specs:
+           - 16 channels, +/-15 deg vertical FOV, 2.0 deg spacing
+           - 1800 horizontal samples at 10 Hz = 0.2 deg resolution
+           - 0.9 m min range, 100 m max range
+           - ~300,000 pts/sec single return -->
       <sensor name="lidar" type="gpu_lidar">
         <pose>1.0 0 0.2 0 0 0</pose>
         <always_on>true</always_on>
@@ -54,7 +63,7 @@
         <lidar>
           <scan>
             <horizontal>
-              <samples>360</samples>
+              <samples>1800</samples>
               <resolution>1</resolution>
               <min_angle>-3.14159</min_angle>
               <max_angle>3.14159</max_angle>
@@ -67,9 +76,9 @@
             </vertical>
           </scan>
           <range>
-            <min>0.5</min>
-            <max>25.0</max>
-            <resolution>0.01</resolution>
+            <min>0.9</min>
+            <max>100.0</max>
+            <resolution>0.003</resolution>
           </range>
         </lidar>
       </sensor>
@@ -112,8 +121,12 @@
         </inertia>
       </inertial>
       <visual name="visual">
+        <pose>-0.59 -0.20 -0.61 1.5708 0 0</pose>
         <geometry>
-          <cylinder><radius>0.2</radius><length>0.15</length></cylinder>
+          <mesh>
+            <uri>model://fsae_vehicle/meshes/carTire.stl</uri>
+            <scale>2.17 2.17 2.17</scale>
+          </mesh>
         </geometry>
         <material>
           <ambient>0.15 0.15 0.15 1</ambient>
@@ -178,8 +191,12 @@
         </inertia>
       </inertial>
       <visual name="visual">
+        <pose>-0.59 -0.20 -0.61 1.5708 0 0</pose>
         <geometry>
-          <cylinder><radius>0.2</radius><length>0.15</length></cylinder>
+          <mesh>
+            <uri>model://fsae_vehicle/meshes/carTire.stl</uri>
+            <scale>2.17 2.17 2.17</scale>
+          </mesh>
         </geometry>
         <material>
           <ambient>0.15 0.15 0.15 1</ambient>
@@ -218,8 +235,12 @@
         </inertia>
       </inertial>
       <visual name="visual">
+        <pose>-0.59 -0.20 -0.61 1.5708 0 0</pose>
         <geometry>
-          <cylinder><radius>0.2</radius><length>0.15</length></cylinder>
+          <mesh>
+            <uri>model://fsae_vehicle/meshes/carTire.stl</uri>
+            <scale>2.17 2.17 2.17</scale>
+          </mesh>
         </geometry>
         <material>
           <ambient>0.15 0.15 0.15 1</ambient>
@@ -258,8 +279,12 @@
         </inertia>
       </inertial>
       <visual name="visual">
+        <pose>-0.59 -0.20 -0.61 1.5708 0 0</pose>
         <geometry>
-          <cylinder><radius>0.2</radius><length>0.15</length></cylinder>
+          <mesh>
+            <uri>model://fsae_vehicle/meshes/carTire.stl</uri>
+            <scale>2.17 2.17 2.17</scale>
+          </mesh>
         </geometry>
         <material>
           <ambient>0.15 0.15 0.15 1</ambient>

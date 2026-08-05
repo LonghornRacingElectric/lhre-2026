@@ -3,7 +3,7 @@
 <package format="3">
   <name>lhr_trackgen</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Synthetic cone track generator for FSAE driverless.</description>
   <maintainer email="gray@todo.todo">gray</maintainer>
   <license>TODO: License declaration</license>
 

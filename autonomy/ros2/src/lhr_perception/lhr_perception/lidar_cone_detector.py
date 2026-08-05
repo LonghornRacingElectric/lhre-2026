@@ -53,11 +53,11 @@ class LidarConeDetector(Node):
 
         # --- Parameters ---
         self.declare_parameter('max_range', 20.0)
-        self.declare_parameter('min_range', 0.8)
+        self.declare_parameter('min_range', 0.9)
         self.declare_parameter('ground_z_min', -0.40)
         self.declare_parameter('ground_z_max', 0.5)
         self.declare_parameter('cluster_radius', 0.35)
-        self.declare_parameter('min_cluster_points', 2)
+        self.declare_parameter('min_cluster_points', 1)
         self.declare_parameter('max_cluster_extent', 0.5)
         self.declare_parameter('max_cluster_points', 50)
         self.declare_parameter('dedup_radius', 1.5)

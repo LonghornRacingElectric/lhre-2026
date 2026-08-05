@@ -99,3 +99,24 @@ Cloned [QUT-Motorsport/eufs_sim](https://github.com/QUT-Motorsport/eufs_sim) to 
 - Config shows: centerline path, visible cones, odometry trail, lookahead point, FOV visualization.
 - Controlled by `rviz:=true/false` launch argument (default: true).
 - RViz config file copied to `lhr_gazebo/config/default.rviz` so it's installed alongside the bridge YAML and accessible from the installed share directory.
+
+---
+
+## 2026-03-04 — Mesh models and LiDAR tuning
+
+### Vehicle mesh model (`lhr_gazebo/models/fsae_vehicle/`)
+- Replaced box chassis and cylinder wheel visuals with STL meshes (`meshes/carBody.stl`, `meshes/carTire.stl`) sourced from the telemetry web viewer.
+- Collision geometry remains as primitives (box/cylinder) for physics performance.
+- `setup.py` updated to install `meshes/` subdirectories.
+
+### Cone mesh models (`lhr_gazebo/models/cone_*/`)
+- Replaced box visuals with generated cone-shaped STL meshes (24-segment, proper FSAE dimensions).
+- Each cone model now has a `meshes/` subdirectory with its STL file.
+- Small cones: 0.228m base diameter, 0.325m tall. Large cones: 0.285m base, 0.505m tall.
+
+### LiDAR cone detector tuning (`lhr_perception/lidar_cone_detector.py`)
+- `cluster_radius`: 0.35 → 0.5m — wider radius to capture sparse returns from tapered cone geometry.
+- `min_cluster_points`: 2 → 1 — allows single-point detections, since cones produce far fewer LiDAR returns than flat-faced boxes.
+
+### Launch script fix (`scripts/run_gazebo_demo.sh`)
+- Fixed `track_style:=` passthrough — the script was always auto-selecting the first world file alphabetically, ignoring the `track_style` argument. Now defers to the launch file when `track_style:=` is provided.
