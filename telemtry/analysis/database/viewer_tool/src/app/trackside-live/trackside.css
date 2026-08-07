@@ -670,6 +670,19 @@ textarea:focus-visible,
 }
 .map.drawing, .builderMap.drawing { cursor: crosshair; }
 .builderMap { height: auto; max-height: 72vh; cursor: grab; }
+/* Map zoom controls — replace scroll-wheel zoom (which hijacked page scroll). */
+.mapWrap { position: relative; }
+.mapZoomBtns { position: absolute; top: var(--s-2); right: var(--s-2); display: flex; flex-direction: column; gap: 4px; }
+.mapZoomBtns button {
+  width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--surface) 88%, transparent); color: var(--text);
+  cursor: pointer; backdrop-filter: blur(3px); padding: 0;
+}
+.mapZoomBtns button:hover { background: var(--surface); border-color: var(--accent); }
+.mapZoomBtns button.follow.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.mapZoomBtns button:disabled { opacity: 0.45; cursor: default; }
+.mapZoomBtns button:disabled:hover { background: color-mix(in srgb, var(--surface) 88%, transparent); border-color: var(--border); }
 .map .startGate { stroke: #ff5a40; stroke-width: 3; }
 .map .splitGate { stroke: #5bc7ff; stroke-width: 2.4; }
 .map .drawingGate { stroke-dasharray: 7 5; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7)); }
@@ -702,6 +715,17 @@ textarea:focus-visible,
 }
 
 .gpsPanel, .liveMapPanel, .builderMapPanel { align-self: start; }
+
+/* Raw lat/lon + freshness readout above the Live Position map. */
+.gpsReadout { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap;
+  margin-bottom: var(--s-2); font-size: var(--fs-sm); }
+.gpsReadout .gpsDot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; background: var(--dead); }
+.gpsReadout .gpsDot.live { background: var(--fresh); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fresh) 26%, transparent); }
+.gpsReadout .gpsDot.stale { background: var(--stale); box-shadow: 0 0 0 3px color-mix(in srgb, var(--stale) 26%, transparent); }
+.gpsReadout .gpsDot.dead { background: var(--dead); }
+.gpsReadout .gpsCoord { font-variant-numeric: tabular-nums; letter-spacing: 0.3px; opacity: 0.85; }
+.gpsReadout .gpsCoord strong { font-variant-numeric: tabular-nums; opacity: 1; }
+.gpsReadout .gpsAge { margin-left: auto; opacity: 0.6; font-variant-numeric: tabular-nums; }
 
 /* ── Metadata grids ────────────────────────────────────────────────────────── */
 .metadataGrid {
@@ -883,6 +907,11 @@ textarea:focus-visible,
 .widgetItem.sel { border-color: #4ea1ff; background: color-mix(in srgb, #4ea1ff 14%, transparent); }
 .widgetItem .widgetKind { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted-text); }
 .widgetItem .widgetBind { font-size: var(--fs-sm); font-family: ui-monospace, monospace; word-break: break-all; }
+/* Data-source provenance caption under the field picker (DashLayoutEditor). */
+.fieldSource { font-size: 0.68rem; line-height: 1.3; color: var(--muted-text); margin: 2px 0 6px; padding: 3px 7px; background: color-mix(in srgb, var(--muted-text) 9%, transparent); border-radius: 4px; font-family: ui-monospace, monospace; word-break: break-word; }
+.fieldSource .fieldSourceTag { font-weight: 700; letter-spacing: 1px; color: var(--accent, #d97757); margin-right: 5px; }
+.fieldSource.fieldSourceWarn { color: #b58900; background: color-mix(in srgb, #FFCC00 14%, transparent); }
+.fieldSource.fieldSourceWarn .fieldSourceTag { color: #b58900; }
 .dashEditorStage { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--s-3); background: #0b0c0e; overflow: auto; }
 .dashEditorProps { border-left: 1px solid var(--border); overflow-y: auto; }
 .propPanel { display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-3); }
@@ -914,6 +943,9 @@ textarea:focus-visible,
 }
 
 .gateButtons { display: flex; flex-wrap: wrap; gap: var(--s-2); margin: var(--s-3) 0; }
+.screenOverrideButtons { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--s-2); }
+.screenOverrideButtons .tool { justify-content: center; }
+.screenOverrideButtons .tool.active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .fileTool { position: relative; overflow: hidden; }
 .fileTool input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
