@@ -34,7 +34,7 @@
 
 // BMS Safety Thresholds
 #define CELL_OVERVOLTAGE_THRESHOLD   4.2f  // Volts
-#define CELL_UNDERVOLTAGE_THRESHOLD  2.8f  // Volts
+#define CELL_UNDERVOLTAGE_THRESHOLD  2.5f  // Volts
 #define CELL_OVERTEMP_THRESHOLD      60.0f // Celsius
 
 // BMS Balance Thresholds
@@ -47,7 +47,18 @@
 
 #define BAL_PERIOD_CYCLES        8
 #define THERMISTOR_PERIOD_CYCLES 4
-#define BAL_DCTO_MAX             0x3FU
+
+// ADBMS6830 discharge-timer fail-safe. The chip is powered off the cell
+// stack and keeps driving its commanded PWM duty cycle even if the HVC
+// goes away, until this on-chip timer expires. WRCFG (bms_write_config)
+// reloads the timer, so we refresh it every balance cycle while bleeds
+// are active (BAL_PERIOD_CYCLES * 250ms << this timeout) but a dead/absent
+// master stops refreshing it and the IC shuts off discharging on its own
+// within this window instead of cooking the die for hours.
+// DCTO_TIMEOUT (0) disables the timer entirely, so TIME_1MIN_OR_0_26HR (1)
+// is the shortest real timeout available.
+#define BAL_DCTO_RANGE           RANG_0_TO_63_MIN
+#define BAL_DCTO_VALUE           TIME_1MIN_OR_0_26HR
 
 // IC die-temperature derating for internal discharge switches.
 // ITMP in Status A: T(C) = (code * 150uV + 1.5V) / 7.5mV/C - 273  (datasheet Table 105)
@@ -148,8 +159,8 @@ static void bms_init_config(void)
         IC[ic].tx_cfgb.vov = SetOverVoltageThreshold(CELL_OVERVOLTAGE_THRESHOLD);
         IC[ic].tx_cfgb.vuv = SetUnderVoltageThreshold(CELL_UNDERVOLTAGE_THRESHOLD);
         IC[ic].tx_cfgb.dtmen = DTMEN_ON;
-        IC[ic].tx_cfgb.dtrng = RANG_0_TO_16_8_HR;
-        IC[ic].tx_cfgb.dcto = BAL_DCTO_MAX;
+        IC[ic].tx_cfgb.dtrng = BAL_DCTO_RANGE;
+        IC[ic].tx_cfgb.dcto = BAL_DCTO_VALUE;
         IC[ic].tx_cfgb.dcc = 0;
     }
     bms_clear_pwm_registers();
@@ -194,22 +205,26 @@ uint8_t bms_get_balance_count(void) {
 
 bool bms_check_undervoltage(void)
 {
+    int num = 0;
     for (int i = 0; i < NUM_CELLS; i++) {
         if (cell_voltages[i] < CELL_UNDERVOLTAGE_THRESHOLD) {
-            return true;
+            num++;
         }
     }
-    return false;
+    return num > 0;
+    // return num > 2;
 }
 
 bool bms_check_overvoltage(void)
 {
+    int num = 0;
     for (int i = 0; i < NUM_CELLS; i++) {
         if (cell_voltages[i] > CELL_OVERVOLTAGE_THRESHOLD) {
-            return true;
+            num++;
         }
     }
-    return false;
+    return num > 0;
+    // return num > 2;
 }
 
 bool bms_check_overtemp(void)
@@ -232,21 +247,29 @@ bool bms_check_disconnection(void) {
 
 float bms_get_min_voltage(void) {
     float min_v = FLT_MAX;
+    int min_i = 0;
     for (int i = 0; i < TOTAL_IC * CELLS_PER_IC; i++) {
+        // if(i >= 80 && i <= 83) continue;
         if (cell_voltages[i] < min_v && cell_voltages[i] > 0.0f) {
             min_v = cell_voltages[i];
+            min_i = i;
         }
     }
+    // return min_i;
     return min_v;
 }
 
 float bms_get_max_voltage(void) {
     float max_v = -FLT_MAX;
+    int max_i = 0;
     for (int i = 0; i < TOTAL_IC * CELLS_PER_IC; i++) {
+        // if(i >= 80 && i <= 83) continue;
         if (cell_voltages[i] > max_v) {
             max_v = cell_voltages[i];
+            max_i = i;
         }
     }
+    // return max_i;
     return max_v;
 }
 
@@ -268,6 +291,15 @@ float bms_get_max_temp(void) {
         }
     }
     return max_t;
+}
+
+float bms_get_avg_temp(void) {
+    float sum_t = 0.0f;
+    const int n = TOTAL_IC * THERMISTORS_PER_IC;
+    for (int i = 0; i < n; i++) {
+        sum_t += cell_temps[i];
+    }
+    return sum_t / (float)n;
 }
 
 float bms_get_ic_die_temp(uint8_t ic) {
@@ -358,7 +390,8 @@ static void limit_max_cells_per_board(bool balance_cmd[NUM_CELLS],
  */
 static bool bms_balance_gates_failed(void)
 {
-    bool driving     = (get_current_state() == HVC_STATE_ENERGIZED);
+    // bool driving     = (get_current_state() == HVC_STATE_ENERGIZED);
+    bool driving     = (get_current_state() != HVC_STATE_CHARGING);
     int32_t pack_mA  = (int32_t)(get_tractive_current() * 1000.0f);
     bool overcurrent = false;//(pack_mA > PACK_I_MAX_MA) || (pack_mA < -PACK_I_MAX_MA);
     bool fault       = bms_check_disconnection() || bms_check_undervoltage() || bms_check_overtemp();
@@ -470,6 +503,15 @@ void bms_balance_cells(void)
     if (changed || (bal_was_active && !any_on)) {
         bms_write_pwm();
     }
+
+    // Reload each IC's discharge-timer fail-safe while bleeds are active.
+    // If the HVC stops running this cycle (e.g. master powered off), the
+    // timer is left to expire and the ADBMS6830 shuts off discharging on
+    // its own per BAL_DCTO_VALUE/BAL_DCTO_RANGE above.
+    if (any_on) {
+        bms_write_config();
+    }
+
     bal_was_active   = any_on;
     discharge_active = any_on ? 1 : 0;
 }

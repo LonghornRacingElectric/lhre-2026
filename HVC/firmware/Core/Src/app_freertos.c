@@ -291,6 +291,7 @@ void StartStateMachineTask(void *argument) {
     float delta_mv = (max_v - min_v) * 1000.0f;
     float min_temp_c = bms_get_min_temp();
     float max_temp_c = bms_get_max_temp();
+    float avg_temp_c = bms_get_avg_temp();
     float max_die_temp_c = bms_get_max_die_temp();
     uint8_t responsive_ics = bms_get_num_responsive_ics();
     uint8_t balance_count = bms_get_balance_count();
@@ -301,13 +302,13 @@ void StartStateMachineTask(void *argument) {
     
     log_printf(LOG_INFO,
                "Pack: %.2f V, Tractive: %.2f V, Faults[live:0x%04lX latched:0x%04lX], "
-               "Cell[min:%.5f max:%.5f dV:%.2f mV], Temp[min:%.1f max:%.1f], "
+               "Cell[min:%.5f max:%.5f dV:%.2f mV], Temp[min:%.1f max:%.1f avg:%.1f], "
                "Die[max:%.1f], "
                "BMS[resp:%u disc:%u uv:%u ov:%u ot:%u], "
                "State:%d Shdn:%d Bal:%u\n",
                pack_v, tractive_v,
                current_fault_vector, get_latched_faults(),
-               min_v, max_v, delta_mv, min_temp_c, max_temp_c,
+               min_v, max_v, delta_mv, min_temp_c, max_temp_c, avg_temp_c,
                max_die_temp_c,
                responsive_ics, bms_disc, bms_uv, bms_ov, bms_ot,
                get_current_state(), is_shutdown_closed(), balance_count);
