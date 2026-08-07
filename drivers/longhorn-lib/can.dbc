@@ -1,0 +1,1309 @@
+VERSION ""
+
+
+NS_ : 
+    NS_DESC_
+    CM_
+    BA_DEF_
+    BA_
+    VAL_
+    VAL_TABLE_
+    BA_DEF_DEF_
+    BA_DEF_SGTYPE_
+    BA_SGTYPE_
+    BA_DEF_BO_SGTYPE_
+    BA_BO_SGTYPE_
+    SGTYPE_
+    SGTYPE_VAL_
+    FILTER
+    BU_BO_REL_
+    BU_SG_REL_
+    BU_EV_REL_
+    DEFINE_BO_GR_
+    VECTOR_EQU_
+    SGTYPE_VAL_
+
+BS_:
+
+BU_: CSM DUI HVC Inverter PDU PI Pi TSM USM VCU Vector__XXX
+
+
+BO_ 16 Firmware_Update_Command_Packet: 8 Pi
+ SG_ command : 0|8@1+ (1.0,0) [0.0|255.0] "" Vector__XXX
+ SG_ address : 8|32@1+ (1.0,0) [0.0|0.0] "" Vector__XXX
+ SG_ num_blocks : 40|16@1+ (1.0,0) [0.0|65535.0] "" Vector__XXX
+ SG_ crc : 56|8@1+ (1.0,0) [0.0|255.0] "" Vector__XXX
+
+BO_ 17 Bus_Enable_Disable: 8 Pi
+ SG_ enable : 0|8@1+ (1.0,0) [0.0|255.0] "" HVC VCU USM CSM
+ SG_ fw_update : 8|8@1+ (1.0,0) [0.0|255.0] "" HVC VCU USM CSM
+ SG_ device : 16|8@1+ (1.0,0) [0.0|255.0] "" HVC VCU USM CSM
+
+BO_ 18 Firmware_Update_Data_Packet: 8 Pi
+ SG_ index : 0|8@1+ (1.0,0) [0.0|255.0] "" Vector__XXX
+ SG_ data0 : 8|8@1+ (1.0,0) [0.0|255.0] "" Vector__XXX
+ SG_ data1 : 16|8@1+ (1.0,0) [0.0|255.0] "" Vector__XXX
+ SG_ data2 : 24|8@1+ (1.0,0) [0.0|255.0] "" Vector__XXX
+ SG_ data3 : 32|8@1+ (1.0,0) [0.0|255.0] "" Vector__XXX
+ SG_ data4 : 40|8@1+ (1.0,0) [0.0|255.0] "" Vector__XXX
+ SG_ data5 : 48|8@1+ (1.0,0) [0.0|255.0] "" Vector__XXX
+ SG_ data6 : 56|8@1+ (1.0,0) [0.0|255.0] "" Vector__XXX
+
+BO_ 19 Device_fw_upd_Response_Packet: 1 Pi
+ SG_ response : 0|8@1+ (1.0,0) [0.0|255.0] "" Vector__XXX
+
+BO_ 160 Inverter_Temps: 8 Inverter
+ SG_ module_a_temp : 0|16@1- (0.1,0) [-3276.8|3276.7000000000003] "C" VCU
+ SG_ module_b_temp : 16|16@1- (0.1,0) [-3276.8|3276.7000000000003] "C" VCU
+ SG_ module_c_temp : 32|16@1- (0.1,0) [-3276.8|3276.7000000000003] "C" VCU
+ SG_ gate_driver_temp : 48|16@1- (0.1,0) [-3276.8|3276.7000000000003] "C" VCU
+
+BO_ 162 Inverter_Temps_2: 8 Inverter
+ SG_ coolant_temp : 0|16@1- (0.1,0) [-3276.8|3276.7000000000003] "C" VCU
+ SG_ inverter_hot_spot_temp : 16|16@1- (0.1,0) [-3276.8|3276.7000000000003] "C" VCU
+ SG_ motor_temp : 32|16@1- (0.1,0) [-3276.8|3276.7000000000003] "C" VCU
+ SG_ torque_shudder : 48|16@1- (0.1,0) [-3276.8|3276.7000000000003] "Nm" VCU
+
+BO_ 165 Inverter_Status: 8 Inverter
+ SG_ motor_angle : 0|16@1- (0.1,0) [-3276.8|3276.7000000000003] "degree" VCU
+ SG_ motor_speed : 16|16@1- (1.0,0) [-32768.0|32767.0] "rpm" VCU
+ SG_ inverter_frequency : 32|16@1- (0.1,0) [-3276.8|3276.7000000000003] "Hz" VCU
+ SG_ delta_resolver_angle : 48|16@1- (0.1,0) [-3276.8|3276.7000000000003] "degree" VCU
+
+BO_ 166 Inverter_Current: 8 Inverter
+ SG_ phase_a_current : 0|16@1- (0.1,0) [-3276.8|3276.7000000000003] "A" VCU
+ SG_ phase_b_current : 16|16@1- (0.1,0) [-3276.8|3276.7000000000003] "A" VCU
+ SG_ phase_c_current : 32|16@1- (0.1,0) [-3276.8|3276.7000000000003] "A" VCU
+ SG_ dc_bus_current : 48|16@1- (0.1,0) [-3276.8|3276.7000000000003] "A" VCU
+
+BO_ 167 Inverter_Voltage: 8 Inverter
+ SG_ dc_bus_voltage : 0|16@1- (0.1,0) [-3276.8|3276.7000000000003] "V" VCU
+ SG_ neutral_output_voltage : 16|16@1- (0.1,0) [-3276.8|3276.7000000000003] "V" VCU
+ SG_ vab_vq_voltage : 32|16@1- (0.1,0) [-3276.8|3276.7000000000003] "V" VCU
+ SG_ vbc_vd_voltage : 48|16@1- (0.1,0) [-3276.8|3276.7000000000003] "V" VCU
+
+BO_ 170 Inverter_Details: 8 Inverter
+ SG_ vsm : 0|8@1+ (1.0,0) [0.0|255.0] "" VCU
+ SG_ pwm_freq : 8|8@1+ (1.0,0) [0.0|255.0] "" VCU
+ SG_ inverter : 16|8@1+ (1.0,0) [0.0|255.0] "" VCU
+ SG_ relay : 24|8@1+ (1.0,0) [0.0|255.0] "" VCU
+ SG_ misc_1 : 32|8@1+ (1.0,0) [0.0|255.0] "" VCU
+ SG_ misc_2 : 40|8@1+ (1.0,0) [0.0|255.0] "" VCU
+ SG_ misc_3 : 48|8@1+ (1.0,0) [0.0|255.0] "" VCU
+ SG_ misc_4 : 56|8@1+ (1.0,0) [0.0|255.0] "" VCU
+
+BO_ 171 Inverter_Faults: 8 Inverter
+ SG_ post_faults : 0|32@1+ (1.0,0) [0.0|0.0] "" VCU
+ SG_ run_faults : 32|32@1+ (1.0,0) [0.0|0.0] "" VCU
+
+BO_ 172 Inverter_TSO: 8 Inverter
+ SG_ commanded_torque : 0|16@1- (0.1,0) [-3276.8|3276.7000000000003] "Nm" VCU
+ SG_ torque_feedback : 16|16@1- (0.1,0) [-3276.8|3276.7000000000003] "Nm" VCU
+ SG_ time_since_turned_on : 32|32@1+ (0.003,0) [0.0|12884901.885] "s" VCU
+
+BO_ 176 Inverter_Speed: 8 Inverter
+ SG_ commanded_torque : 0|16@1- (0.1,0) [-3276.8|3276.7000000000003] "Nm" VCU
+ SG_ torque_feedback : 16|16@1- (0.1,0) [-3276.8|3276.7000000000003] "Nm" VCU
+ SG_ motor_speed : 32|16@1- (1.0,0) [-32768.0|32767.0] "rpm" VCU
+ SG_ bus_voltage : 48|16@1+ (0.1,0) [0.0|6553.5] "V" VCU
+
+BO_ 192 Inverter_Torque_Command: 8 VCU
+ SG_ torque_request : 0|16@1- (0.1,0) [-3276.8|3276.7000000000003] "Nm" Inverter
+ SG_ rpm_request : 16|16@1- (1.0,0) [-32768.0|32767.0] "rpm" Inverter
+ SG_ direction : 32|8@1+ (1.0,0) [0.0|255.0] "" Inverter
+ SG_ enable : 40|8@1+ (1.0,0) [0.0|255.0] "" Inverter
+ SG_ torque_limit : 48|16@1- (0.1,0) [-3276.8|3276.7000000000003] "Nm" Inverter
+
+BO_ 193 Inverter_Parameter_Request: 8 VCU
+ SG_ parameter_address : 0|16@1+ (1.0,0) [0.0|65535.0] "" Inverter
+ SG_ r_w : 16|8@1+ (1.0,0) [0.0|255.0] "" Inverter
+
+BO_ 194 Inverter_Parameter_Response: 8 Inverter
+ SG_ parameter_address : 0|16@1+ (1.0,0) [0.0|65535.0] "" VCU
+ SG_ success : 16|8@1+ (1.0,0) [0.0|255.0] "" VCU
+
+BO_ 208 Cell_Voltages_0: 8 HVC
+ SG_ voltage_0 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_1 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_2 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_3 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 209 Cell_Voltages_1: 8 HVC
+ SG_ voltage_4 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_5 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_6 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_7 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 210 Cell_Voltages_2: 8 HVC
+ SG_ voltage_8 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_9 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_10 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_11 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 211 Cell_Voltages_3: 8 HVC
+ SG_ voltage_12 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_13 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_14 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_15 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 212 Cell_Voltages_4: 8 HVC
+ SG_ voltage_16 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_17 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_18 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_19 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 213 Cell_Voltages_5: 8 HVC
+ SG_ voltage_20 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_21 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_22 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_23 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 214 Cell_Voltages_6: 8 HVC
+ SG_ voltage_24 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_25 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_26 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_27 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 215 Cell_Voltages_7: 8 HVC
+ SG_ voltage_28 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_29 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_30 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_31 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 216 Cell_Voltages_8: 8 HVC
+ SG_ voltage_32 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_33 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_34 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_35 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 217 Cell_Voltages_9: 8 HVC
+ SG_ voltage_36 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_37 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_38 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_39 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 218 Cell_Voltages_10: 8 HVC
+ SG_ voltage_40 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_41 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_42 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_43 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 219 Cell_Voltages_11: 8 HVC
+ SG_ voltage_44 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_45 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_46 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_47 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 220 Cell_Voltages_12: 8 HVC
+ SG_ voltage_48 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_49 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_50 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_51 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 221 Cell_Voltages_13: 8 HVC
+ SG_ voltage_52 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_53 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_54 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_55 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 222 Cell_Voltages_14: 8 HVC
+ SG_ voltage_56 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_57 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_58 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_59 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 223 Cell_Voltages_15: 8 HVC
+ SG_ voltage_60 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_61 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_62 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_63 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 224 Cell_Voltages_16: 8 HVC
+ SG_ voltage_64 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_65 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_66 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_67 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 225 Cell_Voltages_17: 8 HVC
+ SG_ voltage_68 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_69 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_70 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_71 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 226 Cell_Voltages_18: 8 HVC
+ SG_ voltage_72 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_73 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_74 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_75 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 227 Cell_Voltages_19: 8 HVC
+ SG_ voltage_76 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_77 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_78 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_79 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 228 Cell_Voltages_20: 8 HVC
+ SG_ voltage_80 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_81 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_82 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_83 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 229 Cell_Voltages_21: 8 HVC
+ SG_ voltage_84 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_85 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_86 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_87 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 230 Cell_Voltages_22: 8 HVC
+ SG_ voltage_88 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_89 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_90 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_91 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 231 Cell_Voltages_23: 8 HVC
+ SG_ voltage_92 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_93 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_94 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_95 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 232 Cell_Voltages_24: 8 HVC
+ SG_ voltage_96 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_97 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_98 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_99 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 233 Cell_Voltages_25: 8 HVC
+ SG_ voltage_100 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_101 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_102 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_103 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 234 Cell_Voltages_26: 8 HVC
+ SG_ voltage_104 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_105 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_106 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_107 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 235 Cell_Voltages_27: 8 HVC
+ SG_ voltage_108 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_109 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_110 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_111 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 236 Cell_Voltages_28: 8 HVC
+ SG_ voltage_112 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_113 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_114 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_115 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 237 Cell_Voltages_29: 8 HVC
+ SG_ voltage_116 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_117 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_118 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_119 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 238 Cell_Voltages_30: 8 HVC
+ SG_ voltage_120 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_121 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_122 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_123 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 239 Cell_Voltages_31: 8 HVC
+ SG_ voltage_124 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_125 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_126 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_127 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 240 Cell_Voltages_32: 8 HVC
+ SG_ voltage_128 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_129 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_130 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_131 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 241 Cell_Voltages_33: 8 HVC
+ SG_ voltage_132 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_133 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_134 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_135 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 242 Cell_Voltages_34: 8 HVC
+ SG_ voltage_136 : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_137 : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_138 : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+ SG_ voltage_139 : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" PDU
+
+BO_ 256 Cell_Temperatures_0: 8 HVC
+ SG_ temp_0 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_1 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_2 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_3 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 257 Cell_Temperatures_1: 8 HVC
+ SG_ temp_4 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_5 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_6 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_7 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 258 Cell_Temperatures_2: 8 HVC
+ SG_ temp_8 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_9 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_10 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_11 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 259 Cell_Temperatures_3: 8 HVC
+ SG_ temp_12 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_13 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_14 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_15 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 260 Cell_Temperatures_4: 8 HVC
+ SG_ temp_16 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_17 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_18 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_19 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 261 Cell_Temperatures_5: 8 HVC
+ SG_ temp_20 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_21 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_22 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_23 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 262 Cell_Temperatures_6: 8 HVC
+ SG_ temp_24 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_25 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_26 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_27 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 263 Cell_Temperatures_7: 8 HVC
+ SG_ temp_28 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_29 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_30 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_31 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 264 Cell_Temperatures_8: 8 HVC
+ SG_ temp_32 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_33 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_34 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_35 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 265 Cell_Temperatures_9: 8 HVC
+ SG_ temp_36 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_37 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_38 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_39 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 266 Cell_Temperatures_10: 8 HVC
+ SG_ temp_40 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_41 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_42 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_43 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 267 Cell_Temperatures_11: 8 HVC
+ SG_ temp_44 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_45 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_46 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_47 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 268 Cell_Temperatures_12: 8 HVC
+ SG_ temp_48 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_49 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_50 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_51 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 269 Cell_Temperatures_13: 8 HVC
+ SG_ temp_52 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_53 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_54 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_55 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 270 Cell_Temperatures_14: 8 HVC
+ SG_ temp_56 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_57 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_58 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_59 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 271 Cell_Temperatures_15: 8 HVC
+ SG_ temp_60 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_61 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_62 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_63 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 272 Cell_Temperatures_16: 8 HVC
+ SG_ temp_64 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_65 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_66 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_67 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 273 Cell_Temperatures_17: 8 HVC
+ SG_ temp_68 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_69 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_70 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_71 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 274 Cell_Temperatures_18: 8 HVC
+ SG_ temp_72 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_73 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_74 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_75 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 275 Cell_Temperatures_19: 8 HVC
+ SG_ temp_76 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_77 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_78 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_79 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 276 Cell_Temperatures_20: 8 HVC
+ SG_ temp_80 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_81 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_82 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_83 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 277 Cell_Temperatures_21: 8 HVC
+ SG_ temp_84 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_85 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_86 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_87 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 278 Cell_Temperatures_22: 8 HVC
+ SG_ temp_88 : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_89 : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_90 : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ temp_91 : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 288 DUI_R2D_Status: 2 DUI
+ SG_ r2d_status : 0|8@1+ (1.0,0) [0.0|255.0] "" VCU
+ SG_ temp_shutdown_1 : 8|1@1+ (1,0) [0|1] "" VCU
+ SG_ temp_shutdown_2 : 9|1@1+ (1,0) [0|1] "" VCU
+
+BO_ 289 DUI_R2D_Authorization: 3 VCU
+ SG_ r2d_authorized : 0|8@1+ (1.0,0) [0.0|255.0] "" DUI
+ SG_ temp_imd_1 : 8|1@1+ (1,0) [0|1] "" DUI
+ SG_ temp_imd_2 : 9|1@1+ (1,0) [0|1] "" DUI
+ SG_ temp_ams_1 : 16|1@1+ (1,0) [0|1] "" DUI
+ SG_ temp_ams_2 : 17|1@1+ (1,0) [0|1] "" DUI
+
+BO_ 304 Wheel_Speed_Ride_height: 4 USM
+ SG_ wheel_speed : 0|16@1- (0.0078125,0) [-256.0|255.9921875] "" VCU
+ SG_ ride_height : 16|16@1+ (0.0625,0) [0.0|4095.9375] "" VCU
+
+BO_ 305 Contactor_Status: 4 HVC
+ SG_ hvc_state_machine : 0|8@1+ (1.0,0) [0.0|255.0] "" VCU
+ SG_ positive_hv_contactor : 8|8@1+ (1.0,0) [0.0|255.0] "" VCU
+ SG_ negative_hv_contactor : 16|8@1+ (1.0,0) [0.0|255.0] "" VCU
+ SG_ precharge_contactor : 24|8@1+ (1.0,0) [0.0|255.0] "" VCU
+
+BO_ 306 Battery_Pack_Status: 8 HVC
+ SG_ pack_voltage : 0|16@1+ (0.01,0) [0.0|655.35] "V" PDU
+ SG_ tractive_current : 16|16@1+ (0.01,0) [0.0|655.35] "A" PDU
+ SG_ state_of_charge : 32|16@1+ (0.01,0) [0.0|655.35] "%" PDU
+ SG_ cell_top_temp : 48|8@1+ (1.0,0) [0.0|255.0] "C" PDU
+ SG_ cell_bottom_temp : 56|8@1+ (1.0,0) [0.0|255.0] "C" PDU
+
+BO_ 307 Battery_Temperature_Status: 8 HVC
+ SG_ bus_bar_1_temp : 0|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ bus_bar_2_temp : 16|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ bus_bar_3_temp : 32|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+ SG_ precharge_resistor_temp : 48|16@1+ (0.1,0) [0.0|6553.5] "C" PDU
+
+BO_ 308 Indicators_Shutdown_Status: 6 HVC
+ SG_ bms_error : 0|8@1+ (1.0,0) [0.0|255.0] "" PDU
+ SG_ imd_error : 8|8@1+ (1.0,0) [0.0|255.0] "" PDU
+ SG_ shutdown_leg_1 : 16|8@1+ (1.0,0) [0.0|255.0] "" PDU
+ SG_ shutdown_leg_2 : 24|8@1+ (1.0,0) [0.0|255.0] "" PDU
+ SG_ shutdown_leg_3 : 32|8@1+ (1.0,0) [0.0|255.0] "" PDU
+ SG_ shutdown_leg_4 : 40|8@1+ (1.0,0) [0.0|255.0] "" PDU
+
+BO_ 309 Allow_Balance_Command: 8 VCU
+
+BO_ 310 Battery_Cell_Limits: 4 HVC
+ SG_ min_cell_voltage : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" VCU
+ SG_ max_cell_voltage : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "V" VCU
+
+BO_ 320 VCU_Shutdown_Status: 1 VCU
+ SG_ shutdown_bspd_status : 0|1@1+ (1,0) [0|1] "" PDU
+ SG_ shutdown_emeter_status : 1|1@1+ (1,0) [0|1] "" PDU
+
+BO_ 321 VCU_Fuses: 2 VCU
+ SG_ batt_pump_fuse : 0|1@1+ (1,0) [0|1] "" PDU
+ SG_ tssi_green_fuse : 1|1@1+ (1,0) [0|1] "" PDU
+ SG_ tssi_red_fuse : 2|1@1+ (1,0) [0|1] "" PDU
+ SG_ batt_fans_fuse : 3|1@1+ (1,0) [0|1] "" PDU
+ SG_ shtdn_fuse : 4|1@1+ (1,0) [0|1] "" PDU
+ SG_ ll_fuse : 5|1@1+ (1,0) [0|1] "" PDU
+ SG_ motor_pump_fuse : 6|1@1+ (1,0) [0|1] "" PDU
+ SG_ boards_fuse : 7|1@1+ (1,0) [0|1] "" PDU
+ SG_ brake_light_fuse : 8|1@1+ (1,0) [0|1] "" PDU
+ SG_ rtd_fuse : 9|1@1+ (1,0) [0|1] "" PDU
+ SG_ spare_fuse : 10|1@1+ (1,0) [0|1] "" PDU
+
+BO_ 322 VCU_Current_Sense: 5 VCU
+ SG_ lv_boards_current : 0|8@1+ (0.04,0) [0.0|10.200000000000001] "A" PDU
+ SG_ shutdown_current : 8|8@1+ (0.04,0) [0.0|10.200000000000001] "A" PDU
+ SG_ battery_cooling_current : 16|8@1+ (0.04,0) [0.0|10.200000000000001] "A" PDU
+ SG_ motor_cooling_current : 24|8@1+ (0.04,0) [0.0|10.200000000000001] "A" PDU
+ SG_ lights_current_current : 32|8@1+ (0.04,0) [0.0|10.200000000000001] "A" PDU
+
+BO_ 323 Switch_Command: 2 VCU
+ SG_ temp_command_1 : 0|1@1+ (1,0) [0|1] "" PDU
+ SG_ temp_command_2 : 1|1@1+ (1,0) [0|1] "" PDU
+
+BO_ 324 Switch_Outputs: 2 PDU
+ SG_ temp_output_1 : 0|1@1+ (1,0) [0|1] "" VCU
+ SG_ temp_output_2 : 1|1@1+ (1,0) [0|1] "" VCU
+
+BO_ 385 Battery_Cooling: 6 PDU
+ SG_ temp_after_battery : 0|16@1- (0.01,0) [-327.68|327.67] "ºC" Pi
+ SG_ temp_after_radiator : 16|16@1- (0.01,0) [-327.68|327.67] "ºC" Pi
+ SG_ radiator_fan_speed : 32|16@1+ (0.2,0) [0.0|13107.0] "" Pi
+
+BO_ 386 Temps: 8 PDU
+ SG_ inverter : 0|16@1- (0.01,0) [-327.68|327.67] "ºC" Pi
+ SG_ motor : 16|16@1- (0.01,0) [-327.68|327.67] "ºC" Pi
+ SG_ ambient : 32|16@1- (0.01,0) [-327.68|327.67] "ºC" Pi
+ SG_ discharge_resistor_temp : 48|16@1- (0.01,0) [-327.68|327.67] "ºC" Pi
+
+BO_ 387 LV_Battery: 6 PDU
+ SG_ lv_battery_voltage : 0|16@1+ (0.01,0) [0.0|655.35] "V" PI
+ SG_ lv_battery_current : 16|16@1- (0.01,0) [-327.68|327.67] "A" PI
+ SG_ lv_battery_temp : 32|16@1- (0.01,0) [-327.68|327.67] "ºC" PI
+
+BO_ 416 Coolant_Loop_Temps: 8 TSM
+ SG_ loop_temp_after_motor : 0|16@1- (0.01,0) [-327.68|327.67] "ºC" Pi
+ SG_ loop_temp_after_inverter : 16|16@1- (0.01,0) [-327.68|327.67] "ºC" Pi
+ SG_ temp_after_radiator : 32|16@1- (0.01,0) [-327.68|327.67] "ºC" Pi
+
+BO_ 418 Fan_Flow_Speeds: 8 TSM
+ SG_ radiator_fan_speed : 0|16@1+ (1.0,0) [0.0|65535.0] "" Pi
+ SG_ battery_fan_speed : 16|16@1+ (1.0,0) [0.0|65535.0] "" Pi
+ SG_ coolant_flow : 32|16@1+ (0.01,0) [0.0|655.35] "" Pi
+ SG_ ambient_temp : 48|16@1- (0.01,0) [-327.68|327.67] "ºC" Pi
+
+BO_ 448 APPS_Voltages: 8 VCU
+ SG_ apps1_voltage : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "" PI
+ SG_ apps2_voltage : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "" PI
+ SG_ apps1_travel : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "" PI
+ SG_ apps2_travel : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "" PI
+
+BO_ 449 Accelerator_Pedal: 3 VCU
+ SG_ accelerator_pedal_travel : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "" PI
+ SG_ apps1_disconnect : 16|1@1+ (1,0) [0|1] "" PI
+ SG_ apps2_disconnect : 17|1@1+ (1,0) [0|1] "" PI
+ SG_ apps1_out_range : 18|1@1+ (1,0) [0|1] "" PI
+ SG_ apps2_out_range : 19|1@1+ (1,0) [0|1] "" PI
+ SG_ apps_mismatch : 20|1@1+ (1,0) [0|1] "" PI
+ SG_ apps_implause : 21|1@1+ (1,0) [0|1] "" PI
+
+BO_ 450 BPPS_Voltages: 8 VCU
+ SG_ bpps1_voltage : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "" PI
+ SG_ bpps2_voltage : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "" PI
+ SG_ bpps1_travel : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "" PI
+ SG_ bpps2_travel : 48|16@1+ (0.0001,0) [0.0|6.5535000000000005] "" PI
+
+BO_ 451 Brake_Pedal: 5 VCU
+ SG_ brake_pedal_travel : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "" PI
+ SG_ bpps1_disconnect : 16|1@1+ (1,0) [0|1] "" PI
+ SG_ bpps2_disconnect : 17|1@1+ (1,0) [0|1] "" PI
+ SG_ bpps1_out_range : 18|1@1+ (1,0) [0|1] "" PI
+ SG_ bpps2_out_range : 19|1@1+ (1,0) [0|1] "" PI
+ SG_ bpps_mismatch : 20|1@1+ (1,0) [0|1] "" PI
+ SG_ brake_light_percent : 24|16@1+ (0.001,0) [0.0|65.535] "" PI
+
+BO_ 452 BSE_Voltages: 6 VCU
+ SG_ bse_front_voltage : 0|16@1+ (0.0001,0) [0.0|6.5535000000000005] "" Pi
+ SG_ bse_rear_voltage : 16|16@1+ (0.0001,0) [0.0|6.5535000000000005] "" Pi
+ SG_ bse_line_lock_voltage : 32|16@1+ (0.0001,0) [0.0|6.5535000000000005] "" Pi
+
+BO_ 453 Brakes: 8 VCU
+ SG_ brake_pressure_front : 0|16@1+ (0.05,0) [0.0|3276.75] "" Pi
+ SG_ brake_pressure_rear_pre_lock : 16|16@1+ (0.05,0) [0.0|3276.75] "" Pi
+ SG_ brake_pressure_rear_post_lock : 32|16@1+ (0.05,0) [0.0|3276.75] "" Pi
+ SG_ brake_bias : 48|8@1+ (0.01,0) [0.0|2.5500000000000003] "" Pi
+ SG_ bse1_disconnect : 56|1@1+ (1,0) [0|1] "" Pi
+ SG_ bse2_disconnect : 57|1@1+ (1,0) [0|1] "" Pi
+ SG_ bse1_out_range : 58|1@1+ (1,0) [0|1] "" Pi
+ SG_ bse2_out_range : 59|1@1+ (1,0) [0|1] "" Pi
+
+BO_ 454 Steering_Column: 2 VCU
+ SG_ steering_column_angle : 0|16@1- (0.004,0) [-131.072|131.068] "º" Pi
+
+BO_ 455 VCU_State: 6 VCU
+ SG_ prndl_state : 0|8@1+ (1.0,0) [0.0|255.0] "" Pi
+ SG_ stomp_fault : 8|8@1+ (1.0,0) [0.0|255.0] "" Pi
+ SG_ ready_to_drive_buzzer : 16|8@1+ (1.0,0) [0.0|255.0] "" Pi
+ SG_ state_of_charge_estimate : 24|16@1+ (0.1,0) [0.0|6553.5] "" Pi
+ SG_ line_lock_enabled : 40|8@1+ (1.0,0) [0.0|255.0] "" Pi
+
+BO_ 1024 Wheel_Speeds: 8 USM
+ SG_ front_left_speed : 0|16@1- (0.01,0) [-327.68|327.67] "" Pi
+ SG_ front_right_speed : 16|16@1- (0.01,0) [-327.68|327.67] "" Pi
+ SG_ back_left_speed : 32|16@1- (0.01,0) [-327.68|327.67] "" Pi
+ SG_ back_right_speed : 48|16@1- (0.01,0) [-327.68|327.67] "" Pi
+
+BO_ 1026 Acceleration_Vector_Unsprung_FL: 6 USM
+ SG_ x : 0|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ y : 16|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ z : 32|16@1- (0.001,0) [-32.768|32.767] "" Pi
+
+BO_ 1027 Acceleration_Vector_Unsprung_FR: 6 USM
+ SG_ x : 0|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ y : 16|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ z : 32|16@1- (0.001,0) [-32.768|32.767] "" Pi
+
+BO_ 1028 Acceleration_Vector_Unsprung_RL: 6 USM
+ SG_ x : 0|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ y : 16|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ z : 32|16@1- (0.001,0) [-32.768|32.767] "" Pi
+
+BO_ 1029 Acceleration_Vector_Unsprung_RR: 6 USM
+ SG_ x : 0|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ y : 16|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ z : 32|16@1- (0.001,0) [-32.768|32.767] "" Pi
+
+BO_ 1280 FL_Accel_Ride_Height: 8 CSM
+ SG_ x : 0|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ y : 16|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ z : 32|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ ride_height : 48|16@1+ (0.002,0) [0.0|131.07] "" Pi
+
+BO_ 1281 FL_Strain_Gauge_Sus_Pot: 4 CSM
+ SG_ front_left_strain_gauge_voltage : 0|16@1- (0.0002,0) [-6.5536|6.5534] "V" Pi
+ SG_ front_left_sus_pot : 16|16@1- (0.001,0) [-32.768|32.767] "V" Pi
+
+BO_ 1282 FR_Accel_Ride_Height: 8 CSM
+ SG_ x : 0|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ y : 16|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ z : 32|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ ride_height : 48|16@1+ (0.002,0) [0.0|131.07] "" Pi
+
+BO_ 1283 FR_Strain_Gauge_Sus_Pot: 4 CSM
+ SG_ front_right_strain_gauge_voltage : 0|16@1- (0.0002,0) [-6.5536|6.5534] "V" Pi
+ SG_ front_right_sus_pot : 16|16@1- (0.001,0) [-32.768|32.767] "V" Pi
+
+BO_ 1284 RL_Accel_Ride_Height: 8 CSM
+ SG_ x : 0|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ y : 16|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ z : 32|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ ride_height : 48|16@1+ (0.002,0) [0.0|131.07] "" Pi
+
+BO_ 1285 RL_Strain_Gauge_Sus_Pot: 4 CSM
+ SG_ back_left_strain_gauge_voltage : 0|16@1- (0.0002,0) [-6.5536|6.5534] "V" Pi
+ SG_ back_left_sus_pot : 16|16@1- (0.001,0) [-32.768|32.767] "V" Pi
+
+BO_ 1286 RR_Accel_Ride_Height: 8 CSM
+ SG_ x : 0|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ y : 16|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ z : 32|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ ride_height : 48|16@1+ (0.002,0) [0.0|131.07] "" Pi
+
+BO_ 1287 RR_Strain_Gauge_Sus_Pot: 4 CSM
+ SG_ back_right_strain_gauge_voltage : 0|16@1- (0.0002,0) [-6.5536|6.5534] "V" Pi
+ SG_ back_right_sus_pot : 16|16@1- (0.001,0) [-32.768|32.767] "V" Pi
+
+BO_ 1288 FL_Gyro: 6 CSM
+ SG_ x : 0|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ y : 16|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ z : 32|16@1- (0.001,0) [-32.768|32.767] "" Pi
+
+BO_ 1289 FR_Gyro: 6 CSM
+ SG_ x : 0|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ y : 16|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ z : 32|16@1- (0.001,0) [-32.768|32.767] "" Pi
+
+BO_ 1290 RL_Gyro: 6 CSM
+ SG_ x : 0|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ y : 16|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ z : 32|16@1- (0.001,0) [-32.768|32.767] "" Pi
+
+BO_ 1291 RR_Gyro: 6 CSM
+ SG_ x : 0|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ y : 16|16@1- (0.001,0) [-32.768|32.767] "" Pi
+ SG_ z : 32|16@1- (0.001,0) [-32.768|32.767] "" Pi
+
+BO_ 37 VCU_Enter_Bootloader: 1 Pi
+
+BO_ 38 CSM_Enter_Bootloader: 1 Pi
+
+BO_ 39 HVC_Enter_Bootloader: 1 Pi
+
+BO_ 40 USM_Enter_Bootloader: 1 Pi
+
+BO_ 48 HVC_Bounds_Parameters: 8 Pi
+
+CM_ BO_ 16 "Firmware Update Command Packet";
+CM_ SG_ 16 command "Command";
+CM_ SG_ 16 address "Address";
+CM_ SG_ 16 num_blocks "Num Blocks";
+CM_ SG_ 16 crc "CRC";
+CM_ BO_ 17 "Bus Enable/Disable";
+CM_ SG_ 17 enable "Enable";
+CM_ SG_ 17 fw_update "FW Update";
+CM_ SG_ 17 device "Device";
+CM_ BO_ 18 "Firmware Update Data Packet";
+CM_ SG_ 18 index "Index";
+CM_ SG_ 18 data0 "data0";
+CM_ SG_ 18 data1 "data1";
+CM_ SG_ 18 data2 "data2";
+CM_ SG_ 18 data3 "data3";
+CM_ SG_ 18 data4 "data4";
+CM_ SG_ 18 data5 "data5";
+CM_ SG_ 18 data6 "data6";
+CM_ BO_ 19 "Device Firmware Update Response Packet";
+CM_ SG_ 19 response "Response";
+CM_ BO_ 160 "Inverter Temps";
+CM_ SG_ 160 module_a_temp "Module A Temp";
+CM_ SG_ 160 module_b_temp "Module B Temp";
+CM_ SG_ 160 module_c_temp "Module C Temp";
+CM_ SG_ 160 gate_driver_temp "Gate Driver Temp";
+CM_ BO_ 162 "Inverter Temps 2";
+CM_ SG_ 162 coolant_temp "Coolant Temp";
+CM_ SG_ 162 inverter_hot_spot_temp "Inverter Hot Spot Temp";
+CM_ SG_ 162 motor_temp "Motor Temp";
+CM_ SG_ 162 torque_shudder "Torque Shudder";
+CM_ BO_ 165 "Inverter Status";
+CM_ SG_ 165 motor_angle "Motor Angle";
+CM_ SG_ 165 motor_speed "Motor Speed";
+CM_ SG_ 165 inverter_frequency "Inverter Frequency";
+CM_ SG_ 165 delta_resolver_angle "Delta Resolver Angle";
+CM_ BO_ 166 "Inverter Current";
+CM_ SG_ 166 phase_a_current "Phase A Current";
+CM_ SG_ 166 phase_b_current "Phase B Current";
+CM_ SG_ 166 phase_c_current "Phase C Current";
+CM_ SG_ 166 dc_bus_current "DC Bus Current";
+CM_ BO_ 167 "Inverter Voltage";
+CM_ SG_ 167 dc_bus_voltage "DC Bus Voltage";
+CM_ SG_ 167 neutral_output_voltage "Neutral Output Voltage";
+CM_ SG_ 167 vab_vq_voltage "Vab / Vq Voltage";
+CM_ SG_ 167 vbc_vd_voltage "Vbc / Vd Voltage";
+CM_ BO_ 170 "Inverter Details";
+CM_ SG_ 170 vsm "VSM";
+CM_ SG_ 170 pwm_freq "PWM Freq";
+CM_ SG_ 170 inverter "Inverter";
+CM_ SG_ 170 relay "Relay";
+CM_ SG_ 170 misc_1 "Misc. 1";
+CM_ SG_ 170 misc_2 "Misc. 2";
+CM_ SG_ 170 misc_3 "Misc. 3";
+CM_ SG_ 170 misc_4 "Misc. 4";
+CM_ BO_ 171 "Inverter Faults";
+CM_ SG_ 171 post_faults "POST Faults";
+CM_ SG_ 171 run_faults "Run Faults";
+CM_ BO_ 172 "Inverter TSO";
+CM_ SG_ 172 commanded_torque "commanded torque";
+CM_ SG_ 172 torque_feedback "torque feedback";
+CM_ SG_ 172 time_since_turned_on "Time since turned ON";
+CM_ BO_ 176 "Inverter Speed";
+CM_ SG_ 176 commanded_torque "commanded torque";
+CM_ SG_ 176 torque_feedback "torque feedback";
+CM_ SG_ 176 motor_speed "Motor Speed";
+CM_ SG_ 176 bus_voltage "Bus Voltage";
+CM_ BO_ 192 "Inverter Torque Command";
+CM_ SG_ 192 torque_request "torque request";
+CM_ SG_ 192 rpm_request "rpm request";
+CM_ SG_ 192 direction "direction";
+CM_ SG_ 192 enable "enable";
+CM_ SG_ 192 torque_limit "torque limit";
+CM_ BO_ 193 "Inverter Parameter Request";
+CM_ SG_ 193 parameter_address "parameter address";
+CM_ SG_ 193 r_w "r/w";
+CM_ BO_ 194 "Inverter Parameter Response";
+CM_ SG_ 194 parameter_address "parameter address";
+CM_ SG_ 194 success "success";
+CM_ BO_ 208 "Cell Voltages";
+CM_ SG_ 208 voltage_0 "Voltage 0";
+CM_ SG_ 208 voltage_1 "Voltage 1";
+CM_ SG_ 208 voltage_2 "Voltage 2";
+CM_ SG_ 208 voltage_3 "Voltage 3";
+CM_ BO_ 209 "Cell Voltages";
+CM_ SG_ 209 voltage_4 "Voltage 4";
+CM_ SG_ 209 voltage_5 "Voltage 5";
+CM_ SG_ 209 voltage_6 "Voltage 6";
+CM_ SG_ 209 voltage_7 "Voltage 7";
+CM_ BO_ 210 "Cell Voltages";
+CM_ SG_ 210 voltage_8 "Voltage 8";
+CM_ SG_ 210 voltage_9 "Voltage 9";
+CM_ SG_ 210 voltage_10 "Voltage 10";
+CM_ SG_ 210 voltage_11 "Voltage 11";
+CM_ BO_ 211 "Cell Voltages";
+CM_ SG_ 211 voltage_12 "Voltage 12";
+CM_ SG_ 211 voltage_13 "Voltage 13";
+CM_ SG_ 211 voltage_14 "Voltage 14";
+CM_ SG_ 211 voltage_15 "Voltage 15";
+CM_ BO_ 212 "Cell Voltages";
+CM_ SG_ 212 voltage_16 "Voltage 16";
+CM_ SG_ 212 voltage_17 "Voltage 17";
+CM_ SG_ 212 voltage_18 "Voltage 18";
+CM_ SG_ 212 voltage_19 "Voltage 19";
+CM_ BO_ 213 "Cell Voltages";
+CM_ SG_ 213 voltage_20 "Voltage 20";
+CM_ SG_ 213 voltage_21 "Voltage 21";
+CM_ SG_ 213 voltage_22 "Voltage 22";
+CM_ SG_ 213 voltage_23 "Voltage 23";
+CM_ BO_ 214 "Cell Voltages";
+CM_ SG_ 214 voltage_24 "Voltage 24";
+CM_ SG_ 214 voltage_25 "Voltage 25";
+CM_ SG_ 214 voltage_26 "Voltage 26";
+CM_ SG_ 214 voltage_27 "Voltage 27";
+CM_ BO_ 215 "Cell Voltages";
+CM_ SG_ 215 voltage_28 "Voltage 28";
+CM_ SG_ 215 voltage_29 "Voltage 29";
+CM_ SG_ 215 voltage_30 "Voltage 30";
+CM_ SG_ 215 voltage_31 "Voltage 31";
+CM_ BO_ 216 "Cell Voltages";
+CM_ SG_ 216 voltage_32 "Voltage 32";
+CM_ SG_ 216 voltage_33 "Voltage 33";
+CM_ SG_ 216 voltage_34 "Voltage 34";
+CM_ SG_ 216 voltage_35 "Voltage 35";
+CM_ BO_ 217 "Cell Voltages";
+CM_ SG_ 217 voltage_36 "Voltage 36";
+CM_ SG_ 217 voltage_37 "Voltage 37";
+CM_ SG_ 217 voltage_38 "Voltage 38";
+CM_ SG_ 217 voltage_39 "Voltage 39";
+CM_ BO_ 218 "Cell Voltages";
+CM_ SG_ 218 voltage_40 "Voltage 40";
+CM_ SG_ 218 voltage_41 "Voltage 41";
+CM_ SG_ 218 voltage_42 "Voltage 42";
+CM_ SG_ 218 voltage_43 "Voltage 43";
+CM_ BO_ 219 "Cell Voltages";
+CM_ SG_ 219 voltage_44 "Voltage 44";
+CM_ SG_ 219 voltage_45 "Voltage 45";
+CM_ SG_ 219 voltage_46 "Voltage 46";
+CM_ SG_ 219 voltage_47 "Voltage 47";
+CM_ BO_ 220 "Cell Voltages";
+CM_ SG_ 220 voltage_48 "Voltage 48";
+CM_ SG_ 220 voltage_49 "Voltage 49";
+CM_ SG_ 220 voltage_50 "Voltage 50";
+CM_ SG_ 220 voltage_51 "Voltage 51";
+CM_ BO_ 221 "Cell Voltages";
+CM_ SG_ 221 voltage_52 "Voltage 52";
+CM_ SG_ 221 voltage_53 "Voltage 53";
+CM_ SG_ 221 voltage_54 "Voltage 54";
+CM_ SG_ 221 voltage_55 "Voltage 55";
+CM_ BO_ 222 "Cell Voltages";
+CM_ SG_ 222 voltage_56 "Voltage 56";
+CM_ SG_ 222 voltage_57 "Voltage 57";
+CM_ SG_ 222 voltage_58 "Voltage 58";
+CM_ SG_ 222 voltage_59 "Voltage 59";
+CM_ BO_ 223 "Cell Voltages";
+CM_ SG_ 223 voltage_60 "Voltage 60";
+CM_ SG_ 223 voltage_61 "Voltage 61";
+CM_ SG_ 223 voltage_62 "Voltage 62";
+CM_ SG_ 223 voltage_63 "Voltage 63";
+CM_ BO_ 224 "Cell Voltages";
+CM_ SG_ 224 voltage_64 "Voltage 64";
+CM_ SG_ 224 voltage_65 "Voltage 65";
+CM_ SG_ 224 voltage_66 "Voltage 66";
+CM_ SG_ 224 voltage_67 "Voltage 67";
+CM_ BO_ 225 "Cell Voltages";
+CM_ SG_ 225 voltage_68 "Voltage 68";
+CM_ SG_ 225 voltage_69 "Voltage 69";
+CM_ SG_ 225 voltage_70 "Voltage 70";
+CM_ SG_ 225 voltage_71 "Voltage 71";
+CM_ BO_ 226 "Cell Voltages";
+CM_ SG_ 226 voltage_72 "Voltage 72";
+CM_ SG_ 226 voltage_73 "Voltage 73";
+CM_ SG_ 226 voltage_74 "Voltage 74";
+CM_ SG_ 226 voltage_75 "Voltage 75";
+CM_ BO_ 227 "Cell Voltages";
+CM_ SG_ 227 voltage_76 "Voltage 76";
+CM_ SG_ 227 voltage_77 "Voltage 77";
+CM_ SG_ 227 voltage_78 "Voltage 78";
+CM_ SG_ 227 voltage_79 "Voltage 79";
+CM_ BO_ 228 "Cell Voltages";
+CM_ SG_ 228 voltage_80 "Voltage 80";
+CM_ SG_ 228 voltage_81 "Voltage 81";
+CM_ SG_ 228 voltage_82 "Voltage 82";
+CM_ SG_ 228 voltage_83 "Voltage 83";
+CM_ BO_ 229 "Cell Voltages";
+CM_ SG_ 229 voltage_84 "Voltage 84";
+CM_ SG_ 229 voltage_85 "Voltage 85";
+CM_ SG_ 229 voltage_86 "Voltage 86";
+CM_ SG_ 229 voltage_87 "Voltage 87";
+CM_ BO_ 230 "Cell Voltages";
+CM_ SG_ 230 voltage_88 "Voltage 88";
+CM_ SG_ 230 voltage_89 "Voltage 89";
+CM_ SG_ 230 voltage_90 "Voltage 90";
+CM_ SG_ 230 voltage_91 "Voltage 91";
+CM_ BO_ 231 "Cell Voltages";
+CM_ SG_ 231 voltage_92 "Voltage 92";
+CM_ SG_ 231 voltage_93 "Voltage 93";
+CM_ SG_ 231 voltage_94 "Voltage 94";
+CM_ SG_ 231 voltage_95 "Voltage 95";
+CM_ BO_ 232 "Cell Voltages";
+CM_ SG_ 232 voltage_96 "Voltage 96";
+CM_ SG_ 232 voltage_97 "Voltage 97";
+CM_ SG_ 232 voltage_98 "Voltage 98";
+CM_ SG_ 232 voltage_99 "Voltage 99";
+CM_ BO_ 233 "Cell Voltages";
+CM_ SG_ 233 voltage_100 "Voltage 100";
+CM_ SG_ 233 voltage_101 "Voltage 101";
+CM_ SG_ 233 voltage_102 "Voltage 102";
+CM_ SG_ 233 voltage_103 "Voltage 103";
+CM_ BO_ 234 "Cell Voltages";
+CM_ SG_ 234 voltage_104 "Voltage 104";
+CM_ SG_ 234 voltage_105 "Voltage 105";
+CM_ SG_ 234 voltage_106 "Voltage 106";
+CM_ SG_ 234 voltage_107 "Voltage 107";
+CM_ BO_ 235 "Cell Voltages";
+CM_ SG_ 235 voltage_108 "Voltage 108";
+CM_ SG_ 235 voltage_109 "Voltage 109";
+CM_ SG_ 235 voltage_110 "Voltage 110";
+CM_ SG_ 235 voltage_111 "Voltage 111";
+CM_ BO_ 236 "Cell Voltages";
+CM_ SG_ 236 voltage_112 "Voltage 112";
+CM_ SG_ 236 voltage_113 "Voltage 113";
+CM_ SG_ 236 voltage_114 "Voltage 114";
+CM_ SG_ 236 voltage_115 "Voltage 115";
+CM_ BO_ 237 "Cell Voltages";
+CM_ SG_ 237 voltage_116 "Voltage 116";
+CM_ SG_ 237 voltage_117 "Voltage 117";
+CM_ SG_ 237 voltage_118 "Voltage 118";
+CM_ SG_ 237 voltage_119 "Voltage 119";
+CM_ BO_ 238 "Cell Voltages";
+CM_ SG_ 238 voltage_120 "Voltage 120";
+CM_ SG_ 238 voltage_121 "Voltage 121";
+CM_ SG_ 238 voltage_122 "Voltage 122";
+CM_ SG_ 238 voltage_123 "Voltage 123";
+CM_ BO_ 239 "Cell Voltages";
+CM_ SG_ 239 voltage_124 "Voltage 124";
+CM_ SG_ 239 voltage_125 "Voltage 125";
+CM_ SG_ 239 voltage_126 "Voltage 126";
+CM_ SG_ 239 voltage_127 "Voltage 127";
+CM_ BO_ 240 "Cell Voltages";
+CM_ SG_ 240 voltage_128 "Voltage 128";
+CM_ SG_ 240 voltage_129 "Voltage 129";
+CM_ SG_ 240 voltage_130 "Voltage 130";
+CM_ SG_ 240 voltage_131 "Voltage 131";
+CM_ BO_ 241 "Cell Voltages";
+CM_ SG_ 241 voltage_132 "Voltage 132";
+CM_ SG_ 241 voltage_133 "Voltage 133";
+CM_ SG_ 241 voltage_134 "Voltage 134";
+CM_ SG_ 241 voltage_135 "Voltage 135";
+CM_ BO_ 242 "Cell Voltages";
+CM_ SG_ 242 voltage_136 "Voltage 136";
+CM_ SG_ 242 voltage_137 "Voltage 137";
+CM_ SG_ 242 voltage_138 "Voltage 138";
+CM_ SG_ 242 voltage_139 "Voltage 139";
+CM_ BO_ 256 "Cell Temperatures";
+CM_ SG_ 256 temp_0 "Temp 0";
+CM_ SG_ 256 temp_1 "Temp 1";
+CM_ SG_ 256 temp_2 "Temp 2";
+CM_ SG_ 256 temp_3 "Temp 3";
+CM_ BO_ 257 "Cell Temperatures";
+CM_ SG_ 257 temp_4 "Temp 4";
+CM_ SG_ 257 temp_5 "Temp 5";
+CM_ SG_ 257 temp_6 "Temp 6";
+CM_ SG_ 257 temp_7 "Temp 7";
+CM_ BO_ 258 "Cell Temperatures";
+CM_ SG_ 258 temp_8 "Temp 8";
+CM_ SG_ 258 temp_9 "Temp 9";
+CM_ SG_ 258 temp_10 "Temp 10";
+CM_ SG_ 258 temp_11 "Temp 11";
+CM_ BO_ 259 "Cell Temperatures";
+CM_ SG_ 259 temp_12 "Temp 12";
+CM_ SG_ 259 temp_13 "Temp 13";
+CM_ SG_ 259 temp_14 "Temp 14";
+CM_ SG_ 259 temp_15 "Temp 15";
+CM_ BO_ 260 "Cell Temperatures";
+CM_ SG_ 260 temp_16 "Temp 16";
+CM_ SG_ 260 temp_17 "Temp 17";
+CM_ SG_ 260 temp_18 "Temp 18";
+CM_ SG_ 260 temp_19 "Temp 19";
+CM_ BO_ 261 "Cell Temperatures";
+CM_ SG_ 261 temp_20 "Temp 20";
+CM_ SG_ 261 temp_21 "Temp 21";
+CM_ SG_ 261 temp_22 "Temp 22";
+CM_ SG_ 261 temp_23 "Temp 23";
+CM_ BO_ 262 "Cell Temperatures";
+CM_ SG_ 262 temp_24 "Temp 24";
+CM_ SG_ 262 temp_25 "Temp 25";
+CM_ SG_ 262 temp_26 "Temp 26";
+CM_ SG_ 262 temp_27 "Temp 27";
+CM_ BO_ 263 "Cell Temperatures";
+CM_ SG_ 263 temp_28 "Temp 28";
+CM_ SG_ 263 temp_29 "Temp 29";
+CM_ SG_ 263 temp_30 "Temp 30";
+CM_ SG_ 263 temp_31 "Temp 31";
+CM_ BO_ 264 "Cell Temperatures";
+CM_ SG_ 264 temp_32 "Temp 32";
+CM_ SG_ 264 temp_33 "Temp 33";
+CM_ SG_ 264 temp_34 "Temp 34";
+CM_ SG_ 264 temp_35 "Temp 35";
+CM_ BO_ 265 "Cell Temperatures";
+CM_ SG_ 265 temp_36 "Temp 36";
+CM_ SG_ 265 temp_37 "Temp 37";
+CM_ SG_ 265 temp_38 "Temp 38";
+CM_ SG_ 265 temp_39 "Temp 39";
+CM_ BO_ 266 "Cell Temperatures";
+CM_ SG_ 266 temp_40 "Temp 40";
+CM_ SG_ 266 temp_41 "Temp 41";
+CM_ SG_ 266 temp_42 "Temp 42";
+CM_ SG_ 266 temp_43 "Temp 43";
+CM_ BO_ 267 "Cell Temperatures";
+CM_ SG_ 267 temp_44 "Temp 44";
+CM_ SG_ 267 temp_45 "Temp 45";
+CM_ SG_ 267 temp_46 "Temp 46";
+CM_ SG_ 267 temp_47 "Temp 47";
+CM_ BO_ 268 "Cell Temperatures";
+CM_ SG_ 268 temp_48 "Temp 48";
+CM_ SG_ 268 temp_49 "Temp 49";
+CM_ SG_ 268 temp_50 "Temp 50";
+CM_ SG_ 268 temp_51 "Temp 51";
+CM_ BO_ 269 "Cell Temperatures";
+CM_ SG_ 269 temp_52 "Temp 52";
+CM_ SG_ 269 temp_53 "Temp 53";
+CM_ SG_ 269 temp_54 "Temp 54";
+CM_ SG_ 269 temp_55 "Temp 55";
+CM_ BO_ 270 "Cell Temperatures";
+CM_ SG_ 270 temp_56 "Temp 56";
+CM_ SG_ 270 temp_57 "Temp 57";
+CM_ SG_ 270 temp_58 "Temp 58";
+CM_ SG_ 270 temp_59 "Temp 59";
+CM_ BO_ 271 "Cell Temperatures";
+CM_ SG_ 271 temp_60 "Temp 60";
+CM_ SG_ 271 temp_61 "Temp 61";
+CM_ SG_ 271 temp_62 "Temp 62";
+CM_ SG_ 271 temp_63 "Temp 63";
+CM_ BO_ 272 "Cell Temperatures";
+CM_ SG_ 272 temp_64 "Temp 64";
+CM_ SG_ 272 temp_65 "Temp 65";
+CM_ SG_ 272 temp_66 "Temp 66";
+CM_ SG_ 272 temp_67 "Temp 67";
+CM_ BO_ 273 "Cell Temperatures";
+CM_ SG_ 273 temp_68 "Temp 68";
+CM_ SG_ 273 temp_69 "Temp 69";
+CM_ SG_ 273 temp_70 "Temp 70";
+CM_ SG_ 273 temp_71 "Temp 71";
+CM_ BO_ 274 "Cell Temperatures";
+CM_ SG_ 274 temp_72 "Temp 72";
+CM_ SG_ 274 temp_73 "Temp 73";
+CM_ SG_ 274 temp_74 "Temp 74";
+CM_ SG_ 274 temp_75 "Temp 75";
+CM_ BO_ 275 "Cell Temperatures";
+CM_ SG_ 275 temp_76 "Temp 76";
+CM_ SG_ 275 temp_77 "Temp 77";
+CM_ SG_ 275 temp_78 "Temp 78";
+CM_ SG_ 275 temp_79 "Temp 79";
+CM_ BO_ 276 "Cell Temperatures";
+CM_ SG_ 276 temp_80 "Temp 80";
+CM_ SG_ 276 temp_81 "Temp 81";
+CM_ SG_ 276 temp_82 "Temp 82";
+CM_ SG_ 276 temp_83 "Temp 83";
+CM_ BO_ 277 "Cell Temperatures";
+CM_ SG_ 277 temp_84 "Temp 84";
+CM_ SG_ 277 temp_85 "Temp 85";
+CM_ SG_ 277 temp_86 "Temp 86";
+CM_ SG_ 277 temp_87 "Temp 87";
+CM_ BO_ 278 "Cell Temperatures";
+CM_ SG_ 278 temp_88 "Temp 88";
+CM_ SG_ 278 temp_89 "Temp 89";
+CM_ SG_ 278 temp_90 "Temp 90";
+CM_ SG_ 278 temp_91 "Temp 91";
+CM_ BO_ 288 "DUI R2D Status";
+CM_ SG_ 288 r2d_status "R2D Status";
+CM_ SG_ 288 temp_shutdown_1 "Temp Shutdown 1";
+CM_ SG_ 288 temp_shutdown_2 "Temp Shutdown 2";
+CM_ BO_ 289 "DUI R2D Authorization";
+CM_ SG_ 289 r2d_authorized "R2D Authorized";
+CM_ SG_ 289 temp_imd_1 "Temp IMD 1";
+CM_ SG_ 289 temp_imd_2 "Temp IMD 2";
+CM_ SG_ 289 temp_ams_1 "Temp AMS 1";
+CM_ SG_ 289 temp_ams_2 "Temp AMS 2";
+CM_ BO_ 304 "Wheel Speed, Ride height";
+CM_ SG_ 304 wheel_speed "Wheel Speed";
+CM_ SG_ 304 ride_height "Ride Height";
+CM_ BO_ 305 "Contactor Status";
+CM_ SG_ 305 hvc_state_machine "HVC State Machine";
+CM_ SG_ 305 positive_hv_contactor "Positive HV Contactor";
+CM_ SG_ 305 negative_hv_contactor "Negative HV Contactor";
+CM_ SG_ 305 precharge_contactor "Precharge Contactor";
+CM_ BO_ 306 "Battery Pack Status";
+CM_ SG_ 306 pack_voltage "Pack Voltage";
+CM_ SG_ 306 tractive_current "Tractive Current";
+CM_ SG_ 306 state_of_charge "State of Charge";
+CM_ SG_ 306 cell_top_temp "Cell Top Temp";
+CM_ SG_ 306 cell_bottom_temp "Cell Bottom Temp";
+CM_ BO_ 307 "Battery Temperature Status";
+CM_ SG_ 307 bus_bar_1_temp "Bus Bar 1 Temp";
+CM_ SG_ 307 bus_bar_2_temp "Bus Bar 2 Temp";
+CM_ SG_ 307 bus_bar_3_temp "Bus Bar 3 Temp";
+CM_ SG_ 307 precharge_resistor_temp "Precharge Resistor Temp";
+CM_ BO_ 308 "Indicators + Shutdown Status";
+CM_ SG_ 308 bms_error "BMS Error";
+CM_ SG_ 308 imd_error "IMD Error";
+CM_ SG_ 308 shutdown_leg_1 "Shutdown Leg 1";
+CM_ SG_ 308 shutdown_leg_2 "Shutdown Leg 2";
+CM_ SG_ 308 shutdown_leg_3 "Shutdown Leg 3";
+CM_ SG_ 308 shutdown_leg_4 "Shutdown Leg 4";
+CM_ BO_ 309 "Allow Balance Command";
+CM_ BO_ 310 "Battery Cell Limits";
+CM_ SG_ 310 min_cell_voltage "Min Cell Voltage";
+CM_ SG_ 310 max_cell_voltage "Max Cell Voltage";
+CM_ BO_ 320 "VCU Shutdown Status";
+CM_ SG_ 320 shutdown_bspd_status "Shutdown BSPD Relay Status";
+CM_ SG_ 320 shutdown_emeter_status "Shutdown E-Meter HVIL Status";
+CM_ BO_ 321 "VCU Fuses";
+CM_ SG_ 321 batt_pump_fuse "Battery Pump Fuse";
+CM_ SG_ 321 tssi_green_fuse "TSSI Green Fuse";
+CM_ SG_ 321 tssi_red_fuse "TSSI Red Fuse";
+CM_ SG_ 321 batt_fans_fuse "Battery Fans Fuse";
+CM_ SG_ 321 shtdn_fuse "Shutdown Fuse";
+CM_ SG_ 321 ll_fuse "Linelock Fuse";
+CM_ SG_ 321 motor_pump_fuse "Motor Pump Fuse";
+CM_ SG_ 321 boards_fuse "Boards Fuse";
+CM_ SG_ 321 brake_light_fuse "Brake Light Fuse";
+CM_ SG_ 321 rtd_fuse "Ready to Move Light Fuse";
+CM_ SG_ 321 spare_fuse "Spare Fuse";
+CM_ BO_ 322 "VCU Current Sense";
+CM_ SG_ 322 lv_boards_current "LV Boards Current";
+CM_ SG_ 322 shutdown_current "Shutdown Current";
+CM_ SG_ 322 battery_cooling_current "Battery Cooling Current";
+CM_ SG_ 322 motor_cooling_current "Motor Cooling Current";
+CM_ SG_ 322 lights_current_current "Lights Current Current";
+CM_ BO_ 323 "Switch Command";
+CM_ SG_ 323 temp_command_1 "Temp Command 1";
+CM_ SG_ 323 temp_command_2 "Temp Command 2";
+CM_ BO_ 324 "Switch Outputs";
+CM_ SG_ 324 temp_output_1 "Temp Output 1";
+CM_ SG_ 324 temp_output_2 "Temp Output 2";
+CM_ BO_ 385 "Battery Cooling";
+CM_ SG_ 385 temp_after_battery "Temp After Battery";
+CM_ SG_ 385 temp_after_radiator "Temp After Radiator";
+CM_ SG_ 385 radiator_fan_speed "Radiator Fan Speed";
+CM_ BO_ 386 "Temps";
+CM_ SG_ 386 inverter "Inverter";
+CM_ SG_ 386 motor "Motor";
+CM_ SG_ 386 ambient "Ambient";
+CM_ SG_ 386 discharge_resistor_temp "Discharge Resistor Temp";
+CM_ BO_ 387 "LV Battery";
+CM_ SG_ 387 lv_battery_voltage "LV Battery Voltage";
+CM_ SG_ 387 lv_battery_current "LV Battery Current";
+CM_ SG_ 387 lv_battery_temp "LV Battery Temp";
+CM_ BO_ 416 "Coolant Loop Temps";
+CM_ SG_ 416 loop_temp_after_motor "Loop Temp After Motor";
+CM_ SG_ 416 loop_temp_after_inverter "Loop Temp After Inverter";
+CM_ SG_ 416 temp_after_radiator "Temp After Radiator";
+CM_ BO_ 418 "Fan/Flow Speeds";
+CM_ SG_ 418 radiator_fan_speed "Radiator Fan Speed";
+CM_ SG_ 418 battery_fan_speed "Battery Fan Speed";
+CM_ SG_ 418 coolant_flow "Coolant Flow";
+CM_ SG_ 418 ambient_temp "Ambient Temp";
+CM_ BO_ 448 "APPS Voltages";
+CM_ SG_ 448 apps1_voltage "APPS1 Voltage";
+CM_ SG_ 448 apps2_voltage "APPS2 Voltage";
+CM_ SG_ 448 apps1_travel "APPS1 Travel";
+CM_ SG_ 448 apps2_travel "APPS2 Travel";
+CM_ BO_ 449 "Accelerator Pedal";
+CM_ SG_ 449 accelerator_pedal_travel "Accelerator Pedal Travel";
+CM_ SG_ 449 apps1_disconnect "APPS1 Disconnect";
+CM_ SG_ 449 apps2_disconnect "APPS2 Disconnect";
+CM_ SG_ 449 apps1_out_range "APPS1 Out of Range";
+CM_ SG_ 449 apps2_out_range "APPS2 Out of Range";
+CM_ SG_ 449 apps_mismatch "APPS Mismatch";
+CM_ SG_ 449 apps_implause "APPS Implausibility";
+CM_ BO_ 450 "BPPS Voltages";
+CM_ SG_ 450 bpps1_voltage "BPPS1 Voltage";
+CM_ SG_ 450 bpps2_voltage "BPPS2 Voltage";
+CM_ SG_ 450 bpps1_travel "BPPS1 Travel";
+CM_ SG_ 450 bpps2_travel "BPPS2 Travel";
+CM_ BO_ 451 "Brake Pedal";
+CM_ SG_ 451 brake_pedal_travel "Brake Pedal Travel";
+CM_ SG_ 451 bpps1_disconnect "BPPS1 Disconnect";
+CM_ SG_ 451 bpps2_disconnect "BPPS2 Disconnect";
+CM_ SG_ 451 bpps1_out_range "BPPS1 Out of Range";
+CM_ SG_ 451 bpps2_out_range "BPPS2 Out of Range";
+CM_ SG_ 451 bpps_mismatch "BPPS Mismatch";
+CM_ SG_ 451 brake_light_percent "Brake Light Percent";
+CM_ BO_ 452 "BSE Voltages";
+CM_ SG_ 452 bse_front_voltage "BSE Front Voltage";
+CM_ SG_ 452 bse_rear_voltage "BSE Rear Voltage";
+CM_ SG_ 452 bse_line_lock_voltage "BSE Line Lock Voltage";
+CM_ BO_ 453 "Brakes";
+CM_ SG_ 453 brake_pressure_front "Brake Pressure Front";
+CM_ SG_ 453 brake_pressure_rear_pre_lock "Brake Pressure Rear Pre Lock";
+CM_ SG_ 453 brake_pressure_rear_post_lock "Brake Pressure Rear Post Lock";
+CM_ SG_ 453 brake_bias "Brake Bias";
+CM_ SG_ 453 bse1_disconnect "BSE1 Disconnect";
+CM_ SG_ 453 bse2_disconnect "BSE2 Disconnect";
+CM_ SG_ 453 bse1_out_range "BSE1 Out of Range";
+CM_ SG_ 453 bse2_out_range "BSE2 Out of Range";
+CM_ BO_ 454 "Steering Column";
+CM_ SG_ 454 steering_column_angle "Steering Column Angle";
+CM_ BO_ 455 "VCU State";
+CM_ SG_ 455 prndl_state "PRNDL State";
+CM_ SG_ 455 stomp_fault "STOMP Fault";
+CM_ SG_ 455 ready_to_drive_buzzer "Ready To Drive Buzzer";
+CM_ SG_ 455 state_of_charge_estimate "State of Charge Estimate";
+CM_ SG_ 455 line_lock_enabled "Line Lock Enabled";
+CM_ BO_ 1024 "Wheel Speeds";
+CM_ SG_ 1024 front_left_speed "Front Left Speed";
+CM_ SG_ 1024 front_right_speed "Front Right Speed";
+CM_ SG_ 1024 back_left_speed "Back Left Speed";
+CM_ SG_ 1024 back_right_speed "Back Right Speed";
+CM_ BO_ 1026 "Acceleration Vector Unsprung FL";
+CM_ SG_ 1026 x "X";
+CM_ SG_ 1026 y "Y";
+CM_ SG_ 1026 z "Z";
+CM_ BO_ 1027 "Acceleration Vector Unsprung FR";
+CM_ SG_ 1027 x "X";
+CM_ SG_ 1027 y "Y";
+CM_ SG_ 1027 z "Z";
+CM_ BO_ 1028 "Acceleration Vector Unsprung RL";
+CM_ SG_ 1028 x "X";
+CM_ SG_ 1028 y "Y";
+CM_ SG_ 1028 z "Z";
+CM_ BO_ 1029 "Acceleration Vector Unsprung RR";
+CM_ SG_ 1029 x "X";
+CM_ SG_ 1029 y "Y";
+CM_ SG_ 1029 z "Z";
+CM_ BO_ 1280 "FL Accel + Ride Height";
+CM_ SG_ 1280 x "X";
+CM_ SG_ 1280 y "Y";
+CM_ SG_ 1280 z "Z";
+CM_ SG_ 1280 ride_height "Ride Height";
+CM_ BO_ 1281 "FL Strain Gauge + Sus Pot.";
+CM_ SG_ 1281 front_left_strain_gauge_voltage "Front Left Strain Gauge Voltage";
+CM_ SG_ 1281 front_left_sus_pot "Front Left Suspension Potentiometer";
+CM_ BO_ 1282 "FR Accel + Ride Height";
+CM_ SG_ 1282 x "X";
+CM_ SG_ 1282 y "Y";
+CM_ SG_ 1282 z "Z";
+CM_ SG_ 1282 ride_height "Ride Height";
+CM_ BO_ 1283 "FR Strain Gauge + Sus Pot.";
+CM_ SG_ 1283 front_right_strain_gauge_voltage "Front Right Strain Gauge Voltage";
+CM_ SG_ 1283 front_right_sus_pot "Front Right Suspension Potentiometer";
+CM_ BO_ 1284 "RL Accel + Ride Height";
+CM_ SG_ 1284 x "X";
+CM_ SG_ 1284 y "Y";
+CM_ SG_ 1284 z "Z";
+CM_ SG_ 1284 ride_height "Ride Height";
+CM_ BO_ 1285 "RL Strain Gauge + Sus Pot.";
+CM_ SG_ 1285 back_left_strain_gauge_voltage "Back Left Strain Gauge Voltage";
+CM_ SG_ 1285 back_left_sus_pot "Back Left Suspension Potentiometer";
+CM_ BO_ 1286 "RR Accel + Ride Height";
+CM_ SG_ 1286 x "X";
+CM_ SG_ 1286 y "Y";
+CM_ SG_ 1286 z "Z";
+CM_ SG_ 1286 ride_height "Ride Height";
+CM_ BO_ 1287 "RR Strain Gauge + Sus Pot.";
+CM_ SG_ 1287 back_right_strain_gauge_voltage "Back Right Strain Gauge Voltage";
+CM_ SG_ 1287 back_right_sus_pot "Back Right Suspension Potentiometer";
+CM_ BO_ 1288 "FL Gyro";
+CM_ SG_ 1288 x "X";
+CM_ SG_ 1288 y "Y";
+CM_ SG_ 1288 z "Z";
+CM_ BO_ 1289 "FR Gyro";
+CM_ SG_ 1289 x "X";
+CM_ SG_ 1289 y "Y";
+CM_ SG_ 1289 z "Z";
+CM_ BO_ 1290 "RL Gyro";
+CM_ SG_ 1290 x "X";
+CM_ SG_ 1290 y "Y";
+CM_ SG_ 1290 z "Z";
+CM_ BO_ 1291 "RR Gyro";
+CM_ SG_ 1291 x "X";
+CM_ SG_ 1291 y "Y";
+CM_ SG_ 1291 z "Z";
+CM_ BO_ 37 "VCU Enter Bootloader";
+CM_ BO_ 38 "CSM Enter Bootloader";
+CM_ BO_ 39 "HVC Enter Bootloader";
+CM_ BO_ 40 "USM Enter Bootloader";
+CM_ BO_ 48 "HVC Bounds Parameters";
