@@ -1,0 +1,13 @@
+services:
+  autonomy:
+    build: .
+    image: lhr-autonomy-dev
+    container_name: lhr-autonomy
+    ports:
+      - "6080:80" # noVNC desktop -> http://localhost:6080
+    volumes:
+      # Mount the whole autonomy/ tree; build artifacts (ros2/build, ros2/install,
+      # ros2/log) land on the host but are Linux-only — don't use them natively.
+      - ../..:/home/ubuntu/autonomy
+    shm_size: "2gb" # RViz/Gazebo rendering needs more than the 64MB default
+    restart: unless-stopped

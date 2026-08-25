@@ -6,7 +6,9 @@ Goal: fresh machine to a simulated car lapping in RViz, in about 30 minutes.
 
 **Ubuntu 24.04, native install only.** ROS 2 Jazzy + Gazebo Harmonic.
 
-No WSL. We tried it, hit graphics and stability issues, and dropped it. No macOS, no other distros. If you only have a Windows machine, dual-boot or use a team machine.
+No WSL. We tried it, hit graphics and stability issues, and dropped it. No native macOS, no other distros. If you only have a Windows machine, dual-boot or use a team machine.
+
+On a Mac (Apple Silicon or Intel), use the Docker setup instead: see [docker/README.md](docker/README.md). Full stack including the Gazebo demo works, at ~0.7–0.8x real time.
 
 ## 1. Get the code
 
