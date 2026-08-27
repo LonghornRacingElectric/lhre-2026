@@ -120,6 +120,7 @@ void StartControlTask(void *argument);
 static float steering_adc_to_sensor_voltage(float adc_voltage_v);
 static float steering_sensor_voltage_to_percent(float sensor_voltage_v);
 static float steering_sensor_voltage_to_angle_deg(float sensor_voltage_v);
+static const vcu_parameters_t *vcu_params_for_event_mode(uint8_t event_mode);
 
 /* USER CODE END FunctionPrototypes */
 
@@ -239,6 +240,18 @@ static float steering_sensor_voltage_to_percent(float sensor_voltage_v) {
     pct -= 1.0f;
   }
   return pct;
+}
+
+// Maps a trackside-requested event mode (1=accel, 2=skid, 3=autox, 4=endur)
+// to its params table. 0/unrecognized falls back to the firmware default.
+static const vcu_parameters_t *vcu_params_for_event_mode(uint8_t event_mode) {
+  switch (event_mode) {
+    case 1: return &acceleration_params;
+    case 2: return &skidpad_params;
+    case 3: return &autocross_params;
+    case 4: return &endurance_params;
+    default: return &SELECTED_PARAMS;
+  }
 }
 
 // SystemTask: one-time initialization (USB, logging, DFU, ADC DMA, CAN) -----
@@ -375,6 +388,18 @@ void StartControlTask(void *argument) {
 
     // Run control model
     vcu_model_step(&ctx, &in, &out, dt_ms);
+
+    // While parked, allow trackside (0x029 VCU Mode Command) to swap the
+    // active params table on the fly. Only re-init when the requested mode
+    // actually changes the active params, so this is safe to check every loop.
+    if (out.prndl_state == PRNDL_PARK) {
+      const vcu_parameters_t *requested_params =
+          vcu_params_for_event_mode(vcu_can_get_requested_event_mode());
+      if (requested_params->event_mode != s_params.event_mode) {
+        s_params = *requested_params;
+        vcu_model_init(&ctx, &s_params);
+      }
+    }
 
     vcu_can_set_model_inputs(&in);
     vcu_can_set_model_outputs(&out);

@@ -2,7 +2,7 @@
 import './trackside.css';
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type Dispatch, type MouseEvent, type ReactNode, type SetStateAction } from "react";
-import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, Moon, NotebookText, Plus, Power, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, Users, WifiOff, X, Zap } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Crosshair, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, Minus, MonitorCog, Moon, NotebookText, Plus, Power, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, Users, WifiOff, X, Zap } from "lucide-react";
 import { api } from "@/lib/trackside/api";
 import { useCarStatus, CAR_STATE_META, humanizeReason, type CarState, type CarStatusFeed } from "@/lib/trackside/useCarStatus";
 import { EVENT_TYPES, upsertSession, patchSession, syncRegistryWithServer, type TracksideSessionInfo } from "@/lib/trackside/sessionRegistry";
@@ -132,6 +132,9 @@ type LiveLap = {
   distanceM: number;
   avgSpeedMps: number | null;
   samples: LiveSample[];
+  /** Peak battery (max-cell) temp °C reached during this lap, captured at close
+   *  from the lap's samples. Drives the battery thermal-projection trend. */
+  maxCellTempC?: number;
   notes?: string; // per-lap note (synced to the classifier DB)
 };
 type LiveSessionState = {
@@ -513,6 +516,16 @@ function App() {
   const [recordingBusy, setRecordingBusy] = useState(false);
   const [energyWindowS, setEnergyWindowS] = useState(60);
   const [targetLaps, setTargetLaps] = useState(() => Number(localStorage.getItem("motec-target-laps") || 0));
+  // Battery max-cell-temp limit (°C) for the thermal projection — the line the
+  // projection colors against. Configurable trackside (the team is still dialing
+  // it in); persisted. Default 60 °C (the design target from PTN thermals).
+  const [batteryTempLimitC, setBatteryTempLimitC] = useState(() => {
+    const v = Number(localStorage.getItem("battery-temp-limit-c"));
+    return Number.isFinite(v) && v > 0 ? v : 60;
+  });
+  // Diagnostics & charts (Live Data, energy/temp windows, non-battery temps) are
+  // collapsed by default so the glance panels fit without scrolling. Persisted.
+  const [showDiagnostics, setShowDiagnostics] = useState(() => localStorage.getItem("live-show-diagnostics") === "1");
   const [targetEnergyKwh, setTargetEnergyKwh] = useState(() => Number(localStorage.getItem("motec-target-energy-kwh") || PACK_ENERGY_KWH));
   const [soeCutoffCellV, setSoeCutoffCellV] = useState(loadSoeCutoffCellV);
   const [selectedLapIds, setSelectedLapIds] = useState<Set<string>>(() => new Set());
@@ -543,7 +556,19 @@ function App() {
   // Power-budget mode: 'auto' derives kW from the energy plan; 'manual' uses the slider.
   const [dashPowerMode, setDashPowerMode] = useState<"auto" | "manual">(() => (localStorage.getItem("dash-power-mode") === "manual" ? "manual" : "auto"));
   const [dashAutoLap, setDashAutoLap] = useState(() => localStorage.getItem("dash-auto-lap") === "1");
+  // Selected VCU params table to command (event_mode); persisted for convenience.
+  // Validate against the known modes so a corrupted/empty value (NaN, 0, 5…)
+  // can't preselect an invalid mode — fall back to 4 (Endurance).
+  const [vcuMode, setVcuMode] = useState<number>(() => {
+    const parsed = Number(localStorage.getItem("dash-vcu-mode"));
+    return [1, 2, 3, 4].includes(parsed) ? parsed : 4;
+  });
+  const [vcuModeStatus, setVcuModeStatus] = useState("");
   const [dashGatePushed, setDashGatePushed] = useState(false);
+  // Debug screen override the strategist is forcing on the dash (null = auto /
+  // follow PRNDL). Not persisted — it's a transient bench/pit aid, and the car
+  // clears it on a real gear change anyway, so it shouldn't survive a reload.
+  const [dashScreenOverride, setDashScreenOverride] = useState<string | null>(null);
   // How long the on-car full-screen lap card stays up after a lap (seconds).
   const [lapCardDurationS, setLapCardDurationS] = useState(() => {
     const v = Number(localStorage.getItem("dash-lap-card-duration-s"));
@@ -575,6 +600,10 @@ function App() {
   const [msgSendStatus, setMsgSendStatus] = useState("");
   const [dashNow, setDashNow] = useState(0); // 1 Hz tick for link-health "age" displays
   const dashLastLapCountRef = useRef(0);
+  // Set by markLap so the dash-count sync effect fires a lap CARD for the next
+  // newly-counted lap even when GPS auto-card (dashAutoLap) is off — a manual
+  // "Log Lap" is an explicit request to show the card.
+  const dashCardForceRef = useRef(false);
   const lastRegistryPatchRef = useRef(0);
   // Multi-client sync: one leader owns the session, others mirror it read-only.
   const presence = usePresence(true);
@@ -638,21 +667,56 @@ function App() {
     samples: filteredLiveSamples,
   }), [liveState, filteredLiveLastSample, filteredLiveSamples]);
   const bestLap = useMemo(() => liveState.laps.reduce<LiveLap | null>((best, lap) => (!best || lap.durationMs < best.durationMs ? lap : best), null), [liveState.laps]);
+  // Most recently completed lap — drives the hero "Last lap" (net + time) tile.
+  const lastLap = liveState.laps.length ? liveState.laps[liveState.laps.length - 1] : null;
   const bestSectors = useMemo(() => bestSectorTimes(liveState.laps), [liveState.laps]);
   const torqueParamSet = useMemo(
     () => VCU_TORQUE_PARAM_SETS.find((item) => item.id === torqueParamSetId) ?? VCU_TORQUE_PARAM_SETS[0],
     [torqueParamSetId],
   );
   const targetEnergyPerLapWh = targetLaps > 0 && targetEnergyKwh > 0 ? (targetEnergyKwh * 1000) / targetLaps : null;
+  // Laps the strategist counts as REAL completed laps = the checkbox selection in
+  // the live list. Deselecting a double-counted trigger or a driver-change lap
+  // drops the completed count (and raises laps-remaining), so the plan/budget
+  // aren't offset by them. Every lap is auto-selected on completion, so the
+  // default count equals the raw lap count until something is deselected.
+  const selectedLaps = useMemo(() => liveState.laps.filter((lap) => selectedLapIds.has(lap.id)), [liveState.laps, selectedLapIds]);
   // --- dynamic per-lap energy budget (Wh), recomputed each completed lap ---
+  // energyUsedWh stays the ACTUAL total over ALL laps: a deselected lap's energy
+  // was still physically consumed, and a double-count splits one real lap's
+  // energy across two records (total conserved). So only the COUNT follows the
+  // selection — the energy figure must not.
   const energyUsedWh = useMemo(
     () => liveState.laps.reduce((sum, lap) => sum + (lap.energyWh || 0), 0),
     [liveState.laps],
   );
-  const lapsCompletedPlan = liveState.laps.length;
+  const lapsCompletedPlan = selectedLaps.length;
   const totalBudgetWh = targetEnergyKwh > 0 ? targetEnergyKwh * 1000 : null;
   const remainingBudgetWh = totalBudgetWh != null ? totalBudgetWh - energyUsedWh : null;
   const lapsRemainingPlan = targetLaps > 0 ? Math.max(0, targetLaps - lapsCompletedPlan) : null;
+
+  // --- battery thermal projection (computa's 80/20 recent-lap trend) ---------
+  // Per-lap PEAK battery temp from SELECTED laps; project to the finish with a
+  // conservative deg/lap slope: max(median(last 3 deltas), last delta), clamped
+  // >= 0 so it catches the end-of-run ramp and biases hot. Frontend-only.
+  const batteryThermalProjection = useMemo(() => {
+    const lapTemps = selectedLaps
+      .map((lap) => lap.maxCellTempC)
+      .filter((t): t is number => t != null && Number.isFinite(t));
+    const currentTemp = maxCellTempFor(filteredLiveState.lastSample);
+    if (lapTemps.length < 2 || currentTemp == null) {
+      return { ready: false as const, lapTemps, currentTemp };
+    }
+    const deltas: number[] = [];
+    for (let i = 1; i < lapTemps.length; i++) deltas.push(lapTemps[i] - lapTemps[i - 1]);
+    const recent = deltas.slice(-3);
+    const slopeDegPerLap = Math.max(0, Math.max(medianOf(recent), deltas[deltas.length - 1]));
+    const projectedFinishTemp = lapsRemainingPlan != null
+      ? currentTemp + slopeDegPerLap * lapsRemainingPlan
+      : null;
+    return { ready: true as const, lapTemps, currentTemp, slopeDegPerLap, projectedFinishTemp };
+  }, [selectedLaps, filteredLiveState.lastSample, lapsRemainingPlan]);
+
   // Headline budget: how much you can spend on EACH remaining lap from here.
   // Over-use shrinks remaining Wh → this drops; under-use grows it → this rises.
   const dynamicLapBudgetWh = remainingBudgetWh != null && lapsRemainingPlan != null && lapsRemainingPlan > 0
@@ -660,6 +724,14 @@ function App() {
   // + = banked margin vs the even split; − = over budget, must conserve.
   const budgetVsTargetWh = dynamicLapBudgetWh != null && targetEnergyPerLapWh != null
     ? dynamicLapBudgetWh - targetEnergyPerLapWh : null;
+  // --- per-lap strategy deltas published to the car dash (mqtt.lapDelta /
+  // energyDelta / energyDeltaStatic). All from the last COMPLETED lap vs the best
+  // lap / per-lap energy budgets. Null (→ stops publishing, dash shows nothing
+  // rather than a bogus 0) until there's a completed lap + a plan. (lastLap is
+  // declared above for the hero "Last lap" tile; the deltas below reuse it.)
+  const lapDeltaS = lastLap && bestLap ? (lastLap.durationMs - bestLap.durationMs) / 1000 : null;
+  const energyDeltaDynWh = lastLap && dynamicLapBudgetWh != null ? lastLap.energyWh - dynamicLapBudgetWh : null;
+  const energyDeltaStaticWh = lastLap && targetEnergyPerLapWh != null ? lastLap.energyWh - targetEnergyPerLapWh : null;
   // Auto-derive the dash target power from the energy plan: the live Wh/lap
   // budget ÷ the rolling average lap time is the power rate that spends the
   // budget evenly. A manual override (dashPowerMode='manual') wins when set.
@@ -684,7 +756,6 @@ function App() {
       setSoeCutoffCellV(normalizeSoeCutoffCellV(p.soeCutoffCellV));
     }
   });
-  const selectedLaps = useMemo(() => liveState.laps.filter((lap) => selectedLapIds.has(lap.id)), [liveState.laps, selectedLapIds]);
   const lapAverages = useMemo(() => {
     if (!selectedLaps.length) {
       return {
@@ -701,11 +772,11 @@ function App() {
     const avgEnergyInWh = selectedLaps.reduce((sum, lap) => sum + lapEnergyInWh(lap), 0) / selectedLaps.length;
     return { count: selectedLaps.length, avgMs, avgEnergyWh, avgEnergyOutWh, avgEnergyInWh };
   }, [selectedLaps]);
-  // Hero "Lap" tile reads COMPLETED laps, not click count. A lap is counted
-  // when its end-of-lap click closes it (or when GPS auto-detect crosses S/F).
-  // The lap currently in progress is implied by the running timer above, not
-  // by the counter — so 4/22 means "4 done, on the 5th".
-  const currentLapNumber = liveState.laps.length;
+  // Hero "Lap" tile reads SELECTED completed laps (same source as the plan's
+  // lapsCompletedPlan), so deselecting a double-count / driver-change lap in the
+  // live list updates "4/22" to the real count. The lap in progress is implied
+  // by the running timer above, not the counter — so 4/22 means "4 done, on 5th".
+  const currentLapNumber = selectedLaps.length;
   const liveSectorCount = sessionFromFile && hasStartFinish && splitGates.length ? splitGates.length + 1 : 0;
   const liveLapElapsedMs = liveState.lastSample && liveState.lapStartMs ? Math.max(0, liveState.lastSample.t - liveState.lapStartMs) : 0;
   // Wall-clock ticker for the manual recording timer (runs only while recording).
@@ -739,6 +810,9 @@ function App() {
     return () => window.clearInterval(id);
   }, []);
   const dataAgeMs = lastDataAtMs == null ? null : Math.max(0, liveNowMs - lastDataAtMs);
+  // Last GPS coordinate we saw + when it last changed, for the Live Position
+  // readout's freshness (see gpsFixAgeMs).
+  const lastGpsFixRef = useRef<{ lat: number; lon: number; at: number } | null>(null);
   // Time spent trying to get telemetry since the feed started — used to escalate
   // 'waiting' to a hard 'down' after a grace period so a car-off page-load
   // doesn't sit on yellow forever just because the broker is reachable.
@@ -790,6 +864,21 @@ function App() {
     : liveHasGpsFix
       ? { dot: "live", label: sfGateDefined ? "GPS · auto-lap armed" : "GPS fix" }
       : { dot: "dead", label: "No GPS fix" };
+
+  // Raw lat/lon readout for the Live Position panel. We track when the coordinate
+  // last CHANGED (not just when a sample arrived) so a stuck/frozen fix reads as
+  // stale even while telemetry keeps flowing — that's the case the strategist
+  // wants to catch. `liveNowMs` ticks at 1 Hz to keep the age live.
+  const curGpsFix = liveHasGpsFix
+    ? { lat: liveState.lastSample!.lat as number, lon: liveState.lastSample!.lon as number }
+    : null;
+  if (curGpsFix) {
+    const prev = lastGpsFixRef.current;
+    if (!prev || prev.lat !== curGpsFix.lat || prev.lon !== curGpsFix.lon) {
+      lastGpsFixRef.current = { ...curGpsFix, at: liveNowMs };
+    }
+  }
+  const gpsFixAgeMs = lastGpsFixRef.current == null ? null : Math.max(0, liveNowMs - lastGpsFixRef.current.at);
 
   // Authoritative car state from the central classifier (PR #282), if reachable.
   const carStatus = useCarStatus(source, liveState.running);
@@ -903,6 +992,16 @@ function App() {
     if (isMirror || dashSignals.status !== "connected") return;
     if (dynamicLapBudgetWh != null) dashSignals.publishLapBudget(Math.round(dynamicLapBudgetWh));
   }, [dynamicLapBudgetWh, isMirror, dashSignals.status, dashSignals.publishLapBudget]);
+
+  // Push the per-lap strategy deltas to the car dash (leader only). Each rides the
+  // dashSignals keepalive; passing null stops it (dashd nulls it after ~5 s).
+  useEffect(() => {
+    if (isMirror || dashSignals.status !== "connected") return;
+    dashSignals.publishLapDelta(lapDeltaS);
+    dashSignals.publishEnergyDelta(energyDeltaDynWh);
+    dashSignals.publishEnergyDeltaStatic(energyDeltaStaticWh);
+    dashSignals.publishLapsRemaining(lapsRemainingPlan);
+  }, [lapDeltaS, energyDeltaDynWh, energyDeltaStaticWh, lapsRemainingPlan, isMirror, dashSignals.status, dashSignals.publishLapDelta, dashSignals.publishEnergyDelta, dashSignals.publishEnergyDeltaStatic, dashSignals.publishLapsRemaining]);
 
   // Push the active driver-message set to the car (retained) whenever it changes
   // or the link (re)connects, so the dash holds the current quick-send palette
@@ -1030,13 +1129,29 @@ function App() {
 
   // Auto-fire a dash lap card whenever the trackside lap detector completes a
   // lap — optional, off by default so the thread's "manual for now" still holds.
+  // Keep the dash lap count in sync with the SELECTED (counted) laps — the same
+  // source as lapsCompletedPlan — in BOTH directions:
+  //   • count up (new counted lap)   -> fire the card via lapTrigger if auto-card
+  //     is on OR a manual Log Lap requested it; otherwise just sync the number.
+  //   • count down (a lap deselected) -> publishLapCount pulls the dash count
+  //     down with NO card (lapTrigger is forward-only by design).
+  // So deselecting a double-count / driver-change lap updates the driver dash too.
   useEffect(() => {
-    const count = liveState.laps.length;
-    if (count > dashLastLapCountRef.current) {
-      if (!isMirror && dashAutoLap && dashSignals.status === "connected") dashSignals.sendLap();
-      dashLastLapCountRef.current = count;
+    if (isMirror || dashSignals.status !== "connected") return;
+    const n = selectedLaps.length;
+    const prev = dashLastLapCountRef.current;
+    if (n === prev) return;
+    dashLastLapCountRef.current = n;
+    if (n > prev) {
+      const wantCard = dashAutoLap || dashCardForceRef.current;
+      dashCardForceRef.current = false;
+      if (wantCard) dashSignals.sendLap(n);
+      else dashSignals.publishLapCount(n); // count up, no card
+    } else {
+      dashCardForceRef.current = false;
+      dashSignals.publishLapCount(n); // deselect: pull the dash count down, no card
     }
-  }, [liveState.laps.length, dashAutoLap, dashSignals.status, dashSignals.sendLap, isMirror]);
+  }, [selectedLaps.length, dashAutoLap, dashSignals.status, dashSignals.sendLap, dashSignals.publishLapCount, isMirror]);
 
   // Drain: re-publish the website's lap count whenever the car's mirror shows
   // fewer laps than we've logged. Catches both the dashd-restart and
@@ -1050,12 +1165,12 @@ function App() {
     if (dashSignals.status !== "connected") return;
     const carLapCount = dashSignals.dashState?.lapCount ?? null;
     if (carLapCount == null) return; // no mirror yet — nothing to compare against
-    const websiteLapCount = liveState.laps.length;
+    const websiteLapCount = selectedLaps.length;
     if (websiteLapCount > carLapCount) {
       dashSignals.republishLap(websiteLapCount);
     }
   }, [
-    liveState.laps.length,
+    selectedLaps.length,
     dashSignals.status,
     dashSignals.dashState?.lapCount,
     dashSignals.republishLap,
@@ -1776,6 +1891,11 @@ function App() {
       patchSession(sessionInfo.id, { endedAt: Date.now(), laps: liveStateRef.current.laps.length });
       setSessionInfo(null);
     }
+    // Reset the car's lap_count + baseline too, so the driver dash starts the
+    // re-armed session at Lap 0 instead of holding the prior high water mark —
+    // symmetric with Stop Event (stopEventAndDownload). Without this, Reset
+    // cleared the trackside laps but left the dash showing the old count.
+    if (dashSignals.status === "connected") dashSignals.resetLapCounter();
     markLiveSessionEnded();
     clearLiveSessionState();
     // The manual Start button is gone, so a reset re-arms the auto feed; the
@@ -1840,9 +1960,12 @@ function App() {
   function sendDashLayout(screenId: string, layout: LapCardLayout) {
     if (isMirrorRef.current) { setLayoutSendStatus("Read-only mirror — only the session leader can push to the car."); return; }
     if (dashSignals.status !== "connected") { setLayoutSendStatus("Connect to the dash first (Dash tab → Connect to dash)."); return; }
-    // Route to the screen's retained topic: park → parkLayout, else the lap card.
-    const ok = screenId === "park" ? dashSignals.publishParkLayout(layout) : dashSignals.publishLayout(layout);
-    const where = screenId === "park" ? "park screen" : "lap card";
+    // Route to the screen's retained topic: park → parkLayout, driving →
+    // drivingLayout, else the lap card.
+    const ok = screenId === "park" ? dashSignals.publishParkLayout(layout)
+      : screenId === "driving" ? dashSignals.publishDrivingLayout(layout)
+      : dashSignals.publishLayout(layout);
+    const where = screenId === "park" ? "park screen" : screenId === "driving" ? "driving screen" : "lap card";
     setLayoutSendStatus(ok ? `Sent “${layout.name}” to the ${where} ✓ (retained — used until replaced)` : "Publish failed — check the dash link.");
     window.setTimeout(() => setLayoutSendStatus(""), 5000);
   }
@@ -2210,6 +2333,7 @@ function App() {
             distanceM: lapDistanceM,
             avgSpeedMps: durationMs > 0 && lapDistanceM > 0 ? lapDistanceM / (durationMs / 1000) : null,
             samples: [],
+            maxCellTempC: lapMaxCellTempC(lapSamples),
           };
           laps.push(completedLap);
         }
@@ -2328,6 +2452,7 @@ function App() {
       distanceM: current.lapDistanceM,
       avgSpeedMps: durationMs > 0 && current.lapDistanceM > 0 ? current.lapDistanceM / (durationMs / 1000) : null,
       samples: [],
+      maxCellTempC: lapMaxCellTempC(current.lapSamples),
     };
     laps.push(completedLap);
     const nextState = {
@@ -2366,14 +2491,11 @@ function App() {
     triggerManualLap();
     const after = liveStateRef.current.laps.length;
     const lapClosed = after > beforeLaps;
-    // On a completed lap, always fire the car's lap card. sendLap advances the
-    // lap counter in lockstep with the Live tab even if the publish is dropped
-    // (link mid-handshake), and the auto-connect keeps the uplink up — so both
-    // lap buttons reliably log to the Live tab AND reach the car.
-    // Send the website's authoritative lap count to the car so dashd adopts it
-    // (rather than running its own +1 counter that drifted from trackside).
-    if (lapClosed) dashSignals.sendLap(after);
-    dashLastLapCountRef.current = after;
+    // On a completed lap, request the car's lap card. The actual lapTrigger is
+    // sent by the dash-count sync effect when the newly-logged lap shows up in
+    // the SELECTED count — so the card fires at the corrected lap number, and a
+    // manual Log Lap always cards even if GPS auto-card is off.
+    if (lapClosed) dashCardForceRef.current = true;
     // Visible feedback so the user knows whether this click STARTED a lap (no
     // dash card yet — by design, the card represents 'lap COMPLETE') or CLOSED
     // a lap (dash card fires). Earlier this was silent, which made the two
@@ -3330,17 +3452,20 @@ function App() {
             <div className="liveHeroStats">
               {/* Tier 1 race-state metrics — biggest, glanced every second. */}
               <div className="heroMetricRow">
+                <div className="heroLapBig">
+                  <small>LAP</small>
+                  <strong>{currentLapNumber}<span className="heroLapTarget"> / {targetLaps > 0 ? targetLaps : "—"}</span></strong>
+                </div>
+                <div className="heroLastLap">
+                  <small>LAST LAP</small>
+                  <strong>{lastLap ? formatLapTime(lastLap.durationMs) : "--:--"}</strong>
+                  <span>{lastLap ? `${lastLap.energyWh.toFixed(0)} Wh net` : "—"}</span>
+                </div>
                 <Metric label="Best" value={bestLap ? formatLapTime(bestLap.durationMs) : "--"} tone="purple" />
-                <Metric label="Lap" value={`${currentLapNumber} / ${targetLaps > 0 ? targetLaps : "—"}`} />
-                <Metric label="Energy" value={`${liveState.totalEnergyOutWh.toFixed(1)} Wh`} />
               </div>
               {/* Tier 2 — compact inline strip, smaller because they're checked
                   every few seconds, not every second. */}
               <div className="heroMetricStrip">
-                <span className="heroMetricInline">
-                  <small>Regen In</small>
-                  <b className={liveState.totalEnergyInWh > 0 ? "goodText" : ""}>{liveState.totalEnergyInWh.toFixed(1)} Wh</b>
-                </span>
                 <span className="heroMetricInline">
                   <small>Torque</small>
                   <b className={liveTorqueNm != null && liveTorqueNm < 0 ? "goodText" : ""}>
@@ -3460,7 +3585,13 @@ function App() {
                 running={liveState.running}
               />
               </div>
-              <Panel title="Live Laps" icon={<Timer size={18} />}>
+              <Panel
+                title="Live Laps"
+                icon={<Timer size={18} />}
+                headerRight={liveState.laps.length !== selectedLaps.length
+                  ? <><strong>{selectedLaps.length}</strong>/{liveState.laps.length} counted</>
+                  : undefined}
+              >
                 <LiveLapTable
                   laps={liveState.laps}
                   bestLap={bestLap}
@@ -3482,6 +3613,7 @@ function App() {
                 />
               </Panel>
               <PackStatusPanel state={liveState} displayState={filteredLiveState} soeCutoffCellV={soeCutoffCellV} />
+              <CellThermalsPanel sample={filteredLiveState.lastSample} />
               {/* Live energy-plan tiles: used vs remaining + laps done/left +
                   live per-lap budget that recomputes from energy used each
                   completed lap. Configured up in Live Setup; surfaced here
@@ -3513,12 +3645,69 @@ function App() {
               <TractionControlPanel sample={filteredLiveState.lastSample} />
             </div>
             <div className="liveMainColumn">
-              {/* Live Position hidden until chudpi/GPS is reliable. The RadioLion
-                  receiver's draw browns out the chudpi rail, so no fix reaches
-                  the website. Re-enable this Panel block once chudpi power is
-                  fixed. */}
-              {/*
+              {/* Primary glance: battery thermals + vitals up top. */}
+              <BatteryThermalProjectionPanel
+                projection={batteryThermalProjection}
+                targetLaps={targetLaps}
+                lapsCompleted={lapsCompletedPlan}
+                limitC={batteryTempLimitC}
+                onLimitC={(v) => { setBatteryTempLimitC(v); localStorage.setItem("battery-temp-limit-c", String(v)); }}
+                isMirror={isMirror}
+              />
+              <Panel title="Vitals Window" icon={<Gauge size={18} />}>
+                <VitalsWindowChart state={filteredLiveState} windowS={energyWindowS} />
+              </Panel>
+              {/* Cool-to-see, lower priority — kept visible but below the glance set. */}
+              <DriverControlsPanel sample={filteredLiveState.lastSample} torqueParamSet={torqueParamSet} />
+              {/* Diagnostics & charts — collapsed by default so the glance panels
+                  fit without scrolling. Live Data (right rail) collapses too. */}
+              <button
+                type="button"
+                className="diagToggle"
+                onClick={() => setShowDiagnostics((v) => { const n = !v; localStorage.setItem("live-show-diagnostics", n ? "1" : "0"); return n; })}
+                aria-expanded={showDiagnostics}
+              >
+                <ChevronRight size={15} style={{ transform: showDiagnostics ? "rotate(90deg)" : "none", transition: "transform 0.15s" }} />
+                Diagnostics &amp; charts
+              </button>
+              {showDiagnostics ? (
+                <>
+                  <Panel title="Energy Window" icon={<Zap size={18} />}>
+                    <EnergyWindowChart
+                      state={filteredLiveState}
+                      windowS={energyWindowS}
+                      onWindowS={setEnergyWindowS}
+                    />
+                  </Panel>
+                  <Panel title="Temperature Window" icon={<Thermometer size={18} />}>
+                    <TemperatureWindowChart
+                      state={filteredLiveState}
+                      windowS={energyWindowS}
+                    />
+                  </Panel>
+                  {/* Non-battery temps (motor/inverter/coolant) — battery is the
+                      thermal priority; these live in diagnostics. */}
+                  <TempsStatusPanel sample={filteredLiveState.lastSample} />
+                </>
+              ) : null}
+              {/* Live Position — re-enabled now that chudpi/GPS is reliable. Kept
+                  last in the column so it's available but out of the way; it
+                  self-indicates (gpsUnavailable) if a session has no fix. */}
               <Panel title="Live Position" icon={<MapPinned size={18} />} className="liveMapPanel">
+                <div className="gpsReadout">
+                  <span className={`gpsDot ${liveHasGpsFix && dataAgeMs != null && dataAgeMs < 3000 ? "live" : liveHasGpsFix ? "stale" : "dead"}`} />
+                  <span className="gpsCoord">LAT <strong>{curGpsFix ? curGpsFix.lat.toFixed(6) : "—"}</strong></span>
+                  <span className="gpsCoord">LON <strong>{curGpsFix ? curGpsFix.lon.toFixed(6) : "—"}</strong></span>
+                  <span className="gpsAge">
+                    {curGpsFix == null
+                      ? "no fix"
+                      : gpsFixAgeMs == null
+                        ? "—"
+                        : gpsFixAgeMs < 2000
+                          ? "updating"
+                          : `unchanged ${(gpsFixAgeMs / 1000).toFixed(0)}s`}
+                  </span>
+                </div>
                 <TrackBuilderMap
                   points={filteredLiveState.samples.filter(hasGps).map((sample) => ({ t: sample.t, lat: sample.lat ?? 0, lon: sample.lon ?? 0 }))}
                   liveSample={filteredLiveState.lastSample}
@@ -3528,33 +3717,10 @@ function App() {
                   center={builderCenter}
                   onCenter={setBuilderCenter}
                   targetSpanM={selectedTrackView?.spanM}
+                  follow
                   gpsUnavailable={filteredLiveState.lastSample != null && !filteredLiveState.samples.some(hasGps)}
                 />
               </Panel>
-              */}
-              <Panel title="Energy Window" icon={<Zap size={18} />}>
-                <EnergyWindowChart
-                  state={filteredLiveState}
-                  windowS={energyWindowS}
-                  onWindowS={setEnergyWindowS}
-                />
-              </Panel>
-              <Panel title="Temperature Window" icon={<Thermometer size={18} />}>
-                <TemperatureWindowChart
-                  state={filteredLiveState}
-                  windowS={energyWindowS}
-                />
-              </Panel>
-              <Panel title="Vitals Window" icon={<Gauge size={18} />}>
-                <VitalsWindowChart state={filteredLiveState} windowS={energyWindowS} />
-              </Panel>
-              {/* G-Forces hidden until the chudpi power issue is fixed — the
-                  RadioLion GPS receiver's draw is browning out the chudpi rail
-                  so no PIMU sentences reach cand. Re-enable with <GForcePanel
-                  state={filteredLiveState} /> once the chudpi holds a stable
-                  link. */}
-              <DriverControlsPanel sample={filteredLiveState.lastSample} torqueParamSet={torqueParamSet} />
-              <TempsStatusPanel sample={filteredLiveState.lastSample} />
             </div>
             <div className="rightRail">
               {/* Energy Strategy widget hidden for now — revisit later.
@@ -3567,9 +3733,11 @@ function App() {
                 averages={lapAverages}
               />
               */}
-              <Panel title="Live Data" icon={<Gauge size={18} />}>
-                <LiveDataPanel state={filteredLiveState} />
-              </Panel>
+              {showDiagnostics ? (
+                <Panel title="Live Data" icon={<Gauge size={18} />}>
+                  <LiveDataPanel state={filteredLiveState} />
+                </Panel>
+              ) : null}
               <Panel title="Live Setup" icon={<SlidersHorizontal size={18} />}>
                 <div className="trackForm">
                   <label>
@@ -4009,6 +4177,58 @@ function App() {
             </p>
           </Panel>
 
+          <Panel title="VCU Mode" icon={<SlidersHorizontal size={18} />}>
+            <p style={{ margin: "0 0 8px", opacity: 0.75, fontSize: "0.85rem" }}>
+              Select the VCU params table at runtime (no re-flash). Relayed to the car as the
+              0x029 CAN command; the VCU applies it (its firmware gates the swap to a safe
+              state) and re-broadcasts its active mode for confirmation.
+            </p>
+            {(() => {
+              const connected = !isMirror && dashSignals.status === "connected";
+              const MODES: { v: number; label: string }[] = [
+                { v: 1, label: "Acceleration" },
+                { v: 2, label: "Skidpad" },
+                { v: 3, label: "Autocross" },
+                { v: 4, label: "Endurance" },
+              ];
+              return (
+                <>
+                  <div className="gateButtons">
+                    <select
+                      value={vcuMode}
+                      disabled={!connected}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        setVcuMode(v);
+                        localStorage.setItem("dash-vcu-mode", String(v));
+                      }}
+                    >
+                      {MODES.map((m) => <option key={m.v} value={m.v}>{m.v} · {m.label}</option>)}
+                    </select>
+                    <button
+                      className="primary"
+                      disabled={!connected}
+                      onClick={() => {
+                        dashSignals.publishEventMode(vcuMode);
+                        const lbl = MODES.find((m) => m.v === vcuMode)?.label ?? String(vcuMode);
+                        setVcuModeStatus(`Sent mode ${vcuMode} (${lbl}) to VCU ✓`);
+                        window.setTimeout(() => setVcuModeStatus(""), 4000);
+                      }}
+                    >
+                      <Radio size={15} /> Send to VCU
+                    </button>
+                  </div>
+                  {vcuModeStatus ? <span className="goodText">{vcuModeStatus}</span> : null}
+                  {!connected ? (
+                    <p style={{ marginTop: 6, opacity: 0.7, fontSize: "0.8rem" }}>
+                      Connect to the dash first (Dash tab → Connect to dash).
+                    </p>
+                  ) : null}
+                </>
+              );
+            })()}
+          </Panel>
+
           <Panel title="Lap Control" icon={<Flag size={18} />}>
             <button
               className="primary"
@@ -4058,6 +4278,63 @@ function App() {
               Lay out what the driver sees on each lap card, then send it to the car (used until replaced).
               The lap card auto-clears after the duration above.
             </p>
+          </Panel>
+
+          <Panel title="Dash Screen — debug override" icon={<MonitorCog size={18} />}>
+            <p style={{ margin: "0 0 8px", opacity: 0.75, fontSize: "0.85rem" }}>
+              Force the driver dash onto a specific screen without shifting the car into gear —
+              for bench checks and pit demos. The car snaps back to normal PRNDL routing the
+              moment the driver actually shifts, and a dash reboot drops the override too.
+            </p>
+            {(() => {
+              const connected = !isMirror && dashSignals.status === "connected";
+              const SCREENS: { id: string; label: string }[] = [
+                { id: "driving", label: "Driving" },
+                { id: "park", label: "Park / Pit" },
+                { id: "shutdown", label: "Shutdown" },
+                { id: "settings", label: "Settings" },
+              ];
+              const setOverride = (id: string | null) => {
+                if (!connected) return;
+                dashSignals.publishScreen(id);
+                setDashScreenOverride(id);
+              };
+              return (
+                <>
+                  <div className="screenOverrideButtons">
+                    {SCREENS.map((s) => (
+                      <button
+                        key={s.id}
+                        className={dashScreenOverride === s.id ? "tool active" : "tool"}
+                        disabled={!connected}
+                        onClick={() => setOverride(s.id)}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="gateButtons" style={{ marginTop: 8 }}>
+                    <button
+                      className="primary"
+                      disabled={!connected || dashScreenOverride === null}
+                      onClick={() => setOverride(null)}
+                    >
+                      <Radio size={15} /> Release to auto (PRNDL)
+                    </button>
+                    <span style={{ alignSelf: "center", opacity: 0.8, fontSize: "0.85rem" }}>
+                      {dashScreenOverride
+                        ? `Forcing: ${dashScreenOverride}`
+                        : "Following PRNDL"}
+                    </span>
+                  </div>
+                  {!connected ? (
+                    <p style={{ marginTop: 6, opacity: 0.7, fontSize: "0.8rem" }}>
+                      Connect to the dash first (Dash tab → Connect to dash).
+                    </p>
+                  ) : null}
+                </>
+              );
+            })()}
           </Panel>
 
           <Panel title="Start/Finish — on-car laps" icon={<MapPinned size={18} />}>
@@ -4521,6 +4798,142 @@ function TractionControlPanel({ sample }: { sample: LiveSample | null }) {
   );
 }
 
+// Battery thermal projection — computa's 80/20 recent-lap trend (NOT a thermal
+// model). Plots per-lap PEAK battery temp vs lap, then a dashed projection from
+// the current temp to the finish at the recent deg/lap slope, against a limit
+// line. Battery only. "Color by margin to limit, not confidence."
+function BatteryThermalProjectionPanel({
+  projection, targetLaps, lapsCompleted, limitC, onLimitC, isMirror,
+}: {
+  projection: { ready: boolean; lapTemps: number[]; currentTemp: number | null; slopeDegPerLap?: number; projectedFinishTemp?: number | null };
+  targetLaps: number;
+  lapsCompleted: number;
+  limitC: number;
+  onLimitC: (v: number) => void;
+  isMirror: boolean;
+}) {
+  const width = 900, height = 180, padLeft = 52, padRight = 16, padTop = 16, padBottom = 28;
+  const plotW = width - padLeft - padRight;
+  const plotH = height - padTop - padBottom;
+  const { ready, lapTemps, currentTemp } = projection;
+  const proj = ready ? projection.projectedFinishTemp ?? null : null;
+  const slope = ready ? projection.slopeDegPerLap ?? 0 : 0;
+  const fmt1 = (v: number | null | undefined) => (v == null ? "--" : v.toFixed(1));
+  const overLimit = proj != null && proj >= limitC;
+  const nearLimit = proj != null && proj >= limitC - 5;
+  const projColor = overLimit ? "#ff4d4f" : nearLimit ? "#FFD700" : "var(--fresh)";
+
+  const limitInput = (
+    <label>
+      <span>Limit °C</span>
+      <input
+        type="number" min={20} max={120} step={1} value={limitC} disabled={isMirror}
+        onChange={(e) => onLimitC(Math.max(20, Math.min(120, Number(e.target.value) || 60)))}
+      />
+    </label>
+  );
+
+  if (!ready || currentTemp == null) {
+    return (
+      <Panel title="Battery Thermal Projection" icon={<Thermometer size={18} />}
+        headerRight={<span style={{ opacity: 0.7 }}>collecting…</span>}>
+        <div className="energyToolbar">{limitInput}</div>
+        <small className="muted">Collecting — need 2+ completed (selected) laps with battery temp to project.</small>
+      </Panel>
+    );
+  }
+
+  const xMax = Math.max(targetLaps || 0, lapsCompleted, lapTemps.length, 1);
+  const xOf = (lap: number) => padLeft + (lap / xMax) * plotW;
+  const ys = [...lapTemps, limitC, currentTemp];
+  if (proj != null) ys.push(proj);
+  const yLo = Math.min(...ys) - 3;
+  const yHi = Math.max(...ys) + 3;
+  const yOf = (t: number) => padTop + (1 - (t - yLo) / Math.max(1, yHi - yLo)) * plotH;
+  const histPts = lapTemps.map((t, i) => `${xOf(i + 1).toFixed(1)},${yOf(t).toFixed(1)}`).join(" ");
+
+  return (
+    <Panel title="Battery Thermal Projection" icon={<Thermometer size={18} />}
+      headerRight={<span style={{ color: projColor }}><strong>{fmt1(currentTemp)}</strong>°C now → <strong>{fmt1(proj)}</strong>°C @ finish</span>}>
+      <div className="energyToolbar">
+        <Metric label="Now" value={`${fmt1(currentTemp)} °C`} />
+        <Metric label="@ Finish" value={proj == null ? "--" : `${fmt1(proj)} °C`} />
+        <Metric label="Trend" value={`+${fmt1(slope)} °C/lap`} />
+        {limitInput}
+      </div>
+      <svg className="energyChart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Battery temperature projected to finish">
+        <rect x={padLeft} y={padTop} width={plotW} height={plotH} rx="6" />
+        <line className="thermalLimitLine" x1={padLeft} x2={width - padRight} y1={yOf(limitC)} y2={yOf(limitC)} />
+        <text x={width - padRight} y={yOf(limitC) - 4} textAnchor="end">limit {limitC}°C</text>
+        {histPts ? <polyline className="energyNetLine" points={histPts} /> : null}
+        {proj != null && targetLaps > 0 ? (
+          <line className="thermalProjLine" x1={xOf(lapsCompleted)} y1={yOf(currentTemp)} x2={xOf(targetLaps)} y2={yOf(proj)} style={{ stroke: projColor }} />
+        ) : null}
+        <circle className="thermalNowDot" cx={xOf(lapsCompleted)} cy={yOf(currentTemp)} r="4" />
+        <text x={padLeft} y={height - 8}>lap 0</text>
+        <text x={width - padRight - 36} y={height - 8}>{targetLaps > 0 ? `lap ${targetLaps}` : "now"}</text>
+        <text x={8} y={padTop + 10}>{yHi.toFixed(0)}°C</text>
+        <text x={8} y={height - padBottom}>{yLo.toFixed(0)}°C</text>
+      </svg>
+      <small className="muted">Linear recent-lap trend — projects current battery temp by deg/lap to the finish (selected laps, biased hot). Not a thermal model.</small>
+    </Panel>
+  );
+}
+
+// Realtime per-cell thermal grid (Grafana-style heatmap). Reads the cellTemps
+// array carried through the derived feed — same data dashd uses on-car. Each
+// populated cell (temp > 0; the array is zero-padded for cells not yet reported)
+// is a colored tile on a fixed 20-60 °C blue→red scale so colors mean the same
+// thing across sessions.
+function CellThermalsPanel({ sample }: { sample: LiveSample | null }) {
+  const populated = (sample?.cellTemps ?? [])
+    .map((t, i) => ({ i, t }))
+    .filter((c) => c.t > 0);
+  if (!populated.length) {
+    return (
+      <Panel title="Cell Thermals" icon={<Thermometer size={18} />}>
+        <small className="muted">No per-cell temperatures in the live feed yet.</small>
+      </Panel>
+    );
+  }
+  const vals = populated.map((c) => c.t);
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const LO = 20, HI = 60; // fixed color domain (°C)
+  const cellColor = (t: number) => {
+    const frac = Math.max(0, Math.min(1, (t - LO) / (HI - LO)));
+    return `hsl(${Math.round(220 - 220 * frac)}, 70%, 45%)`; // 220 blue (cool) → 0 red (hot)
+  };
+  return (
+    <Panel
+      title="Cell Thermals"
+      icon={<Thermometer size={18} />}
+      headerRight={
+        <>{populated.length} cells · min <strong>{min.toFixed(0)}</strong> · avg <strong>{avg.toFixed(0)}</strong> · max <strong style={{ color: "#ff6b4a" }}>{max.toFixed(0)}</strong> °C</>
+      }
+    >
+      <div className="cellThermalGrid">
+        {populated.map((c) => (
+          <div
+            key={c.i}
+            className="cellThermalCell"
+            style={{ background: cellColor(c.t) }}
+            title={`Cell ${c.i}: ${c.t.toFixed(1)} °C`}
+          >
+            {c.t.toFixed(0)}
+          </div>
+        ))}
+      </div>
+      <div className="cellThermalLegend">
+        <span>{LO}°C</span>
+        <div className="cellThermalScale" />
+        <span>≥{HI}°C</span>
+      </div>
+    </Panel>
+  );
+}
+
 function PackStatusPanel({
   state,
   displayState,
@@ -4588,8 +5001,6 @@ function EnergyStrategyPanel({
 }) {
   const sample = state.lastSample;
   const signedPowerKw = signedVcuPowerKwFor(state.previousSample, sample);
-  const drivePowerKw = signedPowerKw == null ? null : Math.max(0, signedPowerKw);
-  const regenPowerKw = signedPowerKw == null ? null : Math.max(0, -signedPowerKw);
   const pack = packStatus(state.samples, soeCutoffCellV, sample);
   const targetWh = targetEnergyKwh > 0 ? targetEnergyKwh * 1000 : null;
   const vcuUsedWh = state.totalEnergyWh;
@@ -4626,15 +5037,9 @@ function EnergyStrategyPanel({
           <Metric label="SOE Remaining" value={soeRemainingWh == null ? "--" : formatKwhFromWh(soeRemainingWh)} />
           <Metric label="Net Used (VCU)" value={formatKwhFromWh(vcuUsedWh)} />
           <Metric label="Net / Lap" value={targetEnergyPerLapWh == null ? "--" : `${targetEnergyPerLapWh.toFixed(0)} Wh`} />
-          <Metric label="Drive (VCU)" value={formatKwhFromWh(state.totalEnergyOutWh)} />
-          <Metric label="Regen (VCU)" value={formatKwhFromWh(state.totalEnergyInWh)} />
-          <Metric label="Drive Power" value={drivePowerKw == null ? "--" : `${drivePowerKw.toFixed(2)} kW`} />
-          <Metric label="Regen Power" value={regenPowerKw == null ? "--" : `${regenPowerKw.toFixed(2)} kW`} />
+          <Metric label="Power" value={signedPowerKw == null ? "--" : `${signedPowerKw.toFixed(2)} kW`} tone={signedPowerKw != null && signedPowerKw < 0 ? "good" : ""} />
           <Metric label="Lap Net" value={`${state.lapEnergyWh.toFixed(1)} Wh`} />
-          <Metric label="Lap Drive" value={`${state.lapEnergyOutWh.toFixed(1)} Wh`} />
-          <Metric label="Lap Regen" value={`${state.lapEnergyInWh.toFixed(1)} Wh`} />
           <Metric label="Avg Net Lap" value={averages.avgEnergyWh == null ? "--" : `${averages.avgEnergyWh.toFixed(1)} Wh`} />
-          <Metric label="Avg Regen" value={averages.avgEnergyInWh == null ? "--" : `${averages.avgEnergyInWh.toFixed(1)} Wh`} />
         </div>
         <small className="muted">
           {selectedAvgDelta != null
@@ -4839,18 +5244,11 @@ function EnergyWindowChart({
   const plotH = height - padTop - padBottom;
   const lastT = state.lastSample?.t ?? Date.now();
   const startT = lastT - windowS * 1000;
-  const maxEnergy = Math.max(1, ...trace.flatMap((point) => [point.energyOutWh, point.energyInWh, Math.max(0, point.energyWh)]));
-  const outPoints = trace
+  const maxEnergy = Math.max(1, ...trace.map((point) => Math.max(0, point.energyWh)));
+  const netPoints = trace
     .map((point) => {
       const x = padLeft + Math.max(0, Math.min(1, (point.t - startT) / (windowS * 1000))) * plotW;
-      const y = padTop + (1 - Math.max(0, Math.min(1, point.energyOutWh / maxEnergy))) * plotH;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-  const inPoints = trace
-    .map((point) => {
-      const x = padLeft + Math.max(0, Math.min(1, (point.t - startT) / (windowS * 1000))) * plotW;
-      const y = padTop + (1 - Math.max(0, Math.min(1, point.energyInWh / maxEnergy))) * plotH;
+      const y = padTop + (1 - Math.max(0, Math.min(1, point.energyWh / maxEnergy))) * plotH;
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(" ");
@@ -4860,9 +5258,7 @@ function EnergyWindowChart({
   return (
     <div className="energyWindow">
       <div className="energyToolbar">
-        <Metric label="Window Out" value={`${(latest?.energyOutWh ?? 0).toFixed(1)} Wh`} />
-        <Metric label="Regen In" value={`${(latest?.energyInWh ?? 0).toFixed(1)} Wh`} tone="good" />
-        <Metric label="Net" value={`${latestEnergy.toFixed(1)} Wh`} />
+        <Metric label="Energy" value={`${latestEnergy.toFixed(1)} Wh`} />
         <label>
           <span>Window</span>
           <select value={windowS} onChange={(event) => onWindowS(Number(event.target.value))}>
@@ -4882,8 +5278,7 @@ function EnergyWindowChart({
         <text x={width - padRight - 28} y={height - 7}>now</text>
         <text x={6} y={padTop + 10}>{maxEnergy.toFixed(1)} Wh</text>
         <text x={10} y={height - padBottom}>0 Wh</text>
-        {outPoints ? <polyline className="energyOutLine" points={outPoints} /> : null}
-        {inPoints ? <polyline className="energyInLine" points={inPoints} /> : null}
+        {netPoints ? <polyline className="energyNetLine" points={netPoints} /> : null}
         {lapBreaks.map((lap) => {
           const x = padLeft + Math.max(0, Math.min(1, (lap.endMs - startT) / (windowS * 1000))) * plotW;
           return (
@@ -4950,8 +5345,6 @@ function LiveDataPanel({ state }: { state: LiveSessionState }) {
   const energyV = energyVoltageFor(sample);
   const dcBusCurrent = dcBusCurrentFor(sample);
   const signedPowerKw = signedVcuPowerKwFor(state.previousSample, sample);
-  const drivePowerKw = signedPowerKw == null ? null : Math.max(0, signedPowerKw);
-  const regenPowerKw = signedPowerKw == null ? null : Math.max(0, -signedPowerKw);
   const motorRpm = firstLiveValue(values, ["controls_motor_speed", "motor_speed", "dynamics_inverter_rpm", "inverter_rpm"]);
   const rawApps = rawAppsTravelDetails(values);
   const rawRows = [...rawAppsLiveRows(rawApps), ...topLiveValues(values)];
@@ -4960,8 +5353,7 @@ function LiveDataPanel({ state }: { state: LiveSessionState }) {
       <div className="liveDataGrid">
         <Metric label="Samples" value={state.samples.length.toLocaleString()} />
         <Metric label="Last Sample" value={sample ? formatTime(sample.t) : "--"} />
-        <Metric label="Drive Power" value={drivePowerKw == null ? "--" : `${drivePowerKw.toFixed(2)} kW`} />
-        <Metric label="Regen Power" value={regenPowerKw == null ? "--" : `${regenPowerKw.toFixed(2)} kW`} tone="good" />
+        <Metric label="Power" value={signedPowerKw == null ? "--" : `${signedPowerKw.toFixed(2)} kW`} tone={signedPowerKw != null && signedPowerKw < 0 ? "good" : ""} />
         <Metric label={dcBusV == null && energyV != null ? "Est V / I" : "DC Bus"} value={energyV == null || dcBusCurrent == null ? "--" : `${energyV.toFixed(1)} V / ${dcBusCurrent.toFixed(1)} A`} />
         <Metric label="Power Src" value="VCU 0x1C9" />
         <Metric label="Motor RPM" value={motorRpm == null ? "--" : `${Math.round(motorRpm).toLocaleString()} rpm`} />
@@ -5035,7 +5427,7 @@ function LiveLapTable({
   };
 }) {
   const columns = sectorCount;
-  const totalCols = 3 + columns + 3 + (targetEnergyPerLapWh != null ? 1 : 0) + 1; // +1 = Notes
+  const totalCols = 3 + columns + 1 + (targetEnergyPerLapWh != null ? 1 : 0) + 1; // energy col (Net) + optional Δ + Notes
   const currentTargetEnergyWh = currentLapEnergyWh;
   const averageTargetEnergyWh = averages.avgEnergyWh;
   const tableWrapRef = useRef<HTMLDivElement | null>(null);
@@ -5056,19 +5448,33 @@ function LiveLapTable({
         <table className="lapTable">
           <thead>
             <tr>
-              <th aria-label="Include in average" />
+              <th aria-label="Count this lap (completed total + average); deselect double-counts / driver-change laps" title="Counts toward completed laps & the average. Deselect double-counts or driver-change laps to correct the lap count." />
               <th>Lap</th>
               <th>Time</th>
               {Array.from({ length: columns }, (_sector, index) => <th key={`sector-head-${index}`}>S{index + 1}</th>)}
-              <th>Drive</th>
-              <th>Regen</th>
-              <th>Net</th>
-              {targetEnergyPerLapWh != null ? <th>Δ Net</th> : null}
+              <th>Energy</th>
+              {targetEnergyPerLapWh != null ? <th>Δ Energy</th> : null}
               <th>Notes</th>
             </tr>
           </thead>
           <tbody>
-            {laps.map((lap) => {
+            {/* Recent-at-top: in-progress lap first, then completed laps newest-first. */}
+            {currentLapElapsedMs > 0 ? (
+              <tr className="currentLapRow">
+                <td>
+                  <span className="lapCurrentDot" aria-hidden="true" />
+                </td>
+                <td>Current</td>
+                <td>{formatLapTime(currentLapElapsedMs)}</td>
+                {Array.from({ length: columns }, (_unused, index) => (
+                  <td key={`current-sector-${index}`}>{currentSectors[index] == null ? "--" : formatLapTime(currentSectors[index])}</td>
+                ))}
+                <td>{currentLapEnergyWh.toFixed(1)} Wh</td>
+                {targetEnergyPerLapWh != null ? <td>{formatEnergyDelta(currentTargetEnergyWh - targetEnergyPerLapWh)}</td> : null}
+                <td />
+              </tr>
+            ) : null}
+            {[...laps].reverse().map((lap) => {
               const selected = selectedLapIds.has(lap.id);
               const targetEnergyWh = lap.energyWh;
               const delta = targetEnergyPerLapWh != null ? targetEnergyWh - targetEnergyPerLapWh : null;
@@ -5079,7 +5485,8 @@ function LiveLapTable({
                       type="checkbox"
                       checked={selected}
                       onChange={() => onToggleLap(lap.id)}
-                      aria-label={`Include ${lap.label} in average`}
+                      aria-label={`Count ${lap.label} toward completed laps and the average`}
+                      title={`Count ${lap.label} toward completed laps & the average — deselect a double-count or driver-change lap`}
                     />
                   </td>
                   <td className={bestLap?.id === lap.id ? "purpleText" : ""}>
@@ -5111,8 +5518,6 @@ function LiveLapTable({
                     </td>
                     );
                   })}
-                  <td>{lapEnergyOutWh(lap).toFixed(1)} Wh</td>
-                  <td className="goodText">{lapEnergyInWh(lap).toFixed(1)} Wh</td>
                   <td>{lap.energyWh.toFixed(1)} Wh</td>
                   {targetEnergyPerLapWh != null ? <td className={delta != null && delta > 0 ? "deltaOver" : "deltaUnder"}>{delta == null ? "--" : formatEnergyDelta(delta)}</td> : null}
                   <td>
@@ -5135,23 +5540,6 @@ function LiveLapTable({
                 <td colSpan={totalCols}>No completed flying laps yet. Out lap and in lap are excluded from best lap.</td>
               </tr>
             ) : null}
-            {currentLapElapsedMs > 0 ? (
-              <tr className="currentLapRow">
-                <td>
-                  <span className="lapCurrentDot" aria-hidden="true" />
-                </td>
-                <td>Current</td>
-                <td>{formatLapTime(currentLapElapsedMs)}</td>
-                {Array.from({ length: columns }, (_unused, index) => (
-                  <td key={`current-sector-${index}`}>{currentSectors[index] == null ? "--" : formatLapTime(currentSectors[index])}</td>
-                ))}
-                <td>{currentLapEnergyOutWh.toFixed(1)} Wh</td>
-                <td className="goodText">{currentLapEnergyInWh.toFixed(1)} Wh</td>
-                <td>{currentLapEnergyWh.toFixed(1)} Wh</td>
-                {targetEnergyPerLapWh != null ? <td>{formatEnergyDelta(currentTargetEnergyWh - targetEnergyPerLapWh)}</td> : null}
-                <td />
-              </tr>
-            ) : null}
           </tbody>
           {averages.count > 0 ? (
             <tfoot>
@@ -5160,8 +5548,6 @@ function LiveLapTable({
                 <td>Avg ({averages.count})</td>
                 <td>{averages.avgMs == null ? "--" : formatLapTime(averages.avgMs)}</td>
                 {Array.from({ length: columns }, (_unused, index) => <td key={`avg-sector-${index}`} />)}
-                <td>{averages.avgEnergyOutWh == null ? "--" : `${averages.avgEnergyOutWh.toFixed(1)} Wh`}</td>
-                <td className="goodText">{averages.avgEnergyInWh == null ? "--" : `${averages.avgEnergyInWh.toFixed(1)} Wh`}</td>
                 <td>{averages.avgEnergyWh == null ? "--" : `${averages.avgEnergyWh.toFixed(1)} Wh`}</td>
                 {targetEnergyPerLapWh != null ? (
                   <td>{averageTargetEnergyWh == null ? "--" : formatEnergyDelta(averageTargetEnergyWh - targetEnergyPerLapWh)}</td>
@@ -5180,9 +5566,7 @@ function LiveLapTable({
           </div>
           <div className="lapMiniGrid">
             <Metric label="Time" value={lastLap == null ? "--" : formatLapTime(lastLap.durationMs)} />
-            <Metric label="Net" value={lastLap == null ? "--" : `${lastLap.energyWh.toFixed(1)} Wh`} />
-            <Metric label="Drive" value={lastLap == null ? "--" : `${lapEnergyOutWh(lastLap).toFixed(1)} Wh`} />
-            <Metric label="Regen" value={lastLap == null ? "--" : `${lapEnergyInWh(lastLap).toFixed(1)} Wh`} />
+            <Metric label="Energy" value={lastLap == null ? "--" : `${lastLap.energyWh.toFixed(1)} Wh`} />
             <Metric label="Target Δ" value={lastLapDeltaWh == null ? "--" : formatEnergyDelta(lastLapDeltaWh)} />
           </div>
         </div>
@@ -5193,9 +5577,7 @@ function LiveLapTable({
           </div>
           <div className="lapMiniGrid">
             <Metric label="Time" value={averages.avgMs == null ? "--" : formatLapTime(averages.avgMs)} />
-            <Metric label="Net" value={averages.avgEnergyWh == null ? "--" : `${averages.avgEnergyWh.toFixed(1)} Wh`} />
-            <Metric label="Drive" value={averages.avgEnergyOutWh == null ? "--" : `${averages.avgEnergyOutWh.toFixed(1)} Wh`} />
-            <Metric label="Regen" value={averages.avgEnergyInWh == null ? "--" : `${averages.avgEnergyInWh.toFixed(1)} Wh`} />
+            <Metric label="Energy" value={averages.avgEnergyWh == null ? "--" : `${averages.avgEnergyWh.toFixed(1)} Wh`} />
             <Metric label="Target Δ" value={averageDeltaWh == null ? "--" : formatEnergyDelta(averageDeltaWh)} />
           </div>
         </div>
@@ -5566,6 +5948,7 @@ function TrackBuilderMap({
   onCenter,
   targetSpanM,
   gpsUnavailable = false,
+  follow = false,
 }: {
   points: GpsPoint[];
   liveSample: LiveSample | null;
@@ -5576,11 +5959,19 @@ function TrackBuilderMap({
   onCenter: (center: { lat: number; lon: number }) => void;
   targetSpanM?: number;
   gpsUnavailable?: boolean;
+  // When true, the viewport auto-centers on the live car position (liveSample)
+  // and stays locked on it as it moves. Panning disengages follow; the recenter
+  // button re-engages it. Off for the track-builder usage (manual center).
+  follow?: boolean;
 }) {
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
   const [drawEnd, setDrawEnd] = useState<{ x: number; y: number } | null>(null);
   const [panStart, setPanStart] = useState<{ x: number; y: number; cx: number; cy: number } | null>(null);
   const [spanM, setSpanM] = useState(520);
+  // Follow-the-car: when `follow` is on, the viewport tracks the live position.
+  // `following` is the live toggle — panning turns it off, the recenter button
+  // turns it back on. Defaults on so the map opens centered on the car.
+  const [following, setFollowing] = useState(true);
   const width = 920;
   const height = 620;
   const pad = 0;
@@ -5588,7 +5979,13 @@ function TrackBuilderMap({
     if (targetSpanM == null) return;
     setSpanM(Math.max(80, Math.min(8000, targetSpanM)));
   }, [targetSpanM]);
-  const projectedCenter = project(center.lat, center.lon);
+  // The car's current position, when follow is enabled and we have a fix.
+  const followPoint = follow && liveSample && liveSample.lat != null && liveSample.lon != null
+    ? { lat: liveSample.lat, lon: liveSample.lon }
+    : null;
+  // Viewport center: lock onto the car while following, else the manual center.
+  const viewCenter = followPoint && following ? followPoint : center;
+  const projectedCenter = project(viewCenter.lat, viewCenter.lon);
   const bounds = mapBoundsFromCenter(projectedCenter.mx, projectedCenter.my, width, height, spanM, pad);
   const tiles = satelliteTiles(bounds);
   const line = points.length >= 2
@@ -5620,14 +6017,16 @@ function TrackBuilderMap({
       lon2: b.lon,
     });
   };
+  // Zoom via explicit buttons rather than the scroll wheel. React's wheel
+  // listener is passive, so an onWheel preventDefault() couldn't stop the page
+  // from also scrolling — zooming the map hijacked the whole page. Buttons keep
+  // pan-by-drag intact without fighting the page scroll. Smaller spanM = closer.
+  const zoomBy = (factor: number) => setSpanM((current) => Math.max(80, Math.min(8000, current * factor)));
   return (
+    <div className="mapWrap">
     <svg
       className={drawMode ? "map builderMap drawing" : "map builderMap"}
       viewBox={`0 0 ${width} ${height}`}
-      onWheel={(event) => {
-        event.preventDefault();
-        setSpanM((current) => nextMapSpan(current, event.deltaY));
-      }}
       onMouseDown={(event) => {
         const start = pointer(event);
         if (drawMode) {
@@ -5636,6 +6035,12 @@ function TrackBuilderMap({
           return;
         }
         setPanStart({ ...start, cx: projectedCenter.mx, cy: projectedCenter.my });
+        // Grabbing to pan = manual control: hand the current (car) center to the
+        // parent so the drag continues from here, then stop following.
+        if (following && followPoint) {
+          onCenter(followPoint);
+          setFollowing(false);
+        }
       }}
       onMouseMove={(event) => {
         const current = pointer(event);
@@ -5700,6 +6105,23 @@ function TrackBuilderMap({
       ) : null}
       <text className="mapCredit" x={width - 10} y={height - 10} textAnchor="end">Esri World Imagery</text>
     </svg>
+      <div className="mapZoomBtns">
+        {follow ? (
+          <button
+            type="button"
+            aria-label="Center on car"
+            title={followPoint ? (following ? "Following car — drag to look around" : "Recenter on car") : "Waiting for GPS fix"}
+            className={following && followPoint ? "follow active" : "follow"}
+            disabled={!followPoint}
+            onClick={() => setFollowing(true)}
+          >
+            <Crosshair size={16} />
+          </button>
+        ) : null}
+        <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => zoomBy(1 / 1.3)}><Plus size={16} /></button>
+        <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => zoomBy(1.3)}><Minus size={16} /></button>
+      </div>
+    </div>
   );
 }
 
@@ -5994,11 +6416,6 @@ function distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) 
   return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function nextMapSpan(currentSpanM: number, deltaY: number) {
-  const boundedDelta = Math.max(-120, Math.min(120, deltaY));
-  const zoomFactor = Math.exp(boundedDelta * 0.0007);
-  return Math.max(80, Math.min(8000, currentSpanM * zoomFactor));
-}
 
 function sampleCrossesGate(previous: LiveSample, current: LiveSample, gate: GateLine) {
   if (!hasGps(previous) || !hasGps(current)) return false;
@@ -6609,11 +7026,38 @@ function validCellVoltage(value: number | null | undefined): value is number {
 
 function maxCellTempFor(sample: LiveSample | null) {
   if (!sample) return null;
+  // Prefer the per-cell array — the same source dashd uses — taking the max over
+  // POSITIVE temps so the zero-padded unreported slots don't count. This is the
+  // fix for "Max Cell T stuck at 0": the old path read cell_top_temp (CAN 0x132),
+  // which HVC doesn't emit, so it sat at 0. Fall back to the enricher's
+  // max_cell_temp scalar, then the legacy 0x132 fields; require > 0 so a no-data
+  // 0 reads as "--" instead of a misleading 0.
+  const fromArray = sample.cellTemps?.filter((t) => t > 0) ?? [];
+  if (fromArray.length) return Math.max(...fromArray);
   const candidates = [
+    firstLiveValue(sample.values, ["max_cell_temp"]),
     firstLiveValue(sample.values, ["cell_top_temp", "thermal_cell_top_temp"]),
     firstLiveValue(sample.values, ["cell_bottom_temp", "thermal_cell_bottom_temp"]),
-  ].map(validTemp).filter((value): value is number => value != null);
+  ].map(validTemp).filter((value): value is number => value != null && value > 0);
   return candidates.length ? Math.max(...candidates) : null;
+}
+
+// Peak battery (max-cell) temp °C over a lap's samples — captured at lap close
+// as the lap's representative battery temp for the thermal-projection trend.
+function lapMaxCellTempC(samples: LiveSample[]): number | undefined {
+  let max: number | null = null;
+  for (const s of samples) {
+    const t = maxCellTempFor(s);
+    if (t != null && (max == null || t > max)) max = t;
+  }
+  return max ?? undefined;
+}
+
+function medianOf(values: number[]): number {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 function packVoltageFor(sample: LiveSample | null) {

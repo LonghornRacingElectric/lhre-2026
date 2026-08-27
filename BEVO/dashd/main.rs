@@ -2,7 +2,7 @@ use anyhow::Result;
 use prost::Message;
 use rumqttc::{Client, Event, Incoming, MqttOptions, QoS};
 use serde::Serialize;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::os::unix::net::UnixStream;
 use std::sync::{Arc, Mutex};
@@ -16,6 +16,11 @@ use sensor_proto::proto::orion::OrionSensorData;
 // ---------------------------------------------------------------------------
 
 const SOCKET_PATH: &str = "/tmp/BEVO_cand.sock";
+/// cand's CAN transmit request socket — dashd relays trackside commands (the
+/// 0x029 VCU Mode Command) here; cand owns the actual CAN write.
+const CAND_TX_SOCKET_PATH: &str = "/tmp/BEVO_cand_tx.sock";
+/// CAN id of the Pi->VCU "VCU Mode Command" packet (see can_packets.csv 0x029).
+const VCU_MODE_COMMAND_ID: u32 = 0x029;
 const WS_PORT: u16 = 8001;
 const WS_SEND_HZ: u64 = 30;
 
@@ -214,6 +219,9 @@ struct MqttData {
     #[serde(rename = "energyDelta")]
     energy_delta: Option<f32>,
 
+    #[serde(rename = "energyDeltaStatic")]
+    energy_delta_static: Option<f32>,
+
     #[serde(rename = "lapsRemaining")]
     laps_remaining: Option<f32>,
 
@@ -282,10 +290,20 @@ struct DashMessage {
     /// None until one is sent → frontend uses its built-in park screen.
     #[serde(rename = "parkLayout", skip_serializing_if = "Option::is_none")]
     park_layout: Option<serde_json::Value>,
+    /// Website-authored primary/driving-screen layout (retained `lhre/dash/drivingLayout`).
+    /// None until one is sent → frontend uses its built-in driving screen.
+    #[serde(rename = "drivingLayout", skip_serializing_if = "Option::is_none")]
+    driving_layout: Option<serde_json::Value>,
     /// Active driver message to overlay now (from `lhre/dash/message`); None when
     /// nothing is showing or it has expired.
     #[serde(skip_serializing_if = "Option::is_none")]
     message: Option<serde_json::Value>,
+    /// Debug screen override from trackside (`lhre/dash/screen`): forces the dash
+    /// to show a named screen ("driving"/"park"/"shutdown"/"settings") regardless
+    /// of PRNDL. None = follow PRNDL normally. Cleared automatically on a real
+    /// gear transition so it can never strand the driver on the wrong screen.
+    #[serde(rename = "screenOverride", skip_serializing_if = "Option::is_none")]
+    screen_override: Option<String>,
 }
 
 /// Snapshot published to `lhre/dash/state` for the trackside link-health /
@@ -319,11 +337,13 @@ struct DashStateMsg {
 struct MqttState {
     lap_delta: Option<f32>,
     energy_delta: Option<f32>,
+    energy_delta_static: Option<f32>,
     laps_remaining: Option<f32>,
     target_power: Option<f32>,
     lap_card_ms: Option<f32>,
     last_lap_delta: Instant,
     last_energy_delta: Instant,
+    last_energy_delta_static: Instant,
     last_laps_remaining: Instant,
     last_target_power: Instant,
 }
@@ -334,11 +354,13 @@ impl MqttState {
         Self {
             lap_delta: None,
             energy_delta: None,
+            energy_delta_static: None,
             laps_remaining: None,
             target_power: None,
             lap_card_ms: None,
             last_lap_delta: epoch,
             last_energy_delta: epoch,
+            last_energy_delta_static: epoch,
             last_laps_remaining: epoch,
             last_target_power: epoch,
         }
@@ -358,6 +380,9 @@ impl MqttState {
             energy_delta: self
                 .energy_delta
                 .filter(|_| now.duration_since(self.last_energy_delta) < MQTT_STALE_TIMEOUT),
+            energy_delta_static: self
+                .energy_delta_static
+                .filter(|_| now.duration_since(self.last_energy_delta_static) < MQTT_STALE_TIMEOUT),
             laps_remaining: self
                 .laps_remaining
                 .filter(|_| now.duration_since(self.last_laps_remaining) < MQTT_STALE_TIMEOUT),
@@ -424,12 +449,22 @@ struct DashState {
     /// Website-authored park/pit-screen layout (retained `lhre/dash/parkLayout`).
     /// None → frontend's built-in park screen.
     park_layout: Option<serde_json::Value>,
+    /// Website-authored primary/driving-screen layout (retained `lhre/dash/drivingLayout`).
+    /// None → frontend's built-in driving screen.
+    driving_layout: Option<serde_json::Value>,
     /// Driver-message palette the car holds (retained `lhre/dash/messages`).
     messages: Option<serde_json::Value>,
     /// Active driver message + its expiry (from `lhre/dash/message`). expiry None
     /// while a sticky (durationS=0) message is up; both cleared on replace.
     active_message: Option<serde_json::Value>,
     message_expiry: Option<Instant>,
+    /// Debug screen override from trackside (`lhre/dash/screen`). Forces the
+    /// named screen regardless of PRNDL; None = follow PRNDL. Auto-cleared on a
+    /// real gear transition (see `last_prndl`) so it can't strand the driver.
+    screen_override: Option<String>,
+    /// Last PRNDL seen by the IPC loop, for rising-edge detection of a real
+    /// gear change (which clears any active screen_override).
+    last_prndl: Option<&'static str>,
 }
 
 impl DashState {
@@ -596,6 +631,36 @@ fn load_park_layout() -> Option<serde_json::Value> {
     match serde_json::from_str::<serde_json::Value>(data.trim()) {
         Ok(v) => {
             println!("[DASHD] Restored park layout from {}", path);
+            Some(v)
+        }
+        Err(_) => None,
+    }
+}
+
+// Primary/driving-screen layout — same disk-cache pattern + reboot-durable path
+// as the lap-card and park layouts, own file + env override.
+const DRIVING_LAYOUT_PATH: &str = "/var/lib/bevo-dash/drivinglayout.json";
+
+fn driving_layout_path() -> String {
+    env_or_default("DASHD_DRIVING_LAYOUT_PATH", DRIVING_LAYOUT_PATH)
+}
+
+fn persist_driving_layout(raw: &str) {
+    let path = driving_layout_path();
+    if let Some(dir) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    if let Err(e) = std::fs::write(&path, raw) {
+        eprintln!("[DASHD] Failed to persist driving layout: {}", e);
+    }
+}
+
+fn load_driving_layout() -> Option<serde_json::Value> {
+    let path = driving_layout_path();
+    let data = std::fs::read_to_string(&path).ok()?;
+    match serde_json::from_str::<serde_json::Value>(data.trim()) {
+        Ok(v) => {
+            println!("[DASHD] Restored driving layout from {}", path);
             Some(v)
         }
         Err(_) => None,
@@ -829,8 +894,21 @@ fn ipc_reader_loop(state: Arc<Mutex<DashState>>) {
                             let mut locked = state.lock().unwrap();
                             let can_data = extract_can_data(&data, &mut locked.last_qualified_soc);
                             let power = can_data.power;
+                            let new_prndl = can_data.prndl;
                             locked.can = can_data;
                             locked.last_can_update = now;
+
+                            // A real gear change clears any trackside screen
+                            // override — the override is a debug convenience, and
+                            // the driver moving the shifter must always win so we
+                            // can't strand them on the wrong screen at speed.
+                            if let (Some(prev), Some(cur)) = (locked.last_prndl, new_prndl) {
+                                if prev != cur && locked.screen_override.is_some() {
+                                    println!("[DASHD] clearing screen override (PRNDL {} -> {})", prev, cur);
+                                    locked.screen_override = None;
+                                }
+                            }
+                            locked.last_prndl = new_prndl;
 
                             // Integrate energy for this lap: Wh += kW * dt(s) / 3.6.
                             // Regen (negative power) credits back. Budget tracks
@@ -915,12 +993,14 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
                                 let pacing = locked.pacing(Instant::now());
                                 let layout = locked.layout.clone();
                                 let park_layout = locked.park_layout.clone();
+                                let driving_layout = locked.driving_layout.clone();
                                 // Expire a timed message before forwarding it.
                                 let message = match locked.message_expiry {
                                     Some(exp) if Instant::now() >= exp => None,
                                     _ => locked.active_message.clone(),
                                 };
-                                DashMessage { seq, can, mqtt, pacing, layout, park_layout, message }
+                                let screen_override = locked.screen_override.clone();
+                                DashMessage { seq, can, mqtt, pacing, layout, park_layout, driving_layout, message, screen_override }
                             };
 
                             let json = match serde_json::to_string(&message) {
@@ -964,6 +1044,21 @@ fn ws_server_loop(state: Arc<Mutex<DashState>>) {
 }
 
 // ---------------------------------------------------------------------------
+// Relay a VCU mode command to cand's CAN TX socket. Builds the 13-byte request
+// cand::can_tx_listener_loop expects: u32 LE CAN id, u8 dlc, 8 data bytes. The
+// 0x029 packet is 8 bytes; byte0 = event_mode, bytes 1-7 reserved (left zero).
+// dashd doesn't interpret the mode — it just bridges trackside MQTT -> CAN.
+fn send_can_mode_command(event_mode: u8) -> std::io::Result<()> {
+    let mut req = [0u8; 13];
+    req[0..4].copy_from_slice(&VCU_MODE_COMMAND_ID.to_le_bytes());
+    req[4] = 8; // DLC
+    req[5] = event_mode; // data[0]; data[1..8] reserved
+    let mut stream = UnixStream::connect(CAND_TX_SOCKET_PATH)?;
+    stream.write_all(&req)?;
+    stream.flush()?;
+    Ok(())
+}
+
 // Thread 3: MQTT subscriber — receives off-car computed values
 // ---------------------------------------------------------------------------
 
@@ -1095,6 +1190,28 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                         }
                         continue;
                     }
+                    if field == "drivingLayout" {
+                        match serde_json::from_str::<serde_json::Value>(payload_str) {
+                            Ok(v) => {
+                                {
+                                    let mut locked = state.lock().unwrap();
+                                    locked.driving_layout = Some(v);
+                                }
+                                persist_driving_layout(payload_str);
+                                let _ = client.publish(
+                                    format!("{}ack/drivingLayout", MQTT_TOPIC_PREFIX),
+                                    QoS::AtMostOnce,
+                                    true,
+                                    payload_str.as_bytes().to_vec(),
+                                );
+                                println!("[DASHD] Loaded driving layout ({} bytes)", payload_str.len());
+                            }
+                            Err(e) => {
+                                eprintln!("[DASHD] MQTT bad drivingLayout payload: {}", e)
+                            }
+                        }
+                        continue;
+                    }
 
                     // Driver-message palette (retained set the car holds). Stored so a
                     // fresh dash has it; rendering is driven by the trigger below.
@@ -1123,6 +1240,51 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                                 }
                             }
                             Err(e) => eprintln!("[DASHD] MQTT bad message payload: {}", e),
+                        }
+                        continue;
+                    }
+
+                    // Debug screen override (lhre/dash/screen): a bare string
+                    // naming the screen to force ("driving"/"park"/"shutdown"/
+                    // "settings"), or "auto"/"" to release back to PRNDL. Not
+                    // numeric — handle before the numeric parse below.
+                    if field == "screen" {
+                        let s = payload_str.trim();
+                        let mut locked = state.lock().unwrap();
+                        locked.screen_override = if s.is_empty() || s == "auto" {
+                            None
+                        } else {
+                            Some(s.to_string())
+                        };
+                        println!("[DASHD] screen override -> {:?}", locked.screen_override);
+                        continue;
+                    }
+
+                    // VCU mode command from trackside (lhre/dash/eventMode).
+                    // Relay it to cand as the 0x029 CAN frame; dashd doesn't act
+                    // on it. The VCU re-broadcasts its active event_mode in 0x1C7,
+                    // which trackside already reads as confirmation (closed loop).
+                    if field == "eventMode" {
+                        match payload_str.trim().parse::<u8>() {
+                            Ok(mode) => match send_can_mode_command(mode) {
+                                Ok(()) => {
+                                    println!("[DASHD] relayed VCU mode command: event_mode={}", mode);
+                                    let _ = client.publish(
+                                        format!("{}ack/eventMode", MQTT_TOPIC_PREFIX),
+                                        QoS::AtMostOnce,
+                                        false,
+                                        payload_str.as_bytes().to_vec(),
+                                    );
+                                }
+                                Err(e) => eprintln!(
+                                    "[DASHD] eventMode relay to cand TX failed (is cand up?): {}",
+                                    e
+                                ),
+                            },
+                            Err(_) => eprintln!(
+                                "[DASHD] MQTT bad eventMode payload: {:?}",
+                                payload_str
+                            ),
                         }
                         continue;
                     }
@@ -1156,6 +1318,10 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                         "energyDelta" => {
                             locked.mqtt.energy_delta = Some(val);
                             locked.mqtt.last_energy_delta = now;
+                        }
+                        "energyDeltaStatic" => {
+                            locked.mqtt.energy_delta_static = Some(val);
+                            locked.mqtt.last_energy_delta_static = now;
                         }
                         "lapsRemaining" => {
                             locked.mqtt.laps_remaining = Some(val);
@@ -1220,6 +1386,24 @@ fn mqtt_subscriber_loop(state: Arc<Mutex<DashState>>) {
                                     lap.to_string(),
                                 );
                             }
+                        }
+                        "lapCount" => {
+                            // Absolute lap-count correction from trackside (its
+                            // SELECTED completed-lap count). Adopt in EITHER
+                            // direction with NO card and no integrator reset —
+                            // this is how the dash count follows a DESELECT on
+                            // the live list (lapTrigger above is forward-only and
+                            // would ignore a backward value).
+                            let new_count = val.round().max(0.0) as u64;
+                            locked.lap_count = new_count;
+                            locked.last_offcar_trigger = Some(val);
+                            let _ = client.publish(
+                                format!("{}ack/lapCount", MQTT_TOPIC_PREFIX),
+                                QoS::AtMostOnce,
+                                true,
+                                new_count.to_string(),
+                            );
+                            println!("[DASHD] Trackside lapCount -> lap_count {}", new_count);
                         }
                         "lapReset" => {
                             // Trackside started a new session: drop both the
@@ -1401,9 +1585,12 @@ fn main() -> Result<()> {
         // Restore the last layout from disk; the retained MQTT topic refreshes it.
         layout: load_layout(),
         park_layout: load_park_layout(),
+        driving_layout: load_driving_layout(),
         messages: None,
         active_message: None,
         message_expiry: None,
+        screen_override: None,
+        last_prndl: None,
     }));
 
     let ipc_state = Arc::clone(&state);

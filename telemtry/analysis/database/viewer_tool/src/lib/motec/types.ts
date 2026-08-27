@@ -108,6 +108,9 @@ export type LiveSample = {
   hv_c: number | null;
   power_kw: number | null;
   values: Record<string, number>;
+  /** Per-cell pack temperatures (°C) from pack.cells_temps[], carried through
+   *  the derived feed (zero-padded for cells not yet reported this frame). */
+  cellTemps?: number[];
 };
 
 export type LiveStreamEvent =
