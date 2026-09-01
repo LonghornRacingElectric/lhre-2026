@@ -77,6 +77,9 @@ export interface DashSignals {
     disconnect: () => void;
     /** Set the live power budget (kW) shown on the dash energy bar. */
     publishTargetPower: (kw: number) => void;
+    /** Command the VCU's params table by event_mode (1=accel 2=skid 3=autox 4=endur).
+     *  Relayed by dashd onto CAN as the 0x029 VCU Mode Command (byte0=mode). */
+    publishEventMode: (mode: number) => void;
     /** Bump the lap counter — fires the dash's full-screen lap card + per-lap reset. */
     sendLap: (value?: number) => void;
     /** Re-publish a lap value without bumping the internal counter — for the drain
@@ -239,6 +242,12 @@ export function useDashSignals(): DashSignals {
         publish('targetPower', kw);
     }, [publish]);
 
+    // VCU mode command. qos 1 so a momentary link blip can't drop a deliberate
+    // one-shot command (dashd relays it onto CAN as the 0x029 packet).
+    const publishEventMode = useCallback((mode: number) => {
+        publish('eventMode', Math.round(mode), 1);
+    }, [publish]);
+
     const sendLap = useCallback((value?: number) => {
         // Caller passes an ABSOLUTE lap number (the website's authoritative
         // count). dashd adopts this directly so the dash displays the same
@@ -370,6 +379,7 @@ export function useDashSignals(): DashSignals {
         connect,
         disconnect,
         publishTargetPower,
+        publishEventMode,
         sendLap,
         republishLap,
         resetLapCounter,
