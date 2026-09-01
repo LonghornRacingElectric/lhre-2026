@@ -178,13 +178,16 @@ export interface FieldDef {
 
 export const FIELD_CATALOG: FieldDef[] = [
   // The just-finished lap (lap card only — lapCard.* is null on other screens)
-  { bind: 'lapCard.lapNumber', label: 'Lap number', group: 'Lap', defaultFormat: 'int', min: 0, max: 30 },
+  { bind: 'lapCard.lapNumber', label: 'Lap number (card only)', group: 'Lap', defaultFormat: 'int', min: 0, max: 30 },
   { bind: 'lapCard.timeS', label: 'Lap time', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120 },
   { bind: 'lapCard.energyWh', label: 'Lap energy', group: 'Lap', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400 },
   { bind: 'mqtt.bestLapTime', label: 'Best lap', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120 },
   { bind: 'mqtt.lastLapTime', label: 'Last lap', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120 },
   { bind: 'mqtt.currentLapTime', label: 'Current lap time', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120 },
-  { bind: 'mqtt.lapTrigger', label: 'Lap count', group: 'Lap', defaultFormat: 'int', min: 0, max: 30 },
+  // Live running count of laps COMPLETED (dashd lap_count). Corrects up/down with
+  // trackside in real time — e.g. a deselected double-count / driver-change lap —
+  // so use THIS for a persistent "laps done" readout, not the card-only number.
+  { bind: 'mqtt.lapTrigger', label: 'Laps completed (live)', group: 'Lap', defaultFormat: 'int', min: 0, max: 30 },
   // Pacing / strategy (on-car authoritative pacing snapshot)
   { bind: 'pacing.lapEnergyWh', label: 'Energy (this lap)', group: 'Pacing', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400 },
   { bind: 'pacing.lapBudgetWh', label: 'Per-lap budget', group: 'Pacing', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400 },

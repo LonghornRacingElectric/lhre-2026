@@ -83,6 +83,10 @@ export interface DashSignals {
      *  effect that catches up the car after a missed publish. dashd's forward-only
      *  edge check makes a duplicate publish harmless. */
     republishLap: (value: number) => void;
+    /** Set the dash's absolute completed-lap count WITHOUT firing a card. Used to
+     *  pull the count DOWN when a lap is deselected on the live list (lapTrigger
+     *  is forward-only); dashd adopts this value in either direction. */
+    publishLapCount: (count: number) => void;
     resetLapCounter: () => void;
     /** Push the start/finish gate [lat1,lon1,lat2,lon2] so the car counts laps itself (retained). */
     publishGate: (gate: [number, number, number, number]) => void;
@@ -267,6 +271,17 @@ export function useDashSignals(): DashSignals {
         publish('lapTrigger', value, 1);
     }, [publish]);
 
+    // Absolute lap-count set (no card). dashd adopts it in either direction, so
+    // this is how the count is pulled DOWN after a lap is deselected. Keep the
+    // local lapCounterRef aligned so the next forward sendLap still computes the
+    // right next number. qos 1 — a deliberate correction shouldn't be dropped.
+    const publishLapCount = useCallback((count: number) => {
+        const v = Math.max(0, Math.round(count));
+        lapCounterRef.current = v;
+        setLapsSent(v);
+        publish('lapCount', v, 1);
+    }, [publish]);
+
     // Tell dashd to drop its lap counter + baseline (new session on trackside).
     // Without this the FIRST few clicks of a fresh session would be silently
     // ignored on the car because dashd was still holding the prior session's
@@ -372,6 +387,7 @@ export function useDashSignals(): DashSignals {
         publishTargetPower,
         sendLap,
         republishLap,
+        publishLapCount,
         resetLapCounter,
         publishGate,
         publishLayout,
