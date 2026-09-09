@@ -1,0 +1,32 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//tools:outputs/build_outputs.bzl", "firmware_project_h7")
+
+cc_library(
+    name = "usb_device_headers",
+    hdrs = glob(["USB_DEVICE/**/*.h"]),
+    includes = [
+        "USB_DEVICE/App",
+        "USB_DEVICE/Target",
+    ],
+    deps = [
+        "//drivers/stm32h7:stm32_headers",
+        "@stm32_mw_usb_device//:usb_device_headers",
+    ],
+)
+
+firmware_project_h7(
+    name = "hvc-firmware-2025",
+    defines = [
+        "STM32H733xx",
+    ],
+    extra_deps = [
+        "//legacy/2025/LonghornLib:LonghornLib2025_headers",
+        ":usb_device_headers",
+    ],
+    extra_srcs = [
+        "//legacy/2025/LonghornLib:LonghornLib2025_srcs",
+        "@stm32_mw_usb_device//:usb_device_srcs",
+    ] + glob(["USB_DEVICE/**/*.c"]),
+    linker_script = "STM32H733VGTX_FLASH.ld",
+    startup_script = "Core/Startup/startup_stm32h733vgtx.s",
+)
