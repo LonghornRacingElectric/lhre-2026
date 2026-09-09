@@ -30,7 +30,7 @@ RE_PACK = re.compile(
     r'Tractive: (?P<tv>[\d.]+) V, '
     r'Faults\[live:(?P<fl>[^\s\]]+) latched:(?P<fla>[^\s\]]+)\], '
     r'Cell\[min:(?P<cmin>[\d.]+) max:(?P<cmax>[\d.]+) dV:(?P<cdv>[\d.]+) mV\], '
-    r'Temp\[min:(?P<tmin>[\d.]+) max:(?P<tmax>[\d.]+)\], '
+    r'Temp\[min:(?P<tmin>[\d.]+) max:(?P<tmax>[\d.]+) avg:(?P<tavg>[\d.]+)\], '
     r'Die\[max:(?P<dtmax>[\d.]+)\], '
     r'BMS\[resp:(?P<resp>\d+) disc:(?P<disc>\d+) uv:(?P<uv>\d+) ov:(?P<ov>\d+) ot:(?P<ot>\d+)\], '
     r'State:(?P<state>\d+) Shdn:(?P<sd>\d+) Bal:(?P<bal>\d+)'
@@ -47,7 +47,7 @@ PACK_HEADER = [
     'timestamp_ms', 'pack_v', 'tractive_v',
     'fault_live', 'fault_latched',
     'cell_min_v', 'cell_max_v', 'cell_dv_mv',
-    'temp_min_c', 'temp_max_c', 'die_temp_max_c',
+    'temp_min_c', 'temp_max_c', 'temp_avg_c', 'die_temp_max_c',
     'bms_resp', 'bms_disc', 'bms_uv', 'bms_ov', 'bms_ot',
     'state', 'shutdown', 'bal_cnt',
 ]
@@ -89,6 +89,7 @@ class BMSLogger:
         self._pack_max_v:    list[float] = []
         self._pack_temp_min: list[float] = []
         self._pack_temp_max: list[float] = []
+        self._pack_temp_avg: list[float] = []
 
         self._lock    = threading.Lock()
         self._t0_ms: int | None = None
@@ -128,6 +129,7 @@ class BMSLogger:
             cmax_col = header.index('cell_max_v')
             tmin_col = header.index('temp_min_c')
             tmax_col = header.index('temp_max_c')
+            tavg_col = header.index('temp_avg_c') if 'temp_avg_c' in header else None
             rows = list(reader)
         if not rows:
             return
@@ -137,8 +139,11 @@ class BMSLogger:
             self._pack_times.append(t_s)
             self._pack_min_v.append(float(row[cmin_col]))
             self._pack_max_v.append(float(row[cmax_col]))
-            self._pack_temp_min.append(float(row[tmin_col]))
-            self._pack_temp_max.append(float(row[tmax_col]))
+            tmin = float(row[tmin_col])
+            tmax = float(row[tmax_col])
+            self._pack_temp_min.append(tmin)
+            self._pack_temp_max.append(tmax)
+            self._pack_temp_avg.append(float(row[tavg_col]) if tavg_col is not None else (tmin + tmax) / 2)
         print(f"  loaded {len(rows)} existing rows")
 
     def _t_s(self, ts_ms: int) -> float:
@@ -158,7 +163,7 @@ class BMSLogger:
                 p['ts'], p['v'], p['tv'],
                 p['fl'], p['fla'],
                 p['cmin'], p['cmax'], p['cdv'],
-                p['tmin'], p['tmax'], p['dtmax'],
+                p['tmin'], p['tmax'], p['tavg'], p['dtmax'],
                 p['resp'], p['disc'], p['uv'], p['ov'], p['ot'],
                 p['state'], p['sd'], p['bal'],
             ])
@@ -170,6 +175,7 @@ class BMSLogger:
                 self._pack_max_v.append(float(m.group('cmax')))
                 self._pack_temp_min.append(float(m.group('tmin')))
                 self._pack_temp_max.append(float(m.group('tmax')))
+                self._pack_temp_avg.append(float(m.group('tavg')))
 
             self._pending_pack = m.groupdict()
             self._bmbs = {}
@@ -217,10 +223,10 @@ class BMSLogger:
             self._csvf.close()
             self.ser.close()
 
-    def pack_snapshot(self) -> tuple[list, list, list, list, list]:
+    def pack_snapshot(self) -> tuple[list, list, list, list, list, list]:
         with self._lock:
             return (list(self._pack_times), list(self._pack_min_v), list(self._pack_max_v),
-                    list(self._pack_temp_min), list(self._pack_temp_max))
+                    list(self._pack_temp_min), list(self._pack_temp_max), list(self._pack_temp_avg))
 
     def cell_snapshot(self) -> tuple[list, list, list]:
         with self._lock:
@@ -254,11 +260,12 @@ def main() -> None:
     ax_temp.set_title('Live Pack Temperatures')
     ln_tmin, = ax_temp.plot([], [], '-', color='royalblue', lw=1.5, label='temp min')
     ln_tmax, = ax_temp.plot([], [], '-', color='orangered', lw=1.5, label='temp max')
+    ln_tavg, = ax_temp.plot([], [], '-', color='mediumseagreen', lw=1.5, label='temp avg')
     ax_temp.legend(loc='upper left', framealpha=0.7)
     ax_temp.grid(True, linestyle='--', alpha=0.5)
 
     def update(_frame):
-        pt, pmin, pmax, ptmin, ptmax = logger.pack_snapshot()
+        pt, pmin, pmax, ptmin, ptmax, ptavg = logger.pack_snapshot()
         ct, cv, cb     = logger.cell_snapshot()
 
         all_t: list[float] = []
@@ -283,6 +290,7 @@ def main() -> None:
 
             ln_tmin.set_data(t_arr, np.asarray(ptmin))
             ln_tmax.set_data(t_arr, np.asarray(ptmax))
+            ln_tavg.set_data(t_arr, np.asarray(ptavg))
             ax_temp.set_xlim(0, max(pt) + 1)
             ax_temp.set_ylim(min(ptmin) - 0.5, max(ptmax) + 0.5)
 
