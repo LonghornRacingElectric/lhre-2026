@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict
 
 from .config import config
@@ -365,6 +365,34 @@ async def download_archive(job_id: str):
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="logs_{job_id}.zip"'},
     )
+
+
+# --- Custom archives: browse + download files dropped in ARCHIVES_DIR --------
+# ponytail: flat dir listing, no auth (same proxy as the rest of logsync), no
+# pagination — fine for a handful of hand-off files. Add auth/paging if it grows.
+# ponytail: lives under the persistent /data/state mount (NOT /data/staging,
+# which logsync's startup migration wipes of non-CSV files).
+ARCHIVES_DIR = os.environ.get("LOGSYNC_ARCHIVES_DIR", "/data/state/archives")
+
+
+@app.get("/archives", response_class=HTMLResponse)
+def list_archives():
+    os.makedirs(ARCHIVES_DIR, exist_ok=True)
+    files = sorted((e for e in os.scandir(ARCHIVES_DIR) if e.is_file()), key=lambda e: e.name)
+    rows = "".join(
+        f'<li><a href="archives/{e.name}">{e.name}</a> '
+        f'<small>{e.stat().st_size / 1e6:.1f} MB</small></li>'
+        for e in files
+    ) or "<li><em>no files</em></li>"
+    return f"<!doctype html><meta charset=utf-8><title>logsync archives</title><h2>Archives</h2><ul>{rows}</ul>"
+
+
+@app.get("/archives/{name}")
+def download_archive_file(name: str):
+    path = os.path.realpath(os.path.join(ARCHIVES_DIR, name))
+    if not path.startswith(os.path.realpath(ARCHIVES_DIR) + os.sep) or not os.path.isfile(path):
+        raise HTTPException(404, "no such archive")
+    return FileResponse(path, filename=os.path.basename(path))
 
 
 @app.get("/events")
