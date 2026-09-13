@@ -61,7 +61,8 @@ export type FormatId =
   | 'raw' | 'int' | 'float1' | 'float2'
   | 'laptime'   // M:SS.ss
   | 'wh' | 'whSigned' | 'kwh'
-  | 'kw' | 'pct' | 'temp' | 'volt' | 'amp' | 'mph';
+  | 'kw' | 'pct' | 'temp' | 'volt' | 'amp' | 'mph'
+  | 'bool';     // ON/OFF — booleans (e.g. can.regenEnabled) coerce to 1/0 in getByPath
 
 export interface BaseWidget {
   id: string;
@@ -170,8 +171,12 @@ export interface FieldDef {
 }
 
 export const FIELD_CATALOG: FieldDef[] = [
-  // The just-finished lap (what the card is fundamentally about)
-  { bind: 'lapCard.lapNumber', label: 'Lap number', group: 'Lap', defaultFormat: 'int', min: 0, max: 30 },
+  // The just-finished lap — only populated inside the lap-card popup.
+  { bind: 'lapCard.lapNumber', label: 'Lap number (card only)', group: 'Lap', defaultFormat: 'int', min: 0, max: 30 },
+  // Live running count of laps COMPLETED (dashd lap_count). Corrects up/down with
+  // trackside in real time — e.g. a deselected double-count / driver-change lap.
+  // Use THIS for a persistent "laps done" readout on the driving/park screen.
+  { bind: 'mqtt.lapTrigger', label: 'Laps completed (live)', group: 'Lap', defaultFormat: 'int', min: 0, max: 30 },
   { bind: 'lapCard.timeS', label: 'Lap time', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120 },
   { bind: 'lapCard.energyWh', label: 'Lap energy', group: 'Lap', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400 },
   { bind: 'mqtt.bestLapTime', label: 'Best lap', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120 },
@@ -203,6 +208,9 @@ export function getByPath(ctx: unknown, path: string): number | null {
     if (cur == null || typeof cur !== 'object') return null;
     cur = (cur as Record<string, unknown>)[key];
   }
+  // Booleans (e.g. can.regenEnabled, contactors) are exposed as 1/0 so they can
+  // bind to value widgets — rendered ON/OFF via the 'bool' format or a valueMap.
+  if (typeof cur === 'boolean') return cur ? 1 : 0;
   return typeof cur === 'number' && Number.isFinite(cur) ? cur : null;
 }
 
@@ -218,6 +226,9 @@ export function valueColor(v: number | null | undefined, base: string, rules?: C
 
 export function formatValue(v: number | null | undefined, fmt: FormatId, decimals?: number): string {
   if (v == null || !Number.isFinite(v)) return '--';
+  // ON/OFF for booleans (already coerced to 1/0 by getByPath). A widget valueMap
+  // (e.g. {0:'OPEN',1:'CLOSED'}) overrides these via applyValueMap.
+  if (fmt === 'bool') return v >= 0.5 ? 'ON' : 'OFF';
   // Optional per-widget precision override. Applies to the numeric formats —
   // keeps kwh's /1000 scaling and whSigned's +/- sign; lap-time ignores it.
   if (decimals != null && Number.isFinite(decimals) && fmt !== 'laptime') {

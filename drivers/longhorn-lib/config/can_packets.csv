@@ -64,6 +64,7 @@ CAN ID,CAN ID Binary,From,To,Packet Info,Frequency (Hz),Data Length Code (DLC),Q
 0x026,100011,Pi,CSM,CSM Enter Bootloader,NA,1,1,Enable,unused,unused,unused,unused,unused,unused,unused,Critical,,
 0x027,100100,Pi,HVC,HVC Enter Bootloader,NA,1,1,Enable,unused,unused,unused,unused,unused,unused,unused,Critical,,
 0x028,100101,Pi,USM,USM Enter Bootloader,NA,1,1,Enable,unused,unused,unused,unused,unused,unused,unused,Critical,,
+0x029,101001,Pi,VCU,VCU Mode Command,NA,8,1,Event Mode (uint8),unused,unused,unused,unused,unused,unused,unused,Critical,Runtime VCU params-table select; byte0=event_mode (1=accel 2=skid 3=autox 4=endur); bytes1-7 reserved for extensibility,
 0x050,1010000,HVC,Charger,HVC Charger Command,10,7,1,"Max Charge Voltage (uint16, 0.01V); max_charge_voltage (float) #36",,"Max Charge Current (uint16, 0.01A); max_charge_current (float) #35",,"IMD LED State (uint8, bool); imd_led (bool) #17","BMS LED State (uint8, bool); bms_led (bool) #37","Charger Enable (uint8, bool); charger_enable (bool) #38",unused,Critical,,
 0x051,1010001,Charger,HVC,Charger Status,10,5,1,"Actual Voltage (uint16, 0.01V); charger_voltage (float) #15",,"Actual Current (uint16, 0.01A); charger_current (float) #14",,"Charger Enabled (uint8, bool); charger_enabled (bool) #16",unused,unused,unused,Critical,,
 0x030,110000,Pi,HVC,HVC Bounds Parameters,NA,,,,,,,,,,,,,

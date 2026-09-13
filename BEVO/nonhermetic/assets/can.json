@@ -4794,6 +4794,31 @@
         "bytes": []
     },
     {
+        "packet_id": 41,
+        "packet_name": "VCU Mode Command",
+        "from": [
+            "Pi"
+        ],
+        "to": [
+            "VCU"
+        ],
+        "data_length": 8,
+        "frequency_ms": null,
+        "frequency": null,
+        "quantity": 1,
+        "bus": "Critical",
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Event Mode",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0
+            }
+        ]
+    },
+    {
         "packet_id": 80,
         "packet_name": "HVC Charger Command",
         "from": [

@@ -63,6 +63,14 @@ function flattenNumeric(payload: Record<string, unknown>): Record<string, number
   return out;
 }
 
+// Coerce a JSON array of numbers, PRESERVING index/position (non-numeric -> 0).
+// cells_temps is a fixed-length, zero-padded array (cand fills slots as the
+// per-cell CAN frames arrive), so the index IS the cell id — don't compact it.
+function numArray(value: unknown): number[] | undefined {
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+  return value.map((v) => { const n = num(v); return n === null ? 0 : n; });
+}
+
 function gpsOf(payload: Record<string, unknown>): [number | null, number | null] {
   const lat = num(first(payload, ["latitude", "lat", "gps_latitude", "dynamics_gps_latitude", "dynamics.latitude"]));
   const lon = num(first(payload, ["longitude", "lon", "lng", "gps_longitude", "dynamics_gps_longitude", "dynamics.longitude"]));
@@ -127,7 +135,11 @@ export function normalizeLivePayload(raw: string | Record<string, unknown>, sour
   if (hvC !== null && values.hv_c === undefined) values.hv_c = hvC;
   if (powerKw !== null && values.power_kw === undefined) values.power_kw = powerKw;
 
-  return { t, source, lat, lon, speed, hv_pack_v: hvV, hv_c: hvC, power_kw: powerKw, values };
+  // Per-cell temps: top-level `cells_temps` in the derived feed, `pack.cells_temps`
+  // in the raw sensor_data frames. flattenNumeric drops arrays, so pull it here.
+  const cellTemps = numArray(first(payload, ["cells_temps", "pack.cells_temps", "pack.cellsTemps", "pack_cells_temps"]));
+
+  return { t, source, lat, lon, speed, hv_pack_v: hvV, hv_c: hvC, power_kw: powerKw, values, cellTemps };
 }
 
 // ── Orion-schema enrichment ───────────────────────────────────────────────────

@@ -30,6 +30,10 @@ void vcu_can_set_model_outputs(const vcu_outputs_t *out);
 void vcu_can_set_steering_angle_deg(float steering_angle_deg);
 void vcu_can_set_event_mode(uint8_t event_mode);
 
+// Latest event mode requested by trackside via the VCU Mode Command (0x029).
+// Returns 0 if no command has been received (i.e. use the firmware default).
+uint8_t vcu_can_get_requested_event_mode(void);
+
 bool is_drive_switch_pressed(void);
 
 bool hvc_tractive_ready(void);
