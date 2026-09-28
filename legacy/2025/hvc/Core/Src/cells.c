@@ -3,46 +3,35 @@
 //
 
 #include "cells.h"
-#include "night_can.h"
-#include "hvc_can.h"
+#include "main.h"
 #include "timer.h"
 #include "state_machine.h"
 
-float PACK_OVER_VOLTAGE = 546.0f;
-float PACK_UNDER_VOLTAGE = 390.0f;
+float PACK_OVER_VOLTAGE = 588.0f;
+float PACK_UNDER_VOLTAGE = 420.0f;
 float CELL_OVER_VOLTAGE = 4.2f;
 float CELL_UNDER_VOLTAGE = 3.00f;
 float OVER_TEMP = 60.0f;
 float UNDER_TEMP = 0.0f;
 bool carParked = false;
 
+#define THERMISTOR_PULLUP_KOHMS 10.0f
+#define INVALID_TEMPERATURE_C (-999.0f)
+#define MIN_VALID_THERMISTOR_VOLTAGE 0.01f
+
 static ADBMS6830_Command_t CMD_RDCs[9] = {
   CMD_RDFCA, CMD_RDFCB, CMD_RDFCC, CMD_RDFCD, CMD_RDFCE,
   CMD_RDAUXA, CMD_RDAUXB, CMD_RDAUXC, CMD_RDAUXD
 };
 
-static NightCANPacket cellVoltages[35];
-static NightCANPacket cellTemps[23];
 static uint32_t responsiveChips = 0;
 static uint32_t completeScanResponsiveChips = 0;
 static bool bmbReadOk[NUM_BMS_ICS];
 static bool bmbReadOkThisScan[NUM_BMS_ICS];
 
-/**
- * Initializes CAN outboxes to send voltage and temp data
- **/
 void cells_init() {
   setDeadCells();
   setDeadThermistors();
-
-  for(int i = 0; i < ARR_LEN(cellVoltages); i++) {
-    cellVoltages[i] = CAN_create_packet(0x370 + i, 1.0f, 8);
-    CAN_AddTxPacket(&can1, &cellVoltages[i]);
-  }
-  for(int i = 0; i < ARR_LEN(cellTemps); i++) {
-    cellTemps[i] = CAN_create_packet(0x470 + i, 1.0f, 8);
-    CAN_AddTxPacket(&can1, &cellTemps[i]);
-  }
 }
 
 static int cmd_ID = -1;    // Used to track and send ADBMS cmds
@@ -70,17 +59,15 @@ void cells_periodic(int state) {
   else if (cmd_ID == 5)
   {
     adbms6830_adax();
-    responsiveChips = adbms6830_cmd_read(CMD_RDSTATB, rawData);
+    responsiveChips = adbms6830_cmd_read(CMD_RDSTATA, rawData);
     for (int j = 0; j < NUM_BMS_ICS; j++) {
       bmbReadOkThisScan[j] &= adbms6830_is_ic_responsive(j);
     }
     for (int j = 0; j < NUM_BMS_ICS; j++)
     {
       if (!adbms6830_is_ic_responsive(j)) continue;
-      volatile float vd = convertVoltage((rawData[j * 6 + 1] << 8) | rawData[j * 6]);
-      volatile float va = convertVoltage((rawData[j * 6 + 3] << 8) | rawData[j * 6 + 2]);
-      volatile float vres = convertVoltage((rawData[j * 6 + 5] << 8) | rawData[j * 6 + 4]);
-      statVreg[j] = va;
+      value = (rawData[j * 6 + 1] << 8) | rawData[j * 6];
+      statVref2[j] = convertVoltage(value);
     }
   }
 
@@ -127,14 +114,14 @@ void cells_periodic(int state) {
       if (cmd_ID == 5) {
         for (int k = 0; k < 2; k++) {
           value = (rawData[j * 6 + k * 2 + 3] << 8) | rawData[j * 6 + k * 2 + 2];
-          tempData[j * TEMPERATURES_PER_BMB + k] = convertTemp(convertVoltage(value), statVreg[j]);
+          tempData[j * TEMPERATURES_PER_BMB + k] = convertTemp(convertVoltage(value), statVref2[j]);
         }
       }
       // For Auxiliary Register Group B, there are 3 temp values
       if (cmd_ID == 6) {
         for (int k = 0; k < 3; k++) {
           value = (rawData[j * 6 + k * 2 + 1] << 8) | rawData[j * 6 + k * 2];
-          tempData[j * TEMPERATURES_PER_BMB + k + 2] = convertTemp(convertVoltage(value), statVreg[j]);
+          tempData[j * TEMPERATURES_PER_BMB + k + 2] = convertTemp(convertVoltage(value), statVref2[j]);
         }
       }
       // For Auxiliary Register Group C, there are 3 temp values
@@ -142,14 +129,14 @@ void cells_periodic(int state) {
       {
         for (int k = 0; k < 3; k++) {
           value = (rawData[j * 6 + k * 2 + 1] << 8) | rawData[j * 6 + k * 2];
-          tempData[j * TEMPERATURES_PER_BMB + k + 5] = convertTemp(convertVoltage(value), statVreg[j]);
+          tempData[j * TEMPERATURES_PER_BMB + k + 5] = convertTemp(convertVoltage(value), statVref2[j]);
         }
       }
       // For Auxiliary Register Group D, there is 1 temp value in 1st voltage value
       if (cmd_ID == 8)
       {
         value = (rawData[j * 6 + 1] << 8) | rawData[j * 6];
-        tempData[j * TEMPERATURES_PER_BMB + 8] = convertTemp(convertVoltage(value), statVreg[j]);
+        tempData[j * TEMPERATURES_PER_BMB + 8] = convertTemp(convertVoltage(value), statVref2[j]);
       }
     }
   }
@@ -162,31 +149,12 @@ void cells_periodic(int state) {
       if (bmbReadOk[i]) completeScanResponsiveChips++;
     }
 
-    // Writes voltage values into CAN Packets
-    for (int i = 0; i < ARR_LEN(cellVoltages); i++)
-    {
-      cellVoltages[i].dlc = 8;
-      for (int j = 0; j < 4; j++)
-      {
-         float v = voltageData[i * 4 + j];
-         if(v < 0.1f) v = 0;
-        CAN_writeFloat(uint16_t, &cellVoltages[i], j * 2, v, 0.0001f);
-        checkMinMaxCells(i * 4 + j);
-      }
+    for (int i = 0; i < numCells; i++) {
+      checkMinMaxCells(i);
     }
 
-    // Writes temperature values into CAN Packets
-    for (int i = 0; i < ARR_LEN(cellTemps); i++)
-    {
-      cellTemps[i].dlc = 8;
-      for (int j = 0; j < 4; j++)
-      {
-          float t = tempData[i * 4 + j];
-          if(t < 0.1f) t = 0;
-        if (i == 22 && j > 1) break;
-        CAN_writeFloat(uint16_t, &cellTemps[i], j * 2, t, 0.1f);
-        checkMinMaxTemps(i * 4 + j);
-      }
+    for (int i = 0; i < numThermistors; i++) {
+      checkMinMaxTemps(i);
     }
 
     doChecks(state);
@@ -204,7 +172,7 @@ bool isIsoSpiResponsive()
   {
     lastResponsiveTime = lib_timer_elapsed_ms();
   }
-  return (lib_timer_elapsed_ms() - lastResponsiveTime) < 5.0f;
+  return (lib_timer_elapsed_ms() - lastResponsiveTime) < 5000.0f;
 }
 
 void setDeadCells() {
@@ -305,6 +273,16 @@ float getMinTemp()
   return minTemp;
 }
 
+float getMinCellVoltage()
+{
+  return minCellVoltage;
+}
+
+float getMaxCellVoltage()
+{
+  return maxCellVoltage;
+}
+
 float getCellVoltage(uint32_t cellIndex)
 {
   if (cellIndex >= NUM_BMS_ICS * CELLS_PER_BMB) return 0.0f;
@@ -336,9 +314,47 @@ bool isBmbReadingOk(uint32_t bmbIndex)
   return bmbIndex < NUM_BMS_ICS && bmbReadOk[bmbIndex];
 }
 
-float convertTemp(float V, float Vreg)
+bool hasCellOvervoltage()
 {
-  float trueR = (V * 10.0f) / (Vreg - V);
+  for (int i = 0; i < numCells; i++) {
+    if (!deadCells[i] && voltageData[i] > CELL_OVER_VOLTAGE) return true;
+  }
+  return false;
+}
+
+bool hasCellUndervoltage()
+{
+  for (int i = 0; i < numCells; i++) {
+    if (!deadCells[i] && voltageData[i] < CELL_UNDER_VOLTAGE) return true;
+  }
+  return false;
+}
+
+bool hasCellOvertemperature()
+{
+  for (int i = 0; i < numThermistors; i++) {
+    if (!deadThermistors[i] && tempData[i] > OVER_TEMP) return true;
+  }
+  return false;
+}
+
+float convertTemp(float measurementVoltage, float referenceVoltage)
+{
+  /*
+   * Divider topology:
+   *   VREF2 -> 10 kOhm pull-up -> GPIO measurement -> NTC -> V-
+   *
+   * Rntc = Rpullup * Vgpio / (VREF2 - Vgpio)
+   */
+  if (!(referenceVoltage > MIN_VALID_THERMISTOR_VOLTAGE) ||
+      !(measurementVoltage > MIN_VALID_THERMISTOR_VOLTAGE) ||
+      measurementVoltage >= referenceVoltage - MIN_VALID_THERMISTOR_VOLTAGE)
+  {
+    return INVALID_TEMPERATURE_C;
+  }
+
+  float trueR = THERMISTOR_PULLUP_KOHMS * measurementVoltage /
+                (referenceVoltage - measurementVoltage);
   for (int i = 0; i < 35; i++)
   {
     float r1 = lutRes[i];
@@ -354,7 +370,7 @@ float convertTemp(float V, float Vreg)
       return interpolatedTemp;
     }
   }
-  return -999.0f;
+  return INVALID_TEMPERATURE_C;
 }
 
 float convertVoltage(uint16_t v)

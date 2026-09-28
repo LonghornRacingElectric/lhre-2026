@@ -24,7 +24,7 @@
 
 // Pack Geometry
 #define TOTAL_IC           10 // 10 ICs, 2 per module
-#define CELLS_PER_IC       13 // Orion BMS
+#define CELLS_PER_IC       14 // 140s pack: 10 BMBs x 14 cells
 #define THERMISTORS_PER_IC 9  // aux GPIO[1..9]; GPIO[0] is reference
 #define NUM_CELLS          (TOTAL_IC * CELLS_PER_IC)
 

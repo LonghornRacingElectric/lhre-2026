@@ -38,13 +38,12 @@
 #include "dfu.h"
 #include "hvc_can.h"
 #include "usb_vcp.h"
-#include "night_can.h"
 #include "vct_sense.h"
 #include "state_machine.h"
 #include "imd.h"
 #include "contactors.h"
 #include "cells.h"
-#include "usb_vcp.h"
+#include "faults.h"
 
 /* USER CODE END Includes */
 
@@ -100,6 +99,15 @@ static size_t appendToLine(char *line, size_t capacity, size_t length,
 static void printBmsReadings(void)
 {
   char line[BMS_PRINT_LINE_SIZE];
+
+  usb_printf("HVC state=%s shutdown=%u AIR+=%u AIR-=%u faults=0x%02lX latched=0x%02lX",
+             get_state_name(get_current_state()),
+             (unsigned int)isNegContactorClosed(),
+             (unsigned int)isPosContactorClosed(),
+             (unsigned int)isNegContactorClosed(),
+             (unsigned long)get_last_faults(),
+             (unsigned long)get_latched_faults());
+  HAL_Delay(USB_PRINT_SETTLE_MS);
 
   usb_printf("ADBMS scan: %lu/%u BMBs OK | ! = CRC failure or out-of-range reading",
              (unsigned long)getNumResponsiveChips(), (unsigned int)NUM_BMS_ICS);
@@ -209,22 +217,21 @@ int main(void)
   dfu_init(BOOT0trig_GPIO_Port, BOOT0trig_Pin);
   hvc_can_init();
   imd_can_init();
-  state_machine_init();
   cells_init();
+  contactors_init();
+  faults_init();
+  state_machine_init();
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  bool bmsErrorTracker = false;
   static uint32_t lastBmsPrintTime = 0;
+  static uint32_t lastStateMachineTime = 0;
   static uint32_t deltaTime;
-  uint32_t count;
-  static bool hvOk = true;
-  static bool hvOkEver = false;
-  static float hvFaultTimer = 0;
-  static int state = STATE_NOT_ENERGIZED;
-  static bool currentMeasurement = false;
+  static uint32_t currentFaults = 0;
+  static bool bmsIndicatorError = false;
+  static bool imdIndicatorError = false;
   while (1)
   {
     /* USER CODE END WHILE */
@@ -233,35 +240,29 @@ int main(void)
     deltaTime = lib_timer_delta_ms();
     const uint32_t currentTime = lib_timer_elapsed_ms();
 
-    volatile bool imdOk = isImdOk();
-    //volatile bool shutdownClosed = isShutdownClosed() && (clock_getTime() > 1.0f);
-    //volatile bool chargerPresent = isChargerPluggedIn();
+    cells_periodic((int)get_current_state());
 
-    volatile bool hvOkInstant;
+    if ((uint32_t)(currentTime - lastStateMachineTime) >= 100U)
+    {
+      lastStateMachineTime = currentTime;
+      currentFaults = get_faults();
+      latch_faults(currentFaults);
+      setBmsError(currentFaults != 0U);
 
-    //hvOkInstant = hvOkInstant && isTempWithinBounds();
-    //hvOkInstant = hvOkInstant && isPackVoltageWithinBounds();
-    //hvOkInstant = hvOkInstant && isPackCurrentWithinBounds();
-    //hvOkInstant = hvOkInstant && areCellVoltagesWithinBounds();
-    //hvOkEver = hvOkEver || hvOkInstant;
-
-    if (hvOkInstant) {
-      hvOk = true;
-      hvFaultTimer = 0;
-    } else {
-      hvFaultTimer += deltaTime;
-      if (hvFaultTimer > 5.0f) {
-        hvOk = false;
+      const bool startupComplete = currentTime > 8000U;
+      if (startupComplete)
+      {
+        bmsIndicatorError = bmsIndicatorError || currentFaults != 0U;
+        imdIndicatorError = imdIndicatorError || !isImdOk();
       }
+
+      const bool anyFaults = get_latched_faults() != 0U || !startupComplete;
+      update_state_machine(anyFaults);
     }
 
-    //bool amsError = !(hvOk && hvOkEver);
-    //bool imdError = !imdOk;
-    //hvOk = hvOk && hvOkEver && imdOk;
-
-    cells_periodic(state);
-    //CAN_periodic(&can1);
-    //CAN_periodic(&can3);
+    hvc_can_periodic(bmsIndicatorError, imdIndicatorError,
+                     (int)get_current_state(),
+                     (float)deltaTime / 1000.0f);
     receive_periodic();
 
     if ((uint32_t)(currentTime - lastBmsPrintTime) >= BMS_PRINT_INTERVAL_MS)
@@ -270,9 +271,6 @@ int main(void)
       printBmsReadings();
     }
 
-    //hvOkInstant = isIsoSpiResponsive();
-
-    //update_state_machine(shutdownClosed, hvOk, chargerPresent, deltaTime);
     led_rainbow(deltaTime / 1000.0f);
 
     //timer += deltaTime / 1000.0f;

@@ -70,6 +70,34 @@ cc_library(
     ],
 )
 
+# Bare-metal Orion CAN support for the legacy STM32H7 HVC. This deliberately
+# contains only the CAN scheduler, generated packers, and firmware-update state
+# machine; it does not pull FreeRTOS or the STM32G4 HAL into the H7 firmware.
+cc_library(
+    name = "longhorn_can_base_stm32h7",
+    srcs = [
+        "can_base.c",
+        "fw_update.c",
+    ],
+    hdrs = [
+        "can_base.h",
+        "can_hal.h",
+        "fw_update.h",
+        "led_base.h",
+        "update_protocol.h",
+    ],
+    copts = MCU_FLAGS,
+    include_prefix = "longhorn",
+    target_compatible_with = [
+        "@platforms//cpu:arm",
+        "@platforms//os:none",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "generated_can_stm32h7",
+    ],
+)
+
 cc_library(
     name = "generated_can",
     srcs = [
@@ -83,6 +111,23 @@ cc_library(
 
 cc_library(
     name = "generated_can_stm32g4",
+    srcs = [
+        "can_ids.c",
+    ],
+    hdrs = [
+        "can_ids.h",
+    ],
+    copts = MCU_FLAGS,
+    include_prefix = "longhorn/can",
+    target_compatible_with = [
+        "@platforms//cpu:arm",
+        "@platforms//os:none",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "generated_can_stm32h7",
     srcs = [
         "can_ids.c",
     ],

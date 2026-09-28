@@ -1,18 +1,5 @@
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 load("//tools:outputs/build_outputs.bzl", "firmware_project_h7")
-
-cc_library(
-    name = "usb_device_headers",
-    hdrs = glob(["USB_DEVICE/**/*.h"]),
-    includes = [
-        "USB_DEVICE/App",
-        "USB_DEVICE/Target",
-    ],
-    deps = [
-        "//drivers/stm32h7:stm32_headers",
-        "@stm32_mw_usb_device//:usb_device_headers",
-    ],
-)
 
 firmware_project_h7(
     name = "hvc-firmware-2025",
@@ -20,13 +7,30 @@ firmware_project_h7(
         "STM32H733xx",
     ],
     extra_deps = [
+        "//drivers/longhorn-lib:longhorn_can_base_stm32h7",
         "//legacy/2025/LonghornLib:LonghornLib2025_headers",
-        ":usb_device_headers",
     ],
     extra_srcs = [
-        "//legacy/2025/LonghornLib:LonghornLib2025_srcs",
+        "//legacy/2025/LonghornLib:LonghornLib2025_hvc_srcs",
         "@stm32_mw_usb_device//:usb_device_srcs",
-    ] + glob(["USB_DEVICE/**/*.c"]),
+    ],
     linker_script = "STM32H733VGTX_FLASH.ld",
     startup_script = "Core/Startup/startup_stm32h733vgtx.s",
+)
+
+cc_library(
+    name = "state_machine_logic",
+    srcs = ["Core/Src/state_machine_logic.c"],
+    hdrs = [
+        "Core/Inc/state_machine.h",
+        "Core/Inc/state_machine_logic.h",
+    ],
+    includes = ["Core/Inc"],
+)
+
+cc_test(
+    name = "state_machine_logic_test",
+    srcs = ["tests/state_machine_logic_test.c"],
+    linkstatic = True,
+    deps = [":state_machine_logic"],
 )

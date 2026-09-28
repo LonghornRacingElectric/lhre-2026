@@ -5,8 +5,12 @@
 #ifndef CONTACTORS_H
 #define CONTACTORS_H
 
+#include <stdbool.h>
+
+void contactors_init(void);
 void setTractiveContactor(bool on);
 bool isPosContactorClosed();
 bool isNegContactorClosed();
+bool isShutdownClosed(void);
 
 #endif //CONTACTORS_H

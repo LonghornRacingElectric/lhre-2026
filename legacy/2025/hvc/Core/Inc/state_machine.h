@@ -1,18 +1,25 @@
-//
-// Created by rolan on 4/6/2025.
-//
-
 #ifndef STATE_MACHINE_H
 #define STATE_MACHINE_H
 
 #include <stdbool.h>
 
-#define STATE_NOT_ENERGIZED 1
-#define STATE_PRECHARGING 2
-#define STATE_ENERGIZED 3
-#define STATE_CHARGING 4
+typedef enum {
+  HVC_STATE_NOT_ENERGIZED = 0,
+  HVC_STATE_PRECHARGING = 1,
+  HVC_STATE_ENERGIZED = 2,
+  HVC_STATE_CHARGING_PRECHARGING = 3,
+  HVC_STATE_CHARGING = 4,
+} hvc_state_t;
 
-void state_machine_init();
-int update_state_machine(bool shutdownClosed, bool hvOk, bool chargerPresent, float deltaTime);
+/* Legacy aliases retained for the ADBMS balancing interface. */
+#define STATE_NOT_ENERGIZED HVC_STATE_NOT_ENERGIZED
+#define STATE_PRECHARGING HVC_STATE_PRECHARGING
+#define STATE_ENERGIZED HVC_STATE_ENERGIZED
+#define STATE_CHARGING HVC_STATE_CHARGING
 
-#endif //STATE_MACHINE_H
+void state_machine_init(void);
+void update_state_machine(bool anyFaults);
+hvc_state_t get_current_state(void);
+const char *get_state_name(hvc_state_t state);
+
+#endif // STATE_MACHINE_H

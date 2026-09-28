@@ -6,15 +6,6 @@
 
 #include "fdcan.h"
 #include "main.h"
-#include "hvc_can.h"
-
-NightCANInstance can3;
-static NightCANPacket imdRequestPacket;
-static NightCANReceivePacket imdResponsePacket;
-static NightCANReceivePacket imdInfoGeneral;
-static NightCANReceivePacket imdInfoIsoDetail;
-static NightCANReceivePacket imdInfoVoltage;
-static NightCANReceivePacket imdInfoITSystem;
 
 bool isImdOk() {
     return HAL_GPIO_ReadPin(IMD_ERROR_GPIO_Port, IMD_ERROR_Pin) == GPIO_PIN_SET;
@@ -26,22 +17,9 @@ void testSetIMD(bool error) {
 }
 
 void imd_can_init() {
-    can3 = CAN_new_instance();
-    CAN_Init(&can3, &hfdcan3, 0, 0xFF, 0, 0);
-
-    imdRequestPacket = CAN_create_packet(IMD_REQUEST, 0, 8);
-    imdResponsePacket = CAN_create_receive_packet(IMD_RESPONSE, 1000, 8);
-    imdInfoGeneral = CAN_create_receive_packet(IMD_INFO_GENERAL, 1000, 8);
-    imdInfoIsoDetail = CAN_create_receive_packet(IMD_INFO_ISO_DETAIL, 1000, 8);
-    imdInfoVoltage = CAN_create_receive_packet(IMD_INFO_VOLTAGE, 1000, 8);
-    imdInfoITSystem = CAN_create_receive_packet(IMD_INFO_IT_SYS, 1000, 8);
-
-    CAN_AddTxPacket(&can1, &imdRequestPacket);
-    CAN_addReceivePacket(&can3, &imdResponsePacket);
-    CAN_addReceivePacket(&can3, &imdInfoGeneral);
-    CAN_addReceivePacket(&can3, &imdInfoIsoDetail);
-    CAN_addReceivePacket(&can3, &imdInfoVoltage);
-    CAN_addReceivePacket(&can3, &imdInfoITSystem);
+    /* The Orion integration uses FDCAN1. IMD fault state is read from its
+       dedicated hardware pin; the unused legacy IMD diagnostic bus remains
+       disabled so it cannot conflict with the Orion CAN ISR. */
 }
 
 void imd_can_periodic() {

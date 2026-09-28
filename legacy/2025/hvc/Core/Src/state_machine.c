@@ -1,70 +1,57 @@
-//
-// Created by rolan on 4/6/2025.
-//
-
 #include "state_machine.h"
-#include "contactors.h"
-#include "vct_sense.h"
+
 #include "cells.h"
+#include "charging.h"
+#include "contactors.h"
+#include "hvc_can.h"
+#include "main.h"
+#include "state_machine_logic.h"
+#include "vct_sense.h"
 
-static int currentState = 1;
-static float verifyVoltage = 0.0f;
+static hvc_state_machine_context_t stateMachine;
+static hvc_state_machine_outputs_t stateOutputs;
 
-void state_machine_init() {
-  setTractiveContactor(false);
-  currentState = STATE_NOT_ENERGIZED;
+static void applyOutputs(void) {
+    setTractiveContactor(stateOutputs.positiveContactorClosed);
+    hvc_control_charging(stateOutputs.chargerEnabled);
 }
 
-int update_state_machine(bool shutdownClosed, bool hvOk, bool chargerPresent, float deltaTime) {
-  switch (currentState) {
-    case STATE_NOT_ENERGIZED:
-      if (shutdownClosed && hvOk) {
-        verifyVoltage = 0.0f;
-        currentState = STATE_PRECHARGING;
-      }
-      break;
+void state_machine_init(void) {
+    hvc_state_machine_reset(&stateMachine, &stateOutputs);
+    applyOutputs();
+}
 
-    case STATE_PRECHARGING:
-      if (!shutdownClosed || !hvOk) {
-        setTractiveContactor(false);
-        currentState = STATE_NOT_ENERGIZED;
-      }
-      static float timer = 0;
-      timer += deltaTime;
-      if (getTractiveVoltage() > 0.90f * getPackVoltageFromCells() && timer > 4.0f) {
-        verifyVoltage += deltaTime;
-        if (verifyVoltage >= 2.0f) {
-          setTractiveContactor(true);
-          if(chargerPresent) {
-            currentState = STATE_CHARGING;
-          } else {
-            currentState = STATE_ENERGIZED;
-          }
-          timer = 0.0f;
-          // add a fault that detects if it triggered after 5 seconds
-        }
-      } else {
-        verifyVoltage = 0.0f;
-      }
-      break;
+void update_state_machine(bool anyFaults) {
+    const hvc_state_machine_inputs_t inputs = {
+        .anyFaults = anyFaults,
+        .shutdownClosed = isShutdownClosed(),
+        .chargerConnected = hvc_can_is_charger_connected(),
+        .tractiveVoltage = getTractiveVoltage(),
+        .packVoltage = getPackVoltageFromCells(),
+        .currentTimeMs = HAL_GetTick(),
+    };
 
-    case STATE_ENERGIZED:
-      if (!shutdownClosed || !hvOk) {
-        setTractiveContactor(false);
-        currentState = STATE_NOT_ENERGIZED;
-      }
-      break;
+    hvc_state_machine_step(&stateMachine, &inputs, &stateOutputs);
+    applyOutputs();
+}
 
-    case STATE_CHARGING:
-      if (!shutdownClosed || !hvOk || !chargerPresent) {
-        setTractiveContactor(false);
-        currentState = STATE_NOT_ENERGIZED;
-      }
-      break;
+hvc_state_t get_current_state(void) {
+    return stateMachine.state;
+}
 
-    default:
-      setTractiveContactor(false);
-      currentState = STATE_NOT_ENERGIZED;
-  }
-  return currentState;
+const char *get_state_name(hvc_state_t state) {
+    switch (state) {
+      case HVC_STATE_NOT_ENERGIZED:
+        return "NOT_ENERGIZED";
+      case HVC_STATE_PRECHARGING:
+        return "PRECHARGING";
+      case HVC_STATE_ENERGIZED:
+        return "ENERGIZED";
+      case HVC_STATE_CHARGING_PRECHARGING:
+        return "CHARGING_PRECHARGING";
+      case HVC_STATE_CHARGING:
+        return "CHARGING";
+      default:
+        return "UNKNOWN";
+    }
 }
