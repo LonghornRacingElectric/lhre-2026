@@ -16,9 +16,6 @@ firmware_project_h7(
     ],
     linker_script = "STM32H733VGTX_FLASH.ld",
     startup_script = "Core/Startup/startup_stm32h733vgtx.s",
-    variants = {
-        "can-test": ["HVC_CAN_INTEGRATION_TEST"],
-    },
 )
 
 cc_library(

@@ -103,11 +103,6 @@ static void printBmsReadings(void)
 
   hvc_can_get_rx_status(&canRx);
 
-#ifdef HVC_CAN_INTEGRATION_TEST
-  usb_printf("*** CAN TEST: SIMULATED PRECHARGE, BMS TRIP BYPASSED, CONTACTORS ACTIVE ***");
-  HAL_Delay(USB_PRINT_SETTLE_MS);
-#endif
-
   usb_printf("HVC state=%s shutdown=%u AIR+=%u AIR-=%u faults=0x%02lX latched=0x%02lX",
              get_state_name(get_current_state()),
              (unsigned int)isNegContactorClosed(),
@@ -266,13 +261,7 @@ int main(void)
       lastStateMachineTime = currentTime;
       currentFaults = get_faults();
       latch_faults(currentFaults);
-#ifdef HVC_CAN_INTEGRATION_TEST
-      /* Keep real fault reporting, but do not open the shutdown loop for this
-       * maintenance-plug-open contactor/CAN integration test. */
-      setBmsError(false);
-#else
       setBmsError(currentFaults != 0U);
-#endif
 
       const bool startupComplete = currentTime > 8000U;
       if (startupComplete)
@@ -281,12 +270,7 @@ int main(void)
         imdIndicatorError = imdIndicatorError || !isImdOk();
       }
 
-      const bool anyFaults =
-#ifdef HVC_CAN_INTEGRATION_TEST
-          !startupComplete;
-#else
-          get_latched_faults() != 0U || !startupComplete;
-#endif
+      const bool anyFaults = get_latched_faults() != 0U || !startupComplete;
       update_state_machine(anyFaults);
     }
 
