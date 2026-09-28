@@ -99,6 +99,14 @@ static size_t appendToLine(char *line, size_t capacity, size_t length,
 static void printBmsReadings(void)
 {
   char line[BMS_PRINT_LINE_SIZE];
+  hvc_can_rx_status_t canRx;
+
+  hvc_can_get_rx_status(&canRx);
+
+#ifdef HVC_CAN_INTEGRATION_TEST
+  usb_printf("*** CAN TEST: SIMULATED PRECHARGE, BMS TRIP BYPASSED, CONTACTORS ACTIVE ***");
+  HAL_Delay(USB_PRINT_SETTLE_MS);
+#endif
 
   usb_printf("HVC state=%s shutdown=%u AIR+=%u AIR-=%u faults=0x%02lX latched=0x%02lX",
              get_state_name(get_current_state()),
@@ -107,6 +115,17 @@ static void printBmsReadings(void)
              (unsigned int)isNegContactorClosed(),
              (unsigned long)get_last_faults(),
              (unsigned long)get_latched_faults());
+  HAL_Delay(USB_PRINT_SETTLE_MS);
+
+  usb_printf("CAR RX VCU_STATE %s age=%lums PRNDL=%u STOMP=%u BUZZER=%u SOC=%.1f LINELOCK=%u EVENT=%u",
+             canRx.vcuStateValid ? "OK" : "TIMEOUT",
+             (unsigned long)canRx.vcuStateAgeMs,
+             (unsigned int)canRx.prndlState,
+             (unsigned int)canRx.stompFault,
+             (unsigned int)canRx.readyToDriveBuzzer,
+             (double)canRx.stateOfChargeEstimate,
+             (unsigned int)canRx.lineLockEnabled,
+             (unsigned int)canRx.eventMode);
   HAL_Delay(USB_PRINT_SETTLE_MS);
 
   usb_printf("ADBMS scan: %lu/%u BMBs OK | ! = CRC failure or out-of-range reading",
@@ -247,7 +266,13 @@ int main(void)
       lastStateMachineTime = currentTime;
       currentFaults = get_faults();
       latch_faults(currentFaults);
+#ifdef HVC_CAN_INTEGRATION_TEST
+      /* Keep real fault reporting, but do not open the shutdown loop for this
+       * maintenance-plug-open contactor/CAN integration test. */
+      setBmsError(false);
+#else
       setBmsError(currentFaults != 0U);
+#endif
 
       const bool startupComplete = currentTime > 8000U;
       if (startupComplete)
@@ -256,7 +281,12 @@ int main(void)
         imdIndicatorError = imdIndicatorError || !isImdOk();
       }
 
-      const bool anyFaults = get_latched_faults() != 0U || !startupComplete;
+      const bool anyFaults =
+#ifdef HVC_CAN_INTEGRATION_TEST
+          !startupComplete;
+#else
+          get_latched_faults() != 0U || !startupComplete;
+#endif
       update_state_machine(anyFaults);
     }
 

@@ -26,6 +26,8 @@ static msg_cell_voltages_t cellVoltages[CELL_VOLTAGE_PACKET_COUNT];
 static msg_cell_temperatures_t cellTemperatures[CELL_TEMPERATURE_PACKET_COUNT];
 static msg_allow_balance_command_t allowBalanceCommand;
 static can_receive_message_t *allowBalanceHandle;
+static msg_vcu_state_t vcuState;
+static can_receive_message_t *vcuStateHandle;
 static msg_hvc_charger_command_t chargerCommand;
 static msg_charger_status_t chargerStatus;
 static can_message_t *chargerCommandHandle;
@@ -149,6 +151,13 @@ void hvc_can_init(void) {
         can_register_receive_packet(&criticalCanBus, allowBalanceHandle);
     }
 
+    vcuStateHandle = can_get_receive_message_handle(
+        &vcuState, VCU_STATE_ID,
+        (CAN_unpack_message_fn)unpack_vcu_state);
+    if (vcuStateHandle != NULL) {
+        can_register_receive_packet(&criticalCanBus, vcuStateHandle);
+    }
+
     chargerCommandHandle = can_get_message_handle(
         &chargerCommand, HVC_CHARGER_COMMAND_ID, HVC_CHARGER_COMMAND_FREQ,
         HVC_CHARGER_COMMAND_DLC,
@@ -172,7 +181,9 @@ void hvc_can_periodic(bool amsError, bool imdError, int state,
     contactorStatus.hvc_state_machine = (uint8_t)state;
     contactorStatus.positive_hv_contactor = isPosContactorClosed();
     contactorStatus.negative_hv_contactor = isNegContactorClosed();
-    contactorStatus.precharge_contactor = state == STATE_PRECHARGING;
+    contactorStatus.precharge_contactor =
+        state == HVC_STATE_PRECHARGING ||
+        state == HVC_STATE_CHARGING_PRECHARGING;
 
     packStatus.pack_voltage = nonnegativeReading(getPackVoltageFromCells());
     packStatus.tractive_current = nonnegativeReading(getTractiveCurrent());
@@ -229,6 +240,30 @@ void hvc_can_periodic(bool amsError, bool imdError, int state,
     }
 
     can_service(&criticalCanBus);
+}
+
+static bool receiveStatus(can_receive_message_t *handle, uint32_t timeoutMs,
+                          uint32_t *ageMs) {
+    if (handle == NULL) {
+        *ageMs = UINT32_MAX;
+        return false;
+    }
+
+    *ageMs = HAL_GetTick() - handle->_latest_rx_ms;
+    return !message_timed_out(handle, timeoutMs);
+}
+
+void hvc_can_get_rx_status(hvc_can_rx_status_t *status) {
+    if (status == NULL) return;
+
+    status->vcuStateValid = receiveStatus(
+        vcuStateHandle, VCU_STATE_TIMEOUT_MS, &status->vcuStateAgeMs);
+    status->prndlState = vcuState.prndl_state;
+    status->stompFault = vcuState.stomp_fault != 0U;
+    status->readyToDriveBuzzer = vcuState.ready_to_drive_buzzer != 0U;
+    status->stateOfChargeEstimate = vcuState.state_of_charge_estimate;
+    status->lineLockEnabled = vcuState.line_lock_enabled != 0U;
+    status->eventMode = vcuState.event_mode;
 }
 
 bool hvc_can_is_charger_connected(void) {

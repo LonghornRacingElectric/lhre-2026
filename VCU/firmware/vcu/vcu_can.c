@@ -383,7 +383,10 @@ bool is_drive_switch_pressed(void) {
 }
 
 bool hvc_tractive_ready(void) {
-  return contactor_status_mailbox.hvc_state_machine == HVC_STATE_ENERGIZED;
+  return contactor_status_mailbox_handle != NULL &&
+         !message_timed_out(contactor_status_mailbox_handle,
+                            CONTACTOR_STATUS_TIMEOUT_MS) &&
+         contactor_status_mailbox.hvc_state_machine == HVC_STATE_ENERGIZED;
 }
 
 float vcu_can_get_motor_speed_rpm(void) {

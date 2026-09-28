@@ -132,7 +132,8 @@ void hvc_set_contactor_status(int state, bool pos, bool neg) {
   contactor_status_tx.positive_hv_contactor = pos ? 1 : 0;
   contactor_status_tx.negative_hv_contactor = neg ? 1 : 0;
   contactor_status_tx.precharge_contactor =
-      state == HVC_STATE_PRECHARGING ? 1 : 0;
+      (state == HVC_STATE_PRECHARGING ||
+       state == HVC_STATE_CHARGING_PRECHARGING) ? 1 : 0;
 
   taskEXIT_CRITICAL();
 }
