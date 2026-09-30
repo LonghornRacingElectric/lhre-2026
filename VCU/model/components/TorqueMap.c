@@ -79,6 +79,7 @@ void torque_map_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   out->derate_factor_cell_voltage = compute_low_cell_voltage_derate(out->open_circuit_cell_voltage, params);
   out->derate_factor_cell_temp = 1.0f; // TODO: cell temp derate
 
+  // TODO - torque_derated isn't even used, whoops. So derates don't do anything
   out->torque_derated = out->torque_lookup_output
   * out->derate_factor_cell_voltage
   * out->derate_factor_cell_temp;
