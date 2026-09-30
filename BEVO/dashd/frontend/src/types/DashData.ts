@@ -128,9 +128,16 @@ export interface DashMessage {
     // Website-authored park/pit-screen layout (retained lhre/dash/parkLayout).
     // Validated at render; absent → the built-in park screen is used.
     parkLayout?: unknown;
+    // Website-authored primary/driving-screen layout (retained lhre/dash/drivingLayout).
+    // Validated at render; absent → the built-in driving screen is used.
+    drivingLayout?: unknown;
     // Active driver message to overlay (from lhre/dash/message), forwarded by
     // dashd. Validated at render; absent → nothing shown.
     message?: unknown;
+    // Debug screen override from trackside (lhre/dash/screen): forces the named
+    // screen ("driving"/"park"/"shutdown"/"settings") regardless of PRNDL.
+    // Absent/null → follow PRNDL. Auto-cleared by dashd on a real gear change.
+    screenOverride?: string | null;
 }
 
 // VCU event mode enum (matches firmware VCU_DEFAULT_PARAMS + per-event override

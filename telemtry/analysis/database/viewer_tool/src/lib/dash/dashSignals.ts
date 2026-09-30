@@ -77,6 +77,11 @@ export interface DashSignals {
     disconnect: () => void;
     /** Set the live power budget (kW) shown on the dash energy bar. */
     publishTargetPower: (kw: number) => void;
+    /** Trackside strategy deltas (re-sent on keepalive; pass null to stop sending). */
+    publishLapDelta: (seconds: number | null) => void;
+    publishEnergyDelta: (wh: number | null) => void;
+    publishEnergyDeltaStatic: (wh: number | null) => void;
+    publishLapsRemaining: (laps: number | null) => void;
     /** Bump the lap counter — fires the dash's full-screen lap card + per-lap reset. */
     sendLap: (value?: number) => void;
     /** Re-publish a lap value without bumping the internal counter — for the drain
@@ -90,6 +95,8 @@ export interface DashSignals {
     publishLayout: (layout: unknown) => boolean;
     /** Push the park/pit-screen layout (retained, separate topic from the lap card). */
     publishParkLayout: (layout: unknown) => boolean;
+    /** Push the primary/driving-screen layout (retained, its own topic). */
+    publishDrivingLayout: (layout: unknown) => boolean;
     /** Push the live dynamic per-lap energy budget (Wh) the dash shows (retained). */
     publishLapBudget: (wh: number) => boolean;
     publishLapCardMs: (ms: number) => boolean;
@@ -99,6 +106,11 @@ export interface DashSignals {
     sendMessage: (message: DashMessage, durationS?: number) => boolean;
     /** Dismiss whatever message is currently on the dash. */
     clearMessage: () => boolean;
+    /** Debug: force the dash to show a named screen ("driving"/"park"/"shutdown"/
+     *  "settings"), or pass "auto"/null to release back to PRNDL routing. Not
+     *  retained, so a dash reboot returns to normal; dashd also auto-clears it on
+     *  a real gear change. */
+    publishScreen: (screen: string | null) => boolean;
     /** Latest mirror of the driver's screen (null until the car publishes state). */
     dashState: DashMirrorState | null;
     /** Wall-clock ms of the last lhre/dash/state message — for a link-silent warning. */
@@ -130,6 +142,12 @@ export function useDashSignals(): DashSignals {
 
     const clientRef = useRef<MqttClient | null>(null);
     const targetPowerRef = useRef<number | null>(null);
+    // Trackside-computed strategy deltas; re-sent each keepalive tick because dashd
+    // nulls them after 5 s of silence (MqttState staleness).
+    const lapDeltaRef = useRef<number | null>(null);
+    const energyDeltaRef = useRef<number | null>(null);
+    const energyDeltaStaticRef = useRef<number | null>(null);
+    const lapsRemainingRef = useRef<number | null>(null);
     const lapCounterRef = useRef(0);
     const keepaliveRef = useRef<number | null>(null);
 
@@ -231,12 +249,37 @@ export function useDashSignals(): DashSignals {
 
         keepaliveRef.current = window.setInterval(() => {
             if (targetPowerRef.current !== null) publish('targetPower', targetPowerRef.current);
+            // Re-send the strategy deltas so dashd's 5 s staleness gate doesn't blank them.
+            if (lapDeltaRef.current !== null) publish('lapDelta', lapDeltaRef.current);
+            if (energyDeltaRef.current !== null) publish('energyDelta', energyDeltaRef.current);
+            if (energyDeltaStaticRef.current !== null) publish('energyDeltaStatic', energyDeltaStaticRef.current);
+            if (lapsRemainingRef.current !== null) publish('lapsRemaining', lapsRemainingRef.current);
         }, KEEPALIVE_MS);
     }, [brokerUrl, publish]);
 
     const publishTargetPower = useCallback((kw: number) => {
         targetPowerRef.current = kw;
         publish('targetPower', kw);
+    }, [publish]);
+
+    // Trackside-computed strategy deltas. Each stores its value (for the keepalive
+    // re-send) and publishes immediately; pass null to stop sending (dashd nulls it
+    // out after the staleness window).
+    const publishLapDelta = useCallback((seconds: number | null) => {
+        lapDeltaRef.current = seconds;
+        if (seconds !== null) publish('lapDelta', seconds);
+    }, [publish]);
+    const publishEnergyDelta = useCallback((wh: number | null) => {
+        energyDeltaRef.current = wh;
+        if (wh !== null) publish('energyDelta', wh);
+    }, [publish]);
+    const publishEnergyDeltaStatic = useCallback((wh: number | null) => {
+        energyDeltaStaticRef.current = wh;
+        if (wh !== null) publish('energyDeltaStatic', wh);
+    }, [publish]);
+    const publishLapsRemaining = useCallback((laps: number | null) => {
+        lapsRemainingRef.current = laps;
+        if (laps !== null) publish('lapsRemaining', laps);
     }, [publish]);
 
     const sendLap = useCallback((value?: number) => {
@@ -303,6 +346,15 @@ export function useDashSignals(): DashSignals {
         return true;
     }, []);
 
+    // Primary / driving-screen layout — same retained pattern, its own topic so
+    // all three screens (lap card, driving, park) are authored independently.
+    const publishDrivingLayout = useCallback((layout: unknown): boolean => {
+        const client = clientRef.current;
+        if (!client || !client.connected) return false;
+        client.publish(`${TOPIC_PREFIX}drivingLayout`, JSON.stringify(layout), { qos: 1, retain: true });
+        return true;
+    }, []);
+
     // Retained: the live per-lap Wh budget (remaining energy / remaining laps),
     // republished by trackside whenever it changes. The dash holds it and shows
     // the driver the current Wh/lap target.
@@ -350,6 +402,17 @@ export function useDashSignals(): DashSignals {
         return true;
     }, []);
 
+    // Debug screen override (lhre/dash/screen). NOT retained: a one-shot string
+    // the dash applies as a precedence layer over PRNDL routing. dashd clears it
+    // on a real gear change and a dash reboot drops it (no replay), so it can't
+    // strand the driver. qos 1 so the press reliably lands. null/"auto" releases.
+    const publishScreen = useCallback((screen: string | null): boolean => {
+        const client = clientRef.current;
+        if (!client || !client.connected) return false;
+        client.publish(`${TOPIC_PREFIX}screen`, screen ?? 'auto', { qos: 1 });
+        return true;
+    }, []);
+
     const setBrokerUrl = useCallback((url: string) => {
         setBrokerUrlState(url);
         if (typeof window !== 'undefined') localStorage.setItem(BROKER_STORAGE_KEY, url);
@@ -370,17 +433,23 @@ export function useDashSignals(): DashSignals {
         connect,
         disconnect,
         publishTargetPower,
+        publishLapDelta,
+        publishEnergyDelta,
+        publishEnergyDeltaStatic,
+        publishLapsRemaining,
         sendLap,
         republishLap,
         resetLapCounter,
         publishGate,
         publishLayout,
         publishParkLayout,
+        publishDrivingLayout,
         publishLapBudget,
         publishLapCardMs,
         publishMessages,
         sendMessage,
         clearMessage,
+        publishScreen,
         dashState,
         lastStateAt,
         acks,

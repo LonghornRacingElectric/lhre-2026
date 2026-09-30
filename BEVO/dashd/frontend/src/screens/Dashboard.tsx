@@ -6,6 +6,7 @@ import Settings from './Settings';
 import { useDash } from '../context/DashContext';
 import { MessageCardRenderer } from '../MessageCardRenderer';
 import { validateMessage } from '../dashMessages';
+import { LapCardOverlay } from '../components/LapCardOverlay';
 
 // Add new screens by appending to this array. Enter cycles in order.
 const SCREENS: { name: string; component: React.FC }[] = [
@@ -17,6 +18,16 @@ const SCREENS: { name: string; component: React.FC }[] = [
 
 const DRIVING_INDEX = SCREENS.findIndex(s => s.name === 'Driving');
 const PARK_INDEX = SCREENS.findIndex(s => s.name === 'PitDiagnostic');
+
+// Trackside debug screen-override names -> SCREENS index. The website publishes
+// one of these on lhre/dash/screen; dashd forwards it as screenOverride and
+// clears it on a real gear change. Unknown names fall through to PRNDL routing.
+const OVERRIDE_INDEX: Record<string, number> = {
+    driving: DRIVING_INDEX,
+    park: PARK_INDEX,
+    shutdown: SCREENS.findIndex(s => s.name === 'Shutdown'),
+    settings: SCREENS.findIndex(s => s.name === 'Settings'),
+};
 
 const Dashboard: React.FC = () => {
     const [screenIndex, setScreenIndex] = useState<number>(0);
@@ -50,7 +61,15 @@ const Dashboard: React.FC = () => {
         setScreenIndex(prndl === 'P' ? PARK_INDEX : DRIVING_INDEX);
     }, [prndl]);
 
-    const ActiveScreen = SCREENS[screenIndex].component;
+    // A trackside debug override (if one names a known screen) takes precedence
+    // over PRNDL/Enter routing without disturbing screenIndex — so when it
+    // clears (released from the website, or auto-cleared by dashd on a gear
+    // change) the dash snaps right back to whatever it was showing.
+    const override = data?.screenOverride ?? null;
+    const overrideIndex = override != null ? OVERRIDE_INDEX[override] : undefined;
+    const effectiveIndex = overrideIndex != null && overrideIndex >= 0 ? overrideIndex : screenIndex;
+
+    const ActiveScreen = SCREENS[effectiveIndex].component;
 
     // Driver-message overlay floats on top of WHATEVER screen is active — Drive,
     // Park/PitDiagnostic (built-in OR custom layout), Shutdown, Settings — so a
@@ -63,6 +82,9 @@ const Dashboard: React.FC = () => {
     return (
         <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
             <ActiveScreen />
+            {/* Lap card (z-1000) floats over every screen — built-in or custom driving
+                layout, Park, etc. — lifted out of ScreenOne so it isn't tied to one screen. */}
+            <LapCardOverlay data={data} theme={dashTheme} />
             {driverMsg ? (
                 <div style={{ position: 'absolute', inset: 0, zIndex: 1100 }}>
                     <MessageCardRenderer message={driverMsg} theme={dashTheme} scale={1} />

@@ -2,7 +2,7 @@
 import './trackside.css';
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type Dispatch, type MouseEvent, type ReactNode, type SetStateAction } from "react";
-import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, Moon, NotebookText, Plus, Power, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, Users, WifiOff, X, Zap } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, Crosshair, Disc3, Download, FileText, Flag, Gauge, GraduationCap, HelpCircle, MapPinned, Minus, MonitorCog, Moon, NotebookText, Plus, Power, Radio, RefreshCcw, Save, Scissors, SlidersHorizontal, Sun, Target, Thermometer, Timer, Trash2, Upload, Users, WifiOff, X, Zap } from "lucide-react";
 import { api } from "@/lib/trackside/api";
 import { useCarStatus, CAR_STATE_META, humanizeReason, type CarState, type CarStatusFeed } from "@/lib/trackside/useCarStatus";
 import { EVENT_TYPES, upsertSession, patchSession, syncRegistryWithServer, type TracksideSessionInfo } from "@/lib/trackside/sessionRegistry";
@@ -544,6 +544,10 @@ function App() {
   const [dashPowerMode, setDashPowerMode] = useState<"auto" | "manual">(() => (localStorage.getItem("dash-power-mode") === "manual" ? "manual" : "auto"));
   const [dashAutoLap, setDashAutoLap] = useState(() => localStorage.getItem("dash-auto-lap") === "1");
   const [dashGatePushed, setDashGatePushed] = useState(false);
+  // Debug screen override the strategist is forcing on the dash (null = auto /
+  // follow PRNDL). Not persisted — it's a transient bench/pit aid, and the car
+  // clears it on a real gear change anyway, so it shouldn't survive a reload.
+  const [dashScreenOverride, setDashScreenOverride] = useState<string | null>(null);
   // How long the on-car full-screen lap card stays up after a lap (seconds).
   const [lapCardDurationS, setLapCardDurationS] = useState(() => {
     const v = Number(localStorage.getItem("dash-lap-card-duration-s"));
@@ -660,6 +664,14 @@ function App() {
   // + = banked margin vs the even split; − = over budget, must conserve.
   const budgetVsTargetWh = dynamicLapBudgetWh != null && targetEnergyPerLapWh != null
     ? dynamicLapBudgetWh - targetEnergyPerLapWh : null;
+  // --- per-lap strategy deltas published to the car dash (mqtt.lapDelta /
+  // energyDelta / energyDeltaStatic). All from the last COMPLETED lap vs the best
+  // lap / per-lap energy budgets. Null (→ stops publishing, dash shows nothing
+  // rather than a bogus 0) until there's a completed lap + a plan.
+  const lastLap = liveState.laps.length ? liveState.laps[liveState.laps.length - 1] : null;
+  const lapDeltaS = lastLap && bestLap ? (lastLap.durationMs - bestLap.durationMs) / 1000 : null;
+  const energyDeltaDynWh = lastLap && dynamicLapBudgetWh != null ? lastLap.energyWh - dynamicLapBudgetWh : null;
+  const energyDeltaStaticWh = lastLap && targetEnergyPerLapWh != null ? lastLap.energyWh - targetEnergyPerLapWh : null;
   // Auto-derive the dash target power from the energy plan: the live Wh/lap
   // budget ÷ the rolling average lap time is the power rate that spends the
   // budget evenly. A manual override (dashPowerMode='manual') wins when set.
@@ -739,6 +751,9 @@ function App() {
     return () => window.clearInterval(id);
   }, []);
   const dataAgeMs = lastDataAtMs == null ? null : Math.max(0, liveNowMs - lastDataAtMs);
+  // Last GPS coordinate we saw + when it last changed, for the Live Position
+  // readout's freshness (see gpsFixAgeMs).
+  const lastGpsFixRef = useRef<{ lat: number; lon: number; at: number } | null>(null);
   // Time spent trying to get telemetry since the feed started — used to escalate
   // 'waiting' to a hard 'down' after a grace period so a car-off page-load
   // doesn't sit on yellow forever just because the broker is reachable.
@@ -790,6 +805,21 @@ function App() {
     : liveHasGpsFix
       ? { dot: "live", label: sfGateDefined ? "GPS · auto-lap armed" : "GPS fix" }
       : { dot: "dead", label: "No GPS fix" };
+
+  // Raw lat/lon readout for the Live Position panel. We track when the coordinate
+  // last CHANGED (not just when a sample arrived) so a stuck/frozen fix reads as
+  // stale even while telemetry keeps flowing — that's the case the strategist
+  // wants to catch. `liveNowMs` ticks at 1 Hz to keep the age live.
+  const curGpsFix = liveHasGpsFix
+    ? { lat: liveState.lastSample!.lat as number, lon: liveState.lastSample!.lon as number }
+    : null;
+  if (curGpsFix) {
+    const prev = lastGpsFixRef.current;
+    if (!prev || prev.lat !== curGpsFix.lat || prev.lon !== curGpsFix.lon) {
+      lastGpsFixRef.current = { ...curGpsFix, at: liveNowMs };
+    }
+  }
+  const gpsFixAgeMs = lastGpsFixRef.current == null ? null : Math.max(0, liveNowMs - lastGpsFixRef.current.at);
 
   // Authoritative car state from the central classifier (PR #282), if reachable.
   const carStatus = useCarStatus(source, liveState.running);
@@ -903,6 +933,16 @@ function App() {
     if (isMirror || dashSignals.status !== "connected") return;
     if (dynamicLapBudgetWh != null) dashSignals.publishLapBudget(Math.round(dynamicLapBudgetWh));
   }, [dynamicLapBudgetWh, isMirror, dashSignals.status, dashSignals.publishLapBudget]);
+
+  // Push the per-lap strategy deltas to the car dash (leader only). Each rides the
+  // dashSignals keepalive; passing null stops it (dashd nulls it after ~5 s).
+  useEffect(() => {
+    if (isMirror || dashSignals.status !== "connected") return;
+    dashSignals.publishLapDelta(lapDeltaS);
+    dashSignals.publishEnergyDelta(energyDeltaDynWh);
+    dashSignals.publishEnergyDeltaStatic(energyDeltaStaticWh);
+    dashSignals.publishLapsRemaining(lapsRemainingPlan);
+  }, [lapDeltaS, energyDeltaDynWh, energyDeltaStaticWh, lapsRemainingPlan, isMirror, dashSignals.status, dashSignals.publishLapDelta, dashSignals.publishEnergyDelta, dashSignals.publishEnergyDeltaStatic, dashSignals.publishLapsRemaining]);
 
   // Push the active driver-message set to the car (retained) whenever it changes
   // or the link (re)connects, so the dash holds the current quick-send palette
@@ -1776,6 +1816,11 @@ function App() {
       patchSession(sessionInfo.id, { endedAt: Date.now(), laps: liveStateRef.current.laps.length });
       setSessionInfo(null);
     }
+    // Reset the car's lap_count + baseline too, so the driver dash starts the
+    // re-armed session at Lap 0 instead of holding the prior high water mark —
+    // symmetric with Stop Event (stopEventAndDownload). Without this, Reset
+    // cleared the trackside laps but left the dash showing the old count.
+    if (dashSignals.status === "connected") dashSignals.resetLapCounter();
     markLiveSessionEnded();
     clearLiveSessionState();
     // The manual Start button is gone, so a reset re-arms the auto feed; the
@@ -1840,9 +1885,12 @@ function App() {
   function sendDashLayout(screenId: string, layout: LapCardLayout) {
     if (isMirrorRef.current) { setLayoutSendStatus("Read-only mirror — only the session leader can push to the car."); return; }
     if (dashSignals.status !== "connected") { setLayoutSendStatus("Connect to the dash first (Dash tab → Connect to dash)."); return; }
-    // Route to the screen's retained topic: park → parkLayout, else the lap card.
-    const ok = screenId === "park" ? dashSignals.publishParkLayout(layout) : dashSignals.publishLayout(layout);
-    const where = screenId === "park" ? "park screen" : "lap card";
+    // Route to the screen's retained topic: park → parkLayout, driving →
+    // drivingLayout, else the lap card.
+    const ok = screenId === "park" ? dashSignals.publishParkLayout(layout)
+      : screenId === "driving" ? dashSignals.publishDrivingLayout(layout)
+      : dashSignals.publishLayout(layout);
+    const where = screenId === "park" ? "park screen" : screenId === "driving" ? "driving screen" : "lap card";
     setLayoutSendStatus(ok ? `Sent “${layout.name}” to the ${where} ✓ (retained — used until replaced)` : "Publish failed — check the dash link.");
     window.setTimeout(() => setLayoutSendStatus(""), 5000);
   }
@@ -3513,25 +3561,6 @@ function App() {
               <TractionControlPanel sample={filteredLiveState.lastSample} />
             </div>
             <div className="liveMainColumn">
-              {/* Live Position hidden until chudpi/GPS is reliable. The RadioLion
-                  receiver's draw browns out the chudpi rail, so no fix reaches
-                  the website. Re-enable this Panel block once chudpi power is
-                  fixed. */}
-              {/*
-              <Panel title="Live Position" icon={<MapPinned size={18} />} className="liveMapPanel">
-                <TrackBuilderMap
-                  points={filteredLiveState.samples.filter(hasGps).map((sample) => ({ t: sample.t, lat: sample.lat ?? 0, lon: sample.lon ?? 0 }))}
-                  liveSample={filteredLiveState.lastSample}
-                  gates={track.gates}
-                  drawMode={null}
-                  onDrawGate={handleDrawGate}
-                  center={builderCenter}
-                  onCenter={setBuilderCenter}
-                  targetSpanM={selectedTrackView?.spanM}
-                  gpsUnavailable={filteredLiveState.lastSample != null && !filteredLiveState.samples.some(hasGps)}
-                />
-              </Panel>
-              */}
               <Panel title="Energy Window" icon={<Zap size={18} />}>
                 <EnergyWindowChart
                   state={filteredLiveState}
@@ -3555,6 +3584,37 @@ function App() {
                   link. */}
               <DriverControlsPanel sample={filteredLiveState.lastSample} torqueParamSet={torqueParamSet} />
               <TempsStatusPanel sample={filteredLiveState.lastSample} />
+              {/* Live Position — re-enabled now that chudpi/GPS is reliable. Kept
+                  last in the column so it's available but out of the way; it
+                  self-indicates (gpsUnavailable) if a session has no fix. */}
+              <Panel title="Live Position" icon={<MapPinned size={18} />} className="liveMapPanel">
+                <div className="gpsReadout">
+                  <span className={`gpsDot ${liveHasGpsFix && dataAgeMs != null && dataAgeMs < 3000 ? "live" : liveHasGpsFix ? "stale" : "dead"}`} />
+                  <span className="gpsCoord">LAT <strong>{curGpsFix ? curGpsFix.lat.toFixed(6) : "—"}</strong></span>
+                  <span className="gpsCoord">LON <strong>{curGpsFix ? curGpsFix.lon.toFixed(6) : "—"}</strong></span>
+                  <span className="gpsAge">
+                    {curGpsFix == null
+                      ? "no fix"
+                      : gpsFixAgeMs == null
+                        ? "—"
+                        : gpsFixAgeMs < 2000
+                          ? "updating"
+                          : `unchanged ${(gpsFixAgeMs / 1000).toFixed(0)}s`}
+                  </span>
+                </div>
+                <TrackBuilderMap
+                  points={filteredLiveState.samples.filter(hasGps).map((sample) => ({ t: sample.t, lat: sample.lat ?? 0, lon: sample.lon ?? 0 }))}
+                  liveSample={filteredLiveState.lastSample}
+                  gates={track.gates}
+                  drawMode={null}
+                  onDrawGate={handleDrawGate}
+                  center={builderCenter}
+                  onCenter={setBuilderCenter}
+                  targetSpanM={selectedTrackView?.spanM}
+                  follow
+                  gpsUnavailable={filteredLiveState.lastSample != null && !filteredLiveState.samples.some(hasGps)}
+                />
+              </Panel>
             </div>
             <div className="rightRail">
               {/* Energy Strategy widget hidden for now — revisit later.
@@ -4058,6 +4118,63 @@ function App() {
               Lay out what the driver sees on each lap card, then send it to the car (used until replaced).
               The lap card auto-clears after the duration above.
             </p>
+          </Panel>
+
+          <Panel title="Dash Screen — debug override" icon={<MonitorCog size={18} />}>
+            <p style={{ margin: "0 0 8px", opacity: 0.75, fontSize: "0.85rem" }}>
+              Force the driver dash onto a specific screen without shifting the car into gear —
+              for bench checks and pit demos. The car snaps back to normal PRNDL routing the
+              moment the driver actually shifts, and a dash reboot drops the override too.
+            </p>
+            {(() => {
+              const connected = !isMirror && dashSignals.status === "connected";
+              const SCREENS: { id: string; label: string }[] = [
+                { id: "driving", label: "Driving" },
+                { id: "park", label: "Park / Pit" },
+                { id: "shutdown", label: "Shutdown" },
+                { id: "settings", label: "Settings" },
+              ];
+              const setOverride = (id: string | null) => {
+                if (!connected) return;
+                dashSignals.publishScreen(id);
+                setDashScreenOverride(id);
+              };
+              return (
+                <>
+                  <div className="screenOverrideButtons">
+                    {SCREENS.map((s) => (
+                      <button
+                        key={s.id}
+                        className={dashScreenOverride === s.id ? "tool active" : "tool"}
+                        disabled={!connected}
+                        onClick={() => setOverride(s.id)}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="gateButtons" style={{ marginTop: 8 }}>
+                    <button
+                      className="primary"
+                      disabled={!connected || dashScreenOverride === null}
+                      onClick={() => setOverride(null)}
+                    >
+                      <Radio size={15} /> Release to auto (PRNDL)
+                    </button>
+                    <span style={{ alignSelf: "center", opacity: 0.8, fontSize: "0.85rem" }}>
+                      {dashScreenOverride
+                        ? `Forcing: ${dashScreenOverride}`
+                        : "Following PRNDL"}
+                    </span>
+                  </div>
+                  {!connected ? (
+                    <p style={{ marginTop: 6, opacity: 0.7, fontSize: "0.8rem" }}>
+                      Connect to the dash first (Dash tab → Connect to dash).
+                    </p>
+                  ) : null}
+                </>
+              );
+            })()}
           </Panel>
 
           <Panel title="Start/Finish — on-car laps" icon={<MapPinned size={18} />}>
@@ -5566,6 +5683,7 @@ function TrackBuilderMap({
   onCenter,
   targetSpanM,
   gpsUnavailable = false,
+  follow = false,
 }: {
   points: GpsPoint[];
   liveSample: LiveSample | null;
@@ -5576,11 +5694,19 @@ function TrackBuilderMap({
   onCenter: (center: { lat: number; lon: number }) => void;
   targetSpanM?: number;
   gpsUnavailable?: boolean;
+  // When true, the viewport auto-centers on the live car position (liveSample)
+  // and stays locked on it as it moves. Panning disengages follow; the recenter
+  // button re-engages it. Off for the track-builder usage (manual center).
+  follow?: boolean;
 }) {
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
   const [drawEnd, setDrawEnd] = useState<{ x: number; y: number } | null>(null);
   const [panStart, setPanStart] = useState<{ x: number; y: number; cx: number; cy: number } | null>(null);
   const [spanM, setSpanM] = useState(520);
+  // Follow-the-car: when `follow` is on, the viewport tracks the live position.
+  // `following` is the live toggle — panning turns it off, the recenter button
+  // turns it back on. Defaults on so the map opens centered on the car.
+  const [following, setFollowing] = useState(true);
   const width = 920;
   const height = 620;
   const pad = 0;
@@ -5588,7 +5714,13 @@ function TrackBuilderMap({
     if (targetSpanM == null) return;
     setSpanM(Math.max(80, Math.min(8000, targetSpanM)));
   }, [targetSpanM]);
-  const projectedCenter = project(center.lat, center.lon);
+  // The car's current position, when follow is enabled and we have a fix.
+  const followPoint = follow && liveSample && liveSample.lat != null && liveSample.lon != null
+    ? { lat: liveSample.lat, lon: liveSample.lon }
+    : null;
+  // Viewport center: lock onto the car while following, else the manual center.
+  const viewCenter = followPoint && following ? followPoint : center;
+  const projectedCenter = project(viewCenter.lat, viewCenter.lon);
   const bounds = mapBoundsFromCenter(projectedCenter.mx, projectedCenter.my, width, height, spanM, pad);
   const tiles = satelliteTiles(bounds);
   const line = points.length >= 2
@@ -5620,14 +5752,16 @@ function TrackBuilderMap({
       lon2: b.lon,
     });
   };
+  // Zoom via explicit buttons rather than the scroll wheel. React's wheel
+  // listener is passive, so an onWheel preventDefault() couldn't stop the page
+  // from also scrolling — zooming the map hijacked the whole page. Buttons keep
+  // pan-by-drag intact without fighting the page scroll. Smaller spanM = closer.
+  const zoomBy = (factor: number) => setSpanM((current) => Math.max(80, Math.min(8000, current * factor)));
   return (
+    <div className="mapWrap">
     <svg
       className={drawMode ? "map builderMap drawing" : "map builderMap"}
       viewBox={`0 0 ${width} ${height}`}
-      onWheel={(event) => {
-        event.preventDefault();
-        setSpanM((current) => nextMapSpan(current, event.deltaY));
-      }}
       onMouseDown={(event) => {
         const start = pointer(event);
         if (drawMode) {
@@ -5636,6 +5770,12 @@ function TrackBuilderMap({
           return;
         }
         setPanStart({ ...start, cx: projectedCenter.mx, cy: projectedCenter.my });
+        // Grabbing to pan = manual control: hand the current (car) center to the
+        // parent so the drag continues from here, then stop following.
+        if (following && followPoint) {
+          onCenter(followPoint);
+          setFollowing(false);
+        }
       }}
       onMouseMove={(event) => {
         const current = pointer(event);
@@ -5700,6 +5840,23 @@ function TrackBuilderMap({
       ) : null}
       <text className="mapCredit" x={width - 10} y={height - 10} textAnchor="end">Esri World Imagery</text>
     </svg>
+      <div className="mapZoomBtns">
+        {follow ? (
+          <button
+            type="button"
+            aria-label="Center on car"
+            title={followPoint ? (following ? "Following car — drag to look around" : "Recenter on car") : "Waiting for GPS fix"}
+            className={following && followPoint ? "follow active" : "follow"}
+            disabled={!followPoint}
+            onClick={() => setFollowing(true)}
+          >
+            <Crosshair size={16} />
+          </button>
+        ) : null}
+        <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => zoomBy(1 / 1.3)}><Plus size={16} /></button>
+        <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => zoomBy(1.3)}><Minus size={16} /></button>
+      </div>
+    </div>
   );
 }
 
@@ -5994,11 +6151,6 @@ function distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) 
   return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function nextMapSpan(currentSpanM: number, deltaY: number) {
-  const boundedDelta = Math.max(-120, Math.min(120, deltaY));
-  const zoomFactor = Math.exp(boundedDelta * 0.0007);
-  return Math.max(80, Math.min(8000, currentSpanM * zoomFactor));
-}
 
 function sampleCrossesGate(previous: LiveSample, current: LiveSample, gate: GateLine) {
   if (!hasGps(previous) || !hasGps(current)) return false;

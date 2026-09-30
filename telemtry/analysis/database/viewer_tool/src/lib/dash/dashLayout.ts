@@ -59,7 +59,8 @@ export type FormatId =
   | 'raw' | 'int' | 'float1' | 'float2'
   | 'laptime'   // M:SS.ss
   | 'wh' | 'whSigned' | 'kwh'
-  | 'kw' | 'pct' | 'temp' | 'volt' | 'amp' | 'mph';
+  | 'kw' | 'pct' | 'temp' | 'volt' | 'amp' | 'mph'
+  | 'bool';     // ON/OFF — booleans (e.g. can.regenEnabled) coerce to 1/0 in getByPath
 
 export interface BaseWidget {
   id: string;
@@ -174,67 +175,85 @@ export interface FieldDef {
   // enum/bitfield fields: value -> label map. When bound, the editor pre-fills a
   // value widget's valueMap with this so it renders labels instead of raw ints.
   enumMap?: Record<string, string>;
+  // Data-source provenance, shown in the editor so the strategist sees the REAL
+  // origin of a value — not the abstract `can.*` bind path. Traced through dashd's
+  // extract_can_data()/PacingData + drivers/longhorn-lib/config/can_packets.csv.
+  // Notes the CAN packet (0x___) + signal, derivation/aggregation formula, the
+  // trackside MQTT topic, or "demo-only" for fields dashd does not actually emit.
+  source?: string;
 }
 
+// `source` traces each value to its REAL origin (CAN packet 0x___ + signal,
+// derivation/aggregation, trackside MQTT topic, or demo-only) — see the
+// FieldDef.source comment. Traced through dashd extract_can_data + can_packets.csv.
 export const FIELD_CATALOG: FieldDef[] = [
   // The just-finished lap (lap card only — lapCard.* is null on other screens)
-  { bind: 'lapCard.lapNumber', label: 'Lap number', group: 'Lap', defaultFormat: 'int', min: 0, max: 30 },
-  { bind: 'lapCard.timeS', label: 'Lap time', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120 },
-  { bind: 'lapCard.energyWh', label: 'Lap energy', group: 'Lap', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400 },
-  { bind: 'mqtt.bestLapTime', label: 'Best lap', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120 },
-  { bind: 'mqtt.lastLapTime', label: 'Last lap', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120 },
-  { bind: 'mqtt.currentLapTime', label: 'Current lap time', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120 },
-  { bind: 'mqtt.lapTrigger', label: 'Lap count', group: 'Lap', defaultFormat: 'int', min: 0, max: 30 },
+  { bind: 'lapCard.lapNumber', label: 'Lap number', group: 'Lap', defaultFormat: 'int', min: 0, max: 30, source: 'on-car lap counter (GPS gate / trackside lapTrigger)' },
+  { bind: 'lapCard.timeS', label: 'Lap time', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120, source: 'on-car: wall-clock since lap start' },
+  { bind: 'lapCard.energyWh', label: 'Lap energy', group: 'Lap', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400, source: 'on-car: ∫ CAN power over the lap' },
+  // Last completed lap — REAL, on-car (PacingData), forwarded every frame on ALL
+  // screens (unlike lapCard.* which only exists on the lap card). Null until the
+  // first lap completes.
+  { bind: 'pacing.lastLapTimeS', label: 'Last lap time', group: 'Lap', unit: 's', defaultFormat: 'laptime', min: 0, max: 120, source: 'on-car: time of the last completed lap (PacingData — any screen)' },
+  { bind: 'pacing.lastLapEnergyWh', label: 'Last lap energy', group: 'Lap', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400, source: 'on-car: net Wh of the last completed lap (PacingData)' },
+  { bind: 'pacing.lastLapNumber', label: 'Last lap #', group: 'Lap', defaultFormat: 'int', min: 0, max: 30, source: 'on-car: number of the last completed lap (PacingData)' },
+  { bind: 'mqtt.lapTrigger', label: 'Lap count', group: 'Lap', defaultFormat: 'int', min: 0, max: 30, source: 'on-car monotonic lap count (lhre/dash/lapTrigger)' },
   // Pacing / strategy (on-car authoritative pacing snapshot)
-  { bind: 'pacing.lapEnergyWh', label: 'Energy (this lap)', group: 'Pacing', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400 },
-  { bind: 'pacing.lapBudgetWh', label: 'Per-lap budget', group: 'Pacing', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400 },
-  { bind: 'pacing.lapElapsedS', label: 'Lap elapsed', group: 'Pacing', unit: 's', defaultFormat: 'laptime', min: 0, max: 120 },
-  { bind: 'pacing.lapNumber', label: 'Lap (in progress)', group: 'Pacing', defaultFormat: 'int', min: 0, max: 30 },
-  { bind: 'mqtt.lapsRemaining', label: 'Laps remaining', group: 'Pacing', defaultFormat: 'int', min: 0, max: 30 },
-  { bind: 'mqtt.lapsRemainingEnergy', label: 'Laps left (energy)', group: 'Pacing', defaultFormat: 'int', min: 0, max: 30 },
-  { bind: 'mqtt.targetPower', label: 'Target power', group: 'Pacing', unit: 'kW', defaultFormat: 'kw', min: 0, max: 80 },
+  { bind: 'pacing.lapEnergyWh', label: 'Energy (this lap)', group: 'Pacing', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400, source: 'on-car: ∫ CAN power this lap' },
+  { bind: 'pacing.lapBudgetWh', label: 'Per-lap budget', group: 'Pacing', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 400, source: 'trackside (lhre/dash/lapBudgetWh)' },
+  { bind: 'pacing.lapElapsedS', label: 'Lap elapsed', group: 'Pacing', unit: 's', defaultFormat: 'laptime', min: 0, max: 120, source: 'on-car: wall-clock since lap start' },
+  { bind: 'pacing.lapNumber', label: 'Lap (in progress)', group: 'Pacing', defaultFormat: 'int', min: 0, max: 30, source: 'on-car: lap_count + 1' },
+  { bind: 'mqtt.lapsRemaining', label: 'Laps remaining', group: 'Pacing', defaultFormat: 'int', min: 0, max: 30, source: 'trackside: target laps − completed (lhre/dash/lapsRemaining)' },
+  { bind: 'mqtt.targetPower', label: 'Target power', group: 'Pacing', unit: 'kW', defaultFormat: 'kw', min: 0, max: 80, source: 'trackside (lhre/dash/targetPower)' },
   // Deltas (signed — green/red by sign; lower/negative is "good" by default)
-  { bind: 'mqtt.lapDelta', label: 'Lap Δ vs ref', group: 'Deltas', unit: 's', defaultFormat: 'float2', min: -5, max: 5, bidirectional: true, isDelta: true, goodSign: 'negative' },
-  { bind: 'pacing.budgetDeltaWh', label: 'Energy budget Δ', group: 'Deltas', unit: 'Wh', defaultFormat: 'whSigned', min: -100, max: 100, bidirectional: true, isDelta: true, goodSign: 'negative' },
-  { bind: 'mqtt.energyDelta', label: 'Energy Δ vs target', group: 'Deltas', unit: 'Wh', defaultFormat: 'whSigned', min: -100, max: 100, bidirectional: true, isDelta: true, goodSign: 'negative' },
-  { bind: 'mqtt.lapDeltaRate', label: 'Lap Δ rate', group: 'Deltas', unit: 's/s', defaultFormat: 'float2', min: -2, max: 2, bidirectional: true, isDelta: true, goodSign: 'negative' },
+  { bind: 'mqtt.lapDelta', label: 'Lap Δ vs best', group: 'Deltas', unit: 's', defaultFormat: 'float2', min: -5, max: 5, bidirectional: true, isDelta: true, goodSign: 'negative', source: 'trackside: last lap − best lap (lhre/dash/lapDelta)' },
+  { bind: 'pacing.budgetDeltaWh', label: 'Energy budget Δ (power)', group: 'Deltas', unit: 'Wh', defaultFormat: 'whSigned', min: -100, max: 100, bidirectional: true, isDelta: true, goodSign: 'negative', source: 'on-car: lapEnergyWh − targetPower·elapsed (POWER-based, live within lap)' },
+  { bind: 'mqtt.energyDelta', label: 'Energy Δ vs dyn budget', group: 'Deltas', unit: 'Wh', defaultFormat: 'whSigned', min: -100, max: 100, bidirectional: true, isDelta: true, goodSign: 'negative', source: 'trackside: last lap − DYNAMIC budget (remaining ÷ laps left); lhre/dash/energyDelta' },
+  { bind: 'mqtt.energyDeltaStatic', label: 'Energy Δ vs plan', group: 'Deltas', unit: 'Wh', defaultFormat: 'whSigned', min: -100, max: 100, bidirectional: true, isDelta: true, goodSign: 'negative', source: 'trackside: last lap − STATIC plan budget (kWh ÷ laps); lhre/dash/energyDeltaStatic' },
   // Energy / charge (VCU is the source of truth for running energy)
-  { bind: 'can.soc', label: 'State of energy', group: 'Energy', unit: '%', defaultFormat: 'pct', min: 0, max: 100 },
-  { bind: 'can.vcuNetEnergyWh', label: 'VCU net energy', group: 'Energy', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 8000 },
-  { bind: 'can.vcuRegenEnergyWh', label: 'VCU regen energy', group: 'Energy', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 2000 },
-  { bind: 'can.power', label: 'Pack power', group: 'Energy', unit: 'kW', defaultFormat: 'kw', min: -80, max: 80, bidirectional: true },
+  { bind: 'can.soc', label: 'State of energy', group: 'Energy', unit: '%', defaultFormat: 'pct', min: 0, max: 100, source: '0x1C7 soc_estimate (VCU State)' },
+  { bind: 'can.vcuNetEnergyWh', label: 'VCU net energy', group: 'Energy', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 8000, source: '0x1C9 net_energy (VCU Energy Estimate)' },
+  { bind: 'can.vcuRegenEnergyWh', label: 'VCU regen energy', group: 'Energy', unit: 'Wh', defaultFormat: 'wh', min: 0, max: 2000, source: '0x1C9 regen_energy (VCU Energy Estimate)' },
+  { bind: 'can.power', label: 'Pack power', group: 'Energy', unit: 'kW', defaultFormat: 'kw', min: -80, max: 80, bidirectional: true, source: 'derived: 0x0A7 dc_bus_v × 0x0A6 dc_bus_current ÷ 1000' },
   // Cell voltages (pack health)
-  { bind: 'can.cellVMax', label: 'Cell V max', group: 'Cells', unit: 'V', defaultFormat: 'volt', min: 2.5, max: 4.3 },
-  { bind: 'can.cellVMin', label: 'Cell V min', group: 'Cells', unit: 'V', defaultFormat: 'volt', min: 2.5, max: 4.3 },
-  { bind: 'can.cellVSpread', label: 'Cell V spread', group: 'Cells', unit: 'V', defaultFormat: 'float2', min: 0, max: 0.5 },
+  { bind: 'can.cellVMax', label: 'Cell V max', group: 'Cells', unit: 'V', defaultFormat: 'volt', min: 2.5, max: 4.3, source: 'max of 0x0D0 cells_v[] (BMS)' },
+  { bind: 'can.cellVMin', label: 'Cell V min', group: 'Cells', unit: 'V', defaultFormat: 'volt', min: 2.5, max: 4.3, source: 'min of 0x0D0 cells_v[] (BMS)' },
+  { bind: 'can.cellVSpread', label: 'Cell V spread', group: 'Cells', unit: 'V', defaultFormat: 'float2', min: 0, max: 0.5, source: 'derived: max − min of 0x0D0 cells_v[]' },
   // Cell + pack temps
-  { bind: 'can.cellTempMax', label: 'Cell T max', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 80 },
-  { bind: 'can.cellTempAvg', label: 'Cell T avg', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 80 },
-  { bind: 'can.cellTempMin', label: 'Cell T min', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 80 },
-  { bind: 'can.temperature', label: 'Battery temp', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 80 },
+  { bind: 'can.cellTempMax', label: 'Cell T max', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 80, source: 'max of 0x100 cells_temps[] (BMS)' },
+  { bind: 'can.cellTempAvg', label: 'Cell T avg', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 80, source: 'mean of 0x100 cells_temps[] (BMS)' },
+  { bind: 'can.cellTempMin', label: 'Cell T min', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 80, source: 'min of 0x100 cells_temps[] (BMS)' },
+  { bind: 'can.temperature', label: 'Battery temp', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 80, source: '= cell T max (0x100 cells_temps[])' },
   // Powertrain temps
-  { bind: 'can.motorTemp', label: 'Motor temp', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 120 },
-  { bind: 'can.inverterTemp', label: 'Inverter temp', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 100 },
-  { bind: 'can.coolantTemp', label: 'Coolant temp', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 80 },
+  { bind: 'can.motorTemp', label: 'Motor temp', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 120, source: '0x0A2 motor_temp (thermal)' },
+  { bind: 'can.inverterTemp', label: 'Inverter temp', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 100, source: '0x182 inverter_temp (PDU Temps)' },
+  { bind: 'can.coolantTemp', label: 'Coolant temp', group: 'Temps', unit: '°C', defaultFormat: 'temp', min: 0, max: 80, source: '0x0A2 coolant_temp (thermal)' },
   // Driver inputs
-  { bind: 'can.apps', label: 'APPS (accel)', group: 'Driver', unit: '%', defaultFormat: 'pct', min: 0, max: 100 },
-  { bind: 'can.bpps', label: 'BPPS (brake)', group: 'Driver', unit: '%', defaultFormat: 'pct', min: 0, max: 100 },
-  { bind: 'can.brakeBias', label: 'Brake bias (front)', group: 'Driver', unit: '%', defaultFormat: 'pct', min: 0, max: 100 },
-  { bind: 'can.brakePressureFront', label: 'Brake pressure F', group: 'Driver', unit: 'psi', defaultFormat: 'int', min: 0, max: 1000 },
-  { bind: 'can.brakePressureRear', label: 'Brake pressure R', group: 'Driver', unit: 'psi', defaultFormat: 'int', min: 0, max: 1000 },
+  { bind: 'can.apps', label: 'APPS (accel)', group: 'Driver', unit: '%', defaultFormat: 'pct', min: 0, max: 100, source: '0x1C0 apps1_travel (APPS Voltages)' },
+  { bind: 'can.bpps', label: 'BPPS (brake)', group: 'Driver', unit: '%', defaultFormat: 'pct', min: 0, max: 100, source: '0x1C2 bpps1_travel (BPPS Voltages)' },
+  { bind: 'can.brakeBias', label: 'Brake bias (front)', group: 'Driver', unit: '%', defaultFormat: 'pct', min: 0, max: 100, source: 'derived: 0x1C5 brake_bias × 100' },
+  { bind: 'can.brakePressureFront', label: 'Brake pressure F', group: 'Driver', unit: 'psi', defaultFormat: 'int', min: 0, max: 1000, source: '0x1C5 brake_pressure_f (Brakes)' },
+  { bind: 'can.brakePressureRear', label: 'Brake pressure R', group: 'Driver', unit: 'psi', defaultFormat: 'int', min: 0, max: 1000, source: 'derived: mean of 0x1C5 brake_pressure_rall/rbll' },
   // Rails
-  { bind: 'can.hvVoltage', label: 'HV voltage', group: 'Rails', unit: 'V', defaultFormat: 'volt', min: 0, max: 600 },
-  { bind: 'can.hvCurrent', label: 'HV current', group: 'Rails', unit: 'A', defaultFormat: 'amp', min: -400, max: 400, bidirectional: true },
-  { bind: 'can.lvVoltage', label: 'LV voltage', group: 'Rails', unit: 'V', defaultFormat: 'volt', min: 0, max: 30 },
-  { bind: 'can.lvCurrent', label: 'LV current', group: 'Rails', unit: 'A', defaultFormat: 'amp', min: 0, max: 30 },
+  { bind: 'can.hvVoltage', label: 'HV voltage', group: 'Rails', unit: 'V', defaultFormat: 'volt', min: 0, max: 600, source: '0x132 hv_pack_v (HVC — not currently emitted)' },
+  { bind: 'can.hvCurrent', label: 'HV current', group: 'Rails', unit: 'A', defaultFormat: 'amp', min: -400, max: 400, bidirectional: true, source: '0x132 hv_c (HVC — not currently emitted)' },
+  { bind: 'can.lvVoltage', label: 'LV voltage', group: 'Rails', unit: 'V', defaultFormat: 'volt', min: 0, max: 30, source: '0x183 lv_batt_v (LV Battery)' },
+  { bind: 'can.lvCurrent', label: 'LV current', group: 'Rails', unit: 'A', defaultFormat: 'amp', min: 0, max: 30, source: '0x183 lv_batt_c (LV Battery)' },
   // Dynamics + wheels
-  { bind: 'can.speed', label: 'Speed', group: 'Dynamics', unit: 'mph', defaultFormat: 'mph', min: 0, max: 100 },
+  { bind: 'can.speed', label: 'Speed', group: 'Dynamics', unit: 'mph', defaultFormat: 'mph', min: 0, max: 100, source: 'derived: 0x0A5 motor_speed × 0.0142 → mph' },
   { bind: 'can.eventMode', label: 'VCU event mode', group: 'Dynamics', defaultFormat: 'int', min: 0, max: 4,
-    enumMap: { '0': '—', '1': 'ACCEL', '2': 'SKID', '3': 'AUTOX', '4': 'ENDUR' } },
-  { bind: 'can.wheelSpeedFL', label: 'Wheel FL', group: 'Wheels', defaultFormat: 'float1', min: 0, max: 100 },
-  { bind: 'can.wheelSpeedFR', label: 'Wheel FR', group: 'Wheels', defaultFormat: 'float1', min: 0, max: 100 },
-  { bind: 'can.wheelSpeedRL', label: 'Wheel RL', group: 'Wheels', defaultFormat: 'float1', min: 0, max: 100 },
-  { bind: 'can.wheelSpeedRR', label: 'Wheel RR', group: 'Wheels', defaultFormat: 'float1', min: 0, max: 100 },
+    enumMap: { '0': '—', '1': 'ACCEL', '2': 'SKID', '3': 'AUTOX', '4': 'ENDUR' }, source: '0x1C7 event_mode (VCU State)' },
+  { bind: 'can.wheelSpeedFL', label: 'Wheel FL', group: 'Wheels', defaultFormat: 'float1', min: 0, max: 100, source: '0x402 fl_wheel_speed (USM)' },
+  { bind: 'can.wheelSpeedFR', label: 'Wheel FR', group: 'Wheels', defaultFormat: 'float1', min: 0, max: 100, source: '0x403 fr_wheel_speed (USM)' },
+  { bind: 'can.wheelSpeedRL', label: 'Wheel RL', group: 'Wheels', defaultFormat: 'float1', min: 0, max: 100, source: '0x404 bl_wheel_speed (USM rear-left)' },
+  { bind: 'can.wheelSpeedRR', label: 'Wheel RR', group: 'Wheels', defaultFormat: 'float1', min: 0, max: 100, source: '0x405 br_wheel_speed (USM rear-right)' },
+  // Boolean status flags (rendered ON/OFF; booleans → 1/0 in getByPath). The
+  // editor pre-fills each widget's valueMap from enumMap, so the labels (and
+  // colors, via thresholds) are editable per widget.
+  { bind: 'can.regenEnabled', label: 'Regen', group: 'Controls', defaultFormat: 'bool', min: 0, max: 1, enumMap: { '0': 'OFF', '1': 'ON' }, source: '0x1C7 byte 5 (VCU State) — "line_lock_enabled" bit, used as the regen-armed flag' },
+  { bind: 'can.posContactor', label: 'HV+ contactor', group: 'Contactors', defaultFormat: 'bool', min: 0, max: 1, enumMap: { '0': 'OPEN', '1': 'CLOSED' }, source: '0x131 pos contactor (HVC)' },
+  { bind: 'can.negContactor', label: 'HV− contactor', group: 'Contactors', defaultFormat: 'bool', min: 0, max: 1, enumMap: { '0': 'OPEN', '1': 'CLOSED' }, source: '0x131 neg contactor (HVC)' },
+  { bind: 'can.prechargeContactor', label: 'Precharge', group: 'Contactors', defaultFormat: 'bool', min: 0, max: 1, enumMap: { '0': 'OPEN', '1': 'CLOSED' }, source: '0x131 precharge contactor (HVC)' },
 ];
 
 export function fieldDef(bind: string): FieldDef | undefined {
@@ -253,6 +272,9 @@ export function getByPath(ctx: unknown, path: string): number | null {
     if (cur == null || typeof cur !== 'object') return null;
     cur = (cur as Record<string, unknown>)[key];
   }
+  // Booleans (e.g. can.regenEnabled, contactors) are exposed as 1/0 so they can
+  // bind to value widgets — rendered ON/OFF via the 'bool' format or a valueMap.
+  if (typeof cur === 'boolean') return cur ? 1 : 0;
   return typeof cur === 'number' && Number.isFinite(cur) ? cur : null;
 }
 
@@ -268,6 +290,9 @@ export function valueColor(v: number | null | undefined, base: string, rules?: C
 
 export function formatValue(v: number | null | undefined, fmt: FormatId, decimals?: number): string {
   if (v == null || !Number.isFinite(v)) return '--';
+  // ON/OFF for booleans (already coerced to 1/0 by getByPath). A widget valueMap
+  // (e.g. {0:'OPEN',1:'CLOSED'}) overrides these via applyValueMap.
+  if (fmt === 'bool') return v >= 0.5 ? 'ON' : 'OFF';
   // Optional per-widget precision override. Applies to the numeric formats —
   // keeps kwh's /1000 scaling and whSigned's +/- sign; lap-time ignores it.
   if (decimals != null && Number.isFinite(decimals) && fmt !== 'laptime') {
@@ -378,9 +403,38 @@ export function defaultParkLayout(): LapCardLayout {
   };
 }
 
+// Default starter for the Primary / Driving screen — speed + power gauges, SoE,
+// lap delta, and per-lap energy used vs budget. Binds can.* + pacing.* + mqtt.*
+// (no lapCard.* — the lap card is its own overlay). The on-car built-in driving
+// view stays as the fallback whenever no custom driving layout is published.
+export function defaultDrivingLayout(): LapCardLayout {
+  return {
+    version: DASH_LAYOUT_VERSION,
+    name: 'Default driving screen',
+    background: 'auto',
+    widgets: [
+      { id: 'soe', type: 'value', bind: 'can.soc', format: 'pct', label: 'SoE',
+        x: 300, y: 6, w: 200, h: 60, fontSize: 40, color: 'auto', align: 'center', bold: true,
+        thresholds: [{ cmp: 'lt', value: 20, color: '#FFD700' }, { cmp: 'lt', value: 10, color: '#FF3333' }] },
+      { id: 'speed', type: 'gauge', bind: 'can.speed', min: 0, max: 80, label: 'MPH', color: 'gradient', format: 'int',
+        x: 40, y: 80, w: 320, h: 300 },
+      { id: 'power', type: 'gauge', bind: 'can.power', min: -80, max: 80, label: 'kW', mode: 'bidirectional', format: 'kw',
+        x: 440, y: 80, w: 320, h: 300 },
+      { id: 'delta', type: 'delta', bind: 'mqtt.lapDelta', format: 'laptime', label: 'Δ LAP', fontSize: 44,
+        x: 40, y: 396, w: 240, h: 76, goodSign: 'negative', showArrow: true },
+      { id: 'used', type: 'value', bind: 'pacing.lapEnergyWh', format: 'wh', label: 'USED Wh', fontSize: 40,
+        x: 300, y: 396, w: 200, h: 76, color: 'auto', align: 'center', bold: true },
+      { id: 'budget', type: 'delta', bind: 'pacing.budgetDeltaWh', format: 'whSigned', label: 'BUDGET Δ', fontSize: 40,
+        x: 520, y: 396, w: 240, h: 76, goodSign: 'negative', showArrow: false },
+    ],
+  };
+}
+
 export const DASH_SCREENS: ScreenDef[] = [
   { id: 'lapCard', name: 'Lap Card', topic: 'layout', libraryKey: 'dash-lap-layouts',
     contextRoots: ['lapCard', 'pacing', 'can', 'mqtt'], build: defaultLapCardLayout },
+  { id: 'driving', name: 'Primary / Driving', topic: 'drivingLayout', libraryKey: 'dash-driving-layouts',
+    contextRoots: ['can', 'pacing', 'mqtt'], build: defaultDrivingLayout },
   { id: 'park', name: 'Park / Pit', topic: 'parkLayout', libraryKey: 'dash-park-layouts',
     contextRoots: ['can', 'pacing', 'mqtt'], build: defaultParkLayout },
 ];

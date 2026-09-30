@@ -136,6 +136,20 @@ const ScreenOne: React.FC = () => {
     const REGEN_MAX_KW = 20;
     const DRIVE_MAX_KW = 80;
 
+    // Trackside custom driving layout, if one was published — replaces the built-in
+    // driving view (the lap-card overlay still floats on top, rendered by Dashboard).
+    // Mirrors PitDiagnostic's custom-layout branch; the built-in view below is the
+    // fallback whenever no layout is set.
+    const customDriving = validateLapCardLayout(data?.drivingLayout);
+    if (customDriving && customDriving.widgets.length) {
+        const ctx = { can: data?.can, pacing: data?.pacing, mqtt: data?.mqtt };
+        return (
+            <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
+                <LapCardRenderer layout={customDriving} data={ctx} scale={1} theme={dashTheme} />
+            </div>
+        );
+    }
+
     return (
         <div className="modern-dash-container" style={{ width: '100vw', height: '100vh', position: 'relative' }}>
 
@@ -817,54 +831,8 @@ const ScreenOne: React.FC = () => {
                 </div>
             </div>
 
-            {/* Full-screen lap card — pops on each lapTrigger crossing and
-                clears itself after a few seconds (LAP_CARD_MS in the hook).
-                Shows the just-finished lap's time and net energy so the driver
-                gets a clear glance as they cross start/finish. */}
-            {pacing.lapCard && (() => {
-                // If trackside sent a custom lap-card layout, render it; otherwise
-                // fall back to the built-in card. validateLapCardLayout returns null
-                // for a missing/malformed layout, so the driver screen never blanks.
-                const customLayout = validateLapCardLayout(data?.layout);
-                if (customLayout && customLayout.widgets.length) {
-                    const ctx = {
-                        lapCard: pacing.lapCard,
-                        pacing: data?.pacing,
-                        can: data?.can,
-                        mqtt: data?.mqtt,
-                    };
-                    return (
-                        <div style={{ position: 'absolute', inset: 0, zIndex: 1000 }}>
-                            <LapCardRenderer layout={customLayout} data={ctx} scale={1} theme={dashTheme} />
-                        </div>
-                    );
-                }
-                return (
-                    <div style={{
-                        position: 'absolute',
-                        inset: 0,
-                        zIndex: 1000,
-                        background: dashTheme === 'light' ? 'rgba(244,241,237,0.94)' : 'rgba(8,8,10,0.92)',
-                        backdropFilter: 'blur(6px)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px'
-                    }}>
-                        <div className="label-small" style={{ fontSize: '1.4rem', letterSpacing: '8px', color: '#BF5700' }}>
-                            LAP {pacing.lapCard.lapNumber}
-                        </div>
-                        <div className="value-display" style={{ fontSize: '7rem', fontWeight: 'bold', lineHeight: 0.9 }}>
-                            {fmtLapTime(pacing.lapCard.timeS)}
-                        </div>
-                        <div className="value-display" style={{ fontSize: '3rem', fontWeight: 'bold', color: 'var(--fg-secondary)', lineHeight: 1 }}>
-                            {Math.round(pacing.lapCard.energyWh)}
-                            <span className="label-small" style={{ fontSize: '1.1rem', marginLeft: '8px' }}>Wh / LAP</span>
-                        </div>
-                    </div>
-                );
-            })()}
+            {/* Lap card lifted to Dashboard (LapCardOverlay) so it floats over every
+                screen — including a custom driving layout — not just this one. */}
         </div>
     );
 };
