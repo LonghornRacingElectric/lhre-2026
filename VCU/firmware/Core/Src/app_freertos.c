@@ -280,7 +280,7 @@ void StartSystemTask(void *argument) {
   }
 }
 
-// ControlTask: main 10ms loop (ADC -> model -> CAN -> logging) --------------
+// ControlTask: main 3ms loop (ADC -> model -> CAN -> logging) --------------
 void StartControlTask(void *argument) {
   // Let system init (USB, DFU, CAN, DMA) finish
   osDelay(pdMS_TO_TICKS(1000));
@@ -301,6 +301,9 @@ void StartControlTask(void *argument) {
   float steering_sensor_voltage_v = 0.0f;
   float steering_angle_pct = 0.0f;
   float steering_angle_deg = 0.0f;
+
+  HAL_ADC_Start(&hadc1);
+  TickType_t next_release = xTaskGetTickCount();
 
   for (;;) {
     uint32_t current_tick = osKernelGetTickCount();
@@ -324,11 +327,13 @@ void StartControlTask(void *argument) {
     // Optional: small delay to let conversions complete before we read
     // osDelay(1);
 
-    HAL_ADC_Start(&hadc1);
-    if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
+    // Consume completed steering conversion without blocking the torque loop.
+    // This legacy steering value is telemetry, not a qualified TC road-wheel angle.
+    if (__HAL_ADC_GET_FLAG(&hadc1, ADC_FLAG_EOC)) {
       adc1_val = HAL_ADC_GetValue(&hadc1);
+      HAL_ADC_Stop(&hadc1);
+      HAL_ADC_Start(&hadc1);
     }
-    HAL_ADC_Stop(&hadc1);
 
     steering_adc_voltage_v =
         ((float)adc1_val * ADC_STEERING_SCALE_V) / ADC_MAX_VAL;
@@ -356,6 +361,7 @@ void StartControlTask(void *argument) {
     in.motor_speed_rpm = fabsf(vcu_can_get_motor_speed_rpm());
     in.torque_feedback_nm = vcu_can_get_torque_feedback_nm();
     in.motor_speed_valid = vcu_can_is_motor_speed_valid();
+    vcu_can_get_traction_inputs(&in.traction_control);
     in.min_cell_voltage_v = vcu_can_get_min_cell_voltage_v();
     in.max_cell_voltage_v = vcu_can_get_max_cell_voltage_v();
     if (in.min_cell_voltage_v <= 0.0f) {
@@ -398,7 +404,10 @@ void StartControlTask(void *argument) {
     }
 
     // 3 ms control loop (333 Hz)
-    osDelay(pdMS_TO_TICKS(CONTROL_LOOP_PERIOD_MS));
+    const TickType_t period = pdMS_TO_TICKS(CONTROL_LOOP_PERIOD_MS);
+    if ((TickType_t)(xTaskGetTickCount() - next_release) >= period)
+      next_release = xTaskGetTickCount(); // Do not burst through missed cycles.
+    vTaskDelayUntil(&next_release, pdMS_TO_TICKS(CONTROL_LOOP_PERIOD_MS));
   }
 }
 

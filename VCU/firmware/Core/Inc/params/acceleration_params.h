@@ -7,6 +7,8 @@ static const vcu_parameters_t acceleration_params = {
     VCU_DEFAULT_PARAMS,
     .traction_control = { \
         .enabled = false, \
+        .mode = TC_MODE_SHADOW, \
+        .calibrated = false, \
         .accel_filter_alpha = 0.6f, \
         .alpha_threshold_rad_s2 = 30.0f, \
         .pi_kp = 0.5f, \

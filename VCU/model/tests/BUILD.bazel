@@ -69,3 +69,18 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "power_limit_test",
+    srcs = ["power_limit_test.c"],
+    linkopts = ["-lm"],
+    linkstatic = True,
+    deps = ["//VCU/model:vcu_model_2026"],
+)
+
+cc_test(
+    name = "traction_control_test",
+    srcs = ["traction_control_test.c"],
+    linkopts = ["-lm"],
+    deps = ["//VCU/model:vcu_model_2026"],
+)

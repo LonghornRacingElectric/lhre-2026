@@ -72,6 +72,8 @@ typedef struct can_config_t {
   CAN_GetRxMessage_fn get_rx_message_fn;
   CAN_GetRxFifoFillLevel_fn get_rx_fifo_fill_level_fn;
   Tick_fn tick_fn;
+  /* Optional ISR-safe wrapping microsecond clock; fallback is tick_fn * 1000. */
+  Tick_fn tick_us_fn;
   CAN_AddFilter_fn add_filter_fn;
   Malloc_fn malloc_fn;
   Free_fn free_fn;
@@ -102,7 +104,15 @@ typedef struct can_message_t {
 
 typedef struct can_receive_message_t {
   void *latest_msg;
+  /* Software FIFO-pop time of last decoded payload, never decode-task time.
+   * This is not a hardware bus-arrival timestamp; ISR/FIFO delay remains. */
   uint32_t _latest_rx_ms;
+  uint32_t latest_rx_us;
+  bool ever_received;
+  /* Minimum payload length in BYTES; zero preserves legacy unspecified length. */
+  uint8_t expected_dlc;
+  uint8_t latest_dlc; /* Actual byte length of the last decoded payload. */
+  uint32_t rx_queue_drops;
   uint32_t packet_id;
   struct can_receive_message_t *_next;
   CAN_unpack_message_fn unpacking_fn;
@@ -165,9 +175,21 @@ cHAL_StatusTypeDef can_send_immediate(can_interface_t *interface,
 
 /**
  * @brief Internal RX hook that can be overridden (e.g. by RTOS wrapper).
- *        Default implementation calls msg->unpacking_fn directly.
+ *        Carries FIFO reception time and actual payload length in bytes.
+ *        Default implementation decodes immediately. RTOS queues this envelope.
  */
-void can_rx_hook(can_receive_message_t *msg, uint8_t *rx_data);
+void can_rx_hook(can_receive_message_t *msg, uint8_t *rx_data,
+                 uint8_t rx_len, uint32_t received_ms, uint32_t received_us);
+
+/* Decode and publish matching payload/freshness. Returns false on rejection.
+ * Unpack callbacks must return zero on success and leave the destination
+ * unchanged on failure. In RTOS, callers AND readers must use a short critical
+ * section around this operation / their complete payload+metadata snapshot.
+ * Callbacks must be bounded, nonblocking decoding only (no I/O or allocation).
+ */
+bool can_decode_received(can_receive_message_t *msg, uint8_t *rx_data,
+                          uint8_t rx_len, uint32_t received_ms,
+                          uint32_t received_us);
 
 /**
  * @brief Periodically send CAN packets

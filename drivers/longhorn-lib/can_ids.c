@@ -2665,6 +2665,96 @@ int unpack_usm_enter_bootloader(const uint8_t* rx_buf, msg_usm_enter_bootloader_
     return 0;
 }
 
+// Packet: HVC Charger Command
+int pack_hvc_charger_command(const msg_hvc_charger_command_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, HVC_CHARGER_COMMAND_DLC);
+
+    // Pack: Max Charge Voltage
+    uint16_t raw_max_charge_voltage = (uint16_t)(msg->max_charge_voltage / 0.01f);
+    tx_buf[0 + 0] = (uint8_t)(raw_max_charge_voltage & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_max_charge_voltage >> 8) & 0xFF);
+
+    // Pack: Max Charge Current
+    uint16_t raw_max_charge_current = (uint16_t)(msg->max_charge_current / 0.01f);
+    tx_buf[2 + 0] = (uint8_t)(raw_max_charge_current & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((raw_max_charge_current >> 8) & 0xFF);
+
+    // Pack: IMD LED State
+    tx_buf[4] = (uint8_t)msg->imd_led_state;
+
+    // Pack: BMS LED State
+    tx_buf[5] = (uint8_t)msg->bms_led_state;
+
+    // Pack: Charger Enable
+    tx_buf[6] = (uint8_t)msg->charger_enable;
+
+    return 0;
+}
+
+int unpack_hvc_charger_command(const uint8_t* rx_buf, msg_hvc_charger_command_t* msg) {
+    // Unpack: Max Charge Voltage
+    uint16_t raw_max_charge_voltage = 0;
+    raw_max_charge_voltage = (uint16_t)rx_buf[0 + 0];
+    raw_max_charge_voltage |= (uint16_t)(rx_buf[0 + 1] << 8);
+    msg->max_charge_voltage = (float)raw_max_charge_voltage * 0.01f;
+
+    // Unpack: Max Charge Current
+    uint16_t raw_max_charge_current = 0;
+    raw_max_charge_current = (uint16_t)rx_buf[2 + 0];
+    raw_max_charge_current |= (uint16_t)(rx_buf[2 + 1] << 8);
+    msg->max_charge_current = (float)raw_max_charge_current * 0.01f;
+
+    // Unpack: IMD LED State
+    msg->imd_led_state = (uint8_t)rx_buf[4];
+
+    // Unpack: BMS LED State
+    msg->bms_led_state = (uint8_t)rx_buf[5];
+
+    // Unpack: Charger Enable
+    msg->charger_enable = (uint8_t)rx_buf[6];
+
+    return 0;
+}
+
+// Packet: Charger Status
+int pack_charger_status(const msg_charger_status_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, CHARGER_STATUS_DLC);
+
+    // Pack: Actual Voltage
+    uint16_t raw_actual_voltage = (uint16_t)(msg->actual_voltage / 0.01f);
+    tx_buf[0 + 0] = (uint8_t)(raw_actual_voltage & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_actual_voltage >> 8) & 0xFF);
+
+    // Pack: Actual Current
+    uint16_t raw_actual_current = (uint16_t)(msg->actual_current / 0.01f);
+    tx_buf[2 + 0] = (uint8_t)(raw_actual_current & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((raw_actual_current >> 8) & 0xFF);
+
+    // Pack: Charger Enabled
+    tx_buf[4] = (uint8_t)msg->charger_enabled;
+
+    return 0;
+}
+
+int unpack_charger_status(const uint8_t* rx_buf, msg_charger_status_t* msg) {
+    // Unpack: Actual Voltage
+    uint16_t raw_actual_voltage = 0;
+    raw_actual_voltage = (uint16_t)rx_buf[0 + 0];
+    raw_actual_voltage |= (uint16_t)(rx_buf[0 + 1] << 8);
+    msg->actual_voltage = (float)raw_actual_voltage * 0.01f;
+
+    // Unpack: Actual Current
+    uint16_t raw_actual_current = 0;
+    raw_actual_current = (uint16_t)rx_buf[2 + 0];
+    raw_actual_current |= (uint16_t)(rx_buf[2 + 1] << 8);
+    msg->actual_current = (float)raw_actual_current * 0.01f;
+
+    // Unpack: Charger Enabled
+    msg->charger_enabled = (uint8_t)rx_buf[4];
+
+    return 0;
+}
+
 // Packet: HVC Bounds Parameters
 int pack_hvc_bounds_parameters(const msg_hvc_bounds_parameters_t* msg, uint8_t* tx_buf) {
     memset(tx_buf, 0, HVC_BOUNDS_PARAMETERS_DLC);
@@ -2790,6 +2880,289 @@ int unpack_torque_path(const uint8_t* rx_buf, msg_torque_path_t* msg) {
     raw_torque_traction_controlled = (uint16_t)rx_buf[6 + 0];
     raw_torque_traction_controlled |= (uint16_t)(rx_buf[6 + 1] << 8);
     msg->torque_traction_controlled = (float)raw_torque_traction_controlled * 0.1f;
+
+    return 0;
+}
+
+// Packet: Traction Wheel FL
+int pack_traction_wheel_fl(const msg_traction_wheel_fl_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, TRACTION_WHEEL_FL_DLC);
+
+    // Pack: Angular Speed
+    int16_t raw_angular_speed = (int16_t)(msg->angular_speed / 0.01f);
+    tx_buf[0 + 0] = (uint8_t)(raw_angular_speed & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_angular_speed >> 8) & 0xFF);
+
+    // Pack: Estimate Time Us
+    tx_buf[2 + 0] = (uint8_t)(msg->estimate_time_us & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((msg->estimate_time_us >> 8) & 0xFF);
+    tx_buf[2 + 2] = (uint8_t)((msg->estimate_time_us >> 16) & 0xFF);
+    tx_buf[2 + 3] = (uint8_t)((msg->estimate_time_us >> 24) & 0xFF);
+
+    // Pack: Sequence
+    tx_buf[6] = (uint8_t)msg->sequence;
+
+    // Pack: Status
+    tx_buf[7] = (uint8_t)msg->status;
+
+    return 0;
+}
+
+int unpack_traction_wheel_fl(const uint8_t* rx_buf, msg_traction_wheel_fl_t* msg) {
+    // Unpack: Angular Speed
+    int16_t raw_angular_speed = 0;
+    raw_angular_speed = (int16_t)rx_buf[0 + 0];
+    raw_angular_speed |= (int16_t)(rx_buf[0 + 1] << 8);
+    msg->angular_speed = (float)raw_angular_speed * 0.01f;
+
+    // Unpack: Estimate Time Us
+    msg->estimate_time_us = (uint32_t)rx_buf[2 + 0];
+    msg->estimate_time_us |= (uint32_t)(rx_buf[2 + 1] << 8);
+    msg->estimate_time_us |= (uint32_t)(rx_buf[2 + 2] << 16);
+    msg->estimate_time_us |= (uint32_t)(rx_buf[2 + 3] << 24);
+
+    // Unpack: Sequence
+    msg->sequence = (uint8_t)rx_buf[6];
+
+    // Unpack: Status
+    msg->status = (uint8_t)rx_buf[7];
+
+    return 0;
+}
+
+// Packet: Traction Wheel FR
+int pack_traction_wheel_fr(const msg_traction_wheel_fr_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, TRACTION_WHEEL_FR_DLC);
+
+    // Pack: Angular Speed
+    int16_t raw_angular_speed = (int16_t)(msg->angular_speed / 0.01f);
+    tx_buf[0 + 0] = (uint8_t)(raw_angular_speed & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_angular_speed >> 8) & 0xFF);
+
+    // Pack: Estimate Time Us
+    tx_buf[2 + 0] = (uint8_t)(msg->estimate_time_us & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((msg->estimate_time_us >> 8) & 0xFF);
+    tx_buf[2 + 2] = (uint8_t)((msg->estimate_time_us >> 16) & 0xFF);
+    tx_buf[2 + 3] = (uint8_t)((msg->estimate_time_us >> 24) & 0xFF);
+
+    // Pack: Sequence
+    tx_buf[6] = (uint8_t)msg->sequence;
+
+    // Pack: Status
+    tx_buf[7] = (uint8_t)msg->status;
+
+    return 0;
+}
+
+int unpack_traction_wheel_fr(const uint8_t* rx_buf, msg_traction_wheel_fr_t* msg) {
+    // Unpack: Angular Speed
+    int16_t raw_angular_speed = 0;
+    raw_angular_speed = (int16_t)rx_buf[0 + 0];
+    raw_angular_speed |= (int16_t)(rx_buf[0 + 1] << 8);
+    msg->angular_speed = (float)raw_angular_speed * 0.01f;
+
+    // Unpack: Estimate Time Us
+    msg->estimate_time_us = (uint32_t)rx_buf[2 + 0];
+    msg->estimate_time_us |= (uint32_t)(rx_buf[2 + 1] << 8);
+    msg->estimate_time_us |= (uint32_t)(rx_buf[2 + 2] << 16);
+    msg->estimate_time_us |= (uint32_t)(rx_buf[2 + 3] << 24);
+
+    // Unpack: Sequence
+    msg->sequence = (uint8_t)rx_buf[6];
+
+    // Unpack: Status
+    msg->status = (uint8_t)rx_buf[7];
+
+    return 0;
+}
+
+// Packet: Traction Wheel RL
+int pack_traction_wheel_rl(const msg_traction_wheel_rl_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, TRACTION_WHEEL_RL_DLC);
+
+    // Pack: Angular Speed
+    int16_t raw_angular_speed = (int16_t)(msg->angular_speed / 0.01f);
+    tx_buf[0 + 0] = (uint8_t)(raw_angular_speed & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_angular_speed >> 8) & 0xFF);
+
+    // Pack: Estimate Time Us
+    tx_buf[2 + 0] = (uint8_t)(msg->estimate_time_us & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((msg->estimate_time_us >> 8) & 0xFF);
+    tx_buf[2 + 2] = (uint8_t)((msg->estimate_time_us >> 16) & 0xFF);
+    tx_buf[2 + 3] = (uint8_t)((msg->estimate_time_us >> 24) & 0xFF);
+
+    // Pack: Sequence
+    tx_buf[6] = (uint8_t)msg->sequence;
+
+    // Pack: Status
+    tx_buf[7] = (uint8_t)msg->status;
+
+    return 0;
+}
+
+int unpack_traction_wheel_rl(const uint8_t* rx_buf, msg_traction_wheel_rl_t* msg) {
+    // Unpack: Angular Speed
+    int16_t raw_angular_speed = 0;
+    raw_angular_speed = (int16_t)rx_buf[0 + 0];
+    raw_angular_speed |= (int16_t)(rx_buf[0 + 1] << 8);
+    msg->angular_speed = (float)raw_angular_speed * 0.01f;
+
+    // Unpack: Estimate Time Us
+    msg->estimate_time_us = (uint32_t)rx_buf[2 + 0];
+    msg->estimate_time_us |= (uint32_t)(rx_buf[2 + 1] << 8);
+    msg->estimate_time_us |= (uint32_t)(rx_buf[2 + 2] << 16);
+    msg->estimate_time_us |= (uint32_t)(rx_buf[2 + 3] << 24);
+
+    // Unpack: Sequence
+    msg->sequence = (uint8_t)rx_buf[6];
+
+    // Unpack: Status
+    msg->status = (uint8_t)rx_buf[7];
+
+    return 0;
+}
+
+// Packet: Traction Wheel RR
+int pack_traction_wheel_rr(const msg_traction_wheel_rr_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, TRACTION_WHEEL_RR_DLC);
+
+    // Pack: Angular Speed
+    int16_t raw_angular_speed = (int16_t)(msg->angular_speed / 0.01f);
+    tx_buf[0 + 0] = (uint8_t)(raw_angular_speed & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_angular_speed >> 8) & 0xFF);
+
+    // Pack: Estimate Time Us
+    tx_buf[2 + 0] = (uint8_t)(msg->estimate_time_us & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((msg->estimate_time_us >> 8) & 0xFF);
+    tx_buf[2 + 2] = (uint8_t)((msg->estimate_time_us >> 16) & 0xFF);
+    tx_buf[2 + 3] = (uint8_t)((msg->estimate_time_us >> 24) & 0xFF);
+
+    // Pack: Sequence
+    tx_buf[6] = (uint8_t)msg->sequence;
+
+    // Pack: Status
+    tx_buf[7] = (uint8_t)msg->status;
+
+    return 0;
+}
+
+int unpack_traction_wheel_rr(const uint8_t* rx_buf, msg_traction_wheel_rr_t* msg) {
+    // Unpack: Angular Speed
+    int16_t raw_angular_speed = 0;
+    raw_angular_speed = (int16_t)rx_buf[0 + 0];
+    raw_angular_speed |= (int16_t)(rx_buf[0 + 1] << 8);
+    msg->angular_speed = (float)raw_angular_speed * 0.01f;
+
+    // Unpack: Estimate Time Us
+    msg->estimate_time_us = (uint32_t)rx_buf[2 + 0];
+    msg->estimate_time_us |= (uint32_t)(rx_buf[2 + 1] << 8);
+    msg->estimate_time_us |= (uint32_t)(rx_buf[2 + 2] << 16);
+    msg->estimate_time_us |= (uint32_t)(rx_buf[2 + 3] << 24);
+
+    // Unpack: Sequence
+    msg->sequence = (uint8_t)rx_buf[6];
+
+    // Unpack: Status
+    msg->status = (uint8_t)rx_buf[7];
+
+    return 0;
+}
+
+// Packet: Traction Clock Sync
+int pack_traction_clock_sync(const msg_traction_clock_sync_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, TRACTION_CLOCK_SYNC_DLC);
+
+    // Pack: VCU Time Us
+    tx_buf[0 + 0] = (uint8_t)(msg->vcu_time_us & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((msg->vcu_time_us >> 8) & 0xFF);
+    tx_buf[0 + 2] = (uint8_t)((msg->vcu_time_us >> 16) & 0xFF);
+    tx_buf[0 + 3] = (uint8_t)((msg->vcu_time_us >> 24) & 0xFF);
+
+    // Pack: Sequence
+    tx_buf[4 + 0] = (uint8_t)(msg->sequence & 0xFF);
+    tx_buf[4 + 1] = (uint8_t)((msg->sequence >> 8) & 0xFF);
+
+    // Pack: Version
+    tx_buf[6] = (uint8_t)msg->version;
+
+    // Pack: Qualified
+    tx_buf[7] = (uint8_t)msg->qualified;
+
+    return 0;
+}
+
+int unpack_traction_clock_sync(const uint8_t* rx_buf, msg_traction_clock_sync_t* msg) {
+    // Unpack: VCU Time Us
+    msg->vcu_time_us = (uint32_t)rx_buf[0 + 0];
+    msg->vcu_time_us |= (uint32_t)(rx_buf[0 + 1] << 8);
+    msg->vcu_time_us |= (uint32_t)(rx_buf[0 + 2] << 16);
+    msg->vcu_time_us |= (uint32_t)(rx_buf[0 + 3] << 24);
+
+    // Unpack: Sequence
+    msg->sequence = (uint16_t)rx_buf[4 + 0];
+    msg->sequence |= (uint16_t)(rx_buf[4 + 1] << 8);
+
+    // Unpack: Version
+    msg->version = (uint8_t)rx_buf[6];
+
+    // Unpack: Qualified
+    msg->qualified = (uint8_t)rx_buf[7];
+
+    return 0;
+}
+
+// Packet: Traction Diagnostics
+int pack_traction_diagnostics(const msg_traction_diagnostics_t* msg, uint8_t* tx_buf) {
+    memset(tx_buf, 0, TRACTION_DIAGNOSTICS_DLC);
+
+    // Pack: Candidate Torque
+    uint16_t raw_candidate_torque = (uint16_t)(msg->candidate_torque / 0.1f);
+    tx_buf[0 + 0] = (uint8_t)(raw_candidate_torque & 0xFF);
+    tx_buf[0 + 1] = (uint8_t)((raw_candidate_torque >> 8) & 0xFF);
+
+    // Pack: Reference Speed
+    uint16_t raw_reference_speed = (uint16_t)(msg->reference_speed / 0.01f);
+    tx_buf[2 + 0] = (uint8_t)(raw_reference_speed & 0xFF);
+    tx_buf[2 + 1] = (uint8_t)((raw_reference_speed >> 8) & 0xFF);
+
+    // Pack: Worst Slip
+    int16_t raw_worst_slip = (int16_t)(msg->worst_slip / 0.01f);
+    tx_buf[4 + 0] = (uint8_t)(raw_worst_slip & 0xFF);
+    tx_buf[4 + 1] = (uint8_t)((raw_worst_slip >> 8) & 0xFF);
+
+    // Pack: State
+    tx_buf[6] = (uint8_t)msg->state;
+
+    // Pack: Faults
+    tx_buf[7] = (uint8_t)msg->faults;
+
+    return 0;
+}
+
+int unpack_traction_diagnostics(const uint8_t* rx_buf, msg_traction_diagnostics_t* msg) {
+    // Unpack: Candidate Torque
+    uint16_t raw_candidate_torque = 0;
+    raw_candidate_torque = (uint16_t)rx_buf[0 + 0];
+    raw_candidate_torque |= (uint16_t)(rx_buf[0 + 1] << 8);
+    msg->candidate_torque = (float)raw_candidate_torque * 0.1f;
+
+    // Unpack: Reference Speed
+    uint16_t raw_reference_speed = 0;
+    raw_reference_speed = (uint16_t)rx_buf[2 + 0];
+    raw_reference_speed |= (uint16_t)(rx_buf[2 + 1] << 8);
+    msg->reference_speed = (float)raw_reference_speed * 0.01f;
+
+    // Unpack: Worst Slip
+    int16_t raw_worst_slip = 0;
+    raw_worst_slip = (int16_t)rx_buf[4 + 0];
+    raw_worst_slip |= (int16_t)(rx_buf[4 + 1] << 8);
+    msg->worst_slip = (float)raw_worst_slip * 0.01f;
+
+    // Unpack: State
+    msg->state = (uint8_t)rx_buf[6];
+
+    // Unpack: Faults
+    msg->faults = (uint8_t)rx_buf[7];
 
     return 0;
 }

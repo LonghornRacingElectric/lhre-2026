@@ -32,8 +32,8 @@ void power_limit_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
   float torque_trim = params->power_limit.power_limit_trim_kp * error
                      + params->power_limit.power_limit_trim_ki * state->integral;
 
-  // Trim is one-sided: only ever reduce torque, never below zero
-  torque_trim = clamp_f(torque_trim, 0.0f, out->torque_lookup_output);
+  // Preserve upstream battery derating; power limiting may only reduce it.
+  torque_trim = clamp_f(torque_trim, 0.0f, out->torque_derated);
 
-  out->torque_power_limited = out->torque_lookup_output - torque_trim;
+  out->torque_power_limited = out->torque_derated - torque_trim;
 }

@@ -1986,6 +1986,70 @@ int pack_usm_enter_bootloader(const msg_usm_enter_bootloader_t* msg, uint8_t* tx
 int unpack_usm_enter_bootloader(const uint8_t* rx_buf, msg_usm_enter_bootloader_t* msg);
 
 // ==========================================================================
+// Packet: HVC Charger Command (80)
+// ==========================================================================
+// From: HVC
+// To:   Charger
+#define HVC_CHARGER_COMMAND_ID 80
+#define HVC_CHARGER_COMMAND_DLC 7
+#define HVC_CHARGER_COMMAND_FREQ 100
+#define HVC_CHARGER_COMMAND_TIMEOUT_MS 200
+
+typedef struct {
+    float max_charge_voltage;
+    float max_charge_current;
+    uint8_t imd_led_state;
+    uint8_t bms_led_state;
+    uint8_t charger_enable;
+} msg_hvc_charger_command_t;
+
+// Signal: Max Charge Voltage
+#define HVC_CHARGER_COMMAND_MAX_CHARGE_VOLTAGE_PREC 0.01f
+
+// Signal: Max Charge Current
+#define HVC_CHARGER_COMMAND_MAX_CHARGE_CURRENT_PREC 0.01f
+
+// Signal: IMD LED State
+#define HVC_CHARGER_COMMAND_IMD_LED_STATE_PREC 1.0f
+
+// Signal: BMS LED State
+#define HVC_CHARGER_COMMAND_BMS_LED_STATE_PREC 1.0f
+
+// Signal: Charger Enable
+#define HVC_CHARGER_COMMAND_CHARGER_ENABLE_PREC 1.0f
+
+int pack_hvc_charger_command(const msg_hvc_charger_command_t* msg, uint8_t* tx_buf);
+int unpack_hvc_charger_command(const uint8_t* rx_buf, msg_hvc_charger_command_t* msg);
+
+// ==========================================================================
+// Packet: Charger Status (81)
+// ==========================================================================
+// From: Charger
+// To:   HVC
+#define CHARGER_STATUS_ID 81
+#define CHARGER_STATUS_DLC 5
+#define CHARGER_STATUS_FREQ 100
+#define CHARGER_STATUS_TIMEOUT_MS 200
+
+typedef struct {
+    float actual_voltage;
+    float actual_current;
+    uint8_t charger_enabled;
+} msg_charger_status_t;
+
+// Signal: Actual Voltage
+#define CHARGER_STATUS_ACTUAL_VOLTAGE_PREC 0.01f
+
+// Signal: Actual Current
+#define CHARGER_STATUS_ACTUAL_CURRENT_PREC 0.01f
+
+// Signal: Charger Enabled
+#define CHARGER_STATUS_CHARGER_ENABLED_PREC 1.0f
+
+int pack_charger_status(const msg_charger_status_t* msg, uint8_t* tx_buf);
+int unpack_charger_status(const uint8_t* rx_buf, msg_charger_status_t* msg);
+
+// ==========================================================================
 // Packet: HVC Bounds Parameters (48)
 // ==========================================================================
 // From: Pi
@@ -2052,8 +2116,8 @@ int unpack_energy_estimate(const uint8_t* rx_buf, msg_energy_estimate_t* msg);
 // To:   Pi
 #define TORQUE_PATH_ID 458
 #define TORQUE_PATH_DLC 8
-#define TORQUE_PATH_FREQ 100
-#define TORQUE_PATH_TIMEOUT_MS 200
+#define TORQUE_PATH_FREQ 10
+#define TORQUE_PATH_TIMEOUT_MS 20
 
 typedef struct {
     float torque_lookup;
@@ -2076,5 +2140,201 @@ typedef struct {
 
 int pack_torque_path(const msg_torque_path_t* msg, uint8_t* tx_buf);
 int unpack_torque_path(const uint8_t* rx_buf, msg_torque_path_t* msg);
+
+// ==========================================================================
+// Packet: Traction Wheel FL (336)
+// ==========================================================================
+// From: USM
+// To:   VCU
+#define TRACTION_WHEEL_FL_ID 336
+#define TRACTION_WHEEL_FL_DLC 8
+#define TRACTION_WHEEL_FL_FREQ 3
+#define TRACTION_WHEEL_FL_TIMEOUT_MS 6
+
+typedef struct {
+    float angular_speed;
+    uint32_t estimate_time_us;
+    uint8_t sequence;
+    uint8_t status;
+} msg_traction_wheel_fl_t;
+
+// Signal: Angular Speed
+#define TRACTION_WHEEL_FL_ANGULAR_SPEED_PREC 0.01f
+
+// Signal: Estimate Time Us
+#define TRACTION_WHEEL_FL_ESTIMATE_TIME_US_PREC 1.0f
+
+// Signal: Sequence
+#define TRACTION_WHEEL_FL_SEQUENCE_PREC 1.0f
+
+// Signal: Status
+#define TRACTION_WHEEL_FL_STATUS_PREC 1.0f
+
+int pack_traction_wheel_fl(const msg_traction_wheel_fl_t* msg, uint8_t* tx_buf);
+int unpack_traction_wheel_fl(const uint8_t* rx_buf, msg_traction_wheel_fl_t* msg);
+
+// ==========================================================================
+// Packet: Traction Wheel FR (337)
+// ==========================================================================
+// From: USM
+// To:   VCU
+#define TRACTION_WHEEL_FR_ID 337
+#define TRACTION_WHEEL_FR_DLC 8
+#define TRACTION_WHEEL_FR_FREQ 3
+#define TRACTION_WHEEL_FR_TIMEOUT_MS 6
+
+typedef struct {
+    float angular_speed;
+    uint32_t estimate_time_us;
+    uint8_t sequence;
+    uint8_t status;
+} msg_traction_wheel_fr_t;
+
+// Signal: Angular Speed
+#define TRACTION_WHEEL_FR_ANGULAR_SPEED_PREC 0.01f
+
+// Signal: Estimate Time Us
+#define TRACTION_WHEEL_FR_ESTIMATE_TIME_US_PREC 1.0f
+
+// Signal: Sequence
+#define TRACTION_WHEEL_FR_SEQUENCE_PREC 1.0f
+
+// Signal: Status
+#define TRACTION_WHEEL_FR_STATUS_PREC 1.0f
+
+int pack_traction_wheel_fr(const msg_traction_wheel_fr_t* msg, uint8_t* tx_buf);
+int unpack_traction_wheel_fr(const uint8_t* rx_buf, msg_traction_wheel_fr_t* msg);
+
+// ==========================================================================
+// Packet: Traction Wheel RL (338)
+// ==========================================================================
+// From: USM
+// To:   VCU
+#define TRACTION_WHEEL_RL_ID 338
+#define TRACTION_WHEEL_RL_DLC 8
+#define TRACTION_WHEEL_RL_FREQ 3
+#define TRACTION_WHEEL_RL_TIMEOUT_MS 6
+
+typedef struct {
+    float angular_speed;
+    uint32_t estimate_time_us;
+    uint8_t sequence;
+    uint8_t status;
+} msg_traction_wheel_rl_t;
+
+// Signal: Angular Speed
+#define TRACTION_WHEEL_RL_ANGULAR_SPEED_PREC 0.01f
+
+// Signal: Estimate Time Us
+#define TRACTION_WHEEL_RL_ESTIMATE_TIME_US_PREC 1.0f
+
+// Signal: Sequence
+#define TRACTION_WHEEL_RL_SEQUENCE_PREC 1.0f
+
+// Signal: Status
+#define TRACTION_WHEEL_RL_STATUS_PREC 1.0f
+
+int pack_traction_wheel_rl(const msg_traction_wheel_rl_t* msg, uint8_t* tx_buf);
+int unpack_traction_wheel_rl(const uint8_t* rx_buf, msg_traction_wheel_rl_t* msg);
+
+// ==========================================================================
+// Packet: Traction Wheel RR (339)
+// ==========================================================================
+// From: USM
+// To:   VCU
+#define TRACTION_WHEEL_RR_ID 339
+#define TRACTION_WHEEL_RR_DLC 8
+#define TRACTION_WHEEL_RR_FREQ 3
+#define TRACTION_WHEEL_RR_TIMEOUT_MS 6
+
+typedef struct {
+    float angular_speed;
+    uint32_t estimate_time_us;
+    uint8_t sequence;
+    uint8_t status;
+} msg_traction_wheel_rr_t;
+
+// Signal: Angular Speed
+#define TRACTION_WHEEL_RR_ANGULAR_SPEED_PREC 0.01f
+
+// Signal: Estimate Time Us
+#define TRACTION_WHEEL_RR_ESTIMATE_TIME_US_PREC 1.0f
+
+// Signal: Sequence
+#define TRACTION_WHEEL_RR_SEQUENCE_PREC 1.0f
+
+// Signal: Status
+#define TRACTION_WHEEL_RR_STATUS_PREC 1.0f
+
+int pack_traction_wheel_rr(const msg_traction_wheel_rr_t* msg, uint8_t* tx_buf);
+int unpack_traction_wheel_rr(const uint8_t* rx_buf, msg_traction_wheel_rr_t* msg);
+
+// ==========================================================================
+// Packet: Traction Clock Sync (340)
+// ==========================================================================
+// From: VCU
+// To:   USM
+#define TRACTION_CLOCK_SYNC_ID 340
+#define TRACTION_CLOCK_SYNC_DLC 8
+#define TRACTION_CLOCK_SYNC_FREQ 100
+#define TRACTION_CLOCK_SYNC_TIMEOUT_MS 200
+
+typedef struct {
+    uint32_t vcu_time_us;
+    uint16_t sequence;
+    uint8_t version;
+    uint8_t qualified;
+} msg_traction_clock_sync_t;
+
+// Signal: VCU Time Us
+#define TRACTION_CLOCK_SYNC_VCU_TIME_US_PREC 1.0f
+
+// Signal: Sequence
+#define TRACTION_CLOCK_SYNC_SEQUENCE_PREC 1.0f
+
+// Signal: Version
+#define TRACTION_CLOCK_SYNC_VERSION_PREC 1.0f
+
+// Signal: Qualified
+#define TRACTION_CLOCK_SYNC_QUALIFIED_PREC 1.0f
+
+int pack_traction_clock_sync(const msg_traction_clock_sync_t* msg, uint8_t* tx_buf);
+int unpack_traction_clock_sync(const uint8_t* rx_buf, msg_traction_clock_sync_t* msg);
+
+// ==========================================================================
+// Packet: Traction Diagnostics (341)
+// ==========================================================================
+// From: VCU
+// To:   Pi
+#define TRACTION_DIAGNOSTICS_ID 341
+#define TRACTION_DIAGNOSTICS_DLC 8
+#define TRACTION_DIAGNOSTICS_FREQ 20
+#define TRACTION_DIAGNOSTICS_TIMEOUT_MS 40
+
+typedef struct {
+    float candidate_torque;
+    float reference_speed;
+    float worst_slip;
+    uint8_t state;
+    uint8_t faults;
+} msg_traction_diagnostics_t;
+
+// Signal: Candidate Torque
+#define TRACTION_DIAGNOSTICS_CANDIDATE_TORQUE_PREC 0.1f
+
+// Signal: Reference Speed
+#define TRACTION_DIAGNOSTICS_REFERENCE_SPEED_PREC 0.01f
+
+// Signal: Worst Slip
+#define TRACTION_DIAGNOSTICS_WORST_SLIP_PREC 0.01f
+
+// Signal: State
+#define TRACTION_DIAGNOSTICS_STATE_PREC 1.0f
+
+// Signal: Faults
+#define TRACTION_DIAGNOSTICS_FAULTS_PREC 1.0f
+
+int pack_traction_diagnostics(const msg_traction_diagnostics_t* msg, uint8_t* tx_buf);
+int unpack_traction_diagnostics(const uint8_t* rx_buf, msg_traction_diagnostics_t* msg);
 
 #endif // CAN_IDS_H
