@@ -94,6 +94,7 @@ const osThreadAttr_t controlTask_attributes = {
 #define STEERING_SENSOR_ANGLE_RANGE_DEG 360.0f
 #define STEERING_SENSOR_ANGLE_OFFSET_DEG 0.0f
 #define CONTROL_LOOP_PERIOD_MS 3u
+#define VCU_STATUS_PRINT_INTERVAL_MS 1000u
 
 /* USER CODE END PM */
 
@@ -196,8 +197,7 @@ void MX_FREERTOS_Init(void) {
  */
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void *argument) {
-  /* init code for USB_Device */
-  MX_USB_Device_Init();
+  /* USB and its logger are initialized once by StartSystemTask. */
   /* USER CODE BEGIN StartDefaultTask */
   /* Infinite loop */
   for (;;) {
@@ -297,6 +297,10 @@ void StartControlTask(void *argument) {
   vcu_model_init(&ctx, &s_params);
 
   uint32_t adc1_val = 0; // steering ADC1 read
+  uint32_t last_status_print_tick = 0;
+  uint8_t previous_prndl_state = 0;
+  uint32_t previous_post_faults = UINT32_MAX;
+  uint32_t previous_run_faults = UINT32_MAX;
   float steering_adc_voltage_v = 0.0f;
   float steering_sensor_voltage_v = 0.0f;
   float steering_angle_pct = 0.0f;
@@ -381,6 +385,111 @@ void StartControlTask(void *argument) {
     vcu_can_set_steering_angle_deg(steering_angle_deg);
     vcu_can_set_event_mode(s_params.event_mode);
 
+    const bool drive_exit = previous_prndl_state == 1U &&
+                            out.prndl_state == 0U;
+    const bool periodic_status =
+        (uint32_t)(current_tick - last_status_print_tick) >=
+        VCU_STATUS_PRINT_INTERVAL_MS;
+    if (drive_exit || periodic_status) {
+      vcu_hvc_rx_status_t hvc_status;
+      vcu_can_get_hvc_rx_status(&hvc_status);
+
+      if (drive_exit) {
+        const char *reason = !in.drive_switch
+            ? "DRIVE_SWITCH_LOW"
+            : (!in.contactors_closed ? "HVC_NOT_READY" : "UNKNOWN");
+        log_printf(
+            LOG_ERROR,
+            "[VCU][DRIVE_EXIT] reason=%s DRIVE_SW=%u "
+            "DUI=[fresh=%u age=%lums raw=%u faults=0x%02X] "
+            "HVC=[ready=%u fresh=%u age=%lums state=%u AIR=+%u,-%u]",
+            reason, (unsigned int)in.drive_switch,
+            (unsigned int)hvc_status.drive_switch_fresh,
+            (unsigned long)hvc_status.drive_switch_age_ms,
+            (unsigned int)hvc_status.drive_switch,
+            (unsigned int)hvc_status.dui_shutdown_faults,
+            (unsigned int)in.contactors_closed,
+            (unsigned int)hvc_status.fresh,
+            (unsigned long)hvc_status.age_ms,
+            (unsigned int)hvc_status.hvc_state,
+            (unsigned int)hvc_status.positive_contactor,
+            (unsigned int)hvc_status.negative_contactor);
+        log_printf(
+            LOG_ERROR,
+            "[VCU][DRIVE_EXIT_INPUTS] APPS_RAW=[%.3f,%.3f] "
+            "APPS=[%.3f,%.3f] ACCEL=%.3f "
+            "BSE_RAW=[%.3f,%.3f] BSE_PSI=[%.1f,%.1f] FILT=%.1f "
+            "BRAKE=%u LIGHT=%.2f STOMP=%u",
+            (double)in.apps1_raw, (double)in.apps2_raw,
+            (double)out.apps1_travel, (double)out.apps2_travel,
+            (double)out.accel_pedal_travel,
+            (double)in.bse1_raw, (double)in.bse2_raw,
+            (double)out.bse1_psi, (double)out.bse2_psi,
+            (double)out.bse_psi, (unsigned int)out.brake_pressed,
+            (double)out.brake_light_pct,
+            (unsigned int)out.faults.brake_latched);
+      }
+
+      if (periodic_status) {
+        last_status_print_tick = current_tick;
+        log_printf(
+            LOG_INFO,
+            "[VCU] PRNDL=%u DRIVE_SW=%u "
+            "DUI=[fresh=%u age=%lums faults=0x%02X] "
+            "HVC_RX=%s age=%lums state=%u "
+            "AIR=[+%u,-%u] PRE=%u READY=%u "
+            "CAN1=[start=%u last=0x%03lX err=%u tx=%lu drop=%lu]",
+            (unsigned int)out.prndl_state, (unsigned int)in.drive_switch,
+            (unsigned int)hvc_status.drive_switch_fresh,
+            (unsigned long)hvc_status.drive_switch_age_ms,
+            (unsigned int)hvc_status.dui_shutdown_faults,
+            hvc_status.fresh ? "OK" : "TIMEOUT",
+            (unsigned long)hvc_status.age_ms,
+            (unsigned int)hvc_status.hvc_state,
+            (unsigned int)hvc_status.positive_contactor,
+            (unsigned int)hvc_status.negative_contactor,
+            (unsigned int)hvc_status.precharge_contactor,
+            (unsigned int)in.contactors_closed,
+            (unsigned int)hvc_status.interface_started,
+            (unsigned long)hvc_status.last_can_id,
+            (unsigned int)hvc_status.can_error,
+            (unsigned long)hvc_status.messages_sent,
+            (unsigned long)hvc_status.dropped_packets);
+        log_printf(
+            LOG_INFO,
+            "[VCU][PEDALS] APPS_RAW=[%.3f,%.3f] APPS=[%.3f,%.3f] "
+            "ACCEL=%.3f BSE_RAW=[%.3f,%.3f] BSE_PSI=[%.1f,%.1f] "
+            "BSE_FILT=%.1f BRAKE=%u LIGHT=%.2f",
+            (double)in.apps1_raw, (double)in.apps2_raw,
+            (double)out.apps1_travel, (double)out.apps2_travel,
+            (double)out.accel_pedal_travel,
+            (double)in.bse1_raw, (double)in.bse2_raw,
+            (double)out.bse1_psi, (double)out.bse2_psi,
+            (double)out.bse_psi, (unsigned int)out.brake_pressed,
+            (double)out.brake_light_pct);
+        log_printf(
+            LOG_INFO,
+            "[VCU][FAULTS] APPS=[U1=%u O1=%u U2=%u O2=%u IMP=%u ANY=%u] "
+            "BSE=[U1=%u O1=%u U2=%u O2=%u STOMP=%u ANY=%u] "
+            "REGEN_ANY=%u MODEL_ANY=%u",
+            (unsigned int)out.faults.apps1_under_range,
+            (unsigned int)out.faults.apps1_over_range,
+            (unsigned int)out.faults.apps2_under_range,
+            (unsigned int)out.faults.apps2_over_range,
+            (unsigned int)out.faults.apps_implaus,
+            (unsigned int)out.faults.apps_any_fault,
+            (unsigned int)out.faults.bse1_under_range,
+            (unsigned int)out.faults.bse1_over_range,
+            (unsigned int)out.faults.bse2_under_range,
+            (unsigned int)out.faults.bse2_over_range,
+            (unsigned int)out.faults.brake_latched,
+            (unsigned int)out.faults.brake_any_fault,
+            (unsigned int)out.faults.regen_linelock_any_fault,
+            (unsigned int)out.faults.any_fault);
+      }
+    }
+    previous_prndl_state = out.prndl_state;
+
 
     
     // log_printf(LOG_INFO,
@@ -392,10 +501,14 @@ void StartControlTask(void *argument) {
 
     uint32_t post_faults = vcu_can_get_inverter_post_faults();
     uint32_t run_faults  = vcu_can_get_inverter_run_faults();
-    if (post_faults || run_faults) {
+    if ((post_faults != previous_post_faults ||
+         run_faults != previous_run_faults) &&
+        (post_faults || run_faults)) {
       log_printf(LOG_ERROR, "[INV] POST_FAULTS:0x%08lX RUN_FAULTS:0x%08lX\n",
                  post_faults, run_faults);
     }
+    previous_post_faults = post_faults;
+    previous_run_faults = run_faults;
 
     // 3 ms control loop (333 Hz)
     osDelay(pdMS_TO_TICKS(CONTROL_LOOP_PERIOD_MS));

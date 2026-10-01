@@ -108,10 +108,10 @@ fn load_packet_configs() -> Result<Vec<PacketConfig>> {
 
 /// Fallback lengths used only when can.json can't be read, so the logger still
 /// emits a sensible header if the asset is missing. Mirrors the current Orion
-/// schema (cells_v = 33 frames x 4 = 132, cells_temps = 23 x 4 = 92, accel/gyro
+/// schema (cells_v = 35 frames x 4 = 140, cells_temps = 23 x 4 = 92, accel/gyro
 /// vectors = 3 axes each).
 const DEFAULT_REPEATED_LENGTHS: &[(&str, usize)] = &[
-    ("cells_v", 132),
+    ("cells_v", 140),
     ("cells_temps", 92),
     ("bl_unsprung_accel", 3),
     ("br_unsprung_accel", 3),
@@ -131,7 +131,7 @@ const DEFAULT_REPEATED_LENGTHS: &[(&str, usize)] = &[
 /// CAN schema, so the CSV header is sized from the artifact instead of magic
 /// numbers. A repeated field spans `quantity * cells_per_frame`, where
 /// `cells_per_frame` is the number of slots packed into one CAN frame
-/// (max field_index + 1). e.g. Cell Voltages = 33 frames x 4 cells = 132.
+/// (max field_index + 1). e.g. Cell Voltages = 35 frames x 4 cells = 140.
 ///
 /// `gps` / `gps_imu` aren't described in can.json (cand fills them from the NMEA
 /// stream), so they're supplied as constants.
@@ -497,9 +497,9 @@ mod tests {
 
     #[test]
     fn cells_v_sized_from_schema_and_ordered_numerically() {
-        // 33 frames x 4 cells/frame = 132 (Orion: 130 real cells, last 2 unused).
+        // 35 frames x 4 cells/frame = 140 Orion cells.
         let cells = indexed(&headers(), "pack.cells_v[");
-        assert_eq!(cells, (0..132).collect::<Vec<_>>());
+        assert_eq!(cells, (0..140).collect::<Vec<_>>());
     }
 
     #[test]

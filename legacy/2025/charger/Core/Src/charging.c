@@ -1,6 +1,7 @@
 //
 // Created by Ashwin Kuppahally on 3/24/25.
-// Updated 2026: HVC CAN integration via 0x050 / 0x051
+// Nightwatch 136s4p: fixed 546.0 V / 15.0 A charging on controller startup.
+// HVC targets and enable are ignored; HVC LEDs/status remain supported.
 //
 
 #include "charging.h"
@@ -30,10 +31,11 @@ extern int rainbow;
 #define LHR_STATUS_ID     0x051         // us → HVC
 #define LHR_STATUS_PERIOD_S 0.1f        // 10 Hz
 
-// ---- State from HVC command (0x050) ----------------------------------------
-static float    cmd_voltage_V  = 0.0f;
-static float    cmd_current_A  = 0.0f;
-static bool     cmd_enable     = false;
+// Fixed Elcon limits in wire units (0.1 V / 0.1 A).
+#define FIXED_VOLTAGE_DECI_V 5460u
+#define FIXED_CURRENT_DECI_A 150u
+
+// ---- LED state from HVC command (0x050) ------------------------------------
 static uint8_t  cmd_imd_led    = 0;
 static uint8_t  cmd_bms_led    = 0;
 
@@ -106,13 +108,9 @@ static void recv_hvc_command(void)
         // [4]   imd_led              uint8   bool
         // [5]   bms_led              uint8   bool
         // [6]   charger_enable       uint8   bool
-        uint16_t raw_v = (uint16_t)data[0] | ((uint16_t)data[1] << 8);
-        uint16_t raw_a = (uint16_t)data[2] | ((uint16_t)data[3] << 8);
-        cmd_voltage_V = raw_v * 0.01f;
-        cmd_current_A = raw_a * 0.01f;
+        // Fixed-command mode intentionally ignores HVC voltage/current/enable.
         cmd_imd_led   = data[4];
         cmd_bms_led   = data[5];
-        cmd_enable    = data[6] != 0;
 
         // Mirror HVC-commanded LED states to the local error flags so that
         // main.c keeps the IMD / BMS indicator LEDs in sync with the HVC.
@@ -144,7 +142,7 @@ static void recv_elcon_status(void)
 }
 
 
-// Translate the HVC command into the Elcon wire format and transmit both the
+// Transmit the fixed Nightwatch command in Elcon wire format, plus the
 // command frame and the legacy 0x114 heartbeat the Elcon expects.
 static void send_elcon_command(void)
 {
@@ -152,16 +150,15 @@ static void send_elcon_command(void)
     uint32_t mailbox;
 
     // Elcon command (0x1806E5F4): big-endian, 0.1 V / 0.1 A
-    // HVC sends 0.01 V/A, Elcon wants 0.1 V/A → divide raw by 10
-    uint16_t raw_v = (uint16_t)(cmd_voltage_V / 0.1f);
-    uint16_t raw_a = (uint16_t)(cmd_current_A / 0.1f);
+    uint16_t raw_v = FIXED_VOLTAGE_DECI_V;
+    uint16_t raw_a = FIXED_CURRENT_DECI_A;
 
     uint8_t cmd[8] = {
         (raw_v >> 8) & 0xFF,
          raw_v       & 0xFF,
         (raw_a >> 8) & 0xFF,
          raw_a       & 0xFF,
-        cmd_enable ? 0x00 : 0x01,  // 0x00 = charge, 0x01 = stop
+        0x00,  // Always request charging, including without HVC traffic.
         0x00, 0x00, 0x00,
     };
 
@@ -237,4 +234,4 @@ void charging_periodic(float dt)
 
 bool getBmsError(void) { return bmsError != 0; }
 bool getImdError(void) { return imdError != 0; }
-bool getEnabled() { return cmd_enable; }
+bool getEnabled() { return true; }

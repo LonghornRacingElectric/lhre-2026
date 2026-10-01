@@ -23,6 +23,9 @@ static msg_bus_enable_disable_t bus_status;
 static msg_device_firmware_update_response_packet_t dfu_response;
 static can_message_t *dfu_response_msg;
 
+/* Boards without the shared LED module can still use the CAN-only target. */
+__attribute__((weak)) void led_disable(void) {}
+
 void can_init(can_config_t *config) {
   // set our can library to use the correct functions
   can = *config;

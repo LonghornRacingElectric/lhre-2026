@@ -7,6 +7,15 @@ build:firmware --platforms=//:arm_none_eabi
 
 build:debug --spawn_strategy=local --strip=never
 
+# Bench-only HVC build: report BMS faults without asserting/latching the BMS trip.
+build:hvc-bms-monitor --copt=-DHVC_BMS_FAULT_MONITOR_ONLY=1
+
+# Bench-only HVC build: drive the disconnected IMD control low to hold its relay path OK.
+build:hvc-imd-relay-hold --copt=-DHVC_IMD_RELAY_HOLD_OVERRIDE=1
+
+# Bench-only HVC build: advertise ENERGIZED to the VCU without changing HVC outputs.
+build:hvc-can-force-energized --copt=-DHVC_CAN_FORCE_ENERGIZED=1
+
 test --test_output=all
 
 common:ci --bes_results_url=https://longhorn-racing-electric.buildbuddy.io/invocation/

@@ -2,7 +2,7 @@
 #define CAN_IDS_H
 
 // Auto-generated CAN packet definition header file
-// Generated from: can.json
+// Generated from: drivers/longhorn-lib/can.json
 // DO NOT EDIT MANUALLY
 
 #include <stdint.h>
@@ -687,7 +687,7 @@ int unpack_wheel_speed_ride_height(const uint8_t* rx_buf, msg_wheel_speed_ride_h
 // From: HVC
 // To:   VCU
 #define CONTACTOR_STATUS_ID 305
-#define CONTACTOR_STATUS_DLC 3
+#define CONTACTOR_STATUS_DLC 4
 #define CONTACTOR_STATUS_FREQ 10
 #define CONTACTOR_STATUS_TIMEOUT_MS 20
 
@@ -827,12 +827,16 @@ int unpack_indicators_shutdown_status(const uint8_t* rx_buf, msg_indicators_shut
 // From: VCU
 // To:   HVC
 #define ALLOW_BALANCE_COMMAND_ID 309
-#define ALLOW_BALANCE_COMMAND_DLC 0
-#define ALLOW_BALANCE_COMMAND_FREQ 0
-#define ALLOW_BALANCE_COMMAND_TIMEOUT_MS 0
+#define ALLOW_BALANCE_COMMAND_DLC 1
+#define ALLOW_BALANCE_COMMAND_FREQ 100
+#define ALLOW_BALANCE_COMMAND_TIMEOUT_MS 200
 
 typedef struct {
+    uint8_t allow_balance;
 } msg_allow_balance_command_t;
+
+// Signal: Allow Balance
+#define ALLOW_BALANCE_COMMAND_ALLOW_BALANCE_PREC 1.0f
 
 int pack_allow_balance_command(const msg_allow_balance_command_t* msg, uint8_t* tx_buf);
 int unpack_allow_balance_command(const uint8_t* rx_buf, msg_allow_balance_command_t* msg);
@@ -1986,6 +1990,70 @@ int pack_usm_enter_bootloader(const msg_usm_enter_bootloader_t* msg, uint8_t* tx
 int unpack_usm_enter_bootloader(const uint8_t* rx_buf, msg_usm_enter_bootloader_t* msg);
 
 // ==========================================================================
+// Packet: HVC Charger Command (80)
+// ==========================================================================
+// From: HVC
+// To:   Charger
+#define HVC_CHARGER_COMMAND_ID 80
+#define HVC_CHARGER_COMMAND_DLC 7
+#define HVC_CHARGER_COMMAND_FREQ 100
+#define HVC_CHARGER_COMMAND_TIMEOUT_MS 200
+
+typedef struct {
+    float max_charge_voltage;
+    float max_charge_current;
+    uint8_t imd_led_state;
+    uint8_t bms_led_state;
+    uint8_t charger_enable;
+} msg_hvc_charger_command_t;
+
+// Signal: Max Charge Voltage
+#define HVC_CHARGER_COMMAND_MAX_CHARGE_VOLTAGE_PREC 0.01f
+
+// Signal: Max Charge Current
+#define HVC_CHARGER_COMMAND_MAX_CHARGE_CURRENT_PREC 0.01f
+
+// Signal: IMD LED State
+#define HVC_CHARGER_COMMAND_IMD_LED_STATE_PREC 1.0f
+
+// Signal: BMS LED State
+#define HVC_CHARGER_COMMAND_BMS_LED_STATE_PREC 1.0f
+
+// Signal: Charger Enable
+#define HVC_CHARGER_COMMAND_CHARGER_ENABLE_PREC 1.0f
+
+int pack_hvc_charger_command(const msg_hvc_charger_command_t* msg, uint8_t* tx_buf);
+int unpack_hvc_charger_command(const uint8_t* rx_buf, msg_hvc_charger_command_t* msg);
+
+// ==========================================================================
+// Packet: Charger Status (81)
+// ==========================================================================
+// From: Charger
+// To:   HVC
+#define CHARGER_STATUS_ID 81
+#define CHARGER_STATUS_DLC 5
+#define CHARGER_STATUS_FREQ 100
+#define CHARGER_STATUS_TIMEOUT_MS 200
+
+typedef struct {
+    float actual_voltage;
+    float actual_current;
+    uint8_t charger_enabled;
+} msg_charger_status_t;
+
+// Signal: Actual Voltage
+#define CHARGER_STATUS_ACTUAL_VOLTAGE_PREC 0.01f
+
+// Signal: Actual Current
+#define CHARGER_STATUS_ACTUAL_CURRENT_PREC 0.01f
+
+// Signal: Charger Enabled
+#define CHARGER_STATUS_CHARGER_ENABLED_PREC 1.0f
+
+int pack_charger_status(const msg_charger_status_t* msg, uint8_t* tx_buf);
+int unpack_charger_status(const uint8_t* rx_buf, msg_charger_status_t* msg);
+
+// ==========================================================================
 // Packet: HVC Bounds Parameters (48)
 // ==========================================================================
 // From: Pi
@@ -2052,8 +2120,8 @@ int unpack_energy_estimate(const uint8_t* rx_buf, msg_energy_estimate_t* msg);
 // To:   Pi
 #define TORQUE_PATH_ID 458
 #define TORQUE_PATH_DLC 8
-#define TORQUE_PATH_FREQ 100
-#define TORQUE_PATH_TIMEOUT_MS 200
+#define TORQUE_PATH_FREQ 10
+#define TORQUE_PATH_TIMEOUT_MS 20
 
 typedef struct {
     float torque_lookup;
