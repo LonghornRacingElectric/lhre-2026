@@ -4,6 +4,7 @@
 #include "stm32g4xx_hal.h"
 #include "stm32g4xx_hal_spi.h"
 #include <stdint.h>
+#include "wheel_phase.h"
 
 // ── Config ────────────────────────────────────────────────
 #define WS_NUM_SENSORS        4
@@ -25,6 +26,8 @@
 // ── Public API ────────────────────────────────────────────
 void  WheelSpeed_Init(SPI_HandleTypeDef *hspi);
 void  WheelSpeed_Update(void);
-float WheelSpeed_GetSpeed();
+float WheelSpeed_GetSpeed(void);
+const wheel_phase_output_t *WheelSpeed_GetPhaseEstimate(void);
+uint8_t WheelSpeed_GetPhaseSequence(void);
 
 #endif // WHEEL_SPEED_H

@@ -80,6 +80,8 @@
     }, \
     .traction_control = { \
         .enabled = false, \
+        .mode = TC_MODE_SHADOW, \
+        .calibrated = false, \
     }, \
     .battery = { \
         .cell_voltage_ema_alpha = 0.005f, \

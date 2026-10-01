@@ -35,6 +35,8 @@ bool is_drive_switch_pressed(void);
 bool hvc_tractive_ready(void);
 
 float vcu_can_get_motor_speed_rpm(void);
+float vcu_can_get_torque_feedback_nm(void);
+void vcu_can_get_traction_inputs(tc_inputs_t *inputs);
 float vcu_can_get_delta_resolver_angle_deg(void);
 float vcu_can_get_motor_angle_deg(void);
 float vcu_can_get_min_cell_voltage_v(void);

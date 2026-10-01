@@ -28,6 +28,17 @@ typedef struct {
     float ground_torque_nm;        // T_feedback - J_drivetrain * alpha
     float mtte_nm;                 // maximum transmissible torque estimate
     float trim_torque_nm;          // torque trimmed by TC
+    uint8_t state;
+    uint32_t fault_flags;
+    bool estimate_valid;
+    bool shadow;
+    float reference_speed_m_s;     // kinematic rear axle center estimate
+    float slip_velocity_m_s[2];    // RL / RR, positive means drive slip
+    float target_slip_velocity_m_s;
+    float feedforward_ceiling_nm;
+    float torque_ceiling_nm;
+    float candidate_torque_nm;     // would-be command, including shadow mode
+    float integral_trim_nm;
   } traction_control;
 
   /* Regen linelock */

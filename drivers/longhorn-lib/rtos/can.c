@@ -25,18 +25,35 @@ static uint8_t rtos_interface_count = 0;
 typedef struct {
   uint8_t data[MAX_CAN_DATA_LEN];
   can_receive_message_t *msg;
+  uint32_t received_ms;
+  uint32_t received_us;
+  uint8_t rx_len;
 } rx_queue_item_t;
 
 // Hook implementation that runs in ISR context
-void can_rx_hook(can_receive_message_t *msg, uint8_t *rx_data) {
-  rx_queue_item_t item;
+void can_rx_hook(can_receive_message_t *msg, uint8_t *rx_data,
+                 uint8_t rx_len, uint32_t received_ms, uint32_t received_us) {
+  if (msg == NULL) {
+    return;
+  }
+  if (rx_queue == NULL || rx_data == NULL || rx_len > MAX_CAN_DATA_LEN ||
+      rx_len < msg->expected_dlc) {
+    msg->rx_queue_drops++;
+    return;
+  }
+  rx_queue_item_t item = {0};
 
   // Copy data
-  memcpy(item.data, rx_data, MAX_CAN_DATA_LEN);
+  memcpy(item.data, rx_data, rx_len);
   item.msg = msg;
+  item.received_ms = received_ms;
+  item.received_us = received_us;
+  item.rx_len = rx_len;
 
   BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-  xQueueSendFromISR(rx_queue, &item, &xHigherPriorityTaskWoken);
+  if (xQueueSendFromISR(rx_queue, &item, &xHigherPriorityTaskWoken) != pdTRUE) {
+    msg->rx_queue_drops++;
+  }
   portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
@@ -146,9 +163,13 @@ static void receiver_task(void *params) {
   rx_queue_item_t item;
   while (1) {
     if (xQueueReceive(rx_queue, &item, portMAX_DELAY) == pdTRUE) {
-      if (item.msg != NULL && item.msg->unpacking_fn != NULL) {
-        item.msg->unpacking_fn(item.data, item.msg->latest_msg);
-      }
+      /* Pair the decoded payload with its original FIFO reception metadata.
+       * Readers must take the same short critical section when snapshotting.
+       * Decoders are bounded byte-unpack operations, with no blocking work. */
+      taskENTER_CRITICAL();
+      (void)can_decode_received(item.msg, item.data, item.rx_len,
+                                item.received_ms, item.received_us);
+      taskEXIT_CRITICAL();
       // log_printf(LOG_INFO, "[CAN] Received message with ID %d\n",
       //            item.msg->packet_id);
     }

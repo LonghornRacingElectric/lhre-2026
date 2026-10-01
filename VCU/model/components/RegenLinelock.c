@@ -244,8 +244,9 @@ void regen_linelock_evaluate(const vcu_inputs_t *in, vcu_outputs_t *out,
       rear_pressure_psi >=
           params->regen_linelock.rear_pressure_min_engage_psi &&
       out->regen_pressure_requested_torque_nm > 0.0f;
+  // Hydraulic release follows driver intent before TC torque reduction.
   const bool pedal_torque_open_pulse_active = regen_linelock_open_pulse_active(
-      state, out->torque_cmd, dt_ms, params);
+      state, out->torque_lookup_output, dt_ms, params);
 
   if (state->current_hard_cut_latched &&
       rear_pressure_psi <= params->regen_linelock.hard_cut_reset_pressure_psi) {

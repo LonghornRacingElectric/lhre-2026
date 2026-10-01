@@ -184,20 +184,26 @@ void StartDefaultTask(void *argument) {
 void StartWheelSpeedTask(void *argument) {
   osDelay(2000); // wait for USB CDC to enumerate
   WheelSpeed_Init(&hspi2);
-  IMU_Init(&hspi2);
+  int imu_status = IMU_Init(&hspi2);
   imu_data_t imu = {0};
+  uint32_t next_tick = osKernelGetTickCount();
   for (;;) {
     WheelSpeed_Update();
 
     float speed = WheelSpeed_GetSpeed();
     usm_can_update_wheel_speed(speed);
+    usm_can_update_phase(WheelSpeed_GetPhaseEstimate(), WheelSpeed_GetPhaseSequence());
 
-    IMU_Read(&imu);
-    usm_can_update_accel(imu.accel_x, imu.accel_y, imu.accel_z);
+    if (imu_status == 0 && IMU_Read(&imu) == 0) {
+      usm_can_update_accel(imu.accel_x, imu.accel_y, imu.accel_z);
+    }
 
     // log_printf(LOG_INFO, "RPM:%.1f MPH:%.2f Ax:%.2f Ay:%.2f Az:%.2f\r\n", rpm,
     //            mph, imu.accel_x, imu.accel_y, imu.accel_z);
-    osDelay(1);
+    next_tick += 1u;
+    uint32_t now_tick = osKernelGetTickCount();
+    if ((int32_t)(next_tick - now_tick) <= 0) next_tick = now_tick + 1u;
+    osDelayUntil(next_tick);
   }
 }
 /* USER CODE END Application */

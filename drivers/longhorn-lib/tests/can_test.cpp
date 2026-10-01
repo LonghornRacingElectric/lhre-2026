@@ -90,6 +90,7 @@ int Mock_Unpack(uint8_t *rx_buf, const void *msg) {
 class CanBaseTest : public ::testing::Test {
 protected:
   void SetUp() override {
+    can_reset_internals();
     globalMock = &mockHal;
 
     // Setup the configuration struct with our trampoline functions
@@ -127,8 +128,8 @@ protected:
   void TearDown() override { globalMock = nullptr; }
 
   MockCanHal mockHal;
-  can_config_t config;
-  can_interface_t test_interface;
+  can_config_t config{};
+  can_interface_t test_interface{};
 };
 // -----------------------------------------------------------------------------
 // 4. Unit Tests
@@ -303,7 +304,6 @@ TEST_F(CanBaseTest, RegisterReceivePacket_ConfiguresFilter) {
   ASSERT_NE(rx_msg, nullptr);
 
   // Setup expectations — no Stop/Start since we removed the stop/start cycle
-  EXPECT_CALL(mockHal, Tick()).WillOnce(Return(5000));
   EXPECT_CALL(mockHal, Stop(_)).Times(0);
   EXPECT_CALL(mockHal, Start(_)).Times(0);
 
@@ -321,6 +321,8 @@ TEST_F(CanBaseTest, RegisterReceivePacket_ConfiguresFilter) {
   // Verify it was added to the hash table
   uint32_t expected_index = 0x500 % RECEIVE_TABLE_SIZE;
   EXPECT_EQ(test_interface.receive_table[expected_index], rx_msg);
+  EXPECT_FALSE(rx_msg->ever_received);
+  EXPECT_TRUE(message_timed_out(rx_msg, 100));
 
   free(rx_msg);
 }
@@ -390,6 +392,9 @@ TEST_F(CanBaseTest, RxCallback_UnpacksDataCorrectly) {
 
   // 7. Verify internal state
   EXPECT_EQ(rx_msg->_latest_rx_ms, 1000);
+  EXPECT_EQ(rx_msg->latest_rx_us, 1000000);
+  EXPECT_EQ(rx_msg->latest_dlc, 2);
+  EXPECT_TRUE(rx_msg->ever_received);
 
   free(rx_msg);
 }
@@ -412,10 +417,7 @@ TEST_F(CanBaseTest, RxCallback_HandlesHashCollisionsCorrectly) {
       can_get_receive_message_handle(&struct_2, ID_2, Mock_Unpack);
 
   // 2. Setup Time Simulation
-  EXPECT_CALL(mockHal, Tick())
-      .WillOnce(Return(100))         // Time for rx_msg_1 init
-      .WillOnce(Return(100))         // Time for rx_msg_2 init
-      .WillRepeatedly(Return(2000)); // Time when packet arrives
+  EXPECT_CALL(mockHal, Tick()).WillRepeatedly(Return(2000));
 
   // 3. Register Interface and Packets
   EXPECT_CALL(mockHal, Init(_)).WillRepeatedly(Return(cHAL_OK));
@@ -461,9 +463,52 @@ TEST_F(CanBaseTest, RxCallback_HandlesHashCollisionsCorrectly) {
   // rx_msg_2 should be updated to the "Receive Time" (2000)
   EXPECT_EQ(rx_msg_2->_latest_rx_ms, 2000);
 
-  // rx_msg_1 should still be at "Initialization Time" (100)
-  EXPECT_EQ(rx_msg_1->_latest_rx_ms, 100);
+  // An unreceived message has no fabricated fresh initialization time.
+  EXPECT_EQ(rx_msg_1->_latest_rx_ms, 0);
+  EXPECT_FALSE(rx_msg_1->ever_received);
 
   free(rx_msg_1);
   free(rx_msg_2);
+}
+
+TEST_F(CanBaseTest, DecodeFailureAndShortPacketDoNotRefreshPayload) {
+  int destination = 17;
+  auto *msg = can_get_receive_message_handle(&destination, 0x100, Mock_Unpack);
+  ASSERT_NE(msg, nullptr);
+  msg->expected_dlc = 8;
+  uint8_t data[8] = {0};
+  EXPECT_TRUE(message_timed_out(nullptr, 100));
+  EXPECT_TRUE(message_timed_out_sticky(nullptr, 100));
+  EXPECT_TRUE(message_timed_out(msg, 100));
+  EXPECT_FALSE(can_decode_received(msg, data, 7, 100, 100003));
+  EXPECT_FALSE(msg->ever_received);
+  EXPECT_CALL(mockHal, Unpack(_, &destination)).WillOnce(Return(-1));
+  EXPECT_FALSE(can_decode_received(msg, data, 8, 200, 200003));
+  EXPECT_EQ(msg->_latest_rx_ms, 0);
+  EXPECT_EQ(msg->latest_rx_us, 0);
+  EXPECT_EQ(destination, 17);
+  EXPECT_CALL(mockHal, Unpack(_, &destination)).WillOnce(Return(0));
+  EXPECT_TRUE(can_decode_received(msg, data, 8, 300, 300003));
+  EXPECT_TRUE(msg->ever_received);
+  EXPECT_EQ(msg->_latest_rx_ms, 300);
+  EXPECT_EQ(msg->latest_rx_us, 300003);
+  EXPECT_EQ(msg->latest_dlc, 8);
+  free(msg);
+}
+
+TEST_F(CanBaseTest, TimeoutHandlesClockRolloverAndStickyState) {
+  int destination = 0;
+  auto *msg = can_get_receive_message_handle(&destination, 0x100, Mock_Unpack);
+  ASSERT_NE(msg, nullptr);
+  uint8_t data[8] = {0};
+  EXPECT_CALL(mockHal, Unpack(_, &destination)).WillRepeatedly(Return(0));
+  ASSERT_TRUE(can_decode_received(msg, data, 8, UINT32_MAX - 4, 0));
+  EXPECT_CALL(mockHal, Tick()).WillRepeatedly(Return(3));
+  EXPECT_FALSE(message_timed_out(msg, 10));
+  EXPECT_CALL(mockHal, Tick()).WillRepeatedly(Return(5));
+  EXPECT_TRUE(message_timed_out_sticky(msg, 10));
+  ASSERT_TRUE(can_decode_received(msg, data, 8, 5, 5000));
+  EXPECT_TRUE(message_timed_out_sticky(msg, 10));
+  EXPECT_FALSE(message_timed_out(msg, 10));
+  free(msg);
 }
