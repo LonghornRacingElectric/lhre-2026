@@ -87,6 +87,8 @@ void Error_Handler(void);
 #define BMS_ERROR_GPIO_Port GPIOB
 #define IMD_ERROR_Pin GPIO_PIN_1
 #define IMD_ERROR_GPIO_Port GPIOB
+#define Shutdown_Sense_12_Pin GPIO_PIN_8
+#define Shutdown_Sense_12_GPIO_Port GPIOA
 #define VCP_RX_Pin GPIO_PIN_12
 #define VCP_RX_GPIO_Port GPIOB
 #define VCP_TX_Pin GPIO_PIN_13

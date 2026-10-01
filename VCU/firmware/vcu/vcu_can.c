@@ -389,6 +389,40 @@ bool hvc_tractive_ready(void) {
          contactor_status_mailbox.hvc_state_machine == HVC_STATE_ENERGIZED;
 }
 
+void vcu_can_get_hvc_rx_status(vcu_hvc_rx_status_t *status) {
+  if (status == NULL) {
+    return;
+  }
+
+  status->registered = contactor_status_mailbox_handle != NULL;
+  status->age_ms = status->registered
+      ? HAL_GetTick() - contactor_status_mailbox_handle->_latest_rx_ms
+      : UINT32_MAX;
+  status->fresh = status->registered &&
+      status->age_ms < CONTACTOR_STATUS_TIMEOUT_MS;
+  status->drive_switch_registered = dui_r2d_status_mailbox_handle != NULL;
+  status->drive_switch_age_ms = status->drive_switch_registered
+      ? HAL_GetTick() - dui_r2d_status_mailbox_handle->_latest_rx_ms
+      : UINT32_MAX;
+  status->drive_switch_fresh = status->drive_switch_registered &&
+      status->drive_switch_age_ms < DUI_R2D_STATUS_TIMEOUT_MS;
+  status->interface_started = critical_bus._started;
+  status->can_error = critical_bus._error_occurred;
+  status->last_can_id = critical_bus._last_id_received;
+  status->messages_sent = critical_bus._messages_sent;
+  status->dropped_packets = critical_bus.dropped_packets;
+  status->hvc_state = contactor_status_mailbox.hvc_state_machine;
+  status->positive_contactor =
+      contactor_status_mailbox.positive_hv_contactor;
+  status->negative_contactor =
+      contactor_status_mailbox.negative_hv_contactor;
+  status->precharge_contactor =
+      contactor_status_mailbox.precharge_contactor;
+  status->drive_switch = dui_r2d_status_mailbox.r2d_status;
+  status->dui_shutdown_faults =
+      dui_r2d_status_mailbox.dui_shutdown_faults;
+}
+
 float vcu_can_get_motor_speed_rpm(void) {
   if (!message_timed_out(inverter_speed_mailbox_handle,
                          INVERTER_SPEED_TIMEOUT_MS)) {

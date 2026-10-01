@@ -2,6 +2,7 @@
 #define STATE_MACHINE_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef enum {
   HVC_STATE_NOT_ENERGIZED = 0,
@@ -21,5 +22,6 @@ void state_machine_init(void);
 void update_state_machine(bool anyFaults);
 hvc_state_t get_current_state(void);
 const char *get_state_name(hvc_state_t state);
+uint32_t get_precharge_qualified_ms(void);
 
 #endif // STATE_MACHINE_H

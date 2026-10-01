@@ -23,11 +23,16 @@ void setTractiveContactor(bool on) {
 }
 
 bool isPosContactorClosed() {
-    return HAL_GPIO_ReadPin(IR_POS_SENSE_GPIO_Port, IR_POS_SENSE_Pin) == GPIO_PIN_SET;
+    /* The opto-isolated contactor feedback pulls the MCU input low when the
+       positive contactor has power. CLOSE_IR_POS remains an active-high
+       output; only its feedback input is active-low. */
+    return HAL_GPIO_ReadPin(IR_POS_SENSE_GPIO_Port,
+                            IR_POS_SENSE_Pin) == GPIO_PIN_RESET;
 }
 
 bool isNegContactorClosed() {
-    return HAL_GPIO_ReadPin(IR_NEG_SENSE_GPIO_Port, IR_NEG_SENSE_Pin) == GPIO_PIN_SET;
+    return HAL_GPIO_ReadPin(IR_NEG_SENSE_GPIO_Port,
+                            IR_NEG_SENSE_Pin) == GPIO_PIN_RESET;
 }
 
 bool isShutdownClosed(void) {

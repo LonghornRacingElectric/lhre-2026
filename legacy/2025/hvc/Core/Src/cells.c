@@ -314,10 +314,39 @@ bool isBmbReadingOk(uint32_t bmbIndex)
   return bmbIndex < NUM_BMS_ICS && bmbReadOk[bmbIndex];
 }
 
+bool isCellHighImpedanceSuspect(uint32_t cellIndex)
+{
+  if (cellIndex >= NUM_BMS_ICS * CELLS_PER_BMB) return false;
+
+  const uint32_t bmbIndex = cellIndex / CELLS_PER_BMB;
+  return !deadCells[cellIndex] &&
+         cell_fault_is_high_impedance_suspect(
+             isBmbReadingOk(bmbIndex), voltageData[cellIndex]);
+}
+
+uint32_t getHighImpedanceSuspectCount(void)
+{
+  uint32_t count = 0U;
+  for (uint32_t cellIndex = 0U;
+       cellIndex < NUM_BMS_ICS * CELLS_PER_BMB;
+       cellIndex++) {
+    if (isCellHighImpedanceSuspect(cellIndex)) count++;
+  }
+  return count;
+}
+
 bool hasCellOvervoltage()
 {
   for (int i = 0; i < numCells; i++) {
-    if (!deadCells[i] && voltageData[i] > CELL_OVER_VOLTAGE) return true;
+    if (deadCells[i]) continue;
+
+    const bool bmbCommunicationOk =
+        isBmbReadingOk((uint32_t)i / CELLS_PER_BMB);
+    if (cell_fault_is_overvoltage(
+            bmbCommunicationOk, voltageData[i], CELL_OVER_VOLTAGE,
+            HVC_BRINGUP_IGNORE_HIGH_IMPEDANCE_CELL_FAULTS != 0)) {
+      return true;
+    }
   }
   return false;
 }
@@ -325,7 +354,15 @@ bool hasCellOvervoltage()
 bool hasCellUndervoltage()
 {
   for (int i = 0; i < numCells; i++) {
-    if (!deadCells[i] && voltageData[i] < CELL_UNDER_VOLTAGE) return true;
+    if (deadCells[i]) continue;
+
+    const bool bmbCommunicationOk =
+        isBmbReadingOk((uint32_t)i / CELLS_PER_BMB);
+    if (cell_fault_is_undervoltage(
+            bmbCommunicationOk, voltageData[i], CELL_UNDER_VOLTAGE,
+            HVC_BRINGUP_IGNORE_HIGH_IMPEDANCE_CELL_FAULTS != 0)) {
+      return true;
+    }
   }
   return false;
 }

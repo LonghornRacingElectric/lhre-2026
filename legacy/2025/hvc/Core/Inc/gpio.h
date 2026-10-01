@@ -43,6 +43,7 @@ void MX_GPIO_Init(void);
   bool isShutdownTwoOk();
   bool isShutdownThreeOk();
   bool isShutdownFourOk();
+  bool isShutdownTwelveOk(void);
   void setBmsError(bool error);
 /* USER CODE END Prototypes */
 
@@ -50,4 +51,3 @@ void MX_GPIO_Init(void);
 }
 #endif
 #endif /*__ GPIO_H__ */
-

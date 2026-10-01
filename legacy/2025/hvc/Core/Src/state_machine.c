@@ -55,3 +55,12 @@ const char *get_state_name(hvc_state_t state) {
         return "UNKNOWN";
     }
 }
+
+uint32_t get_precharge_qualified_ms(void) {
+    if (stateMachine.state != HVC_STATE_PRECHARGING &&
+        stateMachine.state != HVC_STATE_CHARGING_PRECHARGING) {
+        return 0U;
+    }
+
+    return HAL_GetTick() - stateMachine.prechargeStartTimeMs;
+}

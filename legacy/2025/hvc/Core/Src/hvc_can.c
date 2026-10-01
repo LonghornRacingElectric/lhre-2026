@@ -16,8 +16,15 @@
 #define CELL_VOLTAGE_PACKET_COUNT 35U
 #define CELL_TEMPERATURE_PACKET_COUNT 23U
 #define CAN_MESSAGE_POOL_SIZE 4096U
+/* The VCU declares 0x131 stale after 20 ms. Send it at 200 Hz so a single
+ * delayed service pass does not immediately consume the entire margin. */
+#define HVC_CONTACTOR_STATUS_PERIOD_MS 5U
+#ifndef HVC_CAN_FORCE_ENERGIZED
+#define HVC_CAN_FORCE_ENERGIZED 0
+#endif
 
 static msg_contactor_status_t contactorStatus;
+static can_message_t *contactorStatusHandle;
 static msg_battery_pack_status_t packStatus;
 static msg_battery_temperature_status_t temperatureStatus;
 static msg_indicators_shutdown_status_t indicatorStatus;
@@ -115,9 +122,14 @@ void hvc_can_init(void) {
     can_init(&canConfig);
     can_register_interface(&criticalCanBus);
 
-    registerSendPacket(&contactorStatus, CONTACTOR_STATUS_ID,
-                       CONTACTOR_STATUS_FREQ, CONTACTOR_STATUS_DLC,
-                       (CAN_pack_message_fn)pack_contactor_status);
+    contactorStatusHandle = can_get_message_handle(
+        &contactorStatus, CONTACTOR_STATUS_ID,
+        HVC_CONTACTOR_STATUS_PERIOD_MS,
+        CONTACTOR_STATUS_DLC,
+        (CAN_pack_message_fn)pack_contactor_status);
+    if (contactorStatusHandle != NULL) {
+        can_register_send_packet(&criticalCanBus, contactorStatusHandle);
+    }
     registerSendPacket(&packStatus, BATTERY_PACK_STATUS_ID,
                        BATTERY_PACK_STATUS_FREQ, BATTERY_PACK_STATUS_DLC,
                        (CAN_pack_message_fn)pack_battery_pack_status);
@@ -176,9 +188,15 @@ void hvc_can_init(void) {
     can_start_interface(&criticalCanBus);
 }
 
+void hvc_can_service_tx(void) {
+    can_service(&criticalCanBus);
+}
+
 void hvc_can_periodic(bool amsError, bool imdError, int state,
                       float deltaTime) {
-    contactorStatus.hvc_state_machine = (uint8_t)state;
+    contactorStatus.hvc_state_machine = HVC_CAN_FORCE_ENERGIZED
+        ? (uint8_t)HVC_STATE_ENERGIZED
+        : (uint8_t)state;
     contactorStatus.positive_hv_contactor = isPosContactorClosed();
     contactorStatus.negative_hv_contactor = isNegContactorClosed();
     contactorStatus.precharge_contactor =
@@ -239,7 +257,7 @@ void hvc_can_periodic(bool amsError, bool imdError, int state,
             : 0.0f;
     }
 
-    can_service(&criticalCanBus);
+    hvc_can_service_tx();
 }
 
 static bool receiveStatus(can_receive_message_t *handle, uint32_t timeoutMs,
@@ -264,6 +282,20 @@ void hvc_can_get_rx_status(hvc_can_rx_status_t *status) {
     status->stateOfChargeEstimate = vcuState.state_of_charge_estimate;
     status->lineLockEnabled = vcuState.line_lock_enabled != 0U;
     status->eventMode = vcuState.event_mode;
+}
+
+void hvc_can_get_tx_status(hvc_can_tx_status_t *status) {
+    if (status == NULL) return;
+
+    status->interfaceStarted = criticalCanBus._started;
+    status->contactorStatusRegistered = contactorStatusHandle != NULL;
+    status->contactorStateForced = HVC_CAN_FORCE_ENERGIZED != 0;
+    status->contactorStatusAgeMs = contactorStatusHandle != NULL
+        ? HAL_GetTick() - contactorStatusHandle->_last_tx_time_ms
+        : UINT32_MAX;
+    status->messagesQueued = criticalCanBus._messages_sent;
+    status->droppedPackets = criticalCanBus.dropped_packets;
+    pack_contactor_status(&contactorStatus, status->contactorStatusData);
 }
 
 bool hvc_can_is_charger_connected(void) {
