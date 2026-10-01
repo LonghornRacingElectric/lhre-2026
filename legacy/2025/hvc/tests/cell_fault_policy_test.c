@@ -5,25 +5,29 @@
 
 int main(void)
 {
-    assert(!cell_fault_is_high_impedance_suspect(true, 3.40f));
-    assert(cell_fault_is_high_impedance_suspect(true, 0.25f));
-    assert(cell_fault_is_high_impedance_suspect(true, -0.70f));
-    assert(cell_fault_is_high_impedance_suspect(true, 5.20f));
-    assert(!cell_fault_is_high_impedance_suspect(true, 4.30f));
-    assert(!cell_fault_is_high_impedance_suspect(false, 0.25f));
+    assert(cell_fault_is_monitored(12U));
+    assert(!cell_fault_is_monitored(13U));
+    assert(!cell_fault_is_monitored(14U));
+    assert(!cell_fault_is_monitored(15U));
+    assert(!cell_fault_is_monitored(16U));
+    assert(cell_fault_is_monitored(17U));
 
-    assert(!cell_fault_is_undervoltage(true, 3.40f, 3.00f, true));
-    assert(!cell_fault_is_undervoltage(true, 0.25f, 3.00f, true));
-    assert(cell_fault_is_undervoltage(true, 0.25f, 3.00f, false));
+    uint32_t monitoredCellCount = 0U;
+    for (uint32_t cell = 0U; cell < 140U; cell++) {
+        if (cell_fault_is_monitored(cell)) monitoredCellCount++;
+    }
+    assert(monitoredCellCount == 136U);
 
-    /* Plausible low cells remain safety faults even with the bypass enabled. */
-    assert(cell_fault_is_undervoltage(true, 2.80f, 3.00f, true));
-    assert(cell_fault_is_undervoltage(false, 0.25f, 3.00f, true));
+    assert(thermistor_reading_is_valid(23.5f));
+    assert(thermistor_reading_is_valid(60.0f));
+    assert(thermistor_reading_is_valid(135.0f));
+    assert(!thermistor_reading_is_valid(-0.1f));
+    assert(!thermistor_reading_is_valid(-22.0f));
+    assert(!thermistor_reading_is_valid(-999.0f));
+    assert(!thermistor_reading_is_valid(136.0f));
+    assert(!thermistor_reading_is_overtemperature(-999.0f, 60.0f));
+    assert(!thermistor_reading_is_overtemperature(60.0f, 60.0f));
+    assert(thermistor_reading_is_overtemperature(60.1f, 60.0f));
 
-    /* Realistic OV remains a fault; only an implausibly high reading bypasses. */
-    assert(cell_fault_is_overvoltage(true, 4.30f, 4.20f, true));
-    assert(!cell_fault_is_overvoltage(true, 5.20f, 4.20f, true));
-    assert(cell_fault_is_overvoltage(true, 5.20f, 4.20f, false));
-    assert(cell_fault_is_overvoltage(false, 5.20f, 4.20f, true));
     return 0;
 }

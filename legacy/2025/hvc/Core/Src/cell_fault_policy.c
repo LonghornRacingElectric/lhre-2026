@@ -1,44 +1,20 @@
 #include "cell_fault_policy.h"
 
-bool cell_fault_is_high_impedance_suspect(bool bmbCommunicationOk,
-                                          float measuredVoltageV)
+bool cell_fault_is_monitored(uint32_t cellIndex)
 {
-    /* A normally connected Li-ion cell cannot plausibly sit below 1 V or
-       above 5 V during this pack bring-up. Only apply the classification when
-       the BMB itself passed its PEC/communication checks. */
-    return bmbCommunicationOk &&
-           (measuredVoltageV < HVC_HIGH_IMPEDANCE_SUSPECT_LOW_MAX_V ||
-            measuredVoltageV > HVC_HIGH_IMPEDANCE_SUSPECT_HIGH_MIN_V);
+    return cellIndex < HVC_IGNORED_CELL_FIRST_INDEX ||
+           cellIndex > HVC_IGNORED_CELL_LAST_INDEX;
 }
 
-bool cell_fault_is_undervoltage(bool bmbCommunicationOk,
-                                float measuredVoltageV,
-                                float undervoltageThresholdV,
-                                bool ignoreHighImpedanceSuspects)
+bool thermistor_reading_is_valid(float temperatureC)
 {
-    if (measuredVoltageV >= undervoltageThresholdV) return false;
-
-    if (ignoreHighImpedanceSuspects &&
-        cell_fault_is_high_impedance_suspect(bmbCommunicationOk,
-                                             measuredVoltageV)) {
-        return false;
-    }
-
-    return true;
+    return temperatureC >= HVC_MIN_VALID_TEMPERATURE_C &&
+           temperatureC <= HVC_MAX_VALID_TEMPERATURE_C;
 }
 
-bool cell_fault_is_overvoltage(bool bmbCommunicationOk,
-                               float measuredVoltageV,
-                               float overvoltageThresholdV,
-                               bool ignoreHighImpedanceSuspects)
+bool thermistor_reading_is_overtemperature(float temperatureC,
+                                            float overtemperatureLimitC)
 {
-    if (measuredVoltageV <= overvoltageThresholdV) return false;
-
-    if (ignoreHighImpedanceSuspects &&
-        cell_fault_is_high_impedance_suspect(bmbCommunicationOk,
-                                             measuredVoltageV)) {
-        return false;
-    }
-
-    return true;
+    return thermistor_reading_is_valid(temperatureC) &&
+           temperatureC > overtemperatureLimitC;
 }

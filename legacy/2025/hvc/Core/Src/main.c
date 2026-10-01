@@ -59,9 +59,6 @@
 #define BMS_PRINT_INTERVAL_MS 1000U
 #define USB_PRINT_SETTLE_MS 5U
 #define BMS_PRINT_LINE_SIZE 256U
-#ifndef HVC_BMS_FAULT_MONITOR_ONLY
-#define HVC_BMS_FAULT_MONITOR_ONLY 0
-#endif
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -86,8 +83,9 @@ static size_t appendFaultName(char *line, size_t capacity, size_t length,
                               const char *name);
 static void settleUsbAndServiceCan(void);
 static void printBmsFaultDiagnostics(void);
-static void printHighImpedanceDiagnostics(void);
 static void printPackAndBmsSummary(void);
+static void printCellRows(void);
+static void printTemperatureRows(void);
 static void printBmsReadings(void);
 /* USER CODE END PFP */
 
@@ -123,123 +121,59 @@ static void settleUsbAndServiceCan(void)
   hvc_can_service_tx();
 }
 
-static void printHighImpedanceDiagnostics(void)
-{
-  char line[BMS_PRINT_LINE_SIZE];
-  const uint32_t suspectCount = getHighImpedanceSuspectCount();
-
-  usb_printf("HIGH_Z bypass=%s suspects=%lu thresholds=<%.2fV/>%.2fV",
-             HVC_BRINGUP_IGNORE_HIGH_IMPEDANCE_CELL_FAULTS ? "ON" : "OFF",
-             (unsigned long)suspectCount,
-             (double)HVC_HIGH_IMPEDANCE_SUSPECT_LOW_MAX_V,
-             (double)HVC_HIGH_IMPEDANCE_SUSPECT_HIGH_MIN_V);
-  settleUsbAndServiceCan();
-
-  for (uint32_t bmb = 0U; bmb < NUM_BMS_ICS; bmb++)
-  {
-    size_t length = 0U;
-    uint32_t bmbSuspectCount = 0U;
-    const uint32_t firstCell = bmb * CELLS_PER_BMB;
-
-    for (uint32_t channel = 0U; channel < CELLS_PER_BMB; channel++)
-    {
-      const uint32_t cell = firstCell + channel;
-      if (!isCellHighImpedanceSuspect(cell)) continue;
-
-      if (bmbSuspectCount == 0U)
-      {
-        length = appendToLine(line, sizeof(line), length,
-                              "HIGH_Z BMB%02lu:",
-                              (unsigned long)(bmb + 1U));
-      }
-      length = appendToLine(line, sizeof(line), length,
-                            " C%03lu(ch%02lu)=%.3fV",
-                            (unsigned long)(cell + 1U),
-                            (unsigned long)(channel + 1U),
-                            (double)getCellVoltage(cell));
-      bmbSuspectCount++;
-    }
-
-    if (bmbSuspectCount != 0U)
-    {
-      println(line);
-      settleUsbAndServiceCan();
-    }
-  }
-}
-
 static void printBmsFaultDiagnostics(void)
 {
-  char line[BMS_PRINT_LINE_SIZE];
-  const uint32_t faults = get_last_faults();
-  uint32_t rawFaults = 0U;
+  char activeNames[80];
+  char latchedNames[80];
+  const uint32_t activeFaults = get_last_faults();
+  const uint32_t latchedFaults = get_latched_faults();
   size_t length = 0U;
 
-  if (getNumResponsiveChips() != NUM_BMS_ICS) rawFaults |= FAULT_BMS_COMMS;
-  if (hasCellOvervoltage()) rawFaults |= FAULT_BMS_OVERVOLTAGE;
-  if (hasCellUndervoltage()) rawFaults |= FAULT_BMS_UNDERVOLTAGE;
-  if (hasCellOvertemperature()) rawFaults |= FAULT_BMS_OVERTEMP;
-
-  length = appendFaultName(line, sizeof(line), length, faults,
+  length = appendFaultName(activeNames, sizeof(activeNames), length,
+                           activeFaults,
                            FAULT_BMS_COMMS, "COMMS");
-  length = appendFaultName(line, sizeof(line), length, faults,
+  length = appendFaultName(activeNames, sizeof(activeNames), length,
+                           activeFaults,
                            FAULT_BMS_OVERVOLTAGE, "CELL_OV");
-  length = appendFaultName(line, sizeof(line), length, faults,
+  length = appendFaultName(activeNames, sizeof(activeNames), length,
+                           activeFaults,
                            FAULT_BMS_UNDERVOLTAGE, "CELL_UV");
-  length = appendFaultName(line, sizeof(line), length, faults,
+  length = appendFaultName(activeNames, sizeof(activeNames), length,
+                           activeFaults,
                            FAULT_BMS_OVERTEMP, "TEMP_OT");
-  if (length == 0U) length = appendToLine(line, sizeof(line), 0U, "NONE");
-
-  usb_printf("BMS FAULTS active(after delay)=0x%02lX [%s] output=%s state_machine=%s",
-             (unsigned long)faults, line,
-             HVC_BMS_FAULT_MONITOR_ONLY ? "SUPPRESSED" : "ENABLED",
-             HVC_BMS_FAULT_MONITOR_ONLY ? "IGNORED" : "ENABLED");
-  settleUsbAndServiceCan();
+  if (length == 0U) {
+    appendToLine(activeNames, sizeof(activeNames), 0U, "NONE");
+  }
 
   length = 0U;
-  length = appendFaultName(line, sizeof(line), length, rawFaults,
+  length = appendFaultName(latchedNames, sizeof(latchedNames), length,
+                           latchedFaults,
                            FAULT_BMS_COMMS, "COMMS");
-  length = appendFaultName(line, sizeof(line), length, rawFaults,
+  length = appendFaultName(latchedNames, sizeof(latchedNames), length,
+                           latchedFaults,
                            FAULT_BMS_OVERVOLTAGE, "CELL_OV");
-  length = appendFaultName(line, sizeof(line), length, rawFaults,
+  length = appendFaultName(latchedNames, sizeof(latchedNames), length,
+                           latchedFaults,
                            FAULT_BMS_UNDERVOLTAGE, "CELL_UV");
-  length = appendFaultName(line, sizeof(line), length, rawFaults,
+  length = appendFaultName(latchedNames, sizeof(latchedNames), length,
+                           latchedFaults,
                            FAULT_BMS_OVERTEMP, "TEMP_OT");
-  if (length == 0U) length = appendToLine(line, sizeof(line), 0U, "NONE");
-
-  usb_printf("BMS RAW now=0x%02lX [%s] (delays: comms 1s, OV/UV 10s, OT 5s)",
-             (unsigned long)rawFaults, line);
-  settleUsbAndServiceCan();
-
-  printHighImpedanceDiagnostics();
-
-  if ((rawFaults & FAULT_BMS_COMMS) != 0U)
-  {
-    length = appendToLine(line, sizeof(line), 0U, "BMS COMMS MISSING:");
-    bool first = true;
-    for (uint32_t bmb = 0; bmb < NUM_BMS_ICS; bmb++)
-    {
-      if (isBmbReadingOk(bmb)) continue;
-      length = appendToLine(line, sizeof(line), length, "%s BMB%02lu",
-                            first ? "" : ",", (unsigned long)(bmb + 1U));
-      first = false;
-    }
-    println(line);
-    settleUsbAndServiceCan();
+  if (length == 0U) {
+    appendToLine(latchedNames, sizeof(latchedNames), 0U, "NONE");
   }
+
+  usb_printf("BMS GPIO=%s active=0x%02lX[%s] latched=0x%02lX[%s] delays=[COMMS 1s, CELL 10s, TEMP 5s]",
+             activeFaults != 0U ? "ASSERTED" : "CLEAR",
+             (unsigned long)activeFaults, activeNames,
+             (unsigned long)latchedFaults, latchedNames);
+  settleUsbAndServiceCan();
 }
 
 static void printPackAndBmsSummary(void)
 {
   const float vSense = getTractiveVoltage();
-  const float allCellSum = getPackVoltageFromCells();
-  const float prechargeTarget =
-      allCellSum * HVC_PRECHARGE_THRESHOLD_PERCENT;
-  const bool prechargeVoltageOk = vSense > prechargeTarget;
-  const float vSensePercent = allCellSum > 1.0f
-      ? (vSense / allCellSum) * 100.0f
-      : 0.0f;
-  float validCellSum = 0.0f;
+  const float rawCellSum = getPackVoltageFromCells();
+  float monitoredCellSum = 0.0f;
   float minCell = 0.0f;
   float maxCell = 0.0f;
   float minTemperature = 0.0f;
@@ -248,36 +182,43 @@ static void printPackAndBmsSummary(void)
   uint32_t maxCellIndex = 0U;
   uint32_t minTemperatureIndex = 0U;
   uint32_t maxTemperatureIndex = 0U;
-  uint32_t validCells = 0U;
+  uint32_t monitoredCells = 0U;
+  uint32_t readableCells = 0U;
+  uint32_t ignoredCells = 0U;
   uint32_t validTemperatures = 0U;
+  uint32_t hotTemperatures = 0U;
 
   for (uint32_t cell = 0U; cell < NUM_BMS_ICS * CELLS_PER_BMB; cell++)
   {
+    if (!isCellVoltageMonitored(cell)) {
+      ignoredCells++;
+      continue;
+    }
+    monitoredCells++;
+
     const uint32_t bmb = cell / CELLS_PER_BMB;
-    if (!isBmbReadingOk(bmb) || !isCellVoltageReadingOk(cell)) continue;
+    if (!isBmbReadingOk(bmb)) continue;
 
     const float voltage = getCellVoltage(cell);
-    validCellSum += voltage;
-    if (validCells == 0U || voltage < minCell)
+    monitoredCellSum += voltage;
+    if (readableCells == 0U || voltage < minCell)
     {
       minCell = voltage;
       minCellIndex = cell;
     }
-    if (validCells == 0U || voltage > maxCell)
+    if (readableCells == 0U || voltage > maxCell)
     {
       maxCell = voltage;
       maxCellIndex = cell;
     }
-    validCells++;
+    readableCells++;
   }
 
   for (uint32_t temperature = 0U;
        temperature < NUM_BMS_ICS * TEMPERATURES_PER_BMB;
        temperature++)
   {
-    const uint32_t bmb = temperature / TEMPERATURES_PER_BMB;
-    if (!isBmbReadingOk(bmb) ||
-        !isCellTemperatureReadingOk(temperature)) continue;
+    if (!isCellTemperatureReadingValid(temperature)) continue;
 
     const float value = getCellTemperature(temperature);
     if (validTemperatures == 0U || value < minTemperature)
@@ -291,48 +232,41 @@ static void printPackAndBmsSummary(void)
       maxTemperatureIndex = temperature;
     }
     validTemperatures++;
+    if (value > 60.0f) hotTemperatures++;
   }
 
-  usb_printf("HV BUS_VSENSE=%.2fV PACK_CELL_SUM_ALL=%.2fV DELTA=%.2fV RATIO=%.1f%% VALID_SUM=%.2fV",
-             (double)vSense, (double)allCellSum,
-             (double)(vSense - allCellSum), (double)vSensePercent,
-             (double)validCellSum);
+  usb_printf("PACK VSENSE=%.2fV CELL_SUM_RAW=%.2fV DELTA=%.2fV MONITORED_SUM=%.2fV SOC=%.1f%%",
+             (double)vSense, (double)rawCellSum,
+             (double)(vSense - rawCellSum), (double)monitoredCellSum,
+             (double)hvc_can_get_pack_soc());
   settleUsbAndServiceCan();
 
-  usb_printf("PRECHARGE target=%.2fV (%u%% of CELL_SUM_ALL) gate=%s qualified=%lums/%ums",
-             (double)prechargeTarget,
-             (unsigned int)(HVC_PRECHARGE_THRESHOLD_PERCENT * 100.0f),
-             prechargeVoltageOk ? "PASS" : "HOLD",
-             (unsigned long)(prechargeVoltageOk
-                 ? get_precharge_qualified_ms()
-                 : 0U),
-             (unsigned int)HVC_PRECHARGE_VALID_MS);
-  settleUsbAndServiceCan();
-
-  if (validCells > 0U)
+  if (readableCells > 0U)
   {
-    usb_printf("CELLS valid=%lu/%u invalid=%lu min=C%03lu %.3fV max=C%03lu %.3fV",
-               (unsigned long)validCells,
-               (unsigned int)(NUM_BMS_ICS * CELLS_PER_BMB),
-               (unsigned long)(NUM_BMS_ICS * CELLS_PER_BMB - validCells),
+    usb_printf("CELLS monitored=%lu readable=%lu ignored=%lu min=C%lu %.3fV max=C%lu %.3fV spread=%.3fV limits=[3.00,4.20]V",
+               (unsigned long)monitoredCells,
+               (unsigned long)readableCells,
+               (unsigned long)ignoredCells,
                (unsigned long)(minCellIndex + 1U), (double)minCell,
-               (unsigned long)(maxCellIndex + 1U), (double)maxCell);
+               (unsigned long)(maxCellIndex + 1U), (double)maxCell,
+               (double)(maxCell - minCell));
   }
   else
   {
-    usb_printf("CELLS valid=0/%u invalid=%u min=NONE max=NONE",
-               (unsigned int)(NUM_BMS_ICS * CELLS_PER_BMB),
-               (unsigned int)(NUM_BMS_ICS * CELLS_PER_BMB));
+    usb_printf("CELLS monitored=%lu readable=0 ignored=%lu min=NONE max=NONE limits=[3.00,4.20]V",
+               (unsigned long)monitoredCells,
+               (unsigned long)ignoredCells);
   }
   settleUsbAndServiceCan();
 
   if (validTemperatures > 0U)
   {
-    usb_printf("TEMPS valid=%lu/%u invalid=%lu min=T%03lu %.1fC max=T%03lu %.1fC",
+    usb_printf("TEMPS valid=%lu/%u invalid=%lu hot=%lu min=T%lu %.1fC max=T%lu %.1fC limit=60.0C",
                (unsigned long)validTemperatures,
                (unsigned int)(NUM_BMS_ICS * TEMPERATURES_PER_BMB),
                (unsigned long)(NUM_BMS_ICS * TEMPERATURES_PER_BMB -
                                validTemperatures),
+               (unsigned long)hotTemperatures,
                (unsigned long)(minTemperatureIndex + 1U),
                (double)minTemperature,
                (unsigned long)(maxTemperatureIndex + 1U),
@@ -340,118 +274,133 @@ static void printPackAndBmsSummary(void)
   }
   else
   {
-    usb_printf("TEMPS valid=0/%u invalid=%u min=NONE max=NONE",
+    usb_printf("TEMPS valid=0/%u invalid=%u hot=0 min=NONE max=NONE limit=60.0C",
                (unsigned int)(NUM_BMS_ICS * TEMPERATURES_PER_BMB),
                (unsigned int)(NUM_BMS_ICS * TEMPERATURES_PER_BMB));
   }
   settleUsbAndServiceCan();
 }
 
-static void printBmsReadings(void)
+static void printCellRows(void)
 {
-  hvc_can_rx_status_t canRx;
-  hvc_can_tx_status_t canTx;
-
-  hvc_can_get_rx_status(&canRx);
-  hvc_can_get_tx_status(&canTx);
-
-  usb_printf("HVC state=%s shutdown=%s AIR_SENSE=[+%u,-%u] faults=0x%02lX latched=0x%02lX",
-             get_state_name(get_current_state()),
-             isShutdownClosed() ? "CLOSED" : "OPEN",
-             (unsigned int)isPosContactorClosed(),
-             (unsigned int)isNegContactorClosed(),
-             (unsigned long)get_last_faults(),
-             (unsigned long)get_latched_faults());
-  settleUsbAndServiceCan();
-
-  usb_printf("SAFETY IMD_PIN_LEVEL=%s IMD_EFFECTIVE=%s OVERRIDE=%s VCU_RX=%s age=%lums PRNDL=%u SHDN=[%u,%u,%u,%u] SHDN12_24V=%s AIR_SENSE=[+%u,-%u]",
-             isImdPinOk() ? "HIGH" : "LOW",
-             isImdOk() ? "OK" : "FAULT",
-             isImdOverrideActive() ? "DRIVE_LOW" : "OFF",
-             canRx.vcuStateValid ? "OK" : "TIMEOUT",
-             (unsigned long)canRx.vcuStateAgeMs,
-             (unsigned int)canRx.prndlState,
-             (unsigned int)isShutdownOneOk(),
-             (unsigned int)isShutdownTwoOk(),
-             (unsigned int)isShutdownThreeOk(),
-             (unsigned int)isShutdownFourOk(),
-             isShutdownTwelveOk() ? "ON" : "OFF",
-             (unsigned int)isPosContactorClosed(),
-             (unsigned int)isNegContactorClosed());
-  settleUsbAndServiceCan();
-
-  usb_printf("CAN TX 0x%03X=[%02X %02X %02X %02X] mode=%s started=%u registered=%u age=%lums queued=%lu dropped=%lu",
-             (unsigned int)CONTACTOR_STATUS_ID,
-             (unsigned int)canTx.contactorStatusData[0],
-             (unsigned int)canTx.contactorStatusData[1],
-             (unsigned int)canTx.contactorStatusData[2],
-             (unsigned int)canTx.contactorStatusData[3],
-             canTx.contactorStateForced ? "FORCED_ENERGIZED" : "LIVE",
-             (unsigned int)canTx.interfaceStarted,
-             (unsigned int)canTx.contactorStatusRegistered,
-             (unsigned long)canTx.contactorStatusAgeMs,
-             (unsigned long)canTx.messagesQueued,
-             (unsigned long)canTx.droppedPackets);
-  settleUsbAndServiceCan();
-
-  printPackAndBmsSummary();
-  printBmsFaultDiagnostics();
-
   char line[BMS_PRINT_LINE_SIZE];
-  usb_printf("ADBMS scan: %lu/%u BMBs OK | ! = bad read; trips: cell <3.0V/>4.2V, temp >60C",
-             (unsigned long)getNumResponsiveChips(), (unsigned int)NUM_BMS_ICS);
+  usb_printf("CELL READINGS (C14-C17 ignored for BMS faults; ~=ignored, !=fault/comms)");
   settleUsbAndServiceCan();
 
   for (uint32_t bmb = 0; bmb < NUM_BMS_ICS; bmb++)
   {
     const bool communicationsOk = isBmbReadingOk(bmb);
     bool cellsOk = communicationsOk;
-    bool temperaturesOk = communicationsOk;
     const uint32_t firstCell = bmb * CELLS_PER_BMB;
-    const uint32_t firstTemperature = bmb * TEMPERATURES_PER_BMB;
 
     for (uint32_t channel = 0; channel < CELLS_PER_BMB; channel++)
     {
-      cellsOk &= isCellVoltageReadingOk(firstCell + channel);
-    }
-    for (uint32_t channel = 0; channel < TEMPERATURES_PER_BMB; channel++)
-    {
-      temperaturesOk &= isCellTemperatureReadingOk(firstTemperature + channel);
+      const uint32_t cellIndex = firstCell + channel;
+      if (isCellVoltageMonitored(cellIndex)) {
+        cellsOk &= isCellVoltageReadingOk(cellIndex);
+      }
     }
 
-    const char *cellStatus = !communicationsOk ? "CRC_FAULT" :
-                             (cellsOk ? "OK" : "RANGE_FAULT");
+    const char *cellStatus = !communicationsOk ? "COMMS" :
+                             (cellsOk ? "OK" : "FAULT");
     size_t length = appendToLine(line, sizeof(line), 0U,
-                                 "BMB%02lu CELLS %s:",
+                                 "BMB%-2lu CELLS %-5s\t",
                                  (unsigned long)(bmb + 1U), cellStatus);
     for (uint32_t channel = 0; channel < CELLS_PER_BMB; channel++)
     {
       const uint32_t cellIndex = firstCell + channel;
-      const bool readingOk = communicationsOk && isCellVoltageReadingOk(cellIndex);
-      length = appendToLine(line, sizeof(line), length, " C%03lu=%s%.3f",
-                            (unsigned long)(cellIndex + 1U), readingOk ? "" : "!",
-                            (double)getCellVoltage(cellIndex));
-    }
-    println(line);
-    settleUsbAndServiceCan();
-
-    const char *temperatureStatus = !communicationsOk ? "CRC_FAULT" :
-                                    (temperaturesOk ? "OK" : "RANGE_FAULT");
-    length = appendToLine(line, sizeof(line), 0U,
-                          "BMB%02lu TEMPS %s:",
-                          (unsigned long)(bmb + 1U), temperatureStatus);
-    for (uint32_t channel = 0; channel < TEMPERATURES_PER_BMB; channel++)
-    {
-      const uint32_t temperatureIndex = firstTemperature + channel;
+      const bool monitored = isCellVoltageMonitored(cellIndex);
       const bool readingOk = communicationsOk &&
-                             isCellTemperatureReadingOk(temperatureIndex);
-      length = appendToLine(line, sizeof(line), length, " T%03lu=%s%.1f",
-                            (unsigned long)(temperatureIndex + 1U), readingOk ? "" : "!",
-                            (double)getCellTemperature(temperatureIndex));
+                             isCellVoltageReadingOk(cellIndex);
+      const char marker = !monitored ? '~' : (readingOk ? ' ' : '!');
+      length = appendToLine(line, sizeof(line), length,
+                            "C%-3lu=%c%6.3f%s",
+                            (unsigned long)(cellIndex + 1U), marker,
+                            (double)getCellVoltage(cellIndex),
+                            channel + 1U < CELLS_PER_BMB ? "\t" : "");
     }
     println(line);
     settleUsbAndServiceCan();
   }
+}
+
+static void printTemperatureRows(void)
+{
+  char line[BMS_PRINT_LINE_SIZE];
+  usb_printf("TEMPERATURE READINGS (!=missing/high-Z/comms, ^=over 60C)");
+  settleUsbAndServiceCan();
+
+  for (uint32_t bmb = 0; bmb < NUM_BMS_ICS; bmb++)
+  {
+    const bool communicationsOk = isBmbReadingOk(bmb);
+    bool allValid = communicationsOk;
+    bool anyHot = false;
+    const uint32_t firstTemperature = bmb * TEMPERATURES_PER_BMB;
+
+    for (uint32_t channel = 0; channel < TEMPERATURES_PER_BMB; channel++)
+    {
+      const uint32_t temperatureIndex = firstTemperature + channel;
+      allValid &= isCellTemperatureReadingValid(temperatureIndex);
+      anyHot |= isCellTemperatureReadingValid(temperatureIndex) &&
+                getCellTemperature(temperatureIndex) > 60.0f;
+    }
+
+    const char *temperatureStatus = !communicationsOk ? "COMMS" :
+                                    (anyHot ? "HOT" :
+                                     (allValid ? "OK" : "PARTIAL"));
+    size_t length = appendToLine(line, sizeof(line), 0U,
+                                 "BMB%-2lu TEMPS %-7s\t",
+                                 (unsigned long)(bmb + 1U),
+                                 temperatureStatus);
+    for (uint32_t channel = 0; channel < TEMPERATURES_PER_BMB; channel++)
+    {
+      const uint32_t temperatureIndex = firstTemperature + channel;
+      const bool valid = isCellTemperatureReadingValid(temperatureIndex);
+      const bool hot = valid && getCellTemperature(temperatureIndex) > 60.0f;
+      const char marker = !valid ? '!' : (hot ? '^' : ' ');
+      length = appendToLine(line, sizeof(line), length,
+                            "T%-2lu=%c%6.1f%s",
+                            (unsigned long)(temperatureIndex + 1U), marker,
+                            (double)getCellTemperature(temperatureIndex),
+                            channel + 1U < TEMPERATURES_PER_BMB ? "\t" : "");
+    }
+    println(line);
+    settleUsbAndServiceCan();
+  }
+}
+
+static void printBmsReadings(void)
+{
+  hvc_can_rx_status_t canRx;
+  hvc_can_get_rx_status(&canRx);
+
+  usb_printf("HVC state=%s SOC=%.1f%% shutdown=%s AIR=[+%u,-%u] VCU_RX=%s age=%lums PRNDL=%u",
+             get_state_name(get_current_state()),
+             (double)hvc_can_get_pack_soc(),
+             isShutdownClosed() ? "CLOSED" : "OPEN",
+             (unsigned int)isPosContactorClosed(),
+             (unsigned int)isNegContactorClosed(),
+             canRx.vcuStateValid ? "OK" : "TIMEOUT",
+             (unsigned long)canRx.vcuStateAgeMs,
+             (unsigned int)canRx.prndlState);
+  settleUsbAndServiceCan();
+
+  usb_printf("SAFETY SHDN=[%u,%u,%u,%u] SHDN12_24V=%s IMD=%s BMB_COMMS=%lu/%u",
+             (unsigned int)isShutdownOneOk(),
+             (unsigned int)isShutdownTwoOk(),
+             (unsigned int)isShutdownThreeOk(),
+             (unsigned int)isShutdownFourOk(),
+             isShutdownTwelveOk() ? "ON" : "OFF",
+             isImdOverrideActive() ? "OVERRIDDEN_LOW" :
+                                     (isImdOk() ? "OK" : "FAULT"),
+             (unsigned long)getNumResponsiveChips(),
+             (unsigned int)NUM_BMS_ICS);
+  settleUsbAndServiceCan();
+
+  printPackAndBmsSummary();
+  printBmsFaultDiagnostics();
+  printCellRows();
+  printTemperatureRows();
 }
 
 /* USER CODE END 0 */
@@ -532,8 +481,7 @@ int main(void)
     hvc_can_rx_status_t canRx;
     hvc_can_get_rx_status(&canRx);
 
-    /* Park drives the active-low IMD relay-hold; Drive releases PB1 to its
-       intended high-impedance input mode. A VCU timeout holds the last mode. */
+    /* Temporary PCB bring-up override keeps the IMD relay-hold driven low. */
     imd_can_periodic(canRx.vcuStateValid, canRx.prndlState);
 
     /* Service safety-critical CAN immediately before the one blocking ADBMS
@@ -545,28 +493,17 @@ int main(void)
     {
       lastStateMachineTime = currentTime;
       currentFaults = get_faults();
-#if HVC_BMS_FAULT_MONITOR_ONLY
-      setBmsError(false);
-#else
       latch_faults(currentFaults);
       setBmsError(currentFaults != 0U);
-#endif
 
       const bool startupComplete = currentTime > 8000U;
       if (startupComplete)
       {
-#if !HVC_BMS_FAULT_MONITOR_ONLY
         bmsIndicatorError = bmsIndicatorError || currentFaults != 0U;
-#endif
         imdIndicatorError = imdIndicatorError || !isImdOk();
       }
 
-      const bool anyFaults =
-#if HVC_BMS_FAULT_MONITOR_ONLY
-          !startupComplete;
-#else
-          get_latched_faults() != 0U || !startupComplete;
-#endif
+      const bool anyFaults = get_latched_faults() != 0U || !startupComplete;
       update_state_machine(anyFaults);
     }
 

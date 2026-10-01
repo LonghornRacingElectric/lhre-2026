@@ -31,6 +31,7 @@ void hvc_can_periodic(bool amsError, bool imdError, int state,
                       float deltaTime);
 void hvc_can_get_rx_status(hvc_can_rx_status_t *status);
 void hvc_can_get_tx_status(hvc_can_tx_status_t *status);
+float hvc_can_get_pack_soc(void);
 bool hvc_can_is_charger_connected(void);
 void hvc_can_set_charger_command(float maxChargeVoltage,
                                  float maxChargeCurrent, bool imdLed,

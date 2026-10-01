@@ -4,8 +4,6 @@ load("//tools:outputs/build_outputs.bzl", "firmware_project_h7")
 firmware_project_h7(
     name = "hvc-firmware-2025",
     defines = [
-        "HVC_BMS_FAULT_MONITOR_ONLY=1",
-        "HVC_BRINGUP_IGNORE_HIGH_IMPEDANCE_CELL_FAULTS=1",
         # Temporary PCB bring-up override: keep the IMD relay-hold output low
         # continuously. Remove this define after the IMD interface is reworked.
         "HVC_IMD_RELAY_HOLD_OVERRIDE=1",

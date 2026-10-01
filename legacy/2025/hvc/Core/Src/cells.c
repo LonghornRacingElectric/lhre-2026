@@ -176,11 +176,17 @@ bool isIsoSpiResponsive()
 }
 
 void setDeadCells() {
-  // all good!
+  for (uint32_t cell = 0U; cell < (uint32_t)numCells; cell++) {
+    deadCells[cell] = !cell_fault_is_monitored(cell);
+  }
 }
 
 void setDeadThermistors() {
-  // all good!
+  for (uint32_t temperature = 0U;
+       temperature < (uint32_t)numThermistors;
+       temperature++) {
+    deadThermistors[temperature] = false;
+  }
 }
 
 void doChecks(int state)
@@ -192,24 +198,21 @@ void doChecks(int state)
   for (int i = 0; i < numCells; i++)
   {
     packVoltage += voltageData[i];
-    if(deadCells[i])
-    {
-      if (voltageData[i] < -0.5f || voltageData[i] > 0.5f)
-      {
-        checkCellVoltagesWithinBounds = false;
-      }
-    } else
-    {
-      if (voltageData[i] > CELL_OVER_VOLTAGE || voltageData[i] < CELL_UNDER_VOLTAGE)
-      {
-        checkCellVoltagesWithinBounds = false;
-      }
+    if (deadCells[i] ||
+        !isBmbReadingOk((uint32_t)i / CELLS_PER_BMB)) continue;
+
+    if (voltageData[i] > CELL_OVER_VOLTAGE ||
+        voltageData[i] < CELL_UNDER_VOLTAGE) {
+      checkCellVoltagesWithinBounds = false;
     }
   }
 
   checkPackVoltageWithinBounds = packVoltage < PACK_OVER_VOLTAGE && packVoltage > PACK_UNDER_VOLTAGE;
 
-  checkTempsWithinBounds = currentMinTemp >= UNDER_TEMP && currentMaxTemp <= OVER_TEMP;
+  /* Invalid/missing/high-Z thermistors are excluded. Only a real reading over
+   * 60 C blocks balancing and raises the BMS overtemperature fault. */
+  checkTempsWithinBounds = currentMaxTemp == -999.0f ||
+                          currentMaxTemp <= OVER_TEMP;
 
   maxTemp = currentMaxTemp; // save last temp range for data
   minTemp = currentMinTemp;
@@ -229,7 +232,8 @@ uint32_t getNumResponsiveChips()
 
 void checkMinMaxTemps(int tempIndex)
 {
-  if (deadThermistors[tempIndex]) return;
+  if (deadThermistors[tempIndex] ||
+      !isCellTemperatureReadingValid((uint32_t)tempIndex)) return;
   float temp = tempData[tempIndex];
   if (currentMaxTemp < temp) currentMaxTemp = temp;
   if (currentMinTemp > temp) currentMinTemp = temp;
@@ -237,10 +241,11 @@ void checkMinMaxTemps(int tempIndex)
 
 void checkMinMaxCells(int cellIndex)
 {
-    if (deadCells[cellIndex]) return;
+    if (deadCells[cellIndex] ||
+        !isBmbReadingOk((uint32_t)cellIndex / CELLS_PER_BMB)) return;
     float voltage = voltageData[cellIndex];
     if (currentMaxVoltage < voltage) currentMaxVoltage = voltage;
-    if (currentMinVoltage > voltage && voltage > 1.0f) currentMinVoltage = voltage;
+    if (currentMinVoltage > voltage) currentMinVoltage = voltage;
 }
 
 bool areCellVoltagesWithinBounds()
@@ -302,10 +307,24 @@ bool isCellVoltageReadingOk(uint32_t cellIndex)
          voltageData[cellIndex] <= CELL_OVER_VOLTAGE;
 }
 
-bool isCellTemperatureReadingOk(uint32_t temperatureIndex)
+bool isCellVoltageMonitored(uint32_t cellIndex)
+{
+  if (cellIndex >= NUM_BMS_ICS * CELLS_PER_BMB) return false;
+  return !deadCells[cellIndex];
+}
+
+bool isCellTemperatureReadingValid(uint32_t temperatureIndex)
 {
   if (temperatureIndex >= NUM_BMS_ICS * TEMPERATURES_PER_BMB) return false;
-  return tempData[temperatureIndex] >= UNDER_TEMP &&
+  const uint32_t bmbIndex = temperatureIndex / TEMPERATURES_PER_BMB;
+  return isBmbReadingOk(bmbIndex) &&
+         !deadThermistors[temperatureIndex] &&
+         thermistor_reading_is_valid(tempData[temperatureIndex]);
+}
+
+bool isCellTemperatureReadingOk(uint32_t temperatureIndex)
+{
+  return isCellTemperatureReadingValid(temperatureIndex) &&
          tempData[temperatureIndex] <= OVER_TEMP;
 }
 
@@ -314,39 +333,13 @@ bool isBmbReadingOk(uint32_t bmbIndex)
   return bmbIndex < NUM_BMS_ICS && bmbReadOk[bmbIndex];
 }
 
-bool isCellHighImpedanceSuspect(uint32_t cellIndex)
-{
-  if (cellIndex >= NUM_BMS_ICS * CELLS_PER_BMB) return false;
-
-  const uint32_t bmbIndex = cellIndex / CELLS_PER_BMB;
-  return !deadCells[cellIndex] &&
-         cell_fault_is_high_impedance_suspect(
-             isBmbReadingOk(bmbIndex), voltageData[cellIndex]);
-}
-
-uint32_t getHighImpedanceSuspectCount(void)
-{
-  uint32_t count = 0U;
-  for (uint32_t cellIndex = 0U;
-       cellIndex < NUM_BMS_ICS * CELLS_PER_BMB;
-       cellIndex++) {
-    if (isCellHighImpedanceSuspect(cellIndex)) count++;
-  }
-  return count;
-}
-
 bool hasCellOvervoltage()
 {
   for (int i = 0; i < numCells; i++) {
     if (deadCells[i]) continue;
 
-    const bool bmbCommunicationOk =
-        isBmbReadingOk((uint32_t)i / CELLS_PER_BMB);
-    if (cell_fault_is_overvoltage(
-            bmbCommunicationOk, voltageData[i], CELL_OVER_VOLTAGE,
-            HVC_BRINGUP_IGNORE_HIGH_IMPEDANCE_CELL_FAULTS != 0)) {
-      return true;
-    }
+    if (!isBmbReadingOk((uint32_t)i / CELLS_PER_BMB)) continue;
+    if (voltageData[i] > CELL_OVER_VOLTAGE) return true;
   }
   return false;
 }
@@ -356,13 +349,8 @@ bool hasCellUndervoltage()
   for (int i = 0; i < numCells; i++) {
     if (deadCells[i]) continue;
 
-    const bool bmbCommunicationOk =
-        isBmbReadingOk((uint32_t)i / CELLS_PER_BMB);
-    if (cell_fault_is_undervoltage(
-            bmbCommunicationOk, voltageData[i], CELL_UNDER_VOLTAGE,
-            HVC_BRINGUP_IGNORE_HIGH_IMPEDANCE_CELL_FAULTS != 0)) {
-      return true;
-    }
+    if (!isBmbReadingOk((uint32_t)i / CELLS_PER_BMB)) continue;
+    if (voltageData[i] < CELL_UNDER_VOLTAGE) return true;
   }
   return false;
 }
@@ -370,7 +358,10 @@ bool hasCellUndervoltage()
 bool hasCellOvertemperature()
 {
   for (int i = 0; i < numThermistors; i++) {
-    if (!deadThermistors[i] && tempData[i] > OVER_TEMP) return true;
+    if (isCellTemperatureReadingValid((uint32_t)i) &&
+        thermistor_reading_is_overtemperature(tempData[i], OVER_TEMP)) {
+      return true;
+    }
   }
   return false;
 }

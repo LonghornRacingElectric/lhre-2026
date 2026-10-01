@@ -10,10 +10,6 @@
 #include "adbms.h"
 #include "cell_fault_policy.h"
 
-#ifndef HVC_BRINGUP_IGNORE_HIGH_IMPEDANCE_CELL_FAULTS
-#define HVC_BRINGUP_IGNORE_HIGH_IMPEDANCE_CELL_FAULTS 0
-#endif
-
 #define ARR_LEN(arr) (sizeof(arr) / sizeof(arr[0]))
 #define CELLS_PER_BMB 14
 #define TEMPERATURES_PER_BMB 9
@@ -74,10 +70,10 @@ float getMaxCellVoltage();
 float getCellVoltage(uint32_t cellIndex);
 float getCellTemperature(uint32_t temperatureIndex);
 bool isCellVoltageReadingOk(uint32_t cellIndex);
+bool isCellVoltageMonitored(uint32_t cellIndex);
+bool isCellTemperatureReadingValid(uint32_t temperatureIndex);
 bool isCellTemperatureReadingOk(uint32_t temperatureIndex);
 bool isBmbReadingOk(uint32_t bmbIndex);
-bool isCellHighImpedanceSuspect(uint32_t cellIndex);
-uint32_t getHighImpedanceSuspectCount(void);
 bool hasCellOvervoltage();
 bool hasCellUndervoltage();
 bool hasCellOvertemperature();

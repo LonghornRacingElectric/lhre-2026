@@ -40,6 +40,7 @@ static msg_charger_status_t chargerStatus;
 static can_message_t *chargerCommandHandle;
 static can_receive_message_t *chargerStatusHandle;
 static bool chargerCommandRegistered;
+static float packStateOfCharge;
 
 static can_interface_t criticalCanBus = {
     .handle = &hfdcan1,
@@ -205,7 +206,8 @@ void hvc_can_periodic(bool amsError, bool imdError, int state,
 
     packStatus.pack_voltage = nonnegativeReading(getPackVoltageFromCells());
     packStatus.tractive_current = nonnegativeReading(getTractiveCurrent());
-    packStatus.state_of_charge = nonnegativeReading(getSoc(deltaTime));
+    packStateOfCharge = nonnegativeReading(getSoc(deltaTime));
+    packStatus.state_of_charge = packStateOfCharge;
     packStatus.cell_top_temp = unsignedTemperature(getMaxTemp());
     packStatus.cell_bottom_temp = unsignedTemperature(getMinTemp());
 
@@ -296,6 +298,10 @@ void hvc_can_get_tx_status(hvc_can_tx_status_t *status) {
     status->messagesQueued = criticalCanBus._messages_sent;
     status->droppedPackets = criticalCanBus.dropped_packets;
     pack_contactor_status(&contactorStatus, status->contactorStatusData);
+}
+
+float hvc_can_get_pack_soc(void) {
+    return packStateOfCharge;
 }
 
 bool hvc_can_is_charger_connected(void) {
