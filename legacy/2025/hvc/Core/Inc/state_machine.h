@@ -4,6 +4,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/* Set while cells are unmonitored (a BMB removed or dead channels): the HVC
+   then never enters a charging state and stays de-energized while a charger
+   is connected. */
+#ifndef HVC_DISABLE_CHARGING
+#define HVC_DISABLE_CHARGING 0
+#endif
+
 typedef enum {
   HVC_STATE_NOT_ENERGIZED = 0,
   HVC_STATE_PRECHARGING = 1,
@@ -23,5 +30,6 @@ void update_state_machine(bool anyFaults);
 hvc_state_t get_current_state(void);
 const char *get_state_name(hvc_state_t state);
 uint32_t get_precharge_qualified_ms(void);
+bool isChargingBlocked(void);
 
 #endif // STATE_MACHINE_H

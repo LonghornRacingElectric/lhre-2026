@@ -23,14 +23,6 @@
 
 /* USER CODE BEGIN 0 */
 
-#ifndef HVC_IMD_PARK_HOLD_OVERRIDE
-#define HVC_IMD_PARK_HOLD_OVERRIDE 0
-#endif
-
-#ifndef HVC_IMD_RELAY_HOLD_OVERRIDE
-#define HVC_IMD_RELAY_HOLD_OVERRIDE 0
-#endif
-
 /* USER CODE END 0 */
 
 /*----------------------------------------------------------------------------*/
@@ -62,11 +54,9 @@ void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, BMS_ERROR_Pin|CLOSE_IR_POS_Pin, GPIO_PIN_RESET);
 
-#if HVC_IMD_RELAY_HOLD_OVERRIDE || HVC_IMD_PARK_HOLD_OVERRIDE
-  /* Preload PB1 low before changing it to an output. The HVC's IMD relay-hold
-     FET is active-low, so this holds the path during IMD initialization. */
+  /* PB1 is the only driver of the IMD SR-latch set input (1 = fault).
+     Preload it low (no fault) before it becomes an output. */
   HAL_GPIO_WritePin(IMD_ERROR_GPIO_Port, IMD_ERROR_Pin, GPIO_PIN_RESET);
-#endif
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(CS_BMB_GPIO_Port, CS_BMB_Pin, GPIO_PIN_SET);
@@ -97,12 +87,8 @@ void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : PtPin */
   GPIO_InitStruct.Pin = IMD_ERROR_Pin;
-#if HVC_IMD_RELAY_HOLD_OVERRIDE || HVC_IMD_PARK_HOLD_OVERRIDE
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-#else
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-#endif
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(IMD_ERROR_GPIO_Port, &GPIO_InitStruct);
 

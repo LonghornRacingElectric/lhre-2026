@@ -43,6 +43,7 @@
 #include "state_machine.h"
 #include "state_machine_logic.h"
 #include "imd.h"
+#include "bmb_debug.h"
 #include "contactors.h"
 #include "cells.h"
 #include "faults.h"
@@ -84,6 +85,7 @@ static size_t appendToLine(char *line, size_t capacity, size_t length,
 static size_t appendFaultName(char *line, size_t capacity, size_t length,
                               uint32_t faults, uint32_t fault,
                               const char *name);
+static void serviceImd(void);
 static void settleUsbAndServiceCan(void);
 static void printBmsFaultDiagnostics(void);
 static void printHighImpedanceDiagnostics(void);
@@ -117,10 +119,18 @@ static size_t appendFaultName(char *line, size_t capacity, size_t length,
                       length == 0U ? "" : "|", name);
 }
 
+static void serviceImd(void)
+{
+  imd_can_periodic(isPosContactorClosed() && isNegContactorClosed());
+}
+
 static void settleUsbAndServiceCan(void)
 {
   HAL_Delay(USB_PRINT_SETTLE_MS);
   hvc_can_service_tx();
+  /* The status print blocks the main loop for a while; keep IMD fault
+     handling running through it. */
+  serviceImd();
 }
 
 static void printHighImpedanceDiagnostics(void)
@@ -299,6 +309,28 @@ static void printPackAndBmsSummary(void)
              (double)validCellSum);
   settleUsbAndServiceCan();
 
+  /* Cells with no BMS reading (dead channels and the removed BMB). With both
+     AIRs closed BUS_VSENSE is the whole pack, so the gap to the measured sum
+     is what the unmonitored cells hold between them. */
+  const uint32_t unmonitoredCells = PACK_SERIES_CELLS - getMeasuredCellCount();
+  if (unmonitoredCells > 0U && isPosContactorClosed() && isNegContactorClosed())
+  {
+    const float unmonitoredVoltage = vSense - getMeasuredCellSum();
+    usb_printf("UNMONITORED cells=%lu est_avg=%.3fV/cell (BUS_VSENSE %.1fV - measured %.1fV) charging=%s",
+               (unsigned long)unmonitoredCells,
+               (double)(unmonitoredVoltage / (float)unmonitoredCells),
+               (double)vSense, (double)getMeasuredCellSum(),
+               HVC_DISABLE_CHARGING ? "DISABLED" : "ENABLED");
+  }
+  else
+  {
+    usb_printf("UNMONITORED cells=%lu est_avg=n/a (needs both AIRs closed) charging=%s%s",
+               (unsigned long)unmonitoredCells,
+               HVC_DISABLE_CHARGING ? "DISABLED" : "ENABLED",
+               isChargingBlocked() ? " CHARGER_CONNECTED->HELD_OFF" : "");
+  }
+  settleUsbAndServiceCan();
+
   usb_printf("PRECHARGE target=%.2fV (%u%% of CELL_SUM_ALL) gate=%s qualified=%lums/%ums",
              (double)prechargeTarget,
              (unsigned int)(HVC_PRECHARGE_THRESHOLD_PERCENT * 100.0f),
@@ -364,10 +396,18 @@ static void printBmsReadings(void)
              (unsigned long)get_latched_faults());
   settleUsbAndServiceCan();
 
-  usb_printf("SAFETY IMD_PIN_LEVEL=%s IMD_EFFECTIVE=%s OVERRIDE=%s VCU_RX=%s age=%lums PRNDL=%u SHDN=[%u,%u,%u,%u] SHDN12_24V=%s AIR_SENSE=[+%u,-%u]",
-             isImdPinOk() ? "HIGH" : "LOW",
-             isImdOk() ? "OK" : "FAULT",
-             isImdOverrideActive() ? "DRIVE_LOW" : "OFF",
+  usb_printf("IMD OK_SIGNAL=%.2fV(%s) STATE=%s for=%lums TRIP=%s LATCH_SET(PB1)=%u%s",
+             (double)getImdOkVoltage(),
+             isImdSignalOk() ? "OK" : "FAULT",
+             imd_mode_policy_state_name(getImdState()),
+             (unsigned long)getImdStateAgeMs(),
+             imd_mode_policy_trip_name(getImdTripReason()),
+             (unsigned int)isImdLatchSetAsserted(),
+             isImdBypassed() ? " BYPASS(PB1 forced 0)" : "");
+  settleUsbAndServiceCan();
+
+  usb_printf("SAFETY IMD=%s VCU_RX=%s age=%lums PRNDL=%u SHDN=[%u,%u,%u,%u] SHDN12_24V=%s AIR_SENSE=[+%u,-%u]",
+             isImdOk() ? "OK" : "TRIPPED",
              canRx.vcuStateValid ? "OK" : "TIMEOUT",
              (unsigned long)canRx.vcuStateAgeMs,
              (unsigned int)canRx.prndlState,
@@ -396,10 +436,13 @@ static void printBmsReadings(void)
 
   printPackAndBmsSummary();
   printBmsFaultDiagnostics();
+  /* Raw ADBMS register dump for one BMB (see bmb_debug.h); disabled for now. */
+  // bmb_debug_dump(settleUsbAndServiceCan);
 
   char line[BMS_PRINT_LINE_SIZE];
-  usb_printf("ADBMS scan: %lu/%u BMBs OK | ! = bad read; trips: cell <3.0V/>4.2V, temp >60C",
-             (unsigned long)getNumResponsiveChips(), (unsigned int)NUM_BMS_ICS);
+  usb_printf("ADBMS scan: %lu/%u BMBs OK | ! = bad read; trips: cell <%.2fV/>%.2fV, temp >60C",
+             (unsigned long)getNumResponsiveChips(), (unsigned int)NUM_BMS_ICS,
+             (double)CELL_UNDER_VOLTAGE, (double)CELL_OVER_VOLTAGE);
   settleUsbAndServiceCan();
 
   for (uint32_t bmb = 0; bmb < NUM_BMS_ICS; bmb++)
@@ -529,12 +572,8 @@ int main(void)
     deltaTime = lib_timer_delta_ms();
     const uint32_t currentTime = lib_timer_elapsed_ms();
 
-    hvc_can_rx_status_t canRx;
-    hvc_can_get_rx_status(&canRx);
-
-    /* Park drives the active-low IMD relay-hold; Drive releases PB1 to its
-       intended high-impedance input mode. A VCU timeout holds the last mode. */
-    imd_can_periodic(canRx.vcuStateValid, canRx.prndlState);
+    /* Every loop: PA3 (IMD OK) and the AIR feedback decide PB1 (latch set). */
+    serviceImd();
 
     /* Service safety-critical CAN immediately before the one blocking ADBMS
        conversion step as well as after it in hvc_can_periodic(). */
@@ -561,11 +600,13 @@ int main(void)
         imdIndicatorError = imdIndicatorError || !isImdOk();
       }
 
+      /* An IMD trip blocks precharge until power cycle, so the reset button
+         cannot re-energize into an insulation fault. */
       const bool anyFaults =
 #if HVC_BMS_FAULT_MONITOR_ONLY
-          !startupComplete;
+          !startupComplete || !isImdOk();
 #else
-          get_latched_faults() != 0U || !startupComplete;
+          get_latched_faults() != 0U || !startupComplete || !isImdOk();
 #endif
       update_state_machine(anyFaults);
     }

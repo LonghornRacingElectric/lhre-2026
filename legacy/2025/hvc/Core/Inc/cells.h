@@ -17,6 +17,12 @@
 #define ARR_LEN(arr) (sizeof(arr) / sizeof(arr[0]))
 #define CELLS_PER_BMB 14
 #define TEMPERATURES_PER_BMB 9
+// Series cells in the whole pack, independent of how many BMBs are installed.
+// Used to scale the measured cell sum up to a full-pack estimate.
+#define PACK_SERIES_CELLS 140
+
+extern float CELL_OVER_VOLTAGE;
+extern float CELL_UNDER_VOLTAGE;
 
 // Variables
 static uint8_t rawData[6 * NUM_BMS_ICS];
@@ -67,6 +73,8 @@ bool isPackVoltageWithinBounds();
 bool isTempWithinBounds();
 bool isIsoSpiResponsive();
 float getPackVoltageFromCells();
+float getMeasuredCellSum(void);
+uint32_t getMeasuredCellCount(void);
 float getMaxTemp();
 float getMinTemp();
 float getMinCellVoltage();

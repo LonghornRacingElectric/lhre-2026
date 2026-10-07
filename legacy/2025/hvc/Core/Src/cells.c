@@ -12,6 +12,10 @@ float PACK_UNDER_VOLTAGE = 420.0f;
 float CELL_OVER_VOLTAGE = 4.2f;
 float CELL_UNDER_VOLTAGE = 3.00f;
 float OVER_TEMP = 60.0f;
+// Sum and count of the cells actually measured (installed and not dead) in
+// the last complete scan.
+static float measuredCellSum = 0.0f;
+static uint32_t measuredCellCount = 0U;
 float UNDER_TEMP = 0.0f;
 bool carParked = false;
 
@@ -176,7 +180,13 @@ bool isIsoSpiResponsive()
 }
 
 void setDeadCells() {
-  // all good!
+  // Known-bad sense channels, excluded from OV/UV/min/max and balancing.
+  // C015-C017: flex C0-C2 not connected / dead cells (BMB02 ch01-03).
+  // C084: BMB06 ch14 reads about -0.85 V, top tap suspected open.
+  deadCells[14] = true; // C015
+  deadCells[15] = true; // C016
+  deadCells[16] = true; // C017
+  //deadCells[83] = true; // C084
 }
 
 void setDeadThermistors() {
@@ -187,11 +197,16 @@ void doChecks(int state)
 {
   (void)state;
   checkCellVoltagesWithinBounds = true;
-  packVoltage = 0;
+  float measuredSum = 0.0f;
+  int measuredCount = 0;
 
   for (int i = 0; i < numCells; i++)
   {
-    packVoltage += voltageData[i];
+    if (!deadCells[i])
+    {
+      measuredSum += voltageData[i];
+      measuredCount++;
+    }
     if(deadCells[i])
     {
       if (voltageData[i] < -0.5f || voltageData[i] > 0.5f)
@@ -206,6 +221,14 @@ void doChecks(int state)
       }
     }
   }
+
+  // Full-pack estimate: dead and uninstalled cells are assumed to sit at the
+  // average of the measured ones. Feeds the precharge target, SOC and CAN.
+  packVoltage = measuredCount > 0
+      ? measuredSum * (float)PACK_SERIES_CELLS / (float)measuredCount
+      : 0.0f;
+  measuredCellSum = measuredSum;
+  measuredCellCount = (uint32_t)measuredCount;
 
   checkPackVoltageWithinBounds = packVoltage < PACK_OVER_VOLTAGE && packVoltage > PACK_UNDER_VOLTAGE;
 
@@ -251,6 +274,16 @@ bool areCellVoltagesWithinBounds()
 bool isPackVoltageWithinBounds()
 {
   return checkPackVoltageWithinBounds;
+}
+
+float getMeasuredCellSum(void)
+{
+  return measuredCellSum;
+}
+
+uint32_t getMeasuredCellCount(void)
+{
+  return measuredCellCount;
 }
 
 float getPackVoltageFromCells()

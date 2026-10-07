@@ -11,7 +11,9 @@
 #include <stdbool.h>
 
 #define ADBMS_SPI_TIMEOUT 1000 // Timeout
-#define NUM_BMS_ICS 10 // Number of BMB ADBMS ICs in the daisy chain
+// TEMPORARY: BMB10 is out of the pack for off-car debug, so the chain ends at
+// BMB09. Cells C127-C140 are NOT monitored while this is 9. Restore to 10.
+#define NUM_BMS_ICS 9 // Number of BMB ADBMS ICs in the daisy chain
 
 #define MD ADC_MODE_NORMAL // ADC Mode
 #define DCP DISCHARGE_PERMITTED // Discharge Permit
@@ -197,7 +199,19 @@ typedef enum {
     CMD_UNMUTE  = 0x0029,        // Unmute discharge
 
     CMD_RDSID = 0x002C,  // read serial number
+
+    // Redundant S-ADC (ADBMS6830): single-shot, DCP = 0, no open-wire
+    CMD_ADSV  = 0x0168,  // Start S-ADC conversion of all cells
+    CMD_RDSVA = 0x0003,  // Read S-Voltage Register Group A (cells 1-3)
 } ADBMS6830_Command_t;
+
+/* One IC's reply to a read command, with the PEC fields kept for debugging. */
+typedef struct {
+    uint8_t data[6];
+    uint16_t rxPec;     // 10-bit data PEC as received
+    uint8_t rxCounter;  // 6-bit command counter as received
+    uint16_t calcPec;   // PEC computed over data[] + rxCounter
+} adbms6830_raw_reply_t;
 
 /**********************************************************
  * Function declarations
@@ -220,6 +234,16 @@ ADBMS6830_Error_t adbms6830_cmd_write(ADBMS6830_Command_t command, uint8_t *data
  */
 uint32_t adbms6830_cmd_read(ADBMS6830_Command_t command, uint8_t *data_buf);
 bool adbms6830_is_ic_responsive(uint32_t ic_index);
+
+/**
+ * @brief Read command for diagnostics: like adbms6830_cmd_read(), but keeps
+ * each IC's received PEC and command counter alongside the computed PEC.
+ * Does not touch the responsive-IC state used by the BMS scan.
+ *
+ * @return number of ICs whose PEC matched, or 0 on an SPI error
+ */
+uint32_t adbms6830_cmd_read_raw(ADBMS6830_Command_t command,
+                                adbms6830_raw_reply_t replies[NUM_BMS_ICS]);
 
 
 uint32_t adbms6830_cmd_poll(ADBMS6830_Command_t command);

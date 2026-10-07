@@ -21,11 +21,17 @@ void state_machine_init(void) {
     applyOutputs();
 }
 
+bool isChargingBlocked(void) {
+    return HVC_DISABLE_CHARGING && hvc_can_is_charger_connected();
+}
+
 void update_state_machine(bool anyFaults) {
+    /* With charging disabled, a connected charger keeps the pack
+       de-energized: unmonitored cells could otherwise be overcharged. */
     const hvc_state_machine_inputs_t inputs = {
-        .anyFaults = anyFaults,
+        .anyFaults = anyFaults || isChargingBlocked(),
         .shutdownClosed = isShutdownClosed(),
-        .chargerConnected = hvc_can_is_charger_connected(),
+        .chargerConnected = !HVC_DISABLE_CHARGING && hvc_can_is_charger_connected(),
         .tractiveVoltage = getTractiveVoltage(),
         .packVoltage = getPackVoltageFromCells(),
         .currentTimeMs = HAL_GetTick(),

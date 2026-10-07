@@ -4,98 +4,67 @@
 
 #include "imd.h"
 
-#include "fdcan.h"
-#include "imd_mode_policy.h"
+#include "adc.h"
 #include "main.h"
 
-static imd_gpio_mode_t imdGpioMode = IMD_GPIO_INPUT;
+/* Board rework:
+   - iso175 OKHS -> resistor divider -> PA3: ~3 V = IMD OK, 0 V = fault.
+     PA3 is TEMP_ADC1 (ADC1 INP15), already sampled by the DMA scan as
+     getTempOne(), so the signal is read through the ADC.
+   - PB1 (IMD_ERROR) is the only driver of the IMD SR-latch set input
+     (1 = fault): always a push-pull output. */
+#define IMD_OK_THRESHOLD_V 1.5f
 
-static void configureImdPinAsInput(void) {
-    GPIO_InitTypeDef gpio = {0};
-    gpio.Pin = IMD_ERROR_Pin;
-    gpio.Mode = GPIO_MODE_INPUT;
-    gpio.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(IMD_ERROR_GPIO_Port, &gpio);
+static imd_mode_policy_t imdPolicy;
+
+float getImdOkVoltage(void) {
+    return getTempOne();
 }
 
-static void configureImdPinAsOutputLow(void) {
-    GPIO_InitTypeDef gpio = {0};
-
-    /* Preload the output latch low before enabling output mode, preventing a
-       high pulse during the Park transition. */
-    HAL_GPIO_WritePin(IMD_ERROR_GPIO_Port, IMD_ERROR_Pin, GPIO_PIN_RESET);
-    gpio.Pin = IMD_ERROR_Pin;
-    gpio.Mode = GPIO_MODE_OUTPUT_PP;
-    gpio.Pull = GPIO_NOPULL;
-    gpio.Speed = GPIO_SPEED_FREQ_LOW;
-    HAL_GPIO_Init(IMD_ERROR_GPIO_Port, &gpio);
+bool isImdSignalOk(void) {
+    return getImdOkVoltage() > IMD_OK_THRESHOLD_V;
 }
 
-bool isImdPinOk(void) {
-    return HAL_GPIO_ReadPin(IMD_ERROR_GPIO_Port, IMD_ERROR_Pin) == GPIO_PIN_SET;
+static void writeLatchSet(bool fault) {
+    HAL_GPIO_WritePin(IMD_ERROR_GPIO_Port, IMD_ERROR_Pin,
+                      fault ? GPIO_PIN_SET : GPIO_PIN_RESET);
+}
+
+bool isImdBypassed(void) {
+    return HVC_IMD_RELAY_HOLD_OVERRIDE != 0;
 }
 
 bool isImdOk(void) {
-    return imdGpioMode == IMD_GPIO_DRIVE_LOW || isImdPinOk();
+    return isImdBypassed() || !imd_mode_policy_tripped(&imdPolicy);
 }
 
-bool isImdOverrideActive(void) {
-    return imdGpioMode == IMD_GPIO_DRIVE_LOW;
+bool isImdLatchSetAsserted(void) {
+    return HAL_GPIO_ReadPin(IMD_ERROR_GPIO_Port, IMD_ERROR_Pin) == GPIO_PIN_SET;
 }
 
-// Only use if GPIO is set to output (used for testing only)
-void testSetIMD(bool error) {
-    HAL_GPIO_WritePin(IMD_ERROR_GPIO_Port, IMD_ERROR_Pin, error);
+imd_state_t getImdState(void) {
+    return imdPolicy.state;
+}
+
+imd_trip_reason_t getImdTripReason(void) {
+    return imdPolicy.tripReason;
+}
+
+uint32_t getImdStateAgeMs(void) {
+    return HAL_GetTick() - imdPolicy.stateSinceMs;
 }
 
 void imd_can_init() {
-    /* The Orion integration uses the dedicated hardware pin. Hold its
-       active-low relay path while the VCU reports Park, then release PB1 to
-       an input when the VCU reports Drive. The unused legacy IMD CAN bus
-       remains disabled. */
-#if HVC_IMD_RELAY_HOLD_OVERRIDE || HVC_IMD_PARK_HOLD_OVERRIDE
-    imdGpioMode = IMD_GPIO_DRIVE_LOW;
-    configureImdPinAsOutputLow();
-#else
-    imdGpioMode = IMD_GPIO_INPUT;
-    configureImdPinAsInput();
-#endif
+    /* MX_GPIO_Init already made PB1 an output preloaded low; reassert it.
+       The unused legacy IMD CAN bus remains disabled. */
+    imd_mode_policy_init(&imdPolicy, HAL_GetTick());
+    writeLatchSet(false);
 }
 
-void imd_can_periodic(bool vcuStateValid, uint8_t prndlState) {
-#if HVC_IMD_RELAY_HOLD_OVERRIDE
-    (void)vcuStateValid;
-    (void)prndlState;
-    /* Explicit bench configuration: keep driving low indefinitely. */
-    imdGpioMode = IMD_GPIO_DRIVE_LOW;
-    HAL_GPIO_WritePin(IMD_ERROR_GPIO_Port, IMD_ERROR_Pin, GPIO_PIN_RESET);
-#elif HVC_IMD_PARK_HOLD_OVERRIDE
-    const imd_gpio_mode_t desiredMode = imd_mode_policy_update(
-        imdGpioMode, vcuStateValid, prndlState);
-    if (desiredMode == imdGpioMode) {
-        if (imdGpioMode == IMD_GPIO_DRIVE_LOW) {
-            /* Maintain the active-low output while parked. */
-            HAL_GPIO_WritePin(IMD_ERROR_GPIO_Port, IMD_ERROR_Pin,
-                              GPIO_PIN_RESET);
-        }
-        return;
-    }
-
-    if (desiredMode == IMD_GPIO_DRIVE_LOW) {
-        configureImdPinAsOutputLow();
-    } else {
-        /* INPUT + NOPULL is high impedance; this never drives the pin high. */
-        configureImdPinAsInput();
-    }
-    imdGpioMode = desiredMode;
-#else
-    (void)vcuStateValid;
-    (void)prndlState;
-    if (imdGpioMode != IMD_GPIO_INPUT) {
-        configureImdPinAsInput();
-        imdGpioMode = IMD_GPIO_INPUT;
-    }
-#endif
+void imd_can_periodic(bool airsClosed) {
+    (void)imd_mode_policy_update(&imdPolicy, airsClosed, isImdSignalOk(),
+                                 HAL_GetTick());
+    writeLatchSet(!isImdOk());
 }
 
 void imd_can_config() {

@@ -4,11 +4,15 @@ load("//tools:outputs/build_outputs.bzl", "firmware_project_h7")
 firmware_project_h7(
     name = "hvc-firmware-2025",
     defines = [
-        "HVC_BMS_FAULT_MONITOR_ONLY=1",
-        "HVC_BRINGUP_IGNORE_HIGH_IMPEDANCE_CELL_FAULTS=1",
-        # Temporary PCB bring-up override: keep the IMD relay-hold output low
-        # continuously. Remove this define after the IMD interface is reworked.
-        "HVC_IMD_RELAY_HOLD_OVERRIDE=1",
+        # Driving build: BMS faults must open the shutdown circuit. The known
+        # bad channels are listed in setDeadCells() instead of the broad
+        # high-impedance bypass.
+        "HVC_BMS_FAULT_MONITOR_ONLY=0",
+        "HVC_BRINGUP_IGNORE_HIGH_IMPEDANCE_CELL_FAULTS=0",
+        # BMB10 removed and C015-C017 dead, so 17 cells are unmonitored.
+        # Charging is left enabled by choice; set to 1 to block charging and
+        # hold the pack de-energized while a charger is connected.
+        "HVC_DISABLE_CHARGING=0",
         "STM32H733xx",
     ],
     extra_deps = [

@@ -143,6 +143,45 @@ bool adbms6830_is_ic_responsive(uint32_t ic_index) {
   return ic_index < NUM_BMS_ICS && ic_responsive[ic_index];
 }
 
+uint32_t adbms6830_cmd_read_raw(ADBMS6830_Command_t command,
+                                adbms6830_raw_reply_t replies[NUM_BMS_ICS]) {
+  uint16_t command_int = command;
+
+  uint8_t cmd_buf[2];
+  cmd_buf[0] = command_int >> 8;
+  cmd_buf[1] = command_int & 0xFF;
+  uint16_t cmd_crc = pec(cmd_buf, 2);
+  uint8_t crc_buf[2];
+  crc_buf[0] = cmd_crc >> 8;
+  crc_buf[1] = cmd_crc & 0xFF;
+
+  HAL_GPIO_WritePin(CS_BMB_GPIO_Port, CS_BMB_Pin, GPIO_PIN_RESET);
+
+  if (HAL_SPI_Transmit(&hspi3, cmd_buf, 2, ADBMS_SPI_TIMEOUT) != HAL_OK ||
+      HAL_SPI_Transmit(&hspi3, crc_buf, 2, ADBMS_SPI_TIMEOUT) != HAL_OK) {
+    HAL_GPIO_WritePin(CS_BMB_GPIO_Port, CS_BMB_Pin, GPIO_PIN_SET);
+    return 0;
+  }
+
+  uint32_t matched = 0;
+  for (int i = 0; i < NUM_BMS_ICS; i++) {
+    adbms6830_raw_reply_t *reply = &replies[i];
+    if (HAL_SPI_Receive(&hspi3, reply->data, 6, ADBMS_SPI_TIMEOUT) != HAL_OK ||
+        HAL_SPI_Receive(&hspi3, crc_buf, 2, ADBMS_SPI_TIMEOUT) != HAL_OK) {
+      HAL_GPIO_WritePin(CS_BMB_GPIO_Port, CS_BMB_Pin, GPIO_PIN_SET);
+      return 0;
+    }
+    const uint16_t received = (uint16_t)((crc_buf[0] << 8) | crc_buf[1]);
+    reply->rxCounter = (uint8_t)(received >> 10);
+    reply->rxPec = received & 0x3FF;
+    reply->calcPec = dpec(reply->data, 6, true, reply->rxCounter);
+    if (reply->calcPec == reply->rxPec) matched++;
+  }
+
+  HAL_GPIO_WritePin(CS_BMB_GPIO_Port, CS_BMB_Pin, GPIO_PIN_SET);
+  return matched;
+}
+
 
 uint32_t adbms6830_cmd_poll(ADBMS6830_Command_t command) {
   volatile uint16_t command_int = command;
