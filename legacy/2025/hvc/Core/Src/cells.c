@@ -180,13 +180,8 @@ bool isIsoSpiResponsive()
 }
 
 void setDeadCells() {
-  // Known-bad sense channels, excluded from OV/UV/min/max and balancing.
-  // C015-C017: flex C0-C2 not connected / dead cells (BMB02 ch01-03).
-  // C084: BMB06 ch14 reads about -0.85 V, top tap suspected open.
-  deadCells[14] = true; // C015
-  deadCells[15] = true; // C016
-  deadCells[16] = true; // C017
-  //deadCells[83] = true; // C084
+  // BENCH: every channel of the BMB under test is monitored. The car's dead
+  // channels (C015-C017, BMB02 ch01-03) are past the end of a one-BMB array.
 }
 
 void setDeadThermistors() {

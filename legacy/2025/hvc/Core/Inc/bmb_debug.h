@@ -6,7 +6,7 @@
 /* Chain index (0-based, same numbering as the "BMBnn" log labels minus one)
    of the BMB to dump raw ADBMS register reads for. -1 disables the dump. */
 #ifndef HVC_BMB_DEBUG_INDEX
-#define HVC_BMB_DEBUG_INDEX 9
+#define HVC_BMB_DEBUG_INDEX 0
 #endif
 
 /* Sends RDCFGA, RDSID, RDCVA, ADCV, RDCVA, RDFCA, ADSV and RDSVA to the

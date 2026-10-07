@@ -436,8 +436,8 @@ static void printBmsReadings(void)
 
   printPackAndBmsSummary();
   printBmsFaultDiagnostics();
-  /* Raw ADBMS register dump for one BMB (see bmb_debug.h); disabled for now. */
-  // bmb_debug_dump(settleUsbAndServiceCan);
+  /* BENCH: raw ADBMS register dump of the BMB under test (see bmb_debug.h). */
+  bmb_debug_dump(settleUsbAndServiceCan);
 
   char line[BMS_PRINT_LINE_SIZE];
   usb_printf("ADBMS scan: %lu/%u BMBs OK | ! = bad read; trips: cell <%.2fV/>%.2fV, temp >60C",

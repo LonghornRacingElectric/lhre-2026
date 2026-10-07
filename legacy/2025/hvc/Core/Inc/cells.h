@@ -19,7 +19,8 @@
 #define TEMPERATURES_PER_BMB 9
 // Series cells in the whole pack, independent of how many BMBs are installed.
 // Used to scale the measured cell sum up to a full-pack estimate.
-#define PACK_SERIES_CELLS 140
+// BENCH: only the one BMB's cells exist.
+#define PACK_SERIES_CELLS (CELLS_PER_BMB * NUM_BMS_ICS)
 
 extern float CELL_OVER_VOLTAGE;
 extern float CELL_UNDER_VOLTAGE;

@@ -11,9 +11,9 @@
 #include <stdbool.h>
 
 #define ADBMS_SPI_TIMEOUT 1000 // Timeout
-// TEMPORARY: BMB10 is out of the pack for off-car debug, so the chain ends at
-// BMB09. Cells C127-C140 are NOT monitored while this is 9. Restore to 10.
-#define NUM_BMS_ICS 9 // Number of BMB ADBMS ICs in the daisy chain
+// BENCH: one BMB wired straight to the HVC isoSPI port, out of the car.
+// The car build is on branch user/sebza/hvc-9bmb-imd-pa3.
+#define NUM_BMS_ICS 1 // Number of BMB ADBMS ICs in the daisy chain
 
 #define MD ADC_MODE_NORMAL // ADC Mode
 #define DCP DISCHARGE_PERMITTED // Discharge Permit
