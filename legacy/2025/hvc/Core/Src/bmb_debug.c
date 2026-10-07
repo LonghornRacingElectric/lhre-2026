@@ -94,6 +94,44 @@ static uint32_t readAndPrint(ADBMS6830_Command_t command, const char *label,
     return matched;
 }
 
+/* Discharge control: DCC bit k (bytes 4-5 of CFGB, as adbms6830_wrcfgb()
+   packs them) switches on the discharge FET of cell k+1 on this BMB. */
+static uint16_t cfgbDcc(const uint8_t *cfgbBytes) {
+    return (uint16_t)((cfgbBytes[4] | (cfgbBytes[5] << 8)) & 0x3FFFU);
+}
+
+static void printDischargeBits(void (*settle)(void)) {
+    const uint32_t matched = adbms6830_cmd_read_raw(CMD_RDCFGB, replies);
+    printRawReply("RDCFGB", matched, false);
+    settle();
+
+    const uint8_t *written = &cfgb[6 * (NUM_BMS_ICS - 1 - HVC_BMB_DEBUG_INDEX)];
+    const uint16_t dccWritten = cfgbDcc(written);
+    const uint16_t dccRead = cfgbDcc(replies[HVC_BMB_DEBUG_INDEX].data);
+    const bool pecOk = replyPecOk(&replies[HVC_BMB_DEBUG_INDEX]);
+
+    char line[BMB_DEBUG_LINE_SIZE];
+    int length = snprintf(
+        line, sizeof(line),
+        "BMBDBG BMB%02d DCC written=0x%04X [%02X %02X %02X %02X %02X %02X] "
+        "read=0x%04X %s discharging:",
+        HVC_BMB_DEBUG_INDEX + 1, (unsigned int)dccWritten,
+        written[0], written[1], written[2], written[3], written[4], written[5],
+        (unsigned int)dccRead,
+        !pecOk ? "(PEC_FAIL, read unreliable)"
+               : (dccRead == dccWritten ? "(match)" : "(MISMATCH)"));
+    if (dccRead == 0U && length > 0 && (size_t)length < sizeof(line)) {
+        length += snprintf(&line[length], sizeof(line) - (size_t)length, " NONE");
+    }
+    for (int bit = 0; bit < 14 && length > 0 && (size_t)length < sizeof(line); bit++) {
+        if ((dccRead & (1U << bit)) == 0U) continue;
+        length += snprintf(&line[length], sizeof(line) - (size_t)length, " C%03d",
+                           HVC_BMB_DEBUG_INDEX * 14 + bit + 1);
+    }
+    println(line);
+    settle();
+}
+
 void bmb_debug_dump(void (*settle)(void)) {
     usb_printf("BMBDBG ---- BMB%02d raw register dump (cc should advance by 1 "
                "after each ADCV/ADSV; CLEARED = 0x8000, no conversion) ----",
@@ -105,6 +143,8 @@ void bmb_debug_dump(void (*settle)(void)) {
     readAndPrint(CMD_RDCFGA, "RDCFGA", false, settle);
     printChainSummary("RDCFGA");
     settle();
+
+    printDischargeBits(settle);
 
     readAndPrint(CMD_RDSID, "RDSID", false, settle);
 

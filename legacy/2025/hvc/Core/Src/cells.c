@@ -19,6 +19,12 @@ static uint32_t measuredCellCount = 0U;
 float UNDER_TEMP = 0.0f;
 bool carParked = false;
 
+/* 1 = every CFGB write clears all discharge (DCC) bits, whatever the
+   balancing logic wants. */
+#ifndef HVC_DISABLE_BALANCING
+#define HVC_DISABLE_BALANCING 0
+#endif
+
 #define THERMISTOR_PULLUP_KOHMS 10.0f
 #define INVALID_TEMPERATURE_C (-999.0f)
 #define MIN_VALID_THERMISTOR_VOLTAGE 0.01f
@@ -58,7 +64,7 @@ void cells_periodic(int state) {
     adbms6830_adcv();
     HAL_Delay(10);
     adbms6830_wakeup();
-    adbms6830_wrcfgb(true, balanceCommands);
+    adbms6830_wrcfgb(!HVC_DISABLE_BALANCING, balanceCommands);
   }
   else if (cmd_ID == 5)
   {

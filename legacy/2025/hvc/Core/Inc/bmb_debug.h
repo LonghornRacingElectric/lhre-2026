@@ -9,9 +9,10 @@
 #define HVC_BMB_DEBUG_INDEX 0
 #endif
 
-/* Sends RDCFGA, RDSID, RDCVA, ADCV, RDCVA, RDFCA, ADSV and RDSVA to the
-   chain and prints the selected BMB's raw replies (data, received PEC,
-   computed PEC, command counter), plus a PEC/counter summary for every IC.
+/* Sends RDCFGA, RDCFGB, RDSID, RDCVA, ADCV, RDCVA, RDFCA, ADSV and RDSVA to
+   the chain and prints the selected BMB's raw replies (data, received PEC,
+   computed PEC, command counter), the discharge (DCC) bits written vs read
+   back, plus a PEC/counter summary for every IC.
    settle() runs between printed lines. */
 void bmb_debug_dump(void (*settle)(void));
 

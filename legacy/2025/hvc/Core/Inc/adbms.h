@@ -27,6 +27,10 @@
 
 extern uint16_t command_counter; // command counter state
 
+// Last CFGB data written by adbms6830_wrcfgb(), 6 bytes per IC in transmit
+// order (slot i goes to chain index NUM_BMS_ICS - 1 - i).
+extern uint8_t cfgb[NUM_BMS_ICS * 6];
+
 typedef enum {
     ADBMS6830_OK,
     ADBMS6830_SPI_ERROR,
