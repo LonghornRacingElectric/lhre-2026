@@ -97,5 +97,21 @@ int main(void) {
     assert(!outputs.positiveContactorClosed);
     assert(!outputs.chargerEnabled);
 
+    /* A fault while charging must clear the charger request immediately. */
+    hvc_state_machine_reset(&context, &outputs);
+    in = inputs();
+    in.shutdownClosed = true;
+    in.chargerConnected = true;
+    hvc_state_machine_step(&context, &in, &outputs);
+    in.tractiveVoltage = 430.0f;
+    in.currentTimeMs = 5000U;
+    hvc_state_machine_step(&context, &in, &outputs);
+    assert(outputs.chargerEnabled);
+    in.anyFaults = true;
+    hvc_state_machine_step(&context, &in, &outputs);
+    assert(context.state == HVC_STATE_NOT_ENERGIZED);
+    assert(!outputs.positiveContactorClosed);
+    assert(!outputs.chargerEnabled);
+
     return 0;
 }

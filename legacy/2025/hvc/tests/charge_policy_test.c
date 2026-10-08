@@ -37,13 +37,13 @@ int main(void)
     /* CC: full current below the taper start. */
     in = healthy(3.80f, 9.0f);
     out = charge_policy_update(&policy, &in);
-    assert(out.enable && near(out.currentLimitA, CHARGE_MAX_CURRENT_A));
+    assert(out.enable && near(out.currentLimitA, 20.0f));
     assert(out.phase == CHARGE_PHASE_CC);
 
     /* CV: linear taper, half way from 4.08 to 4.18 V gives half current. */
     in = healthy(4.13f, 4.0f);
     out = charge_policy_update(&policy, &in);
-    assert(out.enable && near(out.currentLimitA, CHARGE_MAX_CURRENT_A * 0.5f));
+    assert(out.enable && near(out.currentLimitA, 10.0f));
     assert(out.phase == CHARGE_PHASE_CV);
 
     /* At target but the charger still pushing current: keep going at 0 A. */

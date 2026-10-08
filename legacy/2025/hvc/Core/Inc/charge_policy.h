@@ -19,7 +19,7 @@
    but with ~150 mV of cell spread that lets the highest cells pass the
    target, so the pack is held at 560 V (4.09 V average). */
 #define CHARGE_PACK_TARGET_V        560.0f
-#define CHARGE_MAX_CURRENT_A        10.0f /* charger / pack current limit */
+#define CHARGE_MAX_CURRENT_A        20.0f /* charger / pack current limit */
 #define CHARGE_TERMINATION_A        0.5f  /* below this at target: charge done */
 #define CHARGE_CUTOFF_TEMP_C        55.0f /* hottest cell at or above: stop */
 
@@ -65,7 +65,7 @@ typedef struct {
 void charge_policy_init(charge_policy_t *policy);
 
 /* Call every state-machine tick (100 ms). The pack voltage target sent to the
-   charger is constant: pack series cells x CHARGE_CELL_TARGET_V. */
+   charger is the constant CHARGE_PACK_TARGET_V. */
 charge_outputs_t charge_policy_update(charge_policy_t *policy,
                                       const charge_inputs_t *inputs);
 
