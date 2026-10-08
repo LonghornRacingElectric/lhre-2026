@@ -175,7 +175,7 @@ static void recv_elcon_status(void)
 // command frame and the legacy 0x114 heartbeat the Elcon expects.
 static void send_elcon_command(void)
 {
-    CAN_TxHeaderTypeDef hdr;
+    CAN_TxHeaderTypeDef hdr = {0};
     uint32_t mailbox;
 
     // Elcon command (0x1806E5F4): big-endian, 0.1 V / 0.1 A
