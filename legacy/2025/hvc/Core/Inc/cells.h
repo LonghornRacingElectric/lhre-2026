@@ -18,8 +18,9 @@
 #define CELLS_PER_BMB 14
 #define TEMPERATURES_PER_BMB 9
 // Series cells in the whole pack, independent of how many BMBs are installed.
-// Used to scale the measured cell sum up to a full-pack estimate.
-#define PACK_SERIES_CELLS 140
+// Used to scale the measured cell sum up to a full-pack estimate. 137, not
+// 10 x 14: BMB02 channels C015-C017 have no cell behind them.
+#define PACK_SERIES_CELLS 137
 
 extern float CELL_OVER_VOLTAGE;
 extern float CELL_UNDER_VOLTAGE;

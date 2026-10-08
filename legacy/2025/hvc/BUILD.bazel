@@ -9,7 +9,7 @@ firmware_project_h7(
         # high-impedance bypass.
         "HVC_BMS_FAULT_MONITOR_ONLY=0",
         "HVC_BRINGUP_IGNORE_HIGH_IMPEDANCE_CELL_FAULTS=0",
-        # BMB10 removed and C015-C017 dead, so 17 cells are unmonitored.
+        # BMB10 removed, so its 14 cells are unmonitored.
         # Charging is left enabled by choice; set to 1 to block charging and
         # hold the pack de-energized while a charger is connected.
         "HVC_DISABLE_CHARGING=0",

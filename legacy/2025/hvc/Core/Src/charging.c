@@ -6,9 +6,9 @@
 #include "hvc_can.h"
 #include "imd.h"
 
-/* Pack voltage the charger regulates to in CV: every series cell at the CV
-   target. The HVC tapers current on the highest cell (charge_policy.c). */
-#define PACK_TARGET_VOLTAGE ((float)PACK_SERIES_CELLS * CHARGE_CELL_TARGET_V)
+/* Pack voltage the charger regulates to in CV (CHARGE_PACK_TARGET_V). The
+   HVC tapers current on the highest cell (charge_policy.c). */
+#define PACK_TARGET_VOLTAGE CHARGE_PACK_TARGET_V
 
 static charge_policy_t chargePolicy;
 static hvc_charging_status_t chargingStatus;

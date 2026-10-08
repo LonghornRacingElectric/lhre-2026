@@ -15,7 +15,11 @@
 #define CHARGE_CELL_TARGET_V        4.18f /* per-cell CV target */
 #define CHARGE_CELL_TAPER_START_V   4.08f /* taper current from here up to target */
 #define CHARGE_CELL_HARD_OV_V       4.20f /* any cell above: stop the charger */
-#define CHARGE_MAX_CURRENT_A        9.5f  /* charger / pack current limit */
+/* Pack voltage the charger holds in CV. 137 cells at 4.18 V would be 572.7 V,
+   but with ~150 mV of cell spread that lets the highest cells pass the
+   target, so the pack is held at 560 V (4.09 V average). */
+#define CHARGE_PACK_TARGET_V        560.0f
+#define CHARGE_MAX_CURRENT_A        10.0f /* charger / pack current limit */
 #define CHARGE_TERMINATION_A        0.5f  /* below this at target: charge done */
 #define CHARGE_CUTOFF_TEMP_C        55.0f /* hottest cell at or above: stop */
 
