@@ -1096,7 +1096,7 @@
         "data_length": 8,
         "frequency_ms": 1000,
         "frequency": 1.0,
-        "quantity": 33,
+        "quantity": 35,
         "bus": "Critical",
         "bytes": [
             {
@@ -1514,7 +1514,7 @@
         "to": [
             "VCU"
         ],
-        "data_length": 3,
+        "data_length": 4,
         "frequency_ms": 10,
         "frequency": 100.0,
         "quantity": 1,
@@ -1867,12 +1867,21 @@
         "to": [
             "HVC"
         ],
-        "data_length": 0,
-        "frequency_ms": null,
-        "frequency": null,
+        "data_length": 1,
+        "frequency_ms": 100,
+        "frequency": 10.0,
         "quantity": 1,
         "bus": "Critical",
-        "bytes": []
+        "bytes": [
+            {
+                "index": 0,
+                "start_byte": 0,
+                "name": "Allow Balance",
+                "length": 1,
+                "conv_type": "uint8",
+                "precision": 1.0
+            }
+        ]
     },
     {
         "packet_id": 310,

@@ -15,11 +15,12 @@
 #include "hvc_bms.h"
 #include "hvc_faults.h"
 #include "can.h"
+#include "gpio.h"
 
 /* ---- Pack geometry --------------------------------------------------------*/
-#define NUM_SERIES_CELLS     130
+#define NUM_SERIES_CELLS     140
 #define CELL_MAX_V           4.2f
-#define MAX_PACK_VOLTAGE_V   546.0f
+#define MAX_PACK_VOLTAGE_V   (NUM_SERIES_CELLS * CELL_MAX_V)
 
 /* ---- Charging limits ------------------------------------------------------*/
 // Cell voltage at which we begin tapering the commanded pack voltage.

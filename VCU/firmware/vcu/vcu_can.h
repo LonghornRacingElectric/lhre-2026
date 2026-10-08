@@ -35,6 +35,7 @@ bool is_drive_switch_pressed(void);
 bool hvc_tractive_ready(void);
 
 float vcu_can_get_motor_speed_rpm(void);
+float vcu_can_get_torque_feedback_nm(void);
 float vcu_can_get_delta_resolver_angle_deg(void);
 float vcu_can_get_motor_angle_deg(void);
 float vcu_can_get_min_cell_voltage_v(void);
@@ -42,6 +43,28 @@ float vcu_can_get_max_cell_voltage_v(void);
 bool vcu_can_is_motor_speed_valid(void);
 bool vcu_can_is_inverter_current_valid(void);
 bool vcu_can_is_inverter_voltage_valid(void);
+
+typedef struct {
+    bool registered;
+    bool fresh;
+    bool drive_switch_registered;
+    bool drive_switch_fresh;
+    bool interface_started;
+    bool can_error;
+    uint32_t age_ms;
+    uint32_t drive_switch_age_ms;
+    uint32_t last_can_id;
+    uint32_t messages_sent;
+    uint32_t dropped_packets;
+    uint8_t hvc_state;
+    uint8_t positive_contactor;
+    uint8_t negative_contactor;
+    uint8_t precharge_contactor;
+    uint8_t drive_switch;
+    uint8_t dui_shutdown_faults;
+} vcu_hvc_rx_status_t;
+
+void vcu_can_get_hvc_rx_status(vcu_hvc_rx_status_t *status);
 
 typedef struct {
     float phase_a;

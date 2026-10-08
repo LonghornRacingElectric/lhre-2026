@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
 TOTAL_IC     = 10
-CELLS_PER_IC = 13
+CELLS_PER_IC = 14
 BAUD_RATE    = 115200
 
 RE_PACK = re.compile(

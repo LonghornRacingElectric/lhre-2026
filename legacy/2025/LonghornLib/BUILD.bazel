@@ -1,0 +1,47 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+package(default_visibility = ["//legacy/2025:__subpackages__"])
+
+cc_library(
+    name = "LonghornLib2025_headers",
+    hdrs = glob(
+        [
+            "*.h",
+            "*.hpp",
+        ],
+        allow_empty = True,
+    ),
+    include_prefix = "LonghornLib",
+    includes = ["."],
+    deps = [
+        "//drivers/stm32h7:stm32_headers",
+        "@stm32_mw_usb_device//:usb_device_headers",
+    ],
+)
+
+filegroup(
+    name = "LonghornLib2025_srcs",
+    srcs = glob(
+        [
+            "*.cpp",
+            "*.c",
+        ],
+        allow_empty = True,
+    ),
+)
+
+# The HVC uses the Orion CAN implementation from drivers/longhorn-lib. Exclude
+# NightCAN here so the two libraries do not both define the STM32 FDCAN ISR.
+filegroup(
+    name = "LonghornLib2025_hvc_srcs",
+    srcs = glob(
+        [
+            "*.cpp",
+            "*.c",
+        ],
+        exclude = [
+            "night_can.c",
+        ],
+        allow_empty = True,
+    ),
+)
