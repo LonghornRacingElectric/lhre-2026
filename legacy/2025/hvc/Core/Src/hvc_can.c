@@ -31,8 +31,6 @@ static msg_indicators_shutdown_status_t indicatorStatus;
 static msg_battery_cell_limits_t cellLimits;
 static msg_cell_voltages_t cellVoltages[CELL_VOLTAGE_PACKET_COUNT];
 static msg_cell_temperatures_t cellTemperatures[CELL_TEMPERATURE_PACKET_COUNT];
-static msg_allow_balance_command_t allowBalanceCommand;
-static can_receive_message_t *allowBalanceHandle;
 static msg_vcu_state_t vcuState;
 static can_receive_message_t *vcuStateHandle;
 static msg_hvc_charger_command_t chargerCommand;
@@ -157,13 +155,6 @@ void hvc_can_init(void) {
                            (CAN_pack_message_fn)pack_cell_temperatures);
     }
 
-    allowBalanceHandle = can_get_receive_message_handle(
-        &allowBalanceCommand, ALLOW_BALANCE_COMMAND_ID,
-        (CAN_unpack_message_fn)unpack_allow_balance_command);
-    if (allowBalanceHandle != NULL) {
-        can_register_receive_packet(&criticalCanBus, allowBalanceHandle);
-    }
-
     vcuStateHandle = can_get_receive_message_handle(
         &vcuState, VCU_STATE_ID,
         (CAN_unpack_message_fn)unpack_vcu_state);
@@ -226,11 +217,6 @@ void hvc_can_periodic(bool amsError, bool imdError, int state,
 
     cellLimits.min_cell_voltage = nonnegativeReading(getMinCellVoltage());
     cellLimits.max_cell_voltage = nonnegativeReading(getMaxCellVoltage());
-
-    carParked = allowBalanceHandle != NULL &&
-                !message_timed_out(allowBalanceHandle,
-                                   ALLOW_BALANCE_COMMAND_TIMEOUT_MS) &&
-                allowBalanceCommand.allow_balance != 0U;
 
     for (uint32_t packet = 0U; packet < CELL_VOLTAGE_PACKET_COUNT; packet++) {
         const uint32_t cell = packet * 4U;

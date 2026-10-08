@@ -8,10 +8,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "adbms.h"
+#include "balance_policy.h"
 #include "cell_fault_policy.h"
 
 #define ARR_LEN(arr) (sizeof(arr) / sizeof(arr[0]))
-#define CELLS_PER_BMB 14
+#define CELLS_PER_BMB BALANCE_CELLS_PER_BMB
 #define TEMPERATURES_PER_BMB 9
 
 // Variables
@@ -44,7 +45,6 @@ static bool checkCellVoltagesWithinBounds = false;
 static bool checkPackVoltageWithinBounds = false;
 static bool checkTempsWithinBounds = false;
 
-extern bool carParked;
 static int totalBalancing = 0;
 
 static float minCellVoltage;
@@ -84,6 +84,8 @@ static void setDeadCells();
 static void setDeadThermistors();
 void updateBmsLimits(float newMinVoltage, float newMaxVoltage, float newMinTemp, float newMaxTemp);
 void updateBalanceCommands();
+uint32_t getBalanceCount(void);
+bool isBalancingActive(void);
 
 // Resistance (kOhm), Temperature (C)
 static float lutRes[36] = {

@@ -6,6 +6,8 @@
 #include "main.h"
 #include "timer.h"
 #include "state_machine.h"
+#include "contactors.h"
+#include "faults.h"
 
 float PACK_OVER_VOLTAGE = 588.0f;
 float PACK_UNDER_VOLTAGE = 420.0f;
@@ -13,7 +15,8 @@ float CELL_OVER_VOLTAGE = 4.2f;
 float CELL_UNDER_VOLTAGE = 3.00f;
 float OVER_TEMP = 60.0f;
 float UNDER_TEMP = 0.0f;
-bool carParked = false;
+#define BALANCE_SCAN_INTERVAL_MS 250U
+#define BALANCE_MAX_BOARD_TEMP_C 50.0f
 
 #define THERMISTOR_PULLUP_KOHMS 10.0f
 #define INVALID_TEMPERATURE_C (-999.0f)
@@ -28,37 +31,72 @@ static uint32_t responsiveChips = 0;
 static uint32_t completeScanResponsiveChips = 0;
 static bool bmbReadOk[NUM_BMS_ICS];
 static bool bmbReadOkThisScan[NUM_BMS_ICS];
+static bool scanCommandOk;
+static bool balanceHardwareActive;
+static uint32_t lastCompleteScanMs;
+static bool haveCompleteScan;
+
+static bool balanceSafetyGate(int state) {
+  return state == HVC_STATE_NOT_ENERGIZED &&
+         !isPosContactorClosed() && !isNegContactorClosed() &&
+         get_latched_faults() == 0U &&
+         completeScanResponsiveChips == NUM_BMS_ICS &&
+         haveCompleteScan &&
+         (uint32_t)(HAL_GetTick() - lastCompleteScanMs) <= 1000U &&
+         areCellVoltagesWithinBounds() &&
+         isTempWithinBounds() && !hasCellOvervoltage() &&
+         !hasCellUndervoltage() && !hasCellOvertemperature();
+}
+
+static bool disableBalancing(void) {
+  adbms6830_wakeup();
+  (void)adbms6830_cmd_poll(CMD_MUTE);
+  if (adbms6830_write_pwm(false, balanceCommands) != ADBMS6830_OK) {
+    return false;
+  }
+  balanceHardwareActive = false;
+  totalBalancing = 0;
+  return true;
+}
 
 void cells_init() {
   setDeadCells();
   setDeadThermistors();
+  for (uint32_t i = 0U; i < BALANCE_CELL_COUNT; ++i) balanceCommands[i] = false;
 }
 
 static int cmd_ID = -1;    // Used to track and send ADBMS cmds
 static uint16_t value = 0; // Temporary variable
 void cells_periodic(int state) {
-
-  adbms6830_wakeup();
+  if (balanceHardwareActive && !balanceSafetyGate(state) &&
+      !disableBalancing()) return;
 
   if (cmd_ID == -1)
   {
+    if (haveCompleteScan &&
+        (uint32_t)(HAL_GetTick() - lastCompleteScanMs) < BALANCE_SCAN_INTERVAL_MS) {
+      return;
+    }
+    if (!disableBalancing()) return;
+    /* Muting PWM before the C-ADC scan avoids bleed-current voltage drops. */
+    HAL_Delay(2);
     adbms6830_wrcfga();
-    adbms6830_wrcfgb(false, balanceCommands);
+    if (adbms6830_wrcfgb() != ADBMS6830_OK) return;
   }
+  else adbms6830_wakeup();
   //usb_printf("cmdID: %d\n", cmd_ID);
   if (cmd_ID == 0)
   {
     for (int i = 0; i < NUM_BMS_ICS; i++) {
       bmbReadOkThisScan[i] = true;
     }
-    adbms6830_adcv();
+    scanCommandOk = adbms6830_adcv() != 0U;
     HAL_Delay(10);
     adbms6830_wakeup();
-    adbms6830_wrcfgb(true, balanceCommands);
   }
   else if (cmd_ID == 5)
   {
-    adbms6830_adax();
+    scanCommandOk &= adbms6830_adax() != 0U;
     responsiveChips = adbms6830_cmd_read(CMD_RDSTATA, rawData);
     for (int j = 0; j < NUM_BMS_ICS; j++) {
       bmbReadOkThisScan[j] &= adbms6830_is_ic_responsive(j);
@@ -145,7 +183,7 @@ void cells_periodic(int state) {
   {
     completeScanResponsiveChips = 0;
     for (int i = 0; i < NUM_BMS_ICS; i++) {
-      bmbReadOk[i] = bmbReadOkThisScan[i];
+      bmbReadOk[i] = bmbReadOkThisScan[i] && scanCommandOk;
       if (bmbReadOk[i]) completeScanResponsiveChips++;
     }
 
@@ -158,7 +196,20 @@ void cells_periodic(int state) {
     }
 
     doChecks(state);
+    haveCompleteScan = true;
+    lastCompleteScanMs = HAL_GetTick();
     updateBalanceCommands();
+
+    if (totalBalancing != 0 && balanceSafetyGate(state)) {
+      /* A partially received PWM write can still enable bleeds; track it
+       * pessimistically until an off command succeeds. */
+      balanceHardwareActive = true;
+      if (adbms6830_wrcfgb() != ADBMS6830_OK ||
+          adbms6830_write_pwm(true, balanceCommands) != ADBMS6830_OK ||
+          adbms6830_cmd_poll(CMD_UNMUTE) == 0U) {
+        (void)disableBalancing();
+      }
+    }
   }
 
   cmd_ID++;
@@ -418,54 +469,29 @@ void updateBmsLimits(float newMinVoltage, float newMaxVoltage, float newMinTemp,
 
 void updateBalanceCommands()
 {
-  bool readyToBalance = carParked && isIsoSpiResponsive() && areCellVoltagesWithinBounds() && isTempWithinBounds();
   totalBalancing = 0;
+  if (!balanceSafetyGate((int)get_current_state())) {
+    for (int i = 0; i < numCells; i++) balanceCommands[i] = false;
+    return;
+  }
 
-  if(readyToBalance)
-  {
-    volatile float minVoltage = 999.0f;
-
-    for(int i = 0; i < numCells; i++)
-    {
-      if(deadCells[i]) continue;
-      if(voltageData[i] < minVoltage)
-      {
-        minVoltage = voltageData[i];
+  bool boardEligible[NUM_BMS_ICS] = { false };
+  for (uint32_t board = 0U; board < NUM_BMS_ICS; ++board) {
+    if (!isBmbReadingOk(board)) continue;
+    for (uint32_t temp = 0U; temp < TEMPERATURES_PER_BMB; ++temp) {
+      const uint32_t index = board * TEMPERATURES_PER_BMB + temp;
+      if (isCellTemperatureReadingValid(index) &&
+          tempData[index] < BALANCE_MAX_BOARD_TEMP_C) {
+        boardEligible[board] = true;
+      } else if (isCellTemperatureReadingValid(index)) {
+        boardEligible[board] = false;
+        break;
       }
-    }
-
-    bool reasonableMinVoltage = (minVoltage >= CELL_UNDER_VOLTAGE);
-
-    for(int i = 0; i < numCells; i++)
-    {
-      if(deadCells[i]) continue;
-
-      if(!reasonableMinVoltage)
-      {
-        balanceCommands[i] = false;
-        continue;
-      }
-
-      // if(totalBalancing >= 10)
-      // {
-      //   balanceCommands[i] = false;
-      //   continue;
-      // }
-
-      if(voltageData[i] > minVoltage + 0.004f)
-      {
-        balanceCommands[i] = true;
-        totalBalancing++;
-      } else if(voltageData[i] < minVoltage + 0.002f)
-      {
-        balanceCommands[i] = false;
-      }
-    }
-  } else
-  {
-    for(int i = 0; i < numCells; i++)
-    {
-      balanceCommands[i] = false;
     }
   }
+  totalBalancing = (int)balance_select_cells(voltageData, deadCells,
+                                             boardEligible, balanceCommands);
 }
+
+uint32_t getBalanceCount(void) { return balanceHardwareActive ? (uint32_t)totalBalancing : 0U; }
+bool isBalancingActive(void) { return balanceHardwareActive; }

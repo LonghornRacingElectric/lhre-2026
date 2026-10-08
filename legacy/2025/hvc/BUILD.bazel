@@ -22,6 +22,37 @@ firmware_project_h7(
 )
 
 cc_library(
+    name = "balance_policy",
+    srcs = ["Core/Src/balance_policy.c"],
+    hdrs = ["Core/Inc/balance_policy.h"],
+    includes = ["Core/Inc"],
+)
+
+cc_test(
+    name = "balance_policy_test",
+    srcs = ["tests/balance_policy_test.c"],
+    linkstatic = True,
+    deps = [":balance_policy"],
+)
+
+cc_library(
+    name = "balance_pwm",
+    srcs = ["Core/Src/balance_pwm.c"],
+    hdrs = [
+        "Core/Inc/balance_policy.h",
+        "Core/Inc/balance_pwm.h",
+    ],
+    includes = ["Core/Inc"],
+)
+
+cc_test(
+    name = "balance_pwm_test",
+    srcs = ["tests/balance_pwm_test.c"],
+    linkstatic = True,
+    deps = [":balance_pwm"],
+)
+
+cc_library(
     name = "state_machine_logic",
     srcs = ["Core/Src/state_machine_logic.c"],
     hdrs = [

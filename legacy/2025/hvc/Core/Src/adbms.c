@@ -3,7 +3,10 @@
 //
 
 #include "adbms.h"
+#include "balance_pwm.h"
 #include "spi.h"
+
+#include <string.h>
 
 // Interrupt callbacks
 static ADBMS6830_Error_t bms_error = ADBMS6830_ERROR;
@@ -22,12 +25,12 @@ uint8_t cfga_default[6] = {
   0x01, // IIR filter corner frequency 110 Hz
 };
 uint8_t cfgb_default[6] = {
+  0x1E, // Hardware UV backup: 2.8 V (VUV = 0x21E)
+  0x52, // VOV low nibble = 5; VUV upper nibble = 2
+  0x46, // Hardware OV backup: 4.2 V (VOV = 0x465)
+  0x81, // DTMEN=1, minute range, DCTO=1 (minimum PWM timeout)
+  0x00, // DCC always off: balancing is controlled by PWM only
   0x00,
-  0xF8,
-  0x7F,
-  0x00,
-  0x00, // DCC
-  0x00, // DCC
 };
 
 
@@ -56,9 +59,11 @@ ADBMS6830_Error_t adbms6830_cmd_write(ADBMS6830_Command_t command, uint8_t *data
 
   // Send command
   if (HAL_SPI_Transmit(&hspi3, cmd_buf, 2, ADBMS_SPI_TIMEOUT) != HAL_OK) {
+    HAL_GPIO_WritePin(CS_BMB_GPIO_Port, CS_BMB_Pin, GPIO_PIN_SET);
     return ADBMS6830_SPI_ERROR;
   }
   if (HAL_SPI_Transmit(&hspi3, crc_buf, 2, ADBMS_SPI_TIMEOUT) != HAL_OK) {
+    HAL_GPIO_WritePin(CS_BMB_GPIO_Port, CS_BMB_Pin, GPIO_PIN_SET);
     return ADBMS6830_SPI_ERROR;
   }
 
@@ -216,7 +221,7 @@ void adbms6830_wrcfga() {
   adbms6830_cmd_write(CMD_WRCFGA, cfga);
 }
 
-void adbms6830_wrcfgb(bool enableBalancing, const bool balanceCommands[NUM_BMS_ICS*14]) {
+ADBMS6830_Error_t adbms6830_wrcfgb(void) {
   for(int i = 0; i < NUM_BMS_ICS; i++)
   {
     for(int j = 0; j < 6; j++)
@@ -224,18 +229,30 @@ void adbms6830_wrcfgb(bool enableBalancing, const bool balanceCommands[NUM_BMS_I
       cfgb[6*i + j] = cfgb_default[j];
     }
 
-    uint16_t dcc = 0;
-    if(enableBalancing)
-    {
-      for(int k = 0; k < 14; k++)
-      {
-        dcc |= balanceCommands[14*(NUM_BMS_ICS-i-1) + k] << k;
-      }
-      cfgb[6*i + 4] = dcc & 0xFF;
-      cfgb[6*i + 5] = dcc >> 8;
-    }
   }
-  adbms6830_cmd_write(CMD_WRCFGB, cfgb);
+  return adbms6830_cmd_write(CMD_WRCFGB, cfgb);
+}
+
+ADBMS6830_Error_t adbms6830_write_pwm(bool enableBalancing,
+                                     const bool balanceCommands[NUM_BMS_ICS*14]) {
+  uint8_t pwmA[BALANCE_PWM_REGISTER_BYTES];
+  uint8_t pwmB[BALANCE_PWM_REGISTER_BYTES];
+  balance_pwm_pack(enableBalancing, balanceCommands, pwmA, pwmB);
+  ADBMS6830_Error_t status = adbms6830_cmd_write(CMD_WRPWMA, pwmA);
+  if (status != ADBMS6830_OK) return status;
+  status = adbms6830_cmd_write(CMD_WRPWMB, pwmB);
+  if (status != ADBMS6830_OK) return status;
+
+  uint8_t readback[BALANCE_PWM_REGISTER_BYTES];
+  if (adbms6830_cmd_read(CMD_RDPWMA, readback) != NUM_BMS_ICS ||
+      memcmp(readback, pwmA, sizeof(pwmA)) != 0) {
+    return LTC6813_INVALID_DATA;
+  }
+  if (adbms6830_cmd_read(CMD_RDPWMB, readback) != NUM_BMS_ICS ||
+      memcmp(readback, pwmB, sizeof(pwmB)) != 0) {
+    return LTC6813_INVALID_DATA;
+  }
+  return ADBMS6830_OK;
 }
 
 void adbms6830_wakeup() {

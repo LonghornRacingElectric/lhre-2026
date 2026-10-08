@@ -397,6 +397,11 @@ static void printBmsReadings(void)
              (unsigned int)NUM_BMS_ICS);
   settleUsbAndServiceCan();
 
+  usb_printf("BALANCE PWM active=%u cells=%lu (muted for C-ADC scans)",
+             (unsigned int)isBalancingActive(),
+             (unsigned long)getBalanceCount());
+  settleUsbAndServiceCan();
+
   printPackAndBmsSummary();
   printBmsFaultDiagnostics();
   printCellRows();

@@ -231,7 +231,9 @@ uint32_t adbms6830_adstat();
 void ltc6813_adowUp();
 void ltc6813_adowDown();
 void adbms6830_wrcfga();
-void adbms6830_wrcfgb(bool enableBalancing, const bool balanceCommands[NUM_BMS_ICS*14]);
+ADBMS6830_Error_t adbms6830_wrcfgb(void);
+ADBMS6830_Error_t adbms6830_write_pwm(bool enableBalancing,
+                                     const bool balanceCommands[NUM_BMS_ICS*14]);
 
 void adbms6830_wakeup();
 
