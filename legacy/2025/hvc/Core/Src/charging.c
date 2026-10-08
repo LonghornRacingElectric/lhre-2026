@@ -1,32 +1,54 @@
 #include "charging.h"
 
 #include "cells.h"
+#include "charge_policy.h"
 #include "faults.h"
 #include "hvc_can.h"
 #include "imd.h"
 
-#define NUM_SERIES_CELLS 140.0f
-#define CELL_MAX_VOLTAGE 4.2f
-#define CELL_CV_START_VOLTAGE 4.1f
-#define MAX_PACK_VOLTAGE (NUM_SERIES_CELLS * CELL_MAX_VOLTAGE)
-#define MAX_CHARGE_CURRENT 9.5f
+/* Pack voltage the charger regulates to in CV: every series cell at the CV
+   target. The HVC tapers current on the highest cell (charge_policy.c). */
+#define PACK_TARGET_VOLTAGE ((float)PACK_SERIES_CELLS * CHARGE_CELL_TARGET_V)
 
-static float clamp(float value, float minimum, float maximum) {
-    if (value < minimum) return minimum;
-    if (value > maximum) return maximum;
-    return value;
-}
+static charge_policy_t chargePolicy;
+static hvc_charging_status_t chargingStatus;
 
 void hvc_control_charging(bool enable) {
-    const float maxCellVoltage = getMaxCellVoltage();
-    const float taper = clamp(
-        (CELL_MAX_VOLTAGE - maxCellVoltage) /
-            (CELL_MAX_VOLTAGE - CELL_CV_START_VOLTAGE),
-        0.0f, 1.0f);
+    float chargerVoltage = 0.0f;
+    float chargerCurrent = 0.0f;
+    bool chargerEnabled = false;
+    hvc_can_get_charger_status(&chargerVoltage, &chargerCurrent,
+                               &chargerEnabled);
 
-    hvc_can_set_charger_command(MAX_PACK_VOLTAGE,
-                                MAX_CHARGE_CURRENT * taper,
+    const charge_inputs_t inputs = {
+        .chargingState = enable,
+        .chargerConnected = hvc_can_is_charger_connected(),
+        .cellDataValid = getNumResponsiveChips() == NUM_BMS_ICS,
+        .maxCellV = getMaxCellVoltage(),
+        .maxTempC = getMaxTemp(),
+        .bmsFault = get_latched_faults() != 0U,
+        .imdOk = isImdOk(),
+        .chargerCurrentA = chargerCurrent,
+    };
+    const charge_outputs_t outputs = charge_policy_update(&chargePolicy, &inputs);
+
+    hvc_can_set_charger_command(PACK_TARGET_VOLTAGE,
+                                outputs.currentLimitA,
                                 !isImdOk(),
                                 get_latched_faults() != 0U,
-                                enable);
+                                outputs.enable);
+
+    chargingStatus.phase = outputs.phase;
+    chargingStatus.stopReason = outputs.stopReason;
+    chargingStatus.commandEnable = outputs.enable;
+    chargingStatus.commandVoltage = PACK_TARGET_VOLTAGE;
+    chargingStatus.commandCurrent = outputs.currentLimitA;
+    chargingStatus.chargerConnected = inputs.chargerConnected;
+    chargingStatus.chargerVoltage = chargerVoltage;
+    chargingStatus.chargerCurrent = chargerCurrent;
+    chargingStatus.chargerEnabled = chargerEnabled;
+}
+
+void hvc_get_charging_status(hvc_charging_status_t *status) {
+    *status = chargingStatus;
 }

@@ -311,6 +311,16 @@ bool hvc_can_is_charger_connected(void) {
     return connected;
 }
 
+void hvc_can_get_charger_status(float *voltage, float *current, bool *enabled) {
+    /* chargerStatus is written by the CAN RX interrupt; copy it atomically. */
+    __disable_irq();
+    const msg_charger_status_t snapshot = chargerStatus;
+    __enable_irq();
+    *voltage = snapshot.actual_voltage;
+    *current = snapshot.actual_current;
+    *enabled = snapshot.charger_enabled != 0U;
+}
+
 void hvc_can_set_charger_command(float maxChargeVoltage,
                                  float maxChargeCurrent, bool imdLed,
                                  bool bmsLed, bool enable) {

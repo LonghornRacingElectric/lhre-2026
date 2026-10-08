@@ -32,6 +32,8 @@ void hvc_can_periodic(bool amsError, bool imdError, int state,
 void hvc_can_get_rx_status(hvc_can_rx_status_t *status);
 void hvc_can_get_tx_status(hvc_can_tx_status_t *status);
 bool hvc_can_is_charger_connected(void);
+/* Latest charger status (0x051); zeros until the charger has been heard. */
+void hvc_can_get_charger_status(float *voltage, float *current, bool *enabled);
 void hvc_can_set_charger_command(float maxChargeVoltage,
                                  float maxChargeCurrent, bool imdLed,
                                  bool bmsLed, bool enable);

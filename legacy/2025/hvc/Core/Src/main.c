@@ -41,6 +41,7 @@
 #include "usb_vcp.h"
 #include "vct_sense.h"
 #include "state_machine.h"
+#include "charging.h"
 #include "state_machine_logic.h"
 #include "imd.h"
 #include "bmb_debug.h"
@@ -339,6 +340,22 @@ static void printPackAndBmsSummary(void)
                  ? get_precharge_qualified_ms()
                  : 0U),
              (unsigned int)HVC_PRECHARGE_VALID_MS);
+  settleUsbAndServiceCan();
+
+  hvc_charging_status_t charging;
+  hvc_get_charging_status(&charging);
+  usb_printf("CHARGING phase=%s stop=%s cmd[en=%u %.1fV %.2fA] charger[%s %.1fV %.2fA en=%u] max_cell=%.3fV max_temp=%.1fC",
+             charge_policy_phase_name(charging.phase),
+             charge_policy_stop_name(charging.stopReason),
+             (unsigned int)charging.commandEnable,
+             (double)charging.commandVoltage,
+             (double)charging.commandCurrent,
+             charging.chargerConnected ? "CONNECTED" : "ABSENT",
+             (double)charging.chargerVoltage,
+             (double)charging.chargerCurrent,
+             (unsigned int)charging.chargerEnabled,
+             (double)getMaxCellVoltage(),
+             (double)getMaxTemp());
   settleUsbAndServiceCan();
 
   if (validCells > 0U)

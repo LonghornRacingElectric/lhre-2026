@@ -71,3 +71,17 @@ cc_test(
     linkstatic = True,
     deps = [":imd_mode_policy"],
 )
+
+cc_library(
+    name = "charge_policy",
+    srcs = ["Core/Src/charge_policy.c"],
+    hdrs = ["Core/Inc/charge_policy.h"],
+    includes = ["Core/Inc"],
+)
+
+cc_test(
+    name = "charge_policy_test",
+    srcs = ["tests/charge_policy_test.c"],
+    linkstatic = True,
+    deps = [":charge_policy"],
+)
