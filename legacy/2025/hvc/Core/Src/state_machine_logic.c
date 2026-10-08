@@ -56,6 +56,12 @@ void hvc_state_machine_step(hvc_state_machine_context_t *context,
       case HVC_STATE_ENERGIZED:
         if (!inputs->shutdownClosed) {
             context->state = HVC_STATE_NOT_ENERGIZED;
+        } else if (inputs->chargerConnected &&
+                   inputs->tractiveVoltage > prechargeThreshold) {
+            /* The AIR is already closed after a qualified precharge. Allow
+               a charger that starts later to enter charging without
+               reopening the contactor. */
+            context->state = HVC_STATE_CHARGING;
         }
         break;
 

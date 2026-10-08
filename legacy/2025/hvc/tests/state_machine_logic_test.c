@@ -46,6 +46,20 @@ int main(void) {
     assert(context.state == HVC_STATE_ENERGIZED);
     assert(outputs.positiveContactorClosed);
 
+    /* A charger that comes online after drive precharge can start charging
+       only while the bus remains above the precharge threshold. */
+    in.chargerConnected = true;
+    in.tractiveVoltage = 400.0f;
+    in.currentTimeMs = 5050U;
+    hvc_state_machine_step(&context, &in, &outputs);
+    assert(context.state == HVC_STATE_ENERGIZED);
+    assert(!outputs.chargerEnabled);
+    in.tractiveVoltage = 430.0f;
+    hvc_state_machine_step(&context, &in, &outputs);
+    assert(context.state == HVC_STATE_CHARGING);
+    assert(outputs.positiveContactorClosed);
+    assert(outputs.chargerEnabled);
+
     in.shutdownClosed = false;
     in.currentTimeMs = 5100U;
     hvc_state_machine_step(&context, &in, &outputs);
