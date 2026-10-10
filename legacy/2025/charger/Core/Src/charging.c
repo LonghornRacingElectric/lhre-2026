@@ -117,10 +117,10 @@ void angeliqueLoop(float dt)
     static uint8_t statusData[8] = {0};
     static uint8_t commandData[8] = {0};
 
-    //   Bytes 0-1: max voltage = 5100 (510.0V x 0.1) -- set high, charger's CV mode will cap it
-    //   Bytes 2-3: max current = 100  (10.0A  x 0.1) -- change 0x64 to desired amps x 10
+    //   Bytes 0-1: max voltage = 5500 (550.0V x 0.1)
+    //   Bytes 2-3: max current = 200  (20.0A  x 0.1)
     //   Byte  4:   0x00 = charging enabled (0x01 = stop)
-    static uint8_t tempCommandData[8] = {0x15, 0x7C, 0x00, 0x64, 0x00, 0x00, 0x00, 0x00}; // 550.0V, 10.0A
+    static uint8_t tempCommandData[8] = {0x15, 0x7C, 0x00, 0xC8, 0x00, 0x00, 0x00, 0x00}; // 550.0V, 20.0A
 
     // carYear = commandData[0];
     // rawVoltageRequestData = commandData[1] << 8 | commandData[2];
