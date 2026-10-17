@@ -34,7 +34,7 @@ extern int rainbow;
 // HVC commands are in 0.01 V / 0.01 A. Bound them independently of the HVC
 // firmware so a bad or mismatched command cannot exceed the new pack limits.
 #define MAX_CHARGE_VOLTAGE_CENTI_V 56000u
-#define MAX_CHARGE_CURRENT_CENTI_A 2000u
+#define MAX_CHARGE_CURRENT_CENTI_A 1200u
 #define HVC_COMMAND_TIMEOUT_MS 500u
 
 // ---- State from HVC command (0x050) ----------------------------------------
