@@ -29,7 +29,7 @@
 
 // Absolute maximum charge current commanded to the charger.
 // #define MAX_CHARGE_CURRENT_A 15.0f
-#define MAX_CHARGE_CURRENT_A 9.5f
+#define MAX_CHARGE_CURRENT_A 12.0f
 
 
 /* ---- Private helpers ------------------------------------------------------*/
