@@ -4,7 +4,6 @@
 #include "orion_time_us.h"
 #include <string.h>
 #include <math.h>
-#include <longhorn/rtos/logger.h>
 #include "cmsis_os.h"
 
 // ── MLX90395 Commands ─────────────────────────────────────
@@ -176,10 +175,6 @@ void WheelSpeed_Update(void)
     phase_sample.fresh_mask = 0;
     for (int i = 0; i < WS_NUM_SENSORS; i++) {
         if (mlx_read(&_sensors[i])) process_sensor(&_sensors[i]);
-        if(i==0) {
-            // log_printf(LOG_INFO, "X: %.2f | Y: %.2f | Z: %.2f | Last: %.3f | Speed: %.2f rad/s\r\n",
-            //     _sensors[i].x, _sensors[i].y, _sensors[i].z, _sensors[i].last_tick, _sensors[i].speed_rad_s);
-        }
     }
 
     wheel_phase_update(&phase_observer, &phase_sample, orion_time_us());
@@ -211,3 +206,15 @@ const wheel_phase_output_t *WheelSpeed_GetPhaseEstimate(void) {
     return &phase_observer.output;
 }
 uint8_t WheelSpeed_GetPhaseSequence(void) { return phase_sequence; }
+
+const wheel_phase_sample_t *WheelSpeed_GetPhaseSample(void) {
+    return &phase_sample;
+}
+
+uint8_t WheelSpeed_GetInitializedMask(void) {
+    uint8_t mask = 0;
+    for (unsigned i = 0; i < WS_NUM_SENSORS; ++i) {
+        if (_sensors[i].initialized) mask |= (uint8_t)(1u << i);
+    }
+    return mask;
+}

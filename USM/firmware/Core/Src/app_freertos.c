@@ -41,7 +41,8 @@
 #include "spi.h"
 #include "usm_can.h"
 #include "wheel_speed.h"
-#include <stdio.h>
+#include <math.h>
+#include <string.h>
 
 /* USER CODE END Includes */
 
@@ -52,6 +53,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+/* Alternate speed/IMU and Hall diagnostics: each row appears at 10 Hz. */
+#define USM_DEBUG_SLOT_MS 50u
 
 /* USER CODE END PD */
 
@@ -62,6 +65,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
+extern USBD_HandleTypeDef hUsbDeviceFS;
 static dfu_config dfu_conf = {
     .delay_fn = (Delay_fn)osDelay,
     .gpiox = GPIOB,
@@ -99,6 +103,7 @@ const osThreadAttr_t defaultTask_attributes = {
 /* USER CODE BEGIN FunctionPrototypes */
 osThreadId_t ledHandle;
 
+static uint8_t USM_DebugTransmit(uint8_t *data, uint16_t length);
 void StartWheelSpeedTask(void *argument);
 /* USER CODE END FunctionPrototypes */
 
@@ -162,7 +167,7 @@ void StartDefaultTask(void *argument) {
   /* init code for USB_Device */
   MX_USB_Device_Init();
   /* USER CODE BEGIN StartDefaultTask */
-  if (init_logging(CDC_Transmit_FS) == -1) {
+  if (init_logging(USM_DebugTransmit) == -1) {
     osThreadTerminate(ledHandle);
   }
 
@@ -181,12 +186,30 @@ void StartDefaultTask(void *argument) {
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+/* USB retains the transmit pointer until completion. Keep a private copy so
+ * another queued log cannot overwrite a transfer already in flight. Called
+ * only by the logger task; disconnected/busy USB drops logs without waiting. */
+static uint8_t USM_DebugTransmit(uint8_t *data, uint16_t length) {
+  static uint8_t tx_buffer[256];
+  USBD_CDC_HandleTypeDef *cdc = hUsbDeviceFS.pClassData;
+  if (hUsbDeviceFS.dev_state != USBD_STATE_CONFIGURED || cdc == NULL)
+    return USBD_FAIL;
+  if (cdc->TxState != 0u) return USBD_BUSY;
+  if (length > sizeof(tx_buffer)) return USBD_FAIL;
+  memcpy(tx_buffer, data, length);
+  return CDC_Transmit_FS(tx_buffer, length);
+}
+
 void StartWheelSpeedTask(void *argument) {
   osDelay(2000); // wait for USB CDC to enumerate
   WheelSpeed_Init(&hspi2);
   int imu_status = IMU_Init(&hspi2);
   imu_data_t imu = {0};
   uint32_t next_tick = osKernelGetTickCount();
+  uint32_t last_debug_tick = next_tick;
+  const uint32_t debug_ticks =
+      (osKernelGetTickFreq() * USM_DEBUG_SLOT_MS + 999u) / 1000u;
+  bool hall_debug_row = false;
   for (;;) {
     WheelSpeed_Update();
 
@@ -194,12 +217,45 @@ void StartWheelSpeedTask(void *argument) {
     usm_can_update_wheel_speed(speed);
     usm_can_update_phase(WheelSpeed_GetPhaseEstimate(), WheelSpeed_GetPhaseSequence());
 
-    if (imu_status == 0 && IMU_Read(&imu) == 0) {
+    int imu_read_status = imu_status == IMU_OK ? IMU_Read(&imu) : imu_status;
+    if (imu_read_status == IMU_OK) {
       usm_can_update_accel(imu.accel_x, imu.accel_y, imu.accel_z);
     }
 
-    // log_printf(LOG_INFO, "RPM:%.1f MPH:%.2f Ax:%.2f Ay:%.2f Az:%.2f\r\n", rpm,
-    //            mph, imu.accel_x, imu.accel_y, imu.accel_z);
+    uint32_t debug_now = osKernelGetTickCount();
+    if ((uint32_t)(debug_now - last_debug_tick) >= debug_ticks) {
+      last_debug_tick = debug_now;
+      const wheel_phase_output_t *phase = WheelSpeed_GetPhaseEstimate();
+      /* One bounded queue write per slot, never a burst of USB messages.
+       * The logger adds its own timestamp and CRLF. Invalid data prints nan. */
+      if (!hall_debug_row) {
+        float phase_speed = phase->valid ? phase->speed_rad_s : NAN;
+        bool imu_ok = imu_read_status == IMU_OK;
+        log_printf(LOG_INFO,
+                   "USM ws=%.6g rpm=%.6g valid=%u status=0x%03lx legacy=%.6g "
+                   "imu_init=%d imu_read=%d ax=%.6g ay=%.6g az=%.6g",
+                   (double)phase_speed, (double)(phase_speed * 9.5492966f),
+                   (unsigned)phase->valid, (unsigned long)phase->status,
+                   (double)speed, imu_status, imu_read_status,
+                   (double)(imu_ok ? imu.accel_x : NAN),
+                   (double)(imu_ok ? imu.accel_y : NAN),
+                   (double)(imu_ok ? imu.accel_z : NAN));
+      } else {
+        const wheel_phase_sample_t *sample = WheelSpeed_GetPhaseSample();
+        log_printf(LOG_INFO,
+                   "HALL init=0x%x fresh=0x%x r0=%.6g r1=%.6g r2=%.6g r3=%.6g "
+                   "phase_valid=%u phase=%.6g pair_err=%.6g innov=%.6g q=%.3g",
+                   (unsigned)WheelSpeed_GetInitializedMask(),
+                   (unsigned)sample->fresh_mask,
+                   (double)sample->radial[0], (double)sample->radial[1],
+                   (double)sample->radial[2], (double)sample->radial[3],
+                   (unsigned)phase->phase_valid,
+                   (double)phase->electrical_phase_rad,
+                   (double)phase->pair_disagreement_rad,
+                   (double)phase->innovation_rad, (double)phase->quality);
+      }
+      hall_debug_row = !hall_debug_row;
+    }
     next_tick += 1u;
     uint32_t now_tick = osKernelGetTickCount();
     if ((int32_t)(next_tick - now_tick) <= 0) next_tick = now_tick + 1u;

@@ -29,5 +29,9 @@ void  WheelSpeed_Update(void);
 float WheelSpeed_GetSpeed(void);
 const wheel_phase_output_t *WheelSpeed_GetPhaseEstimate(void);
 uint8_t WheelSpeed_GetPhaseSequence(void);
+/* Latest unfiltered radial fields; only fresh_mask channels were updated this
+ * poll. Call from the same task as WheelSpeed_Update (no locking). */
+const wheel_phase_sample_t *WheelSpeed_GetPhaseSample(void);
+uint8_t WheelSpeed_GetInitializedMask(void);
 
 #endif // WHEEL_SPEED_H

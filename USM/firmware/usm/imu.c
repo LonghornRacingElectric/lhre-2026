@@ -1,6 +1,5 @@
 #include "imu.h"
 #include "main.h"
-#include <string.h>
 
 /* ── ASM330LHBTR Register Map ── */
 #define ASM330_WHO_AM_I     0x0F
@@ -27,32 +26,23 @@ static SPI_HandleTypeDef *_hspi;
 
 /* ── Internal helpers ── */
 
-static void imu_write_reg(uint8_t reg, uint8_t val)
+static HAL_StatusTypeDef imu_write_reg(uint8_t reg, uint8_t val)
 {
     uint8_t tx[2] = { reg & 0x7F, val };
     IMU_CS_LOW();
-    HAL_SPI_Transmit(_hspi, tx, 2, 10);
+    HAL_StatusTypeDef status = HAL_SPI_Transmit(_hspi, tx, 2, 10);
     IMU_CS_HIGH();
+    return status;
 }
 
-static uint8_t imu_read_reg(uint8_t reg)
-{
-    uint8_t tx = 0x80 | reg;
-    uint8_t rx = 0;
-    IMU_CS_LOW();
-    HAL_SPI_Transmit(_hspi, &tx, 1, 10);
-    HAL_SPI_Receive(_hspi, &rx, 1, 10);
-    IMU_CS_HIGH();
-    return rx;
-}
-
-static void imu_read_burst(uint8_t reg, uint8_t *buf, uint8_t len)
+static HAL_StatusTypeDef imu_read_burst(uint8_t reg, uint8_t *buf, uint8_t len)
 {
     uint8_t tx = 0x80 | reg;
     IMU_CS_LOW();
-    HAL_SPI_Transmit(_hspi, &tx, 1, 10);
-    HAL_SPI_Receive(_hspi, buf, len, 20);
+    HAL_StatusTypeDef status = HAL_SPI_Transmit(_hspi, &tx, 1, 10);
+    if (status == HAL_OK) status = HAL_SPI_Receive(_hspi, buf, len, 20);
     IMU_CS_HIGH();
+    return status;
 }
 
 /* ── Public API ── */
@@ -64,13 +54,18 @@ int IMU_Init(SPI_HandleTypeDef *hspi)
     IMU_CS_HIGH();
     HAL_Delay(10);
 
-    uint8_t id = imu_read_reg(ASM330_WHO_AM_I);
+    uint8_t id = 0;
+    if (imu_read_burst(ASM330_WHO_AM_I, &id, 1) != HAL_OK) {
+        return IMU_ERROR_SPI;
+    }
     if (id != ASM330_EXPECTED_ID) {
-        return (int)id;  // returns raw ID so caller can print it for debug
+        return IMU_ERROR_ID; // An all-zero response must not mean success.
     }
 
-    imu_write_reg(ASM330_CTRL2_G,  0x00);  // gyro off
-    imu_write_reg(ASM330_CTRL1_XL, CTRL1_XL_CONFIG);
+    if (imu_write_reg(ASM330_CTRL2_G, 0x00) != HAL_OK || // gyro off
+        imu_write_reg(ASM330_CTRL1_XL, CTRL1_XL_CONFIG) != HAL_OK) {
+        return IMU_ERROR_SPI;
+    }
 
     HAL_Delay(10);
     return 0;
@@ -79,7 +74,9 @@ int IMU_Init(SPI_HandleTypeDef *hspi)
 int IMU_Read(imu_data_t *out)
 {
     uint8_t buf[6];
-    imu_read_burst(ASM330_OUTX_L_A, buf, 6);
+    if (imu_read_burst(ASM330_OUTX_L_A, buf, 6) != HAL_OK) {
+        return IMU_ERROR_SPI;
+    }
 
     int16_t raw_x = (int16_t)((buf[1] << 8) | buf[0]);
     int16_t raw_y = (int16_t)((buf[3] << 8) | buf[2]);
