@@ -1,5 +1,9 @@
 
 #include "vcu_can.h"
+#include "orion_time_us.h"
+#include "traction_commissioning.h"
+#include "longhorn/traction_status.h"
+#include <math.h>
 
 #include "FreeRTOS.h"
 #include "cmsis_os.h"
@@ -63,6 +67,25 @@ static can_receive_message_t *inverter_faults_mailbox_handle = NULL;
 static msg_inverter_torque_command_t inverter_torque_command_mailbox = {0};
 static can_message_t *inverter_torque_command_mailbox_handle = NULL;
 
+/* Lease is checked by the CAN task, independently of control-task progress.
+ * Nine milliseconds is an initial three-period deadline to qualify on hardware. */
+static uint32_t control_update_us;
+static bool control_update_seen;
+static int pack_leased_torque(const void *message, uint8_t *data) {
+  (void)message;
+  taskENTER_CRITICAL();
+  msg_inverter_torque_command_t snapshot = inverter_torque_command_mailbox;
+  bool fresh = control_update_seen &&
+      (uint32_t)(orion_time_us() - control_update_us) <= 9000u;
+  taskEXIT_CRITICAL();
+  if (!fresh) {
+    snapshot.torque_request = 0.0f;
+    snapshot.enable = 0;
+    snapshot.torque_limit = 0.0f;
+  }
+  return pack_inverter_torque_command(&snapshot, data);
+}
+
 static msg_brake_pedal_t brake_pedal_mailbox = {0};
 static can_message_t *brake_pedal_mailbox_handle = NULL;
 
@@ -90,9 +113,38 @@ static can_message_t *energy_estimate_mailbox_handle = NULL;
 static msg_torque_path_t torque_path_mailbox = {0};
 static can_message_t *torque_path_mailbox_handle = NULL;
 
+static msg_traction_diagnostics_t tc_diagnostics;
+static int pack_tc_diagnostics_snapshot(const void *message, uint8_t *data) {
+  (void)message;
+  taskENTER_CRITICAL();
+  msg_traction_diagnostics_t snapshot = tc_diagnostics;
+  taskEXIT_CRITICAL();
+  return pack_traction_diagnostics(&snapshot, data);
+}
+static float diagnostic_bound(float value, float low, float high) {
+  return isfinite(value) ? fminf(fmaxf(value, low), high) : 0.0f;
+}
+
 void vcu_can_add_receive_handlers(void);
 void vcu_can_add_send_handlers(void);
 void vcu_init_inverter(void);
+static msg_traction_wheel_fl_t tc_fl;
+static msg_traction_wheel_fr_t tc_fr;
+static msg_traction_wheel_rl_t tc_rl;
+static msg_traction_wheel_rr_t tc_rr;
+static can_receive_message_t *tc_handles[4];
+static msg_traction_clock_sync_t tc_sync;
+static uint16_t tc_extended_sequence[4];
+static uint8_t tc_last_sequence[4];
+static bool tc_seen_sequence[4];
+static int pack_tc_sync(const void *message, uint8_t *data) {
+  (void)message;
+  msg_traction_clock_sync_t sync = {
+      .vcu_time_us = orion_time_us(), .sequence = ++tc_sync.sequence,
+      .version = 1, .qualified = ORION_TRACTION_CLOCK_QUALIFIED,
+  };
+  return pack_traction_clock_sync(&sync, data);
+}
 static float compute_brake_bias_pct(const vcu_outputs_t *out);
 static uint8_t pack_apps_faults(const vcu_outputs_t *out);
 static uint8_t pack_bse_faults(const vcu_outputs_t *out);
@@ -116,6 +168,7 @@ void vcu_can_init(void) {
       .get_rx_fifo_fill_level_fn =
           (CAN_GetRxFifoFillLevel_fn)HAL_FDCAN_GetRxFifoFillLevel,
       .tick_fn = HAL_GetTick,
+      .tick_us_fn = orion_time_us,
       .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
       .malloc_fn = pvPortMalloc,
       .free_fn = vPortFree,
@@ -160,10 +213,19 @@ void vcu_can_init(void) {
 }
 
 void vcu_can_add_send_handlers(void) {
+  can_message_t *diagnostics = can_get_message_handle(
+      &tc_diagnostics, TRACTION_DIAGNOSTICS_ID, 20, 8,
+      (CAN_pack_message_fn)pack_tc_diagnostics_snapshot);
+  can_rtos_register_send_packet(&data_acq_bus, diagnostics);
+
+  can_message_t *sync = can_get_message_handle(
+      &tc_sync, TRACTION_CLOCK_SYNC_ID, TRACTION_CLOCK_SYNC_FREQ,
+      TRACTION_CLOCK_SYNC_DLC, pack_tc_sync);
+  can_rtos_register_send_packet(&data_acq_bus, sync);
   inverter_torque_command_mailbox_handle = can_get_message_handle(
       &inverter_torque_command_mailbox, INVERTER_TORQUE_COMMAND_ID,
       INVERTER_TORQUE_COMMAND_FREQ, INVERTER_TORQUE_COMMAND_DLC,
-      (CAN_pack_message_fn)pack_inverter_torque_command);
+      (CAN_pack_message_fn)pack_leased_torque);
   can_rtos_register_send_packet(&critical_bus,
                                 inverter_torque_command_mailbox_handle);
   log_printf(LOG_INFO,
@@ -264,6 +326,7 @@ void vcu_can_set_model_inputs(const vcu_inputs_t *in) {
 }
 
 void vcu_can_set_model_outputs(const vcu_outputs_t *out) {
+  taskENTER_CRITICAL();
   brake_pedal_mailbox.brake_pedal_travel = out->bse_psi_filtered;
   brake_pedal_mailbox.brake_light_percent = out->brake_light_pct;
   brake_pedal_mailbox.bpps_faults = 0;
@@ -272,6 +335,18 @@ void vcu_can_set_model_outputs(const vcu_outputs_t *out) {
   inverter_torque_command_mailbox.enable = out->inverter_enable;
   inverter_torque_command_mailbox.torque_limit = 230.0f;
   inverter_torque_command_mailbox.direction = 1;
+  control_update_us = orion_time_us();
+  control_update_seen = true;
+  tc_diagnostics.candidate_torque = diagnostic_bound(
+      out->traction_control.candidate_torque_nm, 0.0f, 6553.5f);
+  tc_diagnostics.reference_speed = diagnostic_bound(
+      out->traction_control.reference_speed_m_s, 0.0f, 655.35f);
+  tc_diagnostics.worst_slip = diagnostic_bound(fmaxf(
+      out->traction_control.slip_velocity_m_s[0],
+      out->traction_control.slip_velocity_m_s[1]), -327.68f, 327.67f);
+  tc_diagnostics.state = out->traction_control.state;
+  tc_diagnostics.faults = (uint8_t)out->traction_control.fault_flags;
+  taskEXIT_CRITICAL();
 
   apps_voltages_mailbox.apps1_travel = out->apps1_travel;
   apps_voltages_mailbox.apps2_travel = out->apps2_travel;
@@ -479,6 +554,19 @@ vcu_battery_pack_status_t vcu_can_get_battery_pack_status(void) {
  *
  */
 void vcu_can_add_receive_handlers(void) {
+  void *mailboxes[4] = {&tc_fl, &tc_fr, &tc_rl, &tc_rr};
+  const uint32_t ids[4] = {TRACTION_WHEEL_FL_ID, TRACTION_WHEEL_FR_ID,
+      TRACTION_WHEEL_RL_ID, TRACTION_WHEEL_RR_ID};
+  CAN_unpack_message_fn decoders[4] = {
+      (CAN_unpack_message_fn)unpack_traction_wheel_fl,
+      (CAN_unpack_message_fn)unpack_traction_wheel_fr,
+      (CAN_unpack_message_fn)unpack_traction_wheel_rl,
+      (CAN_unpack_message_fn)unpack_traction_wheel_rr};
+  for (unsigned i = 0; i < 4; ++i) {
+    tc_handles[i] = can_get_receive_message_handle(mailboxes[i], ids[i], decoders[i]);
+    tc_handles[i]->expected_dlc = 8;
+    can_rtos_register_receive_packet(&data_acq_bus, tc_handles[i]);
+  }
   contactor_status_mailbox_handle = can_get_receive_message_handle(
       &contactor_status_mailbox, CONTACTOR_STATUS_ID,
       (CAN_unpack_message_fn)unpack_contactor_status);
@@ -552,3 +640,41 @@ void vcu_can_add_receive_handlers(void) {
   log_printf(LOG_INFO,
              "[VCU] CAN receive handler for inverter faults registered\n");
 }
+
+void vcu_can_get_traction_inputs(tc_inputs_t *in) {
+  if (in == NULL) return;
+  /* No zero-yaw/column-angle assumption is supplied as qualified motion. A
+   * calibrated body-yaw and road-wheel steering adapter is still required. */
+  *in = (tc_inputs_t){0};
+  taskENTER_CRITICAL();
+  in->now_us = orion_time_us();
+  float speeds[4] = {tc_fl.angular_speed, tc_fr.angular_speed,
+      tc_rl.angular_speed, tc_rr.angular_speed};
+  uint32_t stamps[4] = {tc_fl.estimate_time_us, tc_fr.estimate_time_us,
+      tc_rl.estimate_time_us, tc_rr.estimate_time_us};
+  uint8_t sequences[4] = {tc_fl.sequence, tc_fr.sequence, tc_rl.sequence, tc_rr.sequence};
+  uint8_t statuses[4] = {tc_fl.status, tc_fr.status, tc_rl.status, tc_rr.status};
+  for (unsigned i = 0; i < 4; ++i) {
+    bool received = tc_handles[i] != NULL && tc_handles[i]->ever_received;
+    uint8_t delta = (uint8_t)(sequences[i] - tc_last_sequence[i]);
+    bool ordered = !tc_seen_sequence[i] || delta < 128u;
+    if (received && ordered) {
+      tc_extended_sequence[i] += tc_seen_sequence[i] ? delta : sequences[i];
+      tc_last_sequence[i] = sequences[i];
+      tc_seen_sequence[i] = true;
+    }
+    in->wheel[i].angular_speed_rad_s = speeds[i];
+    in->wheel[i].timestamp_us = stamps[i];
+    in->wheel[i].sequence = tc_extended_sequence[i];
+    in->wheel[i].valid = received && ordered &&
+        (uint32_t)(in->now_us - tc_handles[i]->latest_rx_us) < 10000u &&
+        (statuses[i] & TC_WIRE_VERSION_MASK) == TC_WIRE_VERSION_1 &&
+        (statuses[i] & (TC_WIRE_VALID | TC_WIRE_DIRECTION | TC_WIRE_FAULT)) ==
+            (TC_WIRE_VALID | TC_WIRE_DIRECTION);
+    in->wheel[i].synchronized = (statuses[i] & TC_WIRE_SYNC) != 0u;
+  }
+  taskEXIT_CRITICAL();
+}
+
+/* DAQ RX uses interrupt line 0, configured at FreeRTOS-compatible priority. */
+void FDCAN2_IT0_IRQHandler(void) { HAL_FDCAN_IRQHandler(&hfdcan2); }

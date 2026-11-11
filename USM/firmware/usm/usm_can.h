@@ -1,5 +1,6 @@
 #ifndef USM_CAN_H
 #define USM_CAN_H
+#include "wheel_phase.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,6 +22,7 @@ void usm_can_init(void);
  * @param wheel_speed_rads  wheel speed in rad/s
  */
 void usm_can_update_wheel_speed(float wheel_speed_rads);
+void usm_can_update_phase(const wheel_phase_output_t *estimate, uint8_t sequence);
 
 /**
  * Update the unsprung acceleration for this corner.

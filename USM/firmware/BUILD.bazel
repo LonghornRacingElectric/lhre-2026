@@ -1,4 +1,15 @@
 load("//tools:outputs/build_outputs.bzl", "firmware_project_g4")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+# HAL-free observer, also compiled into firmware by the existing usm/* glob.
+cc_library(
+    name = "wheel_phase",
+    srcs = ["usm/wheel_phase.c"],
+    hdrs = ["usm/wheel_phase.h"],
+    includes = ["usm"],
+    linkopts = ["-lm"],
+    visibility = ["//visibility:public"],
+)
 
 firmware_project_g4(
     name = "usm_firmware_2026",
@@ -21,4 +32,12 @@ firmware_project_g4(
         "FR",
         "FL",
     ],
+)
+
+cc_library(
+    name = "mlx90395_frame",
+    srcs = ["usm/mlx90395_frame.c"],
+    hdrs = ["usm/mlx90395_frame.h"],
+    includes = ["usm"],
+    visibility = ["//visibility:public"],
 )

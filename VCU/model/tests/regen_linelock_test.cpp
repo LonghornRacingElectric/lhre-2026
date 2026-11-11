@@ -176,6 +176,7 @@ TEST_F(RegenLinelockTest, LowRearPressureKeepsRearBrakesMechanical) {
 
 TEST_F(RegenLinelockTest, PedalTorqueBelowOpenPulseThresholdAllowsRegen) {
   out.torque_cmd = 12.0f;
+  out.torque_lookup_output = 12.0f;
 
   regen_linelock_evaluate(&in, &out, &state, &params, 200);
 
@@ -187,6 +188,7 @@ TEST_F(RegenLinelockTest, PedalTorqueBelowOpenPulseThresholdAllowsRegen) {
 
 TEST_F(RegenLinelockTest, PedalTorqueAtOpenPulseThresholdAllowsRegen) {
   out.torque_cmd = 70.0f;
+  out.torque_lookup_output = 70.0f;
 
   regen_linelock_evaluate(&in, &out, &state, &params, 200);
 
@@ -198,6 +200,7 @@ TEST_F(RegenLinelockTest, PedalTorqueAtOpenPulseThresholdAllowsRegen) {
 
 TEST_F(RegenLinelockTest, PedalTorqueRisingEdgeAboveThresholdPulsesValveOpen) {
   out.torque_cmd = 70.1f;
+  out.torque_lookup_output = 70.1f;
 
   regen_linelock_evaluate(&in, &out, &state, &params, 200);
 
@@ -209,6 +212,7 @@ TEST_F(RegenLinelockTest, PedalTorqueRisingEdgeAboveThresholdPulsesValveOpen) {
 
 TEST_F(RegenLinelockTest, PedalTorqueHeldAboveThresholdClosesAfterOpenPulse) {
   out.torque_cmd = 70.1f;
+  out.torque_lookup_output = 70.1f;
   regen_linelock_evaluate(&in, &out, &state, &params, 1);
 
   EXPECT_FALSE(out.linelock_enabled);
@@ -217,6 +221,7 @@ TEST_F(RegenLinelockTest, PedalTorqueHeldAboveThresholdClosesAfterOpenPulse) {
   out.max_open_circuit_cell_voltage = 4.0f;
   out.bse2_psi = 250.0f;
   out.torque_cmd = 70.1f;
+  out.torque_lookup_output = 70.1f;
   regen_linelock_evaluate(&in, &out, &state, &params, 249);
 
   EXPECT_FALSE(out.linelock_enabled);
@@ -226,6 +231,7 @@ TEST_F(RegenLinelockTest, PedalTorqueHeldAboveThresholdClosesAfterOpenPulse) {
   out.max_open_circuit_cell_voltage = 4.0f;
   out.bse2_psi = 250.0f;
   out.torque_cmd = 70.1f;
+  out.torque_lookup_output = 70.1f;
   regen_linelock_evaluate(&in, &out, &state, &params, 199);
 
   EXPECT_TRUE(out.linelock_enabled);
@@ -235,6 +241,7 @@ TEST_F(RegenLinelockTest, PedalTorqueHeldAboveThresholdClosesAfterOpenPulse) {
   out.max_open_circuit_cell_voltage = 4.0f;
   out.bse2_psi = 250.0f;
   out.torque_cmd = 70.1f;
+  out.torque_lookup_output = 70.1f;
   regen_linelock_evaluate(&in, &out, &state, &params, 1);
 
   EXPECT_TRUE(out.regen_available);
@@ -244,6 +251,7 @@ TEST_F(RegenLinelockTest, PedalTorqueHeldAboveThresholdClosesAfterOpenPulse) {
 
 TEST_F(RegenLinelockTest, PedalTorqueDropBelowCancelThresholdClosesImmediately) {
   out.torque_cmd = 70.1f;
+  out.torque_lookup_output = 70.1f;
   regen_linelock_evaluate(&in, &out, &state, &params, 1);
 
   EXPECT_FALSE(out.linelock_enabled);
@@ -253,6 +261,7 @@ TEST_F(RegenLinelockTest, PedalTorqueDropBelowCancelThresholdClosesImmediately) 
   out.max_open_circuit_cell_voltage = 4.0f;
   out.bse2_psi = 250.0f;
   out.torque_cmd = 49.9f;
+  out.torque_lookup_output = 49.9f;
   regen_linelock_evaluate(&in, &out, &state, &params, 1);
 
   EXPECT_TRUE(out.linelock_enabled);
@@ -263,6 +272,7 @@ TEST_F(RegenLinelockTest, PedalTorqueDropBelowCancelThresholdClosesImmediately) 
   out.max_open_circuit_cell_voltage = 4.0f;
   out.bse2_psi = 250.0f;
   out.torque_cmd = 49.9f;
+  out.torque_lookup_output = 49.9f;
   regen_linelock_evaluate(&in, &out, &state, &params, 199);
 
   EXPECT_TRUE(out.regen_available);
@@ -273,6 +283,7 @@ TEST_F(RegenLinelockTest, PedalTorqueDropBelowCancelThresholdClosesImmediately) 
 TEST_F(RegenLinelockTest, PositiveTorqueBelowThresholdPreclosesWithoutRegenPressure) {
   out.bse2_psi = 0.0f;
   out.torque_cmd = 12.0f;
+  out.torque_lookup_output = 12.0f;
 
   regen_linelock_evaluate(&in, &out, &state, &params, 200);
 
@@ -325,6 +336,7 @@ TEST_F(RegenLinelockTest, PressureOnlyTestModeKeepsHardCurrentCut) {
 TEST_F(RegenLinelockTest, PressureOnlyTestModeStillPulsesOpenAbovePedalThreshold) {
   params.regen_linelock.pressure_only_test_mode = true;
   out.torque_cmd = 70.1f;
+  out.torque_lookup_output = 70.1f;
 
   regen_linelock_evaluate(&in, &out, &state, &params, 200);
 

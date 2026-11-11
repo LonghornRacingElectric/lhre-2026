@@ -136,7 +136,13 @@ can_get_receive_message_handle(void *msg, uint32_t packet_id,
   new_msg->latest_msg = msg;
   new_msg->unpacking_fn = unpacking_fn;
   new_msg->packet_id = packet_id;
-  new_msg->_latest_rx_ms = can.tick_fn();
+  new_msg->_latest_rx_ms = 0;
+  new_msg->latest_rx_us = 0;
+  new_msg->ever_received = false;
+  new_msg->expected_dlc = 0;
+  new_msg->latest_dlc = 0;
+  new_msg->rx_queue_drops = 0;
+  new_msg->timed_out = false;
 
   new_msg->_next = NULL;
 
@@ -163,7 +169,10 @@ can_register_receive_packet(can_interface_t *interface,
     interface->receive_table[index] = msg;
   }
 
-  msg->_latest_rx_ms = can.tick_fn();
+  msg->_latest_rx_ms = 0;
+  msg->latest_rx_us = 0;
+  msg->ever_received = false;
+  msg->latest_dlc = 0;
   msg->timed_out = false;
 
   // Configure the hardware filter. This should be called BEFORE
@@ -269,7 +278,7 @@ void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t RxFifo0ITs) {
       while (can.get_rx_fifo_fill_level_fn(interface->handle, FDCAN_RX_FIFO0) >
              0) {
         // see what message it was
-        cFDCAN_RxHeaderTypeDef rx_header;
+        cFDCAN_RxHeaderTypeDef rx_header = {0};
         uint8_t rx_data[MAX_CAN_DATA_LEN] = {0};
         cHAL_StatusTypeDef status = can.get_rx_message_fn(
             interface->handle, FDCAN_RX_FIFO0, &rx_header, rx_data);
@@ -277,8 +286,21 @@ void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t RxFifo0ITs) {
         if (status != cHAL_OK) {
           interface->_error_occurred = true;
           interface->_error_code_receive = status;
+          break; // Failed FIFO read must not trap the CPU in this ISR.
+        }
+        /* HAL DataLength is a DLC code, including CAN FD's nonlinear sizes. */
+        static const uint8_t dlc_bytes[16] = {
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64};
+        const uint32_t received_ms = can.tick_fn();
+        const uint32_t received_us = can.tick_us_fn != NULL
+                                         ? can.tick_us_fn()
+                                         : received_ms * 1000U;
+        if (rx_header.DataLength >= 16 ||
+            rx_header.RxFrameType != FDCAN_DATA_FRAME) {
+          interface->dropped_packets++;
           continue;
         }
+        const uint8_t rx_len = dlc_bytes[rx_header.DataLength];
 
         if (rx_header.Identifier == BUS_ENABLE_DISABLE_ID) {
           unpack_bus_enable_disable(rx_data, &bus_status);
@@ -342,11 +364,13 @@ void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t RxFifo0ITs) {
           }
         }
 
-        // call the unpack function
-        can_rx_hook(msg, rx_data);
-
-        // update the latest rx time
-        msg->_latest_rx_ms = can.tick_fn();
+        if (rx_len < msg->expected_dlc) {
+          interface->dropped_packets++;
+          continue;
+        }
+        /* Queuing is not reception of a usable decoded value. The consumer
+         * commits this timestamp only after successful decoding. */
+        can_rx_hook(msg, rx_data, rx_len, received_ms, received_us);
       }
     }
   }
@@ -363,9 +387,29 @@ void HAL_FDCAN_ErrorStatusCallback(void *hfdcan, uint32_t ErrorStatusITs) {
   }
 }
 
+bool can_decode_received(can_receive_message_t *msg, uint8_t *rx_data,
+                          uint8_t rx_len, uint32_t received_ms,
+                          uint32_t received_us) {
+  if (msg == NULL || rx_data == NULL || msg->latest_msg == NULL ||
+      msg->unpacking_fn == NULL || rx_len > MAX_CAN_DATA_LEN ||
+      rx_len < msg->expected_dlc) {
+    return false;
+  }
+  if (msg->unpacking_fn(rx_data, msg->latest_msg) != 0) {
+    return false;
+  }
+  msg->_latest_rx_ms = received_ms;
+  msg->latest_rx_us = received_us;
+  msg->latest_dlc = rx_len;
+  msg->ever_received = true;
+  return true;
+}
+
 __attribute__((weak)) void can_rx_hook(can_receive_message_t *msg,
-                                       uint8_t *rx_data) {
-  msg->unpacking_fn(rx_data, msg->latest_msg);
+                                       uint8_t *rx_data, uint8_t rx_len,
+                                       uint32_t received_ms,
+                                       uint32_t received_us) {
+  (void)can_decode_received(msg, rx_data, rx_len, received_ms, received_us);
 }
 
 void can_reset_internals(void) {
@@ -376,6 +420,9 @@ void can_reset_internals(void) {
 }
 
 bool message_timed_out(can_receive_message_t *msg, uint32_t timeout_ms) {
+  if (msg == NULL || !msg->ever_received) {
+    return true;
+  }
   if ((can.tick_fn() - msg->_latest_rx_ms) >= timeout_ms) {
     msg->timed_out = true;
   } else {
@@ -386,6 +433,9 @@ bool message_timed_out(can_receive_message_t *msg, uint32_t timeout_ms) {
 }
 
 bool message_timed_out_sticky(can_receive_message_t *msg, uint32_t timeout_ms) {
+  if (msg == NULL || !msg->ever_received) {
+    return true;
+  }
   if (msg->timed_out) {
     return true;
   }

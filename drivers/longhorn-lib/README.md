@@ -123,6 +123,26 @@ These generated files provide:
 
 You simply instantiate the message handles using these generated artifacts.
 
+### Generating a DBC for CAN tools
+
+From the repository root, generate a DBC from the current `can_packets.csv` and
+`can_bitfields.csv`:
+
+```sh
+bazel build //drivers/longhorn-lib:can_dbc
+```
+
+Load `bazel-bin/drivers/longhorn-lib/can.dbc` in your CAN viewer. Rebuild after
+changing either CSV. To also write a copy into the source workspace, run:
+
+```sh
+bazel run //drivers/longhorn-lib:update_can_dbc
+```
+
+That command writes `drivers/longhorn-lib/can.dbc`. The generator is
+`scripts/generate_can_dbc.py`; its direct arguments are the packets CSV,
+bitfields CSV, and output DBC path, in that order.
+
 ### Creating Message Handles
 
 Use `can_get_message_handle` for messages you intend to send, and `can_get_receive_message_handle` for messages you expect to receive.

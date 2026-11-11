@@ -184,6 +184,39 @@ py_binary(
     ],
 )
 
+py_binary(
+    name = "generate_can_dbc",
+    srcs = ["scripts/generate_can_dbc.py"],
+)
+
+genrule(
+    name = "can_dbc",
+    srcs = [
+        "config/can_bitfields.csv",
+        "config/can_packets.csv",
+    ],
+    outs = [
+        "can.dbc",
+    ],
+    cmd = """$(location generate_can_dbc) $(location config/can_packets.csv) $(location config/can_bitfields.csv) $@""",
+    tools = [
+        "generate_can_dbc",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "update_can_dbc",
+    srcs = [
+        "scripts/generate_can_dbc.py",
+        "scripts/update_can_dbc.py",
+    ],
+    data = [
+        "config/can_bitfields.csv",
+        "config/can_packets.csv",
+    ],
+)
+
 filegroup(
     name = "longhorn_lib_base_headers",
     srcs = glob(

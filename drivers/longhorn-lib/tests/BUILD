@@ -44,6 +44,7 @@ cc_test(
     deps = [
         "//drivers/longhorn-lib:longhorn_lib_base",
         "@googletest//:gtest",
+        "@googletest//:gmock",
         "@googletest//:gtest_main",
     ],
 )

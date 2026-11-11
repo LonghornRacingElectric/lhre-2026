@@ -10,6 +10,12 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 
+typedef enum {
+  TC_MODE_DISABLED = 0,
+  TC_MODE_SHADOW = 1,
+  TC_MODE_ACTIVE = 2
+} tc_mode_t;
+
 typedef struct {
 
   uint8_t event_mode; // 0 = unassigned, 1 = acceleration, 2 = skidpad, 3 = autocross, 4 = endurance
@@ -118,12 +124,40 @@ typedef struct {
   } regen_linelock;
 
   struct {
+    /* Legacy fields below are retained but do not enable or tune the new TC. */
     bool enabled;
     float accel_filter_alpha;     // EMA alpha for RPM derivative smoothing [0,1]
     float alpha_threshold_rad_s2; // alpha above this triggers PI trim
     float pi_kp;                  // proportional gain (Nm / (rad/s²))
     float pi_ki;                  // integral gain (Nm / (rad/s²·s))
     float max_torque_trim_nm;     // maximum torque reduction from traction control
+    tc_mode_t mode;
+    bool calibrated;
+    float wheel_radius_m[4];
+    float wheelbase_m;
+    float front_track_m;
+    float rear_track_m;
+    uint32_t max_sample_age_us;
+    uint32_t max_sample_skew_us;
+    uint32_t max_step_us;
+    float max_wheel_speed_rad_s;
+    float max_yaw_rate_rad_s;
+    float max_steering_rad;
+    float max_front_disagreement_m_s;
+    float reverse_tolerance_m_s;
+    float slip_target_ratio;
+    float low_speed_slip_target_m_s;
+    float slip_blend_speed_m_s;
+    float slip_kp_nm_per_m_s;
+    float slip_ki_nm_per_m;
+    float integral_limit_nm;
+    float motor_torque_cap_nm;
+    float recovery_rate_nm_s;
+    float fault_torque_cap_nm;
+    float launch_initial_torque_nm;
+    float launch_rise_rate_nm_s;
+    float launch_torque_cap_nm;
+    float launch_end_speed_m_s;
   } traction_control;
 } vcu_parameters_t;
 

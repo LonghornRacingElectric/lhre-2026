@@ -11,6 +11,34 @@
 
 /* Generated CAN message definitions */
 #include "longhorn/can/can_ids.h"
+#include "longhorn/traction_status.h"
+#include "orion_time_us.h"
+#include "wheel_calibration.h"
+#include <math.h>
+
+#if defined(BOARD_FL)
+#define PHASE_TYPE msg_traction_wheel_fl_t
+#define PHASE_ID TRACTION_WHEEL_FL_ID
+#define PHASE_PACK pack_traction_wheel_fl
+#elif defined(BOARD_FR)
+#define PHASE_TYPE msg_traction_wheel_fr_t
+#define PHASE_ID TRACTION_WHEEL_FR_ID
+#define PHASE_PACK pack_traction_wheel_fr
+#elif defined(BOARD_RL)
+#define PHASE_TYPE msg_traction_wheel_rl_t
+#define PHASE_ID TRACTION_WHEEL_RL_ID
+#define PHASE_PACK pack_traction_wheel_rl
+#else
+#define PHASE_TYPE msg_traction_wheel_rr_t
+#define PHASE_ID TRACTION_WHEEL_RR_ID
+#define PHASE_PACK pack_traction_wheel_rr
+#endif
+static PHASE_TYPE phase_mailbox;
+static msg_traction_clock_sync_t sync_mailbox;
+static can_receive_message_t *sync_handle;
+static uint32_t sync_offset, sync_received_us;
+static uint16_t sync_sequence;
+static bool have_sync, sync_qualified;
 
 /* ===============================
    Device ID Mapping
@@ -59,6 +87,14 @@ static can_message_t *accel_rr_handle = NULL;
    Internal Function Prototypes
    =============================== */
 
+static int pack_phase_snapshot(const void *message, uint8_t *data) {
+  (void)message;
+  taskENTER_CRITICAL();
+  PHASE_TYPE snapshot = phase_mailbox;
+  taskEXIT_CRITICAL();
+  return PHASE_PACK(&snapshot, data);
+}
+
 static void usm_can_add_send_handlers(void);
 
 /* ===============================
@@ -80,6 +116,7 @@ void usm_can_init(void) {
       .get_rx_fifo_fill_level_fn =
           (CAN_GetRxFifoFillLevel_fn)HAL_FDCAN_GetRxFifoFillLevel,
       .tick_fn = HAL_GetTick,
+      .tick_us_fn = orion_time_us,
       .add_filter_fn = (CAN_AddFilter_fn)HAL_FDCAN_ConfigFilter,
       .malloc_fn = pvPortMalloc,
       .free_fn = vPortFree,
@@ -101,11 +138,16 @@ void usm_can_init(void) {
 
   /* Register CAN packets before starting interface */
   usm_can_add_send_handlers();
+  can_message_t *phase_handle = can_get_message_handle(
+      &phase_mailbox, PHASE_ID, 3, 8, (CAN_pack_message_fn)pack_phase_snapshot);
+  can_rtos_register_send_packet(&data_acq_bus, phase_handle);
+  sync_handle = can_get_receive_message_handle(
+      &sync_mailbox, TRACTION_CLOCK_SYNC_ID,
+      (CAN_unpack_message_fn)unpack_traction_clock_sync);
+  sync_handle->expected_dlc = 8;
+  can_rtos_register_receive_packet(&data_acq_bus, sync_handle);
 
   /* Start CAN interface */
-  HAL_StatusTypeDef status = HAL_FDCAN_Start(&hfdcan2);
-  (void)status;  /* Suppress unused variable warning */
-
   can_rtos_start_interface(&data_acq_bus);
 
   /* Start CAN RTOS tasks */
@@ -190,6 +232,37 @@ void usm_can_update_wheel_speed(float wheel_speed_rads) {
   accel_rr_mailbox.wheel_speed = wheel_speed_rads;
 #endif
 
+  taskEXIT_CRITICAL();
+}
+
+void usm_can_update_phase(const wheel_phase_output_t *estimate, uint8_t sequence) {
+  if (estimate == NULL) return;
+  uint32_t now = orion_time_us();
+  taskENTER_CRITICAL();
+  if (sync_handle != NULL && sync_handle->ever_received &&
+      sync_mailbox.version == 1 &&
+      (!have_sync || sync_mailbox.sequence != sync_sequence)) {
+    /* Software capture includes bus/FIFO latency. Qualification is a measured
+     * commissioning decision, not a consequence of receiving a counter. */
+    sync_offset = sync_mailbox.vcu_time_us - sync_handle->latest_rx_us;
+    sync_received_us = sync_handle->latest_rx_us;
+    sync_sequence = sync_mailbox.sequence;
+    sync_qualified = sync_mailbox.qualified == 1;
+    have_sync = true;
+  }
+  bool synchronized = have_sync && sync_qualified &&
+      ORION_WHEEL_ACQUISITION_TIMING_QUALIFIED &&
+      (uint32_t)(now - sync_received_us) < 250000u;
+  bool valid = estimate->valid && isfinite(estimate->speed_rad_s) &&
+      fabsf(estimate->speed_rad_s) <= 327.67f &&
+      (uint32_t)(now - estimate->sample_time_us) < 5000u;
+  phase_mailbox.angular_speed = valid ? estimate->speed_rad_s : 0.0f;
+  phase_mailbox.estimate_time_us = estimate->sample_time_us +
+      (have_sync ? sync_offset : 0u);
+  phase_mailbox.sequence = sequence;
+  phase_mailbox.status = TC_WIRE_VERSION_1 |
+      (valid ? TC_WIRE_VALID | TC_WIRE_DIRECTION : TC_WIRE_FAULT) |
+      (synchronized ? TC_WIRE_SYNC : 0u);
   taskEXIT_CRITICAL();
 }
 

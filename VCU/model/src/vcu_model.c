@@ -57,8 +57,13 @@ void vcu_model_step(vcu_model_context_t *ctx, const vcu_inputs_t *in,
   bse_evaluate(in, out, &ctx->bse_state, &ctx->params, dt_ms);
   torque_map_evaluate(in, out, &ctx->params, dt_ms);
   power_limit_evaluate(in, out, &ctx->power_limit_state, &ctx->params, dt_ms);
-  traction_control_evaluate(in, out, &ctx->traction_control_state, &ctx->params, dt_ms);
   prndl_evaluate(&ctx->prndl_machine, in, out, &ctx->params, ctx->time_ms);
+  vcu_inputs_t control_in = *in;
+  control_in.traction_control.drive_qualified =
+      out->prndl_state == PRNDL_DRIVE && !out->faults.apps_any_fault;
+  control_in.traction_control.braking = out->brake_pressed;
+  traction_control_evaluate(&control_in, out, &ctx->traction_control_state,
+                            &ctx->params, dt_ms);
   regen_linelock_evaluate(in, out, &ctx->regen_linelock_state, &ctx->params,
                           dt_ms);
   enforce_regen_linelock_torque_invariant(out);
